@@ -73,44 +73,51 @@ class MCPClient:
         
         return response["result"]
     
-    def get_guidelines(self) -> Dict[str, Any]:
+    def get_guidelines(self, domain: str = "military-medical-triage") -> Dict[str, Any]:
         """
-        Get military medical triage guidelines.
+        Get guidelines for a specific domain.
         
+        Args:
+            domain: Domain to get guidelines for (military-medical-triage, engineering-ethics, us-law-practice)
+            
         Returns:
             Dictionary containing guidelines
         """
         response = self._send_request(
             "read_resource",
-            {"uri": "ethical-dm://guidelines/military-medical-triage"}
+            {"uri": f"ethical-dm://guidelines/{domain}"}
         )
         
         # Parse JSON content
         content = response["contents"][0]["text"]
         return json.loads(content)
     
-    def get_cases(self) -> Dict[str, Any]:
+    def get_cases(self, domain: str = "military-medical-triage") -> Dict[str, Any]:
         """
-        Get military medical triage cases.
+        Get cases for a specific domain.
         
+        Args:
+            domain: Domain to get cases for (military-medical-triage, engineering-ethics, us-law-practice)
+            
         Returns:
             Dictionary containing cases
         """
         response = self._send_request(
             "read_resource",
-            {"uri": "ethical-dm://cases/military-medical-triage"}
+            {"uri": f"ethical-dm://cases/{domain}"}
         )
         
         # Parse JSON content
         content = response["contents"][0]["text"]
         return json.loads(content)
     
-    def search_cases(self, query: str, limit: int = 5) -> Dict[str, Any]:
+    def search_cases(self, query: str, domain: str = "military-medical-triage", limit: int = 5) -> Dict[str, Any]:
         """
-        Search for cases matching a query.
+        Search for cases matching a query in a specific domain.
         
         Args:
             query: Search query
+            domain: Domain to search in (military-medical-triage, engineering-ethics, us-law-practice)
             limit: Maximum number of results to return
             
         Returns:
@@ -122,6 +129,7 @@ class MCPClient:
                 "name": "search_cases",
                 "arguments": {
                     "query": query,
+                    "domain": domain,
                     "limit": limit
                 }
             }
@@ -131,7 +139,7 @@ class MCPClient:
         content = response["content"][0]["text"]
         return json.loads(content)
     
-    def add_case(self, title: str, description: str, decision: str, 
+    def add_case(self, title: str, description: str, decision: str, domain: str = "military-medical-triage",
                  outcome: Optional[str] = None, ethical_analysis: Optional[str] = None) -> Dict[str, Any]:
         """
         Add a new case to the repository.
@@ -140,6 +148,7 @@ class MCPClient:
             title: Case title
             description: Case description
             decision: Decision made in the case
+            domain: Domain for the case (military-medical-triage, engineering-ethics, us-law-practice)
             outcome: Outcome of the decision (optional)
             ethical_analysis: Ethical analysis of the case (optional)
             
@@ -150,7 +159,8 @@ class MCPClient:
         arguments = {
             "title": title,
             "description": description,
-            "decision": decision
+            "decision": decision,
+            "domain": domain
         }
         
         if outcome is not None:
@@ -190,8 +200,19 @@ class MCPClient:
             for cond in char.get('conditions', []):
                 query += f" {cond.get('name', '')}"
         
+        # Get domain from scenario or default to military-medical-triage
+        domain = "military-medical-triage"
+        if hasattr(scenario, 'domain') and scenario.domain:
+            domain = scenario.domain.name.lower().replace(' ', '-')
+        elif hasattr(scenario, 'domain_id') and scenario.domain_id:
+            # Get domain name from database
+            from app.models import Domain
+            domain_obj = Domain.query.get(scenario.domain_id)
+            if domain_obj:
+                domain = domain_obj.name.lower().replace(' ', '-')
+        
         # Search for similar cases
-        results = self.search_cases(query)
+        results = self.search_cases(query, domain=domain)
         
         # Format results as text
         text = ""

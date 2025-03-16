@@ -1,4 +1,5 @@
 # Import models to make them available when importing from app.models
+from app.models.domain import Domain
 from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.condition import Condition

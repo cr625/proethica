@@ -4,23 +4,40 @@ from langchain.prompts import PromptTemplate
 from langchain.llms.base import BaseLLM
 from langchain_community.llms.fake import FakeListLLM
 import os
+from app.services.mcp_client import MCPClient
 
 class DecisionEngine:
     """Engine for evaluating decisions using LangChain."""
     
-    def __init__(self, llm: Optional[BaseLLM] = None):
+    def __init__(self, llm: Optional[BaseLLM] = None, mcp_client: Optional[MCPClient] = None):
         """
         Initialize the decision engine with LangChain components.
         
         Args:
             llm: Language model to use for reasoning (optional)
+            mcp_client: MCP client for retrieving guidelines and cases (optional)
         """
         # Use provided LLM or create a fake one for development
         self.llm = llm or self._create_fake_llm()
         
-        # Setup chains
-        self.rules_chain = self._setup_rules_chain()
-        self.ethics_chain = self._setup_ethics_chain()
+        # Use provided MCP client or create a new one
+        self.mcp_client = mcp_client or MCPClient()
+        
+        # Setup domain-specific chains
+        self.domain_chains = {
+            "military-medical-triage": {
+                "rules": self._setup_military_triage_rules_chain(),
+                "ethics": self._setup_military_triage_ethics_chain()
+            },
+            "engineering-ethics": {
+                "rules": self._setup_engineering_ethics_rules_chain(),
+                "ethics": self._setup_engineering_ethics_ethics_chain()
+            },
+            "us-law-practice": {
+                "rules": self._setup_law_practice_rules_chain(),
+                "ethics": self._setup_law_practice_ethics_chain()
+            }
+        }
     
     def _create_fake_llm(self) -> BaseLLM:
         """Create a fake LLM for development and testing."""
@@ -31,14 +48,17 @@ class DecisionEngine:
         ]
         return FakeListLLM(responses=responses)
     
-    def _setup_rules_chain(self) -> LLMChain:
-        """Set up the chain for evaluating rules compliance."""
+    def _setup_military_triage_rules_chain(self) -> LLMChain:
+        """Set up the chain for evaluating military medical triage rules compliance."""
         prompt = PromptTemplate(
-            input_variables=["scenario", "decision"],
+            input_variables=["scenario", "decision", "guidelines"],
             template="""
             Given the following military medical triage scenario:
             
             {scenario}
+            
+            And these military medical triage guidelines:
+            {guidelines}
             
             Evaluate if the decision: {decision}
             
@@ -54,8 +74,8 @@ class DecisionEngine:
         )
         return LLMChain(llm=self.llm, prompt=prompt)
     
-    def _setup_ethics_chain(self) -> LLMChain:
-        """Set up the chain for evaluating ethical implications."""
+    def _setup_military_triage_ethics_chain(self) -> LLMChain:
+        """Set up the chain for evaluating military medical triage ethical implications."""
         prompt = PromptTemplate(
             input_variables=["scenario", "decision", "similar_cases"],
             template="""
@@ -80,9 +100,115 @@ class DecisionEngine:
         )
         return LLMChain(llm=self.llm, prompt=prompt)
     
+    def _setup_engineering_ethics_rules_chain(self) -> LLMChain:
+        """Set up the chain for evaluating engineering ethics rules compliance."""
+        prompt = PromptTemplate(
+            input_variables=["scenario", "decision", "guidelines"],
+            template="""
+            Given the following engineering ethics scenario:
+            
+            {scenario}
+            
+            And these engineering ethics guidelines:
+            {guidelines}
+            
+            Evaluate if the decision: {decision}
+            
+            complies with established engineering ethics codes and standards.
+            Focus on:
+            1. Safety and welfare of the public
+            2. Professional competence and integrity
+            3. Truthfulness and objectivity
+            4. Conflicts of interest
+            5. Confidentiality and intellectual property
+            
+            Provide a detailed analysis of rules compliance.
+            """
+        )
+        return LLMChain(llm=self.llm, prompt=prompt)
+    
+    def _setup_engineering_ethics_ethics_chain(self) -> LLMChain:
+        """Set up the chain for evaluating engineering ethics ethical implications."""
+        prompt = PromptTemplate(
+            input_variables=["scenario", "decision", "similar_cases"],
+            template="""
+            Given the following engineering ethics scenario:
+            
+            {scenario}
+            
+            Evaluate the ethical implications of the decision: {decision}
+            
+            Consider these similar cases for reference:
+            {similar_cases}
+            
+            Analyze the decision from multiple ethical frameworks:
+            1. Utilitarian perspective (maximizing overall welfare)
+            2. Deontological perspective (adherence to duties and rights)
+            3. Virtue ethics perspective (character and intentions)
+            4. Professional responsibility
+            5. Sustainability and environmental ethics
+            
+            Provide a nuanced ethical evaluation that considers competing values and principles.
+            """
+        )
+        return LLMChain(llm=self.llm, prompt=prompt)
+    
+    def _setup_law_practice_rules_chain(self) -> LLMChain:
+        """Set up the chain for evaluating US law practice rules compliance."""
+        prompt = PromptTemplate(
+            input_variables=["scenario", "decision", "guidelines"],
+            template="""
+            Given the following US law practice scenario:
+            
+            {scenario}
+            
+            And these legal ethics guidelines:
+            {guidelines}
+            
+            Evaluate if the decision: {decision}
+            
+            complies with established legal ethics rules and standards.
+            Focus on:
+            1. Client-lawyer relationship obligations
+            2. Confidentiality and attorney-client privilege
+            3. Conflicts of interest
+            4. Duties to the court and legal system
+            5. Professional conduct and integrity
+            
+            Provide a detailed analysis of rules compliance.
+            """
+        )
+        return LLMChain(llm=self.llm, prompt=prompt)
+    
+    def _setup_law_practice_ethics_chain(self) -> LLMChain:
+        """Set up the chain for evaluating US law practice ethical implications."""
+        prompt = PromptTemplate(
+            input_variables=["scenario", "decision", "similar_cases"],
+            template="""
+            Given the following US law practice scenario:
+            
+            {scenario}
+            
+            Evaluate the ethical implications of the decision: {decision}
+            
+            Consider these similar cases for reference:
+            {similar_cases}
+            
+            Analyze the decision from multiple ethical frameworks:
+            1. Duty to client vs. duty to legal system
+            2. Confidentiality vs. prevention of harm
+            3. Zealous advocacy vs. fairness and justice
+            4. Professional independence
+            5. Access to justice considerations
+            
+            Provide a nuanced ethical evaluation that considers competing values and principles.
+            """
+        )
+        return LLMChain(llm=self.llm, prompt=prompt)
+    
     def get_similar_cases(self, scenario: Dict[str, Any]) -> str:
         """
-        Retrieve similar cases for analogical reasoning.
+        Retrieve similar cases for analogical reasoning from the MCP server.
         
         Args:
             scenario: Dictionary containing scenario data
@@ -90,17 +216,70 @@ class DecisionEngine:
         Returns:
             String containing similar cases for reference
         """
-        # This would typically involve vector database retrieval
-        # For now, we'll return a placeholder
-        return """
-        Case 1: Field hospital with limited supplies treating soldiers with varying injuries.
-        Decision: Prioritized those with highest chance of survival and return to duty.
-        Outcome: Maximized military effectiveness but resulted in some potentially salvageable patients being classified as expectant.
+        # Get domain from scenario
+        domain = self._get_domain_from_scenario(scenario)
         
-        Case 2: Mass casualty event with civilians and military personnel.
-        Decision: Treated all patients equally based on medical need regardless of status.
-        Outcome: Aligned with humanitarian principles but reduced military operational effectiveness.
+        # Use MCP client to get similar cases
+        try:
+            # Create a query from the scenario
+            query = f"{scenario.get('name', '')} {scenario.get('description', '')}"
+            
+            # Add character information
+            for char in scenario.get('characters', []):
+                query += f" {char.get('name', '')} {char.get('role', '')}"
+                for cond in char.get('conditions', []):
+                    query += f" {cond.get('name', '')}"
+            
+            # Search for similar cases
+            results = self.mcp_client.search_cases(query, domain=domain)
+            
+            # Format results as text
+            text = ""
+            for case in results.get('results', []):
+                text += f"Case {case.get('id', '')}: {case.get('title', '')}\n"
+                text += f"Description: {case.get('description', '')}\n"
+                text += f"Decision: {case.get('decision', '')}\n"
+                text += f"Outcome: {case.get('outcome', '')}\n"
+                text += f"Ethical Analysis: {case.get('ethical_analysis', '')}\n\n"
+            
+            return text
+        except Exception as e:
+            # Return a placeholder if there's an error
+            return f"Error retrieving similar cases: {str(e)}\n\nUsing placeholder cases instead."
+    
+    def _get_domain_from_scenario(self, scenario: Dict[str, Any]) -> str:
         """
+        Get the domain identifier from a scenario.
+        
+        Args:
+            scenario: Dictionary containing scenario data
+            
+        Returns:
+            Domain identifier string
+        """
+        # Check if scenario is a database model
+        if hasattr(scenario, 'domain') and scenario.domain:
+            return scenario.domain.name.lower().replace(' ', '-')
+        elif hasattr(scenario, 'domain_id') and scenario.domain_id:
+            # Get domain name from database
+            from app.models import Domain
+            domain_obj = Domain.query.get(scenario.domain_id)
+            if domain_obj:
+                return domain_obj.name.lower().replace(' ', '-')
+        
+        # Check if scenario is a dictionary with domain information
+        if isinstance(scenario, dict):
+            if 'domain' in scenario and isinstance(scenario['domain'], dict):
+                return scenario['domain'].get('name', 'military-medical-triage').lower().replace(' ', '-')
+            elif 'domain_id' in scenario:
+                # Get domain name from database
+                from app.models import Domain
+                domain_obj = Domain.query.get(scenario['domain_id'])
+                if domain_obj:
+                    return domain_obj.name.lower().replace(' ', '-')
+        
+        # Default to military medical triage
+        return "military-medical-triage"
     
     def evaluate_decision(self, scenario: Dict[str, Any], decision: str) -> Dict[str, Any]:
         """
@@ -116,17 +295,37 @@ class DecisionEngine:
         # Format scenario for LLM
         scenario_text = self._format_scenario(scenario)
         
-        # Get similar cases
+        # Get domain from scenario
+        domain = self._get_domain_from_scenario(scenario)
+        
+        # Get domain-specific chains
+        if domain in self.domain_chains:
+            rules_chain = self.domain_chains[domain]["rules"]
+            ethics_chain = self.domain_chains[domain]["ethics"]
+        else:
+            # Default to military medical triage
+            rules_chain = self.domain_chains["military-medical-triage"]["rules"]
+            ethics_chain = self.domain_chains["military-medical-triage"]["ethics"]
+        
+        # Get guidelines from MCP server
+        try:
+            guidelines_data = self.mcp_client.get_guidelines(domain)
+            guidelines_text = self._format_guidelines(guidelines_data)
+        except Exception as e:
+            guidelines_text = f"Error retrieving guidelines: {str(e)}"
+        
+        # Get similar cases from MCP server
         similar_cases = self.get_similar_cases(scenario)
         
         # Evaluate rules compliance
-        rules_result = self.rules_chain.run(
+        rules_result = rules_chain.run(
             scenario=scenario_text,
-            decision=decision
+            decision=decision,
+            guidelines=guidelines_text
         )
         
         # Evaluate ethical implications
-        ethics_result = self.ethics_chain.run(
+        ethics_result = ethics_chain.run(
             scenario=scenario_text,
             decision=decision,
             similar_cases=similar_cases
@@ -137,13 +336,69 @@ class DecisionEngine:
         ethics_score = self._parse_ethics_score(ethics_result)
         
         return {
+            "domain": domain,
             "rules_compliance": rules_score,
             "ethical_evaluation": ethics_score,
             "rules_reasoning": rules_result,
             "ethics_reasoning": ethics_result,
             "combined_score": (rules_score + ethics_score) / 2,
-            "similar_cases": similar_cases
+            "similar_cases": similar_cases,
+            "guidelines": guidelines_text
         }
+    
+    def _format_guidelines(self, guidelines_data: Dict[str, Any]) -> str:
+        """
+        Format guidelines data as text for LLM input.
+        
+        Args:
+            guidelines_data: Dictionary containing guidelines data
+            
+        Returns:
+            Formatted guidelines text
+        """
+        text = ""
+        
+        # Format guidelines
+        for guideline in guidelines_data.get('guidelines', []):
+            text += f"Guideline: {guideline.get('name', 'Unnamed guideline')}\n"
+            text += f"Description: {guideline.get('description', '')}\n\n"
+            
+            # Add categories if present
+            if 'categories' in guideline:
+                text += "Categories:\n"
+                for category in guideline.get('categories', []):
+                    text += f"- {category.get('name', 'Unnamed')}: {category.get('description', '')}\n"
+                text += "\n"
+            
+            # Add factors if present
+            if 'factors' in guideline:
+                text += "Factors:\n"
+                for factor in guideline.get('factors', []):
+                    text += f"- {factor}\n"
+                text += "\n"
+            
+            # Add principles if present
+            if 'principles' in guideline:
+                text += "Principles:\n"
+                for principle in guideline.get('principles', []):
+                    text += f"- {principle}\n"
+                text += "\n"
+            
+            # Add steps if present
+            if 'steps' in guideline:
+                text += "Steps:\n"
+                for step in guideline.get('steps', []):
+                    text += f"- {step}\n"
+                text += "\n"
+            
+            # Add considerations if present
+            if 'considerations' in guideline:
+                text += "Considerations:\n"
+                for consideration in guideline.get('considerations', []):
+                    text += f"- {consideration}\n"
+                text += "\n"
+        
+        return text
     
     def _format_scenario(self, scenario: Dict[str, Any]) -> str:
         """

@@ -4,6 +4,7 @@ from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.condition import Condition
 from app.models.resource import Resource
+from app.models.domain import Domain
 from app.services import EventEngine, DecisionEngine
 
 scenarios_bp = Blueprint('scenarios', __name__, url_prefix='/scenarios')
@@ -31,25 +32,49 @@ def api_get_scenario(id):
 @scenarios_bp.route('/', methods=['GET'])
 def list_scenarios():
     """Display all scenarios."""
-    scenarios = Scenario.query.all()
-    return render_template('scenarios.html', scenarios=scenarios)
+    # Get domain filter from query parameters
+    domain_id = request.args.get('domain_id', type=int)
+    
+    # Filter scenarios by domain if specified
+    if domain_id:
+        scenarios = Scenario.query.filter_by(domain_id=domain_id).all()
+    else:
+        scenarios = Scenario.query.all()
+    
+    domains = Domain.query.all()
+    return render_template('scenarios.html', scenarios=scenarios, domains=domains, selected_domain_id=domain_id)
 
 @scenarios_bp.route('/<int:id>', methods=['GET'])
 def view_scenario(id):
     """Display a specific scenario."""
     scenario = Scenario.query.get_or_404(id)
-    return render_template('scenario_detail.html', scenario=scenario)
+    domains = Domain.query.all()
+    return render_template('scenario_detail.html', scenario=scenario, domains=domains)
 
 @scenarios_bp.route('/', methods=['POST'])
 def create_scenario():
     """Create a new scenario."""
     data = request.json
     
+    # Get domain if provided, otherwise use default (Military Medical Triage)
+    domain_id = data.get('domain_id')
+    if domain_id:
+        domain = Domain.query.get(domain_id)
+        if not domain:
+            return jsonify({
+                'success': False,
+                'message': f'Domain with ID {domain_id} not found'
+            }), 404
+    else:
+        # Default to Military Medical Triage domain (ID 1)
+        domain = Domain.query.get(1)
+    
     # Create scenario
     scenario = Scenario(
         name=data['name'],
         description=data.get('description', ''),
-        metadata=data.get('metadata', {})
+        metadata=data.get('metadata', {}),
+        domain_id=domain.id
     )
     db.session.add(scenario)
     
@@ -105,6 +130,16 @@ def update_scenario(id):
         scenario.description = data['description']
     if 'metadata' in data:
         scenario.metadata = data['metadata']
+    
+    # Update domain if provided
+    if 'domain_id' in data:
+        domain = Domain.query.get(data['domain_id'])
+        if not domain:
+            return jsonify({
+                'success': False,
+                'message': f'Domain with ID {data["domain_id"]} not found'
+            }), 404
+        scenario.domain_id = domain.id
     
     db.session.commit()
     

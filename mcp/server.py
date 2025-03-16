@@ -64,6 +64,7 @@ class EthicalDMServer:
         """Handle request to list available resources."""
         return {
             "resources": [
+                # Military Medical Triage
                 {
                     "uri": "ethical-dm://guidelines/military-medical-triage",
                     "name": "Military Medical Triage Guidelines",
@@ -75,6 +76,32 @@ class EthicalDMServer:
                     "name": "Military Medical Triage Case Repository",
                     "mimeType": "application/json",
                     "description": "Repository of past military medical triage cases"
+                },
+                # Engineering Ethics
+                {
+                    "uri": "ethical-dm://guidelines/engineering-ethics",
+                    "name": "Engineering Ethics Guidelines",
+                    "mimeType": "application/json",
+                    "description": "Guidelines for engineering ethics scenarios"
+                },
+                {
+                    "uri": "ethical-dm://cases/engineering-ethics",
+                    "name": "Engineering Ethics Case Repository",
+                    "mimeType": "application/json",
+                    "description": "Repository of past engineering ethics cases"
+                },
+                # US Law Practice
+                {
+                    "uri": "ethical-dm://guidelines/us-law-practice",
+                    "name": "US Law Practice Guidelines",
+                    "mimeType": "application/json",
+                    "description": "Guidelines for US law practice scenarios"
+                },
+                {
+                    "uri": "ethical-dm://cases/us-law-practice",
+                    "name": "US Law Practice Case Repository",
+                    "mimeType": "application/json",
+                    "description": "Repository of past US law practice cases"
                 }
             ]
         }
@@ -96,7 +123,7 @@ class EthicalDMServer:
         """Handle request to read a resource."""
         uri = request.params.uri
         
-        # Handle static resources
+        # Handle Military Medical Triage resources
         if uri == "ethical-dm://guidelines/military-medical-triage":
             return {
                 "contents": [
@@ -160,6 +187,144 @@ class EthicalDMServer:
                 ]
             }
         
+        # Handle Engineering Ethics resources
+        elif uri == "ethical-dm://guidelines/engineering-ethics":
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps({
+                            "guidelines": [
+                                {
+                                    "name": "Engineering Code of Ethics",
+                                    "description": "Professional code of ethics for engineers",
+                                    "principles": [
+                                        "Hold paramount the safety, health, and welfare of the public",
+                                        "Perform services only in areas of their competence",
+                                        "Issue public statements only in an objective and truthful manner",
+                                        "Act for each employer or client as faithful agents or trustees",
+                                        "Avoid deceptive acts",
+                                        "Conduct themselves honorably, responsibly, ethically, and lawfully"
+                                    ]
+                                },
+                                {
+                                    "name": "Risk Assessment Framework",
+                                    "description": "Framework for assessing engineering risks",
+                                    "steps": [
+                                        "Identify potential hazards",
+                                        "Assess likelihood and severity",
+                                        "Develop mitigation strategies",
+                                        "Implement controls",
+                                        "Monitor and review"
+                                    ]
+                                }
+                            ]
+                        }, indent=2)
+                    }
+                ]
+            }
+        elif uri == "ethical-dm://cases/engineering-ethics":
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps({
+                            "cases": [
+                                {
+                                    "id": 1,
+                                    "title": "Challenger Disaster",
+                                    "description": "Engineers raised concerns about O-ring performance in cold temperatures but were overruled",
+                                    "decision": "Launch proceeded despite engineering concerns",
+                                    "outcome": "Catastrophic failure resulting in loss of life",
+                                    "ethical_analysis": "Failure to prioritize safety over schedule pressures; whistleblowing responsibilities"
+                                },
+                                {
+                                    "id": 2,
+                                    "title": "Software Safety Critical System",
+                                    "description": "Deadline pressure to release software with known but rare edge case bugs",
+                                    "decision": "Delayed release to fix critical safety issues despite business pressure",
+                                    "outcome": "Short-term financial impact but maintained safety record and professional integrity",
+                                    "ethical_analysis": "Prioritized public safety over business concerns; professional responsibility"
+                                }
+                            ]
+                        }, indent=2)
+                    }
+                ]
+            }
+            
+        # Handle US Law Practice resources
+        elif uri == "ethical-dm://guidelines/us-law-practice":
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps({
+                            "guidelines": [
+                                {
+                                    "name": "ABA Model Rules of Professional Conduct",
+                                    "description": "Ethical standards for legal professionals",
+                                    "principles": [
+                                        "Client-Lawyer Relationship",
+                                        "Counselor",
+                                        "Advocate",
+                                        "Transactions with Persons Other Than Clients",
+                                        "Law Firms and Associations",
+                                        "Public Service",
+                                        "Information About Legal Services",
+                                        "Maintaining the Integrity of the Profession"
+                                    ]
+                                },
+                                {
+                                    "name": "Legal Ethics Framework",
+                                    "description": "Framework for ethical decision-making in legal practice",
+                                    "considerations": [
+                                        "Confidentiality and attorney-client privilege",
+                                        "Conflicts of interest",
+                                        "Duty of candor to the tribunal",
+                                        "Fairness to opposing party and counsel",
+                                        "Impartiality and decorum of the tribunal",
+                                        "Truthfulness in statements to others",
+                                        "Professional independence"
+                                    ]
+                                }
+                            ]
+                        }, indent=2)
+                    }
+                ]
+            }
+        elif uri == "ethical-dm://cases/us-law-practice":
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps({
+                            "cases": [
+                                {
+                                    "id": 1,
+                                    "title": "Confidentiality vs. Preventing Harm",
+                                    "description": "Attorney learns client plans to commit a violent crime",
+                                    "decision": "Disclosed minimum information necessary to prevent harm",
+                                    "outcome": "Prevented harm while maintaining most of client confidentiality",
+                                    "ethical_analysis": "Balanced duty of confidentiality with duty to prevent harm to others"
+                                },
+                                {
+                                    "id": 2,
+                                    "title": "Discovery Document Dilemma",
+                                    "description": "Attorney discovers damaging document not requested in discovery",
+                                    "decision": "Advised client of obligation to disclose relevant information",
+                                    "outcome": "Maintained ethical standards and professional integrity",
+                                    "ethical_analysis": "Upheld duties of candor to tribunal and fairness to opposing counsel"
+                                }
+                            ]
+                        }, indent=2)
+                    }
+                ]
+            }
+        
         # Handle resource templates
         if uri.startswith("ethical-dm://cases/search/"):
             query = uri.split("/")[-1]
@@ -203,6 +368,11 @@ class EthicalDMServer:
                                 "type": "string",
                                 "description": "Search query or scenario description"
                             },
+                            "domain": {
+                                "type": "string",
+                                "description": "Domain to search in (military-medical-triage, engineering-ethics, us-law-practice)",
+                                "enum": ["military-medical-triage", "engineering-ethics", "us-law-practice"]
+                            },
                             "limit": {
                                 "type": "number",
                                 "description": "Maximum number of results to return"
@@ -229,6 +399,11 @@ class EthicalDMServer:
                                 "type": "string",
                                 "description": "Decision made in the case"
                             },
+                            "domain": {
+                                "type": "string",
+                                "description": "Domain for the case (military-medical-triage, engineering-ethics, us-law-practice)",
+                                "enum": ["military-medical-triage", "engineering-ethics", "us-law-practice"]
+                            },
                             "outcome": {
                                 "type": "string",
                                 "description": "Outcome of the decision"
@@ -238,7 +413,7 @@ class EthicalDMServer:
                                 "description": "Ethical analysis of the case"
                             }
                         },
-                        "required": ["title", "description", "decision"]
+                        "required": ["title", "description", "decision", "domain"]
                     }
                 }
             ]
@@ -258,47 +433,146 @@ class EthicalDMServer:
             
             query = args["query"]
             limit = args.get("limit", 5)
+            domain = args.get("domain", "military-medical-triage")
             
             # This would typically involve vector search
-            # For now, we'll return placeholder results
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps({
-                            "query": query,
-                            "results": [
-                                {
-                                    "id": 1,
-                                    "title": "Field Hospital Mass Casualty",
-                                    "description": "Field hospital receiving multiple casualties from an IED attack with limited resources",
-                                    "decision": "Prioritized treatment based on severity and survivability",
-                                    "outcome": "Maximized survival rates but some potentially salvageable patients were classified as expectant",
-                                    "ethical_analysis": "Utilitarian approach maximized overall survival but raised concerns about individual rights",
-                                    "relevance": 0.85
-                                },
-                                {
-                                    "id": 2,
-                                    "title": "Civilian and Military Casualties",
-                                    "description": "Mixed civilian and military casualties with limited evacuation capacity",
-                                    "decision": "Evacuated based on medical need regardless of status",
-                                    "outcome": "Aligned with humanitarian principles but delayed return of some military personnel to duty",
-                                    "ethical_analysis": "Prioritized medical ethics over military necessity, reflecting deontological principles",
-                                    "relevance": 0.72
-                                }
-                            ]
-                        }, indent=2)
-                    }
-                ]
-            }
+            # For now, we'll return domain-specific placeholder results
+            if domain == "military-medical-triage":
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps({
+                                "query": query,
+                                "domain": domain,
+                                "results": [
+                                    {
+                                        "id": 1,
+                                        "title": "Field Hospital Mass Casualty",
+                                        "description": "Field hospital receiving multiple casualties from an IED attack with limited resources",
+                                        "decision": "Prioritized treatment based on severity and survivability",
+                                        "outcome": "Maximized survival rates but some potentially salvageable patients were classified as expectant",
+                                        "ethical_analysis": "Utilitarian approach maximized overall survival but raised concerns about individual rights",
+                                        "relevance": 0.85
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "Civilian and Military Casualties",
+                                        "description": "Mixed civilian and military casualties with limited evacuation capacity",
+                                        "decision": "Evacuated based on medical need regardless of status",
+                                        "outcome": "Aligned with humanitarian principles but delayed return of some military personnel to duty",
+                                        "ethical_analysis": "Prioritized medical ethics over military necessity, reflecting deontological principles",
+                                        "relevance": 0.72
+                                    }
+                                ]
+                            }, indent=2)
+                        }
+                    ]
+                }
+            elif domain == "engineering-ethics":
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps({
+                                "query": query,
+                                "domain": domain,
+                                "results": [
+                                    {
+                                        "id": 1,
+                                        "title": "Challenger Disaster",
+                                        "description": "Engineers raised concerns about O-ring performance in cold temperatures but were overruled",
+                                        "decision": "Launch proceeded despite engineering concerns",
+                                        "outcome": "Catastrophic failure resulting in loss of life",
+                                        "ethical_analysis": "Failure to prioritize safety over schedule pressures; whistleblowing responsibilities",
+                                        "relevance": 0.88
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "Software Safety Critical System",
+                                        "description": "Deadline pressure to release software with known but rare edge case bugs",
+                                        "decision": "Delayed release to fix critical safety issues despite business pressure",
+                                        "outcome": "Short-term financial impact but maintained safety record and professional integrity",
+                                        "ethical_analysis": "Prioritized public safety over business concerns; professional responsibility",
+                                        "relevance": 0.75
+                                    }
+                                ]
+                            }, indent=2)
+                        }
+                    ]
+                }
+            elif domain == "us-law-practice":
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps({
+                                "query": query,
+                                "domain": domain,
+                                "results": [
+                                    {
+                                        "id": 1,
+                                        "title": "Confidentiality vs. Preventing Harm",
+                                        "description": "Attorney learns client plans to commit a violent crime",
+                                        "decision": "Disclosed minimum information necessary to prevent harm",
+                                        "outcome": "Prevented harm while maintaining most of client confidentiality",
+                                        "ethical_analysis": "Balanced duty of confidentiality with duty to prevent harm to others",
+                                        "relevance": 0.91
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "Discovery Document Dilemma",
+                                        "description": "Attorney discovers damaging document not requested in discovery",
+                                        "decision": "Advised client of obligation to disclose relevant information",
+                                        "outcome": "Maintained ethical standards and professional integrity",
+                                        "ethical_analysis": "Upheld duties of candor to tribunal and fairness to opposing counsel",
+                                        "relevance": 0.79
+                                    }
+                                ]
+                            }, indent=2)
+                        }
+                    ]
+                }
+            else:
+                # Default to military medical triage if domain not recognized
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps({
+                                "query": query,
+                                "domain": "military-medical-triage",
+                                "message": f"Domain '{domain}' not recognized, defaulting to military-medical-triage",
+                                "results": [
+                                    {
+                                        "id": 1,
+                                        "title": "Field Hospital Mass Casualty",
+                                        "description": "Field hospital receiving multiple casualties from an IED attack with limited resources",
+                                        "decision": "Prioritized treatment based on severity and survivability",
+                                        "outcome": "Maximized survival rates but some potentially salvageable patients were classified as expectant",
+                                        "ethical_analysis": "Utilitarian approach maximized overall survival but raised concerns about individual rights",
+                                        "relevance": 0.85
+                                    }
+                                ]
+                            }, indent=2)
+                        }
+                    ]
+                }
         elif tool_name == "add_case":
-            required_fields = ["title", "description", "decision"]
+            required_fields = ["title", "description", "decision", "domain"]
             for field in required_fields:
                 if field not in args:
                     raise McpError(
                         ErrorCode.InvalidParams,
                         f"Missing required parameter: {field}"
                     )
+            
+            domain = args["domain"]
+            if domain not in ["military-medical-triage", "engineering-ethics", "us-law-practice"]:
+                raise McpError(
+                    ErrorCode.InvalidParams,
+                    f"Invalid domain: {domain}. Must be one of: military-medical-triage, engineering-ethics, us-law-practice"
+                )
             
             # This would typically involve adding to a database
             # For now, we'll just return success
@@ -308,8 +582,9 @@ class EthicalDMServer:
                         "type": "text",
                         "text": json.dumps({
                             "success": True,
-                            "message": "Case added successfully",
-                            "case_id": 3  # Placeholder ID
+                            "message": f"Case added successfully to {domain} domain",
+                            "case_id": 3,  # Placeholder ID
+                            "domain": domain
                         }, indent=2)
                     }
                 ]

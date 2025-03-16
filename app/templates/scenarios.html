@@ -9,6 +9,24 @@
         <a href="/scenarios/new" class="btn btn-success">Create New Scenario</a>
     </div>
 
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Filter by Domain</h3>
+        </div>
+        <div class="card-body">
+            <div class="btn-group" role="group" aria-label="Domain filter">
+                <a href="/scenarios"
+                    class="btn btn-{{ 'primary' if not selected_domain_id else 'outline-primary' }}">All Domains</a>
+                {% for domain in domains %}
+                <a href="/scenarios?domain_id={{ domain.id }}"
+                    class="btn btn-{{ 'primary' if selected_domain_id == domain.id else 'outline-primary' }}">
+                    {{ domain.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     {% if scenarios %}
     <div class="row">
         {% for scenario in scenarios %}
@@ -22,6 +40,9 @@
                     <div class="d-flex justify-content-between">
                         <small class="text-muted">Created: {{ scenario.created_at }}</small>
                         <small class="text-muted">Characters: {{ scenario.characters|length }}</small>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-info">Domain: {{ scenario.domain.name }}</span>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -44,19 +65,25 @@
     <div class="mt-5">
         <h2>What is a Scenario?</h2>
         <p>
-            A scenario represents a situation that requires ethical decision-making. In the context of military medical
-            triage,
-            scenarios typically involve multiple patients with various injuries, limited medical resources, and
-            constraints
-            such as time pressure or security concerns.
+            A scenario represents a situation that requires ethical decision-making. Depending on the domain, scenarios
+            may involve different characters, resources, and constraints. For example:
         </p>
+        <ul>
+            <li><strong>Military Medical Triage:</strong> Scenarios involving multiple patients with various injuries,
+                limited medical resources, and time pressure.</li>
+            <li><strong>Engineering Ethics:</strong> Scenarios involving design decisions, safety considerations, and
+                professional responsibilities.</li>
+            <li><strong>US Law Practice:</strong> Scenarios involving legal dilemmas, client confidentiality, and
+                professional conduct.</li>
+        </ul>
+
         <p>
             Each scenario includes:
         </p>
         <ul>
-            <li><strong>Characters</strong> - The individuals involved (patients, medical personnel)</li>
-            <li><strong>Conditions</strong> - Medical conditions or injuries affecting characters</li>
-            <li><strong>Resources</strong> - Available medical supplies and equipment</li>
+            <li><strong>Characters</strong> - The individuals involved in the scenario</li>
+            <li><strong>Conditions</strong> - Conditions affecting characters (injuries, constraints, etc.)</li>
+            <li><strong>Resources</strong> - Available resources relevant to the scenario</li>
             <li><strong>Events</strong> - Timeline of what happens during the scenario</li>
             <li><strong>Decisions</strong> - Choices that need to be made</li>
         </ul>
