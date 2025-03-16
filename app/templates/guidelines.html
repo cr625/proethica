@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Guidelines - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Military Medical Triage Guidelines</h1>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        Error loading guidelines: {{ error }}
+    </div>
+    {% endif %}
+
+    {% if guidelines %}
+    {% for guideline in guidelines %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>{{ guideline.name }}</h3>
+        </div>
+        <div class="card-body">
+            <p class="card-text">{{ guideline.description }}</p>
+
+            {% if guideline.categories %}
+            <h4>Categories</h4>
+            <div class="list-group">
+                {% for category in guideline.categories %}
+                <div class="list-group-item">
+                    <h5 class="mb-1">{{ category.name }}</h5>
+                    <p class="mb-1">{{ category.description }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if guideline.factors %}
+            <h4 class="mt-3">Factors</h4>
+            <ul class="list-group">
+                {% for factor in guideline.factors %}
+                <li class="list-group-item">{{ factor }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        No guidelines available. Please check the MCP server connection.
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <h2>About These Guidelines</h2>
+        <p>
+            These guidelines provide a framework for ethical decision-making in military medical triage scenarios.
+            They are based on established protocols and ethical considerations specific to combat and military contexts.
+        </p>
+        <p>
+            The guidelines are intended to assist medical personnel in making difficult decisions under resource
+            constraints
+            and high-pressure situations, while maintaining ethical standards and adherence to military medical ethics.
+        </p>
+    </div>
+</div>
+{% endblock %}

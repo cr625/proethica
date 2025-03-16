@@ -1,0 +1,25 @@
+# Core dependencies
+flask
+sqlalchemy
+flask-sqlalchemy
+flask-migrate
+python-dotenv
+
+# LangChain and LangGraph
+langchain
+langchain-core
+langgraph
+
+# Model Context Protocol
+mcp[cli]
+
+# Vector database
+chromadb
+
+# Testing
+pytest
+pytest-flask
+
+# Development
+black
+flake8

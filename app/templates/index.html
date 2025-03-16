@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">AI Ethical Decision-Making Simulator</h1>
+    <p class="lead">A simulation application for event-based scenarios with temporal reasoning, focusing on military
+        medical triage as the initial use case.</p>
+    <hr class="my-4">
+    <p>This application simulates events with temporal features, allowing for the evaluation of decisions through both a
+        rules-based engine (for constraint validation) and a case-based/guideline-based system (for ethical assessment).
+    </p>
+    <a class="btn btn-primary btn-lg" href="/scenarios" role="button">Explore Scenarios</a>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Event Representation</h5>
+                <p class="card-text">Utilizes LangGraph for orchestrating complex decision-making workflows with
+                    built-in state management.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Knowledge Base</h5>
+                <p class="card-text">Integrates domain-specific knowledge and ethical guidelines using LangChain's
+                    document loaders, retrievers, and vector stores.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Decision-Making Framework</h5>
+                <p class="card-text">Implements a hybrid ethical reasoning system combining rule-based, case-based, and
+                    principle-based reasoning.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <h3>Getting Started</h3>
+        <p>To begin using the simulator:</p>
+        <ol>
+            <li>Explore existing scenarios or create a new one</li>
+            <li>Add characters, conditions, and resources to your scenario</li>
+            <li>Create a timeline of events</li>
+            <li>Make decisions and see how they are evaluated</li>
+        </ol>
+        <a href="/scenarios/new" class="btn btn-success">Create New Scenario</a>
+    </div>
+    <div class="col-md-6">
+        <h3>Use Cases</h3>
+        <p>The initial use case focuses on military medical triage scenarios, where medical personnel must make rapid
+            decisions about patient treatment priorities under resource constraints and ethical considerations.</p>
+        <p>Future use cases may include:</p>
+        <ul>
+            <li>Disaster response and humanitarian aid</li>
+            <li>Resource allocation in healthcare systems</li>
+            <li>Ethical decision-making in autonomous systems</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

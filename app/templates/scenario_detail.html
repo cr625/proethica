@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}{{ scenario.name }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ scenario.name }}</h1>
+        <div class="btn-group" role="group">
+            <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-secondary">Edit</a>
+            <a href="/scenarios/{{ scenario.id }}/simulate" class="btn btn-primary">Simulate</a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                data-bs-target="#deleteModal">Delete</button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Description</h3>
+        </div>
+        <div class="card-body">
+            <p>{{ scenario.description }}</p>
+            <div class="d-flex justify-content-between text-muted">
+                <small>Created: {{ scenario.created_at }}</small>
+                <small>Last Updated: {{ scenario.updated_at }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>Characters</h3>
+                    <a href="/scenarios/{{ scenario.id }}/characters/new" class="btn btn-sm btn-success">Add
+                        Character</a>
+                </div>
+                <div class="card-body">
+                    {% if scenario.characters %}
+                    <div class="list-group">
+                        {% for character in scenario.characters %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ character.name }}</h5>
+                                <small>{{ character.role }}</small>
+                            </div>
+
+                            {% if character.conditions %}
+                            <h6 class="mt-2">Conditions:</h6>
+                            <ul class="list-unstyled">
+                                {% for condition in character.conditions %}
+                                <li>
+                                    <span
+                                        class="badge bg-{{ 'danger' if condition.severity > 7 else 'warning' if condition.severity > 4 else 'info' }}">
+                                        {{ condition.name }} (Severity: {{ condition.severity }})
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No characters added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>Resources</h3>
+                    <a href="/scenarios/{{ scenario.id }}/resources/new" class="btn btn-sm btn-success">Add Resource</a>
+                </div>
+                <div class="card-body">
+                    {% if scenario.resources %}
+                    <div class="list-group">
+                        {% for resource in scenario.resources %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ resource.name }}</h5>
+                                <span class="badge bg-primary">{{ resource.quantity }} available</span>
+                            </div>
+                            <p class="mb-1">{{ resource.description }}</p>
+                            <small class="text-muted">Type: {{ resource.type }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No resources added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>Events Timeline</h3>
+            <a href="/scenarios/{{ scenario.id }}/events/new" class="btn btn-sm btn-success">Add Event</a>
+        </div>
+        <div class="card-body">
+            {% if scenario.events %}
+            <div class="timeline">
+                {% for event in scenario.events|sort(attribute='event_time') %}
+                <div class="timeline-item">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">
+                            {{ event.event_time.strftime('%Y-%m-%d %H:%M') if event.event_time else 'Unknown time' }}
+                        </h4>
+                        <p>{{ event.description }}</p>
+                        {% if event.character %}
+                        <small class="text-muted">Character: {{ event.character.name }}</small>
+                        {% endif %}
+                        {% if event.action %}
+                        <small class="text-muted">Action: {{ event.action.name }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No events added yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>Decisions</h3>
+            <a href="/scenarios/{{ scenario.id }}/decisions/new" class="btn btn-sm btn-success">Add Decision</a>
+        </div>
+        <div class="card-body">
+            {% if scenario.decisions %}
+            <div class="list-group">
+                {% for decision in scenario.decisions %}
+                <div class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">Decision at {{ decision.decision_time.strftime('%Y-%m-%d %H:%M') if
+                            decision.decision_time else 'Unknown time' }}</h5>
+                        <small>Selected: {{ decision.selected_option }}</small>
+                    </div>
+                    <p class="mb-1">{{ decision.description }}</p>
+
+                    {% if decision.evaluations %}
+                    <div class="mt-2">
+                        <h6>Evaluation:</h6>
+                        {% for evaluation in decision.evaluations %}
+                        <div class="progress mb-2">
+                            <div class="progress-bar" role="progressbar"
+                                style="width: {{ evaluation.rules_compliance * 100 }}%;"
+                                aria-valuenow="{{ evaluation.rules_compliance * 100 }}" aria-valuemin="0"
+                                aria-valuemax="100">
+                                Rules Compliance: {{ (evaluation.rules_compliance * 100)|int }}%
+                            </div>
+                        </div>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-info" role="progressbar"
+                                style="width: {{ evaluation.ethical_score * 100 }}%;"
+                                aria-valuenow="{{ evaluation.ethical_score * 100 }}" aria-valuemin="0"
+                                aria-valuemax="100">
+                                Ethical Score: {{ (evaluation.ethical_score * 100)|int }}%
+                            </div>
+                        </div>
+                        <p class="mt-2">{{ evaluation.reasoning }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No decisions added yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete the scenario "{{ scenario.name }}"? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="/scenarios/{{ scenario.id }}/delete" method="post">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -30px;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background-color: #007bff;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 3px #007bff;
+    }
+
+    .timeline-item:not(:last-child):before {
+        content: '';
+        position: absolute;
+        left: -23px;
+        top: 15px;
+        height: calc(100% + 15px);
+        width: 2px;
+        background-color: #007bff;
+    }
+
+    .timeline-content {
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #007bff;
+    }
+</style>
+{% endblock %}

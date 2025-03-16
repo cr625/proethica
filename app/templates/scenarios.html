@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Scenarios - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Scenarios</h1>
+        <a href="/scenarios/new" class="btn btn-success">Create New Scenario</a>
+    </div>
+
+    {% if scenarios %}
+    <div class="row">
+        {% for scenario in scenarios %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h3>{{ scenario.name }}</h3>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ scenario.description }}</p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Created: {{ scenario.created_at }}</small>
+                        <small class="text-muted">Characters: {{ scenario.characters|length }}</small>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <a href="/scenarios/{{ scenario.id }}" class="btn btn-primary">View</a>
+                        <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-secondary">Edit</a>
+                        <a href="/scenarios/{{ scenario.id }}/simulate" class="btn btn-info">Simulate</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        No scenarios available. Create a new scenario to get started.
+    </div>
+    {% endif %}
+
+    <div class="mt-5">
+        <h2>What is a Scenario?</h2>
+        <p>
+            A scenario represents a situation that requires ethical decision-making. In the context of military medical
+            triage,
+            scenarios typically involve multiple patients with various injuries, limited medical resources, and
+            constraints
+            such as time pressure or security concerns.
+        </p>
+        <p>
+            Each scenario includes:
+        </p>
+        <ul>
+            <li><strong>Characters</strong> - The individuals involved (patients, medical personnel)</li>
+            <li><strong>Conditions</strong> - Medical conditions or injuries affecting characters</li>
+            <li><strong>Resources</strong> - Available medical supplies and equipment</li>
+            <li><strong>Events</strong> - Timeline of what happens during the scenario</li>
+            <li><strong>Decisions</strong> - Choices that need to be made</li>
+        </ul>
+
+        <div class="card mt-3">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Simulation Process</h3>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li>Create or select a scenario</li>
+                    <li>Review the characters, conditions, and resources</li>
+                    <li>Examine the timeline of events</li>
+                    <li>Make decisions when prompted</li>
+                    <li>Review the evaluation of your decisions</li>
+                </ol>
+                <p>
+                    The system will evaluate your decisions based on:
+                </p>
+                <ul>
+                    <li>Compliance with established protocols and guidelines</li>
+                    <li>Ethical considerations from multiple frameworks</li>
+                    <li>Comparison to similar historical cases</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
