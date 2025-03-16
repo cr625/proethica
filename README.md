@@ -35,7 +35,7 @@ The application is built with:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/ai-ethical-dm.git
+   git clone https://github.com/cr625/ai-ethical-dm.git
    cd ai-ethical-dm
    ```
 
