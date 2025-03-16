@@ -87,4 +87,4 @@ MIT
 
 ## Contributors
 
-- Your Name
+- Christopher Rauch
