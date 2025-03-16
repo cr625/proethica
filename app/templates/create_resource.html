@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Add Resource - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Add Resource to Scenario</h1>
+        <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Resource Details</h3>
+        </div>
+        <div class="card-body">
+            <form id="create-resource-form">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Resource Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="type" class="form-label">Type</label>
+                    <input type="text" class="form-control" id="type" name="type">
+                    <div class="form-text">E.g., Medical Supply, Equipment, Personnel, etc.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" value="1">
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    <div class="form-text">Describe the resource, its capabilities, and limitations.</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Add Resource</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">Resource Examples</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5>Medical Domain</h5>
+                    <ul>
+                        <li>Ventilators (5 units)</li>
+                        <li>Blood Type O- (3 units)</li>
+                        <li>Surgical Team (1 team)</li>
+                        <li>Antibiotics (20 doses)</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5>Engineering Domain</h5>
+                    <ul>
+                        <li>Safety Testing Equipment</li>
+                        <li>Development Budget</li>
+                        <li>Engineering Team</li>
+                        <li>Prototype Materials</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5>Legal Domain</h5>
+                    <ul>
+                        <li>Legal Research Database</li>
+                        <li>Paralegal Support</li>
+                        <li>Expert Witnesses</li>
+                        <li>Client Funds</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.getElementById('create-resource-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const formData = {
+            name: document.getElementById('name').value,
+            type: document.getElementById('type').value,
+            quantity: parseInt(document.getElementById('quantity').value),
+            description: document.getElementById('description').value
+        };
+
+        fetch('/scenarios/{{ scenario.id }}/resources', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = `/scenarios/{{ scenario.id }}`;
+                } else {
+                    alert('Error adding resource: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the resource.');
+            });
+    });
+</script>
+{% endblock %}
+{% endblock %}

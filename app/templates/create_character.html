@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Add Character - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Add Character to Scenario</h1>
+        <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Character Details</h3>
+        </div>
+        <div class="card-body">
+            <form id="create-character-form">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Character Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="role" class="form-label">Role</label>
+                    <input type="text" class="form-control" id="role" name="role">
+                    <div class="form-text">E.g., Patient, Doctor, Nurse, Engineer, Lawyer, etc.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Conditions</label>
+                    <div id="conditions-container">
+                        <!-- Conditions will be added here dynamically -->
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary mt-2" id="add-condition-btn">
+                        <i class="bi bi-plus-circle"></i> Add Condition
+                    </button>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Add Character</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Condition Template (hidden) -->
+<template id="condition-template">
+    <div class="card mb-2 condition-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-2">
+                <h5 class="card-title">Condition</h5>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-condition-btn">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control condition-name" required>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Description</label>
+                <textarea class="form-control condition-description" rows="2"></textarea>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Severity (1-10)</label>
+                <input type="range" class="form-range condition-severity" min="1" max="10" value="5">
+                <div class="d-flex justify-content-between">
+                    <small>Minor</small>
+                    <small>Moderate</small>
+                    <small>Severe</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+{% block scripts %}
+<script>
+    // Add condition functionality
+    document.getElementById('add-condition-btn').addEventListener('click', function () {
+        const template = document.getElementById('condition-template');
+        const container = document.getElementById('conditions-container');
+        const clone = template.content.cloneNode(true);
+
+        // Add event listener to remove button
+        clone.querySelector('.remove-condition-btn').addEventListener('click', function (e) {
+            e.target.closest('.condition-card').remove();
+        });
+
+        container.appendChild(clone);
+    });
+
+    // Form submission
+    document.getElementById('create-character-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Gather conditions data
+        const conditions = [];
+        document.querySelectorAll('.condition-card').forEach(card => {
+            conditions.push({
+                name: card.querySelector('.condition-name').value,
+                description: card.querySelector('.condition-description').value,
+                severity: parseInt(card.querySelector('.condition-severity').value)
+            });
+        });
+
+        const formData = {
+            name: document.getElementById('name').value,
+            role: document.getElementById('role').value,
+            conditions: conditions
+        };
+
+        fetch('/scenarios/{{ scenario.id }}/characters', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = `/scenarios/{{ scenario.id }}`;
+                } else {
+                    alert('Error adding character: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the character.');
+            });
+    });
+</script>
+{% endblock %}
+{% endblock %}
