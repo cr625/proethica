@@ -1,0 +1,221 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mmt: <http://example.org/military-medical-triage#> .
+@prefix umls: <http://example.org/umls#> .
+@prefix snomed: <http://example.org/snomed#> .
+
+# World definition
+mmt:MilitaryMedicalTriageWorld a owl:Class ;
+    rdfs:label "Military Medical Triage World"@en ;
+    rdfs:comment "A world representing military medical triage scenarios"@en .
+
+# Character types
+mmt:Patient a owl:Class ;
+    rdfs:subClassOf mmt:Character ;
+    rdfs:label "Patient"@en ;
+    rdfs:comment "A person requiring medical attention"@en .
+
+mmt:MedicalPersonnel a owl:Class ;
+    rdfs:subClassOf mmt:Character ;
+    rdfs:label "Medical Personnel"@en ;
+    rdfs:comment "A person providing medical care"@en .
+
+mmt:Medic a owl:Class ;
+    rdfs:subClassOf mmt:MedicalPersonnel ;
+    rdfs:label "Medic"@en ;
+    rdfs:comment "A combat medic providing first aid in the field"@en .
+
+mmt:Doctor a owl:Class ;
+    rdfs:subClassOf mmt:MedicalPersonnel ;
+    rdfs:label "Doctor"@en ;
+    rdfs:comment "A physician providing advanced medical care"@en .
+
+mmt:Nurse a owl:Class ;
+    rdfs:subClassOf mmt:MedicalPersonnel ;
+    rdfs:label "Nurse"@en ;
+    rdfs:comment "A nurse providing medical care"@en .
+
+# Medical conditions
+mmt:MedicalCondition a owl:Class ;
+    rdfs:label "Medical Condition"@en ;
+    rdfs:comment "A medical condition affecting a patient"@en .
+
+mmt:TraumaticInjury a owl:Class ;
+    rdfs:subClassOf mmt:MedicalCondition ;
+    rdfs:label "Traumatic Injury"@en ;
+    rdfs:comment "An injury caused by external force"@en .
+
+mmt:Hemorrhage a owl:Class ;
+    rdfs:subClassOf mmt:TraumaticInjury ;
+    rdfs:label "Hemorrhage"@en ;
+    rdfs:comment "Bleeding or loss of blood"@en ;
+    owl:equivalentClass umls:C0019080 .
+
+mmt:Fracture a owl:Class ;
+    rdfs:subClassOf mmt:TraumaticInjury ;
+    rdfs:label "Fracture"@en ;
+    rdfs:comment "A break in a bone"@en ;
+    owl:equivalentClass umls:C0016658 .
+
+mmt:BurnInjury a owl:Class ;
+    rdfs:subClassOf mmt:TraumaticInjury ;
+    rdfs:label "Burn Injury"@en ;
+    rdfs:comment "Tissue damage caused by heat, chemicals, electricity, or radiation"@en ;
+    owl:equivalentClass umls:C0006040 .
+
+mmt:PenetrationWound a owl:Class ;
+    rdfs:subClassOf mmt:TraumaticInjury ;
+    rdfs:label "Penetration Wound"@en ;
+    rdfs:comment "A wound caused by an object penetrating the body"@en ;
+    owl:equivalentClass umls:C0043250 .
+
+mmt:BlastInjury a owl:Class ;
+    rdfs:subClassOf mmt:TraumaticInjury ;
+    rdfs:label "Blast Injury"@en ;
+    rdfs:comment "An injury caused by an explosion"@en ;
+    owl:equivalentClass umls:C0178835 .
+
+# Triage categories
+mmt:TriageCategory a owl:Class ;
+    rdfs:label "Triage Category"@en ;
+    rdfs:comment "A category used in triage to prioritize patients"@en .
+
+mmt:Immediate a owl:Class ;
+    rdfs:subClassOf mmt:TriageCategory ;
+    rdfs:label "Immediate (Red)"@en ;
+    rdfs:comment "Patients requiring immediate life-saving intervention"@en .
+
+mmt:Delayed a owl:Class ;
+    rdfs:subClassOf mmt:TriageCategory ;
+    rdfs:label "Delayed (Yellow)"@en ;
+    rdfs:comment "Patients whose treatment can be delayed without risk to life"@en .
+
+mmt:Minimal a owl:Class ;
+    rdfs:subClassOf mmt:TriageCategory ;
+    rdfs:label "Minimal (Green)"@en ;
+    rdfs:comment "Patients with minor injuries who can wait for treatment"@en .
+
+mmt:Expectant a owl:Class ;
+    rdfs:subClassOf mmt:TriageCategory ;
+    rdfs:label "Expectant (Black)"@en ;
+    rdfs:comment "Patients who are not expected to survive given the available resources"@en .
+
+# Resources
+mmt:MedicalResource a owl:Class ;
+    rdfs:label "Medical Resource"@en ;
+    rdfs:comment "A resource used in medical treatment"@en .
+
+mmt:Medication a owl:Class ;
+    rdfs:subClassOf mmt:MedicalResource ;
+    rdfs:label "Medication"@en ;
+    rdfs:comment "A pharmaceutical drug used in treatment"@en .
+
+mmt:Morphine a owl:Class ;
+    rdfs:subClassOf mmt:Medication ;
+    rdfs:label "Morphine"@en ;
+    rdfs:comment "An opioid medication used for pain relief"@en ;
+    owl:equivalentClass umls:C0026549 .
+
+mmt:Bandage a owl:Class ;
+    rdfs:subClassOf mmt:MedicalResource ;
+    rdfs:label "Bandage"@en ;
+    rdfs:comment "A piece of material used to cover and protect a wound"@en ;
+    owl:equivalentClass umls:C0004598 .
+
+mmt:Tourniquet a owl:Class ;
+    rdfs:subClassOf mmt:MedicalResource ;
+    rdfs:label "Tourniquet"@en ;
+    rdfs:comment "A device used to apply pressure to a limb to stop bleeding"@en ;
+    owl:equivalentClass umls:C0040778 .
+
+mmt:BloodProduct a owl:Class ;
+    rdfs:subClassOf mmt:MedicalResource ;
+    rdfs:label "Blood Product"@en ;
+    rdfs:comment "A product derived from blood used in transfusion"@en ;
+    owl:equivalentClass umls:C0005841 .
+
+mmt:MedicalEquipment a owl:Class ;
+    rdfs:subClassOf mmt:MedicalResource ;
+    rdfs:label "Medical Equipment"@en ;
+    rdfs:comment "Equipment used in medical treatment"@en .
+
+mmt:Ventilator a owl:Class ;
+    rdfs:subClassOf mmt:MedicalEquipment ;
+    rdfs:label "Ventilator"@en ;
+    rdfs:comment "A machine that helps a patient breathe"@en ;
+    owl:equivalentClass umls:C0042887 .
+
+# Sample individuals
+mmt:Patient1 a mmt:Patient ;
+    rdfs:label "Patient 1"@en ;
+    mmt:hasCondition mmt:Hemorrhage1 ;
+    mmt:hasTriageCategory mmt:Immediate .
+
+mmt:Hemorrhage1 a mmt:Hemorrhage ;
+    rdfs:label "Severe Hemorrhage"@en ;
+    mmt:severity "Severe"^^xsd:string ;
+    mmt:location "Left Leg"^^xsd:string .
+
+mmt:Patient2 a mmt:Patient ;
+    rdfs:label "Patient 2"@en ;
+    mmt:hasCondition mmt:Fracture1 ;
+    mmt:hasTriageCategory mmt:Delayed .
+
+mmt:Fracture1 a mmt:Fracture ;
+    rdfs:label "Compound Fracture"@en ;
+    mmt:severity "Moderate"^^xsd:string ;
+    mmt:location "Right Arm"^^xsd:string .
+
+mmt:Patient3 a mmt:Patient ;
+    rdfs:label "Patient 3"@en ;
+    mmt:hasCondition mmt:BurnInjury1 ;
+    mmt:hasTriageCategory mmt:Minimal .
+
+mmt:BurnInjury1 a mmt:BurnInjury ;
+    rdfs:label "First Degree Burn"@en ;
+    mmt:severity "Mild"^^xsd:string ;
+    mmt:location "Left Hand"^^xsd:string .
+
+mmt:Medic1 a mmt:Medic ;
+    rdfs:label "Combat Medic"@en ;
+    mmt:hasResource mmt:Tourniquet1, mmt:Bandage1, mmt:Morphine1 .
+
+mmt:Tourniquet1 a mmt:Tourniquet ;
+    rdfs:label "Combat Application Tourniquet"@en ;
+    mmt:quantity "2"^^xsd:integer .
+
+mmt:Bandage1 a mmt:Bandage ;
+    rdfs:label "Pressure Bandage"@en ;
+    mmt:quantity "5"^^xsd:integer .
+
+mmt:Morphine1 a mmt:Morphine ;
+    rdfs:label "Morphine Autoinjector"@en ;
+    mmt:quantity "3"^^xsd:integer .
+
+# Events
+mmt:TriageEvent a owl:Class ;
+    rdfs:label "Triage Event"@en ;
+    rdfs:comment "An event where patients are triaged"@en .
+
+mmt:TreatmentEvent a owl:Class ;
+    rdfs:label "Treatment Event"@en ;
+    rdfs:comment "An event where a patient receives treatment"@en .
+
+mmt:EvacuationEvent a owl:Class ;
+    rdfs:label "Evacuation Event"@en ;
+    rdfs:comment "An event where a patient is evacuated"@en .
+
+# Decision points
+mmt:TriageDecision a owl:Class ;
+    rdfs:label "Triage Decision"@en ;
+    rdfs:comment "A decision about how to triage a patient"@en .
+
+mmt:ResourceAllocationDecision a owl:Class ;
+    rdfs:label "Resource Allocation Decision"@en ;
+    rdfs:comment "A decision about how to allocate limited resources"@en .
+
+mmt:EvacuationPriorityDecision a owl:Class ;
+    rdfs:label "Evacuation Priority Decision"@en ;
+    rdfs:comment "A decision about evacuation priority"@en .

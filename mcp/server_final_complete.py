@@ -825,8 +825,4 @@ class EthicalDMServer:
                             "id": "mmt:Medic1",
                             "type": "Medic",
                             "label": "Combat Medic",
-                            "resources": ["mmt:Tourniquet1", "mmt:Bandage1", "mmt:Morphine1"]
-                        }
-                    ]
-                
-                if entity_
+                            "resources": ["mmt:Tour

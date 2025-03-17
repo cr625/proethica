@@ -13,7 +13,7 @@ class MCPClient:
         Args:
             server_path: Path to the MCP server script (optional)
         """
-        self.server_path = server_path or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'mcp', 'server.py')
+        self.server_path = server_path or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'mcp', 'server_complete_with_run.py')
         self.server_process = None
     
     def start_server(self):

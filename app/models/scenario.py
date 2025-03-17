@@ -10,6 +10,7 @@ class Scenario(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     domain_id = db.Column(db.Integer, db.ForeignKey('domains.id'), nullable=False)
+    world_id = db.Column(db.Integer, db.ForeignKey('worlds.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scenario_metadata = db.Column(JSON)
@@ -31,6 +32,8 @@ class Scenario(db.Model):
             'description': self.description,
             'domain_id': self.domain_id,
             'domain_name': self.domain.name if self.domain else None,
+            'world_id': self.world_id,
+            'world_name': self.world.name if self.world else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'metadata': self.scenario_metadata

@@ -828,5 +828,3 @@ class EthicalDMServer:
                             "resources": ["mmt:Tourniquet1", "mmt:Bandage1", "mmt:Morphine1"]
                         }
                     ]
-                
-                if entity_

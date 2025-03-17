@@ -13,6 +13,7 @@ from modelcontextprotocol.sdk.types import (
 import json
 import os
 import sys
+import asyncio
 
 class EthicalDMServer:
     """MCP server for the AI Ethical Decision-Making Simulator."""
@@ -825,8 +826,4 @@ class EthicalDMServer:
                             "id": "mmt:Medic1",
                             "type": "Medic",
                             "label": "Combat Medic",
-                            "resources": ["mmt:Tourniquet1", "mmt:Bandage1", "mmt:Morphine1"]
-                        }
-                    ]
-                
-                if entity_
+                            "resources": ["mmt:Tourniquet1", "mmt:Bandage1",

@@ -1,66 +1,90 @@
 #!/usr/bin/env python3
-from modelcontextprotocol.sdk.server import Server
-from modelcontextprotocol.sdk.server.stdio import StdioServerTransport
-from modelcontextprotocol.sdk.types import (
-    CallToolRequestSchema,
-    ErrorCode,
-    ListResourcesRequestSchema,
-    ListResourceTemplatesRequestSchema,
-    ListToolsRequestSchema,
-    McpError,
-    ReadResourceRequestSchema,
-)
 import json
 import os
 import sys
+import asyncio
 
 class EthicalDMServer:
     """MCP server for the AI Ethical Decision-Making Simulator."""
     
     def __init__(self):
         """Initialize the MCP server."""
-        self.server = Server(
-            {
-                "name": "ethical-dm-server",
-                "version": "0.1.0",
-            },
-            {
-                "capabilities": {
-                    "resources": {},
-                    "tools": {},
+        self.jsonrpc_id = 0
+    
+    async def run(self):
+        """Run the MCP server."""
+        print("Ethical DM MCP server running on stdio", file=sys.stderr)
+        
+        # Process stdin/stdout
+        while True:
+            try:
+                # Read request from stdin
+                request_line = await self._read_line()
+                if not request_line:
+                    continue
+                
+                # Parse request
+                request = json.loads(request_line)
+                
+                # Process request
+                response = await self._process_request(request)
+                
+                # Send response
+                print(json.dumps(response), flush=True)
+            except Exception as e:
+                print(f"Error processing request: {str(e)}", file=sys.stderr)
+                # Send error response
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32000,
+                        "message": f"Internal error: {str(e)}"
+                    },
+                    "id": self.jsonrpc_id
+                }
+                print(json.dumps(error_response), flush=True)
+    
+    async def _read_line(self):
+        """Read a line from stdin."""
+        return sys.stdin.readline().strip()
+    
+    async def _process_request(self, request):
+        """Process a JSON-RPC request."""
+        method = request.get("method")
+        params = request.get("params", {})
+        request_id = request.get("id")
+        self.jsonrpc_id = request_id
+        
+        # Process method
+        if method == "list_resources":
+            result = await self._handle_list_resources(params)
+        elif method == "list_resource_templates":
+            result = await self._handle_list_resource_templates(params)
+        elif method == "read_resource":
+            result = await self._handle_read_resource(params)
+        elif method == "list_tools":
+            result = await self._handle_list_tools(params)
+        elif method == "call_tool":
+            result = await self._handle_call_tool(params)
+        else:
+            # Method not found
+            return {
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {method}"
                 },
+                "id": request_id
             }
-        )
         
-        # Setup handlers
-        self.setup_resource_handlers()
-        self.setup_tool_handlers()
-        
-        # Error handling
-        self.server.onerror = lambda error: print(f"[MCP Error] {error}", file=sys.stderr)
-        
-    def setup_resource_handlers(self):
-        """Set up handlers for MCP resources."""
-        
-        # List available resources
-        self.server.setRequestHandler(ListResourcesRequestSchema, async_handler=self.handle_list_resources)
-        
-        # List resource templates
-        self.server.setRequestHandler(ListResourceTemplatesRequestSchema, async_handler=self.handle_list_resource_templates)
-        
-        # Read resource
-        self.server.setRequestHandler(ReadResourceRequestSchema, async_handler=self.handle_read_resource)
+        # Return result
+        return {
+            "jsonrpc": "2.0",
+            "result": result,
+            "id": request_id
+        }
     
-    def setup_tool_handlers(self):
-        """Set up handlers for MCP tools."""
-        
-        # List available tools
-        self.server.setRequestHandler(ListToolsRequestSchema, async_handler=self.handle_list_tools)
-        
-        # Call tool
-        self.server.setRequestHandler(CallToolRequestSchema, async_handler=self.handle_call_tool)
-    
-    async def handle_list_resources(self, request):
+    async def _handle_list_resources(self, params):
         """Handle request to list available resources."""
         return {
             "resources": [
@@ -82,37 +106,11 @@ class EthicalDMServer:
                     "name": "Military Medical Triage World",
                     "mimeType": "application/rdf+xml",
                     "description": "Ontology for military medical triage world"
-                },
-                # Engineering Ethics
-                {
-                    "uri": "ethical-dm://guidelines/engineering-ethics",
-                    "name": "Engineering Ethics Guidelines",
-                    "mimeType": "application/json",
-                    "description": "Guidelines for engineering ethics scenarios"
-                },
-                {
-                    "uri": "ethical-dm://cases/engineering-ethics",
-                    "name": "Engineering Ethics Case Repository",
-                    "mimeType": "application/json",
-                    "description": "Repository of past engineering ethics cases"
-                },
-                # US Law Practice
-                {
-                    "uri": "ethical-dm://guidelines/us-law-practice",
-                    "name": "US Law Practice Guidelines",
-                    "mimeType": "application/json",
-                    "description": "Guidelines for US law practice scenarios"
-                },
-                {
-                    "uri": "ethical-dm://cases/us-law-practice",
-                    "name": "US Law Practice Case Repository",
-                    "mimeType": "application/json",
-                    "description": "Repository of past US law practice cases"
                 }
             ]
         }
     
-    async def handle_list_resource_templates(self, request):
+    async def _handle_list_resource_templates(self, params):
         """Handle request to list available resource templates."""
         return {
             "resourceTemplates": [
@@ -131,9 +129,9 @@ class EthicalDMServer:
             ]
         }
     
-    async def handle_read_resource(self, request):
+    async def _handle_read_resource(self, params):
         """Handle request to read a resource."""
-        uri = request.params.uri
+        uri = params.get("uri")
         
         # Handle Military Medical Triage resources
         if uri == "ethical-dm://guidelines/military-medical-triage":
@@ -214,148 +212,12 @@ class EthicalDMServer:
                     ]
                 }
             except Exception as e:
-                raise McpError(
-                    ErrorCode.InternalError,
-                    f"Error reading ontology file: {str(e)}"
-                )
-        
-        # Handle Engineering Ethics resources
-        elif uri == "ethical-dm://guidelines/engineering-ethics":
-            return {
-                "contents": [
-                    {
-                        "uri": uri,
-                        "mimeType": "application/json",
-                        "text": json.dumps({
-                            "guidelines": [
-                                {
-                                    "name": "Engineering Code of Ethics",
-                                    "description": "Professional code of ethics for engineers",
-                                    "principles": [
-                                        "Hold paramount the safety, health, and welfare of the public",
-                                        "Perform services only in areas of their competence",
-                                        "Issue public statements only in an objective and truthful manner",
-                                        "Act for each employer or client as faithful agents or trustees",
-                                        "Avoid deceptive acts",
-                                        "Conduct themselves honorably, responsibly, ethically, and lawfully"
-                                    ]
-                                },
-                                {
-                                    "name": "Risk Assessment Framework",
-                                    "description": "Framework for assessing engineering risks",
-                                    "steps": [
-                                        "Identify potential hazards",
-                                        "Assess likelihood and severity",
-                                        "Develop mitigation strategies",
-                                        "Implement controls",
-                                        "Monitor and review"
-                                    ]
-                                }
-                            ]
-                        }, indent=2)
+                return {
+                    "error": {
+                        "code": -32000,
+                        "message": f"Error reading ontology file: {str(e)}"
                     }
-                ]
-            }
-        elif uri == "ethical-dm://cases/engineering-ethics":
-            return {
-                "contents": [
-                    {
-                        "uri": uri,
-                        "mimeType": "application/json",
-                        "text": json.dumps({
-                            "cases": [
-                                {
-                                    "id": 1,
-                                    "title": "Challenger Disaster",
-                                    "description": "Engineers raised concerns about O-ring performance in cold temperatures but were overruled",
-                                    "decision": "Launch proceeded despite engineering concerns",
-                                    "outcome": "Catastrophic failure resulting in loss of life",
-                                    "ethical_analysis": "Failure to prioritize safety over schedule pressures; whistleblowing responsibilities"
-                                },
-                                {
-                                    "id": 2,
-                                    "title": "Software Safety Critical System",
-                                    "description": "Deadline pressure to release software with known but rare edge case bugs",
-                                    "decision": "Delayed release to fix critical safety issues despite business pressure",
-                                    "outcome": "Short-term financial impact but maintained safety record and professional integrity",
-                                    "ethical_analysis": "Prioritized public safety over business concerns; professional responsibility"
-                                }
-                            ]
-                        }, indent=2)
-                    }
-                ]
-            }
-            
-        # Handle US Law Practice resources
-        elif uri == "ethical-dm://guidelines/us-law-practice":
-            return {
-                "contents": [
-                    {
-                        "uri": uri,
-                        "mimeType": "application/json",
-                        "text": json.dumps({
-                            "guidelines": [
-                                {
-                                    "name": "ABA Model Rules of Professional Conduct",
-                                    "description": "Ethical standards for legal professionals",
-                                    "principles": [
-                                        "Client-Lawyer Relationship",
-                                        "Counselor",
-                                        "Advocate",
-                                        "Transactions with Persons Other Than Clients",
-                                        "Law Firms and Associations",
-                                        "Public Service",
-                                        "Information About Legal Services",
-                                        "Maintaining the Integrity of the Profession"
-                                    ]
-                                },
-                                {
-                                    "name": "Legal Ethics Framework",
-                                    "description": "Framework for ethical decision-making in legal practice",
-                                    "considerations": [
-                                        "Confidentiality and attorney-client privilege",
-                                        "Conflicts of interest",
-                                        "Duty of candor to the tribunal",
-                                        "Fairness to opposing party and counsel",
-                                        "Impartiality and decorum of the tribunal",
-                                        "Truthfulness in statements to others",
-                                        "Professional independence"
-                                    ]
-                                }
-                            ]
-                        }, indent=2)
-                    }
-                ]
-            }
-        elif uri == "ethical-dm://cases/us-law-practice":
-            return {
-                "contents": [
-                    {
-                        "uri": uri,
-                        "mimeType": "application/json",
-                        "text": json.dumps({
-                            "cases": [
-                                {
-                                    "id": 1,
-                                    "title": "Confidentiality vs. Preventing Harm",
-                                    "description": "Attorney learns client plans to commit a violent crime",
-                                    "decision": "Disclosed minimum information necessary to prevent harm",
-                                    "outcome": "Prevented harm while maintaining most of client confidentiality",
-                                    "ethical_analysis": "Balanced duty of confidentiality with duty to prevent harm to others"
-                                },
-                                {
-                                    "id": 2,
-                                    "title": "Discovery Document Dilemma",
-                                    "description": "Attorney discovers damaging document not requested in discovery",
-                                    "decision": "Advised client of obligation to disclose relevant information",
-                                    "outcome": "Maintained ethical standards and professional integrity",
-                                    "ethical_analysis": "Upheld duties of candor to tribunal and fairness to opposing counsel"
-                                }
-                            ]
-                        }, indent=2)
-                    }
-                ]
-            }
+                }
         
         # Handle resource templates
         if uri.startswith("ethical-dm://cases/search/"):
@@ -470,18 +332,22 @@ class EthicalDMServer:
                         ]
                     }
                 else:
-                    raise McpError(
-                        ErrorCode.InvalidRequest,
-                        f"World not found: {world_name}"
-                    )
+                    return {
+                        "error": {
+                            "code": -32602,
+                            "message": f"World not found: {world_name}"
+                        }
+                    }
         
         # Resource not found
-        raise McpError(
-            ErrorCode.InvalidRequest,
-            f"Resource not found: {uri}"
-        )
+        return {
+            "error": {
+                "code": -32602,
+                "message": f"Resource not found: {uri}"
+            }
+        }
     
-    async def handle_list_tools(self, request):
+    async def _handle_list_tools(self, params):
         """Handle request to list available tools."""
         return {
             "tools": [
@@ -509,41 +375,6 @@ class EthicalDMServer:
                     }
                 },
                 {
-                    "name": "add_case",
-                    "description": "Add a new case to the repository",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                                "description": "Case title"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Case description"
-                            },
-                            "decision": {
-                                "type": "string",
-                                "description": "Decision made in the case"
-                            },
-                            "domain": {
-                                "type": "string",
-                                "description": "Domain for the case (military-medical-triage, engineering-ethics, us-law-practice)",
-                                "enum": ["military-medical-triage", "engineering-ethics", "us-law-practice"]
-                            },
-                            "outcome": {
-                                "type": "string",
-                                "description": "Outcome of the decision"
-                            },
-                            "ethical_analysis": {
-                                "type": "string",
-                                "description": "Ethical analysis of the case"
-                            }
-                        },
-                        "required": ["title", "description", "decision", "domain"]
-                    }
-                },
-                {
                     "name": "get_world_entities",
                     "description": "Get entities from a specific world",
                     "inputSchema": {
@@ -562,67 +393,23 @@ class EthicalDMServer:
                         },
                         "required": ["world_name"]
                     }
-                },
-                {
-                    "name": "create_world",
-                    "description": "Create a new world with entities",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "description": "Name of the world"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Description of the world"
-                            },
-                            "ontology_source": {
-                                "type": "string",
-                                "description": "Source of the ontology (e.g., UMLS, SNOMED CT)"
-                            },
-                            "entities": {
-                                "type": "object",
-                                "description": "Entities in the world",
-                                "properties": {
-                                    "characters": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "conditions": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "resources": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object"
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        "required": ["name", "description"]
-                    }
                 }
             ]
         }
     
-    async def handle_call_tool(self, request):
+    async def _handle_call_tool(self, params):
         """Handle request to call a tool."""
-        tool_name = request.params.name
-        args = request.params.arguments
+        tool_name = params.get("name")
+        args = params.get("arguments", {})
         
         if tool_name == "search_cases":
             if "query" not in args:
-                raise McpError(
-                    ErrorCode.InvalidParams,
-                    "Missing required parameter: query"
-                )
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: query"
+                    }
+                }
             
             query = args["query"]
             limit = args.get("limit", 5)
@@ -662,70 +449,6 @@ class EthicalDMServer:
                         }
                     ]
                 }
-            elif domain == "engineering-ethics":
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps({
-                                "query": query,
-                                "domain": domain,
-                                "results": [
-                                    {
-                                        "id": 1,
-                                        "title": "Challenger Disaster",
-                                        "description": "Engineers raised concerns about O-ring performance in cold temperatures but were overruled",
-                                        "decision": "Launch proceeded despite engineering concerns",
-                                        "outcome": "Catastrophic failure resulting in loss of life",
-                                        "ethical_analysis": "Failure to prioritize safety over schedule pressures; whistleblowing responsibilities",
-                                        "relevance": 0.88
-                                    },
-                                    {
-                                        "id": 2,
-                                        "title": "Software Safety Critical System",
-                                        "description": "Deadline pressure to release software with known but rare edge case bugs",
-                                        "decision": "Delayed release to fix critical safety issues despite business pressure",
-                                        "outcome": "Short-term financial impact but maintained safety record and professional integrity",
-                                        "ethical_analysis": "Prioritized public safety over business concerns; professional responsibility",
-                                        "relevance": 0.75
-                                    }
-                                ]
-                            }, indent=2)
-                        }
-                    ]
-                }
-            elif domain == "us-law-practice":
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps({
-                                "query": query,
-                                "domain": domain,
-                                "results": [
-                                    {
-                                        "id": 1,
-                                        "title": "Confidentiality vs. Preventing Harm",
-                                        "description": "Attorney learns client plans to commit a violent crime",
-                                        "decision": "Disclosed minimum information necessary to prevent harm",
-                                        "outcome": "Prevented harm while maintaining most of client confidentiality",
-                                        "ethical_analysis": "Balanced duty of confidentiality with duty to prevent harm to others",
-                                        "relevance": 0.91
-                                    },
-                                    {
-                                        "id": 2,
-                                        "title": "Discovery Document Dilemma",
-                                        "description": "Attorney discovers damaging document not requested in discovery",
-                                        "decision": "Advised client of obligation to disclose relevant information",
-                                        "outcome": "Maintained ethical standards and professional integrity",
-                                        "ethical_analysis": "Upheld duties of candor to tribunal and fairness to opposing counsel",
-                                        "relevance": 0.79
-                                    }
-                                ]
-                            }, indent=2)
-                        }
-                    ]
-                }
             else:
                 # Default to military medical triage if domain not recognized
                 return {
@@ -751,43 +474,14 @@ class EthicalDMServer:
                         }
                     ]
                 }
-        elif tool_name == "add_case":
-            required_fields = ["title", "description", "decision", "domain"]
-            for field in required_fields:
-                if field not in args:
-                    raise McpError(
-                        ErrorCode.InvalidParams,
-                        f"Missing required parameter: {field}"
-                    )
-            
-            domain = args["domain"]
-            if domain not in ["military-medical-triage", "engineering-ethics", "us-law-practice"]:
-                raise McpError(
-                    ErrorCode.InvalidParams,
-                    f"Invalid domain: {domain}. Must be one of: military-medical-triage, engineering-ethics, us-law-practice"
-                )
-            
-            # This would typically involve adding to a database
-            # For now, we'll just return success
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps({
-                            "success": True,
-                            "message": f"Case added successfully to {domain} domain",
-                            "case_id": 3,  # Placeholder ID
-                            "domain": domain
-                        }, indent=2)
-                    }
-                ]
-            }
         elif tool_name == "get_world_entities":
             if "world_name" not in args:
-                raise McpError(
-                    ErrorCode.InvalidParams,
-                    "Missing required parameter: world_name"
-                )
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": "Missing required parameter: world_name"
+                    }
+                }
             
             world_name = args["world_name"]
             entity_type = args.get("entity_type", "all")
@@ -829,4 +523,77 @@ class EthicalDMServer:
                         }
                     ]
                 
-                if entity_
+                if entity_type == "all" or entity_type == "conditions":
+                    entities["entities"]["conditions"] = [
+                        {
+                            "id": "mmt:Hemorrhage1",
+                            "type": "Hemorrhage",
+                            "label": "Severe Hemorrhage",
+                            "severity": "Severe",
+                            "location": "Left Leg"
+                        },
+                        {
+                            "id": "mmt:Fracture1",
+                            "type": "Fracture",
+                            "label": "Compound Fracture",
+                            "severity": "Moderate",
+                            "location": "Right Arm"
+                        },
+                        {
+                            "id": "mmt:BurnInjury1",
+                            "type": "BurnInjury",
+                            "label": "First Degree Burn",
+                            "severity": "Mild",
+                            "location": "Left Hand"
+                        }
+                    ]
+                
+                if entity_type == "all" or entity_type == "resources":
+                    entities["entities"]["resources"] = [
+                        {
+                            "id": "mmt:Tourniquet1",
+                            "type": "Tourniquet",
+                            "label": "Combat Application Tourniquet",
+                            "quantity": 2
+                        },
+                        {
+                            "id": "mmt:Bandage1",
+                            "type": "Bandage",
+                            "label": "Pressure Bandage",
+                            "quantity": 5
+                        },
+                        {
+                            "id": "mmt:Morphine1",
+                            "type": "Morphine",
+                            "label": "Morphine Autoinjector",
+                            "quantity": 3
+                        }
+                    ]
+                
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(entities, indent=2)
+                        }
+                    ]
+                }
+            else:
+                return {
+                    "error": {
+                        "code": -32602,
+                        "message": f"Invalid world_name: {world_name}. Must be one of: military-medical-triage"
+                    }
+                }
+        else:
+            return {
+                "error": {
+                    "code": -32601,
+                    "message": f"Unknown tool: {tool_name}"
+                }
+            }
+
+# Main entry point
+if __name__ == "__main__":
+    server = EthicalDMServer()
+    asyncio.run(server.run())
