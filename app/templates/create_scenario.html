@@ -30,6 +30,18 @@
                 </div>
 
                 <div class="mb-3">
+                    <label for="world" class="form-label">World</label>
+                    <select class="form-select" id="world" name="world_id">
+                        <option value="">-- Select a World (Optional) --</option>
+                        {% for w in worlds %}
+                        <option value="{{ w.id }}" {% if world and world.id==w.id %}selected{% endif %}>{{ w.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select a world to use its entities in this scenario.</div>
+                </div>
+
+                <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
                     <textarea class="form-control" id="description" name="description" rows="4"></textarea>
                     <div class="form-text">Describe the scenario, including context, setting, and key challenges.</div>

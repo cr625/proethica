@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Worlds - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Worlds</h1>
+        <a href="/worlds/new" class="btn btn-primary">Create New World</a>
+    </div>
+
+    {% if worlds %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for world in worlds %}
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ world.name }}</h5>
+                    <p class="card-text">{{ world.description }}</p>
+                    <p class="card-text"><small class="text-muted">Created: {{ world.created_at.strftime('%Y-%m-%d')
+                            }}</small></p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="/worlds/{{ world.id }}" class="btn btn-outline-primary">View Details</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <p>No worlds have been created yet.</p>
+        <a href="/worlds/new" class="btn btn-primary">Create New World</a>
+    </div>
+    {% endif %}
+
+    <div class="mt-5">
+        <h2>What are Worlds?</h2>
+        <p>
+            Worlds represent the environment and context in which ethical decisions are made.
+            They contain characters, resources, conditions, and other entities that form the basis for scenarios.
+        </p>
+        <p>
+            Each world is based on an ontology that defines the types of entities and their relationships.
+            For example, the Military Medical Triage world includes patients with various conditions,
+            medical personnel, and medical resources.
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -224,3 +224,47 @@ class MCPClient:
             text += f"Ethical Analysis: {case.get('ethical_analysis', '')}\n\n"
         
         return text
+    
+    def get_world_entities(self, world_name: str, entity_type: str = "all") -> Dict[str, Any]:
+        """
+        Get entities from a specific world.
+        
+        Args:
+            world_name: Name of the world (e.g., military-medical-triage)
+            entity_type: Type of entity to retrieve (characters, conditions, resources, all)
+            
+        Returns:
+            Dictionary containing world entities
+        """
+        response = self._send_request(
+            "call_tool",
+            {
+                "name": "get_world_entities",
+                "arguments": {
+                    "world_name": world_name,
+                    "entity_type": entity_type
+                }
+            }
+        )
+        
+        # Parse JSON content
+        content = response["content"][0]["text"]
+        return json.loads(content)
+    
+    def get_world_ontology(self, world_name: str) -> str:
+        """
+        Get the ontology for a specific world.
+        
+        Args:
+            world_name: Name of the world (e.g., military-medical-triage)
+            
+        Returns:
+            String containing the world ontology
+        """
+        response = self._send_request(
+            "read_resource",
+            {"uri": f"ethical-dm://worlds/{world_name}"}
+        )
+        
+        # Return the ontology content
+        return response["contents"][0]["text"]

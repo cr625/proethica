@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}{{ world.name }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ world.name }}</h1>
+        <div>
+            <a href="/worlds" class="btn btn-secondary">Back to Worlds</a>
+            <a href="/scenarios/new?world_id={{ world.id }}" class="btn btn-primary">Create Scenario in this World</a>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>World Details</h3>
+                </div>
+                <div class="card-body">
+                    <p><strong>Description:</strong> {{ world.description }}</p>
+                    <p><strong>Ontology Source:</strong> {{ world.ontology_source or 'Not specified' }}</p>
+                    <p><strong>Created:</strong> {{ world.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p><strong>Last Updated:</strong> {{ world.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Related Scenarios</h3>
+                </div>
+                <div class="card-body">
+                    {% if world.scenarios %}
+                    <ul class="list-group">
+                        {% for scenario in world.scenarios %}
+                        <li class="list-group-item">
+                            <a href="/scenarios/{{ scenario.id }}">{{ scenario.name }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p>No scenarios have been created in this world yet.</p>
+                    <a href="/scenarios/new?world_id={{ world.id }}" class="btn btn-primary">Create Scenario</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>World Entities</h3>
+        </div>
+        <div class="card-body">
+            {% if entities and entities.entities %}
+            <ul class="nav nav-tabs" id="entityTabs" role="tablist">
+                {% if entities.entities.characters %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="characters-tab" data-bs-toggle="tab"
+                        data-bs-target="#characters" type="button" role="tab" aria-controls="characters"
+                        aria-selected="true">Characters</button>
+                </li>
+                {% endif %}
+                {% if entities.entities.conditions %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="conditions-tab" data-bs-toggle="tab" data-bs-target="#conditions"
+                        type="button" role="tab" aria-controls="conditions" aria-selected="false">Conditions</button>
+                </li>
+                {% endif %}
+                {% if entities.entities.resources %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="resources-tab" data-bs-toggle="tab" data-bs-target="#resources"
+                        type="button" role="tab" aria-controls="resources" aria-selected="false">Resources</button>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="tab-content p-3" id="entityTabsContent">
+                {% if entities.entities.characters %}
+                <div class="tab-pane fade show active" id="characters" role="tabpanel" aria-labelledby="characters-tab">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Label</th>
+                                    <th>Type</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for character in entities.entities.characters %}
+                                <tr>
+                                    <td>{{ character.id }}</td>
+                                    <td>{{ character.label }}</td>
+                                    <td>{{ character.type }}</td>
+                                    <td>
+                                        {% if character.conditions %}
+                                        <strong>Conditions:</strong>
+                                        {% for condition in character.conditions %}
+                                        {{ condition }}{% if not loop.last %}, {% endif %}
+                                        {% endfor %}
+                                        <br>
+                                        {% endif %}
+                                        {% if character.triage_category %}
+                                        <strong>Triage Category:</strong> {{ character.triage_category }}
+                                        <br>
+                                        {% endif %}
+                                        {% if character.resources %}
+                                        <strong>Resources:</strong>
+                                        {% for resource in character.resources %}
+                                        {{ resource }}{% if not loop.last %}, {% endif %}
+                                        {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                {% if entities.entities.conditions %}
+                <div class="tab-pane fade" id="conditions" role="tabpanel" aria-labelledby="conditions-tab">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Label</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for condition in entities.entities.conditions %}
+                                <tr>
+                                    <td>{{ condition.id }}</td>
+                                    <td>{{ condition.label }}</td>
+                                    <td>{{ condition.type }}</td>
+                                    <td>{{ condition.severity }}</td>
+                                    <td>{{ condition.location }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                {% if entities.entities.resources %}
+                <div class="tab-pane fade" id="resources" role="tabpanel" aria-labelledby="resources-tab">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Label</th>
+                                    <th>Type</th>
+                                    <th>Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for resource in entities.entities.resources %}
+                                <tr>
+                                    <td>{{ resource.id }}</td>
+                                    <td>{{ resource.label }}</td>
+                                    <td>{{ resource.type }}</td>
+                                    <td>{{ resource.quantity }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% elif entities and entities.error %}
+            <div class="alert alert-danger">
+                <p>Error retrieving world entities: {{ entities.error }}</p>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <p>No entities found for this world.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

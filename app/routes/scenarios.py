@@ -5,6 +5,7 @@ from app.models.character import Character
 from app.models.condition import Condition
 from app.models.resource import Resource
 from app.models.domain import Domain
+from app.models.world import World
 from app.services import EventEngine, DecisionEngine
 
 scenarios_bp = Blueprint('scenarios', __name__, url_prefix='/scenarios')
@@ -48,7 +49,12 @@ def list_scenarios():
 def new_scenario():
     """Display form to create a new scenario."""
     domains = Domain.query.all()
-    return render_template('create_scenario.html', domains=domains)
+    worlds = World.query.all()
+    world_id = request.args.get('world_id', type=int)
+    world = None
+    if world_id:
+        world = World.query.get(world_id)
+    return render_template('create_scenario.html', domains=domains, worlds=worlds, world=world)
 
 @scenarios_bp.route('/<int:id>', methods=['GET'])
 def view_scenario(id):
@@ -260,12 +266,40 @@ def create_scenario():
         # Default to Military Medical Triage domain (ID 1)
         domain = Domain.query.get(1)
     
+    # Get world if provided
+    world_id = data.get('world_id')
+    if world_id:
+        try:
+            world_id = int(world_id)
+            world = World.query.get(world_id)
+            if not world:
+                if request.is_json:
+                    return jsonify({
+                        'success': False,
+                        'message': f'World with ID {world_id} not found'
+                    }), 404
+                else:
+                    flash(f'World with ID {world_id} not found', 'danger')
+                    return redirect(url_for('scenarios.new_scenario'))
+        except ValueError:
+            if request.is_json:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid world ID'
+                }), 400
+            else:
+                flash('Invalid world ID', 'danger')
+                return redirect(url_for('scenarios.new_scenario'))
+    else:
+        world_id = None
+    
     # Create scenario
     scenario = Scenario(
         name=data.get('name', ''),
         description=data.get('description', ''),
         metadata={},
-        domain_id=domain.id
+        domain_id=domain.id,
+        world_id=world_id
     )
     db.session.add(scenario)
     

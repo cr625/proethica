@@ -20,7 +20,9 @@ def create_app(config_name='default'):
     
     # Register blueprints
     from app.routes.scenarios import scenarios_bp
+    from app.routes.worlds import worlds_bp
     app.register_blueprint(scenarios_bp)
+    app.register_blueprint(worlds_bp)
     
     # Create routes
     @app.route('/')
