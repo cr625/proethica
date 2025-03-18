@@ -97,7 +97,6 @@
         </div>
     </div>
 </template>
-
 {% endblock %}
 
 {% block scripts %}
@@ -123,10 +122,21 @@
         const tier = selectedOption.getAttribute('data-tier');
         const roleName = selectedOption.textContent.trim();
 
+        // Debug information
+        console.log('Selected role:', roleName);
+        console.log('Description:', description);
+        console.log('Tier:', tier);
+
         const detailsContainer = document.getElementById('role-details-container');
         const roleTitle = document.getElementById('role-title');
         const roleTier = document.getElementById('role-tier');
         const roleDescription = document.getElementById('role-description');
+
+        // Debug DOM elements
+        console.log('Details container exists:', !!detailsContainer);
+        console.log('Role title exists:', !!roleTitle);
+        console.log('Role tier exists:', !!roleTier);
+        console.log('Role description exists:', !!roleDescription);
 
         if (description && this.value !== '') {
             // Set the role title and description
@@ -136,9 +146,11 @@
 
             // Show the details container
             detailsContainer.classList.remove('d-none');
+            console.log('Showing details container');
         } else {
             // Hide the details container if no role is selected
             detailsContainer.classList.add('d-none');
+            console.log('Hiding details container');
         }
     });
 
