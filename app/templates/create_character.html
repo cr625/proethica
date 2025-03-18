@@ -37,15 +37,13 @@
                     </select>
                 </div>
 
-                <div id="role-details-container" class="mb-4 d-none">
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <h4 id="role-title" class="mb-0"></h4>
-                        </div>
-                        <div class="card-body">
-                            <h5 id="role-tier" class="card-subtitle mb-3 text-muted"></h5>
-                            <div id="role-description" class="card-text"></div>
-                        </div>
+                <div id="role-details" class="card mt-3 mb-3 d-none">
+                    <div class="card-header bg-primary text-white">
+                        <h4 id="role-title" class="mb-0"></h4>
+                    </div>
+                    <div class="card-body">
+                        <h5 id="role-tier" class="card-subtitle mb-2 text-muted"></h5>
+                        <div id="role-description" class="card-text"></div>
                     </div>
                 </div>
 
@@ -122,35 +120,26 @@
         const tier = selectedOption.getAttribute('data-tier');
         const roleName = selectedOption.textContent.trim();
 
-        // Debug information
         console.log('Selected role:', roleName);
         console.log('Description:', description);
         console.log('Tier:', tier);
 
-        const detailsContainer = document.getElementById('role-details-container');
+        const roleDetails = document.getElementById('role-details');
         const roleTitle = document.getElementById('role-title');
         const roleTier = document.getElementById('role-tier');
         const roleDescription = document.getElementById('role-description');
 
-        // Debug DOM elements
-        console.log('Details container exists:', !!detailsContainer);
-        console.log('Role title exists:', !!roleTitle);
-        console.log('Role tier exists:', !!roleTier);
-        console.log('Role description exists:', !!roleDescription);
+        console.log('Role details element exists:', !!roleDetails);
 
         if (description && this.value !== '') {
-            // Set the role title and description
             roleTitle.textContent = roleName;
             roleTier.textContent = tier ? `Tier ${tier}` : '';
             roleDescription.innerHTML = description.replace(/\n/g, '<br>');
-
-            // Show the details container
-            detailsContainer.classList.remove('d-none');
-            console.log('Showing details container');
+            roleDetails.classList.remove('d-none');
+            console.log('Showing role details');
         } else {
-            // Hide the details container if no role is selected
-            detailsContainer.classList.add('d-none');
-            console.log('Hiding details container');
+            roleDetails.classList.add('d-none');
+            console.log('Hiding role details');
         }
     });
 
