@@ -7,6 +7,7 @@ from app.models.resource import Resource
 from app.models.domain import Domain
 from app.models.world import World
 from app.services import EventEngine, DecisionEngine
+from app.services.mcp_client import MCPClient
 
 scenarios_bp = Blueprint('scenarios', __name__, url_prefix='/scenarios')
 
@@ -390,3 +391,76 @@ def delete_scenario(id):
         'success': True,
         'message': 'Scenario deleted successfully'
     })
+
+# References routes
+@scenarios_bp.route('/<int:id>/references', methods=['GET'])
+def scenario_references(id):
+    """Display references for a scenario."""
+    scenario = Scenario.query.get_or_404(id)
+    
+    # Get search query from request parameters
+    query = request.args.get('query', '')
+    
+    # Initialize MCP client
+    mcp_client = MCPClient()
+    
+    # Get references
+    if query:
+        # Search with the provided query
+        references = mcp_client.search_zotero_items(query, limit=10)
+    else:
+        # Get references based on scenario content
+        references = mcp_client.get_references_for_scenario(scenario)
+    
+    return render_template('scenario_references.html', scenario=scenario, references=references, query=query)
+
+@scenarios_bp.route('/<int:id>/references/<item_key>/citation', methods=['GET'])
+def get_reference_citation(id, item_key):
+    """Get citation for a reference."""
+    scenario = Scenario.query.get_or_404(id)
+    style = request.args.get('style', 'apa')
+    
+    # Initialize MCP client
+    mcp_client = MCPClient()
+    
+    # Get citation
+    try:
+        citation = mcp_client.get_zotero_citation(item_key, style)
+        return jsonify({
+            'success': True,
+            'citation': citation
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@scenarios_bp.route('/<int:id>/references/add', methods=['POST'])
+def add_reference(id):
+    """Add a reference to the Zotero library."""
+    scenario = Scenario.query.get_or_404(id)
+    data = request.json
+    
+    # Initialize MCP client
+    mcp_client = MCPClient()
+    
+    # Add reference
+    try:
+        result = mcp_client.add_zotero_item(
+            item_type=data.get('item_type', 'journalArticle'),
+            title=data.get('title', ''),
+            creators=data.get('creators', []),
+            additional_fields=data.get('additional_fields', {})
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Reference added successfully',
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500

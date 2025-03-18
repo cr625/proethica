@@ -16,6 +16,9 @@ mcp[cli]
 # Vector database
 chromadb
 
+# Zotero integration
+pyzotero
+
 # Testing
 pytest
 pytest-flask

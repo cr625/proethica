@@ -1,55 +1,91 @@
 import os
 import json
 import subprocess
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Literal
+
+ServerType = Literal["ethical-dm", "zotero"]
 
 class MCPClient:
-    """Client for interacting with the MCP server."""
+    """Client for interacting with the MCP servers."""
     
-    def __init__(self, server_path: Optional[str] = None):
+    def __init__(self, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None):
         """
         Initialize the MCP client.
         
         Args:
-            server_path: Path to the MCP server script (optional)
+            ethical_dm_server_path: Path to the ethical-dm MCP server script (optional)
+            zotero_server_path: Path to the Zotero MCP server script (optional)
         """
-        self.server_path = server_path or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'mcp', 'server_complete_with_run.py')
-        self.server_process = None
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        self.ethical_dm_server_path = ethical_dm_server_path or os.path.join(base_dir, 'mcp', 'server_complete_with_run.py')
+        self.zotero_server_path = zotero_server_path or os.path.join(base_dir, '..', 'zotero-mcp-server', 'src', 'server.py')
+        self.ethical_dm_server_process = None
+        self.zotero_server_process = None
     
-    def start_server(self):
-        """Start the MCP server process."""
-        if self.server_process is None or self.server_process.poll() is not None:
-            # Server not running, start it
-            self.server_process = subprocess.Popen(
-                ['python', self.server_path],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1  # Line buffered
-            )
+    def start_server(self, server_type: ServerType = "ethical-dm"):
+        """
+        Start the MCP server process.
+        
+        Args:
+            server_type: Type of server to start (ethical-dm or zotero)
+        """
+        if server_type == "ethical-dm":
+            if self.ethical_dm_server_process is None or self.ethical_dm_server_process.poll() is not None:
+                # Server not running, start it
+                self.ethical_dm_server_process = subprocess.Popen(
+                    ['python', self.ethical_dm_server_path],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1  # Line buffered
+                )
+        elif server_type == "zotero":
+            if self.zotero_server_process is None or self.zotero_server_process.poll() is not None:
+                # Server not running, start it
+                self.zotero_server_process = subprocess.Popen(
+                    ['python', self.zotero_server_path],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1  # Line buffered
+                )
     
-    def stop_server(self):
-        """Stop the MCP server process."""
-        if self.server_process is not None and self.server_process.poll() is None:
-            # Server running, stop it
-            self.server_process.terminate()
-            self.server_process.wait(timeout=5)
-            self.server_process = None
+    def stop_server(self, server_type: ServerType = "ethical-dm"):
+        """
+        Stop the MCP server process.
+        
+        Args:
+            server_type: Type of server to stop (ethical-dm or zotero)
+        """
+        if server_type == "ethical-dm":
+            if self.ethical_dm_server_process is not None and self.ethical_dm_server_process.poll() is None:
+                # Server running, stop it
+                self.ethical_dm_server_process.terminate()
+                self.ethical_dm_server_process.wait(timeout=5)
+                self.ethical_dm_server_process = None
+        elif server_type == "zotero":
+            if self.zotero_server_process is not None and self.zotero_server_process.poll() is None:
+                # Server running, stop it
+                self.zotero_server_process.terminate()
+                self.zotero_server_process.wait(timeout=5)
+                self.zotero_server_process = None
     
-    def _send_request(self, request_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _send_request(self, request_type: str, params: Dict[str, Any], server_type: ServerType = "ethical-dm") -> Dict[str, Any]:
         """
         Send a request to the MCP server.
         
         Args:
             request_type: Type of request
             params: Request parameters
+            server_type: Type of server to send request to (ethical-dm or zotero)
             
         Returns:
             Response from the server
         """
         # Ensure server is running
-        self.start_server()
+        self.start_server(server_type)
         
         # Prepare request
         request = {
@@ -59,12 +95,20 @@ class MCPClient:
             "id": 1
         }
         
+        # Send request to appropriate server
+        if server_type == "ethical-dm":
+            server_process = self.ethical_dm_server_process
+        elif server_type == "zotero":
+            server_process = self.zotero_server_process
+        else:
+            raise ValueError(f"Invalid server type: {server_type}")
+        
         # Send request
-        self.server_process.stdin.write(json.dumps(request) + '\n')
-        self.server_process.stdin.flush()
+        server_process.stdin.write(json.dumps(request) + '\n')
+        server_process.stdin.flush()
         
         # Read response
-        response_line = self.server_process.stdout.readline()
+        response_line = server_process.stdout.readline()
         response = json.loads(response_line)
         
         # Check for errors
@@ -268,3 +312,179 @@ class MCPClient:
         
         # Return the ontology content
         return response["contents"][0]["text"]
+    
+    # Zotero MCP server methods
+    
+    def get_zotero_collections(self) -> Dict[str, Any]:
+        """
+        Get collections from the Zotero library.
+        
+        Returns:
+            Dictionary containing collections
+        """
+        response = self._send_request(
+            "read_resource",
+            {"uri": "zotero://collections"},
+            server_type="zotero"
+        )
+        
+        # Parse JSON content
+        content = response["contents"][0]["text"]
+        return json.loads(content)
+    
+    def get_zotero_recent_items(self, limit: int = 20) -> Dict[str, Any]:
+        """
+        Get recent items from the Zotero library.
+        
+        Args:
+            limit: Maximum number of results to return
+            
+        Returns:
+            Dictionary containing recent items
+        """
+        response = self._send_request(
+            "read_resource",
+            {"uri": "zotero://items/recent"},
+            server_type="zotero"
+        )
+        
+        # Parse JSON content
+        content = response["contents"][0]["text"]
+        return json.loads(content)
+    
+    def search_zotero_items(self, query: str, collection_key: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+        """
+        Search for items in the Zotero library.
+        
+        Args:
+            query: Search query
+            collection_key: Collection key to search in (optional)
+            limit: Maximum number of results to return
+            
+        Returns:
+            Dictionary containing search results
+        """
+        response = self._send_request(
+            "call_tool",
+            {
+                "name": "search_items",
+                "arguments": {
+                    "query": query,
+                    "collection_key": collection_key,
+                    "limit": limit
+                }
+            },
+            server_type="zotero"
+        )
+        
+        # Parse JSON content
+        content = response["content"][0]["text"]
+        return json.loads(content)
+    
+    def get_zotero_citation(self, item_key: str, style: str = "apa") -> str:
+        """
+        Get citation for a specific Zotero item.
+        
+        Args:
+            item_key: Item key
+            style: Citation style (e.g., apa, mla, chicago)
+            
+        Returns:
+            Citation text
+        """
+        response = self._send_request(
+            "call_tool",
+            {
+                "name": "get_citation",
+                "arguments": {
+                    "item_key": item_key,
+                    "style": style
+                }
+            },
+            server_type="zotero"
+        )
+        
+        # Return citation text
+        return response["content"][0]["text"]
+    
+    def add_zotero_item(self, item_type: str, title: str, creators: Optional[List[Dict[str, str]]] = None,
+                        collection_key: Optional[str] = None, additional_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Add a new item to the Zotero library.
+        
+        Args:
+            item_type: Item type (e.g., journalArticle, book, webpage)
+            title: Item title
+            creators: Item creators (authors, editors, etc.)
+            collection_key: Collection key to add the item to (optional)
+            additional_fields: Additional fields for the item (e.g., date, url, publisher)
+            
+        Returns:
+            Dictionary containing response from the server
+        """
+        response = self._send_request(
+            "call_tool",
+            {
+                "name": "add_item",
+                "arguments": {
+                    "item_type": item_type,
+                    "title": title,
+                    "creators": creators or [],
+                    "collection_key": collection_key,
+                    "additional_fields": additional_fields or {}
+                }
+            },
+            server_type="zotero"
+        )
+        
+        # Parse JSON content
+        content = response["content"][0]["text"]
+        return json.loads(content)
+    
+    def get_zotero_bibliography(self, item_keys: List[str], style: str = "apa") -> str:
+        """
+        Get bibliography for multiple Zotero items.
+        
+        Args:
+            item_keys: Array of item keys
+            style: Citation style (e.g., apa, mla, chicago)
+            
+        Returns:
+            Bibliography text
+        """
+        response = self._send_request(
+            "call_tool",
+            {
+                "name": "get_bibliography",
+                "arguments": {
+                    "item_keys": item_keys,
+                    "style": style
+                }
+            },
+            server_type="zotero"
+        )
+        
+        # Return bibliography text
+        return response["content"][0]["text"]
+    
+    def get_references_for_scenario(self, scenario) -> Dict[str, Any]:
+        """
+        Get references for a specific scenario.
+        
+        Args:
+            scenario: Scenario object
+            
+        Returns:
+            Dictionary containing references
+        """
+        # Create query from scenario
+        query = f"{scenario.name} {scenario.description}"
+        
+        # Add character information
+        for char in scenario.characters:
+            query += f" {char.name} {char.role}"
+            for cond in char.conditions:
+                query += f" {cond.name}"
+        
+        # Search for references
+        return self.search_zotero_items(query, limit=10)

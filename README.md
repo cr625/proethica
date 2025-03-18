@@ -14,6 +14,7 @@ This project simulates event-based scenarios like military medical triage to tra
 - Ethical reasoning framework
 - Integration with LLMs via LangChain and LangGraph
 - Model Context Protocol for extensibility
+- Zotero integration for academic references and citations
 
 ## Architecture
 
@@ -62,7 +63,13 @@ The application is built with:
    SECRET_KEY=your-secret-key
    DATABASE_URL=postgresql://postgres:yourpassword@localhost/ai_ethical_dm
    OPENAI_API_KEY=your-openai-api-key
+   
+   # For Zotero integration (optional)
+   ZOTERO_API_KEY=your-zotero-api-key
+   ZOTERO_USER_ID=your-zotero-user-id
    ```
+   
+   See `ZOTERO_INTEGRATION.md` for more details on setting up the Zotero integration.
 
 6. Initialize the database:
    ```
