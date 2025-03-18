@@ -21,9 +21,31 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="type" class="form-label">Type</label>
-                    <input type="text" class="form-control" id="type" name="type">
-                    <div class="form-text">E.g., Medical Supply, Equipment, Personnel, etc.</div>
+                    <label for="resource_type_id" class="form-label">Resource Type</label>
+                    <select class="form-select" id="resource_type_id" name="resource_type_id">
+                        <option value="">-- Select a Resource Type --</option>
+                        {% if resource_types %}
+                        {% for resource_type in resource_types %}
+                        <option value="{{ resource_type.id }}" data-description="{{ resource_type.description }}"
+                            data-category="{{ resource_type.category }}">
+                            {{ resource_type.name }} {% if resource_type.category %}({{ resource_type.category }}){%
+                            endif %}
+                        </option>
+                        {% endfor %}
+                        {% else %}
+                        <option value="" disabled>No resource types available for this world</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div id="resource-type-details" class="card mt-3 mb-3 d-none">
+                    <div class="card-header bg-primary text-white">
+                        <h4 id="resource-type-title" class="mb-0"></h4>
+                    </div>
+                    <div class="card-body">
+                        <h5 id="resource-type-category" class="card-subtitle mb-3 text-muted"></h5>
+                        <div id="resource-type-description" class="card-text"></div>
+                    </div>
                 </div>
 
                 <div class="mb-3">
@@ -81,15 +103,45 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
+    // Show resource type description when a resource type is selected
+    document.getElementById('resource_type_id').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        const description = selectedOption.getAttribute('data-description');
+        const category = selectedOption.getAttribute('data-category');
+        const resourceTypeName = selectedOption.textContent.trim();
+
+        console.log('Selected resource type:', resourceTypeName);
+        console.log('Description:', description);
+        console.log('Category:', category);
+
+        const resourceTypeDetails = document.getElementById('resource-type-details');
+        const resourceTypeTitle = document.getElementById('resource-type-title');
+        const resourceTypeCategory = document.getElementById('resource-type-category');
+        const resourceTypeDescription = document.getElementById('resource-type-description');
+
+        if (description && this.value !== '') {
+            resourceTypeTitle.textContent = resourceTypeName;
+            resourceTypeCategory.textContent = category ? `Category: ${category}` : '';
+            resourceTypeDescription.innerHTML = description.replace(/\n/g, '<br>');
+            resourceTypeDetails.classList.remove('d-none');
+            console.log('Showing resource type details');
+        } else {
+            resourceTypeDetails.classList.add('d-none');
+            console.log('Hiding resource type details');
+        }
+    });
+
+    // Form submission
     document.getElementById('create-resource-form').addEventListener('submit', function (e) {
         e.preventDefault();
 
         const formData = {
             name: document.getElementById('name').value,
-            type: document.getElementById('type').value,
+            resource_type_id: document.getElementById('resource_type_id').value,
             quantity: parseInt(document.getElementById('quantity').value),
             description: document.getElementById('description').value
         };
@@ -115,5 +167,4 @@
             });
     });
 </script>
-{% endblock %}
 {% endblock %}

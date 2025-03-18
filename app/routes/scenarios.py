@@ -4,6 +4,7 @@ from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.condition import Condition
 from app.models.resource import Resource
+from app.models.resource_type import ResourceType
 from app.models.domain import Domain
 from app.models.world import World
 from app.models.role import Role
@@ -129,7 +130,18 @@ def add_character(id):
 def new_resource(id):
     """Display form to add a resource to a scenario."""
     scenario = Scenario.query.get_or_404(id)
-    return render_template('create_resource.html', scenario=scenario)
+    # Get resource types for the scenario's world
+    resource_types = ResourceType.query.filter_by(world_id=scenario.world_id).all()
+    
+    # Debug information
+    print(f"Found {len(resource_types)} resource types for world_id {scenario.world_id}:")
+    for rt in resource_types:
+        print(f"ID: {rt.id}, Name: {rt.name}, Category: {rt.category}")
+        print(f"Description: {rt.description}")
+        print(f"Ontology URI: {rt.ontology_uri}")
+        print("-" * 50)
+    
+    return render_template('create_resource.html', scenario=scenario, resource_types=resource_types)
 
 @scenarios_bp.route('/<int:id>/resources', methods=['POST'])
 def add_resource(id):
@@ -141,10 +153,20 @@ def add_resource(id):
     resource = Resource(
         scenario=scenario,
         name=data['name'],
-        type=data.get('type', ''),
+        resource_type_id=data.get('resource_type_id'),
         quantity=data.get('quantity', 1),
         description=data.get('description', '')
     )
+    
+    # If resource_type_id is provided, get the type for backward compatibility
+    if resource.resource_type_id:
+        resource_type = ResourceType.query.get(resource.resource_type_id)
+        if resource_type:
+            resource.type = resource_type.name
+    else:
+        # Use the type field if provided
+        resource.type = data.get('type', '')
+    
     db.session.add(resource)
     db.session.commit()
     
