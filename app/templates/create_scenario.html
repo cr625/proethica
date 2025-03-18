@@ -21,24 +21,15 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="domain" class="form-label">Domain</label>
-                    <select class="form-select" id="domain" name="domain_id" required>
-                        {% for domain in domains %}
-                        <option value="{{ domain.id }}">{{ domain.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
                     <label for="world" class="form-label">World</label>
-                    <select class="form-select" id="world" name="world_id">
-                        <option value="">-- Select a World (Optional) --</option>
+                    <select class="form-select" id="world" name="world_id" required>
+                        <option value="">-- Select a World --</option>
                         {% for w in worlds %}
                         <option value="{{ w.id }}" {% if world and world.id==w.id %}selected{% endif %}>{{ w.name }}
                         </option>
                         {% endfor %}
                     </select>
-                    <div class="form-text">Select a world to use its entities in this scenario.</div>
+                    <div class="form-text">Select a world to define the context for this scenario.</div>
                 </div>
 
                 <div class="mb-3">

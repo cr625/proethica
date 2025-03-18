@@ -249,7 +249,7 @@ class DecisionEngine:
     
     def _get_domain_from_scenario(self, scenario: Dict[str, Any]) -> str:
         """
-        Get the domain identifier from a scenario.
+        Get the domain identifier from a scenario's world.
         
         Args:
             scenario: Dictionary containing scenario data
@@ -258,25 +258,38 @@ class DecisionEngine:
             Domain identifier string
         """
         # Check if scenario is a database model
-        if hasattr(scenario, 'domain') and scenario.domain:
-            return scenario.domain.name.lower().replace(' ', '-')
-        elif hasattr(scenario, 'domain_id') and scenario.domain_id:
-            # Get domain name from database
-            from app.models import Domain
-            domain_obj = Domain.query.get(scenario.domain_id)
-            if domain_obj:
-                return domain_obj.name.lower().replace(' ', '-')
+        if hasattr(scenario, 'world') and scenario.world:
+            # Extract domain from world name or metadata
+            world_name = scenario.world.name.lower()
+            if 'military' in world_name or 'medical' in world_name or 'triage' in world_name:
+                return 'military-medical-triage'
+            elif 'engineering' in world_name or 'engineer' in world_name:
+                return 'engineering-ethics'
+            elif 'law' in world_name or 'legal' in world_name:
+                return 'us-law-practice'
         
-        # Check if scenario is a dictionary with domain information
+        # Check if scenario is a dictionary with world information
         if isinstance(scenario, dict):
-            if 'domain' in scenario and isinstance(scenario['domain'], dict):
-                return scenario['domain'].get('name', 'military-medical-triage').lower().replace(' ', '-')
-            elif 'domain_id' in scenario:
-                # Get domain name from database
-                from app.models import Domain
-                domain_obj = Domain.query.get(scenario['domain_id'])
-                if domain_obj:
-                    return domain_obj.name.lower().replace(' ', '-')
+            if 'world' in scenario and isinstance(scenario['world'], dict):
+                world_name = scenario['world'].get('name', '').lower()
+                if 'military' in world_name or 'medical' in world_name or 'triage' in world_name:
+                    return 'military-medical-triage'
+                elif 'engineering' in world_name or 'engineer' in world_name:
+                    return 'engineering-ethics'
+                elif 'law' in world_name or 'legal' in world_name:
+                    return 'us-law-practice'
+            elif 'world_id' in scenario:
+                # Get world name from database
+                from app.models import World
+                world_obj = World.query.get(scenario['world_id'])
+                if world_obj:
+                    world_name = world_obj.name.lower()
+                    if 'military' in world_name or 'medical' in world_name or 'triage' in world_name:
+                        return 'military-medical-triage'
+                    elif 'engineering' in world_name or 'engineer' in world_name:
+                        return 'engineering-ethics'
+                    elif 'law' in world_name or 'legal' in world_name:
+                        return 'us-law-practice'
         
         # Default to military medical triage
         return "military-medical-triage"

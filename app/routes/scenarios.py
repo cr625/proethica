@@ -34,35 +34,33 @@ def api_get_scenario(id):
 @scenarios_bp.route('/', methods=['GET'])
 def list_scenarios():
     """Display all scenarios."""
-    # Get domain filter from query parameters
-    domain_id = request.args.get('domain_id', type=int)
+    # Get world filter from query parameters
+    world_id = request.args.get('world_id', type=int)
     
-    # Filter scenarios by domain if specified
-    if domain_id:
-        scenarios = Scenario.query.filter_by(domain_id=domain_id).all()
+    # Filter scenarios by world if specified
+    if world_id:
+        scenarios = Scenario.query.filter_by(world_id=world_id).all()
     else:
         scenarios = Scenario.query.all()
     
-    domains = Domain.query.all()
-    return render_template('scenarios.html', scenarios=scenarios, domains=domains, selected_domain_id=domain_id)
+    worlds = World.query.all()
+    return render_template('scenarios.html', scenarios=scenarios, worlds=worlds, selected_world_id=world_id)
 
 @scenarios_bp.route('/new', methods=['GET'])
 def new_scenario():
     """Display form to create a new scenario."""
-    domains = Domain.query.all()
     worlds = World.query.all()
     world_id = request.args.get('world_id', type=int)
     world = None
     if world_id:
         world = World.query.get(world_id)
-    return render_template('create_scenario.html', domains=domains, worlds=worlds, world=world)
+    return render_template('create_scenario.html', worlds=worlds, world=world)
 
 @scenarios_bp.route('/<int:id>', methods=['GET'])
 def view_scenario(id):
     """Display a specific scenario."""
     scenario = Scenario.query.get_or_404(id)
-    domains = Domain.query.all()
-    return render_template('scenario_detail.html', scenario=scenario, domains=domains)
+    return render_template('scenario_detail.html', scenario=scenario)
 
 # Character routes
 @scenarios_bp.route('/<int:id>/characters/new', methods=['GET'])
@@ -239,67 +237,45 @@ def create_scenario():
     else:
         data = request.form
     
-    # Get domain if provided, otherwise use default (Military Medical Triage)
-    domain_id = data.get('domain_id')
-    if domain_id:
-        try:
-            domain_id = int(domain_id)
-            domain = Domain.query.get(domain_id)
-            if not domain:
-                if request.is_json:
-                    return jsonify({
-                        'success': False,
-                        'message': f'Domain with ID {domain_id} not found'
-                    }), 404
-                else:
-                    flash(f'Domain with ID {domain_id} not found', 'danger')
-                    return redirect(url_for('scenarios.new_scenario'))
-        except ValueError:
-            if request.is_json:
-                return jsonify({
-                    'success': False,
-                    'message': 'Invalid domain ID'
-                }), 400
-            else:
-                flash('Invalid domain ID', 'danger')
-                return redirect(url_for('scenarios.new_scenario'))
-    else:
-        # Default to Military Medical Triage domain (ID 1)
-        domain = Domain.query.get(1)
-    
-    # Get world if provided
+    # Get world (required)
     world_id = data.get('world_id')
-    if world_id:
-        try:
-            world_id = int(world_id)
-            world = World.query.get(world_id)
-            if not world:
-                if request.is_json:
-                    return jsonify({
-                        'success': False,
-                        'message': f'World with ID {world_id} not found'
-                    }), 404
-                else:
-                    flash(f'World with ID {world_id} not found', 'danger')
-                    return redirect(url_for('scenarios.new_scenario'))
-        except ValueError:
+    if not world_id:
+        if request.is_json:
+            return jsonify({
+                'success': False,
+                'message': 'World ID is required'
+            }), 400
+        else:
+            flash('World ID is required', 'danger')
+            return redirect(url_for('scenarios.new_scenario'))
+    
+    try:
+        world_id = int(world_id)
+        world = World.query.get(world_id)
+        if not world:
             if request.is_json:
                 return jsonify({
                     'success': False,
-                    'message': 'Invalid world ID'
-                }), 400
+                    'message': f'World with ID {world_id} not found'
+                }), 404
             else:
-                flash('Invalid world ID', 'danger')
+                flash(f'World with ID {world_id} not found', 'danger')
                 return redirect(url_for('scenarios.new_scenario'))
-    else:
-        world_id = None
+    except ValueError:
+        if request.is_json:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid world ID'
+            }), 400
+        else:
+            flash('Invalid world ID', 'danger')
+            return redirect(url_for('scenarios.new_scenario'))
     
     # Create scenario
     scenario = Scenario(
         name=data.get('name', ''),
         description=data.get('description', ''),
         metadata={},
-        domain_id=domain.id,
         world_id=world_id
     )
     db.session.add(scenario)
@@ -362,15 +338,15 @@ def update_scenario(id):
     if 'metadata' in data:
         scenario.metadata = data['metadata']
     
-    # Update domain if provided
-    if 'domain_id' in data:
-        domain = Domain.query.get(data['domain_id'])
-        if not domain:
+    # Update world if provided
+    if 'world_id' in data:
+        world = World.query.get(data['world_id'])
+        if not world:
             return jsonify({
                 'success': False,
-                'message': f'Domain with ID {data["domain_id"]} not found'
+                'message': f'World with ID {data["world_id"]} not found'
             }), 404
-        scenario.domain_id = domain.id
+        scenario.world_id = world.id
     
     db.session.commit()
     
