@@ -64,6 +64,44 @@ def view_scenario(id):
     scenario = Scenario.query.get_or_404(id)
     return render_template('scenario_detail.html', scenario=scenario)
 
+@scenarios_bp.route('/<int:id>/edit', methods=['GET'])
+def edit_scenario(id):
+    """Display form to edit an existing scenario."""
+    scenario = Scenario.query.get_or_404(id)
+    worlds = World.query.all()
+    return render_template('edit_scenario.html', scenario=scenario, worlds=worlds)
+
+@scenarios_bp.route('/<int:id>/edit', methods=['POST'])
+def update_scenario_form(id):
+    """Update an existing scenario from form data."""
+    scenario = Scenario.query.get_or_404(id)
+    
+    # Get world (required)
+    world_id = request.form.get('world_id')
+    if not world_id:
+        flash('World ID is required', 'danger')
+        return redirect(url_for('scenarios.edit_scenario', id=scenario.id))
+    
+    try:
+        world_id = int(world_id)
+        world = World.query.get(world_id)
+        if not world:
+            flash(f'World with ID {world_id} not found', 'danger')
+            return redirect(url_for('scenarios.edit_scenario', id=scenario.id))
+    except ValueError:
+        flash('Invalid world ID', 'danger')
+        return redirect(url_for('scenarios.edit_scenario', id=scenario.id))
+    
+    # Update scenario fields
+    scenario.name = request.form.get('name', '')
+    scenario.description = request.form.get('description', '')
+    scenario.world_id = world_id
+    
+    db.session.commit()
+    
+    flash('Scenario updated successfully', 'success')
+    return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+
 # Character routes
 @scenarios_bp.route('/<int:id>/characters/new', methods=['GET'])
 def new_character(id):
@@ -398,7 +436,7 @@ def update_scenario(id):
 
 @scenarios_bp.route('/<int:id>', methods=['DELETE'])
 def delete_scenario(id):
-    """Delete a scenario."""
+    """Delete a scenario via API."""
     scenario = Scenario.query.get_or_404(id)
     db.session.delete(scenario)
     db.session.commit()
@@ -407,6 +445,16 @@ def delete_scenario(id):
         'success': True,
         'message': 'Scenario deleted successfully'
     })
+
+@scenarios_bp.route('/<int:id>/delete', methods=['POST'])
+def delete_scenario_form(id):
+    """Delete a scenario from web form."""
+    scenario = Scenario.query.get_or_404(id)
+    db.session.delete(scenario)
+    db.session.commit()
+    
+    flash('Scenario deleted successfully', 'success')
+    return redirect(url_for('scenarios.list_scenarios'))
 
 # References routes
 @scenarios_bp.route('/<int:id>/references', methods=['GET'])
