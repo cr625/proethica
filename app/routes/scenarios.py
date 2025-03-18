@@ -6,6 +6,7 @@ from app.models.condition import Condition
 from app.models.resource import Resource
 from app.models.domain import Domain
 from app.models.world import World
+from app.models.role import Role
 from app.services import EventEngine, DecisionEngine
 from app.services.mcp_client import MCPClient
 
@@ -67,7 +68,18 @@ def view_scenario(id):
 def new_character(id):
     """Display form to add a character to a scenario."""
     scenario = Scenario.query.get_or_404(id)
-    return render_template('create_character.html', scenario=scenario)
+    # Get roles for the scenario's world
+    roles = Role.query.filter_by(world_id=scenario.world_id).all()
+    
+    # Debug information
+    print(f"Found {len(roles)} roles for world_id {scenario.world_id}:")
+    for role in roles:
+        print(f"ID: {role.id}, Name: {role.name}, Tier: {role.tier}")
+        print(f"Description: {role.description}")
+        print(f"Ontology URI: {role.ontology_uri}")
+        print("-" * 50)
+    
+    return render_template('create_character.html', scenario=scenario, roles=roles)
 
 @scenarios_bp.route('/<int:id>/characters', methods=['POST'])
 def add_character(id):
@@ -79,9 +91,15 @@ def add_character(id):
     character = Character(
         scenario=scenario,
         name=data['name'],
-        role=data.get('role', ''),
+        role_id=data.get('role_id'),
         attributes=data.get('attributes', {})
     )
+    
+    # If role_id is provided, get the role name for backward compatibility
+    if character.role_id:
+        role = Role.query.get(character.role_id)
+        if role:
+            character.role = role.name
     db.session.add(character)
     
     # Add conditions if provided

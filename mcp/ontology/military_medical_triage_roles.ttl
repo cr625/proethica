@@ -1,0 +1,174 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix mmt: <http://example.org/military-medical-triage#> .
+@prefix mmtr: <http://example.org/military-medical-triage-roles#> .
+
+# Role hierarchy
+mmtr:Role a owl:Class ;
+    rdfs:label "Military Medical Role"@en ;
+    rdfs:comment "A role in the military medical triage system"@en .
+
+# Tier 1: All Service Members (ASM)
+mmtr:AllServiceMembers a owl:Class ;
+    rdfs:subClassOf mmtr:Role ;
+    rdfs:label "All Service Members (ASM)"@en ;
+    rdfs:comment "All military personnel who receive baseline TCCC training"@en ;
+    mmtr:tier "1"^^xsd:integer ;
+    mmtr:description """All military personnel receive baseline TCCC training.
+Focuses on self-aid and buddy aid, including:
+Basic hemorrhage control (tourniquet application, pressure bandages).
+Recognizing life-threatening injuries.
+Basic airway management (recovery position, nasopharyngeal airway insertion).
+This level of training ensures that every warfighter has the ability to provide immediate, life-saving interventions before a medic or higher-level provider arrives."""@en .
+
+# Tier 2: Combat Lifesaver (CLS)
+mmtr:CombatLifesaver a owl:Class ;
+    rdfs:subClassOf mmtr:Role ;
+    rdfs:label "Combat Lifesaver (CLS)"@en ;
+    rdfs:comment "Non-medical personnel who receive additional training to act as first responders in combat situations"@en ;
+    mmtr:tier "2"^^xsd:integer ;
+    mmtr:description """Non-medical personnel who receive additional training to act as first responders in combat situations.
+Provides immediate life-saving interventions while awaiting medical personnel.
+Skills include:
+Hemorrhage control (tourniquets, wound packing, hemostatic dressings).
+Basic airway management and respiration support (chest seals for penetrating chest injuries).
+Intravenous (IV) access and fluid resuscitation.
+Assists medical personnel with casualty evacuation and treatment."""@en .
+
+# Tier 3: Combat Medic/Corpsman (CMC)
+mmtr:CombatMedicCorpsman a owl:Class ;
+    rdfs:subClassOf mmtr:Role ;
+    rdfs:label "Combat Medic/Corpsman (CMC)"@en ;
+    rdfs:comment "Military medical personnel who provide advanced prehospital trauma care"@en ;
+    mmtr:tier "3"^^xsd:integer ;
+    mmtr:description """Military medical personnel (68W Army Medics, Navy Corpsmen, Air Force Aerospace Medical Technicians).
+Provides advanced prehospital trauma care.
+Responsibilities include:
+Advanced hemorrhage control (junctional tourniquets, wound packing, hemostatic agents).
+Needle decompression for tension pneumothorax.
+Airway management (surgical cricothyroidotomy, supraglottic airways).
+Fluid resuscitation, shock management, and administration of IV/IO medications.
+Casualty triage and documentation for evacuation."""@en .
+
+# Tier 4: Combat Paramedic/Provider (CPP)
+mmtr:CombatParamedicProvider a owl:Class ;
+    rdfs:subClassOf mmtr:Role ;
+    rdfs:label "Combat Paramedic/Provider (CPP)"@en ;
+    rdfs:comment "Highly trained medical professionals responsible for prolonged field care and advanced medical interventions"@en ;
+    mmtr:tier "4"^^xsd:integer ;
+    mmtr:description """Highly trained medical professionals, including Special Forces Medics (18D), Physician Assistants (PA), and Flight Paramedics.
+Responsible for prolonged field care and advanced medical interventions.
+Capabilities include:
+Blood transfusions and advanced fluid resuscitation.
+Advanced airway management (endotracheal intubation).
+Management of severe trauma cases, burns, and prolonged casualty care.
+Directs and supervises TCCC training within their unit."""@en .
+
+# Specific role instances
+mmtr:ASM_Role a mmtr:AllServiceMembers ;
+    rdfs:label "All Service Members"@en ;
+    mmtr:tier "1"^^xsd:integer .
+
+mmtr:CLS_Role a mmtr:CombatLifesaver ;
+    rdfs:label "Combat Lifesaver"@en ;
+    mmtr:tier "2"^^xsd:integer .
+
+mmtr:CMC_Role a mmtr:CombatMedicCorpsman ;
+    rdfs:label "Combat Medic/Corpsman"@en ;
+    mmtr:tier "3"^^xsd:integer .
+
+mmtr:CPP_Role a mmtr:CombatParamedicProvider ;
+    rdfs:label "Combat Paramedic/Provider"@en ;
+    mmtr:tier "4"^^xsd:integer .
+
+# Skills and capabilities
+mmtr:hasSkill a owl:ObjectProperty ;
+    rdfs:domain mmtr:Role ;
+    rdfs:range mmtr:Skill ;
+    rdfs:label "has skill"@en ;
+    rdfs:comment "Relates a role to a skill that individuals in that role possess"@en .
+
+mmtr:Skill a owl:Class ;
+    rdfs:label "Medical Skill"@en ;
+    rdfs:comment "A medical skill or capability"@en .
+
+# ASM Skills
+mmtr:BasicHemorrhageControl a mmtr:Skill ;
+    rdfs:label "Basic Hemorrhage Control"@en ;
+    rdfs:comment "Ability to apply tourniquets and pressure bandages"@en .
+
+mmtr:RecognizeLifeThreateningInjuries a mmtr:Skill ;
+    rdfs:label "Recognize Life-Threatening Injuries"@en ;
+    rdfs:comment "Ability to identify injuries that require immediate intervention"@en .
+
+mmtr:BasicAirwayManagement a mmtr:Skill ;
+    rdfs:label "Basic Airway Management"@en ;
+    rdfs:comment "Ability to place patient in recovery position and insert nasopharyngeal airways"@en .
+
+# CLS Skills
+mmtr:AdvancedHemorrhageControl a mmtr:Skill ;
+    rdfs:label "Advanced Hemorrhage Control"@en ;
+    rdfs:comment "Ability to pack wounds and apply hemostatic dressings"@en .
+
+mmtr:RespirationSupport a mmtr:Skill ;
+    rdfs:label "Respiration Support"@en ;
+    rdfs:comment "Ability to apply chest seals for penetrating chest injuries"@en .
+
+mmtr:IVAccess a mmtr:Skill ;
+    rdfs:label "IV Access"@en ;
+    rdfs:comment "Ability to establish intravenous access and administer fluids"@en .
+
+# CMC Skills
+mmtr:JunctionalTourniquets a mmtr:Skill ;
+    rdfs:label "Junctional Tourniquets"@en ;
+    rdfs:comment "Ability to apply junctional tourniquets"@en .
+
+mmtr:NeedleDecompression a mmtr:Skill ;
+    rdfs:label "Needle Decompression"@en ;
+    rdfs:comment "Ability to perform needle decompression for tension pneumothorax"@en .
+
+mmtr:SurgicalAirway a mmtr:Skill ;
+    rdfs:label "Surgical Airway"@en ;
+    rdfs:comment "Ability to perform surgical cricothyroidotomy"@en .
+
+mmtr:IOMedications a mmtr:Skill ;
+    rdfs:label "IO Medications"@en ;
+    rdfs:comment "Ability to administer intraosseous medications"@en .
+
+mmtr:CasualtyTriage a mmtr:Skill ;
+    rdfs:label "Casualty Triage"@en ;
+    rdfs:comment "Ability to triage casualties and document for evacuation"@en .
+
+# CPP Skills
+mmtr:BloodTransfusion a mmtr:Skill ;
+    rdfs:label "Blood Transfusion"@en ;
+    rdfs:comment "Ability to perform blood transfusions"@en .
+
+mmtr:EndotrachealIntubation a mmtr:Skill ;
+    rdfs:label "Endotracheal Intubation"@en ;
+    rdfs:comment "Ability to perform endotracheal intubation"@en .
+
+mmtr:ProlongedCasualtyManagement a mmtr:Skill ;
+    rdfs:label "Prolonged Casualty Management"@en ;
+    rdfs:comment "Ability to manage casualties for extended periods"@en .
+
+mmtr:TCCCTraining a mmtr:Skill ;
+    rdfs:label "TCCC Training"@en ;
+    rdfs:comment "Ability to direct and supervise TCCC training"@en .
+
+# Skill relationships
+mmtr:ASM_Role mmtr:hasSkill mmtr:BasicHemorrhageControl, mmtr:RecognizeLifeThreateningInjuries, mmtr:BasicAirwayManagement .
+
+mmtr:CLS_Role mmtr:hasSkill mmtr:BasicHemorrhageControl, mmtr:RecognizeLifeThreateningInjuries, mmtr:BasicAirwayManagement,
+    mmtr:AdvancedHemorrhageControl, mmtr:RespirationSupport, mmtr:IVAccess .
+
+mmtr:CMC_Role mmtr:hasSkill mmtr:BasicHemorrhageControl, mmtr:RecognizeLifeThreateningInjuries, mmtr:BasicAirwayManagement,
+    mmtr:AdvancedHemorrhageControl, mmtr:RespirationSupport, mmtr:IVAccess,
+    mmtr:JunctionalTourniquets, mmtr:NeedleDecompression, mmtr:SurgicalAirway, mmtr:IOMedications, mmtr:CasualtyTriage .
+
+mmtr:CPP_Role mmtr:hasSkill mmtr:BasicHemorrhageControl, mmtr:RecognizeLifeThreateningInjuries, mmtr:BasicAirwayManagement,
+    mmtr:AdvancedHemorrhageControl, mmtr:RespirationSupport, mmtr:IVAccess,
+    mmtr:JunctionalTourniquets, mmtr:NeedleDecompression, mmtr:SurgicalAirway, mmtr:IOMedications, mmtr:CasualtyTriage,
+    mmtr:BloodTransfusion, mmtr:EndotrachealIntubation, mmtr:ProlongedCasualtyManagement, mmtr:TCCCTraining .

@@ -8,7 +8,8 @@ class Character(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     scenario_id = db.Column(db.Integer, db.ForeignKey('scenarios.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(100))
+    role = db.Column(db.String(100))  # Legacy field, kept for backward compatibility
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     attributes = db.Column(JSON)
     
     # Relationships
@@ -25,6 +26,9 @@ class Character(db.Model):
             'scenario_id': self.scenario_id,
             'name': self.name,
             'role': self.role,
+            'role_id': self.role_id,
+            'role_name': self.role_obj.name if self.role_obj else None,
+            'role_description': self.role_obj.description if self.role_obj else None,
             'attributes': self.attributes,
             'conditions': [condition.to_dict() for condition in self.conditions]
         }

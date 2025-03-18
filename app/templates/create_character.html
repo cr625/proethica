@@ -21,9 +21,32 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="role" class="form-label">Role</label>
-                    <input type="text" class="form-control" id="role" name="role">
-                    <div class="form-text">E.g., Patient, Doctor, Nurse, Engineer, Lawyer, etc.</div>
+                    <label for="role_id" class="form-label">Role</label>
+                    <select class="form-select" id="role_id" name="role_id">
+                        <option value="">-- Select a Role --</option>
+                        {% if roles %}
+                        {% for role in roles %}
+                        <option value="{{ role.id }}" data-description="{{ role.description }}"
+                            data-tier="{{ role.tier }}">
+                            {{ role.name }} {% if role.tier %}(Tier {{ role.tier }}){% endif %}
+                        </option>
+                        {% endfor %}
+                        {% else %}
+                        <option value="" disabled>No roles available for this world</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div id="role-details-container" class="mb-4 d-none">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h4 id="role-title" class="mb-0"></h4>
+                        </div>
+                        <div class="card-body">
+                            <h5 id="role-tier" class="card-subtitle mb-3 text-muted"></h5>
+                            <div id="role-description" class="card-text"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mb-3">
@@ -75,6 +98,8 @@
     </div>
 </template>
 
+{% endblock %}
+
 {% block scripts %}
 <script>
     // Add condition functionality
@@ -89,6 +114,32 @@
         });
 
         container.appendChild(clone);
+    });
+
+    // Show role description when a role is selected
+    document.getElementById('role_id').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        const description = selectedOption.getAttribute('data-description');
+        const tier = selectedOption.getAttribute('data-tier');
+        const roleName = selectedOption.textContent.trim();
+
+        const detailsContainer = document.getElementById('role-details-container');
+        const roleTitle = document.getElementById('role-title');
+        const roleTier = document.getElementById('role-tier');
+        const roleDescription = document.getElementById('role-description');
+
+        if (description && this.value !== '') {
+            // Set the role title and description
+            roleTitle.textContent = roleName;
+            roleTier.textContent = tier ? `Tier ${tier}` : '';
+            roleDescription.innerHTML = description.replace(/\n/g, '<br>');
+
+            // Show the details container
+            detailsContainer.classList.remove('d-none');
+        } else {
+            // Hide the details container if no role is selected
+            detailsContainer.classList.add('d-none');
+        }
     });
 
     // Form submission
@@ -107,7 +158,7 @@
 
         const formData = {
             name: document.getElementById('name').value,
-            role: document.getElementById('role').value,
+            role_id: document.getElementById('role_id').value,
             conditions: conditions
         };
 
@@ -132,5 +183,4 @@
             });
     });
 </script>
-{% endblock %}
 {% endblock %}

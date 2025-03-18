@@ -4,6 +4,7 @@ sqlalchemy
 flask-sqlalchemy
 flask-migrate
 python-dotenv
+rdflib
 
 # LangChain and LangGraph
 langchain
