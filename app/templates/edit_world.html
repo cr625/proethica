@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Edit World: {{ world.name }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit World: {{ world.name }}</h1>
+        <div>
+            <a href="/worlds/{{ world.id }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>World Details</h3>
+        </div>
+        <div class="card-body">
+            <form action="/worlds/{{ world.id }}/edit" method="POST">
+                <div class="mb-3">
+                    <label for="name" class="form-label">World Name</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ world.name }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description"
+                        rows="4">{{ world.description }}</textarea>
+                    <div class="form-text">Describe the world, including its context, entities, and key characteristics.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="ontology_source" class="form-label">Ontology Source</label>
+                    <input type="text" class="form-control" id="ontology_source" name="ontology_source"
+                        value="{{ world.ontology_source }}">
+                    <div class="form-text">Reference to the ontology source (e.g., UMLS, SNOMED CT, custom ontology
+                        file).</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

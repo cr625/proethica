@@ -91,9 +91,30 @@ def create_world():
         flash('World created successfully', 'success')
         return redirect(url_for('worlds.view_world', id=world.id))
 
+@worlds_bp.route('/<int:id>/edit', methods=['GET'])
+def edit_world(id):
+    """Display form to edit an existing world."""
+    world = World.query.get_or_404(id)
+    return render_template('edit_world.html', world=world)
+
+@worlds_bp.route('/<int:id>/edit', methods=['POST'])
+def update_world_form(id):
+    """Update an existing world from form data."""
+    world = World.query.get_or_404(id)
+    
+    # Update world fields from form data
+    world.name = request.form.get('name', '')
+    world.description = request.form.get('description', '')
+    world.ontology_source = request.form.get('ontology_source', '')
+    
+    db.session.commit()
+    
+    flash('World updated successfully', 'success')
+    return redirect(url_for('worlds.view_world', id=world.id))
+
 @worlds_bp.route('/<int:id>', methods=['PUT'])
 def update_world(id):
-    """Update an existing world."""
+    """Update an existing world via API."""
     world = World.query.get_or_404(id)
     data = request.json
     

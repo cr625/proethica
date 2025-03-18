@@ -8,6 +8,7 @@
         <h1>{{ world.name }}</h1>
         <div>
             <a href="/worlds" class="btn btn-secondary">Back to Worlds</a>
+            <a href="/worlds/{{ world.id }}/edit" class="btn btn-warning">Edit World</a>
             <a href="/scenarios/new?world_id={{ world.id }}" class="btn btn-primary">Create Scenario in this World</a>
         </div>
     </div>
