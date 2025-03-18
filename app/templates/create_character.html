@@ -76,20 +76,41 @@
                 </button>
             </div>
             <div class="mb-2">
-                <label class="form-label">Name</label>
-                <input type="text" class="form-control condition-name" required>
+                <label class="form-label">Condition Type</label>
+                <select class="form-select condition-type-id" required>
+                    <option value="">-- Select a Condition Type --</option>
+                    {% if condition_types %}
+                    {% for condition_type in condition_types %}
+                    <option value="{{ condition_type.id }}" data-description="{{ condition_type.description }}"
+                        data-category="{{ condition_type.category }}"
+                        data-severity-min="{{ condition_type.severity_range.min }}"
+                        data-severity-max="{{ condition_type.severity_range.max }}">
+                        {{ condition_type.name }} {% if condition_type.category %}({{ condition_type.category }}){%
+                        endif %}
+                    </option>
+                    {% endfor %}
+                    {% else %}
+                    <option value="" disabled>No condition types available for this world</option>
+                    {% endif %}
+                </select>
             </div>
-            <div class="mb-2">
-                <label class="form-label">Description</label>
-                <textarea class="form-control condition-description" rows="2"></textarea>
-            </div>
-            <div class="mb-2">
-                <label class="form-label">Severity (1-10)</label>
-                <input type="range" class="form-range condition-severity" min="1" max="10" value="5">
-                <div class="d-flex justify-content-between">
-                    <small>Minor</small>
-                    <small>Moderate</small>
-                    <small>Severe</small>
+            <div class="condition-type-details d-none">
+                <div class="mb-2">
+                    <label class="form-label">Description</label>
+                    <div class="condition-type-description form-text"></div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Severity</label>
+                    <input type="range" class="form-range condition-severity" min="1" max="10" value="5">
+                    <div class="d-flex justify-content-between">
+                        <small>Minor</small>
+                        <small>Moderate</small>
+                        <small>Severe</small>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Additional Notes</label>
+                    <textarea class="form-control condition-notes" rows="2"></textarea>
                 </div>
             </div>
         </div>
@@ -110,6 +131,34 @@
             e.target.closest('.condition-card').remove();
         });
 
+        // Add event listener to condition type select
+        clone.querySelector('.condition-type-id').addEventListener('change', function () {
+            const selectedOption = this.options[this.selectedIndex];
+            const description = selectedOption.getAttribute('data-description');
+            const category = selectedOption.getAttribute('data-category');
+            const minSeverity = parseInt(selectedOption.getAttribute('data-severity-min'));
+            const maxSeverity = parseInt(selectedOption.getAttribute('data-severity-max'));
+
+            const detailsSection = this.closest('.condition-card').querySelector('.condition-type-details');
+            const descriptionElement = detailsSection.querySelector('.condition-type-description');
+            const severityInput = detailsSection.querySelector('.condition-severity');
+
+            if (this.value !== '') {
+                descriptionElement.textContent = description || 'No description available';
+
+                // Update severity range if available
+                if (!isNaN(minSeverity) && !isNaN(maxSeverity)) {
+                    severityInput.min = minSeverity;
+                    severityInput.max = maxSeverity;
+                    severityInput.value = Math.floor((minSeverity + maxSeverity) / 2);
+                }
+
+                detailsSection.classList.remove('d-none');
+            } else {
+                detailsSection.classList.add('d-none');
+            }
+        });
+
         container.appendChild(clone);
     });
 
@@ -120,26 +169,18 @@
         const tier = selectedOption.getAttribute('data-tier');
         const roleName = selectedOption.textContent.trim();
 
-        console.log('Selected role:', roleName);
-        console.log('Description:', description);
-        console.log('Tier:', tier);
-
         const roleDetails = document.getElementById('role-details');
         const roleTitle = document.getElementById('role-title');
         const roleTier = document.getElementById('role-tier');
         const roleDescription = document.getElementById('role-description');
-
-        console.log('Role details element exists:', !!roleDetails);
 
         if (description && this.value !== '') {
             roleTitle.textContent = roleName;
             roleTier.textContent = tier ? `Tier ${tier}` : '';
             roleDescription.innerHTML = description.replace(/\n/g, '<br>');
             roleDetails.classList.remove('d-none');
-            console.log('Showing role details');
         } else {
             roleDetails.classList.add('d-none');
-            console.log('Hiding role details');
         }
     });
 
@@ -150,11 +191,19 @@
         // Gather conditions data
         const conditions = [];
         document.querySelectorAll('.condition-card').forEach(card => {
-            conditions.push({
-                name: card.querySelector('.condition-name').value,
-                description: card.querySelector('.condition-description').value,
-                severity: parseInt(card.querySelector('.condition-severity').value)
-            });
+            const conditionTypeSelect = card.querySelector('.condition-type-id');
+            const conditionTypeId = conditionTypeSelect.value;
+
+            if (conditionTypeId) {
+                const conditionTypeName = conditionTypeSelect.options[conditionTypeSelect.selectedIndex].textContent.trim();
+
+                conditions.push({
+                    condition_type_id: conditionTypeId,
+                    name: conditionTypeName,
+                    description: card.querySelector('.condition-notes').value,
+                    severity: parseInt(card.querySelector('.condition-severity').value)
+                });
+            }
         });
 
         const formData = {

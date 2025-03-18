@@ -3,6 +3,7 @@ from app import db
 from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.condition import Condition
+from app.models.condition_type import ConditionType
 from app.models.resource import Resource
 from app.models.resource_type import ResourceType
 from app.models.domain import Domain
@@ -110,6 +111,9 @@ def new_character(id):
     # Get roles for the scenario's world
     roles = Role.query.filter_by(world_id=scenario.world_id).all()
     
+    # Get condition types for the scenario's world
+    condition_types = ConditionType.query.filter_by(world_id=scenario.world_id).all()
+    
     # Debug information
     print(f"Found {len(roles)} roles for world_id {scenario.world_id}:")
     for role in roles:
@@ -118,7 +122,15 @@ def new_character(id):
         print(f"Ontology URI: {role.ontology_uri}")
         print("-" * 50)
     
-    return render_template('create_character.html', scenario=scenario, roles=roles)
+    print(f"Found {len(condition_types)} condition types for world_id {scenario.world_id}:")
+    for ct in condition_types:
+        print(f"ID: {ct.id}, Name: {ct.name}, Category: {ct.category}")
+        print(f"Description: {ct.description}")
+        print(f"Severity Range: {ct.severity_range}")
+        print(f"Ontology URI: {ct.ontology_uri}")
+        print("-" * 50)
+    
+    return render_template('create_character.html', scenario=scenario, roles=roles, condition_types=condition_types)
 
 @scenarios_bp.route('/<int:id>/characters', methods=['POST'])
 def add_character(id):
@@ -147,7 +159,8 @@ def add_character(id):
             character=character,
             name=cond_data['name'],
             description=cond_data.get('description', ''),
-            severity=cond_data.get('severity', 1)
+            severity=cond_data.get('severity', 1),
+            condition_type_id=cond_data.get('condition_type_id')
         )
         db.session.add(condition)
     

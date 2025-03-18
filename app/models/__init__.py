@@ -3,6 +3,7 @@ from app.models.domain import Domain
 from app.models.world import World
 from app.models.role import Role
 from app.models.resource_type import ResourceType
+from app.models.condition_type import ConditionType
 from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.condition import Condition
