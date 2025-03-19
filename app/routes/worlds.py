@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask_login import login_required
 from app import db
 from app.models.world import World
 from app.services.mcp_client import MCPClient
@@ -136,14 +137,96 @@ def update_world(id):
         'data': world.to_dict()
     })
 
-@worlds_bp.route('/<int:id>', methods=['DELETE'])
-def delete_world(id):
-    """Delete a world."""
+@worlds_bp.route('/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_world_confirm(id):
+    """Delete a world after confirmation."""
     world = World.query.get_or_404(id)
-    db.session.delete(world)
-    db.session.commit()
     
-    return jsonify({
-        'success': True,
-        'message': 'World deleted successfully'
-    })
+    # Store the name for the flash message
+    world_name = world.name
+    
+    try:
+        # Delete related records first
+        # 1. Delete scenarios associated with this world
+        from app.models.scenario import Scenario
+        scenarios = Scenario.query.filter_by(world_id=id).all()
+        for scenario in scenarios:
+            db.session.delete(scenario)
+        
+        # 2. Delete roles associated with this world
+        from app.models.role import Role
+        roles = Role.query.filter_by(world_id=id).all()
+        for role in roles:
+            db.session.delete(role)
+        
+        # 3. Delete resource types associated with this world
+        from app.models.resource_type import ResourceType
+        resource_types = ResourceType.query.filter_by(world_id=id).all()
+        for resource_type in resource_types:
+            db.session.delete(resource_type)
+        
+        # 4. Delete condition types associated with this world
+        from app.models.condition_type import ConditionType
+        condition_types = ConditionType.query.filter_by(world_id=id).all()
+        for condition_type in condition_types:
+            db.session.delete(condition_type)
+        
+        # Now delete the world itself
+        db.session.delete(world)
+        db.session.commit()
+        
+        flash(f'World "{world_name}" has been deleted.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting world: {str(e)}', 'danger')
+    
+    return redirect(url_for('worlds.list_worlds'))
+
+@worlds_bp.route('/<int:id>', methods=['DELETE'])
+@login_required
+def delete_world(id):
+    """Delete a world via API."""
+    world = World.query.get_or_404(id)
+    world_name = world.name
+    
+    try:
+        # Delete related records first
+        # 1. Delete scenarios associated with this world
+        from app.models.scenario import Scenario
+        scenarios = Scenario.query.filter_by(world_id=id).all()
+        for scenario in scenarios:
+            db.session.delete(scenario)
+        
+        # 2. Delete roles associated with this world
+        from app.models.role import Role
+        roles = Role.query.filter_by(world_id=id).all()
+        for role in roles:
+            db.session.delete(role)
+        
+        # 3. Delete resource types associated with this world
+        from app.models.resource_type import ResourceType
+        resource_types = ResourceType.query.filter_by(world_id=id).all()
+        for resource_type in resource_types:
+            db.session.delete(resource_type)
+        
+        # 4. Delete condition types associated with this world
+        from app.models.condition_type import ConditionType
+        condition_types = ConditionType.query.filter_by(world_id=id).all()
+        for condition_type in condition_types:
+            db.session.delete(condition_type)
+        
+        # Now delete the world itself
+        db.session.delete(world)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'World "{world_name}" deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error deleting world: {str(e)}'
+        }), 500

@@ -3,8 +3,11 @@ flask
 sqlalchemy
 flask-sqlalchemy
 flask-migrate
+flask-login
+flask-wtf
 python-dotenv
 rdflib
+werkzeug
 
 # LangChain and LangGraph
 langchain

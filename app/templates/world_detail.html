@@ -10,6 +10,9 @@
             <a href="/worlds" class="btn btn-secondary">Back to Worlds</a>
             <a href="/worlds/{{ world.id }}/edit" class="btn btn-warning">Edit World</a>
             <a href="/scenarios/new?world_id={{ world.id }}" class="btn btn-primary">Create Scenario in this World</a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteWorldModal">
+                Delete World
+            </button>
         </div>
     </div>
 
@@ -177,6 +180,29 @@
                 <p>No entities found for this world.</p>
             </div>
             {% endif %}
+        </div>
+    </div>
+    <!-- Delete World Modal -->
+    <div class="modal fade" id="deleteWorldModal" tabindex="-1" aria-labelledby="deleteWorldModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteWorldModalLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the world "{{ world.name }}"?</p>
+                    <p class="text-danger">This action cannot be undone. All associated data will be permanently
+                        deleted.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('worlds.delete_world_confirm', id=world.id) }}" method="POST">
+                        <button type="submit" class="btn btn-danger">Delete World</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 </div>
