@@ -3,6 +3,7 @@ from flask_login import login_required
 from app import db
 from app.models.world import World
 from app.services.mcp_client import MCPClient
+from datetime import datetime
 import json
 
 worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
@@ -77,8 +78,25 @@ def create_world():
         name=data.get('name', ''),
         description=data.get('description', ''),
         ontology_source=data.get('ontology_source', ''),
+        guidelines_url=data.get('guidelines_url', ''),
+        guidelines_text=data.get('guidelines_text', ''),
+        cases=[],
+        rulesets=[],
         world_metadata={}
     )
+    
+    # Handle guidelines file upload
+    if not request.is_json and 'guidelines_file' in request.files:
+        guidelines_file = request.files['guidelines_file']
+        if guidelines_file and guidelines_file.filename:
+            try:
+                # Read the file content
+                guidelines_content = guidelines_file.read().decode('utf-8')
+                # Update the guidelines text
+                world.guidelines_text = guidelines_content
+            except Exception as e:
+                flash(f'Error reading guidelines file: {str(e)}', 'danger')
+    
     db.session.add(world)
     db.session.commit()
     
@@ -107,6 +125,20 @@ def update_world_form(id):
     world.name = request.form.get('name', '')
     world.description = request.form.get('description', '')
     world.ontology_source = request.form.get('ontology_source', '')
+    world.guidelines_url = request.form.get('guidelines_url', '')
+    world.guidelines_text = request.form.get('guidelines_text', '')
+    
+    # Handle guidelines file upload
+    if 'guidelines_file' in request.files:
+        guidelines_file = request.files['guidelines_file']
+        if guidelines_file and guidelines_file.filename:
+            try:
+                # Read the file content
+                guidelines_content = guidelines_file.read().decode('utf-8')
+                # Update the guidelines text
+                world.guidelines_text = guidelines_content
+            except Exception as e:
+                flash(f'Error reading guidelines file: {str(e)}', 'danger')
     
     db.session.commit()
     
@@ -126,6 +158,14 @@ def update_world(id):
         world.description = data['description']
     if 'ontology_source' in data:
         world.ontology_source = data['ontology_source']
+    if 'guidelines_url' in data:
+        world.guidelines_url = data['guidelines_url']
+    if 'guidelines_text' in data:
+        world.guidelines_text = data['guidelines_text']
+    if 'cases' in data:
+        world.cases = data['cases']
+    if 'rulesets' in data:
+        world.rulesets = data['rulesets']
     if 'metadata' in data:
         world.world_metadata = data['metadata']
     
@@ -255,6 +295,185 @@ def add_reference(id):
             'success': False,
             'message': str(e)
         }), 500
+
+# Case management routes
+@worlds_bp.route('/<int:id>/cases', methods=['GET'])
+def list_cases(id):
+    """Get all cases for a world."""
+    world = World.query.get_or_404(id)
+    
+    return jsonify({
+        'success': True,
+        'data': world.cases or []
+    })
+
+@worlds_bp.route('/<int:id>/cases', methods=['POST'])
+def add_case(id):
+    """Add a case to a world."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # Initialize cases list if it doesn't exist
+    if world.cases is None:
+        world.cases = []
+    
+    # Add the new case
+    case = {
+        'title': data.get('title', ''),
+        'description': data.get('description', ''),
+        'decision': data.get('decision', ''),
+        'outcome': data.get('outcome', ''),
+        'ethical_analysis': data.get('ethical_analysis', ''),
+        'date': data.get('date', datetime.now().strftime('%Y-%m-%d'))
+    }
+    
+    world.cases.append(case)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Case added successfully',
+        'data': case
+    })
+
+@worlds_bp.route('/<int:id>/cases/<int:case_index>', methods=['PUT'])
+def update_case(id, case_index):
+    """Update a case in a world."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # Check if the case exists
+    if not world.cases or len(world.cases) <= case_index:
+        return jsonify({
+            'success': False,
+            'message': 'Case not found'
+        }), 404
+    
+    # Update the case
+    case = world.cases[case_index]
+    case['title'] = data.get('title', case.get('title', ''))
+    case['description'] = data.get('description', case.get('description', ''))
+    case['decision'] = data.get('decision', case.get('decision', ''))
+    case['outcome'] = data.get('outcome', case.get('outcome', ''))
+    case['ethical_analysis'] = data.get('ethical_analysis', case.get('ethical_analysis', ''))
+    case['date'] = data.get('date', case.get('date', ''))
+    
+    world.cases[case_index] = case
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Case updated successfully',
+        'data': case
+    })
+
+@worlds_bp.route('/<int:id>/cases/<int:case_index>', methods=['DELETE'])
+def delete_case(id, case_index):
+    """Delete a case from a world."""
+    world = World.query.get_or_404(id)
+    
+    # Check if the case exists
+    if not world.cases or len(world.cases) <= case_index:
+        return jsonify({
+            'success': False,
+            'message': 'Case not found'
+        }), 404
+    
+    # Remove the case
+    world.cases.pop(case_index)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Case deleted successfully'
+    })
+
+# Ruleset management routes
+@worlds_bp.route('/<int:id>/rulesets', methods=['GET'])
+def list_rulesets(id):
+    """Get all rulesets for a world."""
+    world = World.query.get_or_404(id)
+    
+    return jsonify({
+        'success': True,
+        'data': world.rulesets or []
+    })
+
+@worlds_bp.route('/<int:id>/rulesets', methods=['POST'])
+def add_ruleset(id):
+    """Add a ruleset to a world."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # Initialize rulesets list if it doesn't exist
+    if world.rulesets is None:
+        world.rulesets = []
+    
+    # Add the new ruleset
+    ruleset = {
+        'name': data.get('name', ''),
+        'description': data.get('description', ''),
+        'rules': data.get('rules', []),
+        'date_created': datetime.now().strftime('%Y-%m-%d')
+    }
+    
+    world.rulesets.append(ruleset)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Ruleset added successfully',
+        'data': ruleset
+    })
+
+@worlds_bp.route('/<int:id>/rulesets/<int:ruleset_index>', methods=['PUT'])
+def update_ruleset(id, ruleset_index):
+    """Update a ruleset in a world."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # Check if the ruleset exists
+    if not world.rulesets or len(world.rulesets) <= ruleset_index:
+        return jsonify({
+            'success': False,
+            'message': 'Ruleset not found'
+        }), 404
+    
+    # Update the ruleset
+    ruleset = world.rulesets[ruleset_index]
+    ruleset['name'] = data.get('name', ruleset.get('name', ''))
+    ruleset['description'] = data.get('description', ruleset.get('description', ''))
+    ruleset['rules'] = data.get('rules', ruleset.get('rules', []))
+    
+    world.rulesets[ruleset_index] = ruleset
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Ruleset updated successfully',
+        'data': ruleset
+    })
+
+@worlds_bp.route('/<int:id>/rulesets/<int:ruleset_index>', methods=['DELETE'])
+def delete_ruleset(id, ruleset_index):
+    """Delete a ruleset from a world."""
+    world = World.query.get_or_404(id)
+    
+    # Check if the ruleset exists
+    if not world.rulesets or len(world.rulesets) <= ruleset_index:
+        return jsonify({
+            'success': False,
+            'message': 'Ruleset not found'
+        }), 404
+    
+    # Remove the ruleset
+    world.rulesets.pop(ruleset_index)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Ruleset deleted successfully'
+    })
 
 @worlds_bp.route('/<int:id>', methods=['DELETE'])
 @login_required
