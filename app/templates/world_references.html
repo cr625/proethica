@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}References for {{ world.name }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>References for {{ world.name }}</h1>
+        <a href="{{ url_for('worlds.view_world', id=world.id) }}" class="btn btn-secondary">Back to
+            World</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>World Details</h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Name:</strong> {{ world.name }}</p>
+            <p><strong>Description:</strong> {{ world.description }}</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>Search References</h3>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('worlds.world_references', id=world.id) }}" method="get" class="mb-4">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="query" value="{{ query }}"
+                        placeholder="Search for references...">
+                    <button class="btn btn-primary" type="submit">Search</button>
+                </div>
+                <small class="form-text text-muted">
+                    Search for references related to this world. If no search query is provided, references will be
+                    automatically suggested based on the world content.
+                </small>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>References</h3>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addReferenceModal">
+                Add Reference
+            </button>
+        </div>
+        <div class="card-body">
+            {% if references and references.results %}
+            <div class="list-group">
+                {% for item in references.results %}
+                <div class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ item.data.title }}</h5>
+                        <small>{{ item.data.date }}</small>
+                    </div>
+
+                    {% if item.data.creators %}
+                    <p class="mb-1">
+                        <strong>Authors:</strong>
+                        {% for creator in item.data.creators %}
+                        {{ creator.lastName }}, {{ creator.firstName }}{% if not loop.last %}; {% endif %}
+                        {% endfor %}
+                    </p>
+                    {% endif %}
+
+                    {% if item.data.publicationTitle %}
+                    <p class="mb-1"><strong>Journal:</strong> {{ item.data.publicationTitle }}</p>
+                    {% endif %}
+
+                    {% if item.data.abstractNote %}
+                    <p class="mb-1"><strong>Abstract:</strong> {{ item.data.abstractNote }}</p>
+                    {% endif %}
+
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-primary get-citation" data-item-key="{{ item.key }}">Get
+                            Citation</button>
+                        <div class="citation-container mt-2 d-none">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="citation-text"></div>
+                                    <div class="mt-2">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-secondary citation-style"
+                                                data-style="apa">APA</button>
+                                            <button class="btn btn-outline-secondary citation-style"
+                                                data-style="mla">MLA</button>
+                                            <button class="btn btn-outline-secondary citation-style"
+                                                data-style="chicago-note-bibliography">Chicago</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No references found. Try searching with different keywords or add a reference
+                manually.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Reference Modal -->
+<div class="modal fade" id="addReferenceModal" tabindex="-1" aria-labelledby="addReferenceModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addReferenceModalLabel">Add Reference</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addReferenceForm">
+                    <div class="mb-3">
+                        <label for="referenceType" class="form-label">Reference Type</label>
+                        <select class="form-select" id="referenceType" name="item_type" required>
+                            <option value="journalArticle">Journal Article</option>
+                            <option value="book">Book</option>
+                            <option value="bookSection">Book Section</option>
+                            <option value="conferencePaper">Conference Paper</option>
+                            <option value="report">Report</option>
+                            <option value="webpage">Web Page</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="referenceTitle" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="referenceTitle" name="title" required>
+                    </div>
+
+                    <div id="authorsContainer">
+                        <label class="form-label">Authors</label>
+                        <div class="author-row mb-2">
+                            <div class="row">
+                                <div class="col">
+                                    <input type="text" class="form-control" placeholder="Last Name" name="lastName[]"
+                                        required>
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control" placeholder="First Name" name="firstName[]"
+                                        required>
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" class="btn btn-danger remove-author">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-secondary mb-3" id="addAuthorBtn">Add Another
+                            Author</button>
+                    </div>
+
+                    <div class="mb-3 journal-field">
+                        <label for="journalTitle" class="form-label">Journal</label>
+                        <input type="text" class="form-control" id="journalTitle" name="publicationTitle">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="referenceYear" class="form-label">Year</label>
+                            <input type="text" class="form-control" id="referenceYear" name="date">
+                        </div>
+                        <div class="col-md-4 mb-3 journal-field">
+                            <label for="referenceVolume" class="form-label">Volume</label>
+                            <input type="text" class="form-control" id="referenceVolume" name="volume">
+                        </div>
+                        <div class="col-md-4 mb-3 journal-field">
+                            <label for="referenceIssue" class="form-label">Issue</label>
+                            <input type="text" class="form-control" id="referenceIssue" name="issue">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 journal-field">
+                        <label for="referencePages" class="form-label">Pages</label>
+                        <input type="text" class="form-control" id="referencePages" name="pages">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="referenceDOI" class="form-label">DOI</label>
+                        <input type="text" class="form-control" id="referenceDOI" name="DOI">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="referenceURL" class="form-label">URL</label>
+                        <input type="url" class="form-control" id="referenceURL" name="url">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="referenceAbstract" class="form-label">Abstract</label>
+                        <textarea class="form-control" id="referenceAbstract" name="abstractNote" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveReferenceBtn">Save Reference</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Handle citation buttons
+        document.querySelectorAll('.get-citation').forEach(button => {
+            button.addEventListener('click', function () {
+                const itemKey = this.getAttribute('data-item-key');
+                const container = this.nextElementSibling;
+                const citationText = container.querySelector('.citation-text');
+
+                // Toggle visibility
+                if (container.classList.contains('d-none')) {
+                    container.classList.remove('d-none');
+
+                    // Get citation in APA format by default
+                    getCitation(itemKey, 'apa', citationText);
+                } else {
+                    container.classList.add('d-none');
+                }
+            });
+        });
+
+        // Handle citation style buttons
+        document.querySelectorAll('.citation-style').forEach(button => {
+            button.addEventListener('click', function () {
+                const style = this.getAttribute('data-style');
+                const container = this.closest('.citation-container');
+                const itemKey = container.parentElement.querySelector('.get-citation').getAttribute('data-item-key');
+                const citationText = container.querySelector('.citation-text');
+
+                // Get citation in selected format
+                getCitation(itemKey, style, citationText);
+
+                // Update active button
+                container.querySelectorAll('.citation-style').forEach(btn => {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-secondary');
+                });
+                this.classList.remove('btn-outline-secondary');
+                this.classList.add('btn-primary');
+            });
+        });
+
+        // Function to get citation
+        function getCitation(itemKey, style, citationElement) {
+            citationElement.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div> Loading citation...';
+
+            fetch(`/worlds/{{ world.id }}/references/${itemKey}/citation?style=${style}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        citationElement.innerHTML = data.citation;
+                    } else {
+                        citationElement.innerHTML = `<div class="text-danger">Error: ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    citationElement.innerHTML = `<div class="text-danger">Error: ${error.message}</div>`;
+                });
+        }
+
+        // Handle reference type change
+        document.getElementById('referenceType').addEventListener('change', function () {
+            const type = this.value;
+            const journalFields = document.querySelectorAll('.journal-field');
+
+            if (type === 'journalArticle') {
+                journalFields.forEach(field => field.style.display = 'block');
+            } else {
+                journalFields.forEach(field => field.style.display = 'none');
+            }
+        });
+
+        // Handle add author button
+        document.getElementById('addAuthorBtn').addEventListener('click', function () {
+            const authorsContainer = document.getElementById('authorsContainer');
+            const authorRow = document.querySelector('.author-row').cloneNode(true);
+
+            // Clear input values
+            authorRow.querySelectorAll('input').forEach(input => input.value = '');
+
+            // Add remove button event listener
+            authorRow.querySelector('.remove-author').addEventListener('click', function () {
+                this.closest('.author-row').remove();
+            });
+
+            // Insert before the add button
+            authorsContainer.insertBefore(authorRow, document.getElementById('addAuthorBtn'));
+        });
+
+        // Handle remove author button for initial row
+        document.querySelector('.remove-author').addEventListener('click', function () {
+            if (document.querySelectorAll('.author-row').length > 1) {
+                this.closest('.author-row').remove();
+            }
+        });
+
+        // Handle save reference button
+        document.getElementById('saveReferenceBtn').addEventListener('click', function () {
+            const form = document.getElementById('addReferenceForm');
+            const formData = new FormData(form);
+
+            // Prepare data
+            const data = {
+                item_type: formData.get('item_type'),
+                title: formData.get('title'),
+                creators: [],
+                additional_fields: {}
+            };
+
+            // Get authors
+            const lastNames = formData.getAll('lastName[]');
+            const firstNames = formData.getAll('firstName[]');
+
+            for (let i = 0; i < lastNames.length; i++) {
+                if (lastNames[i]) {
+                    data.creators.push({
+                        creatorType: 'author',
+                        lastName: lastNames[i],
+                        firstName: firstNames[i] || ''
+                    });
+                }
+            }
+
+            // Get additional fields
+            const additionalFields = ['publicationTitle', 'date', 'volume', 'issue', 'pages', 'DOI', 'url', 'abstractNote'];
+            additionalFields.forEach(field => {
+                const value = formData.get(field);
+                if (value) {
+                    data.additional_fields[field] = value;
+                }
+            });
+
+            // Send request
+            fetch('/worlds/{{ world.id }}/references/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('addReferenceModal'));
+                        modal.hide();
+
+                        // Reload page to show new reference
+                        window.location.reload();
+                    } else {
+                        alert(`Error: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    alert(`Error: ${error.message}`);
+                });
+        });
+    });
+</script>
+{% endblock %}

@@ -488,3 +488,35 @@ class MCPClient:
         
         # Search for references
         return self.search_zotero_items(query, limit=10)
+    
+    def get_references_for_world(self, world) -> Dict[str, Any]:
+        """
+        Get references for a specific world.
+        
+        Args:
+            world: World object
+            
+        Returns:
+            Dictionary containing references
+        """
+        # Create query from world
+        query = f"{world.name} {world.description}"
+        
+        # Add ontology source if available
+        if world.ontology_source:
+            query += f" {world.ontology_source}"
+        
+        # Add metadata if available
+        if world.world_metadata:
+            for key, value in world.world_metadata.items():
+                if isinstance(value, str):
+                    query += f" {value}"
+                elif isinstance(value, (dict, list)):
+                    # Try to extract text from complex structures
+                    try:
+                        query += f" {json.dumps(value)}"
+                    except:
+                        pass
+        
+        # Search for references
+        return self.search_zotero_items(query, limit=10)

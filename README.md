@@ -15,6 +15,7 @@ This project simulates event-based scenarios like military medical triage to tra
 - Integration with LLMs via LangChain and LangGraph
 - Model Context Protocol for extensibility
 - Zotero integration for academic references and citations
+- World and scenario reference management
 
 ## Architecture
 

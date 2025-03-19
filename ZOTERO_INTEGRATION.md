@@ -48,6 +48,13 @@ The Zotero integration allows you to:
 
 ## Usage
 
+### Accessing References for a World
+
+1. Navigate to a world detail page
+2. Click the "World References" button in the top-right corner
+3. The system will automatically suggest references based on the world content
+4. You can also search for specific references using the search box
+
 ### Accessing References for a Scenario
 
 1. Navigate to a scenario detail page
