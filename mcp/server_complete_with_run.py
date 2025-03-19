@@ -3,6 +3,9 @@ import json
 import os
 import sys
 import asyncio
+import rdflib
+from rdflib import Graph, Namespace, RDF, RDFS, URIRef
+from rdflib.namespace import OWL
 
 class EthicalDMServer:
     """MCP server for the AI Ethical Decision-Making Simulator."""
@@ -197,9 +200,9 @@ class EthicalDMServer:
                 ]
             }
         elif uri == "ethical-dm://worlds/military-medical-triage":
-            # Read the RDF file
+            # Read the consolidated RDF file
             try:
-                with open(os.path.join(os.path.dirname(__file__), "ontology/military_medical_triage.ttl"), "r") as f:
+                with open(os.path.join(os.path.dirname(__file__), "ontology/military_medical_triage_consolidated.ttl"), "r") as f:
                     rdf_content = f.read()
                 
                 return {
@@ -254,33 +257,36 @@ class EthicalDMServer:
                                 "text": json.dumps({
                                     "world": "Military Medical Triage",
                                     "entities": {
-                                        "characters": [
+                                        "roles": [
                                             {
-                                                "id": "mmt:Patient1",
-                                                "type": "Patient",
-                                                "label": "Patient 1",
-                                                "conditions": ["mmt:Hemorrhage1"],
-                                                "triage_category": "mmt:Immediate"
-                                            },
-                                            {
-                                                "id": "mmt:Patient2",
-                                                "type": "Patient",
-                                                "label": "Patient 2",
-                                                "conditions": ["mmt:Fracture1"],
-                                                "triage_category": "mmt:Delayed"
-                                            },
-                                            {
-                                                "id": "mmt:Patient3",
-                                                "type": "Patient",
-                                                "label": "Patient 3",
-                                                "conditions": ["mmt:BurnInjury1"],
-                                                "triage_category": "mmt:Minimal"
-                                            },
-                                            {
-                                                "id": "mmt:Medic1",
-                                                "type": "Medic",
+                                                "id": "mmt:CombatMedic",
+                                                "type": "CombatMedic",
                                                 "label": "Combat Medic",
-                                                "resources": ["mmt:Tourniquet1", "mmt:Bandage1", "mmt:Morphine1"]
+                                                "description": "Military healthcare provider trained for battlefield medicine",
+                                                "tier": "Tier 1",
+                                                "capabilities": ["Basic Life Support", "Trauma Care", "Tactical Combat Casualty Care"]
+                                            },
+                                            {
+                                                "id": "mmt:FlightMedic",
+                                                "type": "FlightMedic",
+                                                "label": "Flight Medic",
+                                                "description": "Specialized medic for aeromedical evacuation",
+                                                "tier": "Tier 2",
+                                                "capabilities": ["Advanced Life Support", "Critical Care Transport"]
+                                            },
+                                            {
+                                                "id": "mmt:TraumaSurgeon",
+                                                "type": "TraumaSurgeon",
+                                                "label": "Trauma Surgeon",
+                                                "description": "Physician specialized in surgical treatment of injuries",
+                                                "tier": "Tier 3",
+                                                "capabilities": ["Damage Control Surgery", "Definitive Surgical Care"]
+                                            },
+                                            {
+                                                "id": "mmt:Patient",
+                                                "type": "Patient",
+                                                "label": "Patient",
+                                                "description": "Individual requiring medical care"
                                             }
                                         ],
                                         "conditions": [
@@ -387,8 +393,8 @@ class EthicalDMServer:
                             },
                             "entity_type": {
                                 "type": "string",
-                                "description": "Type of entity to retrieve (characters, conditions, resources, all)",
-                                "enum": ["characters", "conditions", "resources", "all"]
+                                "description": "Type of entity to retrieve (roles, conditions, resources, all)",
+                                "enum": ["roles", "conditions", "resources", "all"]
                             }
                         },
                         "required": ["world_name"]
@@ -487,97 +493,203 @@ class EthicalDMServer:
             entity_type = args.get("entity_type", "all")
             
             if world_name == "military-medical-triage":
-                entities = {
-                    "world": "Military Medical Triage",
-                    "entities": {}
-                }
-                
-                if entity_type == "all" or entity_type == "characters":
-                    entities["entities"]["characters"] = [
-                        {
-                            "id": "mmt:Patient1",
-                            "type": "Patient",
-                            "label": "Patient 1",
-                            "conditions": ["mmt:Hemorrhage1"],
-                            "triage_category": "mmt:Immediate"
-                        },
-                        {
-                            "id": "mmt:Patient2",
-                            "type": "Patient",
-                            "label": "Patient 2",
-                            "conditions": ["mmt:Fracture1"],
-                            "triage_category": "mmt:Delayed"
-                        },
-                        {
-                            "id": "mmt:Patient3",
-                            "type": "Patient",
-                            "label": "Patient 3",
-                            "conditions": ["mmt:BurnInjury1"],
-                            "triage_category": "mmt:Minimal"
-                        },
-                        {
-                            "id": "mmt:Medic1",
-                            "type": "Medic",
-                            "label": "Combat Medic",
-                            "resources": ["mmt:Tourniquet1", "mmt:Bandage1", "mmt:Morphine1"]
+                try:
+                    # Load and parse the ontology
+                    g = Graph()
+                    ontology_path = os.path.join(os.path.dirname(__file__), "ontology/military_medical_triage_consolidated.ttl")
+                    g.parse(ontology_path, format="turtle")
+                    
+                    # Define namespaces
+                    MMT = Namespace("http://example.org/military-medical-triage#")
+                    
+                    # Initialize result structure
+                    entities = {
+                        "world": "Military Medical Triage",
+                        "entities": {}
+                    }
+                    
+                    # Extract roles if requested
+                    if entity_type == "all" or entity_type == "roles":
+                        roles = []
+                        
+                        # Query for all entities that are roles
+                        for s in g.subjects(RDF.type, MMT.Role):
+                            if isinstance(s, URIRef):
+                                role = {}
+                                role["id"] = str(s)
+                                
+                                # Get label
+                                for label in g.objects(s, RDFS.label):
+                                    role["label"] = str(label)
+                                    break
+                                
+                                # Get type
+                                role["type"] = s.split('#')[-1]
+                                
+                                # Get description
+                                for comment in g.objects(s, RDFS.comment):
+                                    role["description"] = str(comment)
+                                    break
+                                
+                                # Get capabilities for roles
+                                capabilities = []
+                                for capability in g.objects(s, MMT.hasCapability):
+                                    for cap_label in g.objects(capability, RDFS.label):
+                                        capabilities.append(str(cap_label))
+                                        break
+                                
+                                if capabilities:
+                                    role["capabilities"] = capabilities
+                                
+                                # Get tier for roles
+                                for tier in g.objects(s, MMT.hasTier):
+                                    for tier_label in g.objects(tier, RDFS.label):
+                                        role["tier"] = str(tier_label)
+                                        break
+                                
+                                roles.append(role)
+                        
+                        # Also add Patient as a role
+                        patient_role = {}
+                        patient_role["id"] = str(MMT.Patient)
+                        patient_role["type"] = "Patient"
+                        
+                        # Get label
+                        for label in g.objects(MMT.Patient, RDFS.label):
+                            patient_role["label"] = str(label)
+                            break
+                        
+                        # Get description
+                        for comment in g.objects(MMT.Patient, RDFS.comment):
+                            patient_role["description"] = str(comment)
+                            break
+                        
+                        roles.append(patient_role)
+                        
+                        entities["entities"]["roles"] = roles
+                    
+                    # Extract condition types if requested
+                    if entity_type == "all" or entity_type == "conditions":
+                        condition_types = []
+                        
+                        # Query for all entities that are condition types
+                        for s in g.subjects(RDF.type, MMT.ConditionType):
+                            if isinstance(s, URIRef):
+                                cond_type = {}
+                                cond_type["id"] = str(s)
+                                
+                                # Get label
+                                for label in g.objects(s, RDFS.label):
+                                    cond_type["label"] = str(label)
+                                    break
+                                
+                                # Get type
+                                cond_type["type"] = s.split('#')[-1]
+                                
+                                # Get description
+                                for comment in g.objects(s, RDFS.comment):
+                                    cond_type["description"] = str(comment)
+                                    break
+                                
+                                condition_types.append(cond_type)
+                        
+                        # Also include sample individuals
+                        for s in g.subjects(None, MMT.severity):
+                            if isinstance(s, URIRef):
+                                cond = {}
+                                cond["id"] = str(s)
+                                
+                                # Get label
+                                for label in g.objects(s, RDFS.label):
+                                    cond["label"] = str(label)
+                                    break
+                                
+                                # Get type
+                                for _, p, o in g.triples((s, RDF.type, None)):
+                                    if o != OWL.NamedIndividual and o != RDFS.Resource:
+                                        cond["type"] = o.split('#')[-1]
+                                        break
+                                
+                                # Get severity
+                                for severity in g.objects(s, MMT.severity):
+                                    cond["severity"] = str(severity)
+                                    break
+                                
+                                # Get location
+                                for location in g.objects(s, MMT.location):
+                                    cond["location"] = str(location)
+                                    break
+                                
+                                condition_types.append(cond)
+                        
+                        entities["entities"]["conditions"] = condition_types
+                    
+                    # Extract resource types if requested
+                    if entity_type == "all" or entity_type == "resources":
+                        resource_types = []
+                        
+                        # Query for all entities that are resource types
+                        for s in g.subjects(RDF.type, MMT.ResourceType):
+                            if isinstance(s, URIRef):
+                                res_type = {}
+                                res_type["id"] = str(s)
+                                
+                                # Get label
+                                for label in g.objects(s, RDFS.label):
+                                    res_type["label"] = str(label)
+                                    break
+                                
+                                # Get type
+                                res_type["type"] = s.split('#')[-1]
+                                
+                                # Get description
+                                for comment in g.objects(s, RDFS.comment):
+                                    res_type["description"] = str(comment)
+                                    break
+                                
+                                resource_types.append(res_type)
+                        
+                        # Also include sample individuals
+                        for s in g.subjects(None, MMT.quantity):
+                            if isinstance(s, URIRef):
+                                res = {}
+                                res["id"] = str(s)
+                                
+                                # Get label
+                                for label in g.objects(s, RDFS.label):
+                                    res["label"] = str(label)
+                                    break
+                                
+                                # Get type
+                                for _, p, o in g.triples((s, RDF.type, None)):
+                                    if o != OWL.NamedIndividual and o != RDFS.Resource:
+                                        res["type"] = o.split('#')[-1]
+                                        break
+                                
+                                # Get quantity
+                                for quantity in g.objects(s, MMT.quantity):
+                                    res["quantity"] = int(quantity)
+                                    break
+                                
+                                resource_types.append(res)
+                        
+                        entities["entities"]["resources"] = resource_types
+                    
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps(entities, indent=2)
+                            }
+                        ]
+                    }
+                except Exception as e:
+                    return {
+                        "error": {
+                            "code": -32000,
+                            "message": f"Error processing ontology: {str(e)}"
                         }
-                    ]
-                
-                if entity_type == "all" or entity_type == "conditions":
-                    entities["entities"]["conditions"] = [
-                        {
-                            "id": "mmt:Hemorrhage1",
-                            "type": "Hemorrhage",
-                            "label": "Severe Hemorrhage",
-                            "severity": "Severe",
-                            "location": "Left Leg"
-                        },
-                        {
-                            "id": "mmt:Fracture1",
-                            "type": "Fracture",
-                            "label": "Compound Fracture",
-                            "severity": "Moderate",
-                            "location": "Right Arm"
-                        },
-                        {
-                            "id": "mmt:BurnInjury1",
-                            "type": "BurnInjury",
-                            "label": "First Degree Burn",
-                            "severity": "Mild",
-                            "location": "Left Hand"
-                        }
-                    ]
-                
-                if entity_type == "all" or entity_type == "resources":
-                    entities["entities"]["resources"] = [
-                        {
-                            "id": "mmt:Tourniquet1",
-                            "type": "Tourniquet",
-                            "label": "Combat Application Tourniquet",
-                            "quantity": 2
-                        },
-                        {
-                            "id": "mmt:Bandage1",
-                            "type": "Bandage",
-                            "label": "Pressure Bandage",
-                            "quantity": 5
-                        },
-                        {
-                            "id": "mmt:Morphine1",
-                            "type": "Morphine",
-                            "label": "Morphine Autoinjector",
-                            "quantity": 3
-                        }
-                    ]
-                
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(entities, indent=2)
-                        }
-                    ]
-                }
+                    }
             else:
                 return {
                     "error": {

@@ -57,11 +57,10 @@
         <div class="card-body">
             {% if entities and entities.entities %}
             <ul class="nav nav-tabs" id="entityTabs" role="tablist">
-                {% if entities.entities.characters %}
+                {% if entities.entities.roles %}
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="characters-tab" data-bs-toggle="tab"
-                        data-bs-target="#characters" type="button" role="tab" aria-controls="characters"
-                        aria-selected="true">Characters</button>
+                    <button class="nav-link active" id="roles-tab" data-bs-toggle="tab" data-bs-target="#roles"
+                        type="button" role="tab" aria-controls="roles" aria-selected="true">Roles</button>
                 </li>
                 {% endif %}
                 {% if entities.entities.conditions %}
@@ -78,41 +77,33 @@
                 {% endif %}
             </ul>
             <div class="tab-content p-3" id="entityTabsContent">
-                {% if entities.entities.characters %}
-                <div class="tab-pane fade show active" id="characters" role="tabpanel" aria-labelledby="characters-tab">
+                {% if entities.entities.roles %}
+                <div class="tab-pane fade show active" id="roles" role="tabpanel" aria-labelledby="roles-tab">
                     <div class="table-responsive">
                         <table class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Label</th>
-                                    <th>Type</th>
-                                    <th>Details</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Tier</th>
+                                    <th>Capabilities</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for character in entities.entities.characters %}
+                                {% for role in entities.entities.roles %}
                                 <tr>
-                                    <td>{{ character.id }}</td>
-                                    <td>{{ character.label }}</td>
-                                    <td>{{ character.type }}</td>
+                                    <td>{{ role.id }}</td>
+                                    <td>{{ role.label }}</td>
+                                    <td>{{ role.description }}</td>
+                                    <td>{{ role.tier }}</td>
                                     <td>
-                                        {% if character.conditions %}
-                                        <strong>Conditions:</strong>
-                                        {% for condition in character.conditions %}
-                                        {{ condition }}{% if not loop.last %}, {% endif %}
-                                        {% endfor %}
-                                        <br>
-                                        {% endif %}
-                                        {% if character.triage_category %}
-                                        <strong>Triage Category:</strong> {{ character.triage_category }}
-                                        <br>
-                                        {% endif %}
-                                        {% if character.resources %}
-                                        <strong>Resources:</strong>
-                                        {% for resource in character.resources %}
-                                        {{ resource }}{% if not loop.last %}, {% endif %}
-                                        {% endfor %}
+                                        {% if role.capabilities %}
+                                        <ul class="list-unstyled">
+                                            {% for capability in role.capabilities %}
+                                            <li>{{ capability }}</li>
+                                            {% endfor %}
+                                        </ul>
                                         {% endif %}
                                     </td>
                                 </tr>
