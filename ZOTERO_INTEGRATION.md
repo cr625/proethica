@@ -21,7 +21,7 @@ The Zotero integration allows you to:
 
 1. Clone the Zotero MCP server repository:
    ```bash
-   git clone https://github.com/your-username/zotero-mcp-server.git
+   git clone https://github.com/cr625/zotero-mcp-server.git
    cd zotero-mcp-server
    ```
 
