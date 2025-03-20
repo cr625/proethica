@@ -74,6 +74,7 @@ The application is built with:
 
 6. Initialize the database:
    ```
+   export FLASK_APP="app:create_app"
    flask db upgrade
    ```
 

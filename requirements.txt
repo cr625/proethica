@@ -8,10 +8,12 @@ flask-wtf
 python-dotenv
 rdflib
 werkzeug
+psycopg2-binary  # PostgreSQL driver
 
 # LangChain and LangGraph
 langchain
 langchain-core
+langchain-community
 langgraph
 
 # Model Context Protocol
