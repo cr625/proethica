@@ -40,6 +40,7 @@ class OntologyMCPServer:
             try:
                 request_line = await self._read_line()
                 if not request_line:
+                    await asyncio.sleep(0.01)  # Add a small delay to reduce CPU usage when idle
                     continue
                 request = json.loads(request_line)
                 response = await self._process_request(request)

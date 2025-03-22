@@ -1,7 +1,38 @@
 import os
+import sys
 import json
 import subprocess
 from typing import Dict, List, Any, Optional, Literal
+
+"""
+import os
+import sys
+import signal
+
+LOCKFILE = "/tmp/ontology_mcp_server.lock"
+
+# Check if another instance is already running
+if os.path.exists(LOCKFILE):
+    with open(LOCKFILE, "r") as lock:
+        pid = int(lock.read().strip())
+        try:
+            # Check if the process is still running
+            os.kill(pid, 0)
+            print(f"Switching to the already running instance of ontology_mcp_server.py (PID: {pid}).", file=sys.stderr)
+            sys.exit(0)
+        except ProcessLookupError:
+            # Process not running, proceed to start a new instance
+            print(f"Stale lock file found. Starting a new instance.", file=sys.stderr)
+            os.remove(LOCKFILE)
+
+# Create the lock file
+with open(LOCKFILE, "w") as lock:
+    lock.write(str(os.getpid()))
+
+# Ensure the lock file is removed on exit
+import atexit
+atexit.register(lambda: os.remove(LOCKFILE))
+"""
 
 ServerType = Literal["ethical-dm", "zotero"]
 
