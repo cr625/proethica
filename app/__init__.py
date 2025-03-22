@@ -34,9 +34,11 @@ def create_app(config_name='default'):
     from app.routes.scenarios import scenarios_bp
     from app.routes.worlds import worlds_bp
     from app.routes.auth import auth_bp
+    from app.routes.entities import entities_bp
     app.register_blueprint(scenarios_bp)
     app.register_blueprint(worlds_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(entities_bp)
     
     # Create a single instance of MCPClient
     client = MCPClient()
