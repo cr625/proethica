@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy import JSON
 from app import db
+from app.models.entity import Entity
 
 class Action(db.Model):
     """Action model representing possible actions in scenarios."""
@@ -37,6 +38,9 @@ class Event(db.Model):
     event_time = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
     parameters = db.Column(JSON)  # Specific parameters for this event instance
+    
+    # Relationships
+    entities = db.relationship('Entity', secondary='event_entity', back_populates='events')
     
     def __repr__(self):
         return f'<Event {self.id} at {self.event_time}>'
