@@ -30,7 +30,7 @@ def populate_from_ontology():
             world = World(
                 name="Military Medical Triage World",
                 description="A world representing military medical triage scenarios",
-                ontology_source="mcp/ontology/military_medical_triage_consolidated.ttl"
+                ontology_source="mcp/ontology/tccc.ttl"
             )
             db.session.add(world)
             db.session.commit()
@@ -41,7 +41,7 @@ def populate_from_ontology():
         # Load and parse the ontology
         g = Graph()
         ontology_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                    "mcp/ontology/military_medical_triage_consolidated.ttl")
+                                    "mcp/ontology/tccc.ttl")
         g.parse(ontology_path, format="turtle")
         
         # Define namespaces

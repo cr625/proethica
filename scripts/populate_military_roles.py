@@ -45,7 +45,7 @@ def populate_military_roles():
             world = World(
                 name="Military Medical Triage",
                 description="A world representing military medical triage scenarios",
-                ontology_source="mcp/ontology/military_medical_triage_roles.ttl"
+                ontology_source="mcp/ontology/tccc.ttl"
             )
             db.session.add(world)
             db.session.commit()

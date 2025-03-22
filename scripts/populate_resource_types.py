@@ -46,7 +46,7 @@ def populate_resource_types():
             world = World(
                 name="Military Medical Triage",
                 description="A world representing military medical triage scenarios",
-                ontology_source="mcp/ontology/military_medical_triage.ttl"
+                ontology_source="mcp/ontology/tccc.ttl"
             )
             db.session.add(world)
             db.session.commit()
@@ -57,7 +57,7 @@ def populate_resource_types():
         # Load the OWL ontology
         g = Graph()
         ontology_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                     "mcp/ontology/military_medical_triage.ttl")
+                                     "mcp/ontology/tccc.ttl")
         
         # Check if the ontology file exists
         if not os.path.exists(ontology_path):
