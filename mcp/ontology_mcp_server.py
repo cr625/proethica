@@ -102,21 +102,43 @@ class OntologyMCPServer:
     def _extract_entities(self, graph, entity_type):
         def label_or_id(s):
             return str(next(graph.objects(s, RDFS.label), s))
+        
+        def get_description(s):
+            return str(next(graph.objects(s, RDFS.comment), ""))
 
         out = {}
         if entity_type in ("all", "roles"):
             out["roles"] = [
-                {"id": str(s), "label": label_or_id(s)}
+                {
+                    "id": str(s), 
+                    "label": label_or_id(s),
+                    "description": get_description(s),
+                    "tier": str(next(graph.objects(s, self.MMT.hasTier), "")),
+                    "capabilities": [str(o) for o in graph.objects(s, self.MMT.hasCapability)]
+                }
                 for s in graph.subjects(RDF.type, self.MMT.Role)
             ]
         if entity_type in ("all", "conditions"):
             out["conditions"] = [
-                {"id": str(s), "label": label_or_id(s)}
+                {
+                    "id": str(s), 
+                    "label": label_or_id(s),
+                    "description": get_description(s),
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.ConditionType), "")),
+                    "severity": str(next(graph.objects(s, self.MMT.severity), "")),
+                    "location": str(next(graph.objects(s, self.MMT.location), ""))
+                }
                 for s in graph.subjects(RDF.type, self.MMT.ConditionType)
             ]
         if entity_type in ("all", "resources"):
             out["resources"] = [
-                {"id": str(s), "label": label_or_id(s)}
+                {
+                    "id": str(s), 
+                    "label": label_or_id(s),
+                    "description": get_description(s),
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.ResourceType), "")),
+                    "quantity": str(next(graph.objects(s, self.MMT.quantity), ""))
+                }
                 for s in graph.subjects(RDF.type, self.MMT.ResourceType)
             ]
         return out

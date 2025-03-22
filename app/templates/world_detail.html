@@ -120,8 +120,7 @@
                                             <th>ID</th>
                                             <th>Name</th>
                                             <th>Description</th>
-                                            <th>Tier</th>
-                                            <th>Capabilities</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -130,15 +129,12 @@
                                             <td>{{ role.id }}</td>
                                             <td>{{ role.label }}</td>
                                             <td>{{ role.description }}</td>
-                                            <td>{{ role.tier }}</td>
                                             <td>
-                                                {% if role.capabilities %}
-                                                <ul class="list-unstyled">
-                                                    {% for capability in role.capabilities %}
-                                                    <li>{{ capability }}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                                {% endif %}
+                                                <button class="btn btn-sm btn-info view-details" data-entity-type="role"
+                                                    data-entity-id="{{ loop.index0 }}" data-bs-toggle="modal"
+                                                    data-bs-target="#entityDetailsModal">
+                                                    Details
+                                                </button>
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -154,10 +150,9 @@
                                     <thead>
                                         <tr>
                                             <th>ID</th>
-                                            <th>Label</th>
-                                            <th>Type</th>
-                                            <th>Severity</th>
-                                            <th>Location</th>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -165,9 +160,14 @@
                                         <tr>
                                             <td>{{ condition.id }}</td>
                                             <td>{{ condition.label }}</td>
-                                            <td>{{ condition.type }}</td>
-                                            <td>{{ condition.severity }}</td>
-                                            <td>{{ condition.location }}</td>
+                                            <td>{{ condition.description }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info view-details"
+                                                    data-entity-type="condition" data-entity-id="{{ loop.index0 }}"
+                                                    data-bs-toggle="modal" data-bs-target="#entityDetailsModal">
+                                                    Details
+                                                </button>
+                                            </td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -182,9 +182,9 @@
                                     <thead>
                                         <tr>
                                             <th>ID</th>
-                                            <th>Label</th>
-                                            <th>Type</th>
-                                            <th>Quantity</th>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -192,8 +192,14 @@
                                         <tr>
                                             <td>{{ resource.id }}</td>
                                             <td>{{ resource.label }}</td>
-                                            <td>{{ resource.type }}</td>
-                                            <td>{{ resource.quantity }}</td>
+                                            <td>{{ resource.description }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info view-details"
+                                                    data-entity-type="resource" data-entity-id="{{ loop.index0 }}"
+                                                    data-bs-toggle="modal" data-bs-target="#entityDetailsModal">
+                                                    Details
+                                                </button>
+                                            </td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -411,6 +417,25 @@
         </div>
     </div>
 
+    <!-- Entity Details Modal -->
+    <div class="modal fade" id="entityDetailsModal" tabindex="-1" aria-labelledby="entityDetailsModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="entityDetailsModalLabel">Entity Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="entityDetailsContent">
+                    <!-- Content will be populated dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Ruleset Modal -->
     <div class="modal fade" id="addRulesetModal" tabindex="-1" aria-labelledby="addRulesetModalLabel"
         aria-hidden="true">
@@ -459,6 +484,74 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Entity details
+        document.querySelectorAll('.view-details')?.forEach(button => {
+            button.addEventListener('click', function () {
+                const entityType = this.getAttribute('data-entity-type');
+                const entityId = parseInt(this.getAttribute('data-entity-id'));
+                const modalTitle = document.getElementById('entityDetailsModalLabel');
+                const modalContent = document.getElementById('entityDetailsContent');
+
+                // Get entity data based on type and ID
+                let entity;
+                let title;
+
+                // Use a simpler approach to get entity data
+                if (entityType === 'role') {
+                    // Get roles data
+                    var roles = JSON.parse('{{ entities.entities.roles | tojson | safe }}');
+                    entity = roles[entityId];
+                    title = 'Role Details: ' + entity.label;
+                } else if (entityType === 'condition') {
+                    // Get conditions data
+                    var conditions = JSON.parse('{{ entities.entities.conditions | tojson | safe }}');
+                    entity = conditions[entityId];
+                    title = 'Condition Details: ' + entity.label;
+                } else if (entityType === 'resource') {
+                    // Get resources data
+                    var resources = JSON.parse('{{ entities.entities.resources | tojson | safe }}');
+                    entity = resources[entityId];
+                    title = 'Resource Details: ' + entity.label;
+                }
+
+                // Update modal title
+                modalTitle.textContent = title;
+
+                // Create content based on entity type
+                let content = '<div class="table-responsive"><table class="table table-bordered">';
+
+                // Common fields for all entity types
+                content += `<tr><th>ID</th><td>${entity.id}</td></tr>`;
+                content += `<tr><th>Name</th><td>${entity.label}</td></tr>`;
+                content += `<tr><th>Description</th><td>${entity.description || 'No description available'}</td></tr>`;
+
+                // Type-specific fields
+                if (entityType === 'role') {
+                    content += `<tr><th>Tier</th><td>${entity.tier || 'Not specified'}</td></tr>`;
+
+                    if (entity.capabilities && entity.capabilities.length > 0) {
+                        content += '<tr><th>Capabilities</th><td><ul class="list-group list-group-flush">';
+                        entity.capabilities.forEach(capability => {
+                            content += `<li class="list-group-item">${capability}</li>`;
+                        });
+                        content += '</ul></td></tr>';
+                    }
+                } else if (entityType === 'condition') {
+                    content += `<tr><th>Type</th><td>${entity.type || 'Not specified'}</td></tr>`;
+                    content += `<tr><th>Severity</th><td>${entity.severity || 'Not specified'}</td></tr>`;
+                    content += `<tr><th>Location</th><td>${entity.location || 'Not specified'}</td></tr>`;
+                } else if (entityType === 'resource') {
+                    content += `<tr><th>Type</th><td>${entity.type || 'Not specified'}</td></tr>`;
+                    content += `<tr><th>Quantity</th><td>${entity.quantity || 'Not specified'}</td></tr>`;
+                }
+
+                content += '</table></div>';
+
+                // Update modal content
+                modalContent.innerHTML = content;
+            });
+        });
+
         // Case management
         document.getElementById('saveCaseBtn')?.addEventListener('click', function () {
             const form = document.getElementById('addCaseForm');

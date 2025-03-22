@@ -101,7 +101,7 @@ mmt:Nurse a owl:Class ;
 
 # Military Roles
 mmt:AllServiceMember rdf:type mmt:Role ;
-    rdfs:label "All Service Member (ASM)"@en ;
+    rdfs:label "All Service Members (ASM)"@en ;
     rdfs:comment "All military personnel receive baseline TCCC training"@en ;
     mmt:hasTier mmt:Tier1 .
 
