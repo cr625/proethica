@@ -17,7 +17,7 @@ class MCPClient:
             zotero_server_path: Path to the Zotero MCP server script (optional)
         """
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        self.ethical_dm_server_path = ethical_dm_server_path or os.path.join(base_dir, 'mcp', 'server_complete_with_run.py')
+        self.ethical_dm_server_path = ethical_dm_server_path or os.path.join(base_dir, 'mcp', 'ontology_mcp_server.py')
         self.zotero_server_path = zotero_server_path or os.path.join(base_dir, '..', 'zotero-mcp-server', 'src', 'server.py')
         self.ethical_dm_server_process = None
         self.zotero_server_process = None
