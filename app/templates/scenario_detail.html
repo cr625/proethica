@@ -102,11 +102,10 @@
 
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3>Actions Timeline</h3>
+            <h3>Timeline</h3>
             <div class="btn-group" role="group">
                 <a href="/scenarios/{{ scenario.id }}/actions/new" class="btn btn-sm btn-success">Add Action</a>
-                <a href="/scenarios/{{ scenario.id }}/events/new" class="btn btn-sm btn-outline-secondary">Add Event
-                    (Legacy)</a>
+                <a href="/scenarios/{{ scenario.id }}/events/new" class="btn btn-sm btn-success">Add Event</a>
             </div>
         </div>
         <div class="card-body">
@@ -127,9 +126,9 @@
                 {% for time, item_type, item in combined_items|sort %}
                 <div class="timeline-item">
                     <div
-                        class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% endif %}">
+                        class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
                     </div>
-                    <div class="timeline-content">
+                    <div class="timeline-content {% if item_type == 'event' %}timeline-content-event{% endif %}">
                         <h4 class="timeline-title">
                             {{ time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown time' }}
                             {% if item_type == 'action' %}
@@ -137,7 +136,7 @@
                                 {{ 'Decision' if item.is_decision else 'Action' }}
                             </span>
                             {% else %}
-                            <span class="badge bg-secondary">Event</span>
+                            <span class="badge bg-info">Event</span>
                             {% endif %}
                         </h4>
 
@@ -268,11 +267,21 @@
         background-color: #007bff;
     }
 
+    /* Change the connecting line color for event items */
+    .timeline-item:has(.bg-info):not(:last-child):before {
+        background-color: #17a2b8;
+    }
+
     .timeline-content {
         padding: 10px;
         border-radius: 5px;
         background-color: #f8f9fa;
         border-left: 3px solid #007bff;
+    }
+
+    .timeline-content-event {
+        border-left: 3px solid #17a2b8;
+        /* Bootstrap info color */
     }
 </style>
 {% endblock %}

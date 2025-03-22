@@ -360,12 +360,25 @@ def add_action(id):
         }
     })
 
-# Event routes (kept for backward compatibility)
+# Event routes
 @scenarios_bp.route('/<int:id>/events/new', methods=['GET'])
 def new_event(id):
     """Display form to add an event to a scenario."""
     scenario = Scenario.query.get_or_404(id)
-    return render_template('create_event.html', scenario=scenario)
+    world = World.query.get(scenario.world_id)
+    
+    # Get action types from the ontology if the world has an ontology source
+    action_types = []
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
+            if entities and 'entities' in entities and 'actions' in entities['entities']:
+                action_types = entities['entities']['actions']
+        except Exception as e:
+            print(f"Error retrieving action types from ontology: {str(e)}")
+    
+    return render_template('create_event.html', scenario=scenario, action_types=action_types)
 
 @scenarios_bp.route('/<int:id>/events', methods=['POST'])
 def add_event(id):

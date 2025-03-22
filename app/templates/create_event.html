@@ -39,9 +39,14 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="action_type" class="form-label">Action Type (Optional)</label>
-                    <input type="text" class="form-control" id="action_type" name="action_type">
-                    <div class="form-text">E.g., Treatment, Assessment, Decision, Communication, etc.</div>
+                    <label for="action_type" class="form-label">Event Type</label>
+                    <select class="form-select" id="action_type" name="action_type">
+                        <option value="">-- Select Event Type --</option>
+                        {% for action_type in action_types %}
+                        <option value="{{ action_type.id }}">{{ action_type.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the type of event from the ontology.</div>
                 </div>
 
                 <div class="mb-3">
