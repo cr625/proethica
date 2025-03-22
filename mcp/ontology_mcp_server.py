@@ -9,19 +9,17 @@ from rdflib.namespace import OWL
 
 # Configurable environment setup
 ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", "ontology")
-ONTOLOGY_FILE = os.environ.get("ONTOLOGY_FILE", "tccc.ttl")
 DEFAULT_DOMAIN = os.environ.get("DEFAULT_DOMAIN", "military-medical-triage")
 
 class EthicalDMServer:
     def __init__(self):
         self.jsonrpc_id = 0
-        self.graph = self._load_ontology()
         self.MMT = Namespace("http://example.org/military-medical-triage#")
 
-    def _load_ontology(self):
+    def _load_graph_from_file(self, ontology_file):
         g = Graph()
         try:
-            g.parse(os.path.join(ONTOLOGY_DIR, ONTOLOGY_FILE), format="turtle")
+            g.parse(os.path.join(ONTOLOGY_DIR, ontology_file), format="turtle")
         except Exception as e:
             print(f"Failed to load ontology: {str(e)}", file=sys.stderr)
         return g
@@ -67,21 +65,51 @@ class EthicalDMServer:
         result = await handlers[method](params)
         return {"jsonrpc": "2.0", "result": result, "id": request_id}
 
-    # Placeholder for the actual handlers to be adapted or restructured similarly...
     async def _handle_list_resources(self, params):
-        return {"resources": []}  # Simplified for refactor base
+        return {"resources": []}
 
     async def _handle_list_resource_templates(self, params):
-        return {"resourceTemplates": []}  # Simplified for refactor base
+        return {"resourceTemplates": []}
 
     async def _handle_read_resource(self, params):
-        return {"contents": []}  # Simplified for refactor base
+        return {"contents": []}
 
     async def _handle_list_tools(self, params):
-        return {"tools": []}  # Simplified for refactor base
+        return {"tools": ["get_world_entities"]}
 
     async def _handle_call_tool(self, params):
-        return {"content": []}  # Simplified for refactor base
+        name = params.get("name")
+        arguments = params.get("arguments", {})
+
+        if name == "get_world_entities":
+            ontology_source = arguments.get("ontology_source")
+            entity_type = arguments.get("entity_type", "all")
+            g = self._load_graph_from_file(ontology_source)
+            entities = self._extract_entities(g, entity_type)
+            return {"content": [{"text": json.dumps({"entities": entities})}]}
+        return {"content": [{"text": json.dumps({"error": "Unknown tool"})}]}
+
+    def _extract_entities(self, graph, entity_type):
+        def label_or_id(s):
+            return str(next(graph.objects(s, RDFS.label), s))
+
+        out = {}
+        if entity_type in ("all", "roles"):
+            out["roles"] = [
+                {"id": str(s), "label": label_or_id(s)}
+                for s in graph.subjects(RDF.type, self.MMT.Role)
+            ]
+        if entity_type in ("all", "conditions"):
+            out["conditions"] = [
+                {"id": str(s), "label": label_or_id(s)}
+                for s in graph.subjects(RDF.type, self.MMT.ConditionType)
+            ]
+        if entity_type in ("all", "resources"):
+            out["resources"] = [
+                {"id": str(s), "label": label_or_id(s)}
+                for s in graph.subjects(RDF.type, self.MMT.ResourceType)
+            ]
+        return out
 
 if __name__ == "__main__":
     server = EthicalDMServer()

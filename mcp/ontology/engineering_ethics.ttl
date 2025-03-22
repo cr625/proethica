@@ -1,0 +1,22 @@
+
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix eng: <http://example.org/engineering-ethics#> .
+
+<http://example.org/engineering-ethics> rdf:type owl:Ontology ;
+    rdfs:label "Engineering Ethics Ontology"@en ;
+    rdfs:comment "Ontology for modeling ethical dilemmas in engineering practice."@en .
+
+eng:Role rdf:type owl:Class ; rdfs:label "Role"@en .
+eng:ResourceType rdf:type owl:Class ; rdfs:label "Resource Type"@en .
+eng:ConditionType rdf:type owl:Class ; rdfs:label "Condition Type"@en .
+
+eng:ProfessionalEngineer rdf:type eng:Role ; rdfs:label "Professional Engineer"@en .
+eng:ComplianceOfficer rdf:type eng:Role ; rdfs:label "Compliance Officer"@en .
+
+eng:Blueprints rdf:type eng:ResourceType ; rdfs:label "Blueprints"@en .
+eng:InspectionReport rdf:type eng:ResourceType ; rdfs:label "Inspection Report"@en .
+
+eng:DesignDefect rdf:type eng:ConditionType ; rdfs:label "Design Defect"@en .
+eng:PublicSafetyRisk rdf:type eng:ConditionType ; rdfs:label "Public Safety Risk"@en .
