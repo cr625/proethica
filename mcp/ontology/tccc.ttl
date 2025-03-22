@@ -354,6 +354,62 @@ mmt:EvacuationEvent a owl:Class ;
     rdfs:label "Evacuation Event"@en ;
     rdfs:comment "An event where a patient is evacuated"@en .
 
+# Combat Event Types
+mmt:CombatEvent a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:EventType ;
+    rdfs:label "Combat Event"@en ;
+    rdfs:comment "An event that occurs during combat operations"@en .
+
+mmt:ExplosionEvent a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:CombatEvent ;
+    rdfs:label "Explosion"@en ;
+    rdfs:comment "An explosion event that may cause blast injuries"@en .
+
+mmt:SmallArmsFire a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:CombatEvent ;
+    rdfs:label "Small Arms Fire"@en ;
+    rdfs:comment "An event involving small arms fire (rifles, pistols, etc.)"@en .
+
+mmt:ArtilleryStrike a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:CombatEvent ;
+    rdfs:label "Artillery Strike"@en ;
+    rdfs:comment "An event involving artillery or mortar fire"@en .
+
+mmt:IEDDetonation a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:CombatEvent ;
+    rdfs:label "IED Detonation"@en ;
+    rdfs:comment "An event involving the detonation of an improvised explosive device"@en .
+
+mmt:Ambush a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:CombatEvent ;
+    rdfs:label "Ambush"@en ;
+    rdfs:comment "A surprise attack event by enemy forces"@en .
+
+mmt:MedicalEvacuation a owl:Class ;
+    rdf:type mmt:EventType ;
+    rdfs:subClassOf mmt:EvacuationEvent ;
+    rdfs:label "Medical Evacuation (MEDEVAC)"@en ;
+    rdfs:comment "An event where casualties are evacuated for medical treatment"@en .
+
+# Event Properties
+mmt:eventSeverity rdf:type owl:DatatypeProperty ;
+    rdfs:domain mmt:EventType ;
+    rdfs:range xsd:string ;
+    rdfs:label "event severity"@en ;
+    rdfs:comment "The severity of an event"@en .
+
+mmt:eventLocation rdf:type owl:DatatypeProperty ;
+    rdfs:domain mmt:EventType ;
+    rdfs:range xsd:string ;
+    rdfs:label "event location"@en ;
+    rdfs:comment "The location where an event occurred"@en .
+
 # Decision points
 mmt:TriageDecision a owl:Class ;
     rdf:type mmt:DecisionType ;

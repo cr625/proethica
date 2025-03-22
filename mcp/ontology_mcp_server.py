@@ -142,6 +142,18 @@ class OntologyMCPServer:
                 }
                 for s in graph.subjects(RDF.type, self.MMT.ResourceType)
             ]
+        if entity_type in ("all", "events"):
+            out["events"] = [
+                {
+                    "id": str(s), 
+                    "label": label_or_id(s),
+                    "description": get_description(s),
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.EventType), "")),
+                    "severity": str(next(graph.objects(s, self.MMT.eventSeverity), "")),
+                    "location": str(next(graph.objects(s, self.MMT.eventLocation), ""))
+                }
+                for s in graph.subjects(RDF.type, self.MMT.EventType)
+            ]
         return out
 
 if __name__ == "__main__":
