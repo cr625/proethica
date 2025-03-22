@@ -62,4 +62,8 @@ def create_app(config_name='default'):
         except Exception as e:
             return render_template('cases.html', cases=[], error=str(e))
     
+    @app.route('/about')
+    def about():
+        return render_template('about.html')
+
     return app
