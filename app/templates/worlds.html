@@ -16,7 +16,13 @@
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title">{{ world.name }}</h5>
-                    <p class="card-text">{{ world.description }}</p>
+                    <p class="card-text text-truncate" id="description-{{ world.id }}">
+                        {{ world.description }}
+                    </p>
+                    <button class="btn btn-link p-0" onclick="toggleDescription({{ world.id }})"
+                        id="toggle-btn-{{ world.id }}">
+                        Show More
+                    </button>
                     <p class="card-text"><small class="text-muted">Created: {{ world.created_at.strftime('%Y-%m-%d')
                             }}</small></p>
                 </div>
