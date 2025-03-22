@@ -76,7 +76,7 @@ def view_world(id):
     world = World.query.get_or_404(id)
     
     # Get world entities from MCP client if ontology source is specified
-    entities = {}
+    entities = {"entities": {}}  # Initialize with empty entities structure
     if world.ontology_source:
         try:
             mcp_client = MCPClient()

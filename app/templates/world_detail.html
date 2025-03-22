@@ -88,6 +88,7 @@
                 </div>
                 <div class="card-body">
                     {% if entities and entities.entities %}
+                    {% if entities.entities.roles or entities.entities.conditions or entities.entities.resources %}
                     <ul class="nav nav-tabs" id="entityTabs" role="tablist">
                         {% if entities.entities.roles %}
                         <li class="nav-item" role="presentation">
@@ -208,6 +209,8 @@
                         </div>
                         {% endif %}
                     </div>
+                    {% endif %}
+                    <!-- Close if entities.entities.roles or entities.entities.conditions or entities.entities.resources -->
                     {% elif entities and entities.error %}
                     <div class="alert alert-danger">
                         <p>Error retrieving world entities: {{ entities.error }}</p>
@@ -497,21 +500,27 @@
                 let title;
 
                 // Use a simpler approach to get entity data
-                if (entityType === 'role') {
-                    // Get roles data
-                    var roles = JSON.parse('{{ entities.entities.roles | tojson | safe }}');
-                    entity = roles[entityId];
-                    title = 'Role Details: ' + entity.label;
-                } else if (entityType === 'condition') {
-                    // Get conditions data
-                    var conditions = JSON.parse('{{ entities.entities.conditions | tojson | safe }}');
-                    entity = conditions[entityId];
-                    title = 'Condition Details: ' + entity.label;
-                } else if (entityType === 'resource') {
-                    // Get resources data
-                    var resources = JSON.parse('{{ entities.entities.resources | tojson | safe }}');
-                    entity = resources[entityId];
-                    title = 'Resource Details: ' + entity.label;
+                try {
+                    if (entityType === 'role') {
+                        // Get roles data
+                        var roles = JSON.parse('{{ entities.entities.roles | tojson | safe if entities.entities.roles else "[]" }}');
+                        entity = roles[entityId];
+                        title = 'Role Details: ' + entity.label;
+                    } else if (entityType === 'condition') {
+                        // Get conditions data
+                        var conditions = JSON.parse('{{ entities.entities.conditions | tojson | safe if entities.entities.conditions else "[]" }}');
+                        entity = conditions[entityId];
+                        title = 'Condition Details: ' + entity.label;
+                    } else if (entityType === 'resource') {
+                        // Get resources data
+                        var resources = JSON.parse('{{ entities.entities.resources | tojson | safe if entities.entities.resources else "[]" }}');
+                        entity = resources[entityId];
+                        title = 'Resource Details: ' + entity.label;
+                    }
+                } catch (error) {
+                    console.error("Error parsing entity data:", error);
+                    modalContent.innerHTML = '<div class="alert alert-danger">Error loading entity details</div>';
+                    return;
                 }
 
                 // Update modal title
