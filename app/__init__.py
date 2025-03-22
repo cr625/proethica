@@ -2,6 +2,7 @@ from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
+from app.services import MCPClient  # Import MCPClient once here
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -37,6 +38,9 @@ def create_app(config_name='default'):
     app.register_blueprint(worlds_bp)
     app.register_blueprint(auth_bp)
     
+    # Create a single instance of MCPClient
+    client = MCPClient()
+
     # Create routes
     @app.route('/')
     def index():
@@ -44,8 +48,6 @@ def create_app(config_name='default'):
     
     @app.route('/guidelines')
     def guidelines():
-        from app.services import MCPClient
-        client = MCPClient()
         try:
             guidelines_data = client.get_guidelines()
             return render_template('guidelines.html', guidelines=guidelines_data.get('guidelines', []))
@@ -54,8 +56,6 @@ def create_app(config_name='default'):
     
     @app.route('/cases')
     def cases():
-        from app.services import MCPClient
-        client = MCPClient()
         try:
             cases_data = client.get_cases()
             return render_template('cases.html', cases=cases_data.get('cases', []))
