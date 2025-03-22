@@ -83,6 +83,7 @@ def view_world(id):
             entities = mcp_client.get_world_entities(world.ontology_source)
         except Exception as e:
             entities = {"error": str(e)}
+            print(f"Error retrieving world entities: {str(e)}")
     
     return render_template('world_detail.html', world=world, entities=entities)
 

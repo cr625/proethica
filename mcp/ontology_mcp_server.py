@@ -8,24 +8,34 @@ from rdflib import Graph, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import OWL
 
 # Configurable environment setup
-ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", "ontology")
+ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", os.path.join(os.path.dirname(__file__), "ontology"))
 DEFAULT_DOMAIN = os.environ.get("DEFAULT_DOMAIN", "military-medical-triage")
 
-class EthicalDMServer:
+class OntologyMCPServer:
     def __init__(self):
         self.jsonrpc_id = 0
         self.MMT = Namespace("http://example.org/military-medical-triage#")
 
     def _load_graph_from_file(self, ontology_file):
         g = Graph()
+        if not ontology_file:
+            print(f"Error: No ontology file specified", file=sys.stderr)
+            return g
+            
+        ontology_path = os.path.join(ONTOLOGY_DIR, ontology_file)
         try:
-            g.parse(os.path.join(ONTOLOGY_DIR, ontology_file), format="turtle")
+            if not os.path.exists(ontology_path):
+                print(f"Error: Ontology file not found: {ontology_path}", file=sys.stderr)
+                return g
+                
+            g.parse(ontology_path, format="turtle")
+            print(f"Successfully loaded ontology from {ontology_path}", file=sys.stderr)
         except Exception as e:
             print(f"Failed to load ontology: {str(e)}", file=sys.stderr)
         return g
 
     async def run(self):
-        print("Ethical DM MCP server running on stdio", file=sys.stderr)
+        print("Ontology MCP server running on stdio", file=sys.stderr)
         while True:
             try:
                 request_line = await self._read_line()
@@ -112,5 +122,5 @@ class EthicalDMServer:
         return out
 
 if __name__ == "__main__":
-    server = EthicalDMServer()
+    server = OntologyMCPServer()
     asyncio.run(server.run())

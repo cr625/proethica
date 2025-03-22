@@ -269,12 +269,12 @@ class MCPClient:
         
         return text
     
-    def get_world_entities(self, world_name: str, entity_type: str = "all") -> Dict[str, Any]:
+    def get_world_entities(self, ontology_source: str, entity_type: str = "all") -> Dict[str, Any]:
         """
-        Get entities from a specific world.
+        Get entities from a specific world's ontology.
         
         Args:
-            world_name: Name of the world (e.g., military-medical-triage)
+            ontology_source: Path to the ontology file (e.g., "tccc.ttl")
             entity_type: Type of entity to retrieve (characters, conditions, resources, all)
             
         Returns:
@@ -285,7 +285,7 @@ class MCPClient:
             {
                 "name": "get_world_entities",
                 "arguments": {
-                    "world_name": world_name,
+                    "ontology_source": ontology_source,
                     "entity_type": entity_type
                 }
             }
