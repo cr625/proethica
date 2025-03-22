@@ -89,7 +89,7 @@
                 <div class="card-body">
                     {% if entities and entities.entities %}
                     {% if entities.entities.roles or entities.entities.conditions or entities.entities.resources or
-                    entities.entities.events %}
+                    entities.entities.events or entities.entities.actions %}
                     <ul class="nav nav-tabs" id="entityTabs" role="tablist">
                         {% if entities.entities.roles %}
                         <li class="nav-item" role="presentation">
@@ -115,6 +115,12 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events"
                                 type="button" role="tab" aria-controls="events" aria-selected="false">Events</button>
+                        </li>
+                        {% endif %}
+                        {% if entities.entities.actions %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="actions-tab" data-bs-toggle="tab" data-bs-target="#actions"
+                                type="button" role="tab" aria-controls="actions" aria-selected="false">Actions</button>
                         </li>
                         {% endif %}
                     </ul>
@@ -236,6 +242,38 @@
                                             <td>
                                                 <button class="btn btn-sm btn-info view-details"
                                                     data-entity-type="event" data-entity-id="{{ loop.index0 }}"
+                                                    data-bs-toggle="modal" data-bs-target="#entityDetailsModal">
+                                                    Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if entities.entities.actions %}
+                        <div class="tab-pane fade" id="actions" role="tabpanel" aria-labelledby="actions-tab">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for action in entities.entities.actions %}
+                                        <tr>
+                                            <td>{{ action.id }}</td>
+                                            <td>{{ action.label }}</td>
+                                            <td>{{ action.description }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info view-details"
+                                                    data-entity-type="action" data-entity-id="{{ loop.index0 }}"
                                                     data-bs-toggle="modal" data-bs-target="#entityDetailsModal">
                                                     Details
                                                 </button>
@@ -560,6 +598,11 @@
                         var events = JSON.parse('{{ entities.entities.events | tojson | safe if entities.entities.events else "[]" }}');
                         entity = events[entityId];
                         title = 'Event Details: ' + entity.label;
+                    } else if (entityType === 'action') {
+                        // Get actions data
+                        var actions = JSON.parse('{{ entities.entities.actions | tojson | safe if entities.entities.actions else "[]" }}');
+                        entity = actions[entityId];
+                        title = 'Action Details: ' + entity.label;
                     }
                 } catch (error) {
                     console.error("Error parsing entity data:", error);
@@ -600,6 +643,10 @@
                     content += `<tr><th>Type</th><td>${entity.type || 'Not specified'}</td></tr>`;
                     content += `<tr><th>Severity</th><td>${entity.severity || 'Not specified'}</td></tr>`;
                     content += `<tr><th>Location</th><td>${entity.location || 'Not specified'}</td></tr>`;
+                } else if (entityType === 'action') {
+                    content += `<tr><th>Type</th><td>${entity.type || 'Not specified'}</td></tr>`;
+                    content += `<tr><th>Priority</th><td>${entity.priority || 'Not specified'}</td></tr>`;
+                    content += `<tr><th>Duration</th><td>${entity.duration || 'Not specified'} minutes</td></tr>`;
                 }
 
                 content += '</table></div>';

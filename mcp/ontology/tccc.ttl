@@ -28,6 +28,10 @@ mmt:EventType rdf:type owl:Class ;
     rdfs:label "Event Type"@en ;
     rdfs:comment "A type of event in the military medical triage domain"@en .
 
+mmt:ActionType rdf:type owl:Class ;
+    rdfs:label "Action Type"@en ;
+    rdfs:comment "A type of action in the military medical triage domain"@en .
+
 mmt:DecisionType rdf:type owl:Class ;
     rdfs:label "Decision Type"@en ;
     rdfs:comment "A type of decision in the military medical triage domain"@en .
@@ -409,6 +413,98 @@ mmt:eventLocation rdf:type owl:DatatypeProperty ;
     rdfs:range xsd:string ;
     rdfs:label "event location"@en ;
     rdfs:comment "The location where an event occurred"@en .
+
+# Actions
+mmt:TreatmentAction a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:label "Treatment Action"@en ;
+    rdfs:comment "An action related to treating a patient"@en .
+
+mmt:AssessmentAction a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:label "Assessment Action"@en ;
+    rdfs:comment "An action related to assessing a patient's condition"@en .
+
+mmt:EvacuationAction a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:label "Evacuation Action"@en ;
+    rdfs:comment "An action related to evacuating a patient"@en .
+
+# Specific Treatment Actions
+mmt:ApplyTourniquet a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:TreatmentAction ;
+    rdfs:label "Apply Tourniquet"@en ;
+    rdfs:comment "Apply a tourniquet to stop bleeding"@en .
+
+mmt:AdministerMorphine a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:TreatmentAction ;
+    rdfs:label "Administer Morphine"@en ;
+    rdfs:comment "Administer morphine for pain relief"@en .
+
+mmt:ApplyPressureDressing a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:TreatmentAction ;
+    rdfs:label "Apply Pressure Dressing"@en ;
+    rdfs:comment "Apply a pressure dressing to control bleeding"@en .
+
+mmt:EstablishIVAccess a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:TreatmentAction ;
+    rdfs:label "Establish IV Access"@en ;
+    rdfs:comment "Establish intravenous access for fluid administration"@en .
+
+# Specific Assessment Actions
+mmt:CheckVitalSigns a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:AssessmentAction ;
+    rdfs:label "Check Vital Signs"@en ;
+    rdfs:comment "Check a patient's vital signs (pulse, respiration, blood pressure)"@en .
+
+mmt:PerformTriage a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:AssessmentAction ;
+    rdfs:label "Perform Triage"@en ;
+    rdfs:comment "Assess and categorize patients based on severity and resources"@en .
+
+mmt:AssessAirway a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:AssessmentAction ;
+    rdfs:label "Assess Airway"@en ;
+    rdfs:comment "Assess a patient's airway for obstruction or compromise"@en .
+
+# Specific Evacuation Actions
+mmt:PrepareForTransport a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:EvacuationAction ;
+    rdfs:label "Prepare for Transport"@en ;
+    rdfs:comment "Prepare a patient for transport to a medical facility"@en .
+
+mmt:LoadPatient a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:EvacuationAction ;
+    rdfs:label "Load Patient"@en ;
+    rdfs:comment "Load a patient onto a transport vehicle"@en .
+
+mmt:RequestMEDEVAC a owl:Class ;
+    rdf:type mmt:ActionType ;
+    rdfs:subClassOf mmt:EvacuationAction ;
+    rdfs:label "Request MEDEVAC"@en ;
+    rdfs:comment "Request medical evacuation for a patient"@en .
+
+# Action Properties
+mmt:actionPriority rdf:type owl:DatatypeProperty ;
+    rdfs:domain mmt:ActionType ;
+    rdfs:range xsd:string ;
+    rdfs:label "action priority"@en ;
+    rdfs:comment "The priority of an action (high, medium, low)"@en .
+
+mmt:actionDuration rdf:type owl:DatatypeProperty ;
+    rdfs:domain mmt:ActionType ;
+    rdfs:range xsd:integer ;
+    rdfs:label "action duration"@en ;
+    rdfs:comment "The estimated duration of an action in minutes"@en .
 
 # Decision points
 mmt:TriageDecision a owl:Class ;
