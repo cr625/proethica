@@ -24,13 +24,31 @@
                     <label for="role_id" class="form-label">Role</label>
                     <select class="form-select" id="role_id" name="role_id">
                         <option value="">-- Select a Role --</option>
+
+                        {% if roles or ontology_roles %}
+
                         {% if roles %}
-                        {% for role in roles %}
-                        <option value="{{ role.id }}" data-description="{{ role.description }}"
-                            data-tier="{{ role.tier }}">
-                            {{ role.name }} {% if role.tier %}(Tier {{ role.tier }}){% endif %}
-                        </option>
-                        {% endfor %}
+                        <optgroup label="Database Roles">
+                            {% for role in roles %}
+                            <option value="{{ role.id }}" data-description="{{ role.description }}"
+                                data-tier="{{ role.tier }}">
+                                {{ role.name }} {% if role.tier %}(Tier {{ role.tier }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+
+                        {% if ontology_roles %}
+                        <optgroup label="Ontology Roles">
+                            {% for role in ontology_roles %}
+                            <option value="{{ role.id }}" data-description="{{ role.description }}"
+                                data-tier="{{ role.tier }}">
+                                {{ role.label }} {% if role.tier %}(Tier {{ role.tier }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+
                         {% else %}
                         <option value="" disabled>No roles available for this world</option>
                         {% endif %}

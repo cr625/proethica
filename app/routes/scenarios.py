@@ -108,29 +108,38 @@ def update_scenario_form(id):
 def new_character(id):
     """Display form to add a character to a scenario."""
     scenario = Scenario.query.get_or_404(id)
-    # Get roles for the scenario's world
-    roles = Role.query.filter_by(world_id=scenario.world_id).all()
+    world = World.query.get(scenario.world_id)
+    
+    # Get roles for the scenario's world from the database
+    db_roles = Role.query.filter_by(world_id=scenario.world_id).all()
     
     # Get condition types for the scenario's world
     condition_types = ConditionType.query.filter_by(world_id=scenario.world_id).all()
     
+    # Get roles from the ontology if the world has an ontology source
+    ontology_roles = []
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
+            if entities and 'entities' in entities and 'roles' in entities['entities']:
+                ontology_roles = entities['entities']['roles']
+        except Exception as e:
+            print(f"Error retrieving roles from ontology: {str(e)}")
+    
     # Debug information
-    print(f"Found {len(roles)} roles for world_id {scenario.world_id}:")
-    for role in roles:
-        print(f"ID: {role.id}, Name: {role.name}, Tier: {role.tier}")
-        print(f"Description: {role.description}")
-        print(f"Ontology URI: {role.ontology_uri}")
-        print("-" * 50)
+    print(f"Found {len(db_roles)} database roles for world_id {scenario.world_id}")
+    print(f"Found {len(ontology_roles)} ontology roles for world_id {scenario.world_id}")
     
-    print(f"Found {len(condition_types)} condition types for world_id {scenario.world_id}:")
-    for ct in condition_types:
-        print(f"ID: {ct.id}, Name: {ct.name}, Category: {ct.category}")
-        print(f"Description: {ct.description}")
-        print(f"Severity Range: {ct.severity_range}")
-        print(f"Ontology URI: {ct.ontology_uri}")
-        print("-" * 50)
+    print(f"Found {len(condition_types)} condition types for world_id {scenario.world_id}")
     
-    return render_template('create_character.html', scenario=scenario, roles=roles, condition_types=condition_types)
+    return render_template(
+        'create_character.html', 
+        scenario=scenario, 
+        roles=db_roles, 
+        ontology_roles=ontology_roles,
+        condition_types=condition_types
+    )
 
 @scenarios_bp.route('/<int:id>/characters', methods=['POST'])
 def add_character(id):
@@ -138,19 +147,63 @@ def add_character(id):
     scenario = Scenario.query.get_or_404(id)
     data = request.json
     
+    # Check if the role_id is an ontology URI (starts with http)
+    role_id = data.get('role_id')
+    role_name = None
+    role_description = None
+    
+    if role_id and isinstance(role_id, str) and role_id.startswith('http'):
+        # This is an ontology role
+        # Get the role name and description from the ontology
+        world = World.query.get(scenario.world_id)
+        if world and world.ontology_source:
+            try:
+                mcp_client = MCPClient()
+                entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
+                if entities and 'entities' in entities and 'roles' in entities['entities']:
+                    for role in entities['entities']['roles']:
+                        if role['id'] == role_id:
+                            role_name = role['label']
+                            role_description = role['description']
+                            break
+            except Exception as e:
+                print(f"Error retrieving role from ontology: {str(e)}")
+        
+        # Create or find a role in the database to associate with this character
+        db_role = Role.query.filter_by(ontology_uri=role_id, world_id=scenario.world_id).first()
+        if not db_role and role_name:
+            # Create a new role in the database
+            db_role = Role(
+                name=role_name,
+                description=role_description,
+                world_id=scenario.world_id,
+                ontology_uri=role_id
+            )
+            db.session.add(db_role)
+            db.session.flush()  # Get the ID without committing
+        
+        # Use the database role ID if available
+        if db_role:
+            role_id = db_role.id
+    
     # Create character
     character = Character(
         scenario=scenario,
         name=data['name'],
-        role_id=data.get('role_id'),
+        role_id=role_id,
         attributes=data.get('attributes', {})
     )
     
-    # If role_id is provided, get the role name for backward compatibility
+    # Set the role name for backward compatibility
     if character.role_id:
-        role = Role.query.get(character.role_id)
-        if role:
-            character.role = role.name
+        if role_name:  # We already have the name from the ontology
+            character.role = role_name
+        else:
+            # Get the role name from the database
+            role = Role.query.get(character.role_id)
+            if role:
+                character.role = role.name
+    
     db.session.add(character)
     
     # Add conditions if provided
