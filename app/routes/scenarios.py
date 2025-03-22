@@ -285,7 +285,82 @@ def add_resource(id):
         }
     })
 
-# Event routes
+# Action routes
+@scenarios_bp.route('/<int:id>/actions/new', methods=['GET'])
+def new_action(id):
+    """Display form to add an action to a scenario."""
+    scenario = Scenario.query.get_or_404(id)
+    world = World.query.get(scenario.world_id)
+    
+    # Get action types from the ontology if the world has an ontology source
+    action_types = []
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
+            if entities and 'entities' in entities and 'actions' in entities['entities']:
+                action_types = entities['entities']['actions']
+        except Exception as e:
+            print(f"Error retrieving action types from ontology: {str(e)}")
+    
+    return render_template('create_action.html', scenario=scenario, action_types=action_types)
+
+@scenarios_bp.route('/<int:id>/actions', methods=['POST'])
+def add_action(id):
+    """Add an action to a scenario."""
+    from app.models.event import Action
+    
+    scenario = Scenario.query.get_or_404(id)
+    data = request.json
+    
+    # Get character if provided
+    character_id = data.get('character_id')
+    character = None
+    if character_id:
+        character = Character.query.get(character_id)
+    
+    # Create action
+    action = Action(
+        name=data['name'],
+        description=data['description'],
+        scenario=scenario,
+        character_id=character_id,
+        action_time=data['action_time'],
+        action_type=data.get('action_type'),
+        parameters=data.get('parameters', {}),
+        is_decision=data.get('is_decision', False),
+        options=data.get('options', []) if data.get('is_decision', False) else None
+    )
+    db.session.add(action)
+    db.session.commit()
+    
+    # If this is a decision, we might want to create an event for it as well
+    if action.is_decision:
+        from app.models.event import Event
+        event = Event(
+            scenario=scenario,
+            event_time=data['action_time'],
+            description=f"Decision point: {data['name']}",
+            character_id=character_id,
+            action=action,
+            parameters=data.get('parameters', {})
+        )
+        db.session.add(event)
+        db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Action added successfully',
+        'data': {
+            'id': action.id,
+            'name': action.name,
+            'action_time': action.action_time.isoformat(),
+            'description': action.description,
+            'is_decision': action.is_decision
+        }
+    })
+
+# Event routes (kept for backward compatibility)
 @scenarios_bp.route('/<int:id>/events/new', methods=['GET'])
 def new_event(id):
     """Display form to add an event to a scenario."""
@@ -311,9 +386,9 @@ def add_event(id):
         scenario=scenario,
         event_time=data['event_time'],
         description=data['description'],
-        character=character,
+        character_id=character_id,
         action_type=data.get('action_type'),
-        metadata=data.get('metadata', {})
+        parameters=data.get('metadata', {})
     )
     db.session.add(event)
     db.session.commit()
@@ -355,7 +430,7 @@ def add_decision(id):
         decision_time=data['decision_time'],
         description=data['description'],
         options=data['options'],
-        character=character,
+        character_id=character_id,
         context=data.get('context', '')
     )
     db.session.add(decision)

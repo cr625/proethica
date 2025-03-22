@@ -18,7 +18,8 @@ class Scenario(db.Model):
     characters = db.relationship('Character', backref='scenario', cascade='all, delete-orphan')
     resources = db.relationship('Resource', backref='scenario', cascade='all, delete-orphan')
     events = db.relationship('Event', backref='scenario', cascade='all, delete-orphan')
-    decisions = db.relationship('Decision', backref='scenario', cascade='all, delete-orphan')
+    actions = db.relationship('Action', backref='scenario', cascade='all, delete-orphan')
+    decisions = db.relationship('Decision', backref='scenario', cascade='all, delete-orphan')  # Kept for backward compatibility
     
     def __repr__(self):
         return f'<Scenario {self.name}>'
