@@ -1,116 +1,301 @@
-#!/usr/bin/env python3
-import json
-import os
-import sys
-import asyncio
-import rdflib
-from rdflib import Graph, Namespace, RDF, RDFS, URIRef
-from rdflib.namespace import OWL
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from datetime import datetime
+from app import db
+from app.models.world import World
+from app.models.scenario import Scenario
+from app.models.role import Role
+from app.models.condition_type import ConditionType
+from app.models.resource_type import ResourceType
+from app.services.mcp_client import MCPClient
 
-# Configurable environment setup
-ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", "ontology")
-DEFAULT_DOMAIN = os.environ.get("DEFAULT_DOMAIN", "military-medical-triage")
+worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 
-class EthicalDMServer:
-    def __init__(self):
-        self.jsonrpc_id = 0
-        self.MMT = Namespace("http://example.org/military-medical-triage#")
+# API endpoints
+@worlds_bp.route('/api', methods=['GET'])
+def api_get_worlds():
+    """API endpoint to get all worlds."""
+    worlds = World.query.all()
+    return jsonify({
+        'success': True,
+        'data': [world.to_dict() for world in worlds]
+    })
 
-    def _load_graph_from_file(self, ontology_file):
-        g = Graph()
+@worlds_bp.route('/api/<int:id>', methods=['GET'])
+def api_get_world(id):
+    """API endpoint to get a specific world by ID."""
+    world = World.query.get_or_404(id)
+    return jsonify({
+        'success': True,
+        'data': world.to_dict()
+    })
+
+# Web routes
+@worlds_bp.route('/', methods=['GET'])
+def list_worlds():
+    """Display all worlds."""
+    worlds = World.query.all()
+    return render_template('worlds.html', worlds=worlds)
+
+@worlds_bp.route('/new', methods=['GET'])
+def new_world():
+    """Display form to create a new world."""
+    return render_template('create_world.html')
+
+@worlds_bp.route('/', methods=['POST'])
+def create_world():
+    """Create a new world."""
+    # Check if the request is JSON or form data
+    if request.is_json:
+        data = request.json
+    else:
+        data = request.form
+    
+    # Create world
+    world = World(
+        name=data.get('name', ''),
+        description=data.get('description', ''),
+        ontology_source=data.get('ontology_source', ''),
+        metadata={}
+    )
+    db.session.add(world)
+    db.session.commit()
+    
+    if request.is_json:
+        return jsonify({
+            'success': True,
+            'message': 'World created successfully',
+            'data': world.to_dict()
+        }), 201
+    else:
+        flash('World created successfully', 'success')
+        return redirect(url_for('worlds.view_world', id=world.id))
+
+@worlds_bp.route('/<int:id>', methods=['GET'])
+def view_world(id):
+    """Display a specific world."""
+    world = World.query.get_or_404(id)
+    
+    # Get world entities from MCP client if ontology source is specified
+    entities = {}
+    if world.ontology_source:
         try:
-            g.parse(os.path.join(ONTOLOGY_DIR, ontology_file), format="turtle")
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source)
         except Exception as e:
-            print(f"Failed to load ontology: {str(e)}", file=sys.stderr)
-        return g
+            entities = {"error": str(e)}
+    
+    return render_template('world_detail.html', world=world, entities=entities)
 
-    async def run(self):
-        print("Ethical DM MCP server running on stdio", file=sys.stderr)
-        while True:
-            try:
-                request_line = await self._read_line()
-                if not request_line:
-                    continue
-                request = json.loads(request_line)
-                response = await self._process_request(request)
-                print(json.dumps(response), flush=True)
-            except Exception as e:
-                error_response = {
-                    "jsonrpc": "2.0",
-                    "error": {"code": -32000, "message": f"Internal error: {str(e)}"},
-                    "id": self.jsonrpc_id
-                }
-                print(json.dumps(error_response), flush=True)
+@worlds_bp.route('/<int:id>/edit', methods=['GET'])
+def edit_world(id):
+    """Display form to edit an existing world."""
+    world = World.query.get_or_404(id)
+    return render_template('edit_world.html', world=world)
 
-    async def _read_line(self):
-        return sys.stdin.readline().strip()
+@worlds_bp.route('/<int:id>/edit', methods=['POST'])
+def update_world_form(id):
+    """Update an existing world from form data."""
+    world = World.query.get_or_404(id)
+    
+    # Update world fields
+    world.name = request.form.get('name', '')
+    world.description = request.form.get('description', '')
+    world.ontology_source = request.form.get('ontology_source', '')
+    world.guidelines_url = request.form.get('guidelines_url', '')
+    world.guidelines_text = request.form.get('guidelines_text', '')
+    
+    db.session.commit()
+    
+    flash('World updated successfully', 'success')
+    return redirect(url_for('worlds.view_world', id=world.id))
 
-    async def _process_request(self, request):
-        method = request.get("method")
-        params = request.get("params", {})
-        request_id = request.get("id")
-        self.jsonrpc_id = request_id
+@worlds_bp.route('/<int:id>', methods=['PUT'])
+def update_world(id):
+    """Update an existing world via API."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # Update world fields
+    if 'name' in data:
+        world.name = data['name']
+    if 'description' in data:
+        world.description = data['description']
+    if 'ontology_source' in data:
+        world.ontology_source = data['ontology_source']
+    if 'guidelines_url' in data:
+        world.guidelines_url = data['guidelines_url']
+    if 'guidelines_text' in data:
+        world.guidelines_text = data['guidelines_text']
+    if 'metadata' in data:
+        world.metadata = data['metadata']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'World updated successfully',
+        'data': world.to_dict()
+    })
 
-        handlers = {
-            "list_resources": self._handle_list_resources,
-            "list_resource_templates": self._handle_list_resource_templates,
-            "read_resource": self._handle_read_resource,
-            "list_tools": self._handle_list_tools,
-            "call_tool": self._handle_call_tool
-        }
+@worlds_bp.route('/<int:id>', methods=['DELETE'])
+def delete_world(id):
+    """Delete a world via API."""
+    world = World.query.get_or_404(id)
+    db.session.delete(world)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'World deleted successfully'
+    })
 
-        if method not in handlers:
-            return {"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Method not found: {method}"}, "id": request_id}
+@worlds_bp.route('/<int:id>/delete', methods=['POST'])
+def delete_world_confirm(id):
+    """Delete a world from web form."""
+    world = World.query.get_or_404(id)
+    db.session.delete(world)
+    db.session.commit()
+    
+    flash('World deleted successfully', 'success')
+    return redirect(url_for('worlds.list_worlds'))
 
-        result = await handlers[method](params)
-        return {"jsonrpc": "2.0", "result": result, "id": request_id}
+# Case management routes
+@worlds_bp.route('/<int:id>/cases', methods=['POST'])
+def add_case(id):
+    """Add a case to a world."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # If no cases field exists in metadata, create it
+    if not world.metadata:
+        world.metadata = {}
+    if 'cases' not in world.metadata:
+        world.metadata['cases'] = []
+    
+    # Create case object
+    case = {
+        'title': data.get('title', ''),
+        'description': data.get('description', ''),
+        'decision': data.get('decision', ''),
+        'outcome': data.get('outcome', ''),
+        'ethical_analysis': data.get('ethical_analysis', ''),
+        'date': data.get('date') or datetime.now().strftime('%Y-%m-%d')
+    }
+    
+    # Add to metadata
+    world.metadata['cases'].append(case)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Case added successfully',
+        'data': case
+    })
 
-    async def _handle_list_resources(self, params):
-        return {"resources": []}
+@worlds_bp.route('/<int:id>/cases/<int:case_id>', methods=['DELETE'])
+def delete_case(id, case_id):
+    """Delete a case from a world."""
+    world = World.query.get_or_404(id)
+    
+    # Check if cases exist in metadata
+    if not world.metadata or 'cases' not in world.metadata:
+        return jsonify({
+            'success': False,
+            'message': 'No cases found for this world'
+        }), 404
+    
+    # Check if case_id is valid
+    if case_id < 0 or case_id >= len(world.metadata['cases']):
+        return jsonify({
+            'success': False,
+            'message': f'Case with ID {case_id} not found'
+        }), 404
+    
+    # Remove case
+    world.metadata['cases'].pop(case_id)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Case deleted successfully'
+    })
 
-    async def _handle_list_resource_templates(self, params):
-        return {"resourceTemplates": []}
+# Ruleset management routes
+@worlds_bp.route('/<int:id>/rulesets', methods=['POST'])
+def add_ruleset(id):
+    """Add a ruleset to a world."""
+    world = World.query.get_or_404(id)
+    data = request.json
+    
+    # If no rulesets field exists in metadata, create it
+    if not world.metadata:
+        world.metadata = {}
+    if 'rulesets' not in world.metadata:
+        world.metadata['rulesets'] = []
+    
+    # Create ruleset object
+    ruleset = {
+        'name': data.get('name', ''),
+        'description': data.get('description', ''),
+        'rules': data.get('rules', [])
+    }
+    
+    # Add to metadata
+    world.metadata['rulesets'].append(ruleset)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Ruleset added successfully',
+        'data': ruleset
+    })
 
-    async def _handle_read_resource(self, params):
-        return {"contents": []}
+@worlds_bp.route('/<int:id>/rulesets/<int:ruleset_id>', methods=['DELETE'])
+def delete_ruleset(id, ruleset_id):
+    """Delete a ruleset from a world."""
+    world = World.query.get_or_404(id)
+    
+    # Check if rulesets exist in metadata
+    if not world.metadata or 'rulesets' not in world.metadata:
+        return jsonify({
+            'success': False,
+            'message': 'No rulesets found for this world'
+        }), 404
+    
+    # Check if ruleset_id is valid
+    if ruleset_id < 0 or ruleset_id >= len(world.metadata['rulesets']):
+        return jsonify({
+            'success': False,
+            'message': f'Ruleset with ID {ruleset_id} not found'
+        }), 404
+    
+    # Remove ruleset
+    world.metadata['rulesets'].pop(ruleset_id)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Ruleset deleted successfully'
+    })
 
-    async def _handle_list_tools(self, params):
-        return {"tools": ["get_world_entities"]}
-
-    async def _handle_call_tool(self, params):
-        name = params.get("name")
-        arguments = params.get("arguments", {})
-
-        if name == "get_world_entities":
-            ontology_source = arguments.get("ontology_source")
-            entity_type = arguments.get("entity_type", "all")
-            g = self._load_graph_from_file(ontology_source)
-            entities = self._extract_entities(g, entity_type)
-            return {"content": [{"text": json.dumps({"entities": entities})}]}
-        return {"content": [{"text": json.dumps({"error": "Unknown tool"})}]}
-
-    def _extract_entities(self, graph, entity_type):
-        def label_or_id(s):
-            return str(next(graph.objects(s, RDFS.label), s))
-
-        out = {}
-        if entity_type in ("all", "roles"):
-            out["roles"] = [
-                {"id": str(s), "label": label_or_id(s)}
-                for s in graph.subjects(RDF.type, self.MMT.Role)
-            ]
-        if entity_type in ("all", "conditions"):
-            out["conditions"] = [
-                {"id": str(s), "label": label_or_id(s)}
-                for s in graph.subjects(RDF.type, self.MMT.ConditionType)
-            ]
-        if entity_type in ("all", "resources"):
-            out["resources"] = [
-                {"id": str(s), "label": label_or_id(s)}
-                for s in graph.subjects(RDF.type, self.MMT.ResourceType)
-            ]
-        return out
-
-if __name__ == "__main__":
-    server = EthicalDMServer()
-    asyncio.run(server.run())
+# References routes
+@worlds_bp.route('/<int:id>/references', methods=['GET'])
+def world_references(id):
+    """Display references for a world."""
+    world = World.query.get_or_404(id)
+    
+    # Get search query from request parameters
+    query = request.args.get('query', '')
+    
+    # Initialize MCP client
+    mcp_client = MCPClient()
+    
+    # Get references
+    if query:
+        # Search with the provided query
+        references = mcp_client.search_zotero_items(query, limit=10)
+    else:
+        # Get references based on world content
+        references = mcp_client.get_references_for_world(world)
+    
+    return render_template('world_references.html', world=world, references=references, query=query)
