@@ -516,7 +516,9 @@ def update_character(id, character_id):
 
 @scenarios_bp.route('/<int:id>/characters/<int:character_id>/delete', methods=['POST'])
 def delete_character(id, character_id):
-    """Delete a character."""
+    """Delete a character and its associated actions."""
+    from app.models.event import Action, Event
+    
     scenario = Scenario.query.get_or_404(id)
     character = Character.query.get_or_404(character_id)
     
@@ -525,11 +527,23 @@ def delete_character(id, character_id):
         flash('Character does not belong to this scenario', 'danger')
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))
     
-    # Delete the character (conditions will be deleted automatically due to cascade)
+    # First, find all actions associated with this character
+    actions = Action.query.filter_by(character_id=character_id).all()
+    
+    # For each action, delete associated events
+    for action in actions:
+        events = Event.query.filter_by(action_id=action.id).all()
+        for event in events:
+            db.session.delete(event)
+        
+        # Then delete the action
+        db.session.delete(action)
+    
+    # Now delete the character (conditions will be deleted automatically due to cascade)
     db.session.delete(character)
     db.session.commit()
     
-    flash('Character deleted successfully', 'success')
+    flash('Character and associated actions deleted successfully', 'success')
     return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 # Resource routes
