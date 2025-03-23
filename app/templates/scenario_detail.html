@@ -85,7 +85,18 @@
                         <div class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">{{ resource.name }}</h5>
-                                <span class="badge bg-primary">{{ resource.quantity }} available</span>
+                                <div>
+                                    <span class="badge bg-primary me-2">{{ resource.quantity }} available</span>
+                                    <a href="/scenarios/{{ scenario.id }}/resources/{{ resource.id }}/edit"
+                                        class="btn btn-sm btn-outline-secondary" title="Edit resource">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete resource"
+                                        data-bs-toggle="modal" data-bs-target="#deleteResourceModal"
+                                        data-resource-id="{{ resource.id }}" data-resource-name="{{ resource.name }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                             <p class="mb-1">{{ resource.description }}</p>
                             <small class="text-muted">Type: {{ resource.type }}</small>
@@ -212,7 +223,7 @@
     </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
+<!-- Delete Scenario Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -232,6 +243,60 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Resource Confirmation Modal -->
+<div class="modal fade" id="deleteResourceModal" tabindex="-1" aria-labelledby="deleteResourceModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteResourceModalLabel">Confirm Resource Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the resource "<span id="resourceNameToDelete"></span>"? This action
+                    cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteResourceForm" method="post">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Handle resource deletion modal
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteResourceModal = document.getElementById('deleteResourceModal');
+        if (deleteResourceModal) {
+            deleteResourceModal.addEventListener('show.bs.modal', function (event) {
+                // Button that triggered the modal
+                const button = event.relatedTarget;
+
+                // Extract resource info from data attributes
+                const resourceId = button.getAttribute('data-resource-id');
+                const resourceName = button.getAttribute('data-resource-name');
+
+                // Update the modal's content
+                const resourceNameSpan = document.getElementById('resourceNameToDelete');
+                const deleteForm = document.getElementById('deleteResourceForm');
+
+                if (resourceNameSpan) {
+                    resourceNameSpan.textContent = resourceName;
+                }
+
+                if (deleteForm) {
+                    deleteForm.action = `/scenarios/{{ scenario.id }}/resources/${resourceId}/delete`;
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}
 
 {% block styles %}
