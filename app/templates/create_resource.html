@@ -16,11 +16,6 @@
         <div class="card-body">
             <form id="create-resource-form">
                 <div class="mb-3">
-                    <label for="name" class="form-label">Resource Name</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
-                </div>
-
-                <div class="mb-3">
                     <label for="resource_type_id" class="form-label">Resource Type</label>
                     <select class="form-select" id="resource_type_id" name="resource_type_id">
                         <option value="">-- Select a Resource Type --</option>
@@ -68,6 +63,12 @@
                 </div>
 
                 <div class="mb-3">
+                    <label for="name" class="form-label">Resource Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+
+
+                <div class="mb-3">
                     <label for="quantity" class="form-label">Quantity</label>
                     <input type="number" class="form-control" id="quantity" name="quantity" min="1" value="1">
                 </div>
@@ -85,42 +86,42 @@
         </div>
     </div>
 
-
-    <div class="card-header bg-info text-white">
-        <h3 class="mb-0">Resource Examples</h3>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4">
-                <h5>Medical Domain</h5>
-                <ul>
-                    <li>Ventilators (5 units)</li>
-                    <li>Blood Type O- (3 units)</li>
-                    <li>Surgical Team (1 team)</li>
-                    <li>Antibiotics (20 doses)</li>
-                </ul>
-            </div>
-            <div class="col-md-4">
-                <h5>Engineering Domain</h5>
-                <ul>
-                    <li>Safety Testing Equipment</li>
-                    <li>Development Budget</li>
-                    <li>Engineering Team</li>
-                    <li>Prototype Materials</li>
-                </ul>
-            </div>
-            <div class="col-md-4">
-                <h5>Legal Domain</h5>
-                <ul>
-                    <li>Legal Research Database</li>
-                    <li>Paralegal Support</li>
-                    <li>Expert Witnesses</li>
-                    <li>Client Funds</li>
-                </ul>
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">Resource Examples</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5>Medical Domain</h5>
+                    <ul>
+                        <li>Ventilators (5 units)</li>
+                        <li>Blood Type O- (3 units)</li>
+                        <li>Surgical Team (1 team)</li>
+                        <li>Antibiotics (20 doses)</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5>Engineering Domain</h5>
+                    <ul>
+                        <li>Safety Testing Equipment</li>
+                        <li>Development Budget</li>
+                        <li>Engineering Team</li>
+                        <li>Prototype Materials</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5>Legal Domain</h5>
+                    <ul>
+                        <li>Legal Research Database</li>
+                        <li>Paralegal Support</li>
+                        <li>Expert Witnesses</li>
+                        <li>Client Funds</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
-</div>
 </div>
 {% endblock %}
 
@@ -136,6 +137,21 @@
         console.log('Selected resource type:', resourceTypeName);
         console.log('Description:', description);
         console.log('Category:', category);
+
+        // Auto-populate the name field with the resource type name
+        if (this.value !== '') {
+            // Extract just the name part without the category
+            let nameOnly = resourceTypeName;
+            if (resourceTypeName.includes('(')) {
+                nameOnly = resourceTypeName.substring(0, resourceTypeName.indexOf('(')).trim();
+            }
+            document.getElementById('name').value = nameOnly;
+        }
+
+        // Auto-populate the description field if available
+        if (description && this.value !== '') {
+            document.getElementById('description').value = description;
+        }
 
         const resourceTypeDetails = document.getElementById('resource-type-details');
         const resourceTypeTitle = document.getElementById('resource-type-title');
