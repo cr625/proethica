@@ -62,6 +62,50 @@ async def test():
     for entity_type, entities_list in entities.items():
         print(f'{entity_type}: {len(entities_list)} entities found')
     
+    # Test nj_legal_ethics.ttl
+    print('\nLoading nj_legal_ethics.ttl...')
+    g = server._load_graph_from_file('nj_legal_ethics.ttl')
+    print('Graph loaded, detecting namespace...')
+    # Force the correct namespace for nj_legal_ethics.ttl
+    namespace = "http://example.org/nj-legal-ethics#"
+    print(f'Using namespace: {namespace}')
+    print('Extracting entities...')
+    entities = server._extract_entities(g, 'all')
+    print('Entities extracted:')
+    for entity_type, entities_list in entities.items():
+        print(f'{entity_type}: {len(entities_list)} entities found')
+        if entities_list:
+            print(f'Sample {entity_type}:')
+            print(json.dumps(entities_list[0], indent=2))
+            print()
+    
+    # Print all triples in the nj_legal_ethics.ttl file
+    print('\nPrinting all triples in nj_legal_ethics.ttl related to Client and LegalAdvice1...')
+    
+    # Look for Client class
+    print("\nLooking for Client class...")
+    for s, p, o in g.triples((None, RDF.type, None)):
+        if 'Client' in str(s):
+            print(f"Found: {s} {p} {o}")
+    
+    # Look for Client1 instance
+    print("\nLooking for Client1 instance...")
+    for s, p, o in g.triples((None, None, None)):
+        if 'Client1' in str(s):
+            print(f"Found: {s} {p} {o}")
+    
+    # Look for LegalAdvice1 instance
+    print("\nLooking for LegalAdvice1 instance...")
+    for s, p, o in g.triples((None, None, None)):
+        if 'LegalAdvice1' in str(s):
+            print(f"Found: {s} {p} {o}")
+    
+    # Look for actionForClient property
+    print("\nLooking for actionForClient property...")
+    for s, p, o in g.triples((None, None, None)):
+        if 'actionForClient' in str(p):
+            print(f"Found: {s} {p} {o}")
+    
     # Print all triples in the tccc.ttl file
     print('\nPrinting all triples in tccc.ttl related to Patient and TourniquetApplication1...')
     
