@@ -1,22 +1,654 @@
-
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix eng: <http://example.org/engineering-ethics#> .
+@prefix ieee: <http://example.org/ieee-ethics#> .
+@prefix nspe: <http://example.org/nspe-code#> .
 
+# Ontology Declaration
 <http://example.org/engineering-ethics> rdf:type owl:Ontology ;
     rdfs:label "Engineering Ethics Ontology"@en ;
     rdfs:comment "Ontology for modeling ethical dilemmas in engineering practice."@en .
 
-eng:Role rdf:type owl:Class ; rdfs:label "Role"@en .
-eng:ResourceType rdf:type owl:Class ; rdfs:label "Resource Type"@en .
-eng:ConditionType rdf:type owl:Class ; rdfs:label "Condition Type"@en .
+# Category Classes
+eng:CharacterType rdf:type owl:Class ;
+    rdfs:label "Character Type"@en ;
+    rdfs:comment "A type of character in the engineering ethics domain"@en .
 
-eng:ProfessionalEngineer rdf:type eng:Role ; rdfs:label "Professional Engineer"@en .
-eng:ComplianceOfficer rdf:type eng:Role ; rdfs:label "Compliance Officer"@en .
+eng:ConditionType rdf:type owl:Class ;
+    rdfs:label "Condition Type"@en ;
+    rdfs:comment "A type of ethical condition or dilemma in the engineering domain"@en .
 
-eng:Blueprints rdf:type eng:ResourceType ; rdfs:label "Blueprints"@en .
-eng:InspectionReport rdf:type eng:ResourceType ; rdfs:label "Inspection Report"@en .
+eng:ResourceType rdf:type owl:Class ;
+    rdfs:label "Resource Type"@en ;
+    rdfs:comment "A type of resource in the engineering domain"@en .
 
-eng:DesignDefect rdf:type eng:ConditionType ; rdfs:label "Design Defect"@en .
-eng:PublicSafetyRisk rdf:type eng:ConditionType ; rdfs:label "Public Safety Risk"@en .
+eng:EventType rdf:type owl:Class ;
+    rdfs:label "Event Type"@en ;
+    rdfs:comment "A type of event in the engineering ethics domain"@en .
+
+eng:ActionType rdf:type owl:Class ;
+    rdfs:label "Action Type"@en ;
+    rdfs:comment "A type of action in the engineering ethics domain"@en .
+
+eng:DecisionType rdf:type owl:Class ;
+    rdfs:label "Decision Type"@en ;
+    rdfs:comment "A type of decision in the engineering ethics domain"@en .
+
+# World definition
+eng:EngineeringEthicsWorld a owl:Class ;
+    rdfs:label "Engineering Ethics World"@en ;
+    rdfs:comment "A world representing engineering ethics scenarios"@en .
+
+# Character Types
+eng:Character a owl:Class ;
+    rdfs:label "Character"@en ;
+    rdfs:comment "A person in the engineering ethics domain"@en .
+
+eng:Professional a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Character ;
+    rdfs:label "Professional"@en ;
+    rdfs:comment "A professional in the engineering field"@en .
+
+eng:Stakeholder a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Character ;
+    rdfs:label "Stakeholder"@en ;
+    rdfs:comment "A person or entity affected by engineering decisions"@en .
+
+# Role Integration
+eng:Role rdfs:subClassOf eng:CharacterType ;
+    rdfs:label "Role"@en ;
+    rdfs:comment "An engineering role with specific responsibilities and ethical obligations"@en .
+
+# Tier Definition
+eng:Tier rdf:type owl:Class ;
+    rdfs:label "Tier"@en ;
+    rdfs:comment "A level of professional responsibility and ethical obligation"@en .
+
+eng:EntryLevel rdf:type eng:Tier ;
+    rdfs:label "Entry Level"@en ;
+    rdfs:comment "Junior engineers with limited decision-making authority"@en .
+
+eng:MidLevel rdf:type eng:Tier ;
+    rdfs:label "Mid Level"@en ;
+    rdfs:comment "Experienced engineers with moderate decision-making authority"@en .
+
+eng:SeniorLevel rdf:type eng:Tier ;
+    rdfs:label "Senior Level"@en ;
+    rdfs:comment "Senior engineers with significant decision-making authority"@en .
+
+eng:ExecutiveLevel rdf:type eng:Tier ;
+    rdfs:label "Executive Level"@en ;
+    rdfs:comment "Engineering executives with ultimate decision-making authority"@en .
+
+# Specific Professional Roles
+eng:Engineer a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Professional ;
+    rdfs:label "Engineer"@en ;
+    rdfs:comment "A professional engineer"@en .
+
+eng:Manager a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Professional ;
+    rdfs:label "Manager"@en ;
+    rdfs:comment "A manager overseeing engineering projects"@en .
+
+eng:Regulator a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Professional ;
+    rdfs:label "Regulator"@en ;
+    rdfs:comment "A regulatory official overseeing engineering compliance"@en .
+
+# Engineering Roles
+eng:JuniorEngineer rdf:type eng:Role ;
+    rdfs:label "Junior Engineer"@en ;
+    rdfs:comment "Entry-level engineer with limited decision-making authority"@en ;
+    eng:hasTier eng:EntryLevel .
+
+eng:ProfessionalEngineer rdf:type eng:Role ;
+    rdfs:label "Professional Engineer"@en ;
+    rdfs:comment "Licensed professional engineer with significant technical responsibility"@en ;
+    eng:hasTier eng:MidLevel .
+
+eng:SeniorEngineer rdf:type eng:Role ;
+    rdfs:label "Senior Engineer"@en ;
+    rdfs:comment "Experienced engineer with leadership responsibilities"@en ;
+    eng:hasTier eng:SeniorLevel .
+
+eng:ChiefEngineer rdf:type eng:Role ;
+    rdfs:label "Chief Engineer"@en ;
+    rdfs:comment "Top technical authority in an engineering organization"@en ;
+    eng:hasTier eng:ExecutiveLevel .
+
+eng:ProjectManager rdf:type eng:Role ;
+    rdfs:label "Project Manager"@en ;
+    rdfs:comment "Manager responsible for project delivery"@en ;
+    eng:hasTier eng:MidLevel .
+
+eng:EngineeringDirector rdf:type eng:Role ;
+    rdfs:label "Engineering Director"@en ;
+    rdfs:comment "Executive responsible for engineering department"@en ;
+    eng:hasTier eng:ExecutiveLevel .
+
+eng:ComplianceOfficer rdf:type eng:Role ;
+    rdfs:label "Compliance Officer"@en ;
+    rdfs:comment "Professional responsible for ensuring regulatory compliance"@en ;
+    eng:hasTier eng:MidLevel .
+
+eng:SafetyInspector rdf:type eng:Role ;
+    rdfs:label "Safety Inspector"@en ;
+    rdfs:comment "Professional responsible for safety inspections"@en ;
+    eng:hasTier eng:MidLevel .
+
+# Engineering Disciplines
+eng:EngineeringDiscipline rdf:type owl:Class ;
+    rdfs:label "Engineering Discipline"@en ;
+    rdfs:comment "A specific field of engineering practice"@en .
+
+eng:CivilEngineering rdf:type eng:EngineeringDiscipline ;
+    rdfs:label "Civil Engineering"@en ;
+    rdfs:comment "Engineering discipline focused on infrastructure and built environment"@en .
+
+eng:MechanicalEngineering rdf:type eng:EngineeringDiscipline ;
+    rdfs:label "Mechanical Engineering"@en ;
+    rdfs:comment "Engineering discipline focused on mechanical systems and manufacturing"@en .
+
+eng:ElectricalEngineering rdf:type eng:EngineeringDiscipline ;
+    rdfs:label "Electrical Engineering"@en ;
+    rdfs:comment "Engineering discipline focused on electrical systems and electronics"@en .
+
+eng:SoftwareEngineering rdf:type eng:EngineeringDiscipline ;
+    rdfs:label "Software Engineering"@en ;
+    rdfs:comment "Engineering discipline focused on software systems"@en .
+
+eng:ChemicalEngineering rdf:type eng:EngineeringDiscipline ;
+    rdfs:label "Chemical Engineering"@en ;
+    rdfs:comment "Engineering discipline focused on chemical processes"@en .
+
+# Ethical conditions
+eng:EthicalCondition a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:label "Ethical Condition"@en ;
+    rdfs:comment "An ethical condition or dilemma in engineering practice"@en .
+
+eng:SafetyIssue a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Safety Issue"@en ;
+    rdfs:comment "A condition related to safety concerns"@en ;
+    owl:equivalentClass ieee:SafetyFirst .
+
+eng:DesignDefect a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:SafetyIssue ;
+    rdfs:label "Design Defect"@en ;
+    rdfs:comment "A defect in engineering design that may pose risks"@en ;
+    owl:equivalentClass nspe:DesignSafety .
+
+eng:PublicSafetyRisk a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:SafetyIssue ;
+    rdfs:label "Public Safety Risk"@en ;
+    rdfs:comment "A condition that poses risk to public safety"@en ;
+    owl:equivalentClass nspe:PublicSafety .
+
+eng:EnvironmentalImpact a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Environmental Impact"@en ;
+    rdfs:comment "A condition related to environmental concerns"@en ;
+    owl:equivalentClass ieee:EnvironmentalConsideration .
+
+eng:ConflictOfInterest a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Conflict of Interest"@en ;
+    rdfs:comment "A condition where personal interests conflict with professional duties"@en ;
+    owl:equivalentClass nspe:ConflictOfInterest .
+
+eng:BudgetConstraint a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Budget Constraint"@en ;
+    rdfs:comment "A condition where financial limitations affect engineering decisions"@en .
+
+eng:TimeConstraint a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Time Constraint"@en ;
+    rdfs:comment "A condition where time limitations affect engineering decisions"@en .
+
+eng:RegulatoryNoncompliance a owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Regulatory Noncompliance"@en ;
+    rdfs:comment "A condition where engineering work does not comply with regulations"@en ;
+    owl:equivalentClass nspe:LegalCompliance .
+
+# Ethical categories
+eng:EthicalCategory a owl:Class ;
+    rdfs:label "Ethical Category"@en ;
+    rdfs:comment "A category used to classify ethical dilemmas"@en .
+
+eng:HighRisk a owl:Class ;
+    rdfs:subClassOf eng:EthicalCategory ;
+    rdfs:label "High Risk (Red)"@en ;
+    rdfs:comment "Ethical issues requiring immediate attention due to severe consequences"@en .
+
+eng:ModerateRisk a owl:Class ;
+    rdfs:subClassOf eng:EthicalCategory ;
+    rdfs:label "Moderate Risk (Yellow)"@en ;
+    rdfs:comment "Ethical issues requiring attention but not posing immediate severe risk"@en .
+
+eng:LowRisk a owl:Class ;
+    rdfs:subClassOf eng:EthicalCategory ;
+    rdfs:label "Low Risk (Green)"@en ;
+    rdfs:comment "Ethical issues with minimal risk that can be addressed in normal course of business"@en .
+
+eng:PotentialRisk a owl:Class ;
+    rdfs:subClassOf eng:EthicalCategory ;
+    rdfs:label "Potential Risk (Blue)"@en ;
+    rdfs:comment "Situations that may develop into ethical issues if not monitored"@en .
+
+# Resources
+eng:EngineeringResource a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:label "Engineering Resource"@en ;
+    rdfs:comment "A resource used in engineering practice"@en .
+
+eng:TechnicalDocument a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:EngineeringResource ;
+    rdfs:label "Technical Document"@en ;
+    rdfs:comment "A document containing technical information"@en .
+
+eng:Blueprints a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:TechnicalDocument ;
+    rdfs:label "Blueprints"@en ;
+    rdfs:comment "Technical drawings showing engineering designs"@en ;
+    owl:equivalentClass nspe:EngineeringDocuments .
+
+eng:Specifications a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:TechnicalDocument ;
+    rdfs:label "Specifications"@en ;
+    rdfs:comment "Detailed requirements for engineering work"@en ;
+    owl:equivalentClass nspe:EngineeringSpecifications .
+
+eng:InspectionReport a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:TechnicalDocument ;
+    rdfs:label "Inspection Report"@en ;
+    rdfs:comment "A report documenting inspection findings"@en ;
+    owl:equivalentClass nspe:EngineeringReports .
+
+eng:RegulatoryStandard a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:EngineeringResource ;
+    rdfs:label "Regulatory Standard"@en ;
+    rdfs:comment "A standard or code that engineering work must comply with"@en ;
+    owl:equivalentClass nspe:ApplicableCodes .
+
+eng:TestingEquipment a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:EngineeringResource ;
+    rdfs:label "Testing Equipment"@en ;
+    rdfs:comment "Equipment used to test engineering designs or implementations"@en .
+
+eng:Budget a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:EngineeringResource ;
+    rdfs:label "Budget"@en ;
+    rdfs:comment "Financial resources allocated to engineering work"@en .
+
+eng:TimeResource a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:EngineeringResource ;
+    rdfs:label "Time Resource"@en ;
+    rdfs:comment "Time allocated to engineering work"@en .
+
+eng:ExpertConsultation a owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:EngineeringResource ;
+    rdfs:label "Expert Consultation"@en ;
+    rdfs:comment "Consultation with subject matter experts"@en ;
+    owl:equivalentClass nspe:ProfessionalConsultation .
+
+# Capabilities
+eng:Capability rdf:type owl:Class ;
+    rdfs:label "Capability"@en ;
+    rdfs:comment "A professional capability or skill in engineering"@en .
+
+eng:TechnicalDesign rdf:type eng:Capability ;
+    rdfs:label "Technical Design"@en ;
+    rdfs:comment "Ability to create technical designs"@en .
+
+eng:RiskAssessment rdf:type eng:Capability ;
+    rdfs:label "Risk Assessment"@en ;
+    rdfs:comment "Ability to identify and assess risks"@en .
+
+eng:RegulatoryCompliance rdf:type eng:Capability ;
+    rdfs:label "Regulatory Compliance"@en ;
+    rdfs:comment "Knowledge of and ability to ensure compliance with regulations"@en .
+
+eng:ProjectManagement rdf:type eng:Capability ;
+    rdfs:label "Project Management"@en ;
+    rdfs:comment "Ability to manage engineering projects"@en .
+
+eng:TechnicalReview rdf:type eng:Capability ;
+    rdfs:label "Technical Review"@en ;
+    rdfs:comment "Ability to review and evaluate technical work"@en .
+
+eng:EthicalJudgment rdf:type eng:Capability ;
+    rdfs:label "Ethical Judgment"@en ;
+    rdfs:comment "Ability to make sound ethical judgments"@en .
+
+eng:StakeholderCommunication rdf:type eng:Capability ;
+    rdfs:label "Stakeholder Communication"@en ;
+    rdfs:comment "Ability to communicate effectively with stakeholders"@en .
+
+eng:BudgetManagement rdf:type eng:Capability ;
+    rdfs:label "Budget Management"@en ;
+    rdfs:comment "Ability to manage financial resources"@en .
+
+eng:QualityControl rdf:type eng:Capability ;
+    rdfs:label "Quality Control"@en ;
+    rdfs:comment "Ability to ensure quality of engineering work"@en .
+
+eng:SafetyAnalysis rdf:type eng:Capability ;
+    rdfs:label "Safety Analysis"@en ;
+    rdfs:comment "Ability to analyze safety implications"@en .
+
+eng:EnvironmentalAssessment rdf:type eng:Capability ;
+    rdfs:label "Environmental Assessment"@en ;
+    rdfs:comment "Ability to assess environmental impacts"@en .
+
+eng:WhistleblowingJudgment rdf:type eng:Capability ;
+    rdfs:label "Whistleblowing Judgment"@en ;
+    rdfs:comment "Ability to determine when whistleblowing is necessary"@en .
+
+# Events
+eng:ReviewEvent a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:label "Review Event"@en ;
+    rdfs:comment "An event where engineering work is reviewed"@en .
+
+eng:DesignEvent a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:label "Design Event"@en ;
+    rdfs:comment "An event related to engineering design"@en .
+
+eng:ComplianceEvent a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:label "Compliance Event"@en ;
+    rdfs:comment "An event related to regulatory compliance"@en .
+
+# Engineering Event Types
+eng:ProjectEvent a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:EventType ;
+    rdfs:label "Project Event"@en ;
+    rdfs:comment "An event that occurs during engineering projects"@en .
+
+eng:DesignReview a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ReviewEvent ;
+    rdfs:label "Design Review"@en ;
+    rdfs:comment "A formal review of engineering designs"@en .
+
+eng:SafetyIncident a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ProjectEvent ;
+    rdfs:label "Safety Incident"@en ;
+    rdfs:comment "An incident involving safety concerns"@en .
+
+eng:RegulatoryInspection a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ComplianceEvent ;
+    rdfs:label "Regulatory Inspection"@en ;
+    rdfs:comment "An inspection by regulatory authorities"@en .
+
+eng:ProjectMilestone a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ProjectEvent ;
+    rdfs:label "Project Milestone"@en ;
+    rdfs:comment "A significant point in project timeline"@en .
+
+eng:EthicalDilemmaEvent a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ProjectEvent ;
+    rdfs:label "Ethical Dilemma Event"@en ;
+    rdfs:comment "An event presenting an ethical dilemma"@en .
+
+eng:WhistleblowingEvent a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:EthicalDilemmaEvent ;
+    rdfs:label "Whistleblowing Event"@en ;
+    rdfs:comment "An event where unethical practices are reported"@en .
+
+eng:BudgetReview a owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ReviewEvent ;
+    rdfs:label "Budget Review"@en ;
+    rdfs:comment "A review of project budget"@en .
+
+# Event Properties
+eng:eventSeverity rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:EventType ;
+    rdfs:range xsd:string ;
+    rdfs:label "event severity"@en ;
+    rdfs:comment "The severity of an event"@en .
+
+eng:eventLocation rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:EventType ;
+    rdfs:range xsd:string ;
+    rdfs:label "event location"@en ;
+    rdfs:comment "The location where an event occurred"@en .
+
+# Actions
+eng:DesignAction a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:label "Design Action"@en ;
+    rdfs:comment "An action related to engineering design"@en .
+
+eng:ReviewAction a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:label "Review Action"@en ;
+    rdfs:comment "An action related to reviewing engineering work"@en .
+
+eng:ComplianceAction a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:label "Compliance Action"@en ;
+    rdfs:comment "An action related to ensuring compliance"@en .
+
+# Specific Design Actions
+eng:CreateDesign a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:DesignAction ;
+    rdfs:label "Create Design"@en ;
+    rdfs:comment "Create an engineering design"@en .
+
+eng:ModifyDesign a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:DesignAction ;
+    rdfs:label "Modify Design"@en ;
+    rdfs:comment "Modify an existing engineering design"@en .
+
+eng:ApproveDesign a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:DesignAction ;
+    rdfs:label "Approve Design"@en ;
+    rdfs:comment "Approve an engineering design"@en .
+
+eng:RejectDesign a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:DesignAction ;
+    rdfs:label "Reject Design"@en ;
+    rdfs:comment "Reject an engineering design"@en .
+
+# Specific Review Actions
+eng:ConductSafetyReview a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ReviewAction ;
+    rdfs:label "Conduct Safety Review"@en ;
+    rdfs:comment "Review engineering work for safety concerns"@en .
+
+eng:PerformQualityAssurance a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ReviewAction ;
+    rdfs:label "Perform Quality Assurance"@en ;
+    rdfs:comment "Ensure quality of engineering work"@en .
+
+eng:EvaluateEnvironmentalImpact a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ReviewAction ;
+    rdfs:label "Evaluate Environmental Impact"@en ;
+    rdfs:comment "Assess environmental impact of engineering work"@en .
+
+# Specific Compliance Actions
+eng:ReportViolation a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ComplianceAction ;
+    rdfs:label "Report Violation"@en ;
+    rdfs:comment "Report a violation of regulations or ethics"@en .
+
+eng:ImplementCorrectiveAction a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ComplianceAction ;
+    rdfs:label "Implement Corrective Action"@en ;
+    rdfs:comment "Implement actions to correct compliance issues"@en .
+
+eng:CertifyCompliance a owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ComplianceAction ;
+    rdfs:label "Certify Compliance"@en ;
+    rdfs:comment "Certify that work complies with regulations"@en .
+
+# Action Properties
+eng:actionPriority rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:ActionType ;
+    rdfs:range xsd:string ;
+    rdfs:label "action priority"@en ;
+    rdfs:comment "The priority of an action (high, medium, low)"@en .
+
+eng:actionDuration rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:ActionType ;
+    rdfs:range xsd:integer ;
+    rdfs:label "action duration"@en ;
+    rdfs:comment "The estimated duration of an action in hours"@en .
+
+eng:ethicalImpact rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:ActionType ;
+    rdfs:range xsd:string ;
+    rdfs:label "ethical impact"@en ;
+    rdfs:comment "The ethical impact of an action"@en .
+
+# Decision points
+eng:SafetyDecision a owl:Class ;
+    rdf:type eng:DecisionType ;
+    rdfs:label "Safety Decision"@en ;
+    rdfs:comment "A decision about safety concerns"@en .
+
+eng:ResourceAllocationDecision a owl:Class ;
+    rdf:type eng:DecisionType ;
+    rdfs:label "Resource Allocation Decision"@en ;
+    rdfs:comment "A decision about how to allocate resources"@en .
+
+eng:WhistleblowingDecision a owl:Class ;
+    rdf:type eng:DecisionType ;
+    rdfs:label "Whistleblowing Decision"@en ;
+    rdfs:comment "A decision about whether to report unethical practices"@en .
+
+eng:DesignCompromiseDecision a owl:Class ;
+    rdf:type eng:DecisionType ;
+    rdfs:label "Design Compromise Decision"@en ;
+    rdfs:comment "A decision about compromises in design"@en .
+
+# Properties
+eng:hasTier rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:Role ;
+    rdfs:range eng:Tier ;
+    rdfs:label "has tier"@en ;
+    rdfs:comment "Relates a role to its tier level"@en .
+
+eng:hasCapability rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:Role ;
+    rdfs:range eng:Capability ;
+    rdfs:label "has capability"@en ;
+    rdfs:comment "Relates a role to its capabilities"@en .
+
+eng:hasCondition rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:Character ;
+    rdfs:range eng:EthicalCondition ;
+    rdfs:label "has condition"@en ;
+    rdfs:comment "Relates a character to ethical conditions they face"@en .
+
+eng:hasEthicalCategory rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:EthicalCondition ;
+    rdfs:range eng:EthicalCategory ;
+    rdfs:label "has ethical category"@en ;
+    rdfs:comment "Relates an ethical condition to its category"@en .
+
+eng:hasResource rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:Character ;
+    rdfs:range eng:EngineeringResource ;
+    rdfs:label "has resource"@en ;
+    rdfs:comment "Relates a character to resources they possess"@en .
+
+eng:hasDiscipline rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:Engineer ;
+    rdfs:range eng:EngineeringDiscipline ;
+    rdfs:label "has discipline"@en ;
+    rdfs:comment "Relates an engineer to their engineering discipline"@en .
+
+eng:severity rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:EthicalCondition ;
+    rdfs:range xsd:string ;
+    rdfs:label "severity"@en ;
+    rdfs:comment "The severity of an ethical condition"@en .
+
+eng:impact rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:EthicalCondition ;
+    rdfs:range xsd:string ;
+    rdfs:label "impact"@en ;
+    rdfs:comment "The impact of an ethical condition"@en .
+
+eng:quantity rdf:type owl:DatatypeProperty ;
+    rdfs:domain eng:EngineeringResource ;
+    rdfs:range xsd:integer ;
+    rdfs:label "quantity"@en ;
+    rdfs:comment "The quantity of a resource"@en .
+
+# Role-Capability Relationships
+eng:JuniorEngineer eng:hasCapability eng:TechnicalDesign, eng:RiskAssessment .
+
+eng:ProfessionalEngineer eng:hasCapability eng:TechnicalDesign, eng:RiskAssessment, eng:RegulatoryCompliance, eng:TechnicalReview, eng:EthicalJudgment, eng:SafetyAnalysis .
+
+eng:SeniorEngineer eng:hasCapability eng:TechnicalDesign, eng:RiskAssessment, eng:RegulatoryCompliance, eng:TechnicalReview, eng:EthicalJudgment, eng:StakeholderCommunication, eng:QualityControl, eng:SafetyAnalysis, eng:EnvironmentalAssessment, eng:WhistleblowingJudgment .
+
+eng:ChiefEngineer eng:hasCapability eng:TechnicalDesign, eng:RiskAssessment, eng:RegulatoryCompliance, eng:ProjectManagement, eng:TechnicalReview, eng:EthicalJudgment, eng:StakeholderCommunication, eng:BudgetManagement, eng:QualityControl, eng:SafetyAnalysis, eng:EnvironmentalAssessment, eng:WhistleblowingJudgment .
+
+eng:ProjectManager eng:hasCapability eng:ProjectManagement, eng:StakeholderCommunication, eng:BudgetManagement, eng:EthicalJudgment .
+
+eng:ComplianceOfficer eng:hasCapability eng:RegulatoryCompliance, eng:EthicalJudgment, eng:WhistleblowingJudgment .
+
+# Sample individuals
+eng:Engineer1 a eng:ProfessionalEngineer ;
+    rdfs:label "Professional Engineer"@en ;
+    eng:hasDiscipline eng:CivilEngineering ;
+    eng:hasCondition eng:DesignDefect1 .
+
+eng:DesignDefect1 a eng:DesignDefect ;
+    rdfs:label "Bridge Support Defect"@en ;
+    eng:severity "High"^^xsd:string ;
+    eng:impact "Public Safety"^^xsd:string ;
+    eng:hasEthicalCategory eng:HighRisk .
+
+eng:Blueprints1 a eng:Blueprints ;
+    rdfs:label "Bridge Design Blueprints"@en ;
+    eng:quantity "1"^^xsd:integer .
