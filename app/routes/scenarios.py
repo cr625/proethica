@@ -1479,3 +1479,10 @@ def add_reference(id):
             'success': False,
             'message': str(e)
         }), 500
+
+# Simulation route
+@scenarios_bp.route('/<int:id>/simulate', methods=['GET'])
+def simulate_scenario(id):
+    """Display simulation coming soon page."""
+    scenario = Scenario.query.get_or_404(id)
+    return render_template('simulate_coming_soon.html', scenario=scenario)
