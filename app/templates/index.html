@@ -1,45 +1,50 @@
 {% extends "base.html" %}
 
-{% block title %}Home - AI Role Based Ethical Decision-Maker{% endblock %}
+{% block title %}Home - ProEthica{% endblock %}
 
 {% block content %}
 <div class="jumbotron">
-    <h1 class="display-4">AI Role Based Ethical Decision-Maker</h1>
-    <p class="lead">A simulation application for event-based scenarios with temporal reasoning in professional domains.
+    <h1 class="display-4">ProEthica</h1>
+    <p class="lead">An ethical decision-making simulator for professional domains with world-based scenarios and
+        temporal reasoning.
     </p>
     <hr class="my-4">
-    <p>This application simulates events with temporal features, allowing for the evaluation of decisions through both a
-        rules-based engine (for constraint validation) and a case-based/guideline-based system (for ethical assessment).
+    <p>ProEthica creates immersive ethical decision environments through customizable worlds and scenarios,
+        evaluating decisions using a hybrid approach of rule-based validation, case-based reasoning, and guideline-based
+        ethical assessment.
     </p>
-    <a class="btn btn-primary btn-lg" href="/scenarios" role="button">Explore Scenarios</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary btn-lg" href="/worlds" role="button">Explore Worlds</a>
+        <a class="btn btn-success btn-lg" href="/scenarios" role="button">Browse Scenarios</a>
+    </div>
 </div>
 
 <div class="row mt-5">
     <div class="col-md-4">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Event Representation</h5>
-                <p class="card-text">Utilizes LangGraph for orchestrating complex decision-making workflows with
-                    built-in state management.</p>
+                <h5 class="card-title">World Building</h5>
+                <p class="card-text">Create customizable worlds with domain-specific entities, guidelines, cases, and
+                    rulesets based on ontologies that define ethical frameworks.</p>
             </div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Knowledge Base</h5>
-                <p class="card-text">Integrates domain-specific knowledge and ethical guidelines using LangChain's
-                    document loaders, retrievers, and vector stores. Leverages Model Context Protocol (MCP) for
-                    interfacing with external models, and data sources and rules based evaluation.</p>
+                <h5 class="card-title">Knowledge Integration</h5>
+                <p class="card-text">Integrates domain-specific knowledge and ethical guidelines using LangChain and
+                    Model Context Protocol (MCP) for interfacing with external models, data sources, and rules-based
+                    evaluation.</p>
             </div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Decision-Making Framework</h5>
-                <p class="card-text">Implements a hybrid ethical reasoning system combining rule-based, case-based, and
-                    principle-based reasoning.</p>
+                <h5 class="card-title">Ethical Decision Framework</h5>
+                <p class="card-text">Implements a hybrid ethical reasoning system combining rule-based validation,
+                    case-based reasoning, and principle-based assessment for comprehensive ethical evaluation.</p>
             </div>
         </div>
     </div>
@@ -48,25 +53,33 @@
 <div class="row mt-4">
     <div class="col-md-6">
         <h3>Getting Started</h3>
-        <p>To begin using the simulator:</p>
+        <p>To begin using ProEthica:</p>
         <ol>
-            <li>Explore existing scenarios or create a new one</li>
+            <li>Select an existing world or create a new one</li>
+            <li>Explore existing scenarios or create a new one within your world</li>
             <li>Add characters, conditions, and resources to your scenario</li>
-            <li>Create a timeline of events</li>
+            <li>Create a timeline of events and actions</li>
             <li>Make decisions and see how they are evaluated</li>
         </ol>
-        <a href="/scenarios/new" class="btn btn-success">Create New Scenario</a>
+        <div class="d-flex gap-2">
+            <a href="/worlds/new" class="btn btn-primary">Create New World</a>
+            <a href="/scenarios/new" class="btn btn-success">Create New Scenario</a>
+        </div>
     </div>
     <div class="col-md-6">
-        <h3>Use Cases</h3>
-        <p>The initial use case focuses on military medical triage scenarios, where medical personnel must make rapid
-            decisions about patient treatment priorities under resource constraints and ethical considerations.</p>
-        <p>Future use cases may include:</p>
+        <h3>Professional Domains & Custom Worlds</h3>
+        <p>ProEthica allows you to create custom worlds for any professional domain:</p>
         <ul>
-            <li>Disaster response and humanitarian aid</li>
-            <li>Resource allocation in healthcare systems</li>
-            <li>Ethical decision-making in autonomous systems</li>
+            <li><strong>Use Existing Templates:</strong> Start with pre-configured worlds for domains like military
+                medical, engineering ethics, or legal practice</li>
+            <li><strong>Create Custom Domains:</strong> Define your own professional domain with custom entities,
+                guidelines, and rulesets</li>
+            <li><strong>Import Ontologies:</strong> Leverage existing ethical frameworks by importing domain-specific
+                ontologies</li>
         </ul>
+        <p>Each world you create becomes a foundation for scenarios, with customizable entities, guidelines, cases, and
+            rulesets tailored to your specific professional domain.</p>
+        <a href="/worlds" class="btn btn-outline-primary">Explore Available Worlds</a>
     </div>
 </div>
 {% endblock %}
