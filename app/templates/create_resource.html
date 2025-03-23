@@ -24,14 +24,33 @@
                     <label for="resource_type_id" class="form-label">Resource Type</label>
                     <select class="form-select" id="resource_type_id" name="resource_type_id">
                         <option value="">-- Select a Resource Type --</option>
+
+                        {% if resource_types or ontology_resource_types %}
+
                         {% if resource_types %}
-                        {% for resource_type in resource_types %}
-                        <option value="{{ resource_type.id }}" data-description="{{ resource_type.description }}"
-                            data-category="{{ resource_type.category }}">
-                            {{ resource_type.name }} {% if resource_type.category %}({{ resource_type.category }}){%
-                            endif %}
-                        </option>
-                        {% endfor %}
+                        <optgroup label="Database Resource Types">
+                            {% for resource_type in resource_types %}
+                            <option value="{{ resource_type.id }}" data-description="{{ resource_type.description }}"
+                                data-category="{{ resource_type.category }}">
+                                {{ resource_type.name }} {% if resource_type.category %}({{ resource_type.category }}){%
+                                endif %}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+
+                        {% if ontology_resource_types %}
+                        <optgroup label="Ontology Resource Types">
+                            {% for resource_type in ontology_resource_types %}
+                            <option value="{{ resource_type.id }}" data-description="{{ resource_type.description }}"
+                                data-category="{{ resource_type.type }}">
+                                {{ resource_type.label }} {% if resource_type.type %}({{ resource_type.type }}){%
+                                endif %}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+
                         {% else %}
                         <option value="" disabled>No resource types available for this world</option>
                         {% endif %}
@@ -66,42 +85,42 @@
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h3 class="mb-0">Resource Examples</h3>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <h5>Medical Domain</h5>
-                    <ul>
-                        <li>Ventilators (5 units)</li>
-                        <li>Blood Type O- (3 units)</li>
-                        <li>Surgical Team (1 team)</li>
-                        <li>Antibiotics (20 doses)</li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5>Engineering Domain</h5>
-                    <ul>
-                        <li>Safety Testing Equipment</li>
-                        <li>Development Budget</li>
-                        <li>Engineering Team</li>
-                        <li>Prototype Materials</li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5>Legal Domain</h5>
-                    <ul>
-                        <li>Legal Research Database</li>
-                        <li>Paralegal Support</li>
-                        <li>Expert Witnesses</li>
-                        <li>Client Funds</li>
-                    </ul>
-                </div>
+
+    <div class="card-header bg-info text-white">
+        <h3 class="mb-0">Resource Examples</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h5>Medical Domain</h5>
+                <ul>
+                    <li>Ventilators (5 units)</li>
+                    <li>Blood Type O- (3 units)</li>
+                    <li>Surgical Team (1 team)</li>
+                    <li>Antibiotics (20 doses)</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h5>Engineering Domain</h5>
+                <ul>
+                    <li>Safety Testing Equipment</li>
+                    <li>Development Budget</li>
+                    <li>Engineering Team</li>
+                    <li>Prototype Materials</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h5>Legal Domain</h5>
+                <ul>
+                    <li>Legal Research Database</li>
+                    <li>Paralegal Support</li>
+                    <li>Expert Witnesses</li>
+                    <li>Client Funds</li>
+                </ul>
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 

@@ -282,18 +282,38 @@ def add_character(id):
 def new_resource(id):
     """Display form to add a resource to a scenario."""
     scenario = Scenario.query.get_or_404(id)
-    # Get resource types for the scenario's world
+    world = World.query.get(scenario.world_id)
+    
+    # Get resource types for the scenario's world from the database
     resource_types = ResourceType.query.filter_by(world_id=scenario.world_id).all()
     
+    # Get resource types from the ontology if the world has an ontology source
+    ontology_resource_types = []
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="resources")
+            if entities and 'entities' in entities and 'resources' in entities['entities']:
+                ontology_resource_types = entities['entities']['resources']
+        except Exception as e:
+            print(f"Error retrieving resource types from ontology: {str(e)}")
+    
     # Debug information
-    print(f"Found {len(resource_types)} resource types for world_id {scenario.world_id}:")
+    print(f"Found {len(resource_types)} database resource types for world_id {scenario.world_id}")
+    print(f"Found {len(ontology_resource_types)} ontology resource types for world_id {scenario.world_id}")
+    
     for rt in resource_types:
-        print(f"ID: {rt.id}, Name: {rt.name}, Category: {rt.category}")
+        print(f"DB Resource Type - ID: {rt.id}, Name: {rt.name}, Category: {rt.category}")
         print(f"Description: {rt.description}")
         print(f"Ontology URI: {rt.ontology_uri}")
         print("-" * 50)
     
-    return render_template('create_resource.html', scenario=scenario, resource_types=resource_types)
+    return render_template(
+        'create_resource.html', 
+        scenario=scenario, 
+        resource_types=resource_types,
+        ontology_resource_types=ontology_resource_types
+    )
 
 @scenarios_bp.route('/<int:id>/resources', methods=['POST'])
 def add_resource(id):
@@ -301,20 +321,61 @@ def add_resource(id):
     scenario = Scenario.query.get_or_404(id)
     data = request.json
     
+    # Check if the resource_type_id is an ontology URI (starts with http)
+    resource_type_id = data.get('resource_type_id')
+    resource_type_name = None
+    
+    if resource_type_id and isinstance(resource_type_id, str) and resource_type_id.startswith('http'):
+        # This is an ontology resource type
+        # Get the resource type details from the ontology
+        world = World.query.get(scenario.world_id)
+        if world and world.ontology_source:
+            try:
+                mcp_client = MCPClient()
+                entities = mcp_client.get_world_entities(world.ontology_source, entity_type="resources")
+                if entities and 'entities' in entities and 'resources' in entities['entities']:
+                    for res_type in entities['entities']['resources']:
+                        if res_type['id'] == resource_type_id:
+                            resource_type_name = res_type['label']
+                            
+                            # Create or find a resource type in the database
+                            db_res_type = ResourceType.query.filter_by(ontology_uri=resource_type_id, world_id=scenario.world_id).first()
+                            if not db_res_type:
+                                # Create a new resource type in the database
+                                db_res_type = ResourceType(
+                                    name=res_type['label'],
+                                    description=res_type['description'],
+                                    world_id=scenario.world_id,
+                                    category=res_type.get('type', ''),
+                                    ontology_uri=resource_type_id
+                                )
+                                db.session.add(db_res_type)
+                                db.session.flush()  # Get the ID without committing
+                            
+                            # Use the database resource type ID
+                            resource_type_id = db_res_type.id
+                            break
+            except Exception as e:
+                print(f"Error retrieving resource type from ontology: {str(e)}")
+    
     # Create resource
     resource = Resource(
         scenario=scenario,
         name=data['name'],
-        resource_type_id=data.get('resource_type_id'),
+        resource_type_id=resource_type_id,
         quantity=data.get('quantity', 1),
         description=data.get('description', '')
     )
     
-    # If resource_type_id is provided, get the type for backward compatibility
+    # Set the type field for backward compatibility
     if resource.resource_type_id:
-        resource_type = ResourceType.query.get(resource.resource_type_id)
-        if resource_type:
-            resource.type = resource_type.name
+        if resource_type_name:  # We already have the name from the ontology
+            resource.type = resource_type_name
+        else:
+            # Get the resource type name from the database
+            res_type = ResourceType.query.get(resource.resource_type_id)
+            if res_type:
+                resource.type = res_type.name
     else:
         # Use the type field if provided
         resource.type = data.get('type', '')
