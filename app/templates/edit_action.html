@@ -27,8 +27,8 @@
                     <select class="form-select" id="action_type" name="action_type">
                         <option value="">-- Select Action Type --</option>
                         {% for action_type in action_types %}
-                        <option value="{{ action_type.id }}" {% if action_type.id==action.action_type %}selected{% endif
-                            %}>
+                        <option value="{{ action_type.id }}" data-description="{{ action_type.description }}" {% if
+                            action_type.id==action.action_type %}selected{% endif %}>
                             {{ action_type.label }}
                         </option>
                         {% endfor %}
@@ -122,11 +122,18 @@
 
 {% block scripts %}
 <script>
-    // Auto-populate name field when action type is selected
+    // Auto-populate name and description fields when action type is selected
     document.getElementById('action_type').addEventListener('change', function () {
         const selectedOption = this.options[this.selectedIndex];
         if (selectedOption.value) {
+            // Auto-populate name field with the label
             document.getElementById('name').value = selectedOption.text;
+
+            // Auto-populate description field with the description
+            const description = selectedOption.getAttribute('data-description');
+            if (description) {
+                document.getElementById('description').value = description;
+            }
         }
     });
 
