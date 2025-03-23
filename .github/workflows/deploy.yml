@@ -21,4 +21,4 @@ jobs:
         SSH_HOST: ${{ secrets.SSH_HOST }}
         SSH_USER: ${{ secrets.SSH_USER }}
       run: |
-        ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST 'cd /home/chris/proethica && git pull && source venv/bin/activate && pip install -r requirements.txt && export FLASK_APP="app:create_app" && flask db upgrade && sudo systemctl restart proethica'
+        ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST 'cd /home/chris/proethica && mkdir -p /tmp/backups_temp && cp -r backups/* /tmp/backups_temp/ && git pull && cp -r /tmp/backups_temp/* backups/ && source venv/bin/activate && pip install -r requirements.txt && export FLASK_APP="app:create_app" && flask db upgrade && sudo systemctl restart proethica'
