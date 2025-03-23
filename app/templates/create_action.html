@@ -135,6 +135,20 @@
 
 {% block scripts %}
 <script>
+    // Set current date and time as default for action_time
+    document.addEventListener('DOMContentLoaded', function () {
+        const now = new Date();
+        // Format date as YYYY-MM-DDThh:mm
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+
+        const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('action_time').value = formattedDateTime;
+    });
+
     // Auto-populate name field when action type is selected
     document.getElementById('action_type').addEventListener('change', function () {
         const selectedOption = this.options[this.selectedIndex];
