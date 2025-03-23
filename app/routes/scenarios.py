@@ -1047,8 +1047,6 @@ def update_event(id, event_id):
         event.event_time = data['event_time']
     if 'character_id' in data:
         event.character_id = data['character_id']
-    if 'action_type' in data:
-        event.action_type = data['action_type']
     if 'metadata' in data:
         event.parameters = data['metadata']
     
@@ -1109,7 +1107,6 @@ def add_event(id):
         event_time=data['event_time'],
         description=data['description'],
         character_id=character_id,
-        action_type=data.get('action_type'),
         parameters=data.get('metadata', {})
     )
     db.session.add(event)

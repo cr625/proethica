@@ -23,6 +23,20 @@
                 </div>
 
                 <div class="mb-3">
+                    <label for="action_type" class="form-label">Event Type</label>
+                    <select class="form-select" id="action_type" name="action_type">
+                        <option value="">-- Select Event Type --</option>
+                        {% for action_type in action_types %}
+                        <option value="{{ action_type.id }}" data-description="{{ action_type.description }}" {% if
+                            action_type.id==event.action_type %}selected{% endif %}>
+                            {{ action_type.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the type of event from the ontology.</div>
+                </div>
+
+                <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
                     <textarea class="form-control" id="description" name="description" rows="4"
                         required>{{ event.description }}</textarea>
@@ -43,20 +57,6 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="action_type" class="form-label">Event Type</label>
-                    <select class="form-select" id="action_type" name="action_type">
-                        <option value="">-- Select Event Type --</option>
-                        {% for action_type in action_types %}
-                        <option value="{{ action_type.id }}" {% if action_type.id==event.action_type %}selected{% endif
-                            %}>
-                            {{ action_type.label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <div class="form-text">Select the type of event from the ontology.</div>
-                </div>
-
-                <div class="mb-3">
                     <label for="metadata" class="form-label">Additional Details (Optional)</label>
                     <textarea class="form-control" id="metadata" name="metadata"
                         rows="3">{{ event.parameters|tojson }}</textarea>
@@ -73,6 +73,18 @@
 
 {% block scripts %}
 <script>
+    // Auto-populate description field when action type is selected
+    document.getElementById('action_type').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            // Auto-populate description field with the description
+            const description = selectedOption.getAttribute('data-description');
+            if (description) {
+                document.getElementById('description').value = description;
+            }
+        }
+    });
+
     document.getElementById('edit-event-form').addEventListener('submit', function (e) {
         e.preventDefault();
 

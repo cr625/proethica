@@ -22,6 +22,18 @@
                 </div>
 
                 <div class="mb-3">
+                    <label for="action_type" class="form-label">Event Type</label>
+                    <select class="form-select" id="action_type" name="action_type">
+                        <option value="">-- Select Event Type --</option>
+                        {% for action_type in action_types %}
+                        <option value="{{ action_type.id }}" data-description="{{ action_type.description }}">{{
+                            action_type.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the type of event from the ontology.</div>
+                </div>
+
+                <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
                     <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                     <div class="form-text">Describe what happens during this event.</div>
@@ -39,17 +51,6 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="action_type" class="form-label">Event Type</label>
-                    <select class="form-select" id="action_type" name="action_type">
-                        <option value="">-- Select Event Type --</option>
-                        {% for action_type in action_types %}
-                        <option value="{{ action_type.id }}">{{ action_type.label }}</option>
-                        {% endfor %}
-                    </select>
-                    <div class="form-text">Select the type of event from the ontology.</div>
-                </div>
-
-                <div class="mb-3">
                     <label for="metadata" class="form-label">Additional Details (Optional)</label>
                     <textarea class="form-control" id="metadata" name="metadata" rows="3"></textarea>
                     <div class="form-text">Any additional information about this event (JSON format).</div>
@@ -62,46 +63,36 @@
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h3 class="mb-0">Event Examples</h3>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <h5>Medical Domain</h5>
-                    <ul>
-                        <li>Patient arrival with multiple injuries</li>
-                        <li>Vital signs deterioration</li>
-                        <li>Resource depletion (e.g., blood supply)</li>
-                        <li>Additional casualties arriving</li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5>Engineering Domain</h5>
-                    <ul>
-                        <li>Safety test failure</li>
-                        <li>Budget reduction</li>
-                        <li>Deadline acceleration</li>
-                        <li>Discovery of design flaw</li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5>Legal Domain</h5>
-                    <ul>
-                        <li>Discovery of new evidence</li>
-                        <li>Client disclosure of damaging information</li>
-                        <li>Opposing counsel settlement offer</li>
-                        <li>Court ruling on motion</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 {% block scripts %}
 <script>
+    // Set current date and time as default for event_time
+    document.addEventListener('DOMContentLoaded', function () {
+        const now = new Date();
+        // Format date as YYYY-MM-DDThh:mm
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+
+        const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('event_time').value = formattedDateTime;
+    });
+
+    // Auto-populate description field when action type is selected
+    document.getElementById('action_type').addEventListener('change', function () {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            // Auto-populate description field with the description
+            const description = selectedOption.getAttribute('data-description');
+            if (description) {
+                document.getElementById('description').value = description;
+            }
+        }
+    });
+
     document.getElementById('create-event-form').addEventListener('submit', function (e) {
         e.preventDefault();
 
