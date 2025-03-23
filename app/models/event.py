@@ -32,6 +32,12 @@ class Action(db.Model):
     
     def __repr__(self):
         return f'<Action {self.name}>'
+        
+    def __lt__(self, other):
+        """Define less than comparison for sorting."""
+        if isinstance(other, Action):
+            return self.id < other.id
+        return NotImplemented
     
     def to_dict(self):
         """Convert action to dictionary."""
@@ -75,6 +81,12 @@ class Event(db.Model):
     
     def __repr__(self):
         return f'<Event {self.id} at {self.event_time}>'
+        
+    def __lt__(self, other):
+        """Define less than comparison for sorting."""
+        if isinstance(other, Event):
+            return self.id < other.id
+        return NotImplemented
     
     def to_dict(self):
         """Convert event to dictionary."""
