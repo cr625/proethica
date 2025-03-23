@@ -58,6 +58,30 @@ eng:Stakeholder a owl:Class ;
     rdfs:label "Stakeholder"@en ;
     rdfs:comment "A person or entity affected by engineering decisions"@en .
 
+eng:Client a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Stakeholder ;
+    rdfs:label "Client"@en ;
+    rdfs:comment "A person or organization that commissions engineering services"@en .
+
+eng:IndividualClient a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Client ;
+    rdfs:label "Individual Client"@en ;
+    rdfs:comment "An individual person who commissions engineering services"@en .
+
+eng:CorporateClient a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Client ;
+    rdfs:label "Corporate Client"@en ;
+    rdfs:comment "A corporate entity that commissions engineering services"@en .
+
+eng:PublicClient a owl:Class ;
+    rdf:type eng:CharacterType ;
+    rdfs:subClassOf eng:Client ;
+    rdfs:label "Public Client"@en ;
+    rdfs:comment "A government or public entity that commissions engineering services"@en .
+
 # Role Integration
 eng:Role rdfs:subClassOf eng:CharacterType ;
     rdfs:label "Role"@en ;
@@ -606,6 +630,18 @@ eng:hasDiscipline rdf:type owl:ObjectProperty ;
     rdfs:label "has discipline"@en ;
     rdfs:comment "Relates an engineer to their engineering discipline"@en .
 
+eng:actionForClient rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:ActionType ;
+    rdfs:range eng:Client ;
+    rdfs:label "action for client"@en ;
+    rdfs:comment "Relates an engineering action to the client it is performed for"@en .
+
+eng:receivesAction rdf:type owl:ObjectProperty ;
+    rdfs:domain eng:Client ;
+    rdfs:range eng:ActionType ;
+    rdfs:label "receives action"@en ;
+    rdfs:comment "Relates a client to engineering actions performed for them"@en .
+
 eng:severity rdf:type owl:DatatypeProperty ;
     rdfs:domain eng:EthicalCondition ;
     rdfs:range xsd:string ;
@@ -643,12 +679,33 @@ eng:Engineer1 a eng:ProfessionalEngineer ;
     eng:hasDiscipline eng:CivilEngineering ;
     eng:hasCondition eng:DesignDefect1 .
 
+eng:Client1 a eng:CorporateClient ;
+    rdfs:label "Corporate Client"@en ;
+    rdfs:comment "A corporate entity commissioning a bridge construction project"@en ;
+    eng:hasCondition eng:BudgetConstraint1 ;
+    eng:receivesAction eng:BridgeDesign1 .
+
 eng:DesignDefect1 a eng:DesignDefect ;
     rdfs:label "Bridge Support Defect"@en ;
     eng:severity "High"^^xsd:string ;
     eng:impact "Public Safety"^^xsd:string ;
     eng:hasEthicalCategory eng:HighRisk .
 
+eng:BudgetConstraint1 a eng:BudgetConstraint ;
+    rdfs:label "Project Budget Constraint"@en ;
+    eng:severity "Moderate"^^xsd:string ;
+    eng:impact "Design Limitations"^^xsd:string ;
+    eng:hasEthicalCategory eng:ModerateRisk .
+
+eng:BridgeDesign1 a eng:CreateDesign ;
+    rdfs:label "Bridge Design"@en ;
+    rdfs:comment "Design of a bridge structure"@en ;
+    eng:actionPriority "High"^^xsd:string ;
+    eng:actionDuration "240"^^xsd:integer ;
+    eng:ethicalImpact "Public Safety"^^xsd:string ;
+    eng:actionForClient eng:Client1 .
+
 eng:Blueprints1 a eng:Blueprints ;
     rdfs:label "Bridge Design Blueprints"@en ;
+    rdfs:comment "Technical drawings for the bridge design"@en ;
     eng:quantity "1"^^xsd:integer .

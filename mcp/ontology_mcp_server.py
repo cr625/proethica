@@ -14,7 +14,28 @@ DEFAULT_DOMAIN = os.environ.get("DEFAULT_DOMAIN", "military-medical-triage")
 class OntologyMCPServer:
     def __init__(self):
         self.jsonrpc_id = 0
-        self.MMT = Namespace("http://example.org/military-medical-triage#")
+        # Define known namespaces
+        self.namespaces = {
+            "military-medical-triage": Namespace("http://example.org/military-medical-triage#"),
+            "engineering-ethics": Namespace("http://example.org/engineering-ethics#")
+        }
+        # Default namespace
+        self.MMT = self.namespaces["military-medical-triage"]
+    
+    def register_namespace(self, key, uri):
+        """
+        Register a new namespace for use with ontologies.
+        
+        Args:
+            key: Key to identify the namespace (e.g., 'legal-ethics')
+            uri: URI for the namespace (e.g., 'http://example.org/legal-ethics#')
+            
+        Returns:
+            The namespace object
+        """
+        namespace = Namespace(uri)
+        self.namespaces[key] = namespace
+        return namespace
 
     def _load_graph_from_file(self, ontology_file):
         g = Graph()
@@ -100,7 +121,37 @@ class OntologyMCPServer:
             return {"content": [{"text": json.dumps({"entities": entities})}]}
         return {"content": [{"text": json.dumps({"error": "Unknown tool"})}]}
 
+    def _detect_namespace(self, graph):
+        """Detect the primary namespace used in the ontology."""
+        # Try to find the ontology declaration
+        for s, p, o in graph.triples((None, RDF.type, OWL.Ontology)):
+            ontology_uri = str(s)
+            if "military-medical-triage" in ontology_uri:
+                return self.namespaces["military-medical-triage"]
+            elif "engineering-ethics" in ontology_uri:
+                return self.namespaces["engineering-ethics"]
+        
+        # Check for namespace prefixes in the graph
+        for prefix, namespace in graph.namespaces():
+            namespace_str = str(namespace)
+            if prefix == "mmt" or "military-medical-triage" in namespace_str:
+                return self.namespaces["military-medical-triage"]
+            elif prefix == "eng" or "engineering-ethics" in namespace_str:
+                return self.namespaces["engineering-ethics"]
+            
+        # Check for common entity types in each namespace
+        for namespace_key, namespace in self.namespaces.items():
+            # Check if any entities with this namespace's Role type exist
+            if any(graph.subjects(RDF.type, namespace.Role)):
+                return namespace
+        
+        # Default to MMT if not found
+        return self.MMT
+
     def _extract_entities(self, graph, entity_type):
+        # Detect namespace
+        namespace = self._detect_namespace(graph)
+        
         def label_or_id(s):
             return str(next(graph.objects(s, RDFS.label), s))
         
@@ -114,10 +165,10 @@ class OntologyMCPServer:
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "tier": str(next(graph.objects(s, self.MMT.hasTier), "")),
-                    "capabilities": [str(o) for o in graph.objects(s, self.MMT.hasCapability)]
+                    "tier": str(next(graph.objects(s, namespace.hasTier), "")),
+                    "capabilities": [str(o) for o in graph.objects(s, namespace.hasCapability)]
                 }
-                for s in graph.subjects(RDF.type, self.MMT.Role)
+                for s in graph.subjects(RDF.type, namespace.Role)
             ]
         if entity_type in ("all", "conditions"):
             out["conditions"] = [
@@ -125,11 +176,11 @@ class OntologyMCPServer:
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.ConditionType), "")),
-                    "severity": str(next(graph.objects(s, self.MMT.severity), "")),
-                    "location": str(next(graph.objects(s, self.MMT.location), ""))
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.ConditionType), "")),
+                    "severity": str(next(graph.objects(s, namespace.severity), "")),
+                    "location": str(next(graph.objects(s, namespace.location), ""))
                 }
-                for s in graph.subjects(RDF.type, self.MMT.ConditionType)
+                for s in graph.subjects(RDF.type, namespace.ConditionType)
             ]
         if entity_type in ("all", "resources"):
             out["resources"] = [
@@ -137,10 +188,10 @@ class OntologyMCPServer:
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.ResourceType), "")),
-                    "quantity": str(next(graph.objects(s, self.MMT.quantity), ""))
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.ResourceType), "")),
+                    "quantity": str(next(graph.objects(s, namespace.quantity), ""))
                 }
-                for s in graph.subjects(RDF.type, self.MMT.ResourceType)
+                for s in graph.subjects(RDF.type, namespace.ResourceType)
             ]
         if entity_type in ("all", "events"):
             out["events"] = [
@@ -148,11 +199,11 @@ class OntologyMCPServer:
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.EventType), "")),
-                    "severity": str(next(graph.objects(s, self.MMT.eventSeverity), "")),
-                    "location": str(next(graph.objects(s, self.MMT.eventLocation), ""))
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.EventType), "")),
+                    "severity": str(next(graph.objects(s, namespace.eventSeverity), "")),
+                    "location": str(next(graph.objects(s, namespace.eventLocation), ""))
                 }
-                for s in graph.subjects(RDF.type, self.MMT.EventType)
+                for s in graph.subjects(RDF.type, namespace.EventType)
             ]
         if entity_type in ("all", "actions"):
             out["actions"] = [
@@ -160,11 +211,11 @@ class OntologyMCPServer:
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != self.MMT.ActionType), "")),
-                    "priority": str(next(graph.objects(s, self.MMT.actionPriority), "")),
-                    "duration": str(next(graph.objects(s, self.MMT.actionDuration), ""))
+                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.ActionType), "")),
+                    "priority": str(next(graph.objects(s, namespace.actionPriority), "")),
+                    "duration": str(next(graph.objects(s, namespace.actionDuration), ""))
                 }
-                for s in graph.subjects(RDF.type, self.MMT.ActionType)
+                for s in graph.subjects(RDF.type, namespace.ActionType)
             ]
         return out
 

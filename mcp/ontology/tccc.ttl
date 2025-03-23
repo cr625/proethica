@@ -553,6 +553,18 @@ mmt:hasResource rdf:type owl:ObjectProperty ;
     rdfs:label "has resource"@en ;
     rdfs:comment "Relates a character to resources they possess"@en .
 
+mmt:actionForPatient rdf:type owl:ObjectProperty ;
+    rdfs:domain mmt:ActionType ;
+    rdfs:range mmt:Patient ;
+    rdfs:label "action for patient"@en ;
+    rdfs:comment "Relates a medical action to the patient it is performed on"@en .
+
+mmt:receivesAction rdf:type owl:ObjectProperty ;
+    rdfs:domain mmt:Patient ;
+    rdfs:range mmt:ActionType ;
+    rdfs:label "receives action"@en ;
+    rdfs:comment "Relates a patient to medical actions performed on them"@en .
+
 mmt:severity rdf:type owl:DatatypeProperty ;
     rdfs:domain mmt:MedicalCondition ;
     rdfs:range xsd:string ;
@@ -584,12 +596,20 @@ mmt:CombatParamedicProvider mmt:hasCapability mmt:BloodTransfusions, mmt:Advance
 mmt:Patient1 a mmt:Patient ;
     rdfs:label "Patient 1"@en ;
     mmt:hasCondition mmt:Hemorrhage1 ;
-    mmt:hasTriageCategory mmt:Immediate .
+    mmt:hasTriageCategory mmt:Immediate ;
+    mmt:receivesAction mmt:TourniquetApplication1 .
 
 mmt:Hemorrhage1 a mmt:Hemorrhage ;
     rdfs:label "Severe Hemorrhage"@en ;
     mmt:severity "Severe"^^xsd:string ;
     mmt:location "Left Leg"^^xsd:string .
+
+mmt:TourniquetApplication1 a mmt:ApplyTourniquet ;
+    rdfs:label "Tourniquet Application"@en ;
+    rdfs:comment "Application of tourniquet to control severe hemorrhage"@en ;
+    mmt:actionPriority "High"^^xsd:string ;
+    mmt:actionDuration "2"^^xsd:integer ;
+    mmt:actionForPatient mmt:Patient1 .
 
 mmt:Patient2 a mmt:Patient ;
     rdfs:label "Patient 2"@en ;
