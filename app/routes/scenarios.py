@@ -277,6 +277,261 @@ def add_character(id):
         }
     })
 
+@scenarios_bp.route('/<int:id>/characters/<int:character_id>/edit', methods=['GET'])
+def edit_character(id, character_id):
+    """Display form to edit a character."""
+    scenario = Scenario.query.get_or_404(id)
+    character = Character.query.get_or_404(character_id)
+    
+    # Ensure the character belongs to the scenario
+    if character.scenario_id != scenario.id:
+        flash('Character does not belong to this scenario', 'danger')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    world = World.query.get(scenario.world_id)
+    
+    # Get roles for the scenario's world from the database
+    db_roles = Role.query.filter_by(world_id=scenario.world_id).all()
+    
+    # Get condition types for the scenario's world
+    condition_types = ConditionType.query.filter_by(world_id=scenario.world_id).all()
+    
+    # Get roles from the ontology if the world has an ontology source
+    ontology_roles = []
+    # Get condition types from the ontology if the world has an ontology source
+    ontology_condition_types = []
+    
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            # Get roles from ontology
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
+            if entities and 'entities' in entities and 'roles' in entities['entities']:
+                ontology_roles = entities['entities']['roles']
+                
+            # Get condition types from ontology
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
+            if entities and 'entities' in entities and 'conditions' in entities['entities']:
+                ontology_condition_types = entities['entities']['conditions']
+        except Exception as e:
+            print(f"Error retrieving entities from ontology: {str(e)}")
+    
+    return render_template(
+        'edit_character.html', 
+        scenario=scenario,
+        character=character,
+        roles=db_roles, 
+        ontology_roles=ontology_roles,
+        condition_types=condition_types,
+        ontology_condition_types=ontology_condition_types
+    )
+
+@scenarios_bp.route('/<int:id>/characters/<int:character_id>/update', methods=['POST'])
+def update_character(id, character_id):
+    """Update a character."""
+    scenario = Scenario.query.get_or_404(id)
+    character = Character.query.get_or_404(character_id)
+    
+    # Ensure the character belongs to the scenario
+    if character.scenario_id != scenario.id:
+        return jsonify({
+            'success': False,
+            'message': 'Character does not belong to this scenario'
+        }), 403
+    
+    data = request.json
+    
+    # Update character fields
+    if 'name' in data:
+        character.name = data['name']
+    
+    # Update role if provided
+    if 'role_id' in data and data['role_id']:
+        role_id = data['role_id']
+        
+        # Check if the role_id is an ontology URI (starts with http)
+        if isinstance(role_id, str) and role_id.startswith('http'):
+            # This is an ontology role
+            # Get the role name and description from the ontology
+            world = World.query.get(scenario.world_id)
+            if world and world.ontology_source:
+                try:
+                    mcp_client = MCPClient()
+                    entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
+                    if entities and 'entities' in entities and 'roles' in entities['entities']:
+                        for role in entities['entities']['roles']:
+                            if role['id'] == role_id:
+                                role_name = role['label']
+                                role_description = role['description']
+                                
+                                # Create or find a role in the database
+                                db_role = Role.query.filter_by(ontology_uri=role_id, world_id=scenario.world_id).first()
+                                if not db_role:
+                                    # Create a new role in the database
+                                    db_role = Role(
+                                        name=role_name,
+                                        description=role_description,
+                                        world_id=scenario.world_id,
+                                        category=role.get('type', ''),
+                                        ontology_uri=role_id
+                                    )
+                                    db.session.add(db_role)
+                                    db.session.flush()  # Get the ID without committing
+                                
+                                # Use the database role ID
+                                character.role_id = db_role.id
+                                character.role = role_name  # Update the role field for backward compatibility
+                                break
+                except Exception as e:
+                    print(f"Error retrieving role from ontology: {str(e)}")
+        else:
+            # This is a database role ID
+            character.role_id = role_id
+            
+            # Update the role field for backward compatibility
+            role = Role.query.get(role_id)
+            if role:
+                character.role = role.name
+    
+    # Update conditions
+    # First, handle existing conditions that were updated
+    existing_condition_ids = set()
+    for cond_data in data.get('conditions', []):
+        if 'id' in cond_data:
+            condition_id = cond_data['id']
+            existing_condition_ids.add(condition_id)
+            
+            # Find the condition
+            condition = Condition.query.get(condition_id)
+            if condition and condition.character_id == character.id:
+                # Update condition fields
+                condition.name = cond_data['name']
+                condition.description = cond_data.get('description', '')
+                condition.severity = cond_data.get('severity', 1)
+                
+                # Update condition type if provided
+                condition_type_id = cond_data.get('condition_type_id')
+                if condition_type_id:
+                    # Check if the condition_type_id is an ontology URI (starts with http)
+                    if isinstance(condition_type_id, str) and condition_type_id.startswith('http'):
+                        # This is an ontology condition type
+                        # Get the condition type details from the ontology
+                        world = World.query.get(scenario.world_id)
+                        if world and world.ontology_source:
+                            try:
+                                mcp_client = MCPClient()
+                                entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
+                                if entities and 'entities' in entities and 'conditions' in entities['entities']:
+                                    for cond_type in entities['entities']['conditions']:
+                                        if cond_type['id'] == condition_type_id:
+                                            # Create or find a condition type in the database
+                                            db_cond_type = ConditionType.query.filter_by(ontology_uri=condition_type_id, world_id=scenario.world_id).first()
+                                            if not db_cond_type:
+                                                # Create a new condition type in the database
+                                                db_cond_type = ConditionType(
+                                                    name=cond_type['label'],
+                                                    description=cond_type['description'],
+                                                    world_id=scenario.world_id,
+                                                    category=cond_type.get('type', ''),
+                                                    ontology_uri=condition_type_id
+                                                )
+                                                db.session.add(db_cond_type)
+                                                db.session.flush()  # Get the ID without committing
+                                            
+                                            # Use the database condition type ID
+                                            condition.condition_type_id = db_cond_type.id
+                                            break
+                            except Exception as e:
+                                print(f"Error retrieving condition type from ontology: {str(e)}")
+                    else:
+                        # This is a database condition type ID
+                        condition.condition_type_id = condition_type_id
+    
+    # Next, add new conditions
+    for cond_data in data.get('conditions', []):
+        if 'id' not in cond_data:
+            condition_type_id = cond_data.get('condition_type_id')
+            condition_name = cond_data['name']
+            condition_description = cond_data.get('description', '')
+            
+            # Check if the condition_type_id is an ontology URI (starts with http)
+            if condition_type_id and isinstance(condition_type_id, str) and condition_type_id.startswith('http'):
+                # This is an ontology condition type
+                # Get the condition type details from the ontology
+                world = World.query.get(scenario.world_id)
+                if world and world.ontology_source:
+                    try:
+                        mcp_client = MCPClient()
+                        entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
+                        if entities and 'entities' in entities and 'conditions' in entities['entities']:
+                            for cond_type in entities['entities']['conditions']:
+                                if cond_type['id'] == condition_type_id:
+                                    # Create or find a condition type in the database
+                                    db_cond_type = ConditionType.query.filter_by(ontology_uri=condition_type_id, world_id=scenario.world_id).first()
+                                    if not db_cond_type:
+                                        # Create a new condition type in the database
+                                        db_cond_type = ConditionType(
+                                            name=cond_type['label'],
+                                            description=cond_type['description'],
+                                            world_id=scenario.world_id,
+                                            category=cond_type.get('type', ''),
+                                            ontology_uri=condition_type_id
+                                        )
+                                        db.session.add(db_cond_type)
+                                        db.session.flush()  # Get the ID without committing
+                                    
+                                    # Use the database condition type ID
+                                    condition_type_id = db_cond_type.id
+                                    break
+                    except Exception as e:
+                        print(f"Error retrieving condition type from ontology: {str(e)}")
+            
+            # Create condition
+            condition = Condition(
+                character=character,
+                name=condition_name,
+                description=condition_description,
+                severity=cond_data.get('severity', 1),
+                condition_type_id=condition_type_id
+            )
+            db.session.add(condition)
+    
+    # Finally, delete conditions that were removed
+    for condition_id in data.get('removed_condition_ids', []):
+        condition = Condition.query.get(condition_id)
+        if condition and condition.character_id == character.id:
+            db.session.delete(condition)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Character updated successfully',
+        'data': {
+            'id': character.id,
+            'name': character.name,
+            'role': character.role
+        }
+    })
+
+@scenarios_bp.route('/<int:id>/characters/<int:character_id>/delete', methods=['POST'])
+def delete_character(id, character_id):
+    """Delete a character."""
+    scenario = Scenario.query.get_or_404(id)
+    character = Character.query.get_or_404(character_id)
+    
+    # Ensure the character belongs to the scenario
+    if character.scenario_id != scenario.id:
+        flash('Character does not belong to this scenario', 'danger')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    # Delete the character (conditions will be deleted automatically due to cascade)
+    db.session.delete(character)
+    db.session.commit()
+    
+    flash('Character deleted successfully', 'success')
+    return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+
 # Resource routes
 @scenarios_bp.route('/<int:id>/resources/new', methods=['GET'])
 def new_resource(id):

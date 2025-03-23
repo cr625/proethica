@@ -46,7 +46,19 @@
                         <div class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">{{ character.name }}</h5>
-                                <small>{{ character.role }}</small>
+                                <div>
+                                    <small class="me-2">{{ character.role }}</small>
+                                    <a href="/scenarios/{{ scenario.id }}/characters/{{ character.id }}/edit"
+                                        class="btn btn-sm btn-outline-secondary" title="Edit character">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete character"
+                                        data-bs-toggle="modal" data-bs-target="#deleteCharacterModal"
+                                        data-character-id="{{ character.id }}"
+                                        data-character-name="{{ character.name }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             {% if character.conditions %}
@@ -266,12 +278,36 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Character Confirmation Modal -->
+<div class="modal fade" id="deleteCharacterModal" tabindex="-1" aria-labelledby="deleteCharacterModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteCharacterModalLabel">Confirm Character Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the character "<span id="characterNameToDelete"></span>"? This action
+                    cannot be undone.</p>
+                <p class="text-danger">This will also delete all conditions associated with this character.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteCharacterForm" method="post">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Handle resource deletion modal
     document.addEventListener('DOMContentLoaded', function () {
+        // Handle resource deletion modal
         const deleteResourceModal = document.getElementById('deleteResourceModal');
         if (deleteResourceModal) {
             deleteResourceModal.addEventListener('show.bs.modal', function (event) {
@@ -292,6 +328,31 @@
 
                 if (deleteForm) {
                     deleteForm.action = `/scenarios/{{ scenario.id }}/resources/${resourceId}/delete`;
+                }
+            });
+        }
+
+        // Handle character deletion modal
+        const deleteCharacterModal = document.getElementById('deleteCharacterModal');
+        if (deleteCharacterModal) {
+            deleteCharacterModal.addEventListener('show.bs.modal', function (event) {
+                // Button that triggered the modal
+                const button = event.relatedTarget;
+
+                // Extract character info from data attributes
+                const characterId = button.getAttribute('data-character-id');
+                const characterName = button.getAttribute('data-character-name');
+
+                // Update the modal's content
+                const characterNameSpan = document.getElementById('characterNameToDelete');
+                const deleteForm = document.getElementById('deleteCharacterForm');
+
+                if (characterNameSpan) {
+                    characterNameSpan.textContent = characterName;
+                }
+
+                if (deleteForm) {
+                    deleteForm.action = `/scenarios/{{ scenario.id }}/characters/${characterId}/delete`;
                 }
             });
         }
