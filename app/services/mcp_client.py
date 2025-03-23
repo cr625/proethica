@@ -18,6 +18,10 @@ class MCPClient:
     ETHICAL_DM_LOCKFILE = "/tmp/ontology_mcp_server.lock"
     ZOTERO_LOCKFILE = "/tmp/zotero_mcp_server.lock"
     
+    # Initialize server process attributes as class variables
+    ethical_dm_server_process = None
+    zotero_server_process = None
+    
     @classmethod
     def get_instance(cls, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None) -> 'MCPClient':
         """
@@ -43,14 +47,31 @@ class MCPClient:
             zotero_server_path: Path to the Zotero MCP server script (optional)
         """
         # If an instance already exists, return it instead of creating a new one
-        if MCPClient._instance is not None:
+        if MCPClient._instance is not None and MCPClient._instance is not self:
             return
         
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.ethical_dm_server_path = ethical_dm_server_path or os.path.join(base_dir, 'mcp', 'ontology_mcp_server.py')
         self.zotero_server_path = zotero_server_path or os.path.join(base_dir, '..', 'zotero-mcp-server', 'src', 'server.py')
-        self.ethical_dm_server_process = None
-        self.zotero_server_process = None
+        
+        # Initialize server process attributes if they don't exist yet
+        if MCPClient.ethical_dm_server_process is None:
+            MCPClient.ethical_dm_server_process = subprocess.Popen(
+                ['echo', 'Dummy process for initialization'],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        
+        if MCPClient.zotero_server_process is None:
+            MCPClient.zotero_server_process = subprocess.Popen(
+                ['echo', 'Dummy process for initialization'],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
         
         # Register cleanup handler
         atexit.register(self._cleanup)
@@ -164,21 +185,21 @@ class MCPClient:
         if server_type == "ethical-dm":
             if existing_pid is not None:
                 # Server already running, use it
-                if self.ethical_dm_server_process is None or self.ethical_dm_server_process.poll() is not None:
+                if MCPClient.ethical_dm_server_process is None or MCPClient.ethical_dm_server_process.poll() is None:
                     print(f"Connecting to existing ethical-dm server (PID: {existing_pid}).", file=sys.stderr)
                     # We don't have a handle to the existing process, but we know it's running
                     # We'll create a new process object but won't actually start a new process
-                    self.ethical_dm_server_process = subprocess.Popen(
+                    MCPClient.ethical_dm_server_process = subprocess.Popen(
                         ['echo', 'Dummy process for existing server'],
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True
                     )
-            elif self.ethical_dm_server_process is None or self.ethical_dm_server_process.poll() is not None:
+            elif MCPClient.ethical_dm_server_process is None or MCPClient.ethical_dm_server_process.poll() is not None:
                 # No server running, start a new one
                 print(f"Starting new ethical-dm server.", file=sys.stderr)
-                self.ethical_dm_server_process = subprocess.Popen(
+                MCPClient.ethical_dm_server_process = subprocess.Popen(
                     ['python', self.ethical_dm_server_path],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
@@ -187,25 +208,25 @@ class MCPClient:
                     bufsize=1  # Line buffered
                 )
                 # Create lock file with the PID of the new process
-                self._create_lockfile(server_type, self.ethical_dm_server_process.pid)
+                self._create_lockfile(server_type, MCPClient.ethical_dm_server_process.pid)
         elif server_type == "zotero":
             if existing_pid is not None:
                 # Server already running, use it
-                if self.zotero_server_process is None or self.zotero_server_process.poll() is not None:
+                if MCPClient.zotero_server_process is None or MCPClient.zotero_server_process.poll() is None:
                     print(f"Connecting to existing zotero server (PID: {existing_pid}).", file=sys.stderr)
                     # We don't have a handle to the existing process, but we know it's running
                     # We'll create a new process object but won't actually start a new process
-                    self.zotero_server_process = subprocess.Popen(
+                    MCPClient.zotero_server_process = subprocess.Popen(
                         ['echo', 'Dummy process for existing server'],
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True
                     )
-            elif self.zotero_server_process is None or self.zotero_server_process.poll() is not None:
+            elif MCPClient.zotero_server_process is None or MCPClient.zotero_server_process.poll() is not None:
                 # No server running, start a new one
                 print(f"Starting new zotero server.", file=sys.stderr)
-                self.zotero_server_process = subprocess.Popen(
+                MCPClient.zotero_server_process = subprocess.Popen(
                     ['python', self.zotero_server_path],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
@@ -214,7 +235,7 @@ class MCPClient:
                     bufsize=1  # Line buffered
                 )
                 # Create lock file with the PID of the new process
-                self._create_lockfile(server_type, self.zotero_server_process.pid)
+                self._create_lockfile(server_type, MCPClient.zotero_server_process.pid)
     
     def stop_server(self, server_type: ServerType = "ethical-dm"):
         """
@@ -224,34 +245,34 @@ class MCPClient:
             server_type: Type of server to stop (ethical-dm or zotero)
         """
         if server_type == "ethical-dm":
-            if self.ethical_dm_server_process is not None and self.ethical_dm_server_process.poll() is None:
+            if MCPClient.ethical_dm_server_process is not None and MCPClient.ethical_dm_server_process.poll() is None:
                 # Server running, stop it
                 try:
-                    self.ethical_dm_server_process.terminate()
-                    self.ethical_dm_server_process.wait(timeout=5)
+                    MCPClient.ethical_dm_server_process.terminate()
+                    MCPClient.ethical_dm_server_process.wait(timeout=5)
                 except (subprocess.TimeoutExpired, OSError) as e:
                     print(f"Error terminating ethical-dm server: {str(e)}", file=sys.stderr)
                     try:
-                        self.ethical_dm_server_process.kill()
+                        MCPClient.ethical_dm_server_process.kill()
                     except OSError:
                         pass
-                self.ethical_dm_server_process = None
+                MCPClient.ethical_dm_server_process = None
                 
                 # Remove lock file
                 self._remove_lockfile(server_type)
         elif server_type == "zotero":
-            if self.zotero_server_process is not None and self.zotero_server_process.poll() is None:
+            if MCPClient.zotero_server_process is not None and MCPClient.zotero_server_process.poll() is None:
                 # Server running, stop it
                 try:
-                    self.zotero_server_process.terminate()
-                    self.zotero_server_process.wait(timeout=5)
+                    MCPClient.zotero_server_process.terminate()
+                    MCPClient.zotero_server_process.wait(timeout=5)
                 except (subprocess.TimeoutExpired, OSError) as e:
                     print(f"Error terminating zotero server: {str(e)}", file=sys.stderr)
                     try:
-                        self.zotero_server_process.kill()
+                        MCPClient.zotero_server_process.kill()
                     except OSError:
                         pass
-                self.zotero_server_process = None
+                MCPClient.zotero_server_process = None
                 
                 # Remove lock file
                 self._remove_lockfile(server_type)
@@ -268,9 +289,6 @@ class MCPClient:
         Returns:
             Response from the server
         """
-        # Ensure server is running
-        self.start_server(server_type)
-        
         # Prepare request
         request = {
             "jsonrpc": "2.0",
@@ -279,27 +297,58 @@ class MCPClient:
             "id": 1
         }
         
-        # Send request to appropriate server
-        if server_type == "ethical-dm":
-            server_process = self.ethical_dm_server_process
-        elif server_type == "zotero":
-            server_process = self.zotero_server_process
-        else:
-            raise ValueError(f"Invalid server type: {server_type}")
-        
-        # Send request
-        server_process.stdin.write(json.dumps(request) + '\n')
-        server_process.stdin.flush()
-        
-        # Read response
-        response_line = server_process.stdout.readline()
-        response = json.loads(response_line)
-        
-        # Check for errors
-        if "error" in response:
-            raise Exception(f"MCP server error: {response['error']['message']}")
-        
-        return response["result"]
+        # Try to send the request, with retry logic for broken pipes
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                # Ensure server is running (force restart on retry)
+                if attempt > 0:
+                    print(f"Restarting {server_type} server after failed attempt...", file=sys.stderr)
+                    self.stop_server(server_type)
+                    # Remove lock file if it exists
+                    lockfile = self._get_lockfile_path(server_type)
+                    if os.path.exists(lockfile):
+                        os.remove(lockfile)
+                
+                self.start_server(server_type)
+                
+                # Get the appropriate server process
+                if server_type == "ethical-dm":
+                    server_process = MCPClient.ethical_dm_server_process
+                elif server_type == "zotero":
+                    server_process = MCPClient.zotero_server_process
+                else:
+                    raise ValueError(f"Invalid server type: {server_type}")
+                
+                # Send request
+                server_process.stdin.write(json.dumps(request) + '\n')
+                server_process.stdin.flush()
+                
+                # Read response
+                response_line = server_process.stdout.readline()
+                if not response_line:
+                    raise BrokenPipeError("Empty response from server")
+                
+                response = json.loads(response_line)
+                
+                # Check for errors
+                if "error" in response:
+                    raise Exception(f"MCP server error: {response['error']['message']}")
+                
+                return response["result"]
+                
+            except (BrokenPipeError, IOError) as e:
+                if attempt < max_retries:
+                    print(f"Pipe error with {server_type} server: {str(e)}. Retrying...", file=sys.stderr)
+                    continue
+                else:
+                    raise Exception(f"Failed to communicate with {server_type} server after {max_retries + 1} attempts: {str(e)}")
+            except json.JSONDecodeError as e:
+                if attempt < max_retries:
+                    print(f"JSON decode error with {server_type} server: {str(e)}. Retrying...", file=sys.stderr)
+                    continue
+                else:
+                    raise Exception(f"Failed to parse response from {server_type} server after {max_retries + 1} attempts: {str(e)}")
     
     def get_guidelines(self, domain: str = "military-medical-triage") -> Dict[str, Any]:
         """

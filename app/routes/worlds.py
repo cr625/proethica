@@ -82,7 +82,13 @@ def view_world(id):
     entities = {"entities": {}}  # Initialize with empty entities structure
     if world.ontology_source:
         try:
-            entities = mcp_client.get_world_entities(world.ontology_source)
+            result = mcp_client.get_world_entities(world.ontology_source)
+            # Check if result already has an 'entities' key
+            if 'entities' in result:
+                entities = result
+            else:
+                # If not, wrap it in an 'entities' key
+                entities = {"entities": result}
         except Exception as e:
             entities = {"error": str(e)}
             print(f"Error retrieving world entities: {str(e)}")

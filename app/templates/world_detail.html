@@ -580,27 +580,27 @@
                 try {
                     if (entityType === 'role') {
                         // Get roles data
-                        var roles = JSON.parse('{{ entities.entities.roles | tojson | safe if entities.entities.roles else "[]" }}');
+                        var roles = JSON.parse('{{ (entities.entities.roles | tojson | safe) if (entities and entities.entities and entities.entities.roles) else "[]" }}');
                         entity = roles[entityId];
                         title = 'Role Details: ' + entity.label;
                     } else if (entityType === 'condition') {
                         // Get conditions data
-                        var conditions = JSON.parse('{{ entities.entities.conditions | tojson | safe if entities.entities.conditions else "[]" }}');
+                        var conditions = JSON.parse('{{ (entities.entities.conditions | tojson | safe) if (entities and entities.entities and entities.entities.conditions) else "[]" }}');
                         entity = conditions[entityId];
                         title = 'Condition Details: ' + entity.label;
                     } else if (entityType === 'resource') {
                         // Get resources data
-                        var resources = JSON.parse('{{ entities.entities.resources | tojson | safe if entities.entities.resources else "[]" }}');
+                        var resources = JSON.parse('{{ (entities.entities.resources | tojson | safe) if (entities and entities.entities and entities.entities.resources) else "[]" }}');
                         entity = resources[entityId];
                         title = 'Resource Details: ' + entity.label;
                     } else if (entityType === 'event') {
                         // Get events data
-                        var events = JSON.parse('{{ entities.entities.events | tojson | safe if entities.entities.events else "[]" }}');
+                        var events = JSON.parse('{{ (entities.entities.events | tojson | safe) if (entities and entities.entities and entities.entities.events) else "[]" }}');
                         entity = events[entityId];
                         title = 'Event Details: ' + entity.label;
                     } else if (entityType === 'action') {
                         // Get actions data
-                        var actions = JSON.parse('{{ entities.entities.actions | tojson | safe if entities.entities.actions else "[]" }}');
+                        var actions = JSON.parse('{{ (entities.entities.actions | tojson | safe) if (entities and entities.entities and entities.entities.actions) else "[]" }}');
                         entity = actions[entityId];
                         title = 'Action Details: ' + entity.label;
                     }
