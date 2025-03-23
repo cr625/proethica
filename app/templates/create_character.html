@@ -97,16 +97,35 @@
                 <label class="form-label">Condition Type</label>
                 <select class="form-select condition-type-id" required>
                     <option value="">-- Select a Condition Type --</option>
+
+                    {% if condition_types or ontology_condition_types %}
+
                     {% if condition_types %}
-                    {% for condition_type in condition_types %}
-                    <option value="{{ condition_type.id }}" data-description="{{ condition_type.description }}"
-                        data-category="{{ condition_type.category }}"
-                        data-severity-min="{{ condition_type.severity_range.min }}"
-                        data-severity-max="{{ condition_type.severity_range.max }}">
-                        {{ condition_type.name }} {% if condition_type.category %}({{ condition_type.category }}){%
-                        endif %}
-                    </option>
-                    {% endfor %}
+                    <optgroup label="Database Condition Types">
+                        {% for condition_type in condition_types %}
+                        <option value="{{ condition_type.id }}" data-description="{{ condition_type.description }}"
+                            data-category="{{ condition_type.category }}"
+                            data-severity-min="{{ condition_type.severity_range.min }}"
+                            data-severity-max="{{ condition_type.severity_range.max }}">
+                            {{ condition_type.name }} {% if condition_type.category %}({{ condition_type.category }}){%
+                            endif %}
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+
+                    {% if ontology_condition_types %}
+                    <optgroup label="Ontology Condition Types">
+                        {% for condition_type in ontology_condition_types %}
+                        <option value="{{ condition_type.id }}" data-description="{{ condition_type.description }}"
+                            data-category="{{ condition_type.type }}" data-severity-min="1" data-severity-max="10">
+                            {{ condition_type.label }} {% if condition_type.type %}({{ condition_type.type }}){%
+                            endif %}
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+
                     {% else %}
                     <option value="" disabled>No condition types available for this world</option>
                     {% endif %}

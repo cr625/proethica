@@ -118,27 +118,38 @@ def new_character(id):
     
     # Get roles from the ontology if the world has an ontology source
     ontology_roles = []
+    # Get condition types from the ontology if the world has an ontology source
+    ontology_condition_types = []
+    
     if world and world.ontology_source:
         try:
             mcp_client = MCPClient()
+            # Get roles from ontology
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
             if entities and 'entities' in entities and 'roles' in entities['entities']:
                 ontology_roles = entities['entities']['roles']
+                
+            # Get condition types from ontology
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
+            if entities and 'entities' in entities and 'conditions' in entities['entities']:
+                ontology_condition_types = entities['entities']['conditions']
         except Exception as e:
-            print(f"Error retrieving roles from ontology: {str(e)}")
+            print(f"Error retrieving entities from ontology: {str(e)}")
     
     # Debug information
     print(f"Found {len(db_roles)} database roles for world_id {scenario.world_id}")
     print(f"Found {len(ontology_roles)} ontology roles for world_id {scenario.world_id}")
     
-    print(f"Found {len(condition_types)} condition types for world_id {scenario.world_id}")
+    print(f"Found {len(condition_types)} database condition types for world_id {scenario.world_id}")
+    print(f"Found {len(ontology_condition_types)} ontology condition types for world_id {scenario.world_id}")
     
     return render_template(
         'create_character.html', 
         scenario=scenario, 
         roles=db_roles, 
         ontology_roles=ontology_roles,
-        condition_types=condition_types
+        condition_types=condition_types,
+        ontology_condition_types=ontology_condition_types
     )
 
 @scenarios_bp.route('/<int:id>/characters', methods=['POST'])
@@ -208,12 +219,49 @@ def add_character(id):
     
     # Add conditions if provided
     for cond_data in data.get('conditions', []):
+        condition_type_id = cond_data.get('condition_type_id')
+        condition_name = cond_data['name']
+        condition_description = cond_data.get('description', '')
+        
+        # Check if the condition_type_id is an ontology URI (starts with http)
+        if condition_type_id and isinstance(condition_type_id, str) and condition_type_id.startswith('http'):
+            # This is an ontology condition type
+            # Get the condition type details from the ontology
+            world = World.query.get(scenario.world_id)
+            if world and world.ontology_source:
+                try:
+                    mcp_client = MCPClient()
+                    entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
+                    if entities and 'entities' in entities and 'conditions' in entities['entities']:
+                        for cond_type in entities['entities']['conditions']:
+                            if cond_type['id'] == condition_type_id:
+                                # Create or find a condition type in the database
+                                db_cond_type = ConditionType.query.filter_by(ontology_uri=condition_type_id, world_id=scenario.world_id).first()
+                                if not db_cond_type:
+                                    # Create a new condition type in the database
+                                    db_cond_type = ConditionType(
+                                        name=cond_type['label'],
+                                        description=cond_type['description'],
+                                        world_id=scenario.world_id,
+                                        category=cond_type.get('type', ''),
+                                        ontology_uri=condition_type_id
+                                    )
+                                    db.session.add(db_cond_type)
+                                    db.session.flush()  # Get the ID without committing
+                                
+                                # Use the database condition type ID
+                                condition_type_id = db_cond_type.id
+                                break
+                except Exception as e:
+                    print(f"Error retrieving condition type from ontology: {str(e)}")
+        
+        # Create condition
         condition = Condition(
             character=character,
-            name=cond_data['name'],
-            description=cond_data.get('description', ''),
+            name=condition_name,
+            description=condition_description,
             severity=cond_data.get('severity', 1),
-            condition_type_id=cond_data.get('condition_type_id')
+            condition_type_id=condition_type_id
         )
         db.session.add(condition)
     
