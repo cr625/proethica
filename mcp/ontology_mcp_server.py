@@ -17,7 +17,8 @@ class OntologyMCPServer:
         # Define known namespaces
         self.namespaces = {
             "military-medical-triage": Namespace("http://example.org/military-medical-triage#"),
-            "engineering-ethics": Namespace("http://example.org/engineering-ethics#")
+            "engineering-ethics": Namespace("http://example.org/engineering-ethics#"),
+            "nj-legal-ethics": Namespace("http://example.org/nj-legal-ethics#")
         }
         # Default namespace
         self.MMT = self.namespaces["military-medical-triage"]
@@ -130,6 +131,8 @@ class OntologyMCPServer:
                 return self.namespaces["military-medical-triage"]
             elif "engineering-ethics" in ontology_uri:
                 return self.namespaces["engineering-ethics"]
+            elif "nj-legal-ethics" in ontology_uri:
+                return self.namespaces["nj-legal-ethics"]
         
         # Check for namespace prefixes in the graph
         for prefix, namespace in graph.namespaces():
@@ -138,6 +141,8 @@ class OntologyMCPServer:
                 return self.namespaces["military-medical-triage"]
             elif prefix == "eng" or "engineering-ethics" in namespace_str:
                 return self.namespaces["engineering-ethics"]
+            elif prefix == "njle" or "nj-legal-ethics" in namespace_str:
+                return self.namespaces["nj-legal-ethics"]
             
         # Check for common entity types in each namespace
         for namespace_key, namespace in self.namespaces.items():
