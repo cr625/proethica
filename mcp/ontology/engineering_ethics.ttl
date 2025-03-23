@@ -59,25 +59,25 @@ eng:Stakeholder a owl:Class ;
     rdfs:comment "A person or entity affected by engineering decisions"@en .
 
 eng:Client a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Stakeholder ;
     rdfs:label "Client"@en ;
     rdfs:comment "A person or organization that commissions engineering services"@en .
 
 eng:IndividualClient a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Client ;
     rdfs:label "Individual Client"@en ;
     rdfs:comment "An individual person who commissions engineering services"@en .
 
 eng:CorporateClient a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Client ;
     rdfs:label "Corporate Client"@en ;
     rdfs:comment "A corporate entity that commissions engineering services"@en .
 
 eng:PublicClient a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Client ;
     rdfs:label "Public Client"@en ;
     rdfs:comment "A government or public entity that commissions engineering services"@en .
@@ -110,19 +110,19 @@ eng:ExecutiveLevel rdf:type eng:Tier ;
 
 # Specific Professional Roles
 eng:Engineer a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Professional ;
     rdfs:label "Engineer"@en ;
     rdfs:comment "A professional engineer"@en .
 
 eng:Manager a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Professional ;
     rdfs:label "Manager"@en ;
     rdfs:comment "A manager overseeing engineering projects"@en .
 
 eng:Regulator a owl:Class ;
-    rdf:type eng:CharacterType ;
+    rdf:type eng:Role ;
     rdfs:subClassOf eng:Professional ;
     rdfs:label "Regulator"@en ;
     rdfs:comment "A regulatory official overseeing engineering compliance"@en .

@@ -47,13 +47,13 @@ mmt:Character a owl:Class ;
     rdfs:comment "A person in the military medical triage domain"@en .
 
 mmt:Patient a owl:Class ;
-    rdf:type mmt:CharacterType ;
+    rdf:type mmt:Role ;
     rdfs:subClassOf mmt:Character ;
     rdfs:label "Patient"@en ;
     rdfs:comment "A person requiring medical attention"@en .
 
 mmt:MedicalPersonnel a owl:Class ;
-    rdf:type mmt:CharacterType ;
+    rdf:type mmt:Role ;
     rdfs:subClassOf mmt:Character ;
     rdfs:label "Medical Personnel"@en ;
     rdfs:comment "A person providing medical care"@en .
@@ -86,19 +86,19 @@ mmt:Tier4 rdf:type mmt:Tier ;
 
 # Specific Medical Roles
 mmt:Medic a owl:Class ;
-    rdf:type mmt:CharacterType ;
+    rdf:type mmt:Role ;
     rdfs:subClassOf mmt:MedicalPersonnel ;
     rdfs:label "Medic"@en ;
     rdfs:comment "A combat medic providing first aid in the field"@en .
 
 mmt:Doctor a owl:Class ;
-    rdf:type mmt:CharacterType ;
+    rdf:type mmt:Role ;
     rdfs:subClassOf mmt:MedicalPersonnel ;
     rdfs:label "Doctor"@en ;
     rdfs:comment "A physician providing advanced medical care"@en .
 
 mmt:Nurse a owl:Class ;
-    rdf:type mmt:CharacterType ;
+    rdf:type mmt:Role ;
     rdfs:subClassOf mmt:MedicalPersonnel ;
     rdfs:label "Nurse"@en ;
     rdfs:comment "A nurse providing medical care"@en .
