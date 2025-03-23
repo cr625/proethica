@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Add Action - AI Ethical Decision-Making Simulator{% endblock %}
+{% block title %}Edit Action - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Add Action to Scenario</h1>
+        <h1>Edit Action</h1>
         <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
     </div>
 
@@ -14,10 +14,11 @@
             <h3>Action Details</h3>
         </div>
         <div class="card-body">
-            <form id="create-action-form">
+            <form id="edit-action-form">
                 <div class="mb-3">
                     <label for="action_time" class="form-label">Action Time</label>
-                    <input type="datetime-local" class="form-control" id="action_time" name="action_time" required>
+                    <input type="datetime-local" class="form-control" id="action_time" name="action_time"
+                        value="{{ action.action_time.strftime('%Y-%m-%dT%H:%M') }}" required>
                     <div class="form-text">When does this action occur in the scenario timeline?</div>
                 </div>
 
@@ -26,7 +27,10 @@
                     <select class="form-select" id="action_type" name="action_type">
                         <option value="">-- Select Action Type --</option>
                         {% for action_type in action_types %}
-                        <option value="{{ action_type.id }}">{{ action_type.label }}</option>
+                        <option value="{{ action_type.id }}" {% if action_type.id==action.action_type %}selected{% endif
+                            %}>
+                            {{ action_type.label }}
+                        </option>
                         {% endfor %}
                     </select>
                     <div class="form-text">Select the type of action from the ontology.</div>
@@ -34,13 +38,14 @@
 
                 <div class="mb-3">
                     <label for="name" class="form-label">Name</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ action.name }}" required>
                     <div class="form-text">A short name for this action.</div>
                 </div>
 
                 <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
-                    <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+                    <textarea class="form-control" id="description" name="description" rows="4"
+                        required>{{ action.description }}</textarea>
                     <div class="form-text">Describe what happens during this action.</div>
                 </div>
 
@@ -49,23 +54,40 @@
                     <select class="form-select" id="character" name="character_id">
                         <option value="">None</option>
                         {% for character in scenario.characters %}
-                        <option value="{{ character.id }}">{{ character.name }} ({{ character.role }})</option>
+                        <option value="{{ character.id }}" {% if character.id==action.character_id %}selected{% endif
+                            %}>
+                            {{ character.name }} ({{ character.role }})
+                        </option>
                         {% endfor %}
                     </select>
                     <div class="form-text">Select a character involved in this action, if applicable.</div>
                 </div>
 
                 <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="is_decision" name="is_decision">
+                    <input type="checkbox" class="form-check-input" id="is_decision" name="is_decision" {% if
+                        action.is_decision %}checked{% endif %}>
                     <label class="form-check-label" for="is_decision">This is a decision point</label>
                     <div class="form-text">Check if this action requires a decision to be made.</div>
                 </div>
 
-                <div id="decision-options" style="display: none;">
+                <div id="decision-options" style="display: {% if action.is_decision %}block{% else %}none{% endif %};">
                     <div class="mb-3">
                         <label class="form-label">Decision Options</label>
                         <div id="options-container">
-                            <!-- Options will be added here dynamically -->
+                            <!-- Existing options will be loaded here -->
+                            {% if action.options %}
+                            {% for option in action.options %}
+                            <div class="input-group mb-2 option-group">
+                                <span class="input-group-text">Option {{ loop.index }}</span>
+                                <input type="text" class="form-control option-text" value="{{ option }}">
+                                {% if loop.index > 2 %}
+                                <button class="btn btn-outline-danger remove-option-btn" type="button">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            {% else %}
                             <div class="input-group mb-2 option-group">
                                 <span class="input-group-text">Option 1</span>
                                 <input type="text" class="form-control option-text">
@@ -74,6 +96,7 @@
                                 <span class="input-group-text">Option 2</span>
                                 <input type="text" class="form-control option-text">
                             </div>
+                            {% endif %}
                         </div>
                         <button type="button" class="btn btn-outline-secondary mt-2" id="add-option-btn">
                             <i class="bi bi-plus-circle"></i> Add Option
@@ -83,51 +106,15 @@
 
                 <div class="mb-3">
                     <label for="parameters" class="form-label">Additional Parameters (Optional)</label>
-                    <textarea class="form-control" id="parameters" name="parameters" rows="3"></textarea>
+                    <textarea class="form-control" id="parameters" name="parameters"
+                        rows="3">{{ action.parameters|tojson }}</textarea>
                     <div class="form-text">Any additional parameters for this action (JSON format).</div>
                 </div>
 
                 <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary">Add Action</button>
+                    <button type="submit" class="btn btn-primary">Update Action</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h3 class="mb-0">Action Examples</h3>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <h5>Medical Domain</h5>
-                    <ul>
-                        <li>Apply tourniquet to control bleeding</li>
-                        <li>Administer morphine for pain management</li>
-                        <li>Perform triage assessment</li>
-                        <li>Request MEDEVAC for critical patient</li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5>Engineering Domain</h5>
-                    <ul>
-                        <li>Run safety test on new component</li>
-                        <li>Implement design change to address flaw</li>
-                        <li>Allocate resources to critical project</li>
-                        <li>Document technical specifications</li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5>Legal Domain</h5>
-                    <ul>
-                        <li>File motion to suppress evidence</li>
-                        <li>Interview key witness</li>
-                        <li>Present settlement offer to client</li>
-                        <li>Research precedent for similar cases</li>
-                    </ul>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -156,7 +143,7 @@
     });
 
     // Add option functionality
-    let optionCount = 2;
+    let optionCount = document.querySelectorAll('.option-group').length || 2;
     document.getElementById('add-option-btn').addEventListener('click', function () {
         optionCount++;
         const container = document.getElementById('options-container');
@@ -183,8 +170,21 @@
         container.appendChild(newOption);
     });
 
+    // Add event listeners to existing remove buttons
+    document.querySelectorAll('.remove-option-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const optionGroup = this.closest('.option-group');
+            optionGroup.remove();
+            // Renumber options
+            document.querySelectorAll('.option-group').forEach((group, index) => {
+                group.querySelector('.input-group-text').textContent = `Option ${index + 1}`;
+            });
+            optionCount = document.querySelectorAll('.option-group').length;
+        });
+    });
+
     // Form submission
-    document.getElementById('create-action-form').addEventListener('submit', function (e) {
+    document.getElementById('edit-action-form').addEventListener('submit', function (e) {
         e.preventDefault();
 
         // Format parameters as JSON if provided
@@ -226,7 +226,7 @@
             parameters: parameters
         };
 
-        fetch('/scenarios/{{ scenario.id }}/actions', {
+        fetch('/scenarios/{{ scenario.id }}/actions/{{ action.id }}/update', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -238,12 +238,12 @@
                 if (data.success) {
                     window.location.href = `/scenarios/{{ scenario.id }}`;
                 } else {
-                    alert('Error adding action: ' + data.message);
+                    alert('Error updating action: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while adding the action.');
+                alert('An error occurred while updating the action.');
             });
     });
 </script>

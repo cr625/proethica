@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Event - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit Event</h1>
+        <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Event Details</h3>
+        </div>
+        <div class="card-body">
+            <form id="edit-event-form">
+                <div class="mb-3">
+                    <label for="event_time" class="form-label">Event Time</label>
+                    <input type="datetime-local" class="form-control" id="event_time" name="event_time"
+                        value="{{ event.event_time.strftime('%Y-%m-%dT%H:%M') }}" required>
+                    <div class="form-text">When does this event occur in the scenario timeline?</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4"
+                        required>{{ event.description }}</textarea>
+                    <div class="form-text">Describe what happens during this event.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="character" class="form-label">Related Character (Optional)</label>
+                    <select class="form-select" id="character" name="character_id">
+                        <option value="">None</option>
+                        {% for character in scenario.characters %}
+                        <option value="{{ character.id }}" {% if character.id==event.character_id %}selected{% endif %}>
+                            {{ character.name }} ({{ character.role }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select a character involved in this event, if applicable.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="action_type" class="form-label">Event Type</label>
+                    <select class="form-select" id="action_type" name="action_type">
+                        <option value="">-- Select Event Type --</option>
+                        {% for action_type in action_types %}
+                        <option value="{{ action_type.id }}" {% if action_type.id==event.action_type %}selected{% endif
+                            %}>
+                            {{ action_type.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the type of event from the ontology.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="metadata" class="form-label">Additional Details (Optional)</label>
+                    <textarea class="form-control" id="metadata" name="metadata"
+                        rows="3">{{ event.parameters|tojson }}</textarea>
+                    <div class="form-text">Any additional information about this event (JSON format).</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Update Event</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.getElementById('edit-event-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        // Format metadata as JSON if provided
+        let metadata = {};
+        const metadataText = document.getElementById('metadata').value.trim();
+        if (metadataText) {
+            try {
+                metadata = JSON.parse(metadataText);
+            } catch (error) {
+                alert('Invalid JSON format in Additional Details field. Please correct and try again.');
+                return;
+            }
+        }
+
+        const formData = {
+            event_time: document.getElementById('event_time').value,
+            description: document.getElementById('description').value,
+            character_id: document.getElementById('character').value || null,
+            action_type: document.getElementById('action_type').value || null,
+            metadata: metadata
+        };
+
+        fetch('/scenarios/{{ scenario.id }}/events/{{ event.id }}/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = `/scenarios/{{ scenario.id }}`;
+                } else {
+                    alert('Error updating event: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the event.');
+            });
+    });
+</script>
+{% endblock %}
+{% endblock %}

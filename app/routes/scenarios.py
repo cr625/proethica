@@ -805,6 +805,121 @@ def new_action(id):
     
     return render_template('create_action.html', scenario=scenario, action_types=action_types)
 
+@scenarios_bp.route('/<int:id>/actions/<int:action_id>/edit', methods=['GET'])
+def edit_action(id, action_id):
+    """Display form to edit an action."""
+    from app.models.event import Action
+    
+    scenario = Scenario.query.get_or_404(id)
+    action = Action.query.get_or_404(action_id)
+    
+    # Ensure the action belongs to the scenario
+    if action.scenario_id != scenario.id:
+        flash('Action does not belong to this scenario', 'danger')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    world = World.query.get(scenario.world_id)
+    
+    # Get action types from the ontology if the world has an ontology source
+    action_types = []
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
+            if entities and 'entities' in entities and 'actions' in entities['entities']:
+                action_types = entities['entities']['actions']
+        except Exception as e:
+            print(f"Error retrieving action types from ontology: {str(e)}")
+    
+    return render_template('edit_action.html', scenario=scenario, action=action, action_types=action_types)
+
+@scenarios_bp.route('/<int:id>/actions/<int:action_id>/update', methods=['POST'])
+def update_action(id, action_id):
+    """Update an action."""
+    from app.models.event import Action
+    
+    scenario = Scenario.query.get_or_404(id)
+    action = Action.query.get_or_404(action_id)
+    
+    # Ensure the action belongs to the scenario
+    if action.scenario_id != scenario.id:
+        return jsonify({
+            'success': False,
+            'message': 'Action does not belong to this scenario'
+        }), 403
+    
+    data = request.json
+    
+    # Update action fields
+    if 'name' in data:
+        action.name = data['name']
+    if 'description' in data:
+        action.description = data['description']
+    if 'action_time' in data:
+        action.action_time = data['action_time']
+    if 'character_id' in data:
+        action.character_id = data['character_id']
+    if 'action_type' in data:
+        action.action_type = data['action_type']
+    if 'parameters' in data:
+        action.parameters = data['parameters']
+    
+    # Update decision-specific fields
+    if 'is_decision' in data:
+        action.is_decision = data['is_decision']
+        if action.is_decision and 'options' in data:
+            action.options = data['options']
+    
+    db.session.commit()
+    
+    # Update related event if this is a decision
+    if action.is_decision:
+        from app.models.event import Event
+        event = Event.query.filter_by(action_id=action.id).first()
+        if event:
+            event.event_time = action.action_time
+            event.description = f"Decision point: {action.name}"
+            event.character_id = action.character_id
+            event.parameters = action.parameters
+            db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Action updated successfully',
+        'data': {
+            'id': action.id,
+            'name': action.name,
+            'action_time': action.action_time.isoformat(),
+            'description': action.description,
+            'is_decision': action.is_decision
+        }
+    })
+
+@scenarios_bp.route('/<int:id>/actions/<int:action_id>/delete', methods=['POST'])
+def delete_action(id, action_id):
+    """Delete an action."""
+    from app.models.event import Action, Event
+    
+    scenario = Scenario.query.get_or_404(id)
+    action = Action.query.get_or_404(action_id)
+    
+    # Ensure the action belongs to the scenario
+    if action.scenario_id != scenario.id:
+        flash('Action does not belong to this scenario', 'danger')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    # Delete related events
+    events = Event.query.filter_by(action_id=action.id).all()
+    for event in events:
+        db.session.delete(event)
+    
+    # Delete the action
+    db.session.delete(action)
+    db.session.commit()
+    
+    flash('Action deleted successfully', 'success')
+    return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+
 @scenarios_bp.route('/<int:id>/actions', methods=['POST'])
 def add_action(id):
     """Add an action to a scenario."""
@@ -879,6 +994,100 @@ def new_event(id):
             print(f"Error retrieving action types from ontology: {str(e)}")
     
     return render_template('create_event.html', scenario=scenario, action_types=action_types)
+
+@scenarios_bp.route('/<int:id>/events/<int:event_id>/edit', methods=['GET'])
+def edit_event(id, event_id):
+    """Display form to edit an event."""
+    from app.models.event import Event
+    
+    scenario = Scenario.query.get_or_404(id)
+    event = Event.query.get_or_404(event_id)
+    
+    # Ensure the event belongs to the scenario
+    if event.scenario_id != scenario.id:
+        flash('Event does not belong to this scenario', 'danger')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    world = World.query.get(scenario.world_id)
+    
+    # Get action types from the ontology if the world has an ontology source
+    action_types = []
+    if world and world.ontology_source:
+        try:
+            mcp_client = MCPClient()
+            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
+            if entities and 'entities' in entities and 'actions' in entities['entities']:
+                action_types = entities['entities']['actions']
+        except Exception as e:
+            print(f"Error retrieving action types from ontology: {str(e)}")
+    
+    return render_template('edit_event.html', scenario=scenario, event=event, action_types=action_types)
+
+@scenarios_bp.route('/<int:id>/events/<int:event_id>/update', methods=['POST'])
+def update_event(id, event_id):
+    """Update an event."""
+    from app.models.event import Event
+    
+    scenario = Scenario.query.get_or_404(id)
+    event = Event.query.get_or_404(event_id)
+    
+    # Ensure the event belongs to the scenario
+    if event.scenario_id != scenario.id:
+        return jsonify({
+            'success': False,
+            'message': 'Event does not belong to this scenario'
+        }), 403
+    
+    data = request.json
+    
+    # Update event fields
+    if 'description' in data:
+        event.description = data['description']
+    if 'event_time' in data:
+        event.event_time = data['event_time']
+    if 'character_id' in data:
+        event.character_id = data['character_id']
+    if 'action_type' in data:
+        event.action_type = data['action_type']
+    if 'metadata' in data:
+        event.parameters = data['metadata']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Event updated successfully',
+        'data': {
+            'id': event.id,
+            'event_time': event.event_time.isoformat(),
+            'description': event.description
+        }
+    })
+
+@scenarios_bp.route('/<int:id>/events/<int:event_id>/delete', methods=['POST'])
+def delete_event(id, event_id):
+    """Delete an event."""
+    from app.models.event import Event
+    
+    scenario = Scenario.query.get_or_404(id)
+    event = Event.query.get_or_404(event_id)
+    
+    # Ensure the event belongs to the scenario
+    if event.scenario_id != scenario.id:
+        flash('Event does not belong to this scenario', 'danger')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    # Check if this event is linked to an action
+    if event.action_id:
+        flash('This event is linked to an action and cannot be deleted directly. Delete the action instead.', 'warning')
+        return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    # Delete the event
+    db.session.delete(event)
+    db.session.commit()
+    
+    flash('Event deleted successfully', 'success')
+    return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>/events', methods=['POST'])
 def add_event(id):
