@@ -5,6 +5,7 @@ import subprocess
 import signal
 import atexit
 from typing import Dict, List, Any, Optional, Literal, ClassVar
+from app.services.zotero_client import ZoteroClient
 
 ServerType = Literal["ethical-dm", "zotero"]
 
@@ -20,7 +21,6 @@ class MCPClient:
     
     # Initialize server process attributes as class variables
     ethical_dm_server_process = None
-    zotero_server_process = None
     
     @classmethod
     def get_instance(cls, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None) -> 'MCPClient':
@@ -64,14 +64,8 @@ class MCPClient:
                 text=True
             )
         
-        if MCPClient.zotero_server_process is None:
-            MCPClient.zotero_server_process = subprocess.Popen(
-                ['echo', 'Dummy process for initialization'],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+        # Initialize ZoteroClient
+        self.zotero_client = ZoteroClient.get_instance()
         
         # Register cleanup handler
         atexit.register(self._cleanup)
@@ -88,7 +82,6 @@ class MCPClient:
     def _cleanup(self):
         """Clean up resources when the client is destroyed."""
         self.stop_server("ethical-dm")
-        self.stop_server("zotero")
     
     def _get_lockfile_path(self, server_type: ServerType) -> str:
         """
@@ -179,10 +172,11 @@ class MCPClient:
         Args:
             server_type: Type of server to start (ethical-dm or zotero)
         """
-        # Check if a server is already running
-        existing_pid = self._check_existing_server(server_type)
-        
+        # Only start ethical-dm server, Zotero is now handled by ZoteroClient
         if server_type == "ethical-dm":
+            # Check if a server is already running
+            existing_pid = self._check_existing_server(server_type)
+            
             if existing_pid is not None:
                 # Server already running, use it
                 if MCPClient.ethical_dm_server_process is None or MCPClient.ethical_dm_server_process.poll() is None:
@@ -210,32 +204,9 @@ class MCPClient:
                 # Create lock file with the PID of the new process
                 self._create_lockfile(server_type, MCPClient.ethical_dm_server_process.pid)
         elif server_type == "zotero":
-            if existing_pid is not None:
-                # Server already running, use it
-                if MCPClient.zotero_server_process is None or MCPClient.zotero_server_process.poll() is None:
-                    print(f"Connecting to existing zotero server (PID: {existing_pid}).", file=sys.stderr)
-                    # We don't have a handle to the existing process, but we know it's running
-                    # We'll create a new process object but won't actually start a new process
-                    MCPClient.zotero_server_process = subprocess.Popen(
-                        ['echo', 'Dummy process for existing server'],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-            elif MCPClient.zotero_server_process is None or MCPClient.zotero_server_process.poll() is not None:
-                # No server running, start a new one
-                print(f"Starting new zotero server.", file=sys.stderr)
-                MCPClient.zotero_server_process = subprocess.Popen(
-                    ['python', self.zotero_server_path],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1  # Line buffered
-                )
-                # Create lock file with the PID of the new process
-                self._create_lockfile(server_type, MCPClient.zotero_server_process.pid)
+            # Zotero is now handled by ZoteroClient, so we don't need to start a server
+            # Just log a message for backward compatibility
+            print(f"Zotero functionality is now handled internally by ZoteroClient.", file=sys.stderr)
     
     def stop_server(self, server_type: ServerType = "ethical-dm"):
         """
@@ -261,21 +232,12 @@ class MCPClient:
                 # Remove lock file
                 self._remove_lockfile(server_type)
         elif server_type == "zotero":
-            if MCPClient.zotero_server_process is not None and MCPClient.zotero_server_process.poll() is None:
-                # Server running, stop it
-                try:
-                    MCPClient.zotero_server_process.terminate()
-                    MCPClient.zotero_server_process.wait(timeout=5)
-                except (subprocess.TimeoutExpired, OSError) as e:
-                    print(f"Error terminating zotero server: {str(e)}", file=sys.stderr)
-                    try:
-                        MCPClient.zotero_server_process.kill()
-                    except OSError:
-                        pass
-                MCPClient.zotero_server_process = None
-                
-                # Remove lock file
-                self._remove_lockfile(server_type)
+            # Zotero is now handled by ZoteroClient, so we don't need to stop a server
+            # Just log a message for backward compatibility
+            print(f"Zotero functionality is now handled internally by ZoteroClient.", file=sys.stderr)
+            
+            # Remove lock file if it exists (for cleanup)
+            self._remove_lockfile(server_type)
     
     def _send_request(self, request_type: str, params: Dict[str, Any], server_type: ServerType = "ethical-dm") -> Dict[str, Any]:
         """
@@ -289,6 +251,10 @@ class MCPClient:
         Returns:
             Response from the server
         """
+        # For Zotero requests, use ZoteroClient instead
+        if server_type == "zotero":
+            raise ValueError("Zotero requests should use the specific Zotero methods instead of _send_request")
+        
         # Prepare request
         request = {
             "jsonrpc": "2.0",
@@ -315,8 +281,6 @@ class MCPClient:
                 # Get the appropriate server process
                 if server_type == "ethical-dm":
                     server_process = MCPClient.ethical_dm_server_process
-                elif server_type == "zotero":
-                    server_process = MCPClient.zotero_server_process
                 else:
                     raise ValueError(f"Invalid server type: {server_type}")
                 
@@ -546,7 +510,7 @@ class MCPClient:
         # Return the ontology content
         return response["contents"][0]["text"]
     
-    # Zotero MCP server methods
+    # Zotero methods - now using ZoteroClient
     
     def get_zotero_collections(self) -> Dict[str, Any]:
         """
@@ -555,15 +519,7 @@ class MCPClient:
         Returns:
             Dictionary containing collections
         """
-        response = self._send_request(
-            "read_resource",
-            {"uri": "zotero://collections"},
-            server_type="zotero"
-        )
-        
-        # Parse JSON content
-        content = response["contents"][0]["text"]
-        return json.loads(content)
+        return self.zotero_client.get_collections()
     
     def get_zotero_recent_items(self, limit: int = 20) -> Dict[str, Any]:
         """
@@ -575,15 +531,7 @@ class MCPClient:
         Returns:
             Dictionary containing recent items
         """
-        response = self._send_request(
-            "read_resource",
-            {"uri": "zotero://items/recent"},
-            server_type="zotero"
-        )
-        
-        # Parse JSON content
-        content = response["contents"][0]["text"]
-        return json.loads(content)
+        return self.zotero_client.get_recent_items(limit)
     
     def search_zotero_items(self, query: str, collection_key: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
         """
@@ -597,22 +545,7 @@ class MCPClient:
         Returns:
             Dictionary containing search results
         """
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "search_items",
-                "arguments": {
-                    "query": query,
-                    "collection_key": collection_key,
-                    "limit": limit
-                }
-            },
-            server_type="zotero"
-        )
-        
-        # Parse JSON content
-        content = response["content"][0]["text"]
-        return json.loads(content)
+        return self.zotero_client.search_items(query, collection_key, limit)
     
     def get_zotero_citation(self, item_key: str, style: str = "apa") -> str:
         """
@@ -625,20 +558,7 @@ class MCPClient:
         Returns:
             Citation text
         """
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "get_citation",
-                "arguments": {
-                    "item_key": item_key,
-                    "style": style
-                }
-            },
-            server_type="zotero"
-        )
-        
-        # Return citation text
-        return response["content"][0]["text"]
+        return self.zotero_client.get_citation(item_key, style)
     
     def add_zotero_item(self, item_type: str, title: str, creators: Optional[List[Dict[str, str]]] = None,
                         collection_key: Optional[str] = None, additional_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -655,24 +575,7 @@ class MCPClient:
         Returns:
             Dictionary containing response from the server
         """
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "add_item",
-                "arguments": {
-                    "item_type": item_type,
-                    "title": title,
-                    "creators": creators or [],
-                    "collection_key": collection_key,
-                    "additional_fields": additional_fields or {}
-                }
-            },
-            server_type="zotero"
-        )
-        
-        # Parse JSON content
-        content = response["content"][0]["text"]
-        return json.loads(content)
+        return self.zotero_client.add_item(item_type, title, creators, collection_key, additional_fields)
     
     def get_zotero_bibliography(self, item_keys: List[str], style: str = "apa") -> str:
         """
@@ -685,20 +588,7 @@ class MCPClient:
         Returns:
             Bibliography text
         """
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "get_bibliography",
-                "arguments": {
-                    "item_keys": item_keys,
-                    "style": style
-                }
-            },
-            server_type="zotero"
-        )
-        
-        # Return bibliography text
-        return response["content"][0]["text"]
+        return self.zotero_client.get_bibliography(item_keys, style)
     
     def get_references_for_scenario(self, scenario) -> Dict[str, Any]:
         """
