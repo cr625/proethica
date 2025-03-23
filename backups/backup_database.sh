@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Database backup script for ai_ethical_dm
+# This script creates a backup of the PostgreSQL database
+
+# Configuration
+DB_NAME="ai_ethical_dm"
+DB_USER="postgres"
+DB_HOST="localhost"
+DB_PORT="5432"
+BACKUP_DIR="$(dirname "$0")"  # Use the directory where this script is located
+
+# Create timestamp for the backup filename
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="${BACKUP_DIR}/${DB_NAME}_backup_${TIMESTAMP}.dump"
+
+# Display backup start message
+echo "Starting backup of database '${DB_NAME}' to ${BACKUP_FILE}"
+
+# Run pg_dump to create the backup
+pg_dump -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -F c -b -v -f "${BACKUP_FILE}" ${DB_NAME}
+
+# Check if backup was successful
+if [ $? -eq 0 ]; then
+    echo "Backup completed successfully: ${BACKUP_FILE}"
+    echo "Backup size: $(du -h "${BACKUP_FILE}" | cut -f1)"
+else
+    echo "Backup failed!"
+    exit 1
+fi
+
+# List all backups
+echo -e "\nAvailable backups:"
+ls -lh "${BACKUP_DIR}"/${DB_NAME}_backup_*.dump | sort
+
+exit 0
