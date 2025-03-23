@@ -92,7 +92,7 @@ The application is built with:
 
 ## License
 
-MIT
+GPL 3
 
 ## Contributors
 
