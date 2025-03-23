@@ -58,3 +58,4 @@ migrations
 .outfile
 mcp/profile.out
 mcp/server.log
+.secrets
