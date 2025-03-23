@@ -142,6 +142,12 @@ def update_world(id):
 def delete_world(id):
     """Delete a world via API."""
     world = World.query.get_or_404(id)
+    
+    # Delete associated scenarios first
+    for scenario in world.scenarios:
+        db.session.delete(scenario)
+    
+    # Then delete the world
     db.session.delete(world)
     db.session.commit()
     
@@ -154,6 +160,12 @@ def delete_world(id):
 def delete_world_confirm(id):
     """Delete a world from web form."""
     world = World.query.get_or_404(id)
+    
+    # Delete associated scenarios first
+    for scenario in world.scenarios:
+        db.session.delete(scenario)
+    
+    # Then delete the world
     db.session.delete(world)
     db.session.commit()
     
@@ -292,11 +304,18 @@ def world_references(id):
     mcp_client = MCPClient()
     
     # Get references
-    if query:
-        # Search with the provided query
-        references = mcp_client.search_zotero_items(query, limit=10)
-    else:
-        # Get references based on world content
-        references = mcp_client.get_references_for_world(world)
+    references = None
+    try:
+        if query:
+            # Search with the provided query
+            references_data = mcp_client.search_zotero_items(query, limit=10)
+            references = {'results': references_data}
+        else:
+            # Get references based on world content
+            references_data = mcp_client.get_references_for_world(world)
+            references = {'results': references_data}
+    except Exception as e:
+        print(f"Error retrieving references: {str(e)}")
+        references = {'results': []}
     
     return render_template('world_references.html', world=world, references=references, query=query)

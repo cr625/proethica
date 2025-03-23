@@ -28,6 +28,7 @@ pyzotero
 # Testing
 pytest
 pytest-flask
+email_validator
 
 # Development
 black

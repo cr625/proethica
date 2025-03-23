@@ -90,6 +90,29 @@ The application is built with:
 3. Run simulations and observe decision-making
 4. Evaluate ethical outcomes
 
+## Testing
+
+The application includes comprehensive tests for all routes. To run the tests:
+
+```bash
+# Run all tests
+./run_tests.py
+
+# Run with verbose output
+./run_tests.py -v
+
+# Run specific test file
+./run_tests.py tests/test_scenarios_routes.py
+
+# Run all route tests
+./run_tests.py tests/test_all_routes.py
+
+# Run specific test
+pytest tests/test_scenarios_routes.py::test_list_scenarios
+```
+
+See `tests/README.md` for more details on the test structure and coverage.
+
 ## License
 
 GPL 3

@@ -851,6 +851,7 @@ def edit_action(id, action_id):
 def update_action(id, action_id):
     """Update an action."""
     from app.models.event import Action
+    from datetime import datetime
     
     scenario = Scenario.query.get_or_404(id)
     action = Action.query.get_or_404(action_id)
@@ -870,7 +871,23 @@ def update_action(id, action_id):
     if 'description' in data:
         action.description = data['description']
     if 'action_time' in data:
-        action.action_time = data['action_time']
+        # Parse action_time if it's a string
+        action_time = data['action_time']
+        if isinstance(action_time, str):
+            try:
+                # Try to parse ISO format first
+                action_time = datetime.fromisoformat(action_time.replace('Z', '+00:00'))
+            except ValueError:
+                try:
+                    # Try to parse common datetime formats
+                    action_time = datetime.strptime(action_time, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    try:
+                        action_time = datetime.strptime(action_time, '%Y-%m-%d')
+                    except ValueError:
+                        # Default to current time if parsing fails
+                        action_time = datetime.now()
+        action.action_time = action_time
     if 'character_id' in data:
         action.character_id = data['character_id']
     if 'action_type' in data:
@@ -938,6 +955,7 @@ def delete_action(id, action_id):
 def add_action(id):
     """Add an action to a scenario."""
     from app.models.event import Action
+    from datetime import datetime
     
     scenario = Scenario.query.get_or_404(id)
     data = request.json
@@ -948,13 +966,30 @@ def add_action(id):
     if character_id:
         character = Character.query.get(character_id)
     
+    # Parse action_time if it's a string
+    action_time = data['action_time']
+    if isinstance(action_time, str):
+        try:
+            # Try to parse ISO format first
+            action_time = datetime.fromisoformat(action_time.replace('Z', '+00:00'))
+        except ValueError:
+            try:
+                # Try to parse common datetime formats
+                action_time = datetime.strptime(action_time, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                try:
+                    action_time = datetime.strptime(action_time, '%Y-%m-%d')
+                except ValueError:
+                    # Default to current time if parsing fails
+                    action_time = datetime.now()
+    
     # Create action
     action = Action(
         name=data['name'],
         description=data['description'],
         scenario=scenario,
         character_id=character_id,
-        action_time=data['action_time'],
+        action_time=action_time,
         action_type=data.get('action_type'),
         parameters=data.get('parameters', {}),
         is_decision=data.get('is_decision', False),
@@ -968,7 +1003,7 @@ def add_action(id):
         from app.models.event import Event
         event = Event(
             scenario=scenario,
-            event_time=data['action_time'],
+            event_time=action_time,
             description=f"Decision point: {data['name']}",
             character_id=character_id,
             action=action,
@@ -1041,6 +1076,7 @@ def edit_event(id, event_id):
 def update_event(id, event_id):
     """Update an event."""
     from app.models.event import Event
+    from datetime import datetime
     
     scenario = Scenario.query.get_or_404(id)
     event = Event.query.get_or_404(event_id)
@@ -1058,7 +1094,23 @@ def update_event(id, event_id):
     if 'description' in data:
         event.description = data['description']
     if 'event_time' in data:
-        event.event_time = data['event_time']
+        # Parse event_time if it's a string
+        event_time = data['event_time']
+        if isinstance(event_time, str):
+            try:
+                # Try to parse ISO format first
+                event_time = datetime.fromisoformat(event_time.replace('Z', '+00:00'))
+            except ValueError:
+                try:
+                    # Try to parse common datetime formats
+                    event_time = datetime.strptime(event_time, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    try:
+                        event_time = datetime.strptime(event_time, '%Y-%m-%d')
+                    except ValueError:
+                        # Default to current time if parsing fails
+                        event_time = datetime.now()
+        event.event_time = event_time
     if 'character_id' in data:
         event.character_id = data['character_id']
     if 'metadata' in data:
@@ -1105,6 +1157,7 @@ def delete_event(id, event_id):
 def add_event(id):
     """Add an event to a scenario."""
     from app.models.event import Event
+    from datetime import datetime
     
     scenario = Scenario.query.get_or_404(id)
     data = request.json
@@ -1115,10 +1168,27 @@ def add_event(id):
     if character_id:
         character = Character.query.get(character_id)
     
+    # Parse event_time if it's a string
+    event_time = data['event_time']
+    if isinstance(event_time, str):
+        try:
+            # Try to parse ISO format first
+            event_time = datetime.fromisoformat(event_time.replace('Z', '+00:00'))
+        except ValueError:
+            try:
+                # Try to parse common datetime formats
+                event_time = datetime.strptime(event_time, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                try:
+                    event_time = datetime.strptime(event_time, '%Y-%m-%d')
+                except ValueError:
+                    # Default to current time if parsing fails
+                    event_time = datetime.now()
+    
     # Create event
     event = Event(
         scenario=scenario,
-        event_time=data['event_time'],
+        event_time=event_time,
         description=data['description'],
         character_id=character_id,
         parameters=data.get('metadata', {})
@@ -1343,12 +1413,19 @@ def scenario_references(id):
     mcp_client = MCPClient()
     
     # Get references
-    if query:
-        # Search with the provided query
-        references = mcp_client.search_zotero_items(query, limit=10)
-    else:
-        # Get references based on scenario content
-        references = mcp_client.get_references_for_scenario(scenario)
+    references = None
+    try:
+        if query:
+            # Search with the provided query
+            references_data = mcp_client.search_zotero_items(query, limit=10)
+            references = {'results': references_data}
+        else:
+            # Get references based on scenario content
+            references_data = mcp_client.get_references_for_scenario(scenario)
+            references = {'results': references_data}
+    except Exception as e:
+        print(f"Error retrieving references: {str(e)}")
+        references = {'results': []}
     
     return render_template('scenario_references.html', scenario=scenario, references=references, query=query)
 
