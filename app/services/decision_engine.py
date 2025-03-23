@@ -20,8 +20,8 @@ class DecisionEngine:
         # Use provided LLM or create a fake one for development
         self.llm = llm or self._create_fake_llm()
         
-        # Use provided MCP client or create a new one
-        self.mcp_client = mcp_client or MCPClient()
+        # Use provided MCP client or get the singleton instance
+        self.mcp_client = mcp_client or MCPClient.get_instance()
         
         # Setup domain-specific chains
         self.domain_chains = {

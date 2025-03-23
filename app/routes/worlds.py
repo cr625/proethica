@@ -10,6 +10,9 @@ from app.services.mcp_client import MCPClient
 
 worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 
+# Get singleton instance of MCPClient
+mcp_client = MCPClient.get_instance()
+
 # API endpoints
 @worlds_bp.route('/api', methods=['GET'])
 def api_get_worlds():
@@ -79,7 +82,6 @@ def view_world(id):
     entities = {"entities": {}}  # Initialize with empty entities structure
     if world.ontology_source:
         try:
-            mcp_client = MCPClient()
             entities = mcp_client.get_world_entities(world.ontology_source)
         except Exception as e:
             entities = {"error": str(e)}
@@ -299,9 +301,6 @@ def world_references(id):
     
     # Get search query from request parameters
     query = request.args.get('query', '')
-    
-    # Initialize MCP client
-    mcp_client = MCPClient()
     
     # Get references
     references = None

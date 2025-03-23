@@ -40,8 +40,8 @@ def create_app(config_name='default'):
     app.register_blueprint(auth_bp)
     app.register_blueprint(entities_bp)
     
-    # Create a single instance of MCPClient
-    client = MCPClient()
+    # Get the singleton instance of MCPClient
+    client = MCPClient.get_instance()
 
     # Create routes
     @app.route('/')

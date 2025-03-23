@@ -2,42 +2,37 @@ import os
 import sys
 import json
 import subprocess
-from typing import Dict, List, Any, Optional, Literal
-
-"""
-import os
-import sys
 import signal
-
-LOCKFILE = "/tmp/ontology_mcp_server.lock"
-
-# Check if another instance is already running
-if os.path.exists(LOCKFILE):
-    with open(LOCKFILE, "r") as lock:
-        pid = int(lock.read().strip())
-        try:
-            # Check if the process is still running
-            os.kill(pid, 0)
-            print(f"Switching to the already running instance of ontology_mcp_server.py (PID: {pid}).", file=sys.stderr)
-            sys.exit(0)
-        except ProcessLookupError:
-            # Process not running, proceed to start a new instance
-            print(f"Stale lock file found. Starting a new instance.", file=sys.stderr)
-            os.remove(LOCKFILE)
-
-# Create the lock file
-with open(LOCKFILE, "w") as lock:
-    lock.write(str(os.getpid()))
-
-# Ensure the lock file is removed on exit
 import atexit
-atexit.register(lambda: os.remove(LOCKFILE))
-"""
+from typing import Dict, List, Any, Optional, Literal, ClassVar
 
 ServerType = Literal["ethical-dm", "zotero"]
 
 class MCPClient:
     """Client for interacting with the MCP servers."""
+    
+    # Class variable to implement singleton pattern
+    _instance: ClassVar[Optional['MCPClient']] = None
+    
+    # Lock file paths
+    ETHICAL_DM_LOCKFILE = "/tmp/ontology_mcp_server.lock"
+    ZOTERO_LOCKFILE = "/tmp/zotero_mcp_server.lock"
+    
+    @classmethod
+    def get_instance(cls, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None) -> 'MCPClient':
+        """
+        Get the singleton instance of MCPClient.
+        
+        Args:
+            ethical_dm_server_path: Path to the ethical-dm MCP server script (optional)
+            zotero_server_path: Path to the Zotero MCP server script (optional)
+            
+        Returns:
+            The singleton MCPClient instance
+        """
+        if cls._instance is None:
+            cls._instance = cls(ethical_dm_server_path, zotero_server_path)
+        return cls._instance
     
     def __init__(self, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None):
         """
@@ -47,11 +42,114 @@ class MCPClient:
             ethical_dm_server_path: Path to the ethical-dm MCP server script (optional)
             zotero_server_path: Path to the Zotero MCP server script (optional)
         """
+        # If an instance already exists, return it instead of creating a new one
+        if MCPClient._instance is not None:
+            return
+        
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.ethical_dm_server_path = ethical_dm_server_path or os.path.join(base_dir, 'mcp', 'ontology_mcp_server.py')
         self.zotero_server_path = zotero_server_path or os.path.join(base_dir, '..', 'zotero-mcp-server', 'src', 'server.py')
         self.ethical_dm_server_process = None
         self.zotero_server_process = None
+        
+        # Register cleanup handler
+        atexit.register(self._cleanup)
+        
+        # Set the instance
+        MCPClient._instance = self
+    
+    def __new__(cls, *args, **kwargs):
+        """Override __new__ to implement the singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(MCPClient, cls).__new__(cls)
+        return cls._instance
+    
+    def _cleanup(self):
+        """Clean up resources when the client is destroyed."""
+        self.stop_server("ethical-dm")
+        self.stop_server("zotero")
+    
+    def _get_lockfile_path(self, server_type: ServerType) -> str:
+        """
+        Get the path to the lock file for the specified server type.
+        
+        Args:
+            server_type: Type of server (ethical-dm or zotero)
+            
+        Returns:
+            Path to the lock file
+        """
+        if server_type == "ethical-dm":
+            return self.ETHICAL_DM_LOCKFILE
+        elif server_type == "zotero":
+            return self.ZOTERO_LOCKFILE
+        else:
+            raise ValueError(f"Invalid server type: {server_type}")
+    
+    def _check_existing_server(self, server_type: ServerType) -> Optional[int]:
+        """
+        Check if a server of the specified type is already running.
+        
+        Args:
+            server_type: Type of server to check (ethical-dm or zotero)
+            
+        Returns:
+            PID of the running server if found, None otherwise
+        """
+        lockfile = self._get_lockfile_path(server_type)
+        
+        if os.path.exists(lockfile):
+            try:
+                with open(lockfile, "r") as lock:
+                    pid = int(lock.read().strip())
+                    try:
+                        # Check if the process is still running
+                        os.kill(pid, 0)
+                        print(f"Found running {server_type} server (PID: {pid}).", file=sys.stderr)
+                        return pid
+                    except ProcessLookupError:
+                        # Process not running, remove stale lock file
+                        print(f"Stale lock file found for {server_type} server. Removing it.", file=sys.stderr)
+                        os.remove(lockfile)
+            except (IOError, ValueError) as e:
+                print(f"Error reading lock file for {server_type} server: {str(e)}", file=sys.stderr)
+                if os.path.exists(lockfile):
+                    os.remove(lockfile)
+        
+        return None
+    
+    def _create_lockfile(self, server_type: ServerType, pid: int):
+        """
+        Create a lock file for the specified server type.
+        
+        Args:
+            server_type: Type of server (ethical-dm or zotero)
+            pid: PID of the server process
+        """
+        lockfile = self._get_lockfile_path(server_type)
+        
+        try:
+            with open(lockfile, "w") as lock:
+                lock.write(str(pid))
+            print(f"Created lock file for {server_type} server (PID: {pid}).", file=sys.stderr)
+        except IOError as e:
+            print(f"Error creating lock file for {server_type} server: {str(e)}", file=sys.stderr)
+    
+    def _remove_lockfile(self, server_type: ServerType):
+        """
+        Remove the lock file for the specified server type.
+        
+        Args:
+            server_type: Type of server (ethical-dm or zotero)
+        """
+        lockfile = self._get_lockfile_path(server_type)
+        
+        if os.path.exists(lockfile):
+            try:
+                os.remove(lockfile)
+                print(f"Removed lock file for {server_type} server.", file=sys.stderr)
+            except IOError as e:
+                print(f"Error removing lock file for {server_type} server: {str(e)}", file=sys.stderr)
     
     def start_server(self, server_type: ServerType = "ethical-dm"):
         """
@@ -60,9 +158,26 @@ class MCPClient:
         Args:
             server_type: Type of server to start (ethical-dm or zotero)
         """
+        # Check if a server is already running
+        existing_pid = self._check_existing_server(server_type)
+        
         if server_type == "ethical-dm":
-            if self.ethical_dm_server_process is None or self.ethical_dm_server_process.poll() is not None:
-                # Server not running, start it
+            if existing_pid is not None:
+                # Server already running, use it
+                if self.ethical_dm_server_process is None or self.ethical_dm_server_process.poll() is not None:
+                    print(f"Connecting to existing ethical-dm server (PID: {existing_pid}).", file=sys.stderr)
+                    # We don't have a handle to the existing process, but we know it's running
+                    # We'll create a new process object but won't actually start a new process
+                    self.ethical_dm_server_process = subprocess.Popen(
+                        ['echo', 'Dummy process for existing server'],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
+                    )
+            elif self.ethical_dm_server_process is None or self.ethical_dm_server_process.poll() is not None:
+                # No server running, start a new one
+                print(f"Starting new ethical-dm server.", file=sys.stderr)
                 self.ethical_dm_server_process = subprocess.Popen(
                     ['python', self.ethical_dm_server_path],
                     stdin=subprocess.PIPE,
@@ -71,9 +186,25 @@ class MCPClient:
                     text=True,
                     bufsize=1  # Line buffered
                 )
+                # Create lock file with the PID of the new process
+                self._create_lockfile(server_type, self.ethical_dm_server_process.pid)
         elif server_type == "zotero":
-            if self.zotero_server_process is None or self.zotero_server_process.poll() is not None:
-                # Server not running, start it
+            if existing_pid is not None:
+                # Server already running, use it
+                if self.zotero_server_process is None or self.zotero_server_process.poll() is not None:
+                    print(f"Connecting to existing zotero server (PID: {existing_pid}).", file=sys.stderr)
+                    # We don't have a handle to the existing process, but we know it's running
+                    # We'll create a new process object but won't actually start a new process
+                    self.zotero_server_process = subprocess.Popen(
+                        ['echo', 'Dummy process for existing server'],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
+                    )
+            elif self.zotero_server_process is None or self.zotero_server_process.poll() is not None:
+                # No server running, start a new one
+                print(f"Starting new zotero server.", file=sys.stderr)
                 self.zotero_server_process = subprocess.Popen(
                     ['python', self.zotero_server_path],
                     stdin=subprocess.PIPE,
@@ -82,6 +213,8 @@ class MCPClient:
                     text=True,
                     bufsize=1  # Line buffered
                 )
+                # Create lock file with the PID of the new process
+                self._create_lockfile(server_type, self.zotero_server_process.pid)
     
     def stop_server(self, server_type: ServerType = "ethical-dm"):
         """
@@ -93,15 +226,35 @@ class MCPClient:
         if server_type == "ethical-dm":
             if self.ethical_dm_server_process is not None and self.ethical_dm_server_process.poll() is None:
                 # Server running, stop it
-                self.ethical_dm_server_process.terminate()
-                self.ethical_dm_server_process.wait(timeout=5)
+                try:
+                    self.ethical_dm_server_process.terminate()
+                    self.ethical_dm_server_process.wait(timeout=5)
+                except (subprocess.TimeoutExpired, OSError) as e:
+                    print(f"Error terminating ethical-dm server: {str(e)}", file=sys.stderr)
+                    try:
+                        self.ethical_dm_server_process.kill()
+                    except OSError:
+                        pass
                 self.ethical_dm_server_process = None
+                
+                # Remove lock file
+                self._remove_lockfile(server_type)
         elif server_type == "zotero":
             if self.zotero_server_process is not None and self.zotero_server_process.poll() is None:
                 # Server running, stop it
-                self.zotero_server_process.terminate()
-                self.zotero_server_process.wait(timeout=5)
+                try:
+                    self.zotero_server_process.terminate()
+                    self.zotero_server_process.wait(timeout=5)
+                except (subprocess.TimeoutExpired, OSError) as e:
+                    print(f"Error terminating zotero server: {str(e)}", file=sys.stderr)
+                    try:
+                        self.zotero_server_process.kill()
+                    except OSError:
+                        pass
                 self.zotero_server_process = None
+                
+                # Remove lock file
+                self._remove_lockfile(server_type)
     
     def _send_request(self, request_type: str, params: Dict[str, Any], server_type: ServerType = "ethical-dm") -> Dict[str, Any]:
         """

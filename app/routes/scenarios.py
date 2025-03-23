@@ -14,6 +14,9 @@ from app.services.mcp_client import MCPClient
 
 scenarios_bp = Blueprint('scenarios', __name__, url_prefix='/scenarios')
 
+# Get singleton instance of MCPClient
+mcp_client = MCPClient.get_instance()
+
 # API endpoints
 @scenarios_bp.route('/api', methods=['GET'])
 def api_get_scenarios():
@@ -123,7 +126,6 @@ def new_character(id):
     
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
             # Get roles from ontology
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
             if entities and 'entities' in entities and 'roles' in entities['entities']:
@@ -169,7 +171,6 @@ def add_character(id):
         world = World.query.get(scenario.world_id)
         if world and world.ontology_source:
             try:
-                mcp_client = MCPClient()
                 entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
                 if entities and 'entities' in entities and 'roles' in entities['entities']:
                     for role in entities['entities']['roles']:
@@ -230,7 +231,6 @@ def add_character(id):
             world = World.query.get(scenario.world_id)
             if world and world.ontology_source:
                 try:
-                    mcp_client = MCPClient()
                     entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
                     if entities and 'entities' in entities and 'conditions' in entities['entities']:
                         for cond_type in entities['entities']['conditions']:
@@ -303,7 +303,6 @@ def edit_character(id, character_id):
     
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
             # Get roles from ontology
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
             if entities and 'entities' in entities and 'roles' in entities['entities']:
@@ -356,7 +355,6 @@ def update_character(id, character_id):
             world = World.query.get(scenario.world_id)
             if world and world.ontology_source:
                 try:
-                    mcp_client = MCPClient()
                     entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
                     if entities and 'entities' in entities and 'roles' in entities['entities']:
                         for role in entities['entities']['roles']:
@@ -419,7 +417,6 @@ def update_character(id, character_id):
                         world = World.query.get(scenario.world_id)
                         if world and world.ontology_source:
                             try:
-                                mcp_client = MCPClient()
                                 entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
                                 if entities and 'entities' in entities and 'conditions' in entities['entities']:
                                     for cond_type in entities['entities']['conditions']:
@@ -461,7 +458,7 @@ def update_character(id, character_id):
                 world = World.query.get(scenario.world_id)
                 if world and world.ontology_source:
                     try:
-                        mcp_client = MCPClient()
+                        # Use the singleton instance
                         entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
                         if entities and 'entities' in entities and 'conditions' in entities['entities']:
                             for cond_type in entities['entities']['conditions']:
@@ -560,7 +557,6 @@ def new_resource(id):
     ontology_resource_types = []
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="resources")
             if entities and 'entities' in entities and 'resources' in entities['entities']:
                 ontology_resource_types = entities['entities']['resources']
@@ -604,7 +600,6 @@ def edit_resource(id, resource_id):
     ontology_resource_types = []
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="resources")
             if entities and 'entities' in entities and 'resources' in entities['entities']:
                 ontology_resource_types = entities['entities']['resources']
@@ -653,7 +648,6 @@ def update_resource(id, resource_id):
             world = World.query.get(scenario.world_id)
             if world and world.ontology_source:
                 try:
-                    mcp_client = MCPClient()
                     entities = mcp_client.get_world_entities(world.ontology_source, entity_type="resources")
                     if entities and 'entities' in entities and 'resources' in entities['entities']:
                         for res_type in entities['entities']['resources']:
@@ -736,7 +730,7 @@ def add_resource(id):
         world = World.query.get(scenario.world_id)
         if world and world.ontology_source:
             try:
-                mcp_client = MCPClient()
+                # Use the singleton instance
                 entities = mcp_client.get_world_entities(world.ontology_source, entity_type="resources")
                 if entities and 'entities' in entities and 'resources' in entities['entities']:
                     for res_type in entities['entities']['resources']:
@@ -810,7 +804,6 @@ def new_action(id):
     action_types = []
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
             if entities and 'entities' in entities and 'actions' in entities['entities']:
                 action_types = entities['entities']['actions']
@@ -838,7 +831,6 @@ def edit_action(id, action_id):
     action_types = []
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
             if entities and 'entities' in entities and 'actions' in entities['entities']:
                 action_types = entities['entities']['actions']
@@ -1035,7 +1027,7 @@ def new_event(id):
     action_types = []
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
+            # Use the singleton instance
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
             if entities and 'entities' in entities and 'actions' in entities['entities']:
                 action_types = entities['entities']['actions']
@@ -1063,7 +1055,7 @@ def edit_event(id, event_id):
     action_types = []
     if world and world.ontology_source:
         try:
-            mcp_client = MCPClient()
+            # Use the singleton instance
             entities = mcp_client.get_world_entities(world.ontology_source, entity_type="actions")
             if entities and 'entities' in entities and 'actions' in entities['entities']:
                 action_types = entities['entities']['actions']
@@ -1409,9 +1401,6 @@ def scenario_references(id):
     # Get search query from request parameters
     query = request.args.get('query', '')
     
-    # Initialize MCP client
-    mcp_client = MCPClient()
-    
     # Get references
     references = None
     try:
@@ -1435,9 +1424,6 @@ def get_reference_citation(id, item_key):
     scenario = Scenario.query.get_or_404(id)
     style = request.args.get('style', 'apa')
     
-    # Initialize MCP client
-    mcp_client = MCPClient()
-    
     # Get citation
     try:
         citation = mcp_client.get_zotero_citation(item_key, style)
@@ -1456,9 +1442,6 @@ def add_reference(id):
     """Add a reference to the Zotero library."""
     scenario = Scenario.query.get_or_404(id)
     data = request.json
-    
-    # Initialize MCP client
-    mcp_client = MCPClient()
     
     # Add reference
     try:
