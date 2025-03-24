@@ -1,7 +1,7 @@
 import json
 import pytest
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from flask import url_for
 from app.models.scenario import Scenario
 from app.models.character import Character
@@ -812,7 +812,7 @@ def test_get_reference_citation(client, create_test_world, create_test_scenario,
     world = create_test_world()
     scenario = create_test_scenario(world_id=world.id)
     
-    # Mock the MCPClient.get_zotero_citation method
+    # Mock the ZoteroClient.get_citation method
     from app.services.mcp_client import MCPClient
     from app.services.zotero_client import ZoteroClient
     
@@ -820,25 +820,32 @@ def test_get_reference_citation(client, create_test_world, create_test_scenario,
     MCPClient._instance = None
     ZoteroClient._instance = None
     
-    # Create a mock instance
-    mock_client = MagicMock()
-    mock_client.get_zotero_citation.return_value = 'Doe, J. (2023). Reference Title. Journal Name, 1(1), 1-10.'
+    # Create a mock ZoteroClient instance
+    mock_zotero_client = MagicMock()
+    mock_zotero_client.get_citation.return_value = 'Doe, J. (2023). Reference Title. Journal Name, 1(1), 1-10.'
     
-    # Replace the get_instance method
-    monkeypatch.setattr(MCPClient, 'get_instance', lambda: mock_client)
+    # Create a mock MCPClient instance that uses the mock ZoteroClient
+    mock_mcp_client = MagicMock()
+    mock_mcp_client.get_zotero_citation.return_value = 'Doe, J. (2023). Reference Title. Journal Name, 1(1), 1-10.'
     
-    # Set environment variable for testing
-    import os
-    os.environ['TESTING'] = 'true'
-    
-    # Send request
-    response = client.get(f'/scenarios/{scenario.id}/references/ref1/citation?style=apa')
-    
-    # Verify response
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data['success'] is True
-    assert data['citation'] == 'Doe, J. (2023). Reference Title. Journal Name, 1(1), 1-10.'
-    
-    # Clean up
-    del os.environ['TESTING']
+    # Replace the get_instance methods
+    with patch('app.routes.scenarios.MCPClient.get_instance', return_value=mock_mcp_client):
+        with patch('app.services.mcp_client.ZoteroClient.get_instance', return_value=mock_zotero_client):
+            # Set environment variable for testing
+            import os
+            os.environ['TESTING'] = 'true'
+            
+            # Send request
+            response = client.get(f'/scenarios/{scenario.id}/references/ref1/citation?style=apa')
+            
+            # Verify response
+            assert response.status_code == 200
+            data = json.loads(response.data)
+            assert data['success'] is True
+            assert data['citation'] == 'Doe, J. (2023). Reference Title. Journal Name, 1(1), 1-10.'
+            
+            # Verify the mock was called correctly
+            mock_mcp_client.get_zotero_citation.assert_called_once_with('ref1', 'apa')
+            
+            # Clean up
+            del os.environ['TESTING']

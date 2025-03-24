@@ -113,8 +113,11 @@ class MCPClient:
             # Create query string
             query = " ".join(query_parts)
             
-            # Search for references using the search_zotero_items method
-            return self.search_zotero_items(query)
+            # Get ZoteroClient instance directly
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Search for references using the ZoteroClient's search_items method directly
+            return zotero_client.search_items(query)
         except Exception as e:
             print(f"Error retrieving references: {str(e)}")
             return []
@@ -172,7 +175,8 @@ class MCPClient:
             zotero_client = ZoteroClient.get_instance()
             
             # Search for items
-            return zotero_client.search_items(query, collection_key, limit)
+            items = zotero_client.search_items(query, collection_key, limit)
+            return items
         except Exception as e:
             print(f"Error searching Zotero items: {str(e)}")
             return []

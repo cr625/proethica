@@ -1426,7 +1426,10 @@ def get_reference_citation(id, item_key):
     
     # Get citation
     try:
-        citation = mcp_client.get_zotero_citation(item_key, style)
+        # Get a fresh instance of MCPClient to ensure we're using the most up-to-date instance
+        # This is important for testing where we might be mocking the client
+        mcp_client_instance = MCPClient.get_instance()
+        citation = mcp_client_instance.get_zotero_citation(item_key, style)
         return jsonify({
             'success': True,
             'citation': citation

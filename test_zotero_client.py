@@ -154,46 +154,37 @@ class TestMCPClientWithZoteroClient(unittest.TestCase):
         self.env_patcher.stop()
         self.popen_patcher.stop()
     
-    @patch('app.services.zotero_client.zotero.Zotero')
-    def test_mcp_client_uses_zotero_client(self, mock_zotero):
+    def test_mcp_client_uses_zotero_client(self):
         """Test that MCPClient uses ZoteroClient for Zotero functionality."""
-        # Create a mock Zotero instance
-        mock_zotero_instance = MagicMock()
-        mock_zotero.return_value = mock_zotero_instance
-        
-        # Set up the mock to return a list of items
+        # Set up mock items
         mock_items = [{'data': {'title': 'Search Result', 'creators': [{'firstName': 'Jane', 'lastName': 'Smith'}]}, 'key': 'ref2'}]
-        mock_zotero_instance.items.return_value = mock_items
         
         # Clear singleton instances
         ZoteroClient._instance = None
         MCPClient._instance = None
         
-        # Get an instance of MCPClient
-        client = MCPClient.get_instance()
+        # Create a mock ZoteroClient
+        mock_zotero_client = MagicMock()
+        mock_zotero_client.search_items.return_value = mock_items
         
-        # Call the search_zotero_items method
-        result = client.search_zotero_items('test query')
-        
-        # Verify the result
-        self.assertEqual(result, mock_items)
-        
-        # Verify the Zotero client was called correctly
-        mock_zotero_instance.items.assert_called_once()
-        args, kwargs = mock_zotero_instance.items.call_args
-        self.assertEqual(kwargs.get('q'), 'test query')
-        self.assertEqual(kwargs.get('limit'), 20)
+        # Patch the ZoteroClient.get_instance method
+        with patch('app.services.mcp_client.ZoteroClient.get_instance', return_value=mock_zotero_client):
+            # Get an instance of MCPClient
+            client = MCPClient.get_instance()
+            
+            # Call the search_zotero_items method
+            result = client.search_zotero_items('test query')
+            
+            # Verify the result
+            self.assertEqual(result, mock_items)
+            
+            # Verify the ZoteroClient's search_items method was called
+            mock_zotero_client.search_items.assert_called_once_with('test query', None, 20)
     
-    @patch('app.services.zotero_client.zotero.Zotero')
-    def test_mcp_client_get_references_for_world(self, mock_zotero):
+    def test_mcp_client_get_references_for_world(self):
         """Test the get_references_for_world method."""
-        # Create a mock Zotero instance
-        mock_zotero_instance = MagicMock()
-        mock_zotero.return_value = mock_zotero_instance
-        
-        # Set up the mock to return a list of items
+        # Set up mock items
         mock_items = [{'data': {'title': 'Reference 1', 'creators': [{'firstName': 'John', 'lastName': 'Doe'}]}, 'key': 'ref1'}]
-        mock_zotero_instance.items.return_value = mock_items
         
         # Create a mock world
         mock_world = MagicMock()
@@ -206,24 +197,31 @@ class TestMCPClientWithZoteroClient(unittest.TestCase):
         ZoteroClient._instance = None
         MCPClient._instance = None
         
-        # Get an instance of MCPClient
-        client = MCPClient.get_instance()
+        # Create a mock ZoteroClient
+        mock_zotero_client = MagicMock()
+        mock_zotero_client.search_items.return_value = mock_items
         
-        # Call the get_references_for_world method
-        result = client.get_references_for_world(mock_world)
-        
-        # Verify the result
-        self.assertEqual(result, mock_items)
-        
-        # Verify the Zotero client was called correctly
-        mock_zotero_instance.items.assert_called_once()
-        args, kwargs = mock_zotero_instance.items.call_args
-        self.assertIn('q', kwargs)
-        query = kwargs.get('q')
-        self.assertIn('Test World', query)
-        self.assertIn('Test Description', query)
-        self.assertIn('test.ttl', query)
-        self.assertIn('value', query)
+        # Patch the ZoteroClient.get_instance method
+        with patch('app.services.mcp_client.ZoteroClient.get_instance', return_value=mock_zotero_client):
+            # Get an instance of MCPClient
+            client = MCPClient.get_instance()
+            
+            # Call the get_references_for_world method
+            result = client.get_references_for_world(mock_world)
+            
+            # Verify the result
+            self.assertEqual(result, mock_items)
+            
+            # Verify the ZoteroClient's search_items method was called
+            mock_zotero_client.search_items.assert_called_once()
+            
+            # Verify the search query contains the world properties
+            args, kwargs = mock_zotero_client.search_items.call_args
+            query = args[0]
+            self.assertIn('Test World', query)
+            self.assertIn('Test Description', query)
+            self.assertIn('test.ttl', query)
+            self.assertIn('value', query)
 
 if __name__ == '__main__':
     print("Testing ZoteroClient and MCPClient integration...")
