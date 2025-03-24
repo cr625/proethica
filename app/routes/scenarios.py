@@ -931,16 +931,26 @@ def delete_action(id, action_id):
         flash('Action does not belong to this scenario', 'danger')
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))
     
-    # Delete related events
-    events = Event.query.filter_by(action_id=action.id).all()
-    for event in events:
-        db.session.delete(event)
+    try:
+        # Delete related events
+        events = Event.query.filter_by(action_id=action.id).all()
+        print(f"Found {len(events)} events to delete for action {action_id}")
+        for event in events:
+            print(f"Deleting event {event.id}")
+            db.session.delete(event)
+        
+        # Delete the action
+        print(f"Deleting action {action_id}")
+        db.session.delete(action)
+        db.session.commit()
+        print(f"Action {action_id} and related events deleted successfully")
+        
+        flash('Action deleted successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting action {action_id}: {str(e)}")
+        flash(f'Error deleting action: {str(e)}', 'danger')
     
-    # Delete the action
-    db.session.delete(action)
-    db.session.commit()
-    
-    flash('Action deleted successfully', 'success')
     return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>/actions', methods=['POST'])
@@ -1135,14 +1145,23 @@ def delete_event(id, event_id):
     
     # Check if this event is linked to an action
     if event.action_id:
+        print(f"Event {event_id} is linked to action {event.action_id} and cannot be deleted directly")
         flash('This event is linked to an action and cannot be deleted directly. Delete the action instead.', 'warning')
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))
     
-    # Delete the event
-    db.session.delete(event)
-    db.session.commit()
+    try:
+        # Delete the event
+        print(f"Deleting event {event_id}")
+        db.session.delete(event)
+        db.session.commit()
+        print(f"Event {event_id} deleted successfully")
+        
+        flash('Event deleted successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting event {event_id}: {str(e)}")
+        flash(f'Error deleting event: {str(e)}', 'danger')
     
-    flash('Event deleted successfully', 'success')
     return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>/events', methods=['POST'])

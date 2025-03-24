@@ -451,7 +451,9 @@
                 }
 
                 if (deleteForm) {
+                    // Set the form action URL with the correct action ID
                     deleteForm.action = `/scenarios/{{ scenario.id }}/actions/${actionId}/delete`;
+                    console.log('Action delete form URL set to:', deleteForm.action);
                 }
             });
         }
@@ -476,10 +478,21 @@
                 }
 
                 if (deleteForm) {
+                    // Set the form action URL with the correct event ID
                     deleteForm.action = `/scenarios/{{ scenario.id }}/events/${eventId}/delete`;
+                    console.log('Event delete form URL set to:', deleteForm.action);
                 }
             });
         }
+
+        // Add submit event listeners to ensure forms are properly submitted
+        document.getElementById('deleteActionForm')?.addEventListener('submit', function (e) {
+            console.log('Action delete form submitted');
+        });
+
+        document.getElementById('deleteEventForm')?.addEventListener('submit', function (e) {
+            console.log('Event delete form submitted');
+        });
     });
 </script>
 {% endblock %}
