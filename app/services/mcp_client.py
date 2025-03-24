@@ -2,6 +2,7 @@ import requests
 import json
 from typing import Dict, List, Any, Optional
 import os
+from app.services.zotero_client import ZoteroClient
 
 class MCPClient:
     """Client for interacting with the MCP server."""
@@ -72,6 +73,213 @@ class MCPClient:
             print(f"Error getting entities: {str(e)}")
             # Fall back to mock data
             return self.get_mock_entities(ontology_source)
+    
+    def get_references_for_world(self, world) -> List[Dict[str, Any]]:
+        """
+        Get references for a specific world.
+        
+        Args:
+            world: World object
+            
+        Returns:
+            List of references
+        """
+        try:
+            # Create search query based on world properties
+            query_parts = []
+            if hasattr(world, 'name') and world.name:
+                query_parts.append(world.name)
+            if hasattr(world, 'description') and world.description:
+                query_parts.append(world.description)
+            if hasattr(world, 'ontology_source') and world.ontology_source:
+                query_parts.append(world.ontology_source)
+            
+            # Add metadata if available
+            if hasattr(world, 'world_metadata') and world.world_metadata:
+                for key, value in world.world_metadata.items():
+                    if isinstance(value, str):
+                        query_parts.append(value)
+                    elif isinstance(value, (dict, list)):
+                        # Convert to string for search
+                        query_parts.append(str(value))
+            elif hasattr(world, 'metadata') and world.metadata:
+                for key, value in world.metadata.items():
+                    if isinstance(value, str):
+                        query_parts.append(value)
+                    elif isinstance(value, (dict, list)):
+                        # Convert to string for search
+                        query_parts.append(str(value))
+            
+            # Create query string
+            query = " ".join(query_parts)
+            
+            # Search for references using the search_zotero_items method
+            return self.search_zotero_items(query)
+        except Exception as e:
+            print(f"Error retrieving references: {str(e)}")
+            return []
+    
+    def get_references_for_scenario(self, scenario) -> List[Dict[str, Any]]:
+        """
+        Get references for a specific scenario.
+        
+        Args:
+            scenario: Scenario object
+            
+        Returns:
+            List of references
+        """
+        try:
+            # Create search query based on scenario properties
+            query_parts = []
+            if hasattr(scenario, 'name') and scenario.name:
+                query_parts.append(scenario.name)
+            if hasattr(scenario, 'description') and scenario.description:
+                query_parts.append(scenario.description)
+            
+            # Add metadata if available
+            if hasattr(scenario, 'metadata') and scenario.metadata:
+                for key, value in scenario.metadata.items():
+                    if isinstance(value, str):
+                        query_parts.append(value)
+                    elif isinstance(value, (dict, list)):
+                        # Convert to string for search
+                        query_parts.append(str(value))
+            
+            # Create query string
+            query = " ".join(query_parts)
+            
+            # Search for references using the search_zotero_items method
+            return self.search_zotero_items(query)
+        except Exception as e:
+            print(f"Error retrieving references: {str(e)}")
+            return []
+    
+    def search_zotero_items(self, query: str, collection_key: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Search for items in the Zotero library.
+        
+        Args:
+            query: Search query
+            collection_key: Collection key to search in (optional)
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of items
+        """
+        try:
+            # Get ZoteroClient instance using the singleton pattern
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Search for items
+            return zotero_client.search_items(query, collection_key, limit)
+        except Exception as e:
+            print(f"Error searching Zotero items: {str(e)}")
+            return []
+    
+    def get_zotero_citation(self, item_key: str, style: str = "apa") -> str:
+        """
+        Get citation for a specific Zotero item.
+        
+        Args:
+            item_key: Item key
+            style: Citation style (e.g., apa, mla, chicago)
+            
+        Returns:
+            Citation text
+        """
+        try:
+            # Get ZoteroClient instance using the singleton pattern
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Get citation
+            return zotero_client.get_citation(item_key, style)
+        except Exception as e:
+            print(f"Error getting citation: {str(e)}")
+            return f"Error: {str(e)}"
+    
+    def get_zotero_bibliography(self, item_keys: List[str], style: str = "apa") -> str:
+        """
+        Get bibliography for multiple Zotero items.
+        
+        Args:
+            item_keys: Array of item keys
+            style: Citation style (e.g., apa, mla, chicago)
+            
+        Returns:
+            Bibliography text
+        """
+        try:
+            # Get ZoteroClient instance
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Get bibliography
+            return zotero_client.get_bibliography(item_keys, style)
+        except Exception as e:
+            print(f"Error getting bibliography: {str(e)}")
+            return f"Error: {str(e)}"
+    
+    def get_zotero_collections(self) -> List[Dict[str, Any]]:
+        """
+        Get collections from the Zotero library.
+        
+        Returns:
+            List of collections
+        """
+        try:
+            # Get ZoteroClient instance
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Get collections
+            return zotero_client.get_collections()
+        except Exception as e:
+            print(f"Error getting collections: {str(e)}")
+            return []
+    
+    def get_zotero_recent_items(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get recent items from the Zotero library.
+        
+        Args:
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of items
+        """
+        try:
+            # Get ZoteroClient instance
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Get recent items
+            return zotero_client.get_recent_items(limit)
+        except Exception as e:
+            print(f"Error getting recent items: {str(e)}")
+            return []
+    
+    def add_zotero_item(self, item_type: str, title: str, creators: Optional[List[Dict[str, str]]] = None,
+                        collection_key: Optional[str] = None, additional_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Add a new item to the Zotero library.
+        
+        Args:
+            item_type: Item type (e.g., journalArticle, book, webpage)
+            title: Item title
+            creators: Item creators (authors, editors, etc.)
+            collection_key: Collection key to add the item to (optional)
+            additional_fields: Additional fields for the item (e.g., date, url, publisher)
+            
+        Returns:
+            Response from the Zotero API
+        """
+        try:
+            # Get ZoteroClient instance
+            zotero_client = ZoteroClient.get_instance()
+            
+            # Add item
+            return zotero_client.add_item(item_type, title, creators, collection_key, additional_fields)
+        except Exception as e:
+            print(f"Error adding item: {str(e)}")
+            return {"error": str(e)}
     
     def get_mock_guidelines(self, world_name: str) -> Dict[str, List[Dict[str, Any]]]:
         """

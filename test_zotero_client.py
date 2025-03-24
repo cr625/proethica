@@ -154,12 +154,20 @@ class TestMCPClientWithZoteroClient(unittest.TestCase):
         self.env_patcher.stop()
         self.popen_patcher.stop()
     
-    @patch('app.services.zotero_client.ZoteroClient.search_items')
-    def test_mcp_client_uses_zotero_client(self, mock_search_items):
+    @patch('app.services.zotero_client.zotero.Zotero')
+    def test_mcp_client_uses_zotero_client(self, mock_zotero):
         """Test that MCPClient uses ZoteroClient for Zotero functionality."""
+        # Create a mock Zotero instance
+        mock_zotero_instance = MagicMock()
+        mock_zotero.return_value = mock_zotero_instance
+        
         # Set up the mock to return a list of items
         mock_items = [{'data': {'title': 'Search Result', 'creators': [{'firstName': 'Jane', 'lastName': 'Smith'}]}, 'key': 'ref2'}]
-        mock_search_items.return_value = mock_items
+        mock_zotero_instance.items.return_value = mock_items
+        
+        # Clear singleton instances
+        ZoteroClient._instance = None
+        MCPClient._instance = None
         
         # Get an instance of MCPClient
         client = MCPClient.get_instance()
@@ -170,15 +178,22 @@ class TestMCPClientWithZoteroClient(unittest.TestCase):
         # Verify the result
         self.assertEqual(result, mock_items)
         
-        # Verify the ZoteroClient method was called correctly
-        mock_search_items.assert_called_once_with('test query', None, 20)
+        # Verify the Zotero client was called correctly
+        mock_zotero_instance.items.assert_called_once()
+        args, kwargs = mock_zotero_instance.items.call_args
+        self.assertEqual(kwargs.get('q'), 'test query')
+        self.assertEqual(kwargs.get('limit'), 20)
     
-    @patch('app.services.zotero_client.ZoteroClient.search_items')
-    def test_mcp_client_get_references_for_world(self, mock_search_items):
+    @patch('app.services.zotero_client.zotero.Zotero')
+    def test_mcp_client_get_references_for_world(self, mock_zotero):
         """Test the get_references_for_world method."""
+        # Create a mock Zotero instance
+        mock_zotero_instance = MagicMock()
+        mock_zotero.return_value = mock_zotero_instance
+        
         # Set up the mock to return a list of items
         mock_items = [{'data': {'title': 'Reference 1', 'creators': [{'firstName': 'John', 'lastName': 'Doe'}]}, 'key': 'ref1'}]
-        mock_search_items.return_value = mock_items
+        mock_zotero_instance.items.return_value = mock_items
         
         # Create a mock world
         mock_world = MagicMock()
@@ -186,6 +201,10 @@ class TestMCPClientWithZoteroClient(unittest.TestCase):
         mock_world.description = 'Test Description'
         mock_world.ontology_source = 'test.ttl'
         mock_world.world_metadata = {'key': 'value'}
+        
+        # Clear singleton instances
+        ZoteroClient._instance = None
+        MCPClient._instance = None
         
         # Get an instance of MCPClient
         client = MCPClient.get_instance()
@@ -196,14 +215,15 @@ class TestMCPClientWithZoteroClient(unittest.TestCase):
         # Verify the result
         self.assertEqual(result, mock_items)
         
-        # Verify the ZoteroClient method was called correctly
-        mock_search_items.assert_called_once()
-        # Check that the query contains the world name and description
-        call_args = mock_search_items.call_args[0]
-        self.assertIn('Test World', call_args[0])
-        self.assertIn('Test Description', call_args[0])
-        self.assertIn('test.ttl', call_args[0])
-        self.assertIn('value', call_args[0])
+        # Verify the Zotero client was called correctly
+        mock_zotero_instance.items.assert_called_once()
+        args, kwargs = mock_zotero_instance.items.call_args
+        self.assertIn('q', kwargs)
+        query = kwargs.get('q')
+        self.assertIn('Test World', query)
+        self.assertIn('Test Description', query)
+        self.assertIn('test.ttl', query)
+        self.assertIn('value', query)
 
 if __name__ == '__main__':
     print("Testing ZoteroClient and MCPClient integration...")
