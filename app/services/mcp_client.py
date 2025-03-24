@@ -1,645 +1,344 @@
-import os
-import sys
+import requests
 import json
-import subprocess
-import signal
-import atexit
-from typing import Dict, List, Any, Optional, Literal, ClassVar
-from app.services.zotero_client import ZoteroClient
-
-ServerType = Literal["ethical-dm", "zotero"]
+from typing import Dict, List, Any, Optional
+import os
 
 class MCPClient:
-    """Client for interacting with the MCP servers."""
+    """Client for interacting with the MCP server."""
     
-    # Class variable to implement singleton pattern
-    _instance: ClassVar[Optional['MCPClient']] = None
-    
-    # Lock file paths
-    ETHICAL_DM_LOCKFILE = "/tmp/ontology_mcp_server.lock"
-    ZOTERO_LOCKFILE = "/tmp/zotero_mcp_server.lock"
-    
-    # Initialize server process attributes as class variables
-    ethical_dm_server_process = None
+    _instance = None
     
     @classmethod
-    def get_instance(cls, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None) -> 'MCPClient':
-        """
-        Get the singleton instance of MCPClient.
-        
-        Args:
-            ethical_dm_server_path: Path to the ethical-dm MCP server script (optional)
-            zotero_server_path: Path to the Zotero MCP server script (optional)
-            
-        Returns:
-            The singleton MCPClient instance
-        """
+    def get_instance(cls) -> 'MCPClient':
+        """Get singleton instance of MCPClient."""
         if cls._instance is None:
-            cls._instance = cls(ethical_dm_server_path, zotero_server_path)
+            cls._instance = MCPClient()
         return cls._instance
     
-    def __init__(self, ethical_dm_server_path: Optional[str] = None, zotero_server_path: Optional[str] = None):
+    def __init__(self):
+        """Initialize the MCP client."""
+        # Get MCP server URL from environment variable or use default
+        self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5000')
+        
+        # Initialize session
+        self.session = requests.Session()
+    
+    def get_guidelines(self, world_name: str) -> Dict[str, Any]:
         """
-        Initialize the MCP client.
+        Get guidelines for a specific world.
         
         Args:
-            ethical_dm_server_path: Path to the ethical-dm MCP server script (optional)
-            zotero_server_path: Path to the Zotero MCP server script (optional)
-        """
-        # If an instance already exists, return it instead of creating a new one
-        if MCPClient._instance is not None and MCPClient._instance is not self:
-            return
-        
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        self.ethical_dm_server_path = ethical_dm_server_path or os.path.join(base_dir, 'mcp', 'ontology_mcp_server.py')
-        self.zotero_server_path = zotero_server_path or os.path.join(base_dir, '..', 'zotero-mcp-server', 'src', 'server.py')
-        
-        # Initialize server process attributes if they don't exist yet
-        if MCPClient.ethical_dm_server_process is None:
-            MCPClient.ethical_dm_server_process = subprocess.Popen(
-                ['echo', 'Dummy process for initialization'],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-        
-        # Initialize ZoteroClient
-        self.zotero_client = ZoteroClient.get_instance()
-        
-        # Register cleanup handler
-        atexit.register(self._cleanup)
-        
-        # Set the instance
-        MCPClient._instance = self
-    
-    def __new__(cls, *args, **kwargs):
-        """Override __new__ to implement the singleton pattern."""
-        if cls._instance is None:
-            cls._instance = super(MCPClient, cls).__new__(cls)
-        return cls._instance
-    
-    def _cleanup(self):
-        """Clean up resources when the client is destroyed."""
-        self.stop_server("ethical-dm")
-    
-    def _get_lockfile_path(self, server_type: ServerType) -> str:
-        """
-        Get the path to the lock file for the specified server type.
-        
-        Args:
-            server_type: Type of server (ethical-dm or zotero)
-            
-        Returns:
-            Path to the lock file
-        """
-        if server_type == "ethical-dm":
-            return self.ETHICAL_DM_LOCKFILE
-        elif server_type == "zotero":
-            return self.ZOTERO_LOCKFILE
-        else:
-            raise ValueError(f"Invalid server type: {server_type}")
-    
-    def _check_existing_server(self, server_type: ServerType) -> Optional[int]:
-        """
-        Check if a server of the specified type is already running.
-        
-        Args:
-            server_type: Type of server to check (ethical-dm or zotero)
-            
-        Returns:
-            PID of the running server if found, None otherwise
-        """
-        lockfile = self._get_lockfile_path(server_type)
-        
-        if os.path.exists(lockfile):
-            try:
-                with open(lockfile, "r") as lock:
-                    pid = int(lock.read().strip())
-                    try:
-                        # Check if the process is still running
-                        os.kill(pid, 0)
-                        print(f"Found running {server_type} server (PID: {pid}).", file=sys.stderr)
-                        return pid
-                    except ProcessLookupError:
-                        # Process not running, remove stale lock file
-                        print(f"Stale lock file found for {server_type} server. Removing it.", file=sys.stderr)
-                        os.remove(lockfile)
-            except (IOError, ValueError) as e:
-                print(f"Error reading lock file for {server_type} server: {str(e)}", file=sys.stderr)
-                if os.path.exists(lockfile):
-                    os.remove(lockfile)
-        
-        return None
-    
-    def _create_lockfile(self, server_type: ServerType, pid: int):
-        """
-        Create a lock file for the specified server type.
-        
-        Args:
-            server_type: Type of server (ethical-dm or zotero)
-            pid: PID of the server process
-        """
-        lockfile = self._get_lockfile_path(server_type)
-        
-        try:
-            with open(lockfile, "w") as lock:
-                lock.write(str(pid))
-            print(f"Created lock file for {server_type} server (PID: {pid}).", file=sys.stderr)
-        except IOError as e:
-            print(f"Error creating lock file for {server_type} server: {str(e)}", file=sys.stderr)
-    
-    def _remove_lockfile(self, server_type: ServerType):
-        """
-        Remove the lock file for the specified server type.
-        
-        Args:
-            server_type: Type of server (ethical-dm or zotero)
-        """
-        lockfile = self._get_lockfile_path(server_type)
-        
-        if os.path.exists(lockfile):
-            try:
-                os.remove(lockfile)
-                print(f"Removed lock file for {server_type} server.", file=sys.stderr)
-            except IOError as e:
-                print(f"Error removing lock file for {server_type} server: {str(e)}", file=sys.stderr)
-    
-    def start_server(self, server_type: ServerType = "ethical-dm"):
-        """
-        Start the MCP server process.
-        
-        Args:
-            server_type: Type of server to start (ethical-dm or zotero)
-        """
-        # Only start ethical-dm server, Zotero is now handled by ZoteroClient
-        if server_type == "ethical-dm":
-            # Check if a server is already running
-            existing_pid = self._check_existing_server(server_type)
-            
-            if existing_pid is not None:
-                # Server already running, use it
-                if MCPClient.ethical_dm_server_process is None or MCPClient.ethical_dm_server_process.poll() is None:
-                    print(f"Connecting to existing ethical-dm server (PID: {existing_pid}).", file=sys.stderr)
-                    # We don't have a handle to the existing process, but we know it's running
-                    # We'll create a new process object but won't actually start a new process
-                    MCPClient.ethical_dm_server_process = subprocess.Popen(
-                        ['echo', 'Dummy process for existing server'],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-            elif MCPClient.ethical_dm_server_process is None or MCPClient.ethical_dm_server_process.poll() is not None:
-                # No server running, start a new one
-                print(f"Starting new ethical-dm server.", file=sys.stderr)
-                MCPClient.ethical_dm_server_process = subprocess.Popen(
-                    ['python', self.ethical_dm_server_path],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1  # Line buffered
-                )
-                # Create lock file with the PID of the new process
-                self._create_lockfile(server_type, MCPClient.ethical_dm_server_process.pid)
-        elif server_type == "zotero":
-            # Zotero is now handled by ZoteroClient, so we don't need to start a server
-            # Just log a message for backward compatibility
-            print(f"Zotero functionality is now handled internally by ZoteroClient.", file=sys.stderr)
-    
-    def stop_server(self, server_type: ServerType = "ethical-dm"):
-        """
-        Stop the MCP server process.
-        
-        Args:
-            server_type: Type of server to stop (ethical-dm or zotero)
-        """
-        if server_type == "ethical-dm":
-            if MCPClient.ethical_dm_server_process is not None and MCPClient.ethical_dm_server_process.poll() is None:
-                # Server running, stop it
-                try:
-                    MCPClient.ethical_dm_server_process.terminate()
-                    MCPClient.ethical_dm_server_process.wait(timeout=5)
-                except (subprocess.TimeoutExpired, OSError) as e:
-                    print(f"Error terminating ethical-dm server: {str(e)}", file=sys.stderr)
-                    try:
-                        MCPClient.ethical_dm_server_process.kill()
-                    except OSError:
-                        pass
-                MCPClient.ethical_dm_server_process = None
-                
-                # Remove lock file
-                self._remove_lockfile(server_type)
-        elif server_type == "zotero":
-            # Zotero is now handled by ZoteroClient, so we don't need to stop a server
-            # Just log a message for backward compatibility
-            print(f"Zotero functionality is now handled internally by ZoteroClient.", file=sys.stderr)
-            
-            # Remove lock file if it exists (for cleanup)
-            self._remove_lockfile(server_type)
-    
-    def _send_request(self, request_type: str, params: Dict[str, Any], server_type: ServerType = "ethical-dm") -> Dict[str, Any]:
-        """
-        Send a request to the MCP server.
-        
-        Args:
-            request_type: Type of request
-            params: Request parameters
-            server_type: Type of server to send request to (ethical-dm or zotero)
-            
-        Returns:
-            Response from the server
-        """
-        # For Zotero requests, use ZoteroClient instead
-        if server_type == "zotero":
-            raise ValueError("Zotero requests should use the specific Zotero methods instead of _send_request")
-        
-        # Prepare request
-        request = {
-            "jsonrpc": "2.0",
-            "method": request_type,
-            "params": params,
-            "id": 1
-        }
-        
-        # Try to send the request, with retry logic for broken pipes
-        max_retries = 2
-        for attempt in range(max_retries + 1):
-            try:
-                # Ensure server is running (force restart on retry)
-                if attempt > 0:
-                    print(f"Restarting {server_type} server after failed attempt...", file=sys.stderr)
-                    self.stop_server(server_type)
-                    # Remove lock file if it exists
-                    lockfile = self._get_lockfile_path(server_type)
-                    if os.path.exists(lockfile):
-                        os.remove(lockfile)
-                
-                self.start_server(server_type)
-                
-                # Get the appropriate server process
-                if server_type == "ethical-dm":
-                    server_process = MCPClient.ethical_dm_server_process
-                else:
-                    raise ValueError(f"Invalid server type: {server_type}")
-                
-                # Send request
-                server_process.stdin.write(json.dumps(request) + '\n')
-                server_process.stdin.flush()
-                
-                # Read response
-                response_line = server_process.stdout.readline()
-                if not response_line:
-                    raise BrokenPipeError("Empty response from server")
-                
-                response = json.loads(response_line)
-                
-                # Check for errors
-                if "error" in response:
-                    raise Exception(f"MCP server error: {response['error']['message']}")
-                
-                return response["result"]
-                
-            except (BrokenPipeError, IOError) as e:
-                if attempt < max_retries:
-                    print(f"Pipe error with {server_type} server: {str(e)}. Retrying...", file=sys.stderr)
-                    continue
-                else:
-                    raise Exception(f"Failed to communicate with {server_type} server after {max_retries + 1} attempts: {str(e)}")
-            except json.JSONDecodeError as e:
-                if attempt < max_retries:
-                    print(f"JSON decode error with {server_type} server: {str(e)}. Retrying...", file=sys.stderr)
-                    continue
-                else:
-                    raise Exception(f"Failed to parse response from {server_type} server after {max_retries + 1} attempts: {str(e)}")
-    
-    def get_guidelines(self, domain: str = "military-medical-triage") -> Dict[str, Any]:
-        """
-        Get guidelines for a specific domain.
-        
-        Args:
-            domain: Domain to get guidelines for (military-medical-triage, engineering-ethics, us-law-practice)
+            world_name: Name of the world
             
         Returns:
             Dictionary containing guidelines
         """
-        response = self._send_request(
-            "read_resource",
-            {"uri": f"ethical-dm://guidelines/{domain}"}
-        )
-        
-        # Parse JSON content
-        content = response["contents"][0]["text"]
-        return json.loads(content)
+        try:
+            # Make request to MCP server
+            response = self.session.get(f"{self.mcp_url}/api/guidelines/{world_name}")
+            
+            # Check if request was successful
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Error getting guidelines: {response.status_code} - {response.text}")
+                return {}
+        except Exception as e:
+            print(f"Error getting guidelines: {str(e)}")
+            return {}
     
-    def get_cases(self, domain: str = "military-medical-triage") -> Dict[str, Any]:
+    def get_world_entities(self, ontology_source: str) -> Dict[str, Any]:
         """
-        Get cases for a specific domain.
+        Get entities for a specific world from ontology.
         
         Args:
-            domain: Domain to get cases for (military-medical-triage, engineering-ethics, us-law-practice)
+            ontology_source: Source of the ontology
             
         Returns:
-            Dictionary containing cases
+            Dictionary containing entities
         """
-        response = self._send_request(
-            "read_resource",
-            {"uri": f"ethical-dm://cases/{domain}"}
-        )
-        
-        # Parse JSON content
-        content = response["contents"][0]["text"]
-        return json.loads(content)
+        try:
+            # Make request to MCP server
+            response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/entities")
+            
+            # Check if request was successful
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Error getting entities: {response.status_code} - {response.text}")
+                return {}
+        except Exception as e:
+            print(f"Error getting entities: {str(e)}")
+            return {}
     
-    def search_cases(self, query: str, domain: str = "military-medical-triage", limit: int = 5) -> Dict[str, Any]:
+    def get_mock_guidelines(self, world_name: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Search for cases matching a query in a specific domain.
+        Get mock guidelines for development and testing.
         
         Args:
-            query: Search query
-            domain: Domain to search in (military-medical-triage, engineering-ethics, us-law-practice)
-            limit: Maximum number of results to return
+            world_name: Name of the world
             
         Returns:
-            Dictionary containing search results
+            Dictionary containing mock guidelines
         """
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "search_cases",
-                "arguments": {
-                    "query": query,
-                    "domain": domain,
-                    "limit": limit
+        # Mock guidelines for different worlds
+        mock_guidelines = {
+            "engineering-ethics": [
+                {
+                    "name": "Engineering Code of Ethics",
+                    "description": "Engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties.",
+                    "principles": [
+                        "Engineers shall recognize that the lives, safety, health and welfare of the general public are dependent upon engineering judgments, decisions and practices incorporated into structures, machines, products, processes and devices.",
+                        "Engineers shall approve or seal only those design documents, reviewed or prepared by them, which are determined to be safe for public health and welfare in conformity with accepted engineering standards.",
+                        "Engineers shall not reveal facts, data or information obtained in a professional capacity without the prior consent of the client or employer except as authorized or required by law.",
+                        "Engineers shall act in professional matters for each employer or client as faithful agents or trustees.",
+                        "Engineers shall disclose all known or potential conflicts of interest to their employers or clients by promptly informing them of any business association, interest, or other circumstances which could influence or appear to influence their judgment or the quality of their services."
+                    ],
+                    "factors": [
+                        "Public safety and welfare",
+                        "Professional competence",
+                        "Truthfulness and objectivity",
+                        "Confidentiality",
+                        "Conflicts of interest",
+                        "Professional development"
+                    ]
                 }
-            }
-        )
-        
-        # Parse JSON content
-        content = response["content"][0]["text"]
-        return json.loads(content)
-    
-    def add_case(self, title: str, description: str, decision: str, domain: str = "military-medical-triage",
-                 outcome: Optional[str] = None, ethical_analysis: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Add a new case to the repository.
-        
-        Args:
-            title: Case title
-            description: Case description
-            decision: Decision made in the case
-            domain: Domain for the case (military-medical-triage, engineering-ethics, us-law-practice)
-            outcome: Outcome of the decision (optional)
-            ethical_analysis: Ethical analysis of the case (optional)
-            
-        Returns:
-            Dictionary containing result of the operation
-        """
-        # Prepare arguments
-        arguments = {
-            "title": title,
-            "description": description,
-            "decision": decision,
-            "domain": domain
+            ],
+            "military-medical-ethics": [
+                {
+                    "name": "Military Medical Triage Guidelines",
+                    "description": "Triage is the process of sorting casualties based on the severity of injury and likelihood of survival to determine treatment priority.",
+                    "principles": [
+                        "Maximize the number of lives saved",
+                        "Allocate scarce resources efficiently",
+                        "Treat patients according to medical need and urgency",
+                        "Reassess patients regularly",
+                        "Document decisions and rationales"
+                    ],
+                    "categories": [
+                        {
+                            "name": "Immediate (T1/Red)",
+                            "description": "Casualties who require immediate life-saving intervention. Without immediate treatment, they will likely die within 1-2 hours."
+                        },
+                        {
+                            "name": "Delayed (T2/Yellow)",
+                            "description": "Casualties whose treatment can be delayed without significant risk to life or limb. They require medical care but can wait hours without serious consequences."
+                        },
+                        {
+                            "name": "Minimal (T3/Green)",
+                            "description": "Casualties with minor injuries who can effectively care for themselves or be helped by untrained personnel."
+                        },
+                        {
+                            "name": "Expectant (T4/Black)",
+                            "description": "Casualties who are so severely injured that they are unlikely to survive given the available resources. In mass casualty situations, these patients receive palliative care rather than resource-intensive interventions."
+                        }
+                    ],
+                    "considerations": [
+                        "Available medical resources (personnel, equipment, supplies)",
+                        "Number and types of casualties",
+                        "Environmental conditions",
+                        "Evacuation capabilities",
+                        "Ongoing threats or hazards"
+                    ]
+                }
+            ],
+            "legal-ethics": [
+                {
+                    "name": "Legal Ethics Guidelines",
+                    "description": "Lawyers must maintain the highest standards of ethical conduct. These guidelines outline the ethical responsibilities of legal professionals.",
+                    "principles": [
+                        "Competence: Lawyers shall provide competent representation to clients.",
+                        "Confidentiality: Lawyers shall not reveal information relating to the representation of a client unless the client gives informed consent.",
+                        "Conflicts of Interest: Lawyers shall not represent a client if the representation involves a concurrent conflict of interest.",
+                        "Candor: Lawyers shall not knowingly make a false statement of fact or law to a tribunal.",
+                        "Fairness: Lawyers shall deal fairly with all parties in legal proceedings."
+                    ],
+                    "steps": [
+                        "Identify the ethical issue",
+                        "Consult relevant rules and precedents",
+                        "Consider all stakeholders affected",
+                        "Evaluate alternative courses of action",
+                        "Make a decision and implement it",
+                        "Reflect on the outcome and learn from it"
+                    ]
+                }
+            ]
         }
         
-        if outcome is not None:
-            arguments["outcome"] = outcome
+        # Return mock guidelines for the specified world or empty dictionary if not found
+        return {"guidelines": mock_guidelines.get(world_name, [])}
+    
+    def get_mock_entities(self, ontology_source: str) -> Dict[str, Any]:
+        """
+        Get mock entities for development and testing.
         
-        if ethical_analysis is not None:
-            arguments["ethical_analysis"] = ethical_analysis
-        
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "add_case",
-                "arguments": arguments
+        Args:
+            ontology_source: Source of the ontology
+            
+        Returns:
+            Dictionary containing mock entities
+        """
+        # Mock entities for different ontologies
+        mock_entities = {
+            "engineering_ethics.ttl": {
+                "roles": [
+                    {
+                        "label": "Engineer",
+                        "description": "Professional responsible for designing, building, and maintaining systems, structures, and products."
+                    },
+                    {
+                        "label": "Manager",
+                        "description": "Person responsible for overseeing projects and teams."
+                    },
+                    {
+                        "label": "Client",
+                        "description": "Person or organization that commissions engineering work."
+                    }
+                ],
+                "conditions": [
+                    {
+                        "label": "Safety Risk",
+                        "description": "Situation where there is potential for harm to people or property."
+                    },
+                    {
+                        "label": "Budget Constraint",
+                        "description": "Limitation on financial resources available for a project."
+                    },
+                    {
+                        "label": "Time Pressure",
+                        "description": "Urgency to complete work within a tight deadline."
+                    }
+                ],
+                "resources": [
+                    {
+                        "label": "Engineering Code of Ethics",
+                        "description": "Professional standards that govern the practice of engineering."
+                    },
+                    {
+                        "label": "Technical Specifications",
+                        "description": "Detailed requirements for a system or component."
+                    }
+                ],
+                "actions": [
+                    {
+                        "label": "Report Safety Concern",
+                        "description": "Notify appropriate parties about potential safety issues."
+                    },
+                    {
+                        "label": "Approve Design",
+                        "description": "Formally accept a design as meeting requirements and standards."
+                    },
+                    {
+                        "label": "Request Additional Testing",
+                        "description": "Ask for more verification of a system's performance or safety."
+                    }
+                ]
+            },
+            "military_medical_ethics.ttl": {
+                "roles": [
+                    {
+                        "label": "Medical Officer",
+                        "description": "Military physician responsible for providing medical care to personnel."
+                    },
+                    {
+                        "label": "Combat Medic",
+                        "description": "Soldier with medical training who provides first aid in combat situations."
+                    },
+                    {
+                        "label": "Triage Officer",
+                        "description": "Medical professional responsible for sorting casualties based on severity and priority."
+                    }
+                ],
+                "conditions": [
+                    {
+                        "label": "Mass Casualty Event",
+                        "description": "Situation where the number of casualties exceeds available medical resources."
+                    },
+                    {
+                        "label": "Active Combat",
+                        "description": "Ongoing military engagement with hostile forces."
+                    },
+                    {
+                        "label": "Resource Limitation",
+                        "description": "Shortage of medical supplies, equipment, or personnel."
+                    }
+                ],
+                "resources": [
+                    {
+                        "label": "Medical Supplies",
+                        "description": "Materials used for treating injuries and illnesses."
+                    },
+                    {
+                        "label": "Evacuation Assets",
+                        "description": "Vehicles and aircraft used to transport casualties."
+                    }
+                ],
+                "actions": [
+                    {
+                        "label": "Perform Triage",
+                        "description": "Sort casualties based on severity and treatment priority."
+                    },
+                    {
+                        "label": "Administer Treatment",
+                        "description": "Provide medical care to injured personnel."
+                    },
+                    {
+                        "label": "Order Evacuation",
+                        "description": "Arrange for transport of casualties to higher levels of care."
+                    }
+                ]
+            },
+            "legal_ethics.ttl": {
+                "roles": [
+                    {
+                        "label": "Attorney",
+                        "description": "Legal professional qualified to represent clients in court."
+                    },
+                    {
+                        "label": "Client",
+                        "description": "Person or entity receiving legal representation."
+                    },
+                    {
+                        "label": "Judge",
+                        "description": "Official who presides over court proceedings."
+                    }
+                ],
+                "conditions": [
+                    {
+                        "label": "Conflict of Interest",
+                        "description": "Situation where professional judgment may be compromised by personal interests."
+                    },
+                    {
+                        "label": "Confidential Information",
+                        "description": "Private details protected by attorney-client privilege."
+                    }
+                ],
+                "resources": [
+                    {
+                        "label": "Rules of Professional Conduct",
+                        "description": "Ethical standards governing the legal profession."
+                    },
+                    {
+                        "label": "Case Law",
+                        "description": "Previous court decisions that establish precedent."
+                    }
+                ],
+                "actions": [
+                    {
+                        "label": "Disclose Conflict",
+                        "description": "Inform affected parties about potential conflicts of interest."
+                    },
+                    {
+                        "label": "Maintain Confidentiality",
+                        "description": "Protect private information shared by clients."
+                    },
+                    {
+                        "label": "Withdraw Representation",
+                        "description": "End attorney-client relationship when ethically required."
+                    }
+                ]
             }
-        )
+        }
         
-        # Parse JSON content
-        content = response["content"][0]["text"]
-        return json.loads(content)
-    
-    def get_similar_cases(self, scenario: Dict[str, Any]) -> str:
-        """
-        Get similar cases for a scenario.
-        
-        Args:
-            scenario: Dictionary containing scenario data
-            
-        Returns:
-            String containing similar cases for reference
-        """
-        # Create a query from the scenario
-        query = f"{scenario.get('name', '')} {scenario.get('description', '')}"
-        
-        # Add character information
-        for char in scenario.get('characters', []):
-            query += f" {char.get('name', '')} {char.get('role', '')}"
-            for cond in char.get('conditions', []):
-                query += f" {cond.get('name', '')}"
-        
-        # Get domain from scenario or default to military-medical-triage
-        domain = "military-medical-triage"
-        if hasattr(scenario, 'domain') and scenario.domain:
-            domain = scenario.domain.name.lower().replace(' ', '-')
-        elif hasattr(scenario, 'domain_id') and scenario.domain_id:
-            # Get domain name from database
-            from app.models import Domain
-            domain_obj = Domain.query.get(scenario.domain_id)
-            if domain_obj:
-                domain = domain_obj.name.lower().replace(' ', '-')
-        
-        # Search for similar cases
-        results = self.search_cases(query, domain=domain)
-        
-        # Format results as text
-        text = ""
-        for case in results.get('results', []):
-            text += f"Case {case.get('id', '')}: {case.get('title', '')}\n"
-            text += f"Description: {case.get('description', '')}\n"
-            text += f"Decision: {case.get('decision', '')}\n"
-            text += f"Outcome: {case.get('outcome', '')}\n"
-            text += f"Ethical Analysis: {case.get('ethical_analysis', '')}\n\n"
-        
-        return text
-    
-    def get_world_entities(self, ontology_source: str, entity_type: str = "all") -> Dict[str, Any]:
-        """
-        Get entities from a specific world's ontology.
-        
-        Args:
-            ontology_source: Path to the ontology file (e.g., "tccc.ttl")
-            entity_type: Type of entity to retrieve (characters, conditions, resources, all)
-            
-        Returns:
-            Dictionary containing world entities
-        """
-        response = self._send_request(
-            "call_tool",
-            {
-                "name": "get_world_entities",
-                "arguments": {
-                    "ontology_source": ontology_source,
-                    "entity_type": entity_type
-                }
-            }
-        )
-        
-        # Parse JSON content
-        content = response["content"][0]["text"]
-        return json.loads(content)
-    
-    def get_world_ontology(self, world_name: str) -> str:
-        """
-        Get the ontology for a specific world.
-        
-        Args:
-            world_name: Name of the world (e.g., military-medical-triage)
-            
-        Returns:
-            String containing the world ontology
-        """
-        response = self._send_request(
-            "read_resource",
-            {"uri": f"ethical-dm://worlds/{world_name}"}
-        )
-        
-        # Return the ontology content
-        return response["contents"][0]["text"]
-    
-    # Zotero methods - now using ZoteroClient
-    
-    def get_zotero_collections(self) -> Dict[str, Any]:
-        """
-        Get collections from the Zotero library.
-        
-        Returns:
-            Dictionary containing collections
-        """
-        return self.zotero_client.get_collections()
-    
-    def get_zotero_recent_items(self, limit: int = 20) -> Dict[str, Any]:
-        """
-        Get recent items from the Zotero library.
-        
-        Args:
-            limit: Maximum number of results to return
-            
-        Returns:
-            Dictionary containing recent items
-        """
-        return self.zotero_client.get_recent_items(limit)
-    
-    def search_zotero_items(self, query: str, collection_key: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
-        """
-        Search for items in the Zotero library.
-        
-        Args:
-            query: Search query
-            collection_key: Collection key to search in (optional)
-            limit: Maximum number of results to return
-            
-        Returns:
-            Dictionary containing search results
-        """
-        return self.zotero_client.search_items(query, collection_key, limit)
-    
-    def get_zotero_citation(self, item_key: str, style: str = "apa") -> str:
-        """
-        Get citation for a specific Zotero item.
-        
-        Args:
-            item_key: Item key
-            style: Citation style (e.g., apa, mla, chicago)
-            
-        Returns:
-            Citation text
-        """
-        return self.zotero_client.get_citation(item_key, style)
-    
-    def add_zotero_item(self, item_type: str, title: str, creators: Optional[List[Dict[str, str]]] = None,
-                        collection_key: Optional[str] = None, additional_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Add a new item to the Zotero library.
-        
-        Args:
-            item_type: Item type (e.g., journalArticle, book, webpage)
-            title: Item title
-            creators: Item creators (authors, editors, etc.)
-            collection_key: Collection key to add the item to (optional)
-            additional_fields: Additional fields for the item (e.g., date, url, publisher)
-            
-        Returns:
-            Dictionary containing response from the server
-        """
-        return self.zotero_client.add_item(item_type, title, creators, collection_key, additional_fields)
-    
-    def get_zotero_bibliography(self, item_keys: List[str], style: str = "apa") -> str:
-        """
-        Get bibliography for multiple Zotero items.
-        
-        Args:
-            item_keys: Array of item keys
-            style: Citation style (e.g., apa, mla, chicago)
-            
-        Returns:
-            Bibliography text
-        """
-        return self.zotero_client.get_bibliography(item_keys, style)
-    
-    def get_references_for_scenario(self, scenario) -> Dict[str, Any]:
-        """
-        Get references for a specific scenario.
-        
-        Args:
-            scenario: Scenario object
-            
-        Returns:
-            Dictionary containing references
-        """
-        # Create query from scenario
-        query = f"{scenario.name} {scenario.description}"
-        
-        # Add character information
-        for char in scenario.characters:
-            query += f" {char.name} {char.role}"
-            for cond in char.conditions:
-                query += f" {cond.name}"
-        
-        # Search for references
-        return self.search_zotero_items(query, limit=10)
-    
-    def get_references_for_world(self, world) -> Dict[str, Any]:
-        """
-        Get references for a specific world.
-        
-        Args:
-            world: World object
-            
-        Returns:
-            Dictionary containing references
-        """
-        # Create query from world
-        query = f"{world.name} {world.description}"
-        
-        # Add ontology source if available
-        if world.ontology_source:
-            query += f" {world.ontology_source}"
-        
-        # Add metadata if available
-        if world.world_metadata:
-            for key, value in world.world_metadata.items():
-                if isinstance(value, str):
-                    query += f" {value}"
-                elif isinstance(value, (dict, list)):
-                    # Try to extract text from complex structures
-                    try:
-                        query += f" {json.dumps(value)}"
-                    except:
-                        pass
-        
-        # Search for references
-        return self.search_zotero_items(query, limit=10)
+        # Return mock entities for the specified ontology or empty dictionary if not found
+        return {"entities": mock_entities.get(ontology_source, {})}
