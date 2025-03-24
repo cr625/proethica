@@ -23,56 +23,56 @@ military_medical_conditions = [
         "description": "Severe bleeding that requires immediate intervention.",
         "category": "Injury",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#Hemorrhage"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#Hemorrhage"
     },
     {
         "name": "Tension Pneumothorax",
         "description": "Air trapped in the pleural space causing lung collapse and cardiovascular compromise.",
         "category": "Injury",
         "severity_range": {"min": 5, "max": 10},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#TensionPneumothorax"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#TensionPneumothorax"
     },
     {
         "name": "Airway Obstruction",
         "description": "Blockage of the airway that impedes breathing.",
         "category": "Injury",
         "severity_range": {"min": 4, "max": 10},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#AirwayObstruction"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#AirwayObstruction"
     },
     {
         "name": "Burn",
         "description": "Tissue damage caused by heat, chemicals, electricity, or radiation.",
         "category": "Injury",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#Burn"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#Burn"
     },
     {
         "name": "Fracture",
         "description": "Break in the continuity of a bone.",
         "category": "Injury",
         "severity_range": {"min": 1, "max": 8},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#Fracture"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#Fracture"
     },
     {
         "name": "Shock",
         "description": "Life-threatening condition that occurs when the body is not getting enough blood flow.",
         "category": "Physiological",
         "severity_range": {"min": 5, "max": 10},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#Shock"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#Shock"
     },
     {
         "name": "Hypothermia",
         "description": "Abnormally low body temperature that can be life-threatening.",
         "category": "Environmental",
         "severity_range": {"min": 2, "max": 9},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#Hypothermia"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#Hypothermia"
     },
     {
         "name": "Heat Injury",
         "description": "Conditions caused by excessive heat exposure, including heat exhaustion and heat stroke.",
         "category": "Environmental",
         "severity_range": {"min": 2, "max": 9},
-        "ontology_uri": "http://example.org/ontology/military_medical_triage#HeatInjury"
+        "ontology_uri": "http://proethica.org/ontology/military-medical-triage#HeatInjury"
     }
 ]
 
@@ -83,28 +83,28 @@ engineering_ethics_conditions = [
         "description": "Limited financial resources affecting project decisions.",
         "category": "Resource",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/engineering_ethics#BudgetConstraint"
+        "ontology_uri": "http://proethica.org/ontology/engineering-ethics#BudgetConstraint"
     },
     {
         "name": "Time Pressure",
         "description": "Urgent deadline affecting quality and safety considerations.",
         "category": "Operational",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/engineering_ethics#TimePressure"
+        "ontology_uri": "http://proethica.org/ontology/engineering-ethics#TimePressure"
     },
     {
         "name": "Safety Risk",
         "description": "Potential for harm to users or the public.",
         "category": "Safety",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/engineering_ethics#SafetyRisk"
+        "ontology_uri": "http://proethica.org/ontology/engineering-ethics#SafetyRisk"
     },
     {
         "name": "Environmental Impact",
         "description": "Potential negative effects on the environment.",
         "category": "Environmental",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/engineering_ethics#EnvironmentalImpact"
+        "ontology_uri": "http://proethica.org/ontology/engineering-ethics#EnvironmentalImpact"
     }
 ]
 
@@ -115,28 +115,28 @@ law_practice_conditions = [
         "description": "Situation where professional judgment may be compromised.",
         "category": "Ethical",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/law_practice#ConflictOfInterest"
+        "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#ConflictOfInterest"
     },
     {
         "name": "Client Confidentiality Risk",
         "description": "Potential breach of client confidentiality.",
         "category": "Ethical",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/law_practice#ClientConfidentialityRisk"
+        "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#ClientConfidentialityRisk"
     },
     {
         "name": "Legal Deadline",
         "description": "Time-sensitive legal filing or action required.",
         "category": "Procedural",
         "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://example.org/ontology/law_practice#LegalDeadline"
+        "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#LegalDeadline"
     },
     {
         "name": "Resource Limitation",
         "description": "Limited access to legal resources or research materials.",
         "category": "Resource",
         "severity_range": {"min": 1, "max": 8},
-        "ontology_uri": "http://example.org/ontology/law_practice#ResourceLimitation"
+        "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#ResourceLimitation"
     }
 ]
 

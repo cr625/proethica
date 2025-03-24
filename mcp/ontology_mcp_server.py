@@ -16,9 +16,9 @@ class OntologyMCPServer:
         self.jsonrpc_id = 0
         # Define known namespaces
         self.namespaces = {
-            "military-medical-triage": Namespace("http://example.org/military-medical-triage#"),
-            "engineering-ethics": Namespace("http://example.org/engineering-ethics#"),
-            "nj-legal-ethics": Namespace("http://example.org/nj-legal-ethics#")
+            "military-medical-triage": Namespace("http://proethica.org/ontology/military-medical-triage#"),
+            "engineering-ethics": Namespace("http://proethica.org/ontology/engineering-ethics#"),
+            "nj-legal-ethics": Namespace("http://proethica.org/ontology/nj-legal-ethics#")
         }
         # Default namespace
         self.MMT = self.namespaces["military-medical-triage"]

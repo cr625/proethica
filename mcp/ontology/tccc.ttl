@@ -2,12 +2,12 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix mmt: <http://example.org/military-medical-triage#> .
-@prefix umls: <http://example.org/umls#> .
-@prefix snomed: <http://example.org/snomed#> .
+@prefix mmt: <http://proethica.org/ontology/military-medical-triage#> .
+@prefix umls: <http://proethica.org/ontology/umls#> .
+@prefix snomed: <http://proethica.org/ontology/snomed#> .
 
 # Ontology Declaration
-<http://example.org/military-medical-triage> rdf:type owl:Ontology ;
+<http://proethica.org/ontology/military-medical-triage> rdf:type owl:Ontology ;
     rdfs:label "Military Medical Triage Ontology"@en ;
     rdfs:comment "An ontology for military medical triage scenarios, roles, and capabilities"@en .
 

@@ -45,7 +45,7 @@ def populate_from_ontology():
         g.parse(ontology_path, format="turtle")
         
         # Define namespaces
-        MMT = Namespace("http://example.org/military-medical-triage#")
+        MMT = Namespace("http://proethica.org/ontology/military-medical-triage#")
         
         # Populate roles
         print("\nPopulating roles...")

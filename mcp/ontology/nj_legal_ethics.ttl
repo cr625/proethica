@@ -2,12 +2,12 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix njle: <http://example.org/nj-legal-ethics#> .
-@prefix rpc: <http://example.org/nj-rpc#> .
-@prefix aba: <http://example.org/aba-model-rules#> .
+@prefix njle: <http://proethica.org/ontology/nj-legal-ethics#> .
+@prefix rpc: <http://proethica.org/ontology/nj-rpc#> .
+@prefix aba: <http://proethica.org/ontology/aba-model-rules#> .
 
 # Ontology Declaration
-<http://example.org/nj-legal-ethics> rdf:type owl:Ontology ;
+<http://proethica.org/ontology/nj-legal-ethics> rdf:type owl:Ontology ;
     rdfs:label "New Jersey Legal Ethics Ontology"@en ;
     rdfs:comment "An ontology for modeling ethical dilemmas in New Jersey legal practice"@en .
 

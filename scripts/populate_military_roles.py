@@ -60,13 +60,13 @@ def populate_military_roles():
         g.parse(ontology_path, format="turtle")
         
         # Define namespaces
-        MMTR = Namespace("http://example.org/military-medical-triage-roles#")
+        MMTR = Namespace("http://proethica.org/ontology/military-medical-triage-roles#")
         
         # Query for role instances
         roles_query = """
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX mmtr: <http://example.org/military-medical-triage-roles#>
+        PREFIX mmtr: <http://proethica.org/ontology/military-medical-triage-roles#>
         
         SELECT ?role ?label ?tier ?description
         WHERE {

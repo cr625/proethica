@@ -2,12 +2,12 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix eng: <http://example.org/engineering-ethics#> .
-@prefix ieee: <http://example.org/ieee-ethics#> .
-@prefix nspe: <http://example.org/nspe-code#> .
+@prefix eng: <http://proethica.org/ontology/engineering-ethics#> .
+@prefix ieee: <http://proethica.org/ontology/ieee-ethics#> .
+@prefix nspe: <http://proethica.org/ontology/nspe-code#> .
 
 # Ontology Declaration
-<http://example.org/engineering-ethics> rdf:type owl:Ontology ;
+<http://proethica.org/ontology/engineering-ethics> rdf:type owl:Ontology ;
     rdfs:label "Engineering Ethics Ontology"@en ;
     rdfs:comment "Ontology for modeling ethical dilemmas in engineering practice."@en .
 

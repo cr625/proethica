@@ -70,13 +70,13 @@ def populate_resource_types():
             g.parse(ontology_path, format="turtle")
         
         # Define namespaces
-        MMT = Namespace("http://example.org/military-medical-triage#")
+        MMT = Namespace("http://proethica.org/ontology/military-medical-triage#")
         
         # Query for resource type instances
         resource_types_query = """
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX mmt: <http://example.org/military-medical-triage#>
+        PREFIX mmt: <http://proethica.org/ontology/military-medical-triage#>
         
         SELECT ?resource_type ?label ?category ?description
         WHERE {
@@ -141,7 +141,7 @@ def create_basic_ontology(ontology_path):
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix mmt: <http://example.org/military-medical-triage#> .
+@prefix mmt: <http://proethica.org/ontology/military-medical-triage#> .
 
 # Resource Type hierarchy
 mmt:ResourceType a owl:Class ;
@@ -246,91 +246,91 @@ def create_basic_resource_types(world_id):
             'description': 'A device used to apply pressure to a limb to stop bleeding',
             'category': 'Supplies',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Tourniquet'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Tourniquet'
         },
         {
             'name': 'Bandage',
             'description': 'Material used to cover and protect wounds',
             'category': 'Supplies',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Bandage'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Bandage'
         },
         {
             'name': 'Blood Products',
             'description': 'Blood and blood components used for transfusion',
             'category': 'Supplies',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#BloodProducts'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#BloodProducts'
         },
         {
             'name': 'IV Fluids',
             'description': 'Fluids administered intravenously for hydration and medication delivery',
             'category': 'Supplies',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#IVFluids'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#IVFluids'
         },
         {
             'name': 'Medications',
             'description': 'Pharmaceutical drugs used for treatment',
             'category': 'Supplies',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Medications'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Medications'
         },
         {
             'name': 'Stretcher',
             'description': 'A device used to carry injured or ill people',
             'category': 'Equipment',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Stretcher'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Stretcher'
         },
         {
             'name': 'Monitoring Equipment',
             'description': 'Devices used to monitor patient vital signs',
             'category': 'Equipment',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#MonitoringEquipment'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#MonitoringEquipment'
         },
         {
             'name': 'Surgical Instruments',
             'description': 'Tools used in surgical procedures',
             'category': 'Equipment',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#SurgicalInstruments'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#SurgicalInstruments'
         },
         {
             'name': 'Ambulance',
             'description': 'Vehicle used for emergency medical transport',
             'category': 'Vehicle',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Ambulance'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Ambulance'
         },
         {
             'name': 'Medical Helicopter',
             'description': 'Helicopter used for emergency medical transport',
             'category': 'Vehicle',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#MedicalHelicopter'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#MedicalHelicopter'
         },
         {
             'name': 'Doctor',
             'description': 'Medical professional with advanced training',
             'category': 'Personnel',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Doctor'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Doctor'
         },
         {
             'name': 'Nurse',
             'description': 'Medical professional who provides patient care',
             'category': 'Personnel',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Nurse'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Nurse'
         },
         {
             'name': 'Medic',
             'description': 'Medical professional who provides emergency care in the field',
             'category': 'Personnel',
             'world_id': world_id,
-            'ontology_uri': 'http://example.org/military-medical-triage#Medic'
+            'ontology_uri': 'http://proethica.org/ontology/military-medical-triage#Medic'
         }
     ]
     

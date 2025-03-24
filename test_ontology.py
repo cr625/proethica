@@ -67,7 +67,7 @@ async def test():
     g = server._load_graph_from_file('nj_legal_ethics.ttl')
     print('Graph loaded, detecting namespace...')
     # Force the correct namespace for nj_legal_ethics.ttl
-    namespace = "http://example.org/nj-legal-ethics#"
+    namespace = "http://proethica.org/ontology/nj-legal-ethics#"
     print(f'Using namespace: {namespace}')
     print('Extracting entities...')
     entities = server._extract_entities(g, 'all')

@@ -14,7 +14,7 @@ class MockMCPClient:
             "entities": {
                 "roles": [
                     {
-                        "id": "http://example.org/tccc#Medic",
+                        "id": "http://proethica.org/ontology/military-medical-triage#Medic",
                         "label": "Medic",
                         "description": "A medical professional in a tactical environment",
                         "tier": "1",
@@ -23,7 +23,7 @@ class MockMCPClient:
                 ],
                 "conditions": [
                     {
-                        "id": "http://example.org/tccc#Hemorrhage",
+                        "id": "http://proethica.org/ontology/military-medical-triage#Hemorrhage",
                         "label": "Hemorrhage",
                         "description": "Severe bleeding",
                         "type": "Injury",
@@ -124,7 +124,7 @@ class MockMCPClient:
     
     def get_world_ontology(self, world_name):
         # Return mock data
-        return "@prefix : <http://example.org/tccc#> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\n:Medic a :Role ;\n    rdfs:label \"Medic\" ;\n    rdfs:comment \"A medical professional in a tactical environment\" ;\n    :hasTier \"1\" ;\n    :hasCapability \"Provide medical care\", \"Triage casualties\" .\n\n:Hemorrhage a :ConditionType ;\n    rdfs:label \"Hemorrhage\" ;\n    rdfs:comment \"Severe bleeding\" ;\n    :severity \"Critical\" ;\n    :location \"Various\" .\n"
+        return "@prefix : <http://proethica.org/ontology/military-medical-triage#> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\n:Medic a :Role ;\n    rdfs:label \"Medic\" ;\n    rdfs:comment \"A medical professional in a tactical environment\" ;\n    :hasTier \"1\" ;\n    :hasCapability \"Provide medical care\", \"Triage casualties\" .\n\n:Hemorrhage a :ConditionType ;\n    rdfs:label \"Hemorrhage\" ;\n    rdfs:comment \"Severe bleeding\" ;\n    :severity \"Critical\" ;\n    :location \"Various\" .\n"
     
     def get_zotero_collections(self):
         # Return mock data

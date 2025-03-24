@@ -26,10 +26,10 @@ def get_ontology_entities(ontology_source):
 
         # Define known namespaces
         namespaces = {
-            "military-medical-triage": Namespace("http://example.org/military-medical-triage#"),
-            "engineering-ethics": Namespace("http://example.org/engineering-ethics#"),
-            "nj-legal-ethics": Namespace("http://example.org/nj-legal-ethics#"),
-            "tccc": Namespace("http://example.org/tccc#")
+            "military-medical-triage": Namespace("http://proethica.org/ontology/military-medical-triage#"),
+            "engineering-ethics": Namespace("http://proethica.org/ontology/engineering-ethics#"),
+            "nj-legal-ethics": Namespace("http://proethica.org/ontology/nj-legal-ethics#"),
+            "tccc": Namespace("http://proethica.org/ontology/tccc#")
         }
 
         # Determine the namespace to use based on the ontology source
