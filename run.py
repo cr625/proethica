@@ -4,7 +4,7 @@ from app import create_app
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Run the AI Ethical DM application')
-parser.add_argument('--port', type=int, default=5001, help='Port to run the server on')
+parser.add_argument('--port', type=int, default=5000, help='Port to run the server on')
 args = parser.parse_args()
 
 # Create app instance

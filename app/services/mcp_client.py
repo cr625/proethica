@@ -66,10 +66,12 @@ class MCPClient:
                 return response.json()
             else:
                 print(f"Error getting entities: {response.status_code} - {response.text}")
-                return {}
+                # Fall back to mock data
+                return self.get_mock_entities(ontology_source)
         except Exception as e:
             print(f"Error getting entities: {str(e)}")
-            return {}
+            # Fall back to mock data
+            return self.get_mock_entities(ontology_source)
     
     def get_mock_guidelines(self, world_name: str) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -335,6 +337,80 @@ class MCPClient:
                     {
                         "label": "Withdraw Representation",
                         "description": "End attorney-client relationship when ethically required."
+                    }
+                ]
+            },
+            "nj_legal_ethics.ttl": {
+                "roles": [
+                    {
+                        "label": "Attorney",
+                        "description": "Legal professional qualified to represent clients in New Jersey courts."
+                    },
+                    {
+                        "label": "Client",
+                        "description": "Person or entity receiving legal representation in New Jersey."
+                    },
+                    {
+                        "label": "Judge",
+                        "description": "Official who presides over New Jersey court proceedings."
+                    },
+                    {
+                        "label": "Paralegal",
+                        "description": "Legal assistant who supports attorneys in case preparation and research."
+                    }
+                ],
+                "conditions": [
+                    {
+                        "label": "Conflict of Interest",
+                        "description": "Situation where professional judgment may be compromised by personal interests (RPC 1.7)."
+                    },
+                    {
+                        "label": "Confidentiality Issue",
+                        "description": "Concerns about protecting private client information (RPC 1.6)."
+                    },
+                    {
+                        "label": "Client Perjury",
+                        "description": "Ethical dilemma when a client intends to commit perjury (RPC 3.3)."
+                    },
+                    {
+                        "label": "Evidence Handling",
+                        "description": "Proper treatment of documentary and physical evidence (RPC 3.4)."
+                    }
+                ],
+                "resources": [
+                    {
+                        "label": "NJ Rules of Professional Conduct",
+                        "description": "Ethical standards governing the legal profession in New Jersey."
+                    },
+                    {
+                        "label": "NJ Case Law",
+                        "description": "Previous New Jersey court decisions that establish precedent."
+                    },
+                    {
+                        "label": "Legal Research Database",
+                        "description": "Electronic resources for researching legal issues and precedents."
+                    }
+                ],
+                "actions": [
+                    {
+                        "label": "Disclose Conflict",
+                        "description": "Inform affected parties about potential conflicts of interest."
+                    },
+                    {
+                        "label": "Maintain Confidentiality",
+                        "description": "Protect private information shared by clients."
+                    },
+                    {
+                        "label": "Withdraw Representation",
+                        "description": "End attorney-client relationship when ethically required."
+                    },
+                    {
+                        "label": "File Motion",
+                        "description": "Submit formal request to the court for a specific action or decision."
+                    },
+                    {
+                        "label": "Report Misconduct",
+                        "description": "Notify appropriate authorities about unethical behavior by legal professionals."
                     }
                 ]
             }
