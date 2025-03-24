@@ -49,6 +49,7 @@ class EmbeddingService:
             
             # Update document with extracted text
             document.content = text
+            # Get db from app
             from app import db
             db.session.commit()
             
@@ -170,7 +171,7 @@ class EmbeddingService:
     def _store_chunks(self, document_id: int, chunks: List[str], embeddings: List[List[float]]) -> None:
         """Store text chunks with their embeddings."""
         try:
-            # Get db
+            # Get db from app
             from app import db
             
             # Delete existing chunks for this document
@@ -178,12 +179,12 @@ class EmbeddingService:
             
             # Create new chunks
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                # Always store embedding as JSON string
+                # Store embedding directly as a vector
                 chunk_record = DocumentChunk(
                     document_id=document_id,
                     chunk_index=i,
                     chunk_text=chunk,
-                    embedding=json.dumps(embedding),
+                    embedding=embedding,
                     chunk_metadata={"index": i}
                 )
                 db.session.add(chunk_record)
@@ -198,133 +199,73 @@ class EmbeddingService:
     
     def search_similar_chunks(self, query: str, k: int = 5, world_id: Optional[int] = None, 
                              document_type: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Search for chunks similar to the query."""
+        """Search for chunks similar to the query using pgvector."""
         try:
             # Generate query embedding
             query_embedding = self.embed_query(query)
             
-            # Get db
+            # Get db from app
             from app import db
             
-            if VECTOR_AVAILABLE:
-                # Use pgvector for similarity search
-                # Build base query
-                sql_query = """
-                SELECT 
-                    dc.id,
-                    dc.chunk_text, 
-                    dc.chunk_metadata as metadata,
-                    d.title,
-                    d.source,
-                    d.document_type,
-                    d.world_id,
-                    dc.embedding <-> :query_embedding AS distance
-                FROM 
-                    document_chunks dc
-                JOIN 
-                    documents d ON dc.document_id = d.id
-                """
-                
-                # Add filters if provided
-                where_clauses = []
-                params = {"query_embedding": query_embedding}
-                
-                if world_id:
-                    where_clauses.append("d.world_id = :world_id")
-                    params['world_id'] = world_id
-                
-                if document_type:
-                    where_clauses.append("d.document_type = :document_type")
-                    params['document_type'] = document_type
-                
-                if where_clauses:
-                    sql_query += " WHERE " + " AND ".join(where_clauses)
-                
-                # Add ordering and limit
-                sql_query += """
-                ORDER BY distance
-                LIMIT :k
-                """
-                params['k'] = k
-                
-                # Execute query
-                result = db.session.execute(text(sql_query), params)
-                
-                # Format results
-                results = []
-                for row in result:
-                    results.append({
-                        'id': row.id,
-                        'chunk_text': row.chunk_text,
-                        'metadata': row.metadata,
-                        'title': row.title,
-                        'source': row.source,
-                        'document_type': row.document_type,
-                        'world_id': row.world_id,
-                        'distance': float(row.distance)
-                    })
-            else:
-                # Fallback to manual similarity search when pgvector not available
-                logger.warning("pgvector not available, using fallback similarity search")
-                
-                # Build query to get chunks
-                sql_query = """
-                SELECT 
-                    dc.id,
-                    dc.chunk_text, 
-                    dc.embedding,
-                    dc.chunk_metadata as metadata,
-                    d.title,
-                    d.source,
-                    d.document_type,
-                    d.world_id
-                FROM 
-                    document_chunks dc
-                JOIN 
-                    documents d ON dc.document_id = d.id
-                """
-                
-                # Add filters if provided
-                where_clauses = []
-                params = {}
-                
-                if world_id:
-                    where_clauses.append("d.world_id = :world_id")
-                    params['world_id'] = world_id
-                
-                if document_type:
-                    where_clauses.append("d.document_type = :document_type")
-                    params['document_type'] = document_type
-                
-                if where_clauses:
-                    sql_query += " WHERE " + " AND ".join(where_clauses)
-                
-                # Execute query
-                result = db.session.execute(text(sql_query), params)
-                
-                # Calculate distances manually
-                chunks_with_distances = []
-                for row in result:
-                    # Parse embedding from JSON string
-                    chunk_embedding = json.loads(row.embedding)
-                    
-                    # Calculate cosine distance
-                    distance = self._cosine_distance(query_embedding, chunk_embedding)
-                    
-                    chunks_with_distances.append({
-                        'id': row.id,
-                        'chunk_text': row.chunk_text,
-                        'metadata': row.metadata,
-                        'title': row.title,
-                        'source': row.source,
-                        'document_type': row.document_type,
-                        'world_id': row.world_id,
-                        'distance': distance
-                    })
-                
-                # Sort by distance and take top k
-                chunks_with_distances.sort(key=lambda x: x['distance'])
-                results = chunks_with_distances[:k]
+            # Use pgvector for similarity search
+            # Convert the embedding to a string for proper casting
+            embedding_str = f"[{','.join(str(x) for x in query_embedding)}]"
+            
+            # Build base query
+            sql_query = f"""
+            SELECT 
+                dc.id,
+                dc.chunk_text, 
+                dc.chunk_metadata as metadata,
+                d.title,
+                d.source,
+                d.document_type,
+                d.world_id,
+                dc.embedding <-> '{embedding_str}'::vector AS distance
+            FROM 
+                document_chunks dc
+            JOIN 
+                documents d ON dc.document_id = d.id
+            """
+            
+            # Add filters if provided
+            where_clauses = []
+            params = {}
+            
+            if world_id:
+                where_clauses.append("d.world_id = :world_id")
+                params['world_id'] = world_id
+            
+            if document_type:
+                where_clauses.append("d.document_type = :document_type")
+                params['document_type'] = document_type
+            
+            if where_clauses:
+                sql_query += " WHERE " + " AND ".join(where_clauses)
+            
+            # Add ordering and limit
+            sql_query += """
+            ORDER BY distance
+            LIMIT :k
+            """
+            params['k'] = k
+            
+            # Execute query
+            result = db.session.execute(text(sql_query), params)
+            
+            # Format results
+            results = []
+            for row in result:
+                results.append({
+                    'id': row.id,
+                    'chunk_text': row.chunk_text,
+                    'metadata': row.metadata,
+                    'title': row.title,
+                    'source': row.source,
+                    'document_type': row.document_type,
+                    'world_id': row.world_id,
+                    'distance': float(row.distance)
+                })
             
             logger.info(f"Found {len(results)} similar chunks for query")
             return results
@@ -354,7 +295,7 @@ class EmbeddingService:
             logger.info(f"Extracting text from URL: {url}")
             text = self._extract_text_from_url(url)
             
-            # Get db
+            # Get db from app
             from app import db
             
             # Create document record

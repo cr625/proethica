@@ -30,7 +30,13 @@ def create_tables():
         Document.__table__.create(db.engine, checkfirst=True)
         DocumentChunk.__table__.create(db.engine, checkfirst=True)
         
-        # No need to create vector similarity index since we're using JSON strings for embeddings
+        # Create vector similarity index for faster similarity search
+        try:
+            db.session.execute(text('CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx ON document_chunks USING ivfflat (embedding vector_cosine_ops)'))
+            print("Vector similarity index created successfully")
+        except Exception as e:
+            print(f"Warning: Could not create vector similarity index: {str(e)}")
+            print("Continuing without vector similarity index...")
         
         db.session.commit()
         

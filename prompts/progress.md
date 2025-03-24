@@ -1,65 +1,38 @@
-# Document Management and Embedding System Progress
+# Progress Report: Switching to pgvector for Embeddings
 
 ## Overview
 
-We've implemented a document management and embedding system that allows users to upload documents, process them for vector embeddings, and perform semantic search. This system enhances the AI Ethical DM platform by providing a way to search through guidelines, case studies, and other relevant documents.
+We have successfully switched the document embedding system to use pgvector for storing and querying vector embeddings. This change provides better performance and more accurate similarity search compared to the previous fallback approach.
 
-## Components Implemented
+## Changes Made
 
-1. **Document Model**
-   - Created `Document` and `DocumentChunk` models in `app/models/document.py`
-   - Documents store metadata, content, and file information
-   - Document chunks store text segments with vector embeddings for similarity search
+1. **Updated Document Model**:
+   - Changed the `embedding` column in the `DocumentChunk` model to use the `Vector` type from pgvector instead of `Text`
+   - Removed the fallback approach where embeddings were stored as JSON strings
 
-2. **Embedding Service**
-   - Implemented in `app/services/embedding_service.py`
-   - Uses Sentence-Transformers to generate embeddings
-   - Provides text extraction from various file formats (PDF, DOCX, TXT, HTML)
-   - Implements text chunking with overlap for better semantic search
-   - Supports both pgvector-based and fallback similarity search
+2. **Updated Embedding Service**:
+   - Modified the `_store_chunks` method to store embeddings directly as vector types
+   - Updated the `search_similar_chunks` method to use pgvector's native similarity search functionality
+   - Removed the fallback similarity search implementation that used manual cosine distance calculation
 
-3. **Document API Routes**
-   - Implemented in `app/routes/documents.py`
-   - Provides endpoints for document upload, retrieval, search, and management
-   - Supports filtering by world and document type
+3. **Database Migration**:
+   - Created a migration script to drop and recreate the document_chunks table with the vector type
+   - Added a vector similarity index for faster similarity search
 
-4. **Database Integration**
-   - Created tables for documents and document chunks
-   - Added support for storing vector embeddings as JSON strings when pgvector is not available
+4. **Testing**:
+   - Created a simple test script to verify pgvector functionality
+   - Confirmed that storing and querying vector embeddings works correctly
 
-## Current Status
+## Benefits
 
-- Basic document management functionality is implemented
-- Document upload and processing works
-- Semantic search is implemented with fallback for environments without pgvector
-- API endpoints are available for integration with the frontend
+- **Improved Performance**: pgvector's native similarity search is much faster than the previous approach, especially as the number of documents grows
+- **Better Accuracy**: Using pgvector's optimized vector operations ensures more accurate similarity search results
+- **Reduced Complexity**: Removed the fallback code that was needed when pgvector wasn't available
+- **Scalability**: The solution can now handle a larger number of documents efficiently
 
 ## Next Steps
 
-1. **Frontend Integration**
-   - Create UI components for document upload and search
-   - Implement document browsing interface
-   - Add search results visualization
-
-2. **Performance Optimization**
-   - Optimize chunking strategy for better search results
-   - Implement caching for frequently accessed documents
-   - Add batch processing for large document sets
-
-3. **Enhanced Features**
-   - Add support for more document formats
-   - Implement document tagging and categorization
-   - Add relevance feedback mechanism to improve search results
-   - Integrate with the decision engine to provide relevant documents during scenario creation
-
-4. **Testing and Validation**
-   - Create comprehensive test suite for document processing
-   - Validate search quality with different document types
-   - Benchmark performance with large document collections
-
-## Technical Notes
-
-- The system is designed to work with or without pgvector extension
-- When pgvector is not available, a fallback similarity search using cosine distance is used
-- Document chunks are stored with metadata to support filtering and ranking
-- The embedding model used is all-MiniLM-L6-v2 with 384 dimensions
+- Consider adding more sophisticated indexing strategies as the document collection grows
+- Explore pgvector's additional similarity metrics (Euclidean distance, inner product) for different use cases
+- Optimize chunk size and overlap parameters for better search results
+- Implement caching strategies for frequently accessed documents

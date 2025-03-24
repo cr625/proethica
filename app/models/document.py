@@ -3,13 +3,8 @@ from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSONB
 
 # Import Vector type from pgvector
-try:
-    from pgvector.sqlalchemy import Vector
-    VECTOR_AVAILABLE = True
-except ImportError:
-    # Fallback for development without pgvector installed
-    from sqlalchemy import Text as Vector
-    VECTOR_AVAILABLE = False
+from pgvector.sqlalchemy import Vector
+VECTOR_AVAILABLE = True
 
 class Document(db.Model):
     """
@@ -66,8 +61,8 @@ class DocumentChunk(db.Model):
     document_id = db.Column(db.Integer, db.ForeignKey('documents.id', ondelete='CASCADE'))
     chunk_index = db.Column(db.Integer, nullable=False)
     chunk_text = db.Column(db.Text, nullable=False)
-    # Always use Text type for embedding to avoid issues with pgvector
-    embedding = db.Column(db.Text)  # Store as JSON string
+    # Use Vector type for embedding
+    embedding = db.Column(Vector(384))  # 384 is the dimension of the all-MiniLM-L6-v2 model
     chunk_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict with SQLAlchemy
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
