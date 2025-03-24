@@ -25,16 +25,21 @@ The application currently has:
 I'm looking to significantly enhance the application with:
 
 1. **Advanced LangChain and LangGraph Integration**:
-   - Multi-agent architecture for ethical reasoning
-   - Complex workflow for scenario simulation
+   - Multi-agent architecture focused on virtue ethics and professional roles
+   - Temporal workflow for scenario simulation
    - Better memory and state management
    - More robust evaluation framework
 
 2. **Document Embedding System**:
    - Processing pipeline for uploaded documents
-   - Embedding model for ethical guidelines
+   - Open-source embedding model (Sentence-Transformers)
+   - PostgreSQL with pgvector for storage
    - Retrieval system for semantic search
-   - Integration with existing components
+
+3. **API Call Optimization**:
+   - Strategies to minimize Anthropic API calls
+   - Caching and batching mechanisms
+   - Hybrid approach using open-source models where possible
 
 ## High-Level Architecture
 
@@ -64,7 +69,7 @@ I'm looking to significantly enhance the application with:
 │  │      LangChain Layer        │    │    LangGraph Layer      │ │
 │  │                             │    │                         │ │
 │  │  ┌─────────┐  ┌─────────┐   │    │  ┌─────────┐            │ │
-│  │  │ Ethical │  │ Domain  │   │    │  │Scenario │            │ │
+│  │  │ Virtue  │  │ Domain  │   │    │  │Temporal │            │ │
 │  │  │ Agents  │  │ Tools   │   │    │  │Workflow │            │ │
 │  │  └─────────┘  └─────────┘   │    │  └─────────┘            │ │
 │  │                             │    │                         │ │
@@ -79,157 +84,175 @@ I'm looking to significantly enhance the application with:
 │                      Data Layer                                  │
 │                                                                  │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
-│  │ PostgreSQL  │    │ Vector      │    │ External Services   │  │
-│  │ Database    │    │ Store       │    │ (MCP, Zotero)       │  │
+│  │ PostgreSQL  │    │ pgvector    │    │ External Services   │  │
+│  │ Database    │    │ Extension   │    │ (MCP, Zotero)       │  │
 │  └─────────────┘    └─────────────┘    └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Detailed Enhancement Plans
 
-### 1. LangChain and LangGraph Enhancement
+### 1. Multi-Agent Ethical Reasoning System (Virtue Ethics Focus)
 
-#### Multi-Agent Ethical Reasoning System
+#### Agent Architecture
 
-Implement a multi-agent system where different agents represent different ethical perspectives:
+```mermaid
+graph TD
+    A[Coordinator Agent] --> B[Professional Role Agent]
+    A --> C[Virtue Ethics Agent]
+    A --> D[Domain Expert Agent]
+    B --> E[Role-Specific Virtues]
+    C --> F[Character Traits Analysis]
+    D --> G[Domain Knowledge]
+    E --> H[Decision Evaluation]
+    F --> H
+    G --> H
+    H --> I[Final Assessment]
+```
 
-1. **Agent Types**:
-   - **Utilitarian Agent**: Focuses on maximizing overall welfare
-   - **Deontological Agent**: Focuses on duties, rights, and rules
-   - **Virtue Ethics Agent**: Focuses on character and intentions
-   - **Domain Expert Agent**: Provides domain-specific knowledge
-   - **Coordinator Agent**: Synthesizes perspectives and resolves conflicts
+1. **Professional Role Agent**:
+   - Focus on role-specific virtues (e.g., attorney virtues: integrity, confidentiality, loyalty)
+   - Evaluate actions against professional standards and codes of conduct
+   - Use ontology data from MCP to access role definitions and expectations
 
-2. **Agent Architecture**:
-   - Use LangChain's ReAct or Plan-and-Execute patterns
-   - Implement custom tools for accessing guidelines and cases
-   - Create a shared memory system for agent communication
-   - Implement a debate protocol for ethical deliberation
+2. **Virtue Ethics Agent**:
+   - Analyze character traits and intentions behind actions
+   - Evaluate whether actions demonstrate virtuous character
+   - Consider how decisions reflect on the character's moral development
 
-3. **Tool Integration**:
-   - **Guideline Retriever**: Accesses relevant ethical guidelines
-   - **Case Retriever**: Finds similar historical cases
-   - **Ontology Tool**: Queries domain ontology via MCP
-   - **Reference Tool**: Accesses academic literature via Zotero
+3. **Domain Expert Agent**:
+   - Provide domain-specific knowledge (legal, engineering, military)
+   - Contextualize decisions within domain practices
+   - Reference relevant cases and precedents
 
-#### Advanced LangGraph Workflow
+4. **Coordinator Agent**:
+   - Synthesize perspectives from other agents
+   - Manage deliberation process
+   - Generate final assessment
 
-Enhance the scenario simulation workflow:
+#### API Call Optimization
 
-1. **Workflow Structure**:
-   - **Assessment Node**: Analyzes scenario state
-   - **Option Generation Node**: Creates possible actions
-   - **Deliberation Node**: Evaluates options using multi-agent system
-   - **Decision Node**: Selects best action
-   - **Consequence Node**: Simulates outcomes of actions
-   - **Evaluation Node**: Assesses ethical implications
+- Implement caching for similar ethical queries
+- Batch related questions in single API calls
+- Use structured output formats to maximize information per call
+- Pre-compute common ethical assessments
 
-2. **Workflow Features**:
-   - Parallel execution for multi-agent deliberation
-   - Conditional branching based on scenario state
-   - Feedback loops for iterative reasoning
-   - Human-in-the-loop capabilities
-   - Error handling and recovery mechanisms
+### 2. Temporal LangGraph Workflow
 
-3. **State Management**:
-   - Implement a comprehensive state representation
-   - Create state transition functions
-   - Persist state between simulation steps
-   - Handle complex entity relationships
-   - Integrate with database for storage and retrieval
+#### Enhanced Timeline Processing
 
-### 2. Document Embedding System
+```mermaid
+graph TD
+    A[Timeline Initialization] --> B[Event Analysis Node]
+    B --> C[Temporal Context Node]
+    C --> D[Character State Node]
+    D --> E[Decision Point Node]
+    E -->|Decision Made| F[Consequence Node]
+    F --> G[Timeline Update Node]
+    G --> B
+    E -->|Request More Info| H[Information Gathering Node]
+    H --> D
+```
+
+1. **Temporal Context Node**:
+   - Track event sequences and causal relationships
+   - Maintain timeline state with past, present, and potential future events
+   - Analyze temporal patterns in ethical decision-making
+
+2. **Character State Node**:
+   - Track character knowledge, beliefs, and emotional states over time
+   - Update character states based on events and actions
+   - Model how character virtues develop or change through scenario
+
+3. **Decision Point Node**:
+   - Identify critical decision moments in timeline
+   - Generate and evaluate possible actions
+   - Integrate with multi-agent system for ethical assessment
+
+4. **Consequence Node**:
+   - Simulate outcomes of decisions
+   - Update scenario state based on actions
+   - Create new events that flow from decisions
+
+### 3. Document Embedding System with Open-Source Models
 
 #### Document Processing Pipeline
 
-1. **Document Loaders**:
-   - PDF Loader using PyPDF2 or PDFMiner
-   - DOCX Loader using python-docx
-   - TXT Loader for plain text
-   - HTML Loader for web content
+```mermaid
+graph LR
+    A[Document Upload] --> B[Text Extraction]
+    B --> C[Preprocessing]
+    C --> D[Chunking]
+    D --> E[Embedding Generation]
+    E --> F[pgvector Storage]
+    F --> G[Retrieval API]
+```
 
-2. **Text Extraction and Preprocessing**:
-   - Structure preservation (headings, sections, lists)
-   - Metadata extraction (title, author, date)
-   - Text cleaning (remove artifacts, normalize whitespace)
-   - Language detection and handling
+1. **Recommended Open-Source Embedding Models**:
+   - Primary: `all-MiniLM-L6-v2` (small, fast, good quality)
+   - Alternative: `all-mpnet-base-v2` (higher quality but larger)
+   - Multilingual option: `paraphrase-multilingual-MiniLM-L12-v2`
 
-3. **Text Splitting**:
-   - Hierarchical splitting for structured guidelines
-   - Semantic splitting based on content boundaries
-   - Overlap to maintain context between chunks
-   - Metadata preservation in chunks
+2. **Cloud Hosting Options**:
+   - Hugging Face Inference API
+   - Lightweight self-hosted option with FastAPI
 
-#### Embedding System
+3. **Chunking Strategy**:
+   - Semantic chunking based on paragraph/section boundaries
+   - Overlap between chunks (50-100 tokens)
+   - Hierarchical chunking for structured documents
 
-1. **Embedding Model Selection**:
-   - OpenAI text-embedding-3-small for high quality
-   - Sentence-Transformers models for local processing
-   - Domain-specific fine-tuned models if needed
+### 4. pgvector Integration
 
-2. **Embedding Generation**:
-   - Batch processing for efficiency
-   - Caching to avoid redundant embedding
-   - Versioning to track changes
-   - Metadata enrichment
+#### Schema Design
 
-3. **Storage Options**:
-   - PostgreSQL with pgvector extension
-   - Integration with existing database schema
-   - Indexing for efficient retrieval
-   - Backup and recovery procedures
+```sql
+-- Extension and table for document embeddings
+CREATE EXTENSION IF NOT EXISTS vector;
 
-#### Retrieval System
+CREATE TABLE document_embeddings (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER REFERENCES documents(id),
+    chunk_index INTEGER,
+    chunk_text TEXT,
+    embedding vector(384),  -- For all-MiniLM-L6-v2
+    metadata JSONB
+);
 
-1. **Search Capabilities**:
-   - Semantic search using vector similarity
-   - Hybrid search combining keywords and vectors
-   - Metadata filtering (domain, source, date)
-   - Relevance scoring and ranking
+CREATE INDEX ON document_embeddings USING ivfflat (embedding vector_cosine_ops);
+```
 
-2. **Integration Points**:
-   - API endpoints for web interface
-   - Integration with LangChain retrievers
-   - Connection to agent tools
-   - Hooks for feedback and improvement
+#### Optimization Strategies
 
-3. **Advanced Features**:
-   - Maximum Marginal Relevance for diversity
-   - Reranking for improved relevance
-   - Query expansion for better recall
-   - Contextual compression for focused retrieval
+1. **Efficient Indexing**:
+   - Use IVFFlat indexes for faster similarity search
+   - Tune index parameters based on dataset size
+
+2. **Batch Processing**:
+   - Process documents in batches to minimize overhead
+   - Implement background processing for large documents
 
 ## Implementation Roadmap
 
-### Phase 1: Foundation (Weeks 1-2)
-- Set up document processing pipeline
-- Implement basic embedding generation
-- Create database schema extensions
-- Establish basic retrieval functionality
+### Phase 1: Foundation (2-3 weeks)
+- Set up Sentence-Transformers embedding pipeline
+- Implement pgvector schema and basic retrieval
+- Design virtue ethics agent framework
 
-### Phase 2: LangChain Enhancement (Weeks 3-4)
-- Implement multi-agent architecture
-- Create custom tools for agents
-- Develop memory systems
-- Integrate with retrieval system
+### Phase 2: Core Components (3-4 weeks)
+- Implement professional role agent
+- Develop temporal context and character state nodes
+- Create document processing pipeline
 
-### Phase 3: LangGraph Enhancement (Weeks 5-6)
-- Design advanced workflow
-- Implement state management
-- Create specialized nodes
-- Add human-in-the-loop capabilities
+### Phase 3: Integration (2-3 weeks)
+- Connect embedding system with LangGraph workflow
+- Implement coordinator agent
+- Develop API call optimization strategies
 
-### Phase 4: Integration and Testing (Weeks 7-8)
-- Connect all components
-- Develop evaluation framework
-- Perform comprehensive testing
+### Phase 4: Testing and Refinement (2 weeks)
+- Test with existing scenarios
 - Optimize performance
-
-### Phase 5: Refinement and Documentation (Weeks 9-10)
-- Address feedback and issues
-- Refine user interface
-- Create comprehensive documentation
-- Prepare for deployment
+- Refine agent interactions
 
 ## Technical Considerations
 
@@ -278,23 +301,3 @@ Evaluate the enhanced system based on:
    - Search result relevance
    - Clarity of ethical reasoning
    - Overall system usability
-
-## Specific Implementation Questions
-
-1. Which embedding model would be most appropriate for ethical guidelines across different domains?
-2. How should the multi-agent system be structured to best represent different ethical perspectives?
-3. What is the optimal chunking strategy for ethical guidelines with hierarchical information?
-4. How can we effectively integrate the LangChain agents with the LangGraph workflow?
-5. What memory patterns would be most effective for maintaining context in long simulations?
-6. Should we use PostgreSQL with pgvector or a dedicated vector database?
-7. How can we ensure the system remains computationally efficient as complexity increases?
-8. What evaluation metrics would best capture the quality of ethical reasoning?
-
-## Next Immediate Steps
-
-1. Set up the document processing pipeline with support for PDF, DOCX, and TXT
-2. Implement and test embedding generation with OpenAI embeddings
-3. Create the PostgreSQL schema extensions for storing embeddings
-4. Develop the basic retrieval system with semantic search capabilities
-5. Design the multi-agent architecture for ethical reasoning
-6. Implement the first version of the enhanced LangGraph workflow
