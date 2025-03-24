@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
 from app import db
 from app.models.world import World
 from app.models.scenario import Scenario
@@ -112,6 +114,56 @@ def update_world_form(id):
     world.ontology_source = request.form.get('ontology_source', '')
     world.guidelines_url = request.form.get('guidelines_url', '')
     world.guidelines_text = request.form.get('guidelines_text', '')
+    
+    # Handle guidelines file upload
+    if 'guidelines_file' in request.files:
+        file = request.files['guidelines_file']
+        if file and file.filename:
+            # Check if file type is allowed
+            if '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in {'pdf', 'docx', 'txt', 'html', 'htm'}:
+                # Configure upload folder
+                UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                
+                # Save file
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(file_path)
+                
+                # Get file type
+                file_type = filename.rsplit('.', 1)[1].lower()
+                
+                # Create document record
+                from app.models.document import Document
+                document = Document(
+                    title=f"Guidelines for {world.name}",
+                    document_type="guideline",
+                    world_id=world.id,
+                    file_path=file_path,
+                    file_type=file_type
+                )
+                db.session.add(document)
+                db.session.commit()
+                
+                # Process document in background (in a real application, this would be a Celery task)
+                # For now, we'll process it synchronously
+                from app.services.embedding_service import EmbeddingService
+                try:
+                    embedding_service = EmbeddingService()
+                    embedding_service.process_document(document.id)
+                    flash('Guidelines document processed successfully', 'success')
+                except Exception as e:
+                    flash(f'Error processing guidelines document: {str(e)}', 'error')
+                
+                # Update guidelines text with file content
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        world.guidelines_text = f.read()
+                except Exception as e:
+                    # If we can't read the file as text, don't update guidelines_text
+                    flash(f'Could not extract text from file: {str(e)}', 'warning')
+            else:
+                flash('File type not allowed. Allowed types: pdf, docx, txt, html, htm', 'error')
     
     db.session.commit()
     

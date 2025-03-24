@@ -13,3 +13,4 @@ from app.models.event_entity import event_entity
 from app.models.event import Event, Action
 from app.models.evaluation import Evaluation
 from app.models.decision import Decision
+from app.models.document import Document, DocumentChunk

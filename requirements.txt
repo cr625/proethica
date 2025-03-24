@@ -19,8 +19,14 @@ langgraph
 # Model Context Protocol
 mcp[cli]
 
-# Vector database
+# Vector database and embeddings
 chromadb
+pgvector  # PostgreSQL vector extension
+sentence-transformers  # For generating embeddings
+PyPDF2  # For PDF text extraction
+python-docx  # For DOCX text extraction
+beautifulsoup4  # For HTML text extraction
+requests  # For URL fetching
 
 # Zotero integration
 pyzotero
