@@ -23,6 +23,9 @@ class MCPClient:
         
         # Initialize session
         self.session = requests.Session()
+        
+        # Initialize ZoteroClient reference (used for testing)
+        self._zotero_client = None
     
     def get_guidelines(self, world_name: str) -> Dict[str, Any]:
         """
@@ -113,8 +116,8 @@ class MCPClient:
             # Create query string
             query = " ".join(query_parts)
             
-            # Get ZoteroClient instance directly
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Search for references using the ZoteroClient's search_items method directly
             return zotero_client.search_items(query)
@@ -171,8 +174,8 @@ class MCPClient:
             List of items
         """
         try:
-            # Get ZoteroClient instance using the singleton pattern
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance using the singleton pattern or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Search for items
             items = zotero_client.search_items(query, collection_key, limit)
@@ -193,8 +196,8 @@ class MCPClient:
             Citation text
         """
         try:
-            # Get ZoteroClient instance using the singleton pattern
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance using the singleton pattern or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Get citation
             return zotero_client.get_citation(item_key, style)
@@ -214,8 +217,8 @@ class MCPClient:
             Bibliography text
         """
         try:
-            # Get ZoteroClient instance
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Get bibliography
             return zotero_client.get_bibliography(item_keys, style)
@@ -231,8 +234,8 @@ class MCPClient:
             List of collections
         """
         try:
-            # Get ZoteroClient instance
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Get collections
             return zotero_client.get_collections()
@@ -251,8 +254,8 @@ class MCPClient:
             List of items
         """
         try:
-            # Get ZoteroClient instance
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Get recent items
             return zotero_client.get_recent_items(limit)
@@ -276,8 +279,8 @@ class MCPClient:
             Response from the Zotero API
         """
         try:
-            # Get ZoteroClient instance
-            zotero_client = ZoteroClient.get_instance()
+            # Get ZoteroClient instance or use the one set for testing
+            zotero_client = self._zotero_client if self._zotero_client else ZoteroClient.get_instance()
             
             # Add item
             return zotero_client.add_item(item_type, title, creators, collection_key, additional_fields)
