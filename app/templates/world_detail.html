@@ -306,29 +306,25 @@
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3>Guidelines</h3>
+                    <div>
+                        <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-primary">
+                            <i class="fas fa-book"></i> View All Guidelines
+                        </a>
+                        <a href="{{ url_for('worlds.edit_world', id=world.id) }}" class="btn btn-success">
+                            <i class="fas fa-plus"></i> Add Guidelines
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
-                    {% if world.guidelines_url %}
-                    <div class="mb-4">
-                        <h4>Guidelines URL</h4>
-                        <p><a href="{{ world.guidelines_url }}" target="_blank">{{ world.guidelines_url }}</a></p>
-                    </div>
-                    {% endif %}
+                    <p>Guidelines provide a framework for ethical decision-making in this world.</p>
+                    <p>You can add guidelines as text, upload files (PDF, DOCX, TXT), or link to external resources.</p>
 
-                    {% if world.guidelines_text %}
-                    <div class="mb-4">
-                        <h4>Guidelines Text</h4>
-                        <div class="p-3 bg-light rounded">
-                            <pre class="mb-0" style="white-space: pre-wrap;">{{ world.guidelines_text }}</pre>
-                        </div>
+                    <div class="d-grid gap-2 col-md-6 mx-auto mt-4">
+                        <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}"
+                            class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-book"></i> View All Guidelines
+                        </a>
                     </div>
-                    {% endif %}
-
-                    {% if not world.guidelines_url and not world.guidelines_text %}
-                    <div class="alert alert-info">
-                        <p>No guidelines have been added for this world yet.</p>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>

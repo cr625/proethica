@@ -46,6 +46,10 @@ def create_app(config_name='default'):
     app.register_blueprint(mcp_api_bp)
     app.register_blueprint(documents_bp)
     
+    # Register template filters
+    from app import template_filters
+    template_filters.init_app(app)
+    
     # Import MCPClient here to avoid circular imports
     from app.services import MCPClient
     
@@ -56,14 +60,6 @@ def create_app(config_name='default'):
     @app.route('/')
     def index():
         return render_template('index.html')
-    
-    @app.route('/guidelines')
-    def guidelines():
-        try:
-            guidelines_data = client.get_guidelines()
-            return render_template('guidelines.html', guidelines=guidelines_data.get('guidelines', []))
-        except Exception as e:
-            return render_template('guidelines.html', guidelines=[], error=str(e))
     
     @app.route('/cases')
     def cases():

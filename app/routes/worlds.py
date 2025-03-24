@@ -112,8 +112,6 @@ def update_world_form(id):
     world.name = request.form.get('name', '')
     world.description = request.form.get('description', '')
     world.ontology_source = request.form.get('ontology_source', '')
-    world.guidelines_url = request.form.get('guidelines_url', '')
-    world.guidelines_text = request.form.get('guidelines_text', '')
     
     # Handle guidelines file upload
     if 'guidelines_file' in request.files:
@@ -136,7 +134,7 @@ def update_world_form(id):
                 # Create document record
                 from app.models.document import Document
                 document = Document(
-                    title=f"Guidelines for {world.name}",
+                    title=request.form.get('guidelines_title', f"Guidelines for {world.name}"),
                     document_type="guideline",
                     world_id=world.id,
                     file_path=file_path,
@@ -155,16 +153,67 @@ def update_world_form(id):
                     flash('Guidelines document processed successfully', 'success')
                 except Exception as e:
                     flash(f'Error processing guidelines document: {str(e)}', 'error')
-                
-                # Update guidelines text with file content
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        world.guidelines_text = f.read()
-                except Exception as e:
-                    # If we can't read the file as text, don't update guidelines_text
-                    flash(f'Could not extract text from file: {str(e)}', 'warning')
             else:
                 flash('File type not allowed. Allowed types: pdf, docx, txt, html, htm', 'error')
+    
+    # Handle guidelines URL
+    guidelines_url = request.form.get('guidelines_url', '').strip()
+    if guidelines_url:
+        # Create document record for URL
+        from app.models.document import Document
+        from app.services.embedding_service import EmbeddingService
+        
+        try:
+            # Process the URL using the embedding service
+            embedding_service = EmbeddingService()
+            document_id = embedding_service.process_url(
+                guidelines_url,
+                request.form.get('guidelines_title', f"Guidelines URL for {world.name}"),
+                "guideline",
+                world.id
+            )
+            flash('Guidelines URL processed successfully', 'success')
+        except Exception as e:
+            flash(f'Error processing guidelines URL: {str(e)}', 'error')
+            
+            # Create a Document record for the URL without processing
+            document = Document(
+                title=request.form.get('guidelines_title', f"Guidelines URL for {world.name}"),
+                document_type="guideline",
+                world_id=world.id,
+                source=guidelines_url,
+                file_type="url",
+                doc_metadata={}
+            )
+            db.session.add(document)
+            db.session.commit()
+    
+    # Handle guidelines text
+    guidelines_text = request.form.get('guidelines_text', '').strip()
+    if guidelines_text:
+        # Create document record for text
+        from app.models.document import Document
+        document = Document(
+            title=request.form.get('guidelines_title', f"Guidelines Text for {world.name}"),
+            document_type="guideline",
+            world_id=world.id,
+            content=guidelines_text,
+            file_type="txt",
+            doc_metadata={}
+        )
+        db.session.add(document)
+        db.session.commit()
+        
+        # Create chunks and embeddings for the document
+        from app.services.embedding_service import EmbeddingService
+        try:
+            embedding_service = EmbeddingService()
+            chunks = embedding_service._split_text(guidelines_text)
+            embeddings = embedding_service.embed_documents(chunks)
+            embedding_service._store_chunks(document.id, chunks, embeddings)
+            flash('Guidelines text processed successfully', 'success')
+        except Exception as e:
+            flash(f'Error processing guidelines text: {str(e)}', 'error')
     
     db.session.commit()
     
@@ -184,12 +233,62 @@ def update_world(id):
         world.description = data['description']
     if 'ontology_source' in data:
         world.ontology_source = data['ontology_source']
-    if 'guidelines_url' in data:
-        world.guidelines_url = data['guidelines_url']
-    if 'guidelines_text' in data:
-        world.guidelines_text = data['guidelines_text']
     if 'metadata' in data:
-        world.metadata = data['metadata']
+        world.world_metadata = data['metadata']
+    
+    # Handle guidelines if provided
+    if 'guidelines' in data:
+        guidelines = data['guidelines']
+        
+        # Process guidelines URL
+        if 'url' in guidelines and guidelines['url']:
+            from app.models.document import Document
+            from app.services.embedding_service import EmbeddingService
+            
+            try:
+                # Process the URL using the embedding service
+                embedding_service = EmbeddingService()
+                document_id = embedding_service.process_url(
+                    guidelines['url'],
+                    guidelines.get('title', f"Guidelines URL for {world.name}"),
+                    "guideline",
+                    world.id
+                )
+            except Exception as e:
+                # Create a Document record for the URL without processing
+                document = Document(
+                    title=guidelines.get('title', f"Guidelines URL for {world.name}"),
+                    document_type="guideline",
+                    world_id=world.id,
+                    source=guidelines['url'],
+                    file_type="url",
+                    doc_metadata={}
+                )
+                db.session.add(document)
+        
+        # Process guidelines text
+        if 'text' in guidelines and guidelines['text']:
+            from app.models.document import Document
+            document = Document(
+                title=guidelines.get('title', f"Guidelines Text for {world.name}"),
+                document_type="guideline",
+                world_id=world.id,
+                content=guidelines['text'],
+                file_type="txt",
+                doc_metadata={}
+            )
+            db.session.add(document)
+            
+            # Create chunks and embeddings for the document
+            from app.services.embedding_service import EmbeddingService
+            try:
+                embedding_service = EmbeddingService()
+                chunks = embedding_service._split_text(guidelines['text'])
+                embeddings = embedding_service.embed_documents(chunks)
+                db.session.flush()  # Get document ID
+                embedding_service._store_chunks(document.id, chunks, embeddings)
+            except Exception:
+                pass  # Ignore embedding errors in API
     
     db.session.commit()
     
@@ -351,6 +450,50 @@ def delete_ruleset(id, ruleset_id):
         'success': True,
         'message': 'Ruleset deleted successfully'
     })
+
+# Guidelines routes
+@worlds_bp.route('/<int:id>/guidelines', methods=['GET'])
+def world_guidelines(id):
+    """Display guidelines for a world."""
+    world = World.query.get_or_404(id)
+    
+    # Get all guidelines documents for this world
+    from app.models.document import Document
+    guidelines = Document.query.filter_by(world_id=world.id, document_type="guideline").all()
+    
+    return render_template('guidelines.html', world=world, guidelines=guidelines)
+
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
+def delete_guideline(id, document_id):
+    """Delete a guideline document."""
+    world = World.query.get_or_404(id)
+    
+    from app.models.document import Document
+    document = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if document.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Check if document is a guideline
+    if document.document_type != "guideline":
+        flash('Document is not a guideline', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Delete the file if it exists
+    if document.file_path and os.path.exists(document.file_path):
+        try:
+            os.remove(document.file_path)
+        except Exception as e:
+            flash(f'Error deleting file: {str(e)}', 'warning')
+    
+    # Delete the document
+    db.session.delete(document)
+    db.session.commit()
+    
+    flash('Guideline deleted successfully', 'success')
+    return redirect(url_for('worlds.world_guidelines', id=world.id))
 
 # References routes
 @worlds_bp.route('/<int:id>/references', methods=['GET'])

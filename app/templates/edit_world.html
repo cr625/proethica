@@ -1,4 +1,4 @@
-hyt{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Edit World: {{ world.name }} - AI Ethical Decision-Making Simulator{% endblock %}
 
@@ -39,27 +39,75 @@ hyt{% extends "base.html" %}
                 </div>
 
                 <hr class="my-4">
-                <h4>Guidelines</h4>
+                <h4>Add Guidelines</h4>
+                <p class="text-muted mb-4">Add guidelines to help users understand the ethical principles and
+                    decision-making framework for this world. You can add multiple guidelines.</p>
 
-                <div class="mb-3">
-                    <label for="guidelines_url" class="form-label">Guidelines URL</label>
-                    <input type="url" class="form-control" id="guidelines_url" name="guidelines_url"
-                        value="{{ world.guidelines_url }}">
-                    <div class="form-text">URL to external guidelines document.</div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add Guidelines Document</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="guidelines_title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="guidelines_title" name="guidelines_title"
+                                placeholder="e.g., Medical Ethics Guidelines">
+                            <div class="form-text">A descriptive title for these guidelines.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="guidelines_file" class="form-label">Upload Document</label>
+                            <input type="file" class="form-control" id="guidelines_file" name="guidelines_file">
+                            <div class="form-text">Upload a document containing guidelines (PDF, DOCX, TXT, HTML).</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label for="guidelines_text" class="form-label">Guidelines Text</label>
-                    <textarea class="form-control" id="guidelines_text" name="guidelines_text"
-                        rows="6">{{ world.guidelines_text }}</textarea>
-                    <div class="form-text">Enter guidelines text directly or upload a file below.</div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add Guidelines URL</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="guidelines_title_url" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="guidelines_title_url" name="guidelines_title"
+                                placeholder="e.g., External Ethics Resource">
+                            <div class="form-text">A descriptive title for this external resource.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="guidelines_url" class="form-label">URL</label>
+                            <input type="url" class="form-control" id="guidelines_url" name="guidelines_url"
+                                placeholder="https://example.com/guidelines">
+                            <div class="form-text">URL to an external guidelines document or resource.</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label for="guidelines_file" class="form-label">Upload Guidelines Document</label>
-                    <input type="file" class="form-control" id="guidelines_file" name="guidelines_file">
-                    <div class="form-text">Upload a text file containing guidelines. This will replace any existing
-                        guidelines text.</div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add Guidelines Text</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="guidelines_title_text" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="guidelines_title_text" name="guidelines_title"
+                                placeholder="e.g., Core Principles">
+                            <div class="form-text">A descriptive title for these guidelines.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="guidelines_text" class="form-label">Guidelines Text</label>
+                            <textarea class="form-control" id="guidelines_text" name="guidelines_text" rows="6"
+                                placeholder="Enter guidelines text here..."></textarea>
+                            <div class="form-text">Enter guidelines text directly.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> You can view and manage all guidelines from the World Details
+                    page.
                 </div>
 
                 <hr class="my-4">
