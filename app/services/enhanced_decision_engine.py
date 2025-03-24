@@ -5,7 +5,7 @@ Enhanced Decision Engine that uses vector similarity search for retrieving relev
 from typing import Dict, List, Any, Optional, Union
 import logging
 from app.services.decision_engine import DecisionEngine
-from app.services.embedding_service import EmbeddingService
+# Import EmbeddingService in methods to avoid circular imports
 from app.models.document import Document, DocumentChunk
 
 # Set up logging
@@ -30,7 +30,12 @@ class EnhancedDecisionEngine(DecisionEngine):
         super().__init__(llm_service, mcp_client)
         
         # Initialize the embedding service
-        self.embedding_service = embedding_service or EmbeddingService()
+        if embedding_service:
+            self.embedding_service = embedding_service
+        else:
+            # Import here to avoid circular imports
+            from app.services.embedding_service import EmbeddingService
+            self.embedding_service = EmbeddingService()
     
     def evaluate_decision(self, decision, scenario, character=None, guidelines=None):
         """

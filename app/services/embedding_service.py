@@ -14,9 +14,11 @@ import PyPDF2
 from docx import Document as DocxDocument
 from bs4 import BeautifulSoup
 import requests
+from flask import current_app
 
-from app import db
-from app.models.document import Document, DocumentChunk
+# Import models directly to avoid circular imports
+from app.models.document import Document, DocumentChunk, VECTOR_AVAILABLE
+import json
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ class EmbeddingService:
             
             # Update document with extracted text
             document.content = text
+            from app import db
             db.session.commit()
             
             # Split text into chunks
@@ -167,23 +170,28 @@ class EmbeddingService:
     def _store_chunks(self, document_id: int, chunks: List[str], embeddings: List[List[float]]) -> None:
         """Store text chunks with their embeddings."""
         try:
+            # Get db
+            from app import db
+            
             # Delete existing chunks for this document
             DocumentChunk.query.filter_by(document_id=document_id).delete()
             
             # Create new chunks
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                # Always store embedding as JSON string
                 chunk_record = DocumentChunk(
                     document_id=document_id,
                     chunk_index=i,
                     chunk_text=chunk,
-                    embedding=embedding,
-                    metadata={"index": i}
+                    embedding=json.dumps(embedding),
+                    chunk_metadata={"index": i}
                 )
                 db.session.add(chunk_record)
             
             db.session.commit()
             logger.info(f"Stored {len(chunks)} chunks for document {document_id}")
         except Exception as e:
+            from app import db
             db.session.rollback()
             logger.error(f"Error storing chunks: {str(e)}")
             raise
@@ -195,67 +203,149 @@ class EmbeddingService:
             # Generate query embedding
             query_embedding = self.embed_query(query)
             
-            # Build base query
-            sql_query = """
-            SELECT 
-                dc.id,
-                dc.chunk_text, 
-                dc.metadata,
-                d.title,
-                d.source,
-                d.document_type,
-                d.world_id,
-                dc.embedding <-> :query_embedding AS distance
-            FROM 
-                document_chunks dc
-            JOIN 
-                documents d ON dc.document_id = d.id
-            """
+            # Get db
+            from app import db
             
-            # Add filters if provided
-            where_clauses = []
-            params = {"query_embedding": query_embedding}
-            
-            if world_id:
-                where_clauses.append("d.world_id = :world_id")
-                params['world_id'] = world_id
-            
-            if document_type:
-                where_clauses.append("d.document_type = :document_type")
-                params['document_type'] = document_type
-            
-            if where_clauses:
-                sql_query += " WHERE " + " AND ".join(where_clauses)
-            
-            # Add ordering and limit
-            sql_query += """
-            ORDER BY distance
-            LIMIT :k
-            """
-            params['k'] = k
-            
-            # Execute query
-            result = db.session.execute(text(sql_query), params)
-            
-            # Format results
-            results = []
-            for row in result:
-                results.append({
-                    'id': row.id,
-                    'chunk_text': row.chunk_text,
-                    'metadata': row.metadata,
-                    'title': row.title,
-                    'source': row.source,
-                    'document_type': row.document_type,
-                    'world_id': row.world_id,
-                    'distance': float(row.distance)
-                })
+            if VECTOR_AVAILABLE:
+                # Use pgvector for similarity search
+                # Build base query
+                sql_query = """
+                SELECT 
+                    dc.id,
+                    dc.chunk_text, 
+                    dc.chunk_metadata as metadata,
+                    d.title,
+                    d.source,
+                    d.document_type,
+                    d.world_id,
+                    dc.embedding <-> :query_embedding AS distance
+                FROM 
+                    document_chunks dc
+                JOIN 
+                    documents d ON dc.document_id = d.id
+                """
+                
+                # Add filters if provided
+                where_clauses = []
+                params = {"query_embedding": query_embedding}
+                
+                if world_id:
+                    where_clauses.append("d.world_id = :world_id")
+                    params['world_id'] = world_id
+                
+                if document_type:
+                    where_clauses.append("d.document_type = :document_type")
+                    params['document_type'] = document_type
+                
+                if where_clauses:
+                    sql_query += " WHERE " + " AND ".join(where_clauses)
+                
+                # Add ordering and limit
+                sql_query += """
+                ORDER BY distance
+                LIMIT :k
+                """
+                params['k'] = k
+                
+                # Execute query
+                result = db.session.execute(text(sql_query), params)
+                
+                # Format results
+                results = []
+                for row in result:
+                    results.append({
+                        'id': row.id,
+                        'chunk_text': row.chunk_text,
+                        'metadata': row.metadata,
+                        'title': row.title,
+                        'source': row.source,
+                        'document_type': row.document_type,
+                        'world_id': row.world_id,
+                        'distance': float(row.distance)
+                    })
+            else:
+                # Fallback to manual similarity search when pgvector not available
+                logger.warning("pgvector not available, using fallback similarity search")
+                
+                # Build query to get chunks
+                sql_query = """
+                SELECT 
+                    dc.id,
+                    dc.chunk_text, 
+                    dc.embedding,
+                    dc.chunk_metadata as metadata,
+                    d.title,
+                    d.source,
+                    d.document_type,
+                    d.world_id
+                FROM 
+                    document_chunks dc
+                JOIN 
+                    documents d ON dc.document_id = d.id
+                """
+                
+                # Add filters if provided
+                where_clauses = []
+                params = {}
+                
+                if world_id:
+                    where_clauses.append("d.world_id = :world_id")
+                    params['world_id'] = world_id
+                
+                if document_type:
+                    where_clauses.append("d.document_type = :document_type")
+                    params['document_type'] = document_type
+                
+                if where_clauses:
+                    sql_query += " WHERE " + " AND ".join(where_clauses)
+                
+                # Execute query
+                result = db.session.execute(text(sql_query), params)
+                
+                # Calculate distances manually
+                chunks_with_distances = []
+                for row in result:
+                    # Parse embedding from JSON string
+                    chunk_embedding = json.loads(row.embedding)
+                    
+                    # Calculate cosine distance
+                    distance = self._cosine_distance(query_embedding, chunk_embedding)
+                    
+                    chunks_with_distances.append({
+                        'id': row.id,
+                        'chunk_text': row.chunk_text,
+                        'metadata': row.metadata,
+                        'title': row.title,
+                        'source': row.source,
+                        'document_type': row.document_type,
+                        'world_id': row.world_id,
+                        'distance': distance
+                    })
+                
+                # Sort by distance and take top k
+                chunks_with_distances.sort(key=lambda x: x['distance'])
+                results = chunks_with_distances[:k]
             
             logger.info(f"Found {len(results)} similar chunks for query")
             return results
         except Exception as e:
             logger.error(f"Error searching similar chunks: {str(e)}")
             raise
+    
+    def _cosine_distance(self, vec1: List[float], vec2: List[float]) -> float:
+        """Calculate cosine distance between two vectors."""
+        import numpy as np
+        from numpy.linalg import norm
+        
+        # Convert to numpy arrays
+        vec1 = np.array(vec1)
+        vec2 = np.array(vec2)
+        
+        # Calculate cosine similarity
+        cos_sim = np.dot(vec1, vec2) / (norm(vec1) * norm(vec2))
+        
+        # Convert to distance (1 - similarity)
+        return 1.0 - cos_sim
     
     def process_url(self, url: str, title: str, document_type: str, world_id: Optional[int] = None) -> int:
         """Process a URL: extract text, generate embeddings, and store chunks."""
@@ -264,6 +354,9 @@ class EmbeddingService:
             logger.info(f"Extracting text from URL: {url}")
             text = self._extract_text_from_url(url)
             
+            # Get db
+            from app import db
+            
             # Create document record
             document = Document(
                 title=title,
@@ -271,7 +364,8 @@ class EmbeddingService:
                 document_type=document_type,
                 world_id=world_id,
                 content=text,
-                file_type='html'
+                file_type='html',
+                doc_metadata={}  # Initialize with empty metadata
             )
             db.session.add(document)
             db.session.flush()  # Get document ID
@@ -293,6 +387,7 @@ class EmbeddingService:
             
             return document.id
         except Exception as e:
+            from app import db
             db.session.rollback()
             logger.error(f"Error processing URL {url}: {str(e)}")
             raise

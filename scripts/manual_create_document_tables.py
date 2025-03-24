@@ -19,15 +19,18 @@ def create_tables():
     app = create_app()
     
     with app.app_context():
-        # Enable pgvector extension
-        db.session.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
+        # Try to enable pgvector extension
+        try:
+            db.session.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
+        except Exception as e:
+            print(f"Warning: Could not enable pgvector extension: {str(e)}")
+            print("Continuing without vector similarity search support...")
         
         # Create tables
         Document.__table__.create(db.engine, checkfirst=True)
         DocumentChunk.__table__.create(db.engine, checkfirst=True)
         
-        # Create index for similarity search
-        db.session.execute(text('CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx ON document_chunks USING ivfflat (embedding vector_cosine_ops)'))
+        # No need to create vector similarity index since we're using JSON strings for embeddings
         
         db.session.commit()
         

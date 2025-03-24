@@ -140,7 +140,8 @@ def update_world_form(id):
                     document_type="guideline",
                     world_id=world.id,
                     file_path=file_path,
-                    file_type=file_type
+                    file_type=file_type,
+                    doc_metadata={}  # Initialize with empty metadata
                 )
                 db.session.add(document)
                 db.session.commit()

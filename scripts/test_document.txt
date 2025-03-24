@@ -1,0 +1,25 @@
+
+            # Test Document for Search Testing
+            
+            This is a test document to verify that the document search functionality is working correctly.
+            
+            ## Topics Covered
+            
+            1. Ethical dilemmas in healthcare
+            2. Patient autonomy and informed consent
+            3. Resource allocation in limited settings
+            4. End-of-life care decisions
+            
+            Healthcare professionals often face ethical dilemmas when patient autonomy conflicts with 
+            beneficence or non-maleficence. For example, a patient may refuse life-saving treatment 
+            based on religious beliefs, creating a conflict between respecting autonomy and the 
+            healthcare provider's duty to prevent harm.
+            
+            Resource allocation presents another ethical challenge, especially in settings with limited 
+            resources. How should scarce medical resources be distributed? Should priority be given based 
+            on severity of condition, likelihood of recovery, age, or other factors?
+            
+            End-of-life care decisions involve complex ethical considerations around quality of life, 
+            dignity in dying, and the appropriate use of life-sustaining treatments. These decisions 
+            often involve multiple stakeholders including patients, families, and healthcare providers.
+            

@@ -1,130 +1,65 @@
-# Vector Embeddings and Document Retrieval Implementation
-
-This document outlines the implementation of vector embeddings and document retrieval functionality for the AI Ethical Decision-Making Simulator.
+# Document Management and Embedding System Progress
 
 ## Overview
 
-We've implemented a system for processing, storing, and retrieving documents using vector embeddings. This allows for semantic similarity search, which is particularly useful for retrieving relevant guidelines, case studies, and other reference materials when evaluating ethical decisions.
+We've implemented a document management and embedding system that allows users to upload documents, process them for vector embeddings, and perform semantic search. This system enhances the AI Ethical DM platform by providing a way to search through guidelines, case studies, and other relevant documents.
 
-## Components
+## Components Implemented
 
-1. **Database Models**
-   - `Document`: Represents a document uploaded to the system (guidelines, case studies, etc.)
-   - `DocumentChunk`: Represents a chunk of text from a document with its vector embedding
+1. **Document Model**
+   - Created `Document` and `DocumentChunk` models in `app/models/document.py`
+   - Documents store metadata, content, and file information
+   - Document chunks store text segments with vector embeddings for similarity search
 
 2. **Embedding Service**
-   - Processes documents: extracts text, splits into chunks, generates embeddings
-   - Performs vector similarity search to find relevant documents
-   - Supports various file types: PDF, DOCX, TXT, HTML
+   - Implemented in `app/services/embedding_service.py`
+   - Uses Sentence-Transformers to generate embeddings
+   - Provides text extraction from various file formats (PDF, DOCX, TXT, HTML)
+   - Implements text chunking with overlap for better semantic search
+   - Supports both pgvector-based and fallback similarity search
 
-3. **Enhanced Decision Engine**
-   - Extends the base DecisionEngine with vector similarity search
-   - Retrieves relevant guidelines based on scenario and decision context
-   - Provides more accurate and contextually relevant evaluations
+3. **Document API Routes**
+   - Implemented in `app/routes/documents.py`
+   - Provides endpoints for document upload, retrieval, search, and management
+   - Supports filtering by world and document type
 
-4. **API Endpoints**
-   - Upload and process documents
-   - Search for documents using vector similarity
-   - Retrieve document content and metadata
+4. **Database Integration**
+   - Created tables for documents and document chunks
+   - Added support for storing vector embeddings as JSON strings when pgvector is not available
 
-5. **Integration with World Management**
-   - Upload guidelines documents when editing worlds
-   - Associate documents with specific worlds for context-aware retrieval
+## Current Status
 
-## Setup Instructions
-
-1. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Install pgvector Extension**
-   ```bash
-   ./scripts/install_pgvector.sh
-   ```
-
-3. **Enable pgvector in PostgreSQL**
-   ```bash
-   psql -d your_database_name -f scripts/enable_pgvector.sql
-   ```
-
-4. **Create Database Tables**
-   Using Flask-Migrate (recommended):
-   ```bash
-   flask db migrate -m "Add document and document_chunk tables with pgvector support"
-   flask db upgrade
-   ```
-   
-   Or using the manual script:
-   ```bash
-   python scripts/manual_create_document_tables.py
-   ```
-
-5. **Create Uploads Directory**
-   ```bash
-   mkdir -p app/uploads
-   ```
-
-Alternatively, you can run the setup script:
-```bash
-./scripts/setup_embedding_environment.sh
-```
-
-## Usage
-
-### Uploading Documents
-
-Documents can be uploaded through:
-1. The web interface when editing a world (for guidelines)
-2. The API endpoint: `POST /api/documents`
-
-### Searching Documents
-
-To search for documents using vector similarity:
-```
-POST /api/documents/search
-Content-Type: application/json
-
-{
-  "query": "Your search query here",
-  "world_id": 1,  // Optional: Filter by world
-  "document_type": "guideline",  // Optional: Filter by document type
-  "limit": 5  // Optional: Number of results to return
-}
-```
-
-### Using the Enhanced Decision Engine
-
-The EnhancedDecisionEngine can be used in place of the base DecisionEngine:
-
-```python
-from app.services import EnhancedDecisionEngine
-
-# Create an instance of the enhanced engine
-engine = EnhancedDecisionEngine()
-
-# Evaluate a decision
-result = engine.evaluate_decision(decision, scenario, character)
-```
-
-## Benefits
-
-1. **Contextual Relevance**: Retrieves guidelines and cases that are semantically relevant to the current scenario and decision, not just keyword matches.
-
-2. **Improved Accuracy**: Provides more accurate evaluations by considering the most relevant guidelines and precedents.
-
-3. **Scalability**: As the document collection grows, the system maintains efficient retrieval through vector indexing.
-
-4. **Flexibility**: Supports various document types and can be extended to include additional sources like web pages.
+- Basic document management functionality is implemented
+- Document upload and processing works
+- Semantic search is implemented with fallback for environments without pgvector
+- API endpoints are available for integration with the frontend
 
 ## Next Steps
 
-1. **Implement Batch Processing**: Add support for processing multiple documents in the background using a task queue (e.g., Celery).
+1. **Frontend Integration**
+   - Create UI components for document upload and search
+   - Implement document browsing interface
+   - Add search results visualization
 
-2. **Enhance Search Capabilities**: Add filtering by metadata, date ranges, and other criteria.
+2. **Performance Optimization**
+   - Optimize chunking strategy for better search results
+   - Implement caching for frequently accessed documents
+   - Add batch processing for large document sets
 
-3. **Improve Chunking Strategy**: Implement more sophisticated text chunking strategies based on semantic boundaries.
+3. **Enhanced Features**
+   - Add support for more document formats
+   - Implement document tagging and categorization
+   - Add relevance feedback mechanism to improve search results
+   - Integrate with the decision engine to provide relevant documents during scenario creation
 
-4. **Add Document Versioning**: Track changes to documents over time and maintain version history.
+4. **Testing and Validation**
+   - Create comprehensive test suite for document processing
+   - Validate search quality with different document types
+   - Benchmark performance with large document collections
 
-5. **Implement User Feedback**: Allow users to provide feedback on search results to improve relevance.
+## Technical Notes
+
+- The system is designed to work with or without pgvector extension
+- When pgvector is not available, a fallback similarity search using cosine distance is used
+- Document chunks are stored with metadata to support filtering and ranking
+- The embedding model used is all-MiniLM-L6-v2 with 384 dimensions

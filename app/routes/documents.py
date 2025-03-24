@@ -78,7 +78,8 @@ def upload_document():
             world_id=world_id,
             source=source,
             file_path=file_path,
-            file_type=file_type
+            file_type=file_type,
+            doc_metadata={}  # Initialize with empty metadata
         )
         
         db.session.add(document)
@@ -149,7 +150,7 @@ def get_document(document_id):
             "file_type": document.file_type,
             "file_path": document.file_path,
             "content": document.content,
-            "metadata": document.metadata,
+            "metadata": document.doc_metadata,
             "created_at": document.created_at.isoformat() if document.created_at else None,
             "updated_at": document.updated_at.isoformat() if document.updated_at else None
         })

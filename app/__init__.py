@@ -2,7 +2,6 @@ from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
-from app.services import MCPClient  # Import MCPClient once here
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -31,20 +30,24 @@ def create_app(config_name='default'):
     login_manager.init_app(app)
     
     # Register blueprints
-    from app.routes.scenarios import scenarios_bp
-    from app.routes.worlds import worlds_bp
     from app.routes.auth import auth_bp
+    from app.routes.worlds import worlds_bp
+    from app.routes.scenarios import scenarios_bp
     from app.routes.entities import entities_bp
     from app.routes.agent import agent_bp
     from app.routes.mcp_api import mcp_api_bp
     from app.routes.documents import documents_bp
-    app.register_blueprint(scenarios_bp)
-    app.register_blueprint(worlds_bp)
+    
     app.register_blueprint(auth_bp)
+    app.register_blueprint(worlds_bp)
+    app.register_blueprint(scenarios_bp)
     app.register_blueprint(entities_bp)
     app.register_blueprint(agent_bp)
     app.register_blueprint(mcp_api_bp)
     app.register_blueprint(documents_bp)
+    
+    # Import MCPClient here to avoid circular imports
+    from app.services import MCPClient
     
     # Get the singleton instance of MCPClient
     client = MCPClient.get_instance()
