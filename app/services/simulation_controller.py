@@ -326,7 +326,8 @@ class SimulationController:
         
         # Get evaluation from LLM
         try:
-            evaluation_text = self.llm_service.get_llm()(prompt)
+            # Use the llm attribute directly instead of calling get_llm()
+            evaluation_text = self.llm_service.llm(prompt)
             
             # For now, return a simple evaluation
             # In the future, we'll parse the LLM output to extract structured data
