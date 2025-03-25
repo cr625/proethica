@@ -62,19 +62,33 @@ class MCPClient:
             Dictionary containing entities
         """
         try:
+            import traceback
+            print(f"MCPClient: Getting entities for ontology source: {ontology_source}")
+            
             # Make request to MCP server
-            response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/entities")
+            api_url = f"{self.mcp_url}/api/ontology/{ontology_source}/entities"
+            print(f"MCPClient: Making request to: {api_url}")
+            
+            response = self.session.get(api_url)
             
             # Check if request was successful
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                print(f"MCPClient: Got successful response with keys: {result.keys() if isinstance(result, dict) else 'not a dict'}")
+                return result
             else:
-                print(f"Error getting entities: {response.status_code} - {response.text}")
+                error_message = f"Error getting entities: {response.status_code} - {response.text}"
+                print(error_message)
                 # Fall back to mock data
+                print("MCPClient: Falling back to mock data")
                 return self.get_mock_entities(ontology_source)
         except Exception as e:
-            print(f"Error getting entities: {str(e)}")
+            stack_trace = traceback.format_exc()
+            error_message = f"Error getting entities: {str(e)}"
+            print(error_message)
+            print(stack_trace)
             # Fall back to mock data
+            print("MCPClient: Falling back to mock data due to exception")
             return self.get_mock_entities(ontology_source)
     
     def get_references_for_world(self, world) -> List[Dict[str, Any]]:

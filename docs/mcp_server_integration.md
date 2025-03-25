@@ -69,6 +69,12 @@ To improve the robustness of the MCP server integration, the following changes h
 
 1. The `run_with_gunicorn.sh` script now starts the MCP server before starting Gunicorn, ensuring that the MCP server is running when the application starts.
 
-2. The script waits for 2 seconds after starting the MCP server to give it time to initialize before the application tries to connect to it.
+2. The script waits for 5 seconds after starting the MCP server to give it time to initialize before the application tries to connect to it.
 
-3. The `MCPClient` includes error handling to gracefully handle cases where the MCP server is not running or cannot be reached.
+3. The script sets the `MCP_SERVER_URL` environment variable to ensure the application knows where to find the MCP server.
+
+4. The `MCPClient` includes enhanced error handling and logging to gracefully handle cases where the MCP server is not running or cannot be reached.
+
+5. The API routes in `app/routes/mcp_api.py` have been updated to use absolute paths when loading ontology files, ensuring they can be found regardless of the current working directory.
+
+6. Detailed logging has been added throughout the entity retrieval process to help diagnose any issues.

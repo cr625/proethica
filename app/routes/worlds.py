@@ -86,16 +86,30 @@ def view_world(id):
     entities = {"entities": {}}  # Initialize with empty entities structure
     if world.ontology_source:
         try:
+            import traceback
+            print(f"Retrieving entities for world {world.id} with ontology source: {world.ontology_source}")
+            
             result = mcp_client.get_world_entities(world.ontology_source)
+            
+            print(f"Retrieved entities result: {result.keys() if isinstance(result, dict) else 'not a dict'}")
+            
             # Check if result already has an 'entities' key
             if 'entities' in result:
                 entities = result
             else:
                 # If not, wrap it in an 'entities' key
                 entities = {"entities": result}
+                
+            print(f"Final entities structure: {entities.keys()}")
+            if 'entities' in entities:
+                entity_types = entities['entities'].keys() if isinstance(entities['entities'], dict) else 'not a dict'
+                print(f"Entity types: {entity_types}")
         except Exception as e:
-            entities = {"error": str(e)}
-            print(f"Error retrieving world entities: {str(e)}")
+            stack_trace = traceback.format_exc()
+            error_message = f"Error retrieving world entities: {str(e)}"
+            entities = {"error": error_message}
+            print(error_message)
+            print(stack_trace)
     
     return render_template('world_detail.html', world=world, entities=entities)
 

@@ -46,7 +46,7 @@ def get_ontology_entities(ontology_source):
         namespace = namespaces[namespace_key]
 
         # Load the ontology file
-        ontology_path = os.path.join("mcp/ontology", ontology_source)
+        ontology_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "mcp/ontology", ontology_source)
         if not os.path.exists(ontology_path):
             print(f"Ontology file not found: {ontology_path}")
             # Fall back to mock data if the ontology file doesn't exist
@@ -203,7 +203,14 @@ def get_ontology_entities(ontology_source):
 
         return jsonify({"entities": entities})
     except Exception as e:
-        print(f"Error parsing ontology file: {str(e)}")
+        import traceback
+        error_message = f"Error parsing ontology file: {str(e)}"
+        stack_trace = traceback.format_exc()
+        print(error_message)
+        print(stack_trace)
+        print(f"Ontology source: {ontology_source}")
+        print(f"Ontology path: {ontology_path}")
+        
         # Fall back to mock data if there's an error
         from app.services.mcp_client import MCPClient
         client = MCPClient.get_instance()

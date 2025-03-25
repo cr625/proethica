@@ -15,7 +15,11 @@ echo "Restarting the MCP server..."
 
 # Wait for the MCP server to start
 echo "Waiting for the MCP server to start..."
-sleep 2
+sleep 5  # Increased wait time to ensure MCP server is fully initialized
+
+# Set the MCP server URL environment variable
+export MCP_SERVER_URL="http://localhost:5000"
+echo "Set MCP_SERVER_URL to $MCP_SERVER_URL"
 
 # Run Gunicorn with the specified settings
 echo "Starting AI Ethical DM with Gunicorn ($WORKERS workers, $TIMEOUT second timeout)..."
