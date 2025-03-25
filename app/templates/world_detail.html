@@ -22,7 +22,14 @@
                     <h3>World Details</h3>
                 </div>
                 <div class="card-body">
-                    <p><strong>Description:</strong> {{ world.description }}</p>
+                    <p>
+                        <strong>Description:</strong>
+                        <span id="description-{{ world.id }}" class="text-truncate">{{ world.description }}</span>
+                        <button class="btn btn-link p-0" onclick="toggleDescription({{ world.id }})"
+                            id="toggle-btn-{{ world.id }}">
+                            Show More
+                        </button>
+                    </p>
                     <p><strong>Ontology Source:</strong> {{ world.ontology_source or 'Not specified' }}</p>
                     <p><strong>Created:</strong> {{ world.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
                     <p><strong>Last Updated:</strong> {{ world.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
@@ -559,6 +566,19 @@
 
 {% block scripts %}
 <script>
+    // Function to toggle description visibility
+    function toggleDescription(worldId) {
+        const description = document.getElementById(`description-${worldId}`);
+        const toggleBtn = document.getElementById(`toggle-btn-${worldId}`);
+        if (description.classList.contains('text-truncate')) {
+            description.classList.remove('text-truncate');
+            toggleBtn.textContent = 'Show Less';
+        } else {
+            description.classList.add('text-truncate');
+            toggleBtn.textContent = 'Show More';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         // Entity details
         document.querySelectorAll('.view-details')?.forEach(button => {
