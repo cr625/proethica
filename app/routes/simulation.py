@@ -53,13 +53,14 @@ def initialize_simulation(id):
         # Store the state in the simulation storage
         sim_session_id = SimulationStorage.store_state(initial_state)
         
-        # Store minimal information in the session
+        # Store information in the session
         session['simulation'] = {
             'scenario_id': id,
             'selected_character_id': data.get('character_id'),
             'perspective': data.get('perspective', 'specific'),
             'initialized': True,
-            'session_id': sim_session_id
+            'session_id': sim_session_id,
+            'last_state': initial_state  # Store the initial state for recovery
         }
         
         # Initialize session data for later saving
@@ -67,6 +68,10 @@ def initialize_simulation(id):
             'scenario_id': id,
             'timestamps': [datetime.now().isoformat()]
         }
+        
+        # Make sure the session is saved
+        session.modified = True
+        logger.info(f"Initialized simulation with session ID: {sim_session_id}")
         
         return jsonify({
             'success': True,
@@ -126,6 +131,11 @@ def process_decision(id):
         # Store the updated state
         SimulationStorage.store_state(next_state, sim_session_id)
         
+        # Update the session's last_state
+        if 'simulation' in session:
+            session['simulation']['last_state'] = next_state
+            session.modified = True
+        
         # Update minimal data for later saving
         if 'simulation_data' not in session:
             session['simulation_data'] = {
@@ -182,6 +192,13 @@ def advance_simulation(id):
         # Log current state information
         logger.info(f"Current state before advancing: event_index={current_state.get('current_event_index')}, decision_history={current_state.get('decision_history', [])}")
         
+        # Check if we've reached the end of the scenario
+        if current_state.get('current_event_index', 0) >= len(current_state.get('events', [])) - 1:
+            return jsonify({
+                'success': False,
+                'message': 'End of scenario reached. No more events to advance to.'
+            }), 400
+        
         # Recreate the controller
         controller = SimulationController(
             scenario_id=session['simulation']['scenario_id'],
@@ -193,7 +210,15 @@ def advance_simulation(id):
         controller.current_state = current_state
         
         # Advance to the next event
-        next_state = controller._advance_timeline(controller.current_state)
+        try:
+            next_state = controller._advance_timeline(controller.current_state)
+            logger.info(f"Advanced to next event. New event index: {next_state.get('current_event_index')}")
+        except Exception as e:
+            logger.error(f"Error in _advance_timeline: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': f"Error advancing timeline: {str(e)}"
+            }), 500
         
         # Ensure decisions are attached to events
         if 'decision_history' in next_state:
@@ -212,7 +237,21 @@ def advance_simulation(id):
                 logger.info(f"Event {i}: id={event.get('id')}, action_id={event.get('action_id')}, has_decision={'decision' in event}")
         
         # Store the updated state
-        SimulationStorage.store_state(next_state, sim_session_id)
+        try:
+            SimulationStorage.store_state(next_state, sim_session_id)
+            logger.info(f"Stored updated state with session ID: {sim_session_id}")
+            
+            # Update the session's last_state
+            if 'simulation' in session:
+                session['simulation']['last_state'] = next_state
+                session.modified = True
+                logger.info(f"Updated session's last_state for session ID: {sim_session_id}")
+        except Exception as e:
+            logger.error(f"Error storing state: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': f"Error storing simulation state: {str(e)}"
+            }), 500
         
         # Update minimal data for later saving
         if 'simulation_data' not in session:
@@ -232,6 +271,8 @@ def advance_simulation(id):
         })
     except Exception as e:
         logger.error(f"Error advancing simulation: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'message': f"Error advancing simulation: {str(e)}"

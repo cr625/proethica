@@ -92,13 +92,29 @@ class SimulationController:
                 'allocated': {}  # Track allocations to characters
             }
         
+        # Convert events to dictionaries
+        event_dicts = [self._event_to_dict(e) for e in events]
+        
+        # Pre-load decision options for all decision points
+        for event_dict in event_dicts:
+            if self._is_decision_point(event_dict):
+                # Create a temporary state for generating options
+                temp_state = {
+                    'character_states': character_states,
+                    'resource_states': resource_states
+                }
+                
+                # Generate decision options for this event
+                event_dict['decision_options'] = self._generate_decision_options(event_dict, temp_state)
+                logger.info(f"Pre-loaded decision options for event {event_dict['id']}")
+        
         # Create initial state
         initial_state = {
             'scenario_id': self.scenario.id,
             'scenario_name': self.scenario.name,
             'current_time': events[0].event_time.isoformat() if events else datetime.now().isoformat(),
             'current_event_index': 0,
-            'events': [self._event_to_dict(e) for e in events],
+            'events': event_dicts,
             'character_states': character_states,
             'resource_states': resource_states,
             'decision_history': [],
@@ -375,8 +391,16 @@ class SimulationController:
         Returns:
             True if the event is a decision point, False otherwise
         """
-        # For now, we'll consider all events with an action_id to be decision points
-        return event.get('action_id') is not None
+        # Check if the event has an action and if that action is a decision
+        if event.get('action_id') is not None:
+            # If we have the action data in the event, use it
+            if 'action' in event and event['action'].get('is_decision') is not None:
+                return event['action']['is_decision']
+            
+            # Otherwise, we'll still consider it a decision point if it has an action_id
+            return True
+        
+        return False
     
     def _generate_decision_options(self, event: Dict[str, Any], state: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -389,16 +413,25 @@ class SimulationController:
         Returns:
             List of dictionaries containing decision options
         """
+        # First, check if the event already has decision options from the database
+        if 'decision_options' in event and event['decision_options']:
+            logger.info(f"Using pre-existing decision options from the database for event {event['id']}")
+            return event['decision_options']
+            
         # Get character information if available
         character_id = event.get('character_id')
         character_info = state['character_states'].get(character_id, {}) if character_id else {}
         character_role = character_info.get('role', 'Unknown')
         
         # Get action information if available
-        action_id = event.get('action_id')
+        action = event.get('action', {})
         
-        # In the future, this will use the LLM to generate options based on the event, character, and state
-        # For now, generate more context-specific options based on the event and character
+        # If the action has options, use those
+        if action and action.get('options'):
+            logger.info(f"Using options from action {action['id']} for event {event['id']}")
+            return action['options']
+        
+        logger.info(f"Generating new decision options for event {event['id']}")
         
         # Default options
         options = [
@@ -506,7 +539,7 @@ class SimulationController:
         Returns:
             Dictionary containing event data
         """
-        return {
+        event_dict = {
             'id': event.id,
             'description': event.description,
             'event_time': event.event_time.isoformat() if event.event_time else None,
@@ -514,3 +547,19 @@ class SimulationController:
             'action_id': event.action_id,
             'parameters': event.parameters
         }
+        
+        # Include action data if available
+        if event.action:
+            action = event.action
+            event_dict['action'] = {
+                'id': action.id,
+                'name': action.name,
+                'description': action.description,
+                'is_decision': action.is_decision
+            }
+            
+            # If this is a decision point, include the options
+            if action.is_decision and action.options:
+                event_dict['decision_options'] = action.options
+        
+        return event_dict

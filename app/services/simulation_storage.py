@@ -1,24 +1,28 @@
 """
 Simulation Storage Service for the AI Ethical Decision-Making Simulator.
 
-This module provides a simple storage mechanism for simulation states to avoid
-storing large amounts of data in session cookies.
+This module provides a storage mechanism for simulation states to avoid
+storing large amounts of data in session cookies. It uses a combination of
+in-memory storage and session data to ensure persistence across server restarts.
 """
 
 import logging
 import uuid
+import json
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
+from flask import session
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 class SimulationStorage:
     """
-    A simple in-memory storage for simulation states.
+    A storage service for simulation states.
     
     This class provides methods to store and retrieve simulation states,
-    with automatic cleanup of old states.
+    with automatic cleanup of old states and fallback to session data
+    for persistence across server restarts.
     """
     
     # Class-level storage
@@ -44,11 +48,21 @@ class SimulationStorage:
         if not session_id:
             session_id = str(uuid.uuid4())
         
-        # Store the state
+        # Store the state in memory
         cls._states[session_id] = state
         
         # Set expiry time
         cls._expiry_times[session_id] = datetime.now() + cls.DEFAULT_EXPIRY
+        
+        # Also store a minimal version in the session for fallback
+        if 'simulation' in session:
+            session['simulation']['last_state'] = {
+                'scenario_id': state.get('scenario_id'),
+                'current_event_index': state.get('current_event_index', 0),
+                'events': state.get('events', []),
+                'decision_history': state.get('decision_history', [])
+            }
+            session.modified = True
         
         # Clean up old states
         cls._cleanup()
@@ -67,22 +81,30 @@ class SimulationStorage:
         Returns:
             The simulation state, or None if not found
         """
-        # Check if the session ID exists
-        if session_id not in cls._states:
-            logger.warning(f"Simulation state not found for session ID: {session_id}")
-            return None
+        # Check if the session ID exists in memory
+        if session_id in cls._states:
+            # Check if the session has expired
+            if datetime.now() > cls._expiry_times.get(session_id, datetime.min):
+                logger.warning(f"Simulation session expired for session ID: {session_id}")
+                cls._remove_state(session_id)
+            else:
+                # Extend the expiry time
+                cls._expiry_times[session_id] = datetime.now() + cls.DEFAULT_EXPIRY
+                logger.debug(f"Retrieved simulation state from memory for session ID: {session_id}")
+                return cls._states[session_id]
         
-        # Check if the session has expired
-        if datetime.now() > cls._expiry_times.get(session_id, datetime.min):
-            logger.warning(f"Simulation session expired for session ID: {session_id}")
-            cls._remove_state(session_id)
-            return None
+        # If not in memory, try to recover from session
+        if 'simulation' in session and session['simulation'].get('session_id') == session_id:
+            if 'last_state' in session['simulation']:
+                logger.info(f"Recovering simulation state from session for session ID: {session_id}")
+                recovered_state = session['simulation']['last_state']
+                # Store it back in memory for future use
+                cls._states[session_id] = recovered_state
+                cls._expiry_times[session_id] = datetime.now() + cls.DEFAULT_EXPIRY
+                return recovered_state
         
-        # Extend the expiry time
-        cls._expiry_times[session_id] = datetime.now() + cls.DEFAULT_EXPIRY
-        
-        logger.debug(f"Retrieved simulation state for session ID: {session_id}")
-        return cls._states[session_id]
+        logger.warning(f"Simulation state not found for session ID: {session_id}")
+        return None
     
     @classmethod
     def remove_state(cls, session_id: str) -> None:

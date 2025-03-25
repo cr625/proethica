@@ -137,8 +137,18 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
+    .timeline-event-content.decision-point {
+        background: #fff8e1;
+        border-left: 4px solid #ffc107;
+    }
+
     .timeline-event.current .timeline-event-content {
         background: #f8f9fa;
+        border-left: 4px solid #dc3545;
+    }
+
+    .timeline-event.current .timeline-event-content.decision-point {
+        background: #fff4e5;
         border-left: 4px solid #dc3545;
     }
 
@@ -322,11 +332,18 @@
                         eventElement.classList.add('current');
                     }
 
+                    // Determine if this is a decision point
+                    const isDecisionPoint = event.action_id !== null &&
+                        (event.action && event.action.is_decision);
+
+                    // Add appropriate styling and content
                     eventElement.innerHTML = `
                         <div class="timeline-event-time">${formatTime(event.event_time)}</div>
-                        <div class="timeline-event-content">
+                        <div class="timeline-event-content ${isDecisionPoint ? 'decision-point' : ''}">
                             <h5>${event.description}</h5>
-                            ${event.action_id ? '<span class="badge bg-info">Decision Point</span>' : ''}
+                            ${isDecisionPoint ?
+                            '<span class="badge bg-warning">Decision Required</span>' :
+                            (event.action_id ? '<span class="badge bg-info">Action</span>' : '')}
                         </div>
                     `;
                     timelineDisplay.appendChild(eventElement);
@@ -445,7 +462,18 @@
 
         // Function to check if an event is a decision point
         function isDecisionPoint(event) {
-            return event.action_id !== null && event.action_id !== undefined;
+            // Check if the event has an action_id
+            if (event.action_id === null || event.action_id === undefined) {
+                return false;
+            }
+
+            // If the event has action data, check if it's a decision
+            if (event.action && event.action.is_decision !== undefined) {
+                return event.action.is_decision;
+            }
+
+            // Otherwise, consider it a decision point if it has decision options
+            return event.decision_options && event.decision_options.length > 0;
         }
 
         // Function to show decision point
@@ -458,12 +486,29 @@
             decisionOptionsDisplay.innerHTML = '';
             nextButton.style.display = 'none';
 
-            // Get decision options from the event if available, otherwise use defaults
-            let options = event.decision_options || [
-                { id: 1, description: 'Option 1: Take the ethical high ground' },
-                { id: 2, description: 'Option 2: Compromise for practical reasons' },
-                { id: 3, description: 'Option 3: Prioritize efficiency over other considerations' }
-            ];
+            // Log the event to help with debugging
+            console.log("Showing decision point for event:", event);
+
+            // Prioritize options in this order:
+            // 1. Pre-existing decision options from the database
+            // 2. Options from the action object
+            // 3. Default fallback options
+            let options;
+
+            if (event.decision_options && event.decision_options.length > 0) {
+                console.log("Using pre-existing decision options from the database");
+                options = event.decision_options;
+            } else if (event.action && event.action.options && event.action.options.length > 0) {
+                console.log("Using options from the action object");
+                options = event.action.options;
+            } else {
+                console.log("Using default fallback options");
+                options = [
+                    { id: 1, description: 'Option 1: Take the ethical high ground' },
+                    { id: 2, description: 'Option 2: Compromise for practical reasons' },
+                    { id: 3, description: 'Option 3: Prioritize efficiency over other considerations' }
+                ];
+            }
 
             // Add decision options with improved styling
             options.forEach(option => {
@@ -584,7 +629,19 @@
                 })
                 .catch(error => {
                     console.error('Error processing decision:', error);
-                    alert('Error processing decision. See console for details.');
+                    // Try to get more detailed error information
+                    error.text().then(errorText => {
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            alert(`Error processing decision: ${errorData.message || 'Unknown error'}`);
+                            console.error('Detailed error:', errorData);
+                        } catch (e) {
+                            alert(`Error processing decision: ${errorText || error.message || 'Unknown error'}`);
+                            console.error('Error text:', errorText);
+                        }
+                    }).catch(e => {
+                        alert(`Error processing decision: ${error.message || 'Unknown error'}`);
+                    });
                 });
         }
 
@@ -619,7 +676,19 @@
                 })
                 .catch(error => {
                     console.error('Error advancing to next event:', error);
-                    alert('Error advancing to next event. See console for details.');
+                    // Try to get more detailed error information
+                    error.text().then(errorText => {
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            alert(`Error advancing to next event: ${errorData.message || 'Unknown error'}`);
+                            console.error('Detailed error:', errorData);
+                        } catch (e) {
+                            alert(`Error advancing to next event: ${errorText || error.message || 'Unknown error'}`);
+                            console.error('Error text:', errorText);
+                        }
+                    }).catch(e => {
+                        alert(`Error advancing to next event: ${error.message || 'Unknown error'}`);
+                    });
                 });
         }
 
