@@ -111,7 +111,11 @@ def view_world(id):
             print(error_message)
             print(stack_trace)
     
-    return render_template('world_detail.html', world=world, entities=entities)
+    # Get all guidelines documents for this world
+    from app.models.document import Document
+    guidelines = Document.query.filter_by(world_id=world.id, document_type="guideline").all()
+    
+    return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines)
 
 @worlds_bp.route('/<int:id>/edit', methods=['GET'])
 def edit_world(id):
