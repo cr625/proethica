@@ -42,3 +42,4 @@ flake8
 
 # Production
 gunicorn  # WSGI HTTP Server
+aiohttp   # Async HTTP server for MCP

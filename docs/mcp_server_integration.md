@@ -8,22 +8,36 @@ The application uses a Model Context Protocol (MCP) server to retrieve entities 
 
 ## MCP Server
 
-The MCP server is implemented in `mcp/ontology_mcp_server.py`. It loads ontology files from the `mcp/ontology/` directory and provides an API to retrieve entities from these ontologies.
+The MCP server is implemented in two versions:
 
-The server supports the following ontologies:
+1. **Standard MCP Server** (`mcp/ontology_mcp_server.py`): Uses stdio for communication, primarily used with the development server.
+2. **HTTP MCP Server** (`mcp/http_ontology_mcp_server.py`): Runs as a web server on a specific port, used with Gunicorn for production.
+
+Both servers load ontology files from the `mcp/ontology/` directory and provide an API to retrieve entities from these ontologies.
+
+The servers support the following ontologies:
 - `engineering_ethics.ttl`: Engineering ethics ontology
 - `nj_legal_ethics.ttl`: New Jersey legal ethics ontology
 - `tccc.ttl`: Tactical Combat Casualty Care ontology
 
 ## Starting the MCP Server
 
-The MCP server is started automatically when the application is run with the `run_with_gunicorn.sh` script. The script calls `scripts/restart_mcp_server.sh` to start the MCP server before starting Gunicorn.
+The MCP server is started automatically when the application is run:
 
-You can also start the MCP server manually by running:
+- When using `python run.py` (development mode), the standard MCP server is started via `scripts/restart_mcp_server.sh` and runs on port 5000.
+- When using `./run_with_gunicorn.sh` (production mode), the HTTP MCP server is started via `scripts/restart_mcp_server_gunicorn.sh` and runs on port 5001.
+
+You can also start the MCP servers manually:
 
 ```bash
+# For development (standard MCP server)
 ./scripts/restart_mcp_server.sh
+
+# For production (HTTP MCP server)
+./scripts/restart_mcp_server_gunicorn.sh
 ```
+
+The HTTP MCP server requires the `aiohttp` package, which is included in the `requirements.txt` file.
 
 ## MCP Client
 

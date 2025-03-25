@@ -20,6 +20,8 @@ class MCPClient:
         """Initialize the MCP client."""
         # Get MCP server URL from environment variable or use default
         self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5000')
+        print(f"MCPClient initialized with MCP_SERVER_URL: {self.mcp_url}")
+        print(f"Environment variables: MCP_SERVER_URL={os.environ.get('MCP_SERVER_URL', 'not set')}")
         
         # Initialize session
         self.session = requests.Session()
