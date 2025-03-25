@@ -15,8 +15,9 @@ from app.services.embedding_service import EmbeddingService
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Create blueprint
-documents_bp = Blueprint('documents', __name__, url_prefix='/api/documents')
+# Create blueprints
+documents_bp = Blueprint('api_documents', __name__, url_prefix='/api/documents')
+documents_web_bp = Blueprint('documents', __name__, url_prefix='/documents')
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
@@ -267,4 +268,36 @@ def process_url():
     
     except Exception as e:
         logger.error(f"Error processing URL: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# Web routes for documents
+@documents_web_bp.route('/download/<int:document_id>', methods=['GET'])
+def download_document_web(document_id):
+    """Web route to download a document."""
+    try:
+        document = Document.query.get_or_404(document_id)
+        
+        if not document.file_path or not os.path.exists(document.file_path):
+            return jsonify({"error": "Document file not found"}), 404
+        
+        return send_file(document.file_path, as_attachment=True, download_name=os.path.basename(document.file_path))
+    
+    except Exception as e:
+        logger.error(f"Error downloading document {document_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@documents_web_bp.route('/status/<int:document_id>', methods=['GET'])
+def document_status(document_id):
+    """Get the processing status of a document."""
+    try:
+        document = Document.query.get_or_404(document_id)
+        
+        return jsonify({
+            "id": document.id,
+            "status": document.processing_status,
+            "error": document.processing_error
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting document status {document_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500

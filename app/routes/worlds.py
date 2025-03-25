@@ -478,9 +478,6 @@ def add_guideline(id):
     """Process form submission to add a guideline to a world."""
     world = World.query.get_or_404(id)
     
-    # Get referrer URL for redirect after submission
-    referrer = request.form.get('referrer') or url_for('worlds.world_guidelines', id=world.id)
-    
     # Get form data
     title = request.form.get('guidelines_title', f"Guidelines for {world.name}")
     input_type = request.form.get('input_type')
@@ -578,8 +575,8 @@ def add_guideline(id):
         flash('No guideline content provided', 'error')
         return redirect(url_for('worlds.add_guideline_form', id=world.id))
     
-    # Redirect back to referrer
-    return redirect(referrer)
+    # Always redirect to the guidelines page
+    return redirect(url_for('worlds.world_guidelines', id=world.id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 def delete_guideline(id, document_id):

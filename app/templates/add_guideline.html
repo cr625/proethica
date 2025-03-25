@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Add Guideline for {{ world.name }}</h1>
         <div>
-            <a href="{{ referrer }}" class="btn btn-secondary">Cancel</a>
+            <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-secondary">Cancel</a>
         </div>
     </div>
 
@@ -18,8 +18,6 @@
         <div class="card-body">
             <form action="{{ url_for('worlds.add_guideline', id=world.id) }}" method="POST"
                 enctype="multipart/form-data" id="guidelineForm">
-                <!-- Hidden field to store referrer URL for redirect after submission -->
-                <input type="hidden" name="referrer" value="{{ referrer }}">
 
                 <div class="mb-3">
                     <label for="guidelines_title" class="form-label">Title</label>
@@ -98,7 +96,6 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}

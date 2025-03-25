@@ -32,7 +32,7 @@
                             {% if guideline.file_path %}
                             <li>
                                 <a class="dropdown-item"
-                                    href="{{ url_for('documents.download_document', document_id=guideline.id) }}">
+                                    href="{{ url_for('documents.download_document_web', document_id=guideline.id) }}">
                                     <i class="fas fa-download"></i> Download
                                 </a>
                             </li>
@@ -52,14 +52,34 @@
                 </div>
                 <div class="card-body">
                     {% if guideline.processing_status == 'pending' or guideline.processing_status == 'processing' %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        Processing document... This may take a few minutes.
+                    <div class="alert alert-info processing-status" data-document-id="{{ guideline.id }}">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">Processing document...</h5>
+                                <p class="mb-0">This may take a few minutes. The page will update automatically when
+                                    processing is complete.</p>
+                            </div>
+                        </div>
+                        <div class="progress mt-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                style="width: 100%"></div>
+                        </div>
                     </div>
                     {% elif guideline.processing_status == 'failed' %}
                     <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        Processing failed: {{ guideline.processing_error }}
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">Processing failed</h5>
+                                <p class="mb-0">{{ guideline.processing_error or 'An error occurred during processing.'
+                                    }}</p>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
 
@@ -137,4 +157,44 @@
         overflow-y: auto;
     }
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get all processing status elements
+        const processingElements = document.querySelectorAll('.processing-status');
+
+        if (processingElements.length > 0) {
+            // Set up periodic checking for document processing status
+            const checkProcessingStatus = async () => {
+                for (const element of processingElements) {
+                    const documentId = element.getAttribute('data-document-id');
+
+                    try {
+                        // Fetch the current status from the server
+                        const response = await fetch(`/documents/status/${documentId}`);
+                        if (response.ok) {
+                            const data = await response.json();
+
+                            // If processing is complete or failed, refresh the page
+                            if (data.status === 'completed' || data.status === 'failed') {
+                                window.location.reload();
+                                return; // Stop checking after reload is triggered
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Error checking status for document ${documentId}:`, error);
+                    }
+                }
+
+                // Continue checking every 5 seconds if there are still processing documents
+                setTimeout(checkProcessingStatus, 5000);
+            };
+
+            // Start checking
+            setTimeout(checkProcessingStatus, 5000);
+        }
+    });
+</script>
 {% endblock %}
