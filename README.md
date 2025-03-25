@@ -126,6 +126,7 @@ The project includes detailed documentation in the `docs/` directory:
 - `document_management.md`: Information about the document management system
 - `multiple_guidelines.md`: How to use multiple guidelines per world
 - `async_document_processing.md`: Details about the asynchronous document processing implementation
+- `mcp_server_integration.md`: Information about the MCP server integration for ontology access
 
 ## License
 
