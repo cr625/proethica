@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Simulation Session - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Simulation Session</h1>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('simulation.list_sessions') }}" class="btn btn-secondary">Back to Sessions</a>
+            {% if session.scenario %}
+            <a href="{{ url_for('scenarios.view_scenario', id=session.scenario.id) }}" class="btn btn-primary">View
+                Scenario</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Session Information</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Date:</strong> {{ session.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>Scenario:</strong>
+                        {% if session.scenario %}
+                        {{ session.scenario.name }}
+                        {% else %}
+                        Unknown Scenario
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Character:</strong>
+                        {% if session.session_data.selected_character_id %}
+                        {% set character_id = session.session_data.selected_character_id %}
+                        {% if session.scenario and session.scenario.characters %}
+                        {% for character in session.scenario.characters %}
+                        {% if character.id == character_id %}
+                        {{ character.name }} ({{ character.role }})
+                        {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        Character ID: {{ character_id }}
+                        {% endif %}
+                        {% else %}
+                        All Perspectives
+                        {% endif %}
+                    </p>
+                    <p><strong>Decisions Made:</strong> {{ session.session_data.decisions|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Timeline</h3>
+        </div>
+        <div class="card-body">
+            <div class="timeline">
+                {% for i in range(session.session_data.states|length) %}
+                {% set state = session.session_data.states[i] %}
+                {% set event_index = state.current_event_index %}
+                {% if event_index < state.events|length %} {% set event=state.events[event_index] %} <div
+                    class="timeline-item">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">{{ event.event_time|format_datetime }}</h4>
+                        <p>{{ event.description }}</p>
+
+                        {% if i > 0 and i-1 < session.session_data.decisions|length %} {% set
+                            decision=session.session_data.decisions[i-1] %} {% set
+                            evaluation=session.session_data.evaluations[i-1] %} <div
+                            class="card mt-3 mb-3 border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Decision</h5>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Option Selected:</strong> Option {{ decision.option_id }}</p>
+
+                                {% if evaluation %}
+                                <div class="mt-3">
+                                    <h5>Ethical Evaluation</h5>
+                                    {% if evaluation.structured_evaluation %}
+                                    {% set structured = evaluation.structured_evaluation %}
+                                    <p><strong>Alignment with Role Virtues:</strong> {{ structured.alignment_score }}/10
+                                    </p>
+
+                                    <h6>Virtues Demonstrated:</h6>
+                                    <ul>
+                                        {% for virtue in structured.virtues_demonstrated %}
+                                        <li>{{ virtue }}</li>
+                                        {% endfor %}
+                                    </ul>
+
+                                    {% if structured.virtues_violated|length > 0 %}
+                                    <h6>Virtues Violated:</h6>
+                                    <ul>
+                                        {% for virtue in structured.virtues_violated %}
+                                        <li>{{ virtue }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+
+                                    <h6>Character Reflection:</h6>
+                                    <p>{{ structured.character_reflection }}</p>
+
+                                    <h6>Recommendations:</h6>
+                                    <p>{{ structured.recommendations }}</p>
+                                    {% else %}
+                                    <p>{{ evaluation.raw_evaluation }}</p>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                    </div>
+                    {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+</div>
+</div>
+
+<!-- Add custom CSS for timeline -->
+<style>
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+
+    .timeline:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 20px;
+        width: 4px;
+        background: #ddd;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+        margin-left: 40px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        top: 10px;
+        left: -36px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #007bff;
+    }
+
+    .timeline-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #666;
+    }
+
+    .timeline-content {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}

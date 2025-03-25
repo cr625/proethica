@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Simulation Sessions - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Simulation Sessions</h1>
+    </div>
+
+    {% if sessions %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Your Simulation Sessions</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Scenario</th>
+                            <th>Character</th>
+                            <th>Decisions</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in sessions %}
+                        <tr>
+                            <td>{{ session.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if session.scenario %}
+                                {{ session.scenario.name }}
+                                {% else %}
+                                Unknown Scenario
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if session.session_data.selected_character_id %}
+                                {% set character_id = session.session_data.selected_character_id %}
+                                {% if session.scenario and session.scenario.characters %}
+                                {% for character in session.scenario.characters %}
+                                {% if character.id == character_id %}
+                                {{ character.name }} ({{ character.role }})
+                                {% endif %}
+                                {% endfor %}
+                                {% else %}
+                                Character ID: {{ character_id }}
+                                {% endif %}
+                                {% else %}
+                                All Perspectives
+                                {% endif %}
+                            </td>
+                            <td>{{ session.session_data.decisions|length }}</td>
+                            <td>
+                                <a href="{{ url_for('simulation.view_session', id=session.id) }}"
+                                    class="btn btn-sm btn-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-hourglass-split display-1 text-muted mb-4"></i>
+            <h2>No Simulation Sessions Found</h2>
+            <p class="lead">You haven't run any simulations yet.</p>
+            <p>Go to a scenario and click the "Simulate" button to run a simulation.</p>
+            <a href="{{ url_for('scenarios.list_scenarios') }}" class="btn btn-primary mt-3">Browse Scenarios</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

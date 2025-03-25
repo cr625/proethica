@@ -1488,6 +1488,5 @@ def add_reference(id):
 # Simulation route
 @scenarios_bp.route('/<int:id>/simulate', methods=['GET'])
 def simulate_scenario(id):
-    """Display simulation coming soon page."""
-    scenario = Scenario.query.get_or_404(id)
-    return render_template('simulate_coming_soon.html', scenario=scenario)
+    """Redirect to the simulation page."""
+    return redirect(url_for('simulation.simulate_scenario', id=id))

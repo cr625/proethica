@@ -37,6 +37,7 @@ def create_app(config_name='default'):
     from app.routes.agent import agent_bp
     from app.routes.mcp_api import mcp_api_bp
     from app.routes.documents import documents_bp, documents_web_bp
+    from app.routes.simulation import simulation_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(worlds_bp)
@@ -46,6 +47,7 @@ def create_app(config_name='default'):
     app.register_blueprint(mcp_api_bp)
     app.register_blueprint(documents_bp)
     app.register_blueprint(documents_web_bp)
+    app.register_blueprint(simulation_bp)
     
     # Register template filters
     from app import template_filters

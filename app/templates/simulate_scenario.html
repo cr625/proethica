@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Simulate Scenario - {{ scenario.name }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ scenario.name }} - Simulation</h1>
+        <div class="btn-group" role="group">
+            <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+            <button id="save-simulation" class="btn btn-primary">Save Simulation</button>
+        </div>
+    </div>
+
+    <!-- Character Selection -->
+    <div id="character-selection" class="card mb-4">
+        <div class="card-header">
+            <h3>Select Character Perspective</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="character-select">Choose a character:</label>
+                <select id="character-select" class="form-control">
+                    <option value="">All Perspectives</option>
+                    {% for character in characters %}
+                    <option value="{{ character.id }}">{{ character.name }} ({{ character.role }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button id="start-simulation" class="btn btn-primary mt-3">Start Simulation</button>
+        </div>
+    </div>
+
+    <!-- Simulation Interface (initially hidden) -->
+    <div id="simulation-interface" style="display: none;">
+        <!-- Timeline Display -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Timeline</h3>
+            </div>
+            <div class="card-body">
+                <div id="timeline-display" class="timeline">
+                    <!-- Timeline events will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Event -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Current Event</h3>
+            </div>
+            <div class="card-body">
+                <div id="current-event" class="mb-4">
+                    <!-- Current event details will be inserted here -->
+                </div>
+
+                <div id="decision-point" style="display: none;">
+                    <h4>Decision Point</h4>
+                    <div id="decision-options">
+                        <!-- Decision options will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ethical Analysis -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Ethical Analysis</h3>
+            </div>
+            <div class="card-body">
+                <div id="ethical-analysis">
+                    <!-- Ethical analysis will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add custom CSS for timeline -->
+<style>
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+
+    .timeline:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 20px;
+        width: 4px;
+        background: #ddd;
+    }
+
+    .timeline-event {
+        position: relative;
+        margin-bottom: 30px;
+        margin-left: 40px;
+    }
+
+    .timeline-event:before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: -36px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #007bff;
+    }
+
+    .timeline-event-time {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #666;
+    }
+
+    .timeline-event-content {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .decision-option {
+        margin-bottom: 10px;
+    }
+
+    .decision-option-btn {
+        width: 100%;
+        text-align: left;
+        white-space: normal;
+    }
+</style>
+
+<!-- JavaScript for simulation -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize variables
+        let simulationState = null;
+
+        // Start simulation button
+        document.getElementById('start-simulation').addEventListener('click', function () {
+            const characterId = document.getElementById('character-select').value;
+
+            // Initialize simulation
+            fetch(`/simulation/scenario/{{ scenario.id }}/initialize`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    character_id: characterId ? parseInt(characterId) : null,
+                    perspective: characterId ? 'specific' : 'all'
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Hide character selection
+                        document.getElementById('character-selection').style.display = 'none';
+
+                        // Show simulation interface
+                        document.getElementById('simulation-interface').style.display = 'block';
+
+                        // Update state
+                        simulationState = data.initial_state;
+
+                        // Update UI
+                        updateSimulationUI(simulationState);
+                    } else {
+                        alert('Error initializing simulation: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error initializing simulation:', error);
+                    alert('Error initializing simulation. See console for details.');
+                });
+        });
+
+        // Save simulation button
+        document.getElementById('save-simulation').addEventListener('click', function () {
+            if (!simulationState) {
+                alert('No simulation to save. Please start a simulation first.');
+                return;
+            }
+
+            fetch(`/simulation/scenario/{{ scenario.id }}/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Simulation saved successfully!');
+                    } else {
+                        alert('Error saving simulation: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving simulation:', error);
+                    alert('Error saving simulation. See console for details.');
+                });
+        });
+
+        // Function to update the simulation UI
+        function updateSimulationUI(state) {
+            // Update timeline
+            updateTimeline(state);
+
+            // Update current event
+            updateCurrentEvent(state);
+
+            // Update decision point if present
+            if (state.current_event_index < state.events.length &&
+                isDecisionPoint(state.events[state.current_event_index])) {
+                showDecisionPoint(state.events[state.current_event_index]);
+            } else {
+                hideDecisionPoint();
+            }
+
+            // Update ethical analysis if present
+            if (state.evaluation) {
+                updateEthicalAnalysis(state.evaluation);
+            }
+        }
+
+        // Function to update the timeline display
+        function updateTimeline(state) {
+            const timelineDisplay = document.getElementById('timeline-display');
+            timelineDisplay.innerHTML = '';
+
+            // Add events to timeline
+            state.events.forEach((event, index) => {
+                if (index <= state.current_event_index) {
+                    const eventElement = document.createElement('div');
+                    eventElement.className = 'timeline-event';
+                    eventElement.innerHTML = `
+                        <div class="timeline-event-time">${formatTime(event.event_time)}</div>
+                        <div class="timeline-event-content">
+                            <h5>${event.description}</h5>
+                        </div>
+                    `;
+                    timelineDisplay.appendChild(eventElement);
+                }
+            });
+        }
+
+        // Function to update the current event display
+        function updateCurrentEvent(state) {
+            const currentEventDisplay = document.getElementById('current-event');
+
+            if (state.current_event_index >= state.events.length) {
+                currentEventDisplay.innerHTML = `
+                    <div class="alert alert-info">
+                        <h4>Simulation Complete</h4>
+                        <p>You have reached the end of the scenario timeline.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const currentEvent = state.events[state.current_event_index];
+
+            // Get character name if available
+            let characterName = '';
+            if (currentEvent.character_id && state.character_states[currentEvent.character_id]) {
+                characterName = state.character_states[currentEvent.character_id].name;
+            }
+
+            currentEventDisplay.innerHTML = `
+                <h4>${formatTime(currentEvent.event_time)}</h4>
+                <p>${currentEvent.description}</p>
+                ${characterName ? `<p><strong>Character:</strong> ${characterName}</p>` : ''}
+            `;
+        }
+
+        // Function to check if an event is a decision point
+        function isDecisionPoint(event) {
+            return event.action_id !== null && event.action_id !== undefined;
+        }
+
+        // Function to show decision point
+        function showDecisionPoint(event) {
+            const decisionPointDisplay = document.getElementById('decision-point');
+            const decisionOptionsDisplay = document.getElementById('decision-options');
+
+            decisionPointDisplay.style.display = 'block';
+            decisionOptionsDisplay.innerHTML = '';
+
+            // Generate decision options
+            const options = [
+                { id: 1, description: 'Option 1: Take the ethical high ground' },
+                { id: 2, description: 'Option 2: Compromise for practical reasons' },
+                { id: 3, description: 'Option 3: Prioritize efficiency over other considerations' }
+            ];
+
+            // Add decision options
+            options.forEach(option => {
+                const optionElement = document.createElement('div');
+                optionElement.className = 'decision-option mb-2';
+                optionElement.innerHTML = `
+                    <button class="btn btn-outline-primary decision-option-btn" data-option="${option.id}">
+                        ${option.description}
+                    </button>
+                `;
+                decisionOptionsDisplay.appendChild(optionElement);
+            });
+
+            // Add event listeners to decision buttons
+            document.querySelectorAll('.decision-option-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const optionId = parseInt(this.getAttribute('data-option'));
+                    makeDecision(optionId, event);
+                });
+            });
+        }
+
+        // Function to hide decision point
+        function hideDecisionPoint() {
+            document.getElementById('decision-point').style.display = 'none';
+        }
+
+        // Function to update ethical analysis
+        function updateEthicalAnalysis(evaluation) {
+            const analysisDisplay = document.getElementById('ethical-analysis');
+
+            if (evaluation.structured_evaluation) {
+                const structured = evaluation.structured_evaluation;
+                analysisDisplay.innerHTML = `
+                    <h4>Virtue Ethics Analysis</h4>
+                    <p><strong>Alignment with Role Virtues:</strong> ${structured.alignment_score}/10</p>
+                    
+                    <h5>Virtues Demonstrated:</h5>
+                    <ul>
+                        ${structured.virtues_demonstrated.map(v => `<li>${v}</li>`).join('')}
+                    </ul>
+                    
+                    ${structured.virtues_violated.length > 0 ? `
+                        <h5>Virtues Violated:</h5>
+                        <ul>
+                            ${structured.virtues_violated.map(v => `<li>${v}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                    
+                    <h5>Character Reflection:</h5>
+                    <p>${structured.character_reflection}</p>
+                    
+                    <h5>Recommendations:</h5>
+                    <p>${structured.recommendations}</p>
+                `;
+            } else {
+                analysisDisplay.innerHTML = `
+                    <h4>Ethical Analysis</h4>
+                    <p>${evaluation.raw_evaluation}</p>
+                `;
+            }
+        }
+
+        // Function to make a decision
+        function makeDecision(optionId, event) {
+            fetch(`/simulation/scenario/{{ scenario.id }}/decision`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    option_id: optionId,
+                    character_id: event.character_id,
+                    event_id: event.id
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update state
+                        simulationState = data.next_state;
+
+                        // Update UI
+                        updateSimulationUI(simulationState);
+
+                        // Show evaluation
+                        updateEthicalAnalysis(data.evaluation);
+                    } else {
+                        alert('Error processing decision: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error processing decision:', error);
+                    alert('Error processing decision. See console for details.');
+                });
+        }
+
+        // Helper function to format time
+        function formatTime(timeString) {
+            if (!timeString) return 'Unknown time';
+
+            const date = new Date(timeString);
+            return date.toLocaleString();
+        }
+    });
+</script>
+{% endblock %}
