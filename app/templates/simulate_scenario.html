@@ -165,6 +165,15 @@
         border-radius: 5px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         border-left: 4px solid #28a745;
+        margin-bottom: 10px;
+    }
+
+    .decision-evaluation {
+        margin-top: 10px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 3px solid #17a2b8;
     }
 
     .decision-option {
@@ -288,6 +297,19 @@
             const timelineDisplay = document.getElementById('timeline-display');
             timelineDisplay.innerHTML = '';
 
+            console.log("Updating timeline with state:", state);
+            console.log("Decision history:", state.decision_history);
+
+            // Create a map of decisions by event index for quick lookup
+            const decisionsByEventIndex = {};
+            if (state.decision_history && state.decision_history.length > 0) {
+                state.decision_history.forEach(historyItem => {
+                    decisionsByEventIndex[historyItem.event_index] = historyItem;
+                });
+            }
+
+            console.log("Decisions by event index:", decisionsByEventIndex);
+
             // Add events to timeline
             state.events.forEach((event, index) => {
                 if (index <= state.current_event_index) {
@@ -304,38 +326,63 @@
                         <div class="timeline-event-time">${formatTime(event.event_time)}</div>
                         <div class="timeline-event-content">
                             <h5>${event.description}</h5>
+                            ${event.action_id ? '<span class="badge bg-info">Decision Point</span>' : ''}
                         </div>
                     `;
                     timelineDisplay.appendChild(eventElement);
 
-                    // Check if this event has a decision attached
-                    if (event.decision) {
+                    // Check if this event has a decision attached directly or in the history
+                    const hasDirectDecision = event.decision !== undefined;
+                    const hasHistoryDecision = decisionsByEventIndex[index] !== undefined;
+
+                    console.log(`Event ${index}: hasDirectDecision=${hasDirectDecision}, hasHistoryDecision=${hasHistoryDecision}`);
+
+                    // Get the decision from either the event or the history
+                    const decision = hasDirectDecision ? event.decision :
+                        (hasHistoryDecision ? decisionsByEventIndex[index].decision : null);
+
+                    // Get the evaluation from either the event or the history
+                    const evaluation = hasDirectDecision ? event.evaluation :
+                        (hasHistoryDecision ? decisionsByEventIndex[index].evaluation : null);
+
+                    if (decision) {
                         // Add the decision
                         const decisionElement = document.createElement('div');
                         decisionElement.className = 'timeline-decision';
 
-                        // Get the option description
-                        let optionDescription = `Option ${event.decision.option_id}`;
-                        if (event.decision_options) {
-                            const selectedOption = event.decision_options.find(opt => opt.id === event.decision.option_id);
+                        // Get the option description - first try from the decision record itself
+                        let optionDescription = decision.option_description || `Option ${decision.option_id}`;
+
+                        // If not found in the decision record, try to find it in the decision options
+                        if (!decision.option_description && event.decision_options) {
+                            const selectedOption = event.decision_options.find(opt => opt.id === decision.option_id);
                             if (selectedOption) {
                                 optionDescription = selectedOption.description;
                             }
                         }
 
-                        // Create decision content
+                        // Get character info if available
+                        let characterInfo = '';
+                        if (decision.character_id && state.character_states && state.character_states[decision.character_id]) {
+                            const character = state.character_states[decision.character_id];
+                            characterInfo = `<p><strong>Character:</strong> ${character.name} (${character.role})</p>`;
+                        }
+
+                        // Create decision content with a more prominent display
                         let decisionContent = `
                             <div class="timeline-decision-content">
                                 <h5>Decision Made</h5>
+                                ${characterInfo}
                                 <p><strong>Selected:</strong> ${optionDescription}</p>
                         `;
 
                         // Add evaluation summary if available
-                        if (event.evaluation && event.evaluation.structured_evaluation) {
-                            const eval = event.evaluation.structured_evaluation;
+                        if (evaluation && evaluation.structured_evaluation) {
+                            const eval = evaluation.structured_evaluation;
                             decisionContent += `
-                                <p><strong>Ethical Alignment:</strong> ${eval.alignment_score}/10</p>
-                                <p><strong>Virtues Demonstrated:</strong> ${eval.virtues_demonstrated.join(', ')}</p>
+                                <div class="decision-evaluation">
+                                    <p><strong>Ethical Alignment:</strong> ${eval.alignment_score}/10</p>
+                                    <p><strong>Virtues Demonstrated:</strong> ${eval.virtues_demonstrated.join(', ')}</p>
                             `;
 
                             if (eval.virtues_violated && eval.virtues_violated.length > 0) {
@@ -343,6 +390,11 @@
                                     <p><strong>Virtues Violated:</strong> ${eval.virtues_violated.join(', ')}</p>
                                 `;
                             }
+
+                            decisionContent += `
+                                    <p><strong>Reflection:</strong> ${eval.character_reflection}</p>
+                                </div>
+                            `;
                         }
 
                         decisionContent += `</div>`;
@@ -351,54 +403,6 @@
                     }
                 }
             });
-
-            // Check decision history for any decisions that might not be attached to events
-            if (state.decision_history && state.decision_history.length > 0) {
-                state.decision_history.forEach(historyItem => {
-                    // Find the corresponding event
-                    const eventIndex = historyItem.event_index;
-                    const event = state.events[eventIndex];
-
-                    // If the event doesn't have a decision attached directly, add it from history
-                    if (event && !event.decision && eventIndex <= state.current_event_index) {
-                        // Find the event element in the timeline
-                        const eventElements = timelineDisplay.querySelectorAll('.timeline-event');
-                        if (eventElements.length > eventIndex) {
-                            // Add the decision after this event
-                            const decisionElement = document.createElement('div');
-                            decisionElement.className = 'timeline-decision';
-
-                            // Create decision content
-                            let decisionContent = `
-                                <div class="timeline-decision-content">
-                                    <h5>Decision Made</h5>
-                                    <p><strong>Selected:</strong> Option ${historyItem.decision.option_id}</p>
-                            `;
-
-                            // Add evaluation summary if available
-                            if (historyItem.evaluation && historyItem.evaluation.structured_evaluation) {
-                                const eval = historyItem.evaluation.structured_evaluation;
-                                decisionContent += `
-                                    <p><strong>Ethical Alignment:</strong> ${eval.alignment_score}/10</p>
-                                    <p><strong>Virtues Demonstrated:</strong> ${eval.virtues_demonstrated.join(', ')}</p>
-                                `;
-
-                                if (eval.virtues_violated && eval.virtues_violated.length > 0) {
-                                    decisionContent += `
-                                        <p><strong>Virtues Violated:</strong> ${eval.virtues_violated.join(', ')}</p>
-                                    `;
-                                }
-                            }
-
-                            decisionContent += `</div>`;
-                            decisionElement.innerHTML = decisionContent;
-
-                            // Insert after the event element
-                            eventElements[eventIndex].after(decisionElement);
-                        }
-                    }
-                });
-            }
         }
 
         // Function to update the current event display
@@ -454,20 +458,39 @@
             decisionOptionsDisplay.innerHTML = '';
             nextButton.style.display = 'none';
 
-            // Generate decision options
-            const options = [
+            // Get decision options from the event if available, otherwise use defaults
+            let options = event.decision_options || [
                 { id: 1, description: 'Option 1: Take the ethical high ground' },
                 { id: 2, description: 'Option 2: Compromise for practical reasons' },
                 { id: 3, description: 'Option 3: Prioritize efficiency over other considerations' }
             ];
 
-            // Add decision options
+            // Add decision options with improved styling
             options.forEach(option => {
                 const optionElement = document.createElement('div');
                 optionElement.className = 'decision-option mb-2';
+
+                // Extract the option number and description for better formatting
+                let optionText = option.description;
+                let optionClass = 'btn-outline-primary';
+
+                // Apply different styling based on the option content
+                if (optionText.toLowerCase().includes('ethical') ||
+                    optionText.toLowerCase().includes('integrity') ||
+                    optionText.toLowerCase().includes('welfare') ||
+                    optionText.toLowerCase().includes('safety')) {
+                    optionClass = 'btn-outline-success';
+                } else if (optionText.toLowerCase().includes('compromise') ||
+                    optionText.toLowerCase().includes('balance')) {
+                    optionClass = 'btn-outline-info';
+                } else if (optionText.toLowerCase().includes('efficiency') ||
+                    optionText.toLowerCase().includes('prioritize')) {
+                    optionClass = 'btn-outline-warning';
+                }
+
                 optionElement.innerHTML = `
-                    <button class="btn btn-outline-primary decision-option-btn" data-option="${option.id}">
-                        ${option.description}
+                    <button class="btn ${optionClass} decision-option-btn" data-option="${option.id}">
+                        ${optionText}
                     </button>
                 `;
                 decisionOptionsDisplay.appendChild(optionElement);

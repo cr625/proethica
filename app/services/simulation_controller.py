@@ -136,18 +136,33 @@ class SimulationController:
         
         current_event = events[current_event_index]
         
+        # Log current event details
+        logger.info(f"Processing decision for event: {current_event['id']}, action_id: {current_event.get('action_id')}, description: {current_event.get('description')}")
+        
         # Get the character making the decision
         character_id = decision_data.get('character_id', self.selected_character.id if self.selected_character else None)
         if not character_id:
             raise ValueError("No character specified for decision")
         
-        # Record the decision
+        # Get the decision options for this event
+        decision_options = current_event.get('decision_options', [])
+        logger.info(f"Decision options: {decision_options}")
+        
+        # Record the decision with option description
+        option_description = "Unknown option"
+        selected_option = next((opt for opt in decision_options if opt['id'] == decision_data['option_id']), None)
+        if selected_option:
+            option_description = selected_option['description']
+            
         decision_record = {
             'option_id': decision_data['option_id'],
+            'option_description': option_description,
             'character_id': character_id,
             'event_id': current_event['id'],
             'timestamp': datetime.now().isoformat()
         }
+        
+        logger.info(f"Created decision record: {decision_record}")
         
         # Evaluate the decision (simplified for now)
         evaluation = self._evaluate_decision(decision_record, self.current_state)
@@ -173,8 +188,20 @@ class SimulationController:
             'evaluation': evaluation
         })
         
+        logger.info(f"Added decision to history. Current decision history: {self.current_state['decision_history']}")
+        
         # Advance to the next event
         next_state = self._advance_timeline(self.current_state)
+        
+        # Ensure decisions are properly attached to events in the next state
+        if 'decision_history' in next_state:
+            for history_item in next_state['decision_history']:
+                event_index = history_item['event_index']
+                if event_index < len(next_state['events']):
+                    # Attach decision and evaluation to the event
+                    next_state['events'][event_index]['decision'] = history_item['decision']
+                    next_state['events'][event_index]['evaluation'] = history_item['evaluation']
+                    logger.info(f"Attached decision to event {event_index} in next state")
         
         # Record the new state
         self._record_state(next_state)
@@ -362,11 +389,19 @@ class SimulationController:
         Returns:
             List of dictionaries containing decision options
         """
-        # This is a simplified implementation for now
-        # In the future, this will use the LLM to generate options based on the event and state
+        # Get character information if available
+        character_id = event.get('character_id')
+        character_info = state['character_states'].get(character_id, {}) if character_id else {}
+        character_role = character_info.get('role', 'Unknown')
         
-        # For now, return some placeholder options
-        return [
+        # Get action information if available
+        action_id = event.get('action_id')
+        
+        # In the future, this will use the LLM to generate options based on the event, character, and state
+        # For now, generate more context-specific options based on the event and character
+        
+        # Default options
+        options = [
             {
                 'id': 1,
                 'description': 'Option 1: Take the ethical high ground'
@@ -380,6 +415,86 @@ class SimulationController:
                 'description': 'Option 3: Prioritize efficiency over other considerations'
             }
         ]
+        
+        # If we have character role information, customize the options
+        if character_role:
+            if 'doctor' in character_role.lower() or 'physician' in character_role.lower() or 'nurse' in character_role.lower():
+                options = [
+                    {
+                        'id': 1,
+                        'description': 'Option 1: Prioritize patient welfare above all else'
+                    },
+                    {
+                        'id': 2,
+                        'description': 'Option 2: Balance patient needs with resource constraints'
+                    },
+                    {
+                        'id': 3,
+                        'description': 'Option 3: Follow hospital protocols strictly'
+                    }
+                ]
+            elif 'engineer' in character_role.lower():
+                options = [
+                    {
+                        'id': 1,
+                        'description': 'Option 1: Prioritize safety and reliability'
+                    },
+                    {
+                        'id': 2,
+                        'description': 'Option 2: Balance safety with cost and timeline considerations'
+                    },
+                    {
+                        'id': 3,
+                        'description': 'Option 3: Focus on innovation and efficiency'
+                    }
+                ]
+            elif 'lawyer' in character_role.lower() or 'attorney' in character_role.lower():
+                options = [
+                    {
+                        'id': 1,
+                        'description': 'Option 1: Advocate zealously for your client'
+                    },
+                    {
+                        'id': 2,
+                        'description': 'Option 2: Seek a balanced resolution that serves justice'
+                    },
+                    {
+                        'id': 3,
+                        'description': 'Option 3: Strictly adhere to legal procedures and precedents'
+                    }
+                ]
+            elif 'manager' in character_role.lower() or 'executive' in character_role.lower():
+                options = [
+                    {
+                        'id': 1,
+                        'description': 'Option 1: Prioritize employee wellbeing and team cohesion'
+                    },
+                    {
+                        'id': 2,
+                        'description': 'Option 2: Focus on organizational goals and performance metrics'
+                    },
+                    {
+                        'id': 3,
+                        'description': 'Option 3: Balance stakeholder interests with ethical considerations'
+                    }
+                ]
+        
+        # If we have event description, further customize based on keywords
+        event_description = event.get('description', '').lower()
+        if 'emergency' in event_description or 'crisis' in event_description:
+            options[0]['description'] = 'Option 1: Act decisively to address the immediate crisis'
+            options[1]['description'] = 'Option 2: Take time to gather more information before acting'
+            options[2]['description'] = 'Option 3: Delegate responsibility to someone with more expertise'
+        elif 'conflict' in event_description or 'disagreement' in event_description:
+            options[0]['description'] = 'Option 1: Stand firm on your principles'
+            options[1]['description'] = 'Option 2: Seek compromise and common ground'
+            options[2]['description'] = 'Option 3: Defer to authority or established procedures'
+        elif 'resource' in event_description or 'allocation' in event_description:
+            options[0]['description'] = 'Option 1: Distribute resources based on greatest need'
+            options[1]['description'] = 'Option 2: Allocate resources to maximize overall benefit'
+            options[2]['description'] = 'Option 3: Follow established protocols for resource allocation'
+            
+        return options
     
     def _event_to_dict(self, event) -> Dict[str, Any]:
         """

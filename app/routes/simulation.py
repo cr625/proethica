@@ -179,6 +179,9 @@ def advance_simulation(id):
                 'message': 'Simulation state not found or expired'
             }), 400
         
+        # Log current state information
+        logger.info(f"Current state before advancing: event_index={current_state.get('current_event_index')}, decision_history={current_state.get('decision_history', [])}")
+        
         # Recreate the controller
         controller = SimulationController(
             scenario_id=session['simulation']['scenario_id'],
@@ -194,12 +197,19 @@ def advance_simulation(id):
         
         # Ensure decisions are attached to events
         if 'decision_history' in next_state:
+            logger.info(f"Decision history in next state: {next_state['decision_history']}")
             for history_item in next_state['decision_history']:
                 event_index = history_item['event_index']
                 if event_index < len(next_state['events']):
                     # Attach decision and evaluation to the event
                     next_state['events'][event_index]['decision'] = history_item['decision']
                     next_state['events'][event_index]['evaluation'] = history_item['evaluation']
+                    logger.info(f"Attached decision to event {event_index} in advance_simulation")
+        
+        # Log the events in the next state
+        for i, event in enumerate(next_state['events']):
+            if i <= next_state['current_event_index']:
+                logger.info(f"Event {i}: id={event.get('id')}, action_id={event.get('action_id')}, has_decision={'decision' in event}")
         
         # Store the updated state
         SimulationStorage.store_state(next_state, sim_session_id)
