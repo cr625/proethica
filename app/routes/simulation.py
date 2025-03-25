@@ -130,6 +130,59 @@ def process_decision(id):
             'message': f"Error processing decision: {str(e)}"
         }), 500
 
+@simulation_bp.route('/scenario/<int:id>/advance', methods=['POST'])
+def advance_simulation(id):
+    """Advance to the next event in the simulation."""
+    scenario = Scenario.query.get_or_404(id)
+    
+    # Check if simulation is initialized
+    if 'simulation' not in session or not session['simulation'].get('initialized'):
+        return jsonify({
+            'success': False,
+            'message': 'Simulation not initialized'
+        }), 400
+    
+    try:
+        # Recreate the controller
+        controller = SimulationController(
+            scenario_id=session['simulation']['scenario_id'],
+            selected_character_id=session['simulation']['selected_character_id'],
+            perspective=session['simulation']['perspective']
+        )
+        
+        # Restore the current state
+        controller.current_state = session.get('simulation_state', {})
+        
+        # Advance to the next event
+        next_state = controller._advance_timeline(controller.current_state)
+        
+        # Update the state in the session
+        session['simulation_state'] = next_state
+        
+        # Store the session data for later saving
+        if 'simulation_data' not in session:
+            session['simulation_data'] = {
+                'states': [controller.current_state],
+                'decisions': [],
+                'evaluations': [],
+                'timestamps': [controller.session_data['timestamps'][0] if controller.session_data['timestamps'] else datetime.now().isoformat()]
+            }
+        
+        # Add the new state to the session data
+        session['simulation_data']['states'].append(next_state)
+        session['simulation_data']['timestamps'].append(datetime.now().isoformat())
+        
+        return jsonify({
+            'success': True,
+            'next_state': next_state
+        })
+    except Exception as e:
+        logger.error(f"Error advancing simulation: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f"Error advancing simulation: {str(e)}"
+        }), 500
+
 @simulation_bp.route('/scenario/<int:id>/save', methods=['POST'])
 @login_required
 def save_simulation(id):
