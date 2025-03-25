@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 import logging
 
 from app import db
-from app.models.document import Document, DocumentChunk
+from app.models.document import Document, DocumentChunk, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 
@@ -292,9 +292,19 @@ def document_status(document_id):
     try:
         document = Document.query.get_or_404(document_id)
         
+        # Calculate estimated time remaining based on progress
+        estimated_time = None
+        if document.processing_status == PROCESSING_STATUS['PROCESSING']:
+            # Rough estimate: 2 minutes for a full process, scaled by remaining progress
+            remaining_progress = 100 - document.processing_progress
+            estimated_time = int((remaining_progress / 100) * 120)  # seconds
+        
         return jsonify({
             "id": document.id,
             "status": document.processing_status,
+            "phase": document.processing_phase,
+            "progress": document.processing_progress,
+            "estimated_time": estimated_time,  # in seconds
             "error": document.processing_error
         })
     

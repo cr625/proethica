@@ -14,6 +14,16 @@ PROCESSING_STATUS = {
     'FAILED': 'failed'
 }
 
+# Processing phases
+PROCESSING_PHASES = {
+    'INITIALIZING': 'initializing',
+    'EXTRACTING': 'extracting text',
+    'CHUNKING': 'splitting text',
+    'EMBEDDING': 'generating embeddings',
+    'STORING': 'storing chunks',
+    'FINALIZING': 'finalizing'
+}
+
 class Document(db.Model):
     """
     A Document represents a file uploaded to the system, such as guidelines,
@@ -32,6 +42,8 @@ class Document(db.Model):
     content = db.Column(db.Text)
     doc_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict with SQLAlchemy
     processing_status = db.Column(db.String(20), default=PROCESSING_STATUS['PENDING'])
+    processing_phase = db.Column(db.String(50), default=PROCESSING_PHASES['INITIALIZING'])
+    processing_progress = db.Column(db.Integer, default=0)  # 0-100 percentage
     processing_error = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -56,6 +68,8 @@ class Document(db.Model):
             'file_path': self.file_path,
             'file_type': self.file_type,
             'processing_status': self.processing_status,
+            'processing_phase': self.processing_phase,
+            'processing_progress': self.processing_progress,
             'processing_error': self.processing_error,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,

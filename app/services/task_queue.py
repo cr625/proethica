@@ -6,7 +6,7 @@ import threading
 import logging
 import time
 from app import db
-from app.models.document import Document, PROCESSING_STATUS
+from app.models.document import Document, PROCESSING_STATUS, PROCESSING_PHASES
 from app.services.embedding_service import EmbeddingService
 
 # Set up logging
@@ -69,25 +69,59 @@ class BackgroundTaskQueue:
                 
                 logger.info(f"Processing document {document_id} in background")
                 
+                # Update progress: Initializing (10%)
+                document.processing_phase = PROCESSING_PHASES['INITIALIZING']
+                document.processing_progress = 10
+                db.session.commit()
+                
                 # Extract text if needed
                 if document.file_path and not document.content:
+                    # Update progress: Extracting text (20%)
+                    document.processing_phase = PROCESSING_PHASES['EXTRACTING']
+                    document.processing_progress = 20
+                    db.session.commit()
+                    
                     text = self.embedding_service._extract_text(document.file_path, document.file_type)
                     document.content = text
+                    
+                    # Update progress: Text extracted (30%)
+                    document.processing_progress = 30
                     db.session.commit()
                 
                 # Process document content
                 if document.content:
+                    # Update progress: Chunking text (40%)
+                    document.processing_phase = PROCESSING_PHASES['CHUNKING']
+                    document.processing_progress = 40
+                    db.session.commit()
+                    
                     # Split text into chunks
                     chunks = self.embedding_service._split_text(document.content)
+                    
+                    # Update progress: Generating embeddings (50%)
+                    document.processing_phase = PROCESSING_PHASES['EMBEDDING']
+                    document.processing_progress = 50
+                    db.session.commit()
                     
                     # Generate embeddings for chunks
                     embeddings = self.embedding_service.embed_documents(chunks)
                     
+                    # Update progress: Storing chunks (70%)
+                    document.processing_phase = PROCESSING_PHASES['STORING']
+                    document.processing_progress = 70
+                    db.session.commit()
+                    
                     # Store chunks with embeddings
                     self.embedding_service._store_chunks(document.id, chunks, embeddings)
+                    
+                    # Update progress: Finalizing (90%)
+                    document.processing_phase = PROCESSING_PHASES['FINALIZING']
+                    document.processing_progress = 90
+                    db.session.commit()
                 
-                # Update document status to completed
+                # Update document status to completed (100%)
                 document.processing_status = PROCESSING_STATUS['COMPLETED']
+                document.processing_progress = 100
                 db.session.commit()
                 
                 logger.info(f"Completed background processing for document {document_id}")
