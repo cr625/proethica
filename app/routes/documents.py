@@ -292,20 +292,30 @@ def document_status(document_id):
     try:
         document = Document.query.get_or_404(document_id)
         
+        # Check if document has content but status is still processing
+        if document.content and document.processing_status == PROCESSING_STATUS['PROCESSING']:
+            # Update status to completed if content exists but status is still processing
+            document.processing_status = PROCESSING_STATUS['COMPLETED']
+            document.processing_progress = 100
+            document.processing_phase = 'completed'
+            db.session.commit()
+            logger.info(f"Auto-corrected document {document_id} status to completed based on content presence")
+        
         # Calculate estimated time remaining based on progress
         estimated_time = None
         if document.processing_status == PROCESSING_STATUS['PROCESSING']:
             # Rough estimate: 2 minutes for a full process, scaled by remaining progress
-            remaining_progress = 100 - document.processing_progress
+            remaining_progress = 100 - (document.processing_progress or 0)
             estimated_time = int((remaining_progress / 100) * 120)  # seconds
         
         return jsonify({
             "id": document.id,
             "status": document.processing_status,
             "phase": document.processing_phase,
-            "progress": document.processing_progress,
+            "progress": document.processing_progress or 0,
             "estimated_time": estimated_time,  # in seconds
-            "error": document.processing_error
+            "error": document.processing_error,
+            "has_content": bool(document.content)
         })
     
     except Exception as e:

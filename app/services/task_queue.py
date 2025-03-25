@@ -69,6 +69,15 @@ class BackgroundTaskQueue:
                 
                 logger.info(f"Processing document {document_id} in background")
                 
+                # Check if document already has content but status is not completed
+                if document.content and document.processing_status != PROCESSING_STATUS['COMPLETED']:
+                    logger.info(f"Document {document_id} already has content, marking as completed")
+                    document.processing_status = PROCESSING_STATUS['COMPLETED']
+                    document.processing_progress = 100
+                    document.processing_phase = PROCESSING_PHASES['FINALIZING']
+                    db.session.commit()
+                    return
+                
                 # Update progress: Initializing (10%)
                 document.processing_phase = PROCESSING_PHASES['INITIALIZING']
                 document.processing_progress = 10
@@ -122,6 +131,7 @@ class BackgroundTaskQueue:
                 # Update document status to completed (100%)
                 document.processing_status = PROCESSING_STATUS['COMPLETED']
                 document.processing_progress = 100
+                document.processing_phase = PROCESSING_PHASES['FINALIZING']
                 db.session.commit()
                 
                 logger.info(f"Completed background processing for document {document_id}")
