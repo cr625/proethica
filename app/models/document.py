@@ -6,6 +6,14 @@ from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
 VECTOR_AVAILABLE = True
 
+# Processing status constants
+PROCESSING_STATUS = {
+    'PENDING': 'pending',
+    'PROCESSING': 'processing',
+    'COMPLETED': 'completed',
+    'FAILED': 'failed'
+}
+
 class Document(db.Model):
     """
     A Document represents a file uploaded to the system, such as guidelines,
@@ -23,6 +31,8 @@ class Document(db.Model):
     file_type = db.Column(db.Text)
     content = db.Column(db.Text)
     doc_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict with SQLAlchemy
+    processing_status = db.Column(db.String(20), default=PROCESSING_STATUS['PENDING'])
+    processing_error = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -45,6 +55,8 @@ class Document(db.Model):
             'world_id': self.world_id,
             'file_path': self.file_path,
             'file_type': self.file_type,
+            'processing_status': self.processing_status,
+            'processing_error': self.processing_error,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'metadata': self.doc_metadata

@@ -9,11 +9,13 @@ from app.models.role import Role
 from app.models.condition_type import ConditionType
 from app.models.resource_type import ResourceType
 from app.services.mcp_client import MCPClient
+from app.services.task_queue import BackgroundTaskQueue
 
 worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 
-# Get singleton instance of MCPClient
+# Get singleton instances
 mcp_client = MCPClient.get_instance()
+task_queue = BackgroundTaskQueue.get_instance()
 
 # API endpoints
 @worlds_bp.route('/api', methods=['GET'])
@@ -132,27 +134,22 @@ def update_world_form(id):
                 file_type = filename.rsplit('.', 1)[1].lower()
                 
                 # Create document record
-                from app.models.document import Document
+                from app.models.document import Document, PROCESSING_STATUS
                 document = Document(
                     title=request.form.get('guidelines_title', f"Guidelines for {world.name}"),
                     document_type="guideline",
                     world_id=world.id,
                     file_path=file_path,
                     file_type=file_type,
-                    doc_metadata={}  # Initialize with empty metadata
+                    doc_metadata={},  # Initialize with empty metadata
+                    processing_status=PROCESSING_STATUS['PENDING']
                 )
                 db.session.add(document)
                 db.session.commit()
                 
-                # Process document in background (in a real application, this would be a Celery task)
-                # For now, we'll process it synchronously
-                from app.services.embedding_service import EmbeddingService
-                try:
-                    embedding_service = EmbeddingService()
-                    embedding_service.process_document(document.id)
-                    flash('Guidelines document processed successfully', 'success')
-                except Exception as e:
-                    flash(f'Error processing guidelines document: {str(e)}', 'error')
+                # Process document asynchronously
+                task_queue.process_document_async(document.id)
+                flash('Guidelines document uploaded and processing started', 'success')
             else:
                 flash('File type not allowed. Allowed types: pdf, docx, txt, html, htm', 'error')
     
@@ -160,60 +157,45 @@ def update_world_form(id):
     guidelines_url = request.form.get('guidelines_url', '').strip()
     if guidelines_url:
         # Create document record for URL
-        from app.models.document import Document
-        from app.services.embedding_service import EmbeddingService
+        from app.models.document import Document, PROCESSING_STATUS
         
-        try:
-            # Process the URL using the embedding service
-            embedding_service = EmbeddingService()
-            document_id = embedding_service.process_url(
-                guidelines_url,
-                request.form.get('guidelines_title', f"Guidelines URL for {world.name}"),
-                "guideline",
-                world.id
-            )
-            flash('Guidelines URL processed successfully', 'success')
-        except Exception as e:
-            flash(f'Error processing guidelines URL: {str(e)}', 'error')
-            
-            # Create a Document record for the URL without processing
-            document = Document(
-                title=request.form.get('guidelines_title', f"Guidelines URL for {world.name}"),
-                document_type="guideline",
-                world_id=world.id,
-                source=guidelines_url,
-                file_type="url",
-                doc_metadata={}
-            )
-            db.session.add(document)
-            db.session.commit()
+        # Create a Document record for the URL
+        document = Document(
+            title=request.form.get('guidelines_title_url', f"Guidelines URL for {world.name}"),
+            document_type="guideline",
+            world_id=world.id,
+            source=guidelines_url,
+            file_type="url",
+            doc_metadata={},
+            processing_status=PROCESSING_STATUS['PENDING']
+        )
+        db.session.add(document)
+        db.session.commit()
+        
+        # Process document asynchronously
+        task_queue.process_document_async(document.id)
+        flash('Guidelines URL uploaded and processing started', 'success')
     
     # Handle guidelines text
     guidelines_text = request.form.get('guidelines_text', '').strip()
     if guidelines_text:
         # Create document record for text
-        from app.models.document import Document
+        from app.models.document import Document, PROCESSING_STATUS
         document = Document(
-            title=request.form.get('guidelines_title', f"Guidelines Text for {world.name}"),
+            title=request.form.get('guidelines_title_text', f"Guidelines Text for {world.name}"),
             document_type="guideline",
             world_id=world.id,
             content=guidelines_text,
             file_type="txt",
-            doc_metadata={}
+            doc_metadata={},
+            processing_status=PROCESSING_STATUS['PENDING']
         )
         db.session.add(document)
         db.session.commit()
         
-        # Create chunks and embeddings for the document
-        from app.services.embedding_service import EmbeddingService
-        try:
-            embedding_service = EmbeddingService()
-            chunks = embedding_service._split_text(guidelines_text)
-            embeddings = embedding_service.embed_documents(chunks)
-            embedding_service._store_chunks(document.id, chunks, embeddings)
-            flash('Guidelines text processed successfully', 'success')
-        except Exception as e:
-            flash(f'Error processing guidelines text: {str(e)}', 'error')
+        # Process document asynchronously
+        task_queue.process_document_async(document.id)
+        flash('Guidelines text uploaded and processing started', 'success')
     
     db.session.commit()
     

@@ -16,6 +16,8 @@ This project simulates event-based scenarios like military medical triage to tra
 - Model Context Protocol for extensibility
 - Zotero integration for academic references and citations
 - World and scenario reference management
+- Asynchronous document processing for guidelines and references
+- Vector embeddings for semantic search of documents
 
 ## Architecture
 
@@ -80,7 +82,11 @@ The application is built with:
 
 7. Run the application:
    ```
+   # Development mode
    python run.py
+   
+   # Production mode with Gunicorn (recommended for stability)
+   ./run_with_gunicorn.sh
    ```
 
 ## Usage
@@ -112,6 +118,14 @@ pytest tests/test_scenarios_routes.py::test_list_scenarios
 ```
 
 See `tests/README.md` for more details on the test structure and coverage.
+
+## Documentation
+
+The project includes detailed documentation in the `docs/` directory:
+
+- `document_management.md`: Information about the document management system
+- `multiple_guidelines.md`: How to use multiple guidelines per world
+- `async_document_processing.md`: Details about the asynchronous document processing implementation
 
 ## License
 

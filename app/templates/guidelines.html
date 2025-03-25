@@ -51,6 +51,18 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    {% if guideline.processing_status == 'pending' or guideline.processing_status == 'processing' %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Processing document... This may take a few minutes.
+                    </div>
+                    {% elif guideline.processing_status == 'failed' %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Processing failed: {{ guideline.processing_error }}
+                    </div>
+                    {% endif %}
+
                     {% if guideline.file_type == 'url' %}
                     <div class="mb-3">
                         <span class="badge bg-info">URL</span>

@@ -39,3 +39,6 @@ email_validator
 # Development
 black
 flake8
+
+# Production
+gunicorn  # WSGI HTTP Server
