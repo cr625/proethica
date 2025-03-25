@@ -155,6 +155,24 @@ class SimulationController:
         # Record the decision and evaluation
         self._record_decision(decision_record, evaluation)
         
+        # Attach the decision and evaluation to the current event
+        current_event['decision'] = decision_record
+        current_event['evaluation'] = evaluation
+        
+        # Update the event in the events list
+        events[current_event_index] = current_event
+        self.current_state['events'] = events
+        
+        # Add to decision history
+        if 'decision_history' not in self.current_state:
+            self.current_state['decision_history'] = []
+        self.current_state['decision_history'].append({
+            'event_id': current_event['id'],
+            'event_index': current_event_index,
+            'decision': decision_record,
+            'evaluation': evaluation
+        })
+        
         # Advance to the next event
         next_state = self._advance_timeline(self.current_state)
         

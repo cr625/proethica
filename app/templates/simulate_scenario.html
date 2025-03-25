@@ -142,6 +142,31 @@
         border-left: 4px solid #dc3545;
     }
 
+    .timeline-decision {
+        position: relative;
+        margin-bottom: 30px;
+        margin-left: 60px;
+    }
+
+    .timeline-decision:before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: -36px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #28a745;
+    }
+
+    .timeline-decision-content {
+        padding: 15px;
+        background: #f0f9f0;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #28a745;
+    }
+
     .decision-option {
         margin-bottom: 10px;
     }
@@ -158,6 +183,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         // Initialize variables
         let simulationState = null;
+        let simulationSessionId = null;
 
         // Start simulation button
         document.getElementById('start-simulation').addEventListener('click', function () {
@@ -183,8 +209,9 @@
                         // Show simulation interface
                         document.getElementById('simulation-interface').style.display = 'block';
 
-                        // Update state
+                        // Update state and session ID
                         simulationState = data.initial_state;
+                        simulationSessionId = data.session_id;
 
                         // Update UI
                         updateSimulationUI(simulationState);
@@ -205,11 +232,20 @@
                 return;
             }
 
+            // Check if we have a session ID
+            if (!simulationSessionId) {
+                alert('Session ID not found. Please restart the simulation.');
+                return;
+            }
+
             fetch(`/simulation/scenario/{{ scenario.id }}/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({
+                    session_id: simulationSessionId
+                })
             })
                 .then(response => response.json())
                 .then(data => {
@@ -255,6 +291,7 @@
             // Add events to timeline
             state.events.forEach((event, index) => {
                 if (index <= state.current_event_index) {
+                    // Add the event
                     const eventElement = document.createElement('div');
                     eventElement.className = 'timeline-event';
 
@@ -270,8 +307,98 @@
                         </div>
                     `;
                     timelineDisplay.appendChild(eventElement);
+
+                    // Check if this event has a decision attached
+                    if (event.decision) {
+                        // Add the decision
+                        const decisionElement = document.createElement('div');
+                        decisionElement.className = 'timeline-decision';
+
+                        // Get the option description
+                        let optionDescription = `Option ${event.decision.option_id}`;
+                        if (event.decision_options) {
+                            const selectedOption = event.decision_options.find(opt => opt.id === event.decision.option_id);
+                            if (selectedOption) {
+                                optionDescription = selectedOption.description;
+                            }
+                        }
+
+                        // Create decision content
+                        let decisionContent = `
+                            <div class="timeline-decision-content">
+                                <h5>Decision Made</h5>
+                                <p><strong>Selected:</strong> ${optionDescription}</p>
+                        `;
+
+                        // Add evaluation summary if available
+                        if (event.evaluation && event.evaluation.structured_evaluation) {
+                            const eval = event.evaluation.structured_evaluation;
+                            decisionContent += `
+                                <p><strong>Ethical Alignment:</strong> ${eval.alignment_score}/10</p>
+                                <p><strong>Virtues Demonstrated:</strong> ${eval.virtues_demonstrated.join(', ')}</p>
+                            `;
+
+                            if (eval.virtues_violated && eval.virtues_violated.length > 0) {
+                                decisionContent += `
+                                    <p><strong>Virtues Violated:</strong> ${eval.virtues_violated.join(', ')}</p>
+                                `;
+                            }
+                        }
+
+                        decisionContent += `</div>`;
+                        decisionElement.innerHTML = decisionContent;
+                        timelineDisplay.appendChild(decisionElement);
+                    }
                 }
             });
+
+            // Check decision history for any decisions that might not be attached to events
+            if (state.decision_history && state.decision_history.length > 0) {
+                state.decision_history.forEach(historyItem => {
+                    // Find the corresponding event
+                    const eventIndex = historyItem.event_index;
+                    const event = state.events[eventIndex];
+
+                    // If the event doesn't have a decision attached directly, add it from history
+                    if (event && !event.decision && eventIndex <= state.current_event_index) {
+                        // Find the event element in the timeline
+                        const eventElements = timelineDisplay.querySelectorAll('.timeline-event');
+                        if (eventElements.length > eventIndex) {
+                            // Add the decision after this event
+                            const decisionElement = document.createElement('div');
+                            decisionElement.className = 'timeline-decision';
+
+                            // Create decision content
+                            let decisionContent = `
+                                <div class="timeline-decision-content">
+                                    <h5>Decision Made</h5>
+                                    <p><strong>Selected:</strong> Option ${historyItem.decision.option_id}</p>
+                            `;
+
+                            // Add evaluation summary if available
+                            if (historyItem.evaluation && historyItem.evaluation.structured_evaluation) {
+                                const eval = historyItem.evaluation.structured_evaluation;
+                                decisionContent += `
+                                    <p><strong>Ethical Alignment:</strong> ${eval.alignment_score}/10</p>
+                                    <p><strong>Virtues Demonstrated:</strong> ${eval.virtues_demonstrated.join(', ')}</p>
+                                `;
+
+                                if (eval.virtues_violated && eval.virtues_violated.length > 0) {
+                                    decisionContent += `
+                                        <p><strong>Virtues Violated:</strong> ${eval.virtues_violated.join(', ')}</p>
+                                    `;
+                                }
+                            }
+
+                            decisionContent += `</div>`;
+                            decisionElement.innerHTML = decisionContent;
+
+                            // Insert after the event element
+                            eventElements[eventIndex].after(decisionElement);
+                        }
+                    }
+                });
+            }
         }
 
         // Function to update the current event display
@@ -399,6 +526,12 @@
 
         // Function to make a decision
         function makeDecision(optionId, event) {
+            // Check if we have a session ID
+            if (!simulationSessionId) {
+                alert('Session ID not found. Please restart the simulation.');
+                return;
+            }
+
             fetch(`/simulation/scenario/{{ scenario.id }}/decision`, {
                 method: 'POST',
                 headers: {
@@ -407,7 +540,8 @@
                 body: JSON.stringify({
                     option_id: optionId,
                     character_id: event.character_id,
-                    event_id: event.id
+                    event_id: event.id,
+                    session_id: simulationSessionId
                 })
             })
                 .then(response => response.json())
@@ -433,11 +567,20 @@
 
         // Function to advance to the next event
         function advanceToNextEvent() {
+            // Check if we have a session ID
+            if (!simulationSessionId) {
+                alert('Session ID not found. Please restart the simulation.');
+                return;
+            }
+
             fetch(`/simulation/scenario/{{ scenario.id }}/advance`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({
+                    session_id: simulationSessionId
+                })
             })
                 .then(response => response.json())
                 .then(data => {

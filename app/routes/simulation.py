@@ -11,6 +11,7 @@ from flask_login import current_user, login_required
 from app import db
 from app.models import Scenario, Character, SimulationSession
 from app.services.simulation_controller import SimulationController
+from app.services.simulation_storage import SimulationStorage
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -49,22 +50,28 @@ def initialize_simulation(id):
         # Initialize simulation
         initial_state = controller.initialize_simulation()
         
-        # Store controller in session
-        # Note: We can't store the controller object directly in the session
-        # Instead, we'll store the scenario_id and other parameters, and recreate the controller as needed
+        # Store the state in the simulation storage
+        sim_session_id = SimulationStorage.store_state(initial_state)
+        
+        # Store minimal information in the session
         session['simulation'] = {
             'scenario_id': id,
             'selected_character_id': data.get('character_id'),
             'perspective': data.get('perspective', 'specific'),
-            'initialized': True
+            'initialized': True,
+            'session_id': sim_session_id
         }
         
-        # Store the current state in the session
-        session['simulation_state'] = initial_state
+        # Initialize session data for later saving
+        session['simulation_data'] = {
+            'scenario_id': id,
+            'timestamps': [datetime.now().isoformat()]
+        }
         
         return jsonify({
             'success': True,
-            'initial_state': initial_state
+            'initial_state': initial_state,
+            'session_id': sim_session_id
         })
     except Exception as e:
         logger.error(f"Error initializing simulation: {str(e)}")
@@ -87,6 +94,22 @@ def process_decision(id):
         }), 400
     
     try:
+        # Get the simulation session ID
+        sim_session_id = session['simulation'].get('session_id')
+        if not sim_session_id:
+            return jsonify({
+                'success': False,
+                'message': 'Simulation session ID not found'
+            }), 400
+        
+        # Get the current state from storage
+        current_state = SimulationStorage.get_state(sim_session_id)
+        if not current_state:
+            return jsonify({
+                'success': False,
+                'message': 'Simulation state not found or expired'
+            }), 400
+        
         # Recreate the controller
         controller = SimulationController(
             scenario_id=session['simulation']['scenario_id'],
@@ -94,29 +117,26 @@ def process_decision(id):
             perspective=session['simulation']['perspective']
         )
         
-        # Restore the current state
-        controller.current_state = session.get('simulation_state', {})
+        # Set the current state
+        controller.current_state = current_state
         
         # Process decision
         next_state, evaluation = controller.process_decision(data)
         
-        # Update the state in the session
-        session['simulation_state'] = next_state
+        # Store the updated state
+        SimulationStorage.store_state(next_state, sim_session_id)
         
-        # Store the session data for later saving
+        # Update minimal data for later saving
         if 'simulation_data' not in session:
             session['simulation_data'] = {
-                'states': [controller.current_state],
-                'decisions': [],
-                'evaluations': [],
-                'timestamps': [controller.session_data['timestamps'][0]]
+                'scenario_id': id,
+                'decision_count': 0,
+                'timestamps': [datetime.now().isoformat()]
             }
         
-        # Add the decision and evaluation to the session data
-        session['simulation_data']['states'].append(next_state)
-        session['simulation_data']['decisions'].append(data)
-        session['simulation_data']['evaluations'].append(evaluation)
-        session['simulation_data']['timestamps'].append(controller.session_data['timestamps'][-1])
+        # Increment decision count
+        session['simulation_data']['decision_count'] = session['simulation_data'].get('decision_count', 0) + 1
+        session['simulation_data']['timestamps'].append(datetime.now().isoformat())
         
         return jsonify({
             'success': True,
@@ -143,6 +163,22 @@ def advance_simulation(id):
         }), 400
     
     try:
+        # Get the simulation session ID
+        sim_session_id = session['simulation'].get('session_id')
+        if not sim_session_id:
+            return jsonify({
+                'success': False,
+                'message': 'Simulation session ID not found'
+            }), 400
+        
+        # Get the current state from storage
+        current_state = SimulationStorage.get_state(sim_session_id)
+        if not current_state:
+            return jsonify({
+                'success': False,
+                'message': 'Simulation state not found or expired'
+            }), 400
+        
         # Recreate the controller
         controller = SimulationController(
             scenario_id=session['simulation']['scenario_id'],
@@ -150,26 +186,34 @@ def advance_simulation(id):
             perspective=session['simulation']['perspective']
         )
         
-        # Restore the current state
-        controller.current_state = session.get('simulation_state', {})
+        # Set the current state
+        controller.current_state = current_state
         
         # Advance to the next event
         next_state = controller._advance_timeline(controller.current_state)
         
-        # Update the state in the session
-        session['simulation_state'] = next_state
+        # Ensure decisions are attached to events
+        if 'decision_history' in next_state:
+            for history_item in next_state['decision_history']:
+                event_index = history_item['event_index']
+                if event_index < len(next_state['events']):
+                    # Attach decision and evaluation to the event
+                    next_state['events'][event_index]['decision'] = history_item['decision']
+                    next_state['events'][event_index]['evaluation'] = history_item['evaluation']
         
-        # Store the session data for later saving
+        # Store the updated state
+        SimulationStorage.store_state(next_state, sim_session_id)
+        
+        # Update minimal data for later saving
         if 'simulation_data' not in session:
             session['simulation_data'] = {
-                'states': [controller.current_state],
-                'decisions': [],
-                'evaluations': [],
-                'timestamps': [controller.session_data['timestamps'][0] if controller.session_data['timestamps'] else datetime.now().isoformat()]
+                'scenario_id': id,
+                'event_count': 0,
+                'timestamps': [datetime.now().isoformat()]
             }
         
-        # Add the new state to the session data
-        session['simulation_data']['states'].append(next_state)
+        # Increment event count
+        session['simulation_data']['event_count'] = session['simulation_data'].get('event_count', 0) + 1
         session['simulation_data']['timestamps'].append(datetime.now().isoformat())
         
         return jsonify({
@@ -197,11 +241,38 @@ def save_simulation(id):
         }), 400
     
     try:
+        # Get the simulation session ID
+        sim_session_id = session['simulation'].get('session_id')
+        if not sim_session_id:
+            return jsonify({
+                'success': False,
+                'message': 'Simulation session ID not found'
+            }), 400
+        
+        # Get the current state from storage
+        current_state = SimulationStorage.get_state(sim_session_id)
+        if not current_state:
+            return jsonify({
+                'success': False,
+                'message': 'Simulation state not found or expired'
+            }), 400
+        
+        # Prepare session data for saving
+        session_data = {
+            'scenario_id': id,
+            'selected_character_id': session['simulation'].get('selected_character_id'),
+            'perspective': session['simulation'].get('perspective'),
+            'final_state': current_state,
+            'event_count': session['simulation_data'].get('event_count', 0),
+            'decision_count': session['simulation_data'].get('decision_count', 0),
+            'timestamps': session['simulation_data'].get('timestamps', [datetime.now().isoformat()])
+        }
+        
         # Create a new session record
         simulation_session = SimulationSession(
             scenario_id=id,
             user_id=current_user.id,
-            session_data=session.get('simulation_data', {}),
+            session_data=session_data,
             created_at=datetime.now()
         )
         
@@ -211,6 +282,9 @@ def save_simulation(id):
         
         # Clear simulation data from session
         session.pop('simulation_data', None)
+        
+        # Remove the state from storage
+        SimulationStorage.remove_state(sim_session_id)
         
         return jsonify({
             'success': True,
