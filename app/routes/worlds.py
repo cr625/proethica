@@ -459,6 +459,124 @@ def world_guidelines(id):
     
     return render_template('guidelines.html', world=world, guidelines=guidelines)
 
+@worlds_bp.route('/<int:id>/guidelines/add', methods=['GET'])
+def add_guideline_form(id):
+    """Display form to add a guideline to a world."""
+    world = World.query.get_or_404(id)
+    
+    # Get referrer URL for redirect after submission
+    referrer = request.referrer or url_for('worlds.world_guidelines', id=world.id)
+    
+    return render_template('add_guideline.html', world=world, referrer=referrer)
+
+@worlds_bp.route('/<int:id>/guidelines/add', methods=['POST'])
+def add_guideline(id):
+    """Process form submission to add a guideline to a world."""
+    world = World.query.get_or_404(id)
+    
+    # Get referrer URL for redirect after submission
+    referrer = request.form.get('referrer') or url_for('worlds.world_guidelines', id=world.id)
+    
+    # Get form data
+    title = request.form.get('guidelines_title', f"Guidelines for {world.name}")
+    input_type = request.form.get('input_type')
+    
+    # Import Document model and task queue
+    from app.models.document import Document, PROCESSING_STATUS
+    from app.services.task_queue import BackgroundTaskQueue
+    task_queue = BackgroundTaskQueue.get_instance()
+    
+    # Process based on input type
+    if input_type == 'file' and 'guidelines_file' in request.files:
+        file = request.files['guidelines_file']
+        if file and file.filename:
+            # Check if file type is allowed
+            if '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in {'pdf', 'docx', 'txt', 'html', 'htm'}:
+                # Configure upload folder
+                UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                
+                # Save file
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(file_path)
+                
+                # Get file type
+                file_type = filename.rsplit('.', 1)[1].lower()
+                
+                # Create document record
+                document = Document(
+                    title=title,
+                    document_type="guideline",
+                    world_id=world.id,
+                    file_path=file_path,
+                    file_type=file_type,
+                    doc_metadata={},
+                    processing_status=PROCESSING_STATUS['PENDING']
+                )
+                db.session.add(document)
+                db.session.commit()
+                
+                # Process document asynchronously
+                task_queue.process_document_async(document.id)
+                flash('Guidelines document uploaded and processing started', 'success')
+            else:
+                flash('File type not allowed. Allowed types: pdf, docx, txt, html, htm', 'error')
+                return redirect(url_for('worlds.add_guideline_form', id=world.id))
+    
+    elif input_type == 'url':
+        guidelines_url = request.form.get('guidelines_url', '').strip()
+        if guidelines_url:
+            # Create document record for URL
+            document = Document(
+                title=title,
+                document_type="guideline",
+                world_id=world.id,
+                source=guidelines_url,
+                file_type="url",
+                doc_metadata={},
+                processing_status=PROCESSING_STATUS['PENDING']
+            )
+            db.session.add(document)
+            db.session.commit()
+            
+            # Process document asynchronously
+            task_queue.process_document_async(document.id)
+            flash('Guidelines URL uploaded and processing started', 'success')
+        else:
+            flash('URL is required', 'error')
+            return redirect(url_for('worlds.add_guideline_form', id=world.id))
+    
+    elif input_type == 'text':
+        guidelines_text = request.form.get('guidelines_text', '').strip()
+        if guidelines_text:
+            # Create document record for text
+            document = Document(
+                title=title,
+                document_type="guideline",
+                world_id=world.id,
+                content=guidelines_text,
+                file_type="txt",
+                doc_metadata={},
+                processing_status=PROCESSING_STATUS['PENDING']
+            )
+            db.session.add(document)
+            db.session.commit()
+            
+            # Process document asynchronously
+            task_queue.process_document_async(document.id)
+            flash('Guidelines text uploaded and processing started', 'success')
+        else:
+            flash('Text is required', 'error')
+            return redirect(url_for('worlds.add_guideline_form', id=world.id))
+    
+    else:
+        flash('No guideline content provided', 'error')
+        return redirect(url_for('worlds.add_guideline_form', id=world.id))
+    
+    # Redirect back to referrer
+    return redirect(referrer)
+
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 def delete_guideline(id, document_id):
     """Delete a guideline document."""
