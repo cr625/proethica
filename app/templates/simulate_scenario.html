@@ -12,22 +12,15 @@
         </div>
     </div>
 
-    <!-- Character Selection -->
-    <div id="character-selection" class="card mb-4">
+    <!-- Begin Simulation -->
+    <div id="simulation-start" class="card mb-4">
         <div class="card-header">
-            <h3>Select Character Perspective</h3>
+            <h3>Begin Scenario Simulation</h3>
         </div>
         <div class="card-body">
-            <div class="form-group">
-                <label for="character-select">Choose a character:</label>
-                <select id="character-select" class="form-control">
-                    <option value="">All Perspectives</option>
-                    {% for character in characters %}
-                    <option value="{{ character.id }}">{{ character.name }} ({{ character.role }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button id="start-simulation" class="btn btn-primary mt-3">Start Simulation</button>
+            <p>This simulation will walk you through the timeline of events for this scenario, including actions and
+                decisions made by the characters involved.</p>
+            <button id="start-simulation" class="btn btn-primary mt-3">Begin Simulation</button>
         </div>
     </div>
 
@@ -206,24 +199,21 @@
 
         // Start simulation button
         document.getElementById('start-simulation').addEventListener('click', function () {
-            const characterId = document.getElementById('character-select').value;
-
-            // Initialize simulation
+            // Initialize simulation with "all" perspective by default
             fetch(`/simulation/scenario/{{ scenario.id }}/initialize`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    character_id: characterId ? parseInt(characterId) : null,
-                    perspective: characterId ? 'specific' : 'all'
+                    perspective: 'all'
                 })
             })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Hide character selection
-                        document.getElementById('character-selection').style.display = 'none';
+                        // Hide simulation start card
+                        document.getElementById('simulation-start').style.display = 'none';
 
                         // Show simulation interface
                         document.getElementById('simulation-interface').style.display = 'block';
@@ -342,8 +332,8 @@
                         <div class="timeline-event-content ${isDecisionPoint ? 'decision-point' : ''}">
                             <h5>${event.description}</h5>
                             ${isDecisionPoint ?
-                            '<span class="badge bg-warning">Decision Required</span>' :
-                            (event.action_id ? '<span class="badge bg-info">Action</span>' : '')}
+                            '<div class="mt-2"><span class="badge bg-warning">Decision Required</span></div>' :
+                            (event.action_id ? '<div class="mt-2"><span class="badge bg-info">Action</span></div>' : '')}
                         </div>
                     `;
                     timelineDisplay.appendChild(eventElement);
@@ -510,27 +500,32 @@
                 ];
             }
 
+            // Debug output
+            console.log("Decision options:", options);
+
             // Add decision options with improved styling
             options.forEach(option => {
                 const optionElement = document.createElement('div');
                 optionElement.className = 'decision-option mb-2';
 
                 // Extract the option number and description for better formatting
-                let optionText = option.description;
+                let optionText = option.description || `Option ${option.id}`;
                 let optionClass = 'btn-outline-primary';
 
                 // Apply different styling based on the option content
-                if (optionText.toLowerCase().includes('ethical') ||
-                    optionText.toLowerCase().includes('integrity') ||
-                    optionText.toLowerCase().includes('welfare') ||
-                    optionText.toLowerCase().includes('safety')) {
-                    optionClass = 'btn-outline-success';
-                } else if (optionText.toLowerCase().includes('compromise') ||
-                    optionText.toLowerCase().includes('balance')) {
-                    optionClass = 'btn-outline-info';
-                } else if (optionText.toLowerCase().includes('efficiency') ||
-                    optionText.toLowerCase().includes('prioritize')) {
-                    optionClass = 'btn-outline-warning';
+                if (typeof optionText === 'string') {
+                    if (optionText.toLowerCase().includes('ethical') ||
+                        optionText.toLowerCase().includes('integrity') ||
+                        optionText.toLowerCase().includes('welfare') ||
+                        optionText.toLowerCase().includes('safety')) {
+                        optionClass = 'btn-outline-success';
+                    } else if (optionText.toLowerCase().includes('compromise') ||
+                        optionText.toLowerCase().includes('balance')) {
+                        optionClass = 'btn-outline-info';
+                    } else if (optionText.toLowerCase().includes('efficiency') ||
+                        optionText.toLowerCase().includes('prioritize')) {
+                        optionClass = 'btn-outline-warning';
+                    }
                 }
 
                 optionElement.innerHTML = `
@@ -623,25 +618,24 @@
 
                         // Show evaluation
                         updateEthicalAnalysis(data.evaluation);
+
+                        // Add a note about branching
+                        const analysisDisplay = document.getElementById('ethical-analysis');
+                        const branchingNote = document.createElement('div');
+                        branchingNote.className = 'alert alert-info mt-3';
+                        branchingNote.innerHTML = `
+                            <h5>Note: Future Implementation</h5>
+                            <p>In a future version, this decision will create a branch in the workflow, 
+                            allowing for different timeline paths based on the choices made.</p>
+                        `;
+                        analysisDisplay.appendChild(branchingNote);
                     } else {
                         alert('Error processing decision: ' + data.message);
                     }
                 })
                 .catch(error => {
                     console.error('Error processing decision:', error);
-                    // Try to get more detailed error information
-                    error.text().then(errorText => {
-                        try {
-                            const errorData = JSON.parse(errorText);
-                            alert(`Error processing decision: ${errorData.message || 'Unknown error'}`);
-                            console.error('Detailed error:', errorData);
-                        } catch (e) {
-                            alert(`Error processing decision: ${errorText || error.message || 'Unknown error'}`);
-                            console.error('Error text:', errorText);
-                        }
-                    }).catch(e => {
-                        alert(`Error processing decision: ${error.message || 'Unknown error'}`);
-                    });
+                    alert(`Error processing decision: ${error.message || 'Unknown error'}`);
                 });
         }
 
@@ -676,19 +670,7 @@
                 })
                 .catch(error => {
                     console.error('Error advancing to next event:', error);
-                    // Try to get more detailed error information
-                    error.text().then(errorText => {
-                        try {
-                            const errorData = JSON.parse(errorText);
-                            alert(`Error advancing to next event: ${errorData.message || 'Unknown error'}`);
-                            console.error('Detailed error:', errorData);
-                        } catch (e) {
-                            alert(`Error advancing to next event: ${errorText || error.message || 'Unknown error'}`);
-                            console.error('Error text:', errorText);
-                        }
-                    }).catch(e => {
-                        alert(`Error advancing to next event: ${error.message || 'Unknown error'}`);
-                    });
+                    alert(`Error advancing to next event: ${error.message || 'Unknown error'}`);
                 });
         }
 
