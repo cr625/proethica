@@ -1,3 +1,6 @@
+
+# Server-specific configuration
+server_config/
 # Python
 __pycache__/
 *.py[cod]
@@ -58,4 +61,5 @@ migrations
 .outfile
 mcp/profile.out
 mcp/server.log
-.secrets
+.secretsserver_config/
+run_with_agents_gunicorn.sh
