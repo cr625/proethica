@@ -2,140 +2,6 @@
 
 {% block title %}Simulate Scenario - {{ scenario.name }} - AI Ethical Decision-Making Simulator{% endblock %}
 
-{% block content %}
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ scenario.name }} - Simulation</h1>
-        <div class="btn-group" role="group">
-            <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3>Scenario Description</h3>
-        </div>
-        <div class="card-body">
-            <p>{{ scenario.description }}</p>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3>Timeline</h3>
-        </div>
-        <div class="card-body">
-            {% if scenario.actions or scenario.events %}
-            <div class="timeline">
-                {% set combined_items = [] %}
-                {% if scenario.actions %}
-                {% for action in scenario.actions %}
-                {% set _ = combined_items.append((action.action_time, 'action', action)) %}
-                {% endfor %}
-                {% endif %}
-                {% if scenario.events %}
-                {% for event in scenario.events %}
-                {% set _ = combined_items.append((event.event_time, 'event', event)) %}
-                {% endfor %}
-                {% endif %}
-
-                {% for time, item_type, item in combined_items|sort %}
-                <div class="timeline-item">
-                    <div
-                        class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
-                    </div>
-                    <div class="timeline-content {% if item_type == 'event' %}timeline-content-event{% endif %}">
-                        <h4 class="timeline-title">
-                            {{ time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown time' }}
-                            {% if item_type == 'action' %}
-                            <span class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
-                                {{ 'Decision' if item.is_decision else 'Action' }}
-                            </span>
-                            {% else %}
-                            <span class="badge bg-info">Event</span>
-                            {% endif %}
-                        </h4>
-
-                        {% if item_type == 'action' %}
-                        <h5>{{ item.name }}</h5>
-                        <p>{{ item.description }}</p>
-
-                        {% if item.character %}
-                        <small class="text-muted">Character: {{ item.character.name }}</small>
-                        {% endif %}
-
-                        {% if item.action_type %}
-                        <small class="text-muted">Type: {{ item.action_type }}</small>
-                        {% endif %}
-
-                        {% if item.is_decision %}
-                        <div class="mt-2">
-                            <h6>Options:</h6>
-                            <ul class="list-group">
-                                {% for option in item.options %}
-                                <li
-                                    class="list-group-item {% if option == item.selected_option %}list-group-item-success{% endif %}">
-                                    {% if option is string %}
-                                    {{ option }}
-                                    {% elif option is mapping and option.description is defined %}
-                                    {{ option.description }}
-                                    {% else %}
-                                    Option {{ loop.index }}
-                                    {% endif %}
-                                    {% if option == item.selected_option %}<span
-                                        class="badge bg-success float-end">Selected</span>{% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-
-                        {% if item.evaluations %}
-                        <div class="mt-2">
-                            <h6>Evaluation:</h6>
-                            {% for evaluation in item.evaluations %}
-                            <div class="progress mb-2">
-                                <div class="progress-bar" role="progressbar"
-                                    style="width: {{ evaluation.rules_compliance * 100 }}%;"
-                                    aria-valuenow="{{ evaluation.rules_compliance * 100 }}" aria-valuemin="0"
-                                    aria-valuemax="100">
-                                    Rules Compliance: {{ (evaluation.rules_compliance * 100)|int }}%
-                                </div>
-                            </div>
-                            <div class="progress mb-2">
-                                <div class="progress-bar bg-info" role="progressbar"
-                                    style="width: {{ evaluation.ethical_score * 100 }}%;"
-                                    aria-valuenow="{{ evaluation.ethical_score * 100 }}" aria-valuemin="0"
-                                    aria-valuemax="100">
-                                    Ethical Score: {{ (evaluation.ethical_score * 100)|int }}%
-                                </div>
-                            </div>
-                            <p class="mt-2">{{ evaluation.reasoning }}</p>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        {% endif %}
-                        {% else %}
-                        <h5>Event</h5>
-                        <p>{{ item.description }}</p>
-                        {% if item.character %}
-                        <small class="text-muted">Character: {{ item.character.name }}</small>
-                        {% endif %}
-                        {% if item.action %}
-                        <small class="text-muted">Action: {{ item.action.name }}</small>
-                        {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-muted">No actions or events added yet.</p>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endblock %}
-
 {% block styles %}
 <style>
     .timeline {
@@ -185,5 +51,455 @@
         border-left: 3px solid #17a2b8;
         /* Bootstrap info color */
     }
+
+    /* Agent interaction styles */
+    .agent-window {
+        height: 400px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .conversation {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+
+    .message {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        max-width: 80%;
+        display: block;
+    }
+
+    .user-message {
+        background-color: #007bff;
+        color: white;
+        margin-left: auto;
+        text-align: right;
+    }
+
+    .agent-message {
+        background-color: #e9ecef;
+        color: #212529;
+        margin-right: auto;
+        text-align: left;
+    }
+
+    .input-area {
+        padding: 10px;
+        border-top: 1px solid #ccc;
+        display: flex;
+        flex-direction: column;
+        background-color: white;
+        position: sticky;
+        bottom: 0;
+        width: 100%;
+    }
+
+    .prompt-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .prompt-option {
+        background-color: #e9ecef;
+        border: none;
+        border-radius: 16px;
+        padding: 8px 16px;
+        cursor: pointer;
+    }
+
+    .prompt-option:hover {
+        background-color: #dee2e6;
+    }
+
+    .input-disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0, 123, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #007bff;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="container" id="simulation-app">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ scenario.name }} - Simulation</h1>
+        <div class="btn-group" role="group">
+            <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Scenario Description</h3>
+                </div>
+                <div class="card-body">
+                    <p>{{ scenario.description }}</p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Timeline</h3>
+                </div>
+                <div class="card-body">
+                    {% if scenario.actions or scenario.events %}
+                    <div class="timeline">
+                        {% set combined_items = [] %}
+                        {% if scenario.actions %}
+                        {% for action in scenario.actions %}
+                        {% set _ = combined_items.append((action.action_time, 'action', action)) %}
+                        {% endfor %}
+                        {% endif %}
+                        {% if scenario.events %}
+                        {% for event in scenario.events %}
+                        {% set _ = combined_items.append((event.event_time, 'event', event)) %}
+                        {% endfor %}
+                        {% endif %}
+
+                        {% for time, item_type, item in combined_items|sort %}
+                        <div class="timeline-item" v-show="simulationState.currentStep >= {{ loop.index }}">
+                            <div
+                                class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
+                            </div>
+                            <div
+                                class="timeline-content {% if item_type == 'event' %}timeline-content-event{% endif %}">
+                                <h4 class="timeline-title">
+                                    {{ time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown time' }}
+                                    {% if item_type == 'action' %}
+                                    <span
+                                        class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
+                                        {{ 'Decision' if item.is_decision else 'Action' }}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-info">Event</span>
+                                    {% endif %}
+                                </h4>
+
+                                {% if item_type == 'action' %}
+                                <h5>{{ item.name }}</h5>
+                                <p>{{ item.description }}</p>
+
+                                {% if item.character %}
+                                <small class="text-muted">Character: {{ item.character.name }}</small>
+                                {% endif %}
+
+                                {% if item.action_type %}
+                                <small class="text-muted">Type: {{ item.action_type }}</small>
+                                {% endif %}
+
+                                {% if item.is_decision %}
+                                <div class="mt-2">
+                                    <h6>Options:</h6>
+                                    <ul class="list-group">
+                                        {% for option in item.options %}
+                                        <li
+                                            class="list-group-item {% if option == item.selected_option %}list-group-item-success{% endif %}">
+                                            {% if option is string %}
+                                            {{ option }}
+                                            {% elif option is mapping and option.description is defined %}
+                                            {{ option.description }}
+                                            {% else %}
+                                            Option {{ loop.index }}
+                                            {% endif %}
+                                            {% if option == item.selected_option %}<span
+                                                class="badge bg-success float-end">Selected</span>{% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+
+                                {% if item.evaluations %}
+                                <div class="mt-2">
+                                    <h6>Evaluation:</h6>
+                                    {% for evaluation in item.evaluations %}
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" role="progressbar"
+                                            style="width: {{ evaluation.rules_compliance * 100 }}%;"
+                                            aria-valuenow="{{ evaluation.rules_compliance * 100 }}" aria-valuemin="0"
+                                            aria-valuemax="100">
+                                            Rules Compliance: {{ (evaluation.rules_compliance * 100)|int }}%
+                                        </div>
+                                    </div>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar bg-info" role="progressbar"
+                                            style="width: {{ evaluation.ethical_score * 100 }}%;"
+                                            aria-valuenow="{{ evaluation.ethical_score * 100 }}" aria-valuemin="0"
+                                            aria-valuemax="100">
+                                            Ethical Score: {{ (evaluation.ethical_score * 100)|int }}%
+                                        </div>
+                                    </div>
+                                    <p class="mt-2">{{ evaluation.reasoning }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                {% endif %}
+                                {% else %}
+                                <h5>Event</h5>
+                                <p>{{ item.description }}</p>
+                                {% if item.character %}
+                                <small class="text-muted">Character: {{ item.character.name }}</small>
+                                {% endif %}
+                                {% if item.action %}
+                                <small class="text-muted">Action: {{ item.action.name }}</small>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No actions or events added yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Simulation state window -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Simulation State</h3>
+                </div>
+                <div class="card-body p-0">
+                    <div class="agent-window">
+                        <div class="conversation" ref="conversation">
+                            <div v-for="(message, index) in messages" :key="index" class="message"
+                                :class="message.role === 'user' ? 'user-message' : 'agent-message'">
+                                {% raw %}{{ message.content }}{% endraw %}
+                            </div>
+                            <div v-if="isProcessing" class="message agent-message">
+                                <div class="loading"></div> Thinking...
+                            </div>
+                        </div>
+
+                        <div class="input-area">
+                            <div v-if="promptOptions.length > 0" class="prompt-options w-100">
+                                <button v-for="option in promptOptions" :key="option.id" class="prompt-option"
+                                    @click="selectPromptOption(option)">
+                                    {% raw %}{{ option.text }}{% endraw %}
+                                </button>
+                            </div>
+
+                            <div v-else class="input-group mb-2">
+                                <input type="text" class="form-control" v-model="userInput"
+                                    :disabled="!inputEnabled || isProcessing"
+                                    :class="{ 'input-disabled': !inputEnabled || isProcessing }"
+                                    placeholder="Type your message..." @keyup.enter="sendMessage">
+                                <button class="btn btn-primary" @click="sendMessage"
+                                    :disabled="!inputEnabled || isProcessing">
+                                    Send
+                                </button>
+                            </div>
+
+                            <div class="d-flex flex-column w-100">
+                                <button class="btn btn-primary mb-2" @click="advanceSimulation"
+                                    :class="{'btn-success': simulationState.currentStep > 0}">
+                                    <span v-if="simulationState.currentStep === 0">Start Simulation</span>
+                                    <span v-else>Advance Simulation</span>
+                                </button>
+                                <button class="btn btn-secondary" @click="resetConversation">
+                                    Reset Conversation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Include Vue.js and Axios -->
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    // Count the number of timeline items
+    var timelineItemCount = {{ combined_items| length if combined_items else 10 }};
+
+    new Vue({
+        el: '#simulation-app',
+        data: function () {
+            return {
+                messages: [],
+                userInput: '',
+                inputEnabled: true,
+                promptOptions: [],
+                isProcessing: false,
+                simulationState: {
+                    currentStep: 0,
+                    totalSteps: timelineItemCount,
+                    completed: false
+                }
+            };
+        },
+        created: function () {
+            // Initialize conversation
+            this.initializeConversation();
+            // Get prompt options
+            this.getPromptOptions();
+        },
+        methods: {
+            initializeConversation: function () {
+                // Initialize with a welcome message
+                this.messages = [
+                    {
+                        role: 'assistant',
+                        content: 'Hello! I am your AI assistant for this simulation. I can help you understand the scenario and make decisions. What would you like to know?'
+                    }
+                ];
+            },
+            sendMessage: function () {
+                if (!this.inputEnabled || !this.userInput.trim() || this.isProcessing) return;
+
+                // Add user message to conversation
+                this.messages.push({ role: 'user', content: this.userInput });
+
+                // Clear input and disable it while processing
+                var userMessage = this.userInput;
+                this.userInput = '';
+                this.inputEnabled = true;
+                this.isProcessing = true;
+                this.promptOptions = [];
+
+                // Scroll to bottom
+                this.scrollToBottom();
+
+                // Simulate API call with timeout
+                var self = this;
+                setTimeout(function () {
+                    // Add assistant response to conversation
+                    self.messages.push({
+                        role: 'assistant',
+                        content: 'I understand your question about "' + userMessage + '". In this simulation, you can explore the scenario timeline and make decisions at key points. Would you like to know more about a specific event or character?'
+                    });
+
+                    // Re-enable input
+                    self.isProcessing = false;
+                    self.getPromptOptions();
+                    self.scrollToBottom();
+                }, 1000);
+            },
+            selectPromptOption: function (option) {
+                // Add selected option to conversation as user message
+                this.messages.push({ role: 'user', content: option.text });
+
+                // Clear prompt options and disable input while processing
+                this.promptOptions = [];
+                this.inputEnabled = true;
+                this.isProcessing = true;
+
+                // Scroll to bottom
+                this.scrollToBottom();
+
+                // Simulate API call with timeout
+                var self = this;
+                setTimeout(function () {
+                    // Add assistant response to conversation
+                    self.messages.push({
+                        role: 'assistant',
+                        content: 'You selected: "' + option.text + '". This is a simulated response. In a full implementation, this would provide specific information about your selection.'
+                    });
+
+                    // Re-enable input
+                    self.isProcessing = false;
+                    self.getPromptOptions();
+                    self.scrollToBottom();
+                }, 1000);
+            },
+            getPromptOptions: function () {
+                // Simulate getting prompt options
+                this.promptOptions = [
+                    { id: 1, text: 'Tell me more about this scenario' },
+                    { id: 2, text: 'What are the key ethical considerations?' },
+                    { id: 3, text: 'How do I make a decision?' }
+                ];
+            },
+            advanceSimulation: function () {
+                // Start or advance the simulation
+                if (this.simulationState.currentStep === 0) {
+                    // First click - start the simulation
+                    this.simulationState.currentStep = 1;
+
+                    this.messages.push({
+                        role: 'assistant',
+                        content: 'The simulation has started. The first event has been revealed in the timeline.'
+                    });
+
+                    this.scrollToBottom();
+                } else if (this.simulationState.currentStep < this.simulationState.totalSteps) {
+                    // Subsequent clicks - advance the simulation
+                    this.simulationState.currentStep++;
+
+                    this.messages.push({
+                        role: 'assistant',
+                        content: 'The simulation has advanced to step ' + this.simulationState.currentStep + ' of ' + this.simulationState.totalSteps + '. A new event has been revealed in the timeline.'
+                    });
+
+                    this.scrollToBottom();
+                } else {
+                    // Simulation is complete
+                    this.simulationState.completed = true;
+                    this.messages.push({
+                        role: 'assistant',
+                        content: 'The simulation is complete. You can review the timeline to see all events and decisions.'
+                    });
+
+                    this.scrollToBottom();
+                }
+            },
+            resetConversation: function () {
+                // Reset conversation and simulation state
+                this.initializeConversation();
+                this.getPromptOptions();
+                this.simulationState.currentStep = 0;
+                this.simulationState.completed = false;
+                this.scrollToBottom();
+            },
+            scrollToBottom: function () {
+                // Scroll to bottom of conversation when new messages are added
+                var self = this;
+                this.$nextTick(function () {
+                    var container = self.$refs.conversation;
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                });
+            }
+        },
+        updated: function () {
+            // Scroll to bottom of conversation when new messages are added
+            this.scrollToBottom();
+        }
+    });
+</script>
 {% endblock %}
