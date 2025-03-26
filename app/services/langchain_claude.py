@@ -11,6 +11,7 @@ import logging
 from langchain_anthropic import ChatAnthropic
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from app.config import Config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -84,12 +85,20 @@ class LangChainClaudeService:
         Returns:
             Chain output
         """
-        try:
-            return chain.run(**kwargs)
-        except Exception as e:
-            logger.error(f"Error running LangChain: {str(e)}")
-            # Return a default response in case of error
-            return "I encountered an error processing your request. Please try again or ask a different question."
+        # Check if we should use Claude or return a mock response
+        if Config.USE_CLAUDE:
+            try:
+                return chain.run(**kwargs)
+            except Exception as e:
+                logger.error(f"Error running LangChain: {str(e)}")
+                # Return a default response in case of error
+                return "I encountered an error processing your request. Please try again or ask a different question."
+        else:
+            # Generate a mock response when USE_CLAUDE is False
+            logger.info("Using mock response instead of running LangChain with Claude")
+            # Create a summary of the input parameters to include in the mock response
+            input_summary = ", ".join([f"{k}: {str(v)[:50]}..." for k, v in kwargs.items()])
+            return f"This is a mock LangChain response.\n\nRequest parameters: {input_summary}\n\nMock responses are being used because USE_CLAUDE is set to false in the environment configuration."
     
     def get_guidelines_for_world(self, world_id: Optional[int] = None) -> str:
         """

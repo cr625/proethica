@@ -28,8 +28,9 @@ def main():
     
     args = parser.parse_args()
     
-    # Set environment variable to enable agent orchestrator
+    # Set environment variables to enable agent orchestrator and Claude
     os.environ['USE_AGENT_ORCHESTRATOR'] = 'true'
+    os.environ['USE_CLAUDE'] = 'true'
     
     # Create the Flask application
     app = create_app()

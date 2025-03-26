@@ -9,6 +9,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-for-development-only')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or "postgresql://postgres:PASS@localhost/ai_ethical_dm"
+    USE_CLAUDE = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'
 
 class DevelopmentConfig(Config):
     """Development configuration."""

@@ -25,11 +25,15 @@ def create_app(config_name='default'):
     from app.config import config
     app.config.from_object(config[config_name])
     
-    # Check if agent orchestrator is enabled
+    # Use the USE_CLAUDE flag as the primary control for both Claude and agent orchestration
+    # USE_AGENT_ORCHESTRATOR is kept for backward compatibility
+    use_claude = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'
     use_agent_orchestrator = os.environ.get('USE_AGENT_ORCHESTRATOR', 'false').lower() == 'true'
-    app.config['USE_AGENT_ORCHESTRATOR'] = use_agent_orchestrator
     
-    if use_agent_orchestrator:
+    # Enable agent orchestrator if USE_CLAUDE is true (the default) or if USE_AGENT_ORCHESTRATOR is explicitly set to true
+    app.config['USE_AGENT_ORCHESTRATOR'] = use_claude or use_agent_orchestrator
+    
+    if app.config['USE_AGENT_ORCHESTRATOR']:
         app.logger.info("Agent Orchestrator is ENABLED")
     else:
         app.logger.info("Agent Orchestrator is DISABLED")

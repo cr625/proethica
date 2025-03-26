@@ -2,6 +2,7 @@ from typing import Dict, List, Any, Optional, Union
 from anthropic import Anthropic
 from app.services.llm_service import Message, Conversation
 from app.services.mcp_client import MCPClient
+from app.config import Config
 import os
 import time
 import json
@@ -117,33 +118,41 @@ class ClaudeService:
         # Add user message to conversation
         conversation.add_message(message, role="user")
         
-        try:
-            # Get guidelines for the world
-            guidelines = self.get_guidelines_for_world(world_id=world_id)
-            
-            # Format messages for Claude
-            claude_messages = self._format_messages_for_claude(conversation)
-            
-            # Prepare system prompt with guidelines if available
-            system_prompt = self.system_prompt
-            if guidelines:
-                system_prompt = f"{self.system_prompt}\n\nGuidelines for reference:\n{guidelines}"
-            
-            # Call Claude API with system parameter
-            response = self.client.messages.create(
-                model=self.model,
-                system=system_prompt,
-                messages=claude_messages,
-                max_tokens=1024
-            )
-            
-            # Extract response content
-            content = response.content[0].text
-            
-        except Exception as e:
-            print(f"Error generating response from Claude: {str(e)}")
-            # Use a default response in case of error
-            content = "I'm sorry, I encountered an error processing your request. Please try again or ask a different question."
+        # Check if we should use Claude or return a mock response
+        if Config.USE_CLAUDE:
+            try:
+                # Get guidelines for the world
+                guidelines = self.get_guidelines_for_world(world_id=world_id)
+                
+                # Format messages for Claude
+                claude_messages = self._format_messages_for_claude(conversation)
+                
+                # Prepare system prompt with guidelines if available
+                system_prompt = self.system_prompt
+                if guidelines:
+                    system_prompt = f"{self.system_prompt}\n\nGuidelines for reference:\n{guidelines}"
+                
+                # Call Claude API with system parameter
+                response = self.client.messages.create(
+                    model=self.model,
+                    system=system_prompt,
+                    messages=claude_messages,
+                    max_tokens=1024
+                )
+                
+                # Extract response content
+                content = response.content[0].text
+                
+            except Exception as e:
+                print(f"Error generating response from Claude: {str(e)}")
+                # Use a default response in case of error
+                content = "I'm sorry, I encountered an error processing your request. Please try again or ask a different question."
+        else:
+            # Return a mock response when USE_CLAUDE is False
+            print("Using mock response instead of calling Claude API")
+            # Get last user message to include in mock response for context
+            last_message = message if message else "your request"
+            content = f"This is a mock response to: {last_message}\n\nMock responses are being used because USE_CLAUDE is set to false in the environment configuration."
         
         # Add assistant response to conversation
         return conversation.add_message(content, role="assistant")
@@ -161,55 +170,67 @@ class ClaudeService:
         """
         if conversation is None or len(conversation.messages) == 0:
             return self._default_options
-            
-        try:
-            # Get guidelines for the world
-            guidelines = self.get_guidelines_for_world(world_id=world_id)
-            
-            # Format messages for Claude
-            claude_messages = self._format_messages_for_claude(conversation)
-            
-            # Add a specific instruction for generating options
-            claude_messages.append({
-                "role": "user",
-                "content": "Generate 3-5 suggested prompt options that would be helpful for the user to select based on our conversation. Format your response as a JSON array of objects with 'id' and 'text' fields. Example: [{\"id\": 1, \"text\": \"Tell me more about this scenario\"}, {\"id\": 2, \"text\": \"What ethical principles apply here?\"}]"
-            })
-            
-            # Prepare system prompt with guidelines if available
-            system_prompt = self.system_prompt
-            if guidelines:
-                system_prompt = f"{self.system_prompt}\n\nGuidelines for reference:\n{guidelines}"
-            
-            # Call Claude API with system parameter
-            response = self.client.messages.create(
-                model=self.model,
-                system=system_prompt,
-                messages=claude_messages,
-                max_tokens=512
-            )
-            
-            # Extract response content and parse JSON
-            content = response.content[0].text
-            
-            # Try to extract JSON from the response
-            # First, look for JSON array pattern
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', content, re.DOTALL)
-            if json_match:
-                options_json = json_match.group(0)
-                options = json.loads(options_json)
-                return options
-                
-            # If that fails, try to parse the entire response as JSON
+        
+        # Check if we should use Claude or return mock options
+        if Config.USE_CLAUDE:
             try:
-                options = json.loads(content)
-                if isinstance(options, list) and all('id' in opt and 'text' in opt for opt in options):
-                    return options
-            except:
-                pass
+                # Get guidelines for the world
+                guidelines = self.get_guidelines_for_world(world_id=world_id)
                 
-            # If all parsing fails, return default options
-            return self._default_options
-            
-        except Exception as e:
-            print(f"Error generating prompt options from Claude: {str(e)}")
-            return self._default_options
+                # Format messages for Claude
+                claude_messages = self._format_messages_for_claude(conversation)
+                
+                # Add a specific instruction for generating options
+                claude_messages.append({
+                    "role": "user",
+                    "content": "Generate 3-5 suggested prompt options that would be helpful for the user to select based on our conversation. Format your response as a JSON array of objects with 'id' and 'text' fields. Example: [{\"id\": 1, \"text\": \"Tell me more about this scenario\"}, {\"id\": 2, \"text\": \"What ethical principles apply here?\"}]"
+                })
+                
+                # Prepare system prompt with guidelines if available
+                system_prompt = self.system_prompt
+                if guidelines:
+                    system_prompt = f"{self.system_prompt}\n\nGuidelines for reference:\n{guidelines}"
+                
+                # Call Claude API with system parameter
+                response = self.client.messages.create(
+                    model=self.model,
+                    system=system_prompt,
+                    messages=claude_messages,
+                    max_tokens=512
+                )
+                
+                # Extract response content and parse JSON
+                content = response.content[0].text
+                
+                # Try to extract JSON from the response
+                # First, look for JSON array pattern
+                json_match = re.search(r'\[\s*\{.*\}\s*\]', content, re.DOTALL)
+                if json_match:
+                    options_json = json_match.group(0)
+                    options = json.loads(options_json)
+                    return options
+                    
+                # If that fails, try to parse the entire response as JSON
+                try:
+                    options = json.loads(content)
+                    if isinstance(options, list) and all('id' in opt and 'text' in opt for opt in options):
+                        return options
+                except:
+                    pass
+                    
+                # If all parsing fails, return default options
+                return self._default_options
+                
+            except Exception as e:
+                print(f"Error generating prompt options from Claude: {str(e)}")
+                return self._default_options
+        else:
+            # Return mock prompt options when USE_CLAUDE is False
+            print("Using mock prompt options instead of calling Claude API")
+            # Return standard mock options with context that they are mock responses
+            return [
+                {"id": 1, "text": "Mock option 1: Tell me more about this scenario"},
+                {"id": 2, "text": "Mock option 2: What ethical principles apply here?"},
+                {"id": 3, "text": "Mock option 3: How should I approach this decision?"},
+                {"id": 4, "text": "Mock option 4: What considerations should I keep in mind?"}
+            ]
