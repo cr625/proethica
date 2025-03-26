@@ -494,6 +494,9 @@
                     }, 1500);
 
                     self.scrollToBottom();
+
+                    // Scroll to the bottom of the page to keep the Simulation State card in view
+                    window.scrollTo(0, document.body.scrollHeight);
                 }, 1000);
             },
             getPromptOptions: function () {
