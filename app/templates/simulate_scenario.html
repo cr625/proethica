@@ -464,7 +464,7 @@
                     return;
                 }
 
-                // Otherwise, handle as a normal prompt option
+                // Otherwise, handle as a decision option
                 this.messages.push({ role: 'user', content: option.text });
 
                 // Clear prompt options and disable input while processing
@@ -486,7 +486,13 @@
 
                     // Re-enable input
                     self.isProcessing = false;
-                    self.getPromptOptions();
+
+                    // Wait a moment to show the response before advancing
+                    setTimeout(function () {
+                        // Automatically advance to the next item in the timeline
+                        self.advanceSimulation();
+                    }, 1500);
+
                     self.scrollToBottom();
                 }, 1000);
             },
