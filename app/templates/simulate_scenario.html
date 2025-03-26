@@ -495,7 +495,14 @@
                 optionElement.className = 'decision-option mb-2';
 
                 // Extract the option number and description for better formatting
-                let optionText = option.description || `Option ${option.id}`;
+                let optionText;
+                if (typeof option.description === 'string') {
+                    optionText = option.description;
+                } else if (option.description && typeof option.description === 'object') {
+                    optionText = option.description.description || JSON.stringify(option.description);
+                } else {
+                    optionText = `Option ${option.id}`;
+                }
                 let optionClass = 'btn-outline-primary';
 
                 // Apply different styling based on the option content
@@ -610,7 +617,16 @@
                         if (event.decision_options) {
                             const selectedOption = event.decision_options.find(opt => opt.id === optionId);
                             if (selectedOption) {
-                                optionDescription = selectedOption.description;
+                                // Check if description is a string or an object
+                                if (typeof selectedOption.description === 'string') {
+                                    optionDescription = selectedOption.description;
+                                } else if (selectedOption.description && typeof selectedOption.description === 'object') {
+                                    // If it's an object, convert to string
+                                    optionDescription = selectedOption.description.description || JSON.stringify(selectedOption.description);
+                                } else {
+                                    // Fallback
+                                    optionDescription = String(selectedOption.description);
+                                }
                             }
                         }
 

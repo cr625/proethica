@@ -195,7 +195,13 @@
                                 {% for option in item.options %}
                                 <li
                                     class="list-group-item {% if option == item.selected_option %}list-group-item-success{% endif %}">
+                                    {% if option is string %}
                                     {{ option }}
+                                    {% elif option is mapping and option.description is defined %}
+                                    {{ option.description }}
+                                    {% else %}
+                                    Option {{ loop.index }}
+                                    {% endif %}
                                     {% if option == item.selected_option %}<span
                                         class="badge bg-success float-end">Selected</span>{% endif %}
                                 </li>
