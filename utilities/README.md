@@ -187,7 +187,36 @@ python utilities/cases_agent_demo.py --decision "Should the engineer accept a gi
 python utilities/cases_agent_demo.py --output analysis_results.json
 ```
 
-### 7. `demo_workflow.sh`
+### 7. `add_nspe_cases_to_engineering_ethics.py`
+
+This script automates the process of adding NSPE case studies to the Engineering Ethics (US) world (world_id=2). It combines the functionality of `scrape_nspe_cases.py` and `add_cases_to_world.py` into a single convenient script.
+
+**Usage:**
+```bash
+python utilities/add_nspe_cases_to_engineering_ethics.py [--limit LIMIT] [--skip-scraping] [--skip-embeddings]
+```
+
+**Arguments:**
+- `--limit`, `-l`: Maximum number of cases to scrape (default: all)
+- `--skip-scraping`, `-s`: Skip the scraping step and use existing JSON file
+- `--skip-embeddings`, `-e`: Skip the embedding generation step
+
+**Example:**
+```bash
+# Scrape and add all NSPE cases to the Engineering Ethics world
+python utilities/add_nspe_cases_to_engineering_ethics.py
+
+# Scrape and add 5 NSPE cases
+python utilities/add_nspe_cases_to_engineering_ethics.py --limit 5
+
+# Use existing scraped data without re-scraping
+python utilities/add_nspe_cases_to_engineering_ethics.py --skip-scraping
+
+# Skip generating embeddings (faster but won't be searchable)
+python utilities/add_nspe_cases_to_engineering_ethics.py --skip-embeddings
+```
+
+### 8. `demo_workflow.sh`
 
 This script demonstrates the complete workflow of adding case studies to the database and using them in the agent-based system. It runs through the following steps:
 

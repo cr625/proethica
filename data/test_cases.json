@@ -1,0 +1,29 @@
+[
+  {
+    "title": "Engineering Ethics Case Study 1: Conflict of Interest",
+    "url": "https://example.com/case1",
+    "case_number": "BER Case 2025-01",
+    "year": "2025",
+    "full_text": "An engineer is asked to review plans for a project that was designed by a firm where the engineer's spouse is a principal. The engineer must decide whether to disclose this relationship and potentially recuse themselves from the review.\n\nThe NSPE Code of Ethics states that engineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nThe Board of Ethical Review finds that the engineer has an obligation to disclose the relationship and should recuse themselves from the project review to avoid even the appearance of impropriety.",
+    "html_content": "<h2>Engineering Ethics Case Study 1: Conflict of Interest</h2><p>An engineer is asked to review plans for a project that was designed by a firm where the engineer's spouse is a principal. The engineer must decide whether to disclose this relationship and potentially recuse themselves from the review.</p><p>The NSPE Code of Ethics states that engineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.</p><p>The Board of Ethical Review finds that the engineer has an obligation to disclose the relationship and should recuse themselves from the project review to avoid even the appearance of impropriety.</p>",
+    "scraped_at": "2025-03-26T09:20:00Z"
+  },
+  {
+    "title": "Engineering Ethics Case Study 2: Public Safety",
+    "url": "https://example.com/case2",
+    "case_number": "BER Case 2025-02",
+    "year": "2025",
+    "full_text": "An engineer discovers a potential safety issue in a building design that has already been approved and construction has begun. The issue could potentially lead to structural failure under certain extreme conditions, but the probability is low. The engineer must decide whether to report this issue, which would cause significant delays and cost overruns.\n\nThe NSPE Code of Ethics states that engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties.\n\nThe Board of Ethical Review finds that the engineer has an obligation to report the safety issue, regardless of the low probability of occurrence or the economic impact, as public safety must always be the primary consideration.",
+    "html_content": "<h2>Engineering Ethics Case Study 2: Public Safety</h2><p>An engineer discovers a potential safety issue in a building design that has already been approved and construction has begun. The issue could potentially lead to structural failure under certain extreme conditions, but the probability is low. The engineer must decide whether to report this issue, which would cause significant delays and cost overruns.</p><p>The NSPE Code of Ethics states that engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties.</p><p>The Board of Ethical Review finds that the engineer has an obligation to report the safety issue, regardless of the low probability of occurrence or the economic impact, as public safety must always be the primary consideration.</p>",
+    "scraped_at": "2025-03-26T09:20:00Z"
+  },
+  {
+    "title": "Engineering Ethics Case Study 3: Confidentiality",
+    "url": "https://example.com/case3",
+    "case_number": "BER Case 2025-03",
+    "year": "2025",
+    "full_text": "An engineer working for Company A learns confidential information about a proprietary manufacturing process. The engineer is later offered a job at Company B, a competitor of Company A. The engineer must decide whether they can accept the job without violating their ethical obligations regarding confidentiality.\n\nThe NSPE Code of Ethics states that engineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer.\n\nThe Board of Ethical Review finds that the engineer may accept the position with Company B but must maintain confidentiality regarding Company A's proprietary information and should consider discussing the situation with both companies to establish appropriate boundaries.",
+    "html_content": "<h2>Engineering Ethics Case Study 3: Confidentiality</h2><p>An engineer working for Company A learns confidential information about a proprietary manufacturing process. The engineer is later offered a job at Company B, a competitor of Company A. The engineer must decide whether they can accept the job without violating their ethical obligations regarding confidentiality.</p><p>The NSPE Code of Ethics states that engineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer.</p><p>The Board of Ethical Review finds that the engineer may accept the position with Company B but must maintain confidentiality regarding Company A's proprietary information and should consider discussing the situation with both companies to establish appropriate boundaries.</p>",
+    "scraped_at": "2025-03-26T09:20:00Z"
+  }
+]

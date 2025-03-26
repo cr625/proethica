@@ -38,6 +38,7 @@ def create_app(config_name='default'):
     from app.routes.mcp_api import mcp_api_bp
     from app.routes.documents import documents_bp, documents_web_bp
     from app.routes.simulation import simulation_bp
+    from app.routes.cases import cases_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(worlds_bp)
@@ -48,6 +49,7 @@ def create_app(config_name='default'):
     app.register_blueprint(documents_bp)
     app.register_blueprint(documents_web_bp)
     app.register_blueprint(simulation_bp)
+    app.register_blueprint(cases_bp)
     
     # Register template filters
     from app import template_filters
@@ -64,13 +66,11 @@ def create_app(config_name='default'):
     def index():
         return render_template('index.html')
     
+    # Redirect /cases to the cases blueprint
     @app.route('/cases')
-    def cases():
-        try:
-            cases_data = client.get_cases()
-            return render_template('cases.html', cases=cases_data.get('cases', []))
-        except Exception as e:
-            return render_template('cases.html', cases=[], error=str(e))
+    def cases_redirect():
+        from flask import redirect, url_for
+        return redirect(url_for('cases.list_cases'))
     
     @app.route('/about')
     def about():

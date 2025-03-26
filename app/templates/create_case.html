@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Case - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create New Case</h1>
+        <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary">Back to Cases</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Case Information</h3>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('cases.create_case') }}">
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="world_id" class="form-label">World</label>
+                    <select class="form-select" id="world_id" name="world_id">
+                        <option value="">-- Select World --</option>
+                        {% for world in worlds %}
+                        <option value="{{ world.id }}">{{ world.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the world this case belongs to.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="10" required></textarea>
+                    <div class="form-text">Provide a detailed description of the case scenario.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="decision" class="form-label">Decision</label>
+                    <textarea class="form-control" id="decision" name="decision" rows="5"></textarea>
+                    <div class="form-text">What action was taken in this case? (Optional)</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="outcome" class="form-label">Outcome</label>
+                    <textarea class="form-control" id="outcome" name="outcome" rows="5"></textarea>
+                    <div class="form-text">What was the result of the decision? (Optional)</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="ethical_analysis" class="form-label">Ethical Analysis</label>
+                    <textarea class="form-control" id="ethical_analysis" name="ethical_analysis" rows="5"></textarea>
+                    <div class="form-text">Provide an ethical analysis of the case. (Optional)</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="source" class="form-label">Source</label>
+                    <input type="url" class="form-control" id="source" name="source">
+                    <div class="form-text">URL or reference to the original source. (Optional)</div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-primary">Create Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

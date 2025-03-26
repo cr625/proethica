@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ case.title }}</h1>
+        <div>
+            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary">Back to Cases</a>
+            {% if case.source %}
+            <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>Case Details</h3>
+            {% if case.case_number or case.year %}
+            <div>
+                {% if case.case_number %}
+                <span class="badge bg-primary me-2">Case #{{ case.case_number }}</span>
+                {% endif %}
+                {% if case.year %}
+                <span class="badge bg-secondary">{{ case.year }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if world %}
+            <div class="mb-3">
+                <span class="badge bg-success">World: {{ world.name }}</span>
+            </div>
+            {% endif %}
+
+            <h4>Description</h4>
+            <div class="mb-4">
+                {{ case.description|safe|nl2br }}
+            </div>
+
+            {% if case.decision %}
+            <h4>Decision</h4>
+            <div class="mb-4">
+                {{ case.decision|safe|nl2br }}
+            </div>
+            {% endif %}
+
+            {% if case.outcome %}
+            <h4>Outcome</h4>
+            <div class="mb-4">
+                {{ case.outcome|safe|nl2br }}
+            </div>
+            {% endif %}
+
+            {% if case.ethical_analysis %}
+            <h4>Ethical Analysis</h4>
+            <div class="mb-4">
+                {{ case.ethical_analysis|safe|nl2br }}
+            </div>
+            {% endif %}
+
+            {% if case.source %}
+            <div class="mt-3">
+                <strong>Source:</strong> <a href="{{ case.source }}" target="_blank">{{ case.source }}</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Related Cases</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                This feature will show cases that are similar to this one based on content similarity.
+                Coming soon!
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
