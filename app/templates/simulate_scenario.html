@@ -491,11 +491,63 @@
                 }, 1000);
             },
             getPromptOptions: function () {
-                // Single button that changes text based on simulation state
+                // Check if we're at a decision point in the timeline
+                var currentStep = this.simulationState.currentStep;
+
+                // If simulation hasn't started yet
+                if (currentStep === 0) {
+                    this.promptOptions = [
+                        {
+                            id: 1,
+                            text: 'Start Simulation'
+                        }
+                    ];
+                    return;
+                }
+
+                // Get all timeline items
+                var timelineItems = document.querySelectorAll('.timeline-item');
+
+                // If we've reached the end of the simulation
+                if (currentStep >= this.simulationState.totalSteps) {
+                    this.promptOptions = [
+                        {
+                            id: 1,
+                            text: 'Simulation Complete'
+                        }
+                    ];
+                    return;
+                }
+
+                // Check if the current step is a decision
+                if (currentStep > 0 && currentStep <= timelineItems.length) {
+                    var currentItem = timelineItems[currentStep - 1];
+                    var isDecision = currentItem.querySelector('.badge.bg-warning') !== null;
+
+                    if (isDecision) {
+                        // If it's a decision, get the options
+                        var optionElements = currentItem.querySelectorAll('.list-group-item');
+                        var options = [];
+
+                        optionElements.forEach(function (element, index) {
+                            options.push({
+                                id: index + 1,
+                                text: element.textContent.trim().replace('Selected', '').trim()
+                            });
+                        });
+
+                        if (options.length > 0) {
+                            this.promptOptions = options;
+                            return;
+                        }
+                    }
+                }
+
+                // Default to "Advance Simulation" if not at a decision point
                 this.promptOptions = [
                     {
                         id: 1,
-                        text: this.simulationState.currentStep === 0 ? 'Start Simulation' : 'Advance Simulation'
+                        text: 'Advance Simulation'
                     }
                 ];
             },
@@ -512,6 +564,9 @@
 
                     this.scrollToBottom();
 
+                    // Update prompt options based on new state
+                    this.getPromptOptions();
+
                     // Scroll to the bottom of the page to show the simulation state
                     window.scrollTo(0, document.body.scrollHeight);
                 } else if (this.simulationState.currentStep < this.simulationState.totalSteps) {
@@ -525,6 +580,9 @@
 
                     this.scrollToBottom();
 
+                    // Update prompt options based on new state
+                    this.getPromptOptions();
+
                     // Scroll to the bottom of the page to show the simulation state
                     window.scrollTo(0, document.body.scrollHeight);
                 } else {
@@ -536,6 +594,9 @@
                     });
 
                     this.scrollToBottom();
+
+                    // Update prompt options to show simulation is complete
+                    this.getPromptOptions();
                 }
             },
             showResetModal: function () {
