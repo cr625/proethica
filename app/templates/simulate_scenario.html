@@ -880,4 +880,15 @@
         this.$nextTick(function () {
             var container = self.$refs.conversation;
             if (container) {
-                container.scrollTop = container
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    }
+        },
+    updated: function () {
+        // Scroll to bottom of conversation when new messages are added
+        this.scrollToBottom();
+    }
+    });
+</script>
+{% endblock %}
