@@ -1,35 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}Simulation Coming Soon - {{ scenario.name }} - AI Ethical Decision-Making Simulator{% endblock %}
+{% block title %}Simulation Coming Soon - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ scenario.name }}</h1>
+        <h1>Simulation Coming Soon</h1>
         <div class="btn-group" role="group">
-            <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
+            <a href="/scenarios/{{ scenario_id }}" class="btn btn-secondary">Back to Scenario</a>
         </div>
     </div>
 
     <div class="card mb-4">
         <div class="card-header">
-            <h3>Simulation</h3>
+            <h3>We're Working on It!</h3>
         </div>
-        <div class="card-body text-center">
-            <div class="py-5">
-                <i class="bi bi-hourglass-split display-1 text-primary mb-4"></i>
-                <h2 class="mb-4">Simulation Feature Coming Soon</h2>
-                <p class="lead">We're working to bring you an interactive ethical decision-making simulation
-                    experience.</p>
-                <p>This feature will allow you to step into the shoes of characters in this scenario and make ethical
-                    decisions in a simulated environment.</p>
-                <hr class="my-4">
-                <p>In the meantime, you can continue building your scenario by adding characters, resources, and
-                    timeline events.</p>
-                <div class="mt-4">
-                    <a href="/scenarios/{{ scenario.id }}" class="btn btn-primary btn-lg">Return to Scenario</a>
-                </div>
-            </div>
+        <div class="card-body">
+            <p>The simulation functionality is currently being reimplemented to provide a better experience.</p>
+            <p>The new version will allow you to:</p>
+            <ul>
+                <li>Progress through the timeline step by step</li>
+                <li>Make decisions at key decision points</li>
+                <li>See the ethical analysis of your decisions</li>
+                <li>Experience the same timeline as the scenario detail page</li>
+            </ul>
+            <p>Thank you for your patience!</p>
         </div>
     </div>
 </div>
