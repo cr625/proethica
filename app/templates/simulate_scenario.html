@@ -8,72 +8,133 @@
         <h1>{{ scenario.name }} - Simulation</h1>
         <div class="btn-group" role="group">
             <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
-            <button id="save-simulation" class="btn btn-primary">Save Simulation</button>
         </div>
     </div>
 
-    <!-- Begin Simulation -->
-    <div id="simulation-start" class="card mb-4">
+    <div class="card mb-4">
         <div class="card-header">
-            <h3>Begin Scenario Simulation</h3>
+            <h3>Scenario Description</h3>
         </div>
         <div class="card-body">
-            <p>This simulation will walk you through the timeline of events for this scenario, including actions and
-                decisions made by the characters involved.</p>
-            <button id="start-simulation" class="btn btn-primary mt-3">Begin Simulation</button>
+            <p>{{ scenario.description }}</p>
         </div>
     </div>
 
-    <!-- Simulation Interface (initially hidden) -->
-    <div id="simulation-interface" style="display: none;">
-        <!-- Timeline Display -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h3>Timeline</h3>
-            </div>
-            <div class="card-body">
-                <div id="timeline-display" class="timeline">
-                    <!-- Timeline events will be inserted here -->
-                </div>
-            </div>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Timeline</h3>
         </div>
+        <div class="card-body">
+            {% if scenario.actions or scenario.events %}
+            <div class="timeline">
+                {% set combined_items = [] %}
+                {% if scenario.actions %}
+                {% for action in scenario.actions %}
+                {% set _ = combined_items.append((action.action_time, 'action', action)) %}
+                {% endfor %}
+                {% endif %}
+                {% if scenario.events %}
+                {% for event in scenario.events %}
+                {% set _ = combined_items.append((event.event_time, 'event', event)) %}
+                {% endfor %}
+                {% endif %}
 
-        <!-- Current Event -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h3>Current Event</h3>
-            </div>
-            <div class="card-body">
-                <div id="current-event" class="mb-4">
-                    <!-- Current event details will be inserted here -->
-                </div>
+                {% for time, item_type, item in combined_items|sort %}
+                <div class="timeline-item">
+                    <div
+                        class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
+                    </div>
+                    <div class="timeline-content {% if item_type == 'event' %}timeline-content-event{% endif %}">
+                        <h4 class="timeline-title">
+                            {{ time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown time' }}
+                            {% if item_type == 'action' %}
+                            <span class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
+                                {{ 'Decision' if item.is_decision else 'Action' }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-info">Event</span>
+                            {% endif %}
+                        </h4>
 
-                <div id="decision-point" style="display: none;">
-                    <h4>Decision Point</h4>
-                    <div id="decision-options">
-                        <!-- Decision options will be inserted here -->
+                        {% if item_type == 'action' %}
+                        <h5>{{ item.name }}</h5>
+                        <p>{{ item.description }}</p>
+
+                        {% if item.character %}
+                        <small class="text-muted">Character: {{ item.character.name }}</small>
+                        {% endif %}
+
+                        {% if item.action_type %}
+                        <small class="text-muted">Type: {{ item.action_type }}</small>
+                        {% endif %}
+
+                        {% if item.is_decision %}
+                        <div class="mt-2">
+                            <h6>Options:</h6>
+                            <ul class="list-group">
+                                {% for option in item.options %}
+                                <li
+                                    class="list-group-item {% if option == item.selected_option %}list-group-item-success{% endif %}">
+                                    {% if option is string %}
+                                    {{ option }}
+                                    {% elif option is mapping and option.description is defined %}
+                                    {{ option.description }}
+                                    {% else %}
+                                    Option {{ loop.index }}
+                                    {% endif %}
+                                    {% if option == item.selected_option %}<span
+                                        class="badge bg-success float-end">Selected</span>{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        {% if item.evaluations %}
+                        <div class="mt-2">
+                            <h6>Evaluation:</h6>
+                            {% for evaluation in item.evaluations %}
+                            <div class="progress mb-2">
+                                <div class="progress-bar" role="progressbar"
+                                    style="width: {{ evaluation.rules_compliance * 100 }}%;"
+                                    aria-valuenow="{{ evaluation.rules_compliance * 100 }}" aria-valuemin="0"
+                                    aria-valuemax="100">
+                                    Rules Compliance: {{ (evaluation.rules_compliance * 100)|int }}%
+                                </div>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-info" role="progressbar"
+                                    style="width: {{ evaluation.ethical_score * 100 }}%;"
+                                    aria-valuenow="{{ evaluation.ethical_score * 100 }}" aria-valuemin="0"
+                                    aria-valuemax="100">
+                                    Ethical Score: {{ (evaluation.ethical_score * 100)|int }}%
+                                </div>
+                            </div>
+                            <p class="mt-2">{{ evaluation.reasoning }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                        {% else %}
+                        <h5>Event</h5>
+                        <p>{{ item.description }}</p>
+                        {% if item.character %}
+                        <small class="text-muted">Character: {{ item.character.name }}</small>
+                        {% endif %}
+                        {% if item.action %}
+                        <small class="text-muted">Action: {{ item.action.name }}</small>
+                        {% endif %}
+                        {% endif %}
                     </div>
                 </div>
-
-                <div id="navigation-controls" class="mt-4">
-                    <button id="next-event-btn" class="btn btn-primary">Next</button>
-                </div>
+                {% endfor %}
             </div>
-        </div>
-
-        <!-- Ethical Analysis -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h3>Ethical Analysis</h3>
-            </div>
-            <div class="card-body">
-                <div id="ethical-analysis">
-                    <!-- Ethical analysis will be inserted here -->
-                </div>
-            </div>
+            {% else %}
+            <p class="text-muted">No actions or events added yet.</p>
+            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block styles %}
 <style>
@@ -124,610 +185,5 @@
         border-left: 3px solid #17a2b8;
         /* Bootstrap info color */
     }
-
-    .decision-option {
-        margin-bottom: 10px;
-    }
-
-    .decision-option-btn {
-        width: 100%;
-        text-align: left;
-        white-space: normal;
-    }
 </style>
-{% endblock %}
-
-<!-- JavaScript for simulation -->
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Initialize variables
-        let simulationState = null;
-        let simulationSessionId = null;
-        let accumulatedTimelineItems = []; // Array to store all timeline items that have been shown
-
-        // Function to scroll to the bottom of the page
-        function scrollToBottom() {
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
-            });
-        }
-
-        // Start simulation button
-        document.getElementById('start-simulation').addEventListener('click', function () {
-            // Initialize simulation with "all" perspective by default
-            fetch(`/simulation/scenario/{{ scenario.id }}/initialize`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    perspective: 'all'
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Hide simulation start card
-                        document.getElementById('simulation-start').style.display = 'none';
-
-                        // Show simulation interface
-                        document.getElementById('simulation-interface').style.display = 'block';
-
-                        // Update state and session ID
-                        simulationState = data.initial_state;
-                        simulationSessionId = data.session_id;
-
-                        // Reset accumulated timeline items
-                        accumulatedTimelineItems = [];
-
-                        // Update UI
-                        updateSimulationUI(simulationState);
-
-                        // Scroll to the bottom of the page
-                        scrollToBottom();
-                    } else {
-                        alert('Error initializing simulation: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error initializing simulation:', error);
-                    alert('Error initializing simulation. See console for details.');
-                });
-        });
-
-        // Save simulation button
-        document.getElementById('save-simulation').addEventListener('click', function () {
-            if (!simulationState) {
-                alert('No simulation to save. Please start a simulation first.');
-                return;
-            }
-
-            // Check if we have a session ID
-            if (!simulationSessionId) {
-                alert('Session ID not found. Please restart the simulation.');
-                return;
-            }
-
-            fetch(`/simulation/scenario/{{ scenario.id }}/save`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: simulationSessionId
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Simulation saved successfully!');
-                    } else {
-                        alert('Error saving simulation: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error saving simulation:', error);
-                    alert('Error saving simulation. See console for details.');
-                });
-        });
-
-        // Function to update the simulation UI
-        function updateSimulationUI(state) {
-            // Update timeline
-            updateTimeline();
-
-            // Update current event
-            updateCurrentEvent(state);
-
-            // Update decision point if present
-            if (state.current_event_index < state.events.length &&
-                isDecisionPoint(state.events[state.current_event_index])) {
-                showDecisionPoint(state.events[state.current_event_index]);
-            } else {
-                hideDecisionPoint();
-            }
-
-            // Update ethical analysis if present
-            if (state.evaluation) {
-                updateEthicalAnalysis(state.evaluation);
-            }
-        }
-
-        // Function to get the current timeline item
-        function getCurrentTimelineItem() {
-            if (!simulationState || simulationState.current_event_index >= simulationState.events.length) {
-                return null;
-            }
-
-            const event = simulationState.events[simulationState.current_event_index];
-
-            // Create a timeline item object
-            const timelineItem = {
-                time: event.event_time,
-                type: 'event',
-                item: event
-            };
-
-            // If this event has an associated action
-            if (event.action_id !== null && event.action) {
-                // If it's a decision
-                if (event.action.is_decision) {
-                    timelineItem.type = 'decision';
-                } else {
-                    timelineItem.type = 'action';
-                }
-            }
-
-            return timelineItem;
-        }
-
-        // Function to update the timeline display
-        function updateTimeline() {
-            const timelineDisplay = document.getElementById('timeline-display');
-            timelineDisplay.innerHTML = '';
-
-            // Sort accumulated timeline items by time
-            accumulatedTimelineItems.sort((a, b) => {
-                const timeA = new Date(a.time);
-                const timeB = new Date(b.time);
-                return timeA - timeB;
-            });
-
-            // Render all accumulated timeline items
-            accumulatedTimelineItems.forEach((timelineItem) => {
-                const element = document.createElement('div');
-                element.className = 'timeline-item';
-
-                // Add the marker
-                const marker = document.createElement('div');
-                marker.className = 'timeline-marker';
-
-                // Set marker class based on item type
-                if (timelineItem.type === 'event') {
-                    marker.classList.add('bg-info');
-                } else if (timelineItem.type === 'decision') {
-                    marker.classList.add('bg-warning');
-                }
-
-                element.appendChild(marker);
-
-                // Add the content
-                const content = document.createElement('div');
-                content.className = 'timeline-content';
-
-                // Add event-specific class if it's an event
-                if (timelineItem.type === 'event') {
-                    content.classList.add('timeline-content-event');
-                }
-
-                // Format the time
-                const time = timelineItem.time ? new Date(timelineItem.time).toLocaleString() : 'Unknown time';
-
-                // Set badge based on item type
-                let badge = '';
-                if (timelineItem.type === 'event') {
-                    badge = '<span class="badge bg-info">Event</span>';
-                } else if (timelineItem.type === 'action') {
-                    badge = '<span class="badge bg-primary">Action</span>';
-                } else if (timelineItem.type === 'decision') {
-                    badge = '<span class="badge bg-warning">Decision</span>';
-                } else if (timelineItem.type === 'decision-result') {
-                    badge = '<span class="badge bg-success">Result</span>';
-                }
-
-                // Set title and description based on item type
-                let title = '';
-                let description = '';
-
-                if (timelineItem.type === 'event') {
-                    title = 'Event';
-                    description = timelineItem.item.description || 'No description available';
-                } else if (timelineItem.type === 'action') {
-                    title = timelineItem.item.action.name || 'Action';
-                    description = timelineItem.item.action.description || 'No description available';
-                } else if (timelineItem.type === 'decision') {
-                    title = timelineItem.item.action.name || 'Decision';
-                    description = timelineItem.item.action.description || 'No description available';
-                } else if (timelineItem.type === 'decision-result') {
-                    title = 'Decision Made';
-                    description = timelineItem.description || 'No description available';
-                }
-
-                content.innerHTML = `
-                    <h4 class="timeline-title">
-                        ${time}
-                        ${badge}
-                    </h4>
-                    <h5>${title}</h5>
-                    <p>${description}</p>
-                `;
-
-                // Add character name if available
-                if (timelineItem.item && timelineItem.item.character_id &&
-                    simulationState.character_states[timelineItem.item.character_id]) {
-                    const characterName = simulationState.character_states[timelineItem.item.character_id].name;
-                    content.innerHTML += `<small class="text-muted">Character: ${characterName}</small>`;
-                }
-
-                // Add action name for events with associated actions
-                if (timelineItem.type === 'event' && timelineItem.item.action_id && timelineItem.item.action) {
-                    content.innerHTML += `<small class="text-muted">Action: ${timelineItem.item.action.name}</small>`;
-                }
-
-                element.appendChild(content);
-
-                // Add to the timeline
-                timelineDisplay.appendChild(element);
-            });
-        }
-
-        // Function to update the current event display
-        function updateCurrentEvent(state) {
-            const currentEventDisplay = document.getElementById('current-event');
-            const nextButton = document.getElementById('next-event-btn');
-
-            if (state.current_event_index >= state.events.length) {
-                currentEventDisplay.innerHTML = `
-                    <div class="alert alert-info">
-                        <h4>Simulation Complete</h4>
-                        <p>You have reached the end of the scenario timeline.</p>
-                    </div>
-                `;
-                nextButton.style.display = 'none';
-                return;
-            }
-
-            const currentEvent = state.events[state.current_event_index];
-
-            // Get character name if available
-            let characterName = '';
-            if (currentEvent.character_id && state.character_states[currentEvent.character_id]) {
-                characterName = state.character_states[currentEvent.character_id].name;
-            }
-
-            // Check if this is a decision point
-            const isDecisionEvent = isDecisionPoint(currentEvent);
-
-            // For decision points, display the action name and description instead of the event description
-            if (isDecisionEvent && currentEvent.action) {
-                currentEventDisplay.innerHTML = `
-                    <h4>${formatTime(currentEvent.event_time)}</h4>
-                    <h5>${currentEvent.action.name || 'Decision Required'}</h5>
-                    <p>${currentEvent.action.description || currentEvent.description}</p>
-                    ${characterName ? `<p><strong>Character:</strong> ${characterName}</p>` : ''}
-                `;
-            } else {
-                currentEventDisplay.innerHTML = `
-                    <h4>${formatTime(currentEvent.event_time)}</h4>
-                    <p>${currentEvent.description}</p>
-                    ${characterName ? `<p><strong>Character:</strong> ${characterName}</p>` : ''}
-                `;
-            }
-
-            // Show or hide the next button based on whether this is a decision point
-            if (isDecisionEvent) {
-                nextButton.style.display = 'none';
-            } else {
-                nextButton.style.display = 'inline-block';
-            }
-        }
-
-        // Function to check if an event is a decision point
-        function isDecisionPoint(event) {
-            // Check if the event has an action_id
-            if (event.action_id === null || event.action_id === undefined) {
-                return false;
-            }
-
-            // If the event has action data, check if it's a decision
-            if (event.action && event.action.is_decision !== undefined) {
-                return event.action.is_decision;
-            }
-
-            // Otherwise, consider it a decision point if it has decision options
-            return event.decision_options && event.decision_options.length > 0;
-        }
-
-        // Function to show decision point
-        function showDecisionPoint(event) {
-            const decisionPointDisplay = document.getElementById('decision-point');
-            const decisionOptionsDisplay = document.getElementById('decision-options');
-            const nextButton = document.getElementById('next-event-btn');
-
-            decisionPointDisplay.style.display = 'block';
-            decisionOptionsDisplay.innerHTML = '';
-            nextButton.style.display = 'none';
-
-            // Log the event to help with debugging
-            console.log("Showing decision point for event:", event);
-
-            // Get decision options from the event or action
-            let options = [];
-
-            // Log the event to help with debugging
-            console.log("Decision event data:", event);
-
-            // Check if the event has decision_options directly
-            if (event.decision_options && Array.isArray(event.decision_options) && event.decision_options.length > 0) {
-                console.log("Using decision options from event.decision_options");
-                options = event.decision_options;
-            }
-            // Check if the action has options
-            else if (event.action && event.action.options && Array.isArray(event.action.options) && event.action.options.length > 0) {
-                console.log("Using options from event.action.options");
-                options = event.action.options;
-            }
-            // If no options found, log an error
-            else {
-                console.error("No decision options found for event:", event);
-                options = [
-                    { id: 1, description: 'Error: No options found in database. This is a fallback option.' }
-                ];
-            }
-
-            // Debug output
-            console.log("Decision options:", options);
-
-            // Add decision options with improved styling
-            options.forEach(option => {
-                const optionElement = document.createElement('div');
-                optionElement.className = 'decision-option mb-2';
-
-                // Extract the option number and description for better formatting
-                let optionText;
-                if (typeof option.description === 'string') {
-                    optionText = option.description;
-                } else if (option.description && typeof option.description === 'object') {
-                    optionText = option.description.description || JSON.stringify(option.description);
-                } else {
-                    optionText = `Option ${option.id}`;
-                }
-                let optionClass = 'btn-outline-primary';
-
-                // Apply different styling based on the option content
-                if (typeof optionText === 'string') {
-                    if (optionText.toLowerCase().includes('ethical') ||
-                        optionText.toLowerCase().includes('integrity') ||
-                        optionText.toLowerCase().includes('welfare') ||
-                        optionText.toLowerCase().includes('safety')) {
-                        optionClass = 'btn-outline-success';
-                    } else if (optionText.toLowerCase().includes('compromise') ||
-                        optionText.toLowerCase().includes('balance')) {
-                        optionClass = 'btn-outline-info';
-                    } else if (optionText.toLowerCase().includes('efficiency') ||
-                        optionText.toLowerCase().includes('prioritize')) {
-                        optionClass = 'btn-outline-warning';
-                    }
-                }
-
-                optionElement.innerHTML = `
-                    <button class="btn ${optionClass} decision-option-btn" data-option="${option.id}">
-                        ${optionText}
-                    </button>
-                `;
-                decisionOptionsDisplay.appendChild(optionElement);
-            });
-
-            // Add event listeners to decision buttons
-            document.querySelectorAll('.decision-option-btn').forEach(button => {
-                button.addEventListener('click', function () {
-                    const optionId = parseInt(this.getAttribute('data-option'));
-                    makeDecision(optionId, event);
-                });
-            });
-        }
-
-        // Function to hide decision point
-        function hideDecisionPoint() {
-            document.getElementById('decision-point').style.display = 'none';
-            document.getElementById('next-event-btn').style.display = 'inline-block';
-        }
-
-        // Function to update ethical analysis
-        function updateEthicalAnalysis(evaluation) {
-            const analysisDisplay = document.getElementById('ethical-analysis');
-
-            if (evaluation.structured_evaluation) {
-                const structured = evaluation.structured_evaluation;
-                analysisDisplay.innerHTML = `
-                    <h4>Virtue Ethics Analysis</h4>
-                    <p><strong>Alignment with Role Virtues:</strong> ${structured.alignment_score}/10</p>
-                    
-                    <h5>Virtues Demonstrated:</h5>
-                    <ul>
-                        ${structured.virtues_demonstrated.map(v => `<li>${v}</li>`).join('')}
-                    </ul>
-                    
-                    ${structured.virtues_violated.length > 0 ? `
-                        <h5>Virtues Violated:</h5>
-                        <ul>
-                            ${structured.virtues_violated.map(v => `<li>${v}</li>`).join('')}
-                        </ul>
-                    ` : ''}
-                    
-                    <h5>Character Reflection:</h5>
-                    <p>${structured.character_reflection}</p>
-                    
-                    <h5>Recommendations:</h5>
-                    <p>${structured.recommendations}</p>
-                `;
-            } else {
-                analysisDisplay.innerHTML = `
-                    <h4>Ethical Analysis</h4>
-                    <p>${evaluation.raw_evaluation}</p>
-                `;
-            }
-        }
-
-        // Function to make a decision
-        function makeDecision(optionId, event) {
-            // Check if we have a session ID
-            if (!simulationSessionId) {
-                alert('Session ID not found. Please restart the simulation.');
-                return;
-            }
-
-            // Get the current timeline item and add it to the timeline
-            const currentItem = getCurrentTimelineItem();
-            if (currentItem) {
-                accumulatedTimelineItems.push(currentItem);
-            }
-
-            fetch(`/simulation/scenario/{{ scenario.id }}/decision`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    option_id: optionId,
-                    character_id: event.character_id,
-                    event_id: event.id,
-                    session_id: simulationSessionId
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Update state
-                        simulationState = data.next_state;
-
-                        // Get the option description
-                        let optionDescription = '';
-                        if (event.decision_options) {
-                            const selectedOption = event.decision_options.find(opt => opt.id === optionId);
-                            if (selectedOption) {
-                                // Check if description is a string or an object
-                                if (typeof selectedOption.description === 'string') {
-                                    optionDescription = selectedOption.description;
-                                } else if (selectedOption.description && typeof selectedOption.description === 'object') {
-                                    // If it's an object, convert to string
-                                    optionDescription = selectedOption.description.description || JSON.stringify(selectedOption.description);
-                                } else {
-                                    // Fallback
-                                    optionDescription = String(selectedOption.description);
-                                }
-                            }
-                        }
-
-                        // Add decision result to timeline
-                        accumulatedTimelineItems.push({
-                            time: event.event_time,
-                            type: 'decision-result',
-                            description: optionDescription
-                        });
-
-                        // Update UI
-                        updateSimulationUI(simulationState);
-
-                        // Show evaluation
-                        updateEthicalAnalysis(data.evaluation);
-
-                        // Add a note about branching
-                        const analysisDisplay = document.getElementById('ethical-analysis');
-                        const branchingNote = document.createElement('div');
-                        branchingNote.className = 'alert alert-info mt-3';
-                        branchingNote.innerHTML = `
-                            <h5>Note: Future Implementation</h5>
-                            <p>In a future version, this decision will create a branch in the workflow, 
-                            allowing for different timeline paths based on the choices made.</p>
-                        `;
-                        analysisDisplay.appendChild(branchingNote);
-
-                        // Scroll to the bottom of the page
-                        scrollToBottom();
-                    } else {
-                        alert('Error processing decision: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error processing decision:', error);
-                    alert(`Error processing decision: ${error.message || 'Unknown error'}`);
-                });
-        }
-
-        // Function to advance to the next event
-        function advanceToNextEvent() {
-            // Get the current timeline item
-            const currentItem = getCurrentTimelineItem();
-
-            // Add the current item to the accumulated timeline
-            if (currentItem) {
-                accumulatedTimelineItems.push(currentItem);
-
-                // Update the timeline display
-                updateTimeline();
-
-                // Scroll to the bottom of the page
-                scrollToBottom();
-            }
-
-            // Check if we need to advance to the next event from the backend
-            if (!simulationSessionId) {
-                alert('Session ID not found. Please restart the simulation.');
-                return;
-            }
-
-            fetch(`/simulation/scenario/{{ scenario.id }}/advance`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: simulationSessionId
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Update state
-                        simulationState = data.next_state;
-
-                        // Update UI
-                        updateSimulationUI(simulationState);
-
-                        // Scroll to the bottom of the page
-                        scrollToBottom();
-                    } else {
-                        alert('Error advancing to next event: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error advancing to next event:', error);
-                    alert(`Error advancing to next event: ${error.message || 'Unknown error'}`);
-                });
-        }
-
-        // Add event listener for next button
-        document.getElementById('next-event-btn').addEventListener('click', advanceToNextEvent);
-
-        // Helper function to format time
-        function formatTime(timeString) {
-            if (!timeString) return 'Unknown time';
-
-            const date = new Date(timeString);
-            return date.toLocaleString();
-        }
-    });
-</script>
 {% endblock %}
