@@ -9,6 +9,7 @@ python-dotenv
 rdflib
 werkzeug
 psycopg2-binary  # PostgreSQL driver
+anthropic>=0.18.0  # Anthropic Python SDK for Claude API
 
 # LangChain and LangGraph
 langchain

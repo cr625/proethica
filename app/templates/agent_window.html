@@ -112,15 +112,24 @@
     <p class="lead">This is a prototype of the agent window interface.</p>
 
     <div id="agent-app">
-        <!-- World selection dropdown -->
-        <div class="mb-3">
-            <label for="world-select" class="form-label">Select World:</label>
-            <select id="world-select" class="form-select" v-model="selectedWorldId" @change="worldChanged">
-                <option value="">-- Select a World --</option>
-                {% for world in worlds %}
-                <option value="{{ world.id }}">{{ world.name }}</option>
-                {% endfor %}
-            </select>
+        <!-- World selection and service selection -->
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <label for="world-select" class="form-label">Select World:</label>
+                <select id="world-select" class="form-select" v-model="selectedWorldId" @change="worldChanged">
+                    <option value="">-- Select a World --</option>
+                    {% for world in worlds %}
+                    <option value="{{ world.id }}">{{ world.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="service-select" class="form-label">LLM Service:</label>
+                <select id="service-select" class="form-select" v-model="selectedService" @change="serviceChanged">
+                    <option value="claude">Claude (Anthropic)</option>
+                    <option value="langchain">LangChain (Mock)</option>
+                </select>
+            </div>
         </div>
 
         <!-- Agent window -->
@@ -184,6 +193,7 @@
             promptOptions: [],
             isProcessing: false,
             selectedWorldId: '{{ selected_world.id if selected_world else "" }}',
+            selectedService: 'claude', // Default to Claude
             guidelines: '',
             formattedGuidelines: ''
         },
@@ -380,6 +390,46 @@
                     })
                     .catch(error => {
                         console.error('Error resetting conversation:', error);
+                    });
+            },
+            serviceChanged() {
+                // Switch between Claude and LangChain services
+                this.isProcessing = true;
+
+                axios.post('/agent/api/switch_service', {
+                    service: this.selectedService,
+                    world_id: this.selectedWorldId || null
+                })
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            // Add system message about service change
+                            this.messages = [
+                                {
+                                    role: 'assistant',
+                                    content: `Switched to ${this.selectedService === 'claude' ? 'Claude (Anthropic)' : 'LangChain (Mock)'} service. How can I help you today?`
+                                }
+                            ];
+
+                            // Get new prompt options
+                            this.getPromptOptions();
+                        } else {
+                            // Add error message
+                            this.messages.push({
+                                role: 'assistant',
+                                content: 'Sorry, there was an error switching services.'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error switching services:', error);
+                        // Add error message
+                        this.messages.push({
+                            role: 'assistant',
+                            content: 'Sorry, there was an error switching services.'
+                        });
+                    })
+                    .finally(() => {
+                        this.isProcessing = false;
                     });
             },
             scrollToBottom() {
