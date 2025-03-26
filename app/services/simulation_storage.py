@@ -6,6 +6,7 @@ This module provides a storage mechanism for simulation states using the databas
 
 import logging
 import uuid
+import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from flask_login import current_user
@@ -15,6 +16,19 @@ from app.models.simulation_state import SimulationState
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Custom JSON encoder to handle datetime objects and SQLAlchemy models
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        # Handle SQLAlchemy models with to_dict method
+        if hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict')):
+            return obj.to_dict()
+        # Handle other SQLAlchemy models
+        if hasattr(obj, '__table__'):
+            return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+        return super().default(obj)
 
 class SimulationStorage:
     """
@@ -46,12 +60,15 @@ class SimulationStorage:
         # Calculate expiry time
         expires_at = datetime.utcnow() + cls.DEFAULT_EXPIRY
         
+        # Serialize datetime objects in the state
+        serialized_state = cls._serialize_state(state)
+        
         # Check if a state with this session_id already exists
         existing_state = SimulationState.query.filter_by(session_id=session_id).first()
         
         if existing_state:
             # Update existing state
-            existing_state.state_data = state
+            existing_state.state_data = serialized_state
             existing_state.current_event_index = state.get('current_event_index', 0)
             existing_state.decisions = state.get('decision_history', [])
             existing_state.updated_at = datetime.utcnow()
@@ -68,7 +85,7 @@ class SimulationStorage:
                 user_id=user_id,
                 current_event_index=state.get('current_event_index', 0),
                 decisions=state.get('decision_history', []),
-                state_data=state,
+                state_data=serialized_state,
                 expires_at=expires_at
             )
             
@@ -126,6 +143,21 @@ class SimulationStorage:
             db.session.delete(state_record)
             db.session.commit()
             logger.info(f"Removed simulation state for session ID: {session_id}")
+    
+    @classmethod
+    def _serialize_state(cls, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Serialize state dictionary to handle datetime objects.
+        
+        Args:
+            state: The state dictionary to serialize
+            
+        Returns:
+            Serialized state dictionary
+        """
+        # Use the DateTimeEncoder to serialize the state
+        serialized = json.dumps(state, cls=DateTimeEncoder)
+        return json.loads(serialized)
     
     @classmethod
     def _cleanup(cls) -> None:

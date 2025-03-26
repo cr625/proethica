@@ -223,10 +223,12 @@
                     <p>{{ scenario.description }}</p>
                 </div>
                 <div class="card-footer">
-                    <!-- Moved Start Simulation button here -->
+                    <!-- Simulation control button -->
                     <button class="btn btn-primary w-100" @click="advanceSimulation"
                         :class="{'btn-success': simulationState.currentStep > 0}">
                         <span v-if="simulationState.currentStep === 0">Start Simulation</span>
+                        <span v-else-if="simulationState.isDecisionPoint">Make Decision</span>
+                        <span v-else-if="simulationState.completed">Simulation Complete</span>
                         <span v-else>Advance Simulation</span>
                     </button>
                 </div>
@@ -440,7 +442,8 @@
                 simulationState: {
                     currentStep: 0,
                     totalSteps: timelineItemCount,
-                    completed: false
+                    completed: false,
+                    isDecisionPoint: false
                 }
             };
         },
@@ -452,11 +455,11 @@
         },
         methods: {
             initializeConversation: function () {
-                // Initialize with a welcome message
+                // Initialize with a simple welcome message
                 this.messages = [
                     {
                         role: 'assistant',
-                        content: 'Scenario details will appear here.'
+                        content: 'Click "Start Simulation" to begin the scenario.'
                     }
                 ];
             },
@@ -503,177 +506,318 @@
 
                 // Clear prompt options and disable input while processing
                 this.promptOptions = [];
-                this.inputEnabled = true;
+                this.inputEnabled = false;
                 this.isProcessing = true;
 
                 // Scroll to bottom
                 this.scrollToBottom();
 
-                // Simulate API call with timeout
+                // Make decision API call
                 var self = this;
-                setTimeout(function () {
-                    // Add assistant response to conversation
-                    self.messages.push({
-                        role: 'assistant',
-                        content: 'You selected: "' + option.text + '". This is a simulated response. In a full implementation, this would provide specific information about your selection.'
-                    });
+                axios.post('/simulation/api/decide', {
+                    scenario_id: {{ scenario.id }},
+            session_id: this.sessionId,
+            decision_index: option.id
+        })
+        .then(function (response) {
+            if (response.data.status === 'success') {
+                // Add assistant response to conversation
+                self.messages.push({
+                    role: 'assistant',
+                    content: response.data.message
+                });
 
-                    // Re-enable input
-                    self.isProcessing = false;
+                // Update simulation state
+                self.simulationState.currentStep++;
 
-                    // Wait a moment to show the response before advancing
-                    setTimeout(function () {
-                        // Automatically advance to the next item in the timeline
-                        self.advanceSimulation();
-                    }, 1500);
-
-                    self.scrollToBottom();
-
-                    // Scroll to the bottom of the page to keep the Simulation State card in view
-                    window.scrollTo(0, document.body.scrollHeight);
-                }, 1000);
-            },
-            getPromptOptions: function () {
-                // Check if we're at a decision point in the timeline
-                var currentStep = this.simulationState.currentStep;
-
-                // If simulation hasn't started yet
-                if (currentStep === 0) {
-                    this.promptOptions = [
-                        {
-                            id: 1,
-                            text: 'Start Simulation'
-                        }
-                    ];
-                    return;
+                // Check if we've reached the end of the simulation
+                if (self.simulationState.currentStep >= self.simulationState.totalSteps) {
+                    self.simulationState.completed = true;
                 }
 
-                // Get all timeline items
-                var timelineItems = document.querySelectorAll('.timeline-item');
+                self.simulationState.isDecisionPoint = response.data.is_decision;
 
-                // If we've reached the end of the simulation
-                if (currentStep >= this.simulationState.totalSteps) {
-                    this.promptOptions = [
-                        {
-                            id: 1,
-                            text: 'Simulation Complete'
-                        }
-                    ];
-                    return;
-                }
-
-                // Check if the current step is a decision
-                if (currentStep > 0 && currentStep <= timelineItems.length) {
-                    var currentItem = timelineItems[currentStep - 1];
-                    var isDecision = currentItem.querySelector('.badge.bg-warning') !== null;
-
-                    if (isDecision) {
-                        // If it's a decision, get the options
-                        var optionElements = currentItem.querySelectorAll('.list-group-item');
-                        var options = [];
-
-                        optionElements.forEach(function (element, index) {
-                            options.push({
-                                id: index + 1,
-                                text: element.textContent.trim().replace('Selected', '').trim()
-                            });
-                        });
-
-                        if (options.length > 0) {
-                            this.promptOptions = options;
-                            return;
-                        }
-                    }
-                }
-
-                // Default to "Advance Simulation" if not at a decision point
-                this.promptOptions = [
-                    {
-                        id: 1,
-                        text: 'Advance Simulation'
-                    }
-                ];
-            },
-            advanceSimulation: function () {
-                // Start or advance the simulation
-                if (this.simulationState.currentStep === 0) {
-                    // First click - start the simulation
-                    this.simulationState.currentStep = 1;
-
-                    this.messages.push({
-                        role: 'assistant',
-                        content: 'The simulation has started. The first event has been revealed in the timeline.'
-                    });
-
-                    this.scrollToBottom();
-
-                    // Update prompt options based on new state
-                    this.getPromptOptions();
-
-                    // Scroll to the bottom of the page to show the simulation state
-                    window.scrollTo(0, document.body.scrollHeight);
-                } else if (this.simulationState.currentStep < this.simulationState.totalSteps) {
-                    // Subsequent clicks - advance the simulation
-                    this.simulationState.currentStep++;
-
-                    this.messages.push({
-                        role: 'assistant',
-                        content: 'The simulation has advanced to step ' + this.simulationState.currentStep + ' of ' + this.simulationState.totalSteps + '. A new event has been revealed in the timeline.'
-                    });
-
-                    this.scrollToBottom();
-
-                    // Update prompt options based on new state
-                    this.getPromptOptions();
-
-                    // Scroll to the bottom of the page to show the simulation state
-                    window.scrollTo(0, document.body.scrollHeight);
+                // Update prompt options
+                if (response.data.options && response.data.options.length > 0) {
+                    self.promptOptions = response.data.options;
                 } else {
-                    // Simulation is complete
-                    this.simulationState.completed = true;
-                    this.messages.push({
-                        role: 'assistant',
-                        content: 'The simulation is complete. You can review the timeline to see all events and decisions.'
-                    });
-
-                    this.scrollToBottom();
-
-                    // Update prompt options to show simulation is complete
-                    this.getPromptOptions();
+                    self.getPromptOptions();
                 }
+            } else {
+                // Show error message
+                self.messages.push({
+                    role: 'assistant',
+                    content: 'Error: ' + response.data.message
+                });
+            }
+
+            // Re-enable input
+            self.inputEnabled = true;
+            self.isProcessing = false;
+            self.scrollToBottom();
+
+            // Scroll to the bottom of the page to keep the Simulation State card in view
+            window.scrollTo(0, document.body.scrollHeight);
+        })
+        .catch(function (error) {
+            // Show error message
+            self.messages.push({
+                role: 'assistant',
+                content: 'Error: ' + (error.response ? error.response.data.message : error.message)
+            });
+
+            // Re-enable input
+            self.inputEnabled = true;
+            self.isProcessing = false;
+            self.scrollToBottom();
+        });
             },
-            showResetModal: function () {
-                // Show the reset confirmation modal
-                var resetModal = new bootstrap.Modal(document.getElementById('resetConfirmationModal'));
-                resetModal.show();
+    getPromptOptions: function () {
+        // Check if we're at a decision point in the timeline
+        var currentStep = this.simulationState.currentStep;
+
+        // If simulation hasn't started yet
+        if (currentStep === 0) {
+            this.promptOptions = [
+                {
+                    id: 1,
+                    text: 'Start Simulation'
+                }
+            ];
+            return;
+        }
+
+        // Get all timeline items
+        var timelineItems = document.querySelectorAll('.timeline-item');
+
+        // If we've reached the end of the simulation
+        if (currentStep >= this.simulationState.totalSteps) {
+            this.simulationState.completed = true;
+            this.promptOptions = [
+                {
+                    id: 1,
+                    text: 'Simulation Complete'
+                }
+            ];
+            return;
+        }
+
+        // Check if the current step is a decision
+        if (currentStep > 0 && currentStep <= timelineItems.length) {
+            var currentItem = timelineItems[currentStep - 1];
+            var isDecision = currentItem.querySelector('.badge.bg-warning') !== null;
+
+            if (isDecision) {
+                // If it's a decision, get the options
+                var optionElements = currentItem.querySelectorAll('.list-group-item');
+                var options = [];
+
+                optionElements.forEach(function (element, index) {
+                    options.push({
+                        id: index + 1,
+                        text: element.textContent.trim().replace('Selected', '').trim()
+                    });
+                });
+
+                if (options.length > 0) {
+                    // Set isDecisionPoint flag to true
+                    this.simulationState.isDecisionPoint = true;
+                    this.promptOptions = options;
+                    return;
+                }
+            }
+
+            // Not a decision point
+            this.simulationState.isDecisionPoint = false;
+        }
+
+        // Default to "Advance Simulation" if not at a decision point
+        this.promptOptions = [
+            {
+                id: 1,
+                text: 'Advance Simulation'
+            }
+        ];
+    },
+    advanceSimulation: function () {
+        // Start or advance the simulation
+        var endpoint = this.simulationState.currentStep === 0 ?
+            '/simulation/api/start' : '/simulation/api/advance';
+
+        // Disable input while processing
+        this.inputEnabled = false;
+        this.isProcessing = true;
+
+        // Show thinking message
+        this.messages.push({
+            role: 'assistant',
+            content: 'Processing...'
+        });
+
+        this.scrollToBottom();
+
+        var self = this;
+        axios.post(endpoint, {
+            scenario_id: {{ scenario.id }},
+    session_id: this.sessionId
+        })
+        .then(function (response) {
+        if (response.data.status === 'success') {
+            // Remove thinking message
+            self.messages.pop();
+
+            // Update simulation state
+            if (self.simulationState.currentStep === 0) {
+                self.simulationState.currentStep = 1;
+                self.sessionId = response.data.session_id;
+            } else {
+                self.simulationState.currentStep++;
+            }
+
+            // Check if we've reached the end of the simulation
+            if (self.simulationState.currentStep >= self.simulationState.totalSteps) {
+                self.simulationState.completed = true;
+            }
+
+            // Update decision point flag
+            self.simulationState.isDecisionPoint = response.data.is_decision;
+
+            // Add message to conversation
+            self.messages.push({
+                role: 'assistant',
+                content: response.data.message
+            });
+
+            // Update prompt options
+            if (response.data.options && response.data.options.length > 0) {
+                self.promptOptions = response.data.options;
+            } else {
+                self.getPromptOptions();
+            }
+
+            self.scrollToBottom();
+
+            // Scroll to the bottom of the page to show the simulation state
+            window.scrollTo(0, document.body.scrollHeight);
+        } else {
+            // Show error message
+            self.messages.pop(); // Remove thinking message
+            self.messages.push({
+                role: 'assistant',
+                content: 'Error: ' + response.data.message
+            });
+            self.scrollToBottom();
+        }
+
+        // Re-enable input
+        self.inputEnabled = true;
+        self.isProcessing = false;
+    })
+        .catch(function (error) {
+            // Show error message
+            self.messages.pop(); // Remove thinking message
+            self.messages.push({
+                role: 'assistant',
+                content: 'Error: ' + (error.response ? error.response.data.message : error.message)
+            });
+            self.scrollToBottom();
+
+            // Re-enable input
+            self.inputEnabled = true;
+            self.isProcessing = false;
+        });
             },
-            confirmReset: function () {
-                // Reset conversation and simulation state after confirmation
-                this.initializeConversation();
-                this.getPromptOptions();
-                this.simulationState.currentStep = 0;
-                this.simulationState.completed = false;
-                this.scrollToBottom();
+    showResetModal: function () {
+        // Show the reset confirmation modal
+        var resetModal = new bootstrap.Modal(document.getElementById('resetConfirmationModal'));
+        resetModal.show();
+    },
+    confirmReset: function () {
+        // Reset conversation and simulation state after confirmation
+        this.inputEnabled = false;
+        this.isProcessing = true;
+
+        // Show thinking message
+        this.messages = [{
+            role: 'assistant',
+            content: 'Resetting simulation...'
+        }];
+
+        this.scrollToBottom();
+
+        var self = this;
+        axios.post('/simulation/api/reset', {
+            scenario_id: {{ scenario.id }}
+        })
+        .then(function (response) {
+                if (response.data.status === 'success') {
+                    // Update simulation state
+                    self.simulationState.currentStep = 0;
+                    self.simulationState.completed = false;
+                    self.simulationState.isDecisionPoint = false;
+                    self.sessionId = response.data.session_id;
+
+                    // Update messages
+                    self.messages = [{
+                        role: 'assistant',
+                        content: response.data.message
+                    }];
+
+                    // Update prompt options
+                    if (response.data.options && response.data.options.length > 0) {
+                        self.promptOptions = response.data.options;
+                    } else {
+                        self.getPromptOptions();
+                    }
+                } else {
+                    // Show error message
+                    self.messages = [{
+                        role: 'assistant',
+                        content: 'Error resetting simulation: ' + response.data.message
+                    }];
+                }
+
+                // Re-enable input
+                self.inputEnabled = true;
+                self.isProcessing = false;
+                self.scrollToBottom();
 
                 // Hide the modal
                 var resetModal = bootstrap.Modal.getInstance(document.getElementById('resetConfirmationModal'));
                 resetModal.hide();
-            },
-            scrollToBottom: function () {
-                // Scroll to bottom of conversation when new messages are added
-                var self = this;
-                this.$nextTick(function () {
-                    var container = self.$refs.conversation;
-                    if (container) {
-                        container.scrollTop = container.scrollHeight;
-                    }
-                });
-            },
+            })
+        .catch(function (error) {
+            // Show error message
+            self.messages = [{
+                role: 'assistant',
+                content: 'Error resetting simulation: ' + (error.response ? error.response.data.message : error.message)
+            }];
+
+            // Re-enable input
+            self.inputEnabled = true;
+            self.isProcessing = false;
+            self.scrollToBottom();
+
+            // Hide the modal
+            var resetModal = bootstrap.Modal.getInstance(document.getElementById('resetConfirmationModal'));
+            resetModal.hide();
+        });
+    },
+    scrollToBottom: function () {
+        // Scroll to bottom of conversation when new messages are added
+        var self = this;
+        this.$nextTick(function () {
+            var container = self.$refs.conversation;
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    },
         },
-        updated: function () {
-            // Scroll to bottom of conversation when new messages are added
-            this.scrollToBottom();
-        }
+    updated: function () {
+        // Scroll to bottom of conversation when new messages are added
+        this.scrollToBottom();
+    }
     });
 </script>
 {% endblock %}
