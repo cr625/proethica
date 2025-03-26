@@ -15,3 +15,4 @@ from app.models.evaluation import Evaluation
 from app.models.decision import Decision
 from app.models.document import Document, DocumentChunk
 from app.models.simulation_session import SimulationSession
+from app.models.simulation_state import SimulationState
