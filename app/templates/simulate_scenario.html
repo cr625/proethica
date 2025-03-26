@@ -29,7 +29,7 @@
 
     .timeline-item {
         position: relative;
-        margin-bottom: 30px;
+        margin-bottom: 15px;
     }
 
     .timeline-marker {
@@ -48,7 +48,7 @@
         position: absolute;
         left: -23px;
         top: 15px;
-        height: calc(100% + 15px);
+        height: calc(100% + 0px);
         width: 2px;
         background-color: #007bff;
     }
@@ -59,15 +59,49 @@
     }
 
     .timeline-content {
-        padding: 10px;
+        padding: 6px;
         border-radius: 5px;
         background-color: #f8f9fa;
         border-left: 3px solid #007bff;
+        font-size: 0.9rem;
     }
 
     .timeline-content-event {
         border-left: 3px solid #17a2b8;
         /* Bootstrap info color */
+    }
+
+    /* Make timeline content more compact */
+    .timeline-content h4 {
+        font-size: 1rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .timeline-content h5 {
+        font-size: 0.95rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .timeline-content p {
+        margin-bottom: 0.3rem;
+    }
+
+    .timeline-content .mt-2 {
+        margin-top: 0.3rem !important;
+    }
+
+    .timeline-content h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .timeline-content .list-group-item {
+        padding: 0.3rem 0.5rem;
+    }
+
+    .timeline-content .progress {
+        height: 0.5rem;
+        margin-bottom: 0.3rem;
     }
 
     /* Agent interaction styles */
