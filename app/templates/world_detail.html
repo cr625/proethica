@@ -359,12 +359,38 @@
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3>Cases</h3>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCaseModal">
-                        Add Case
-                    </button>
+                    <div>
+                        <a href="{{ url_for('cases.list_cases') }}" class="btn btn-primary">
+                            <i class="fas fa-book"></i> View All Cases
+                        </a>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal"
+                            data-bs-target="#addCaseModal">
+                            <i class="fas fa-plus"></i> Add Case
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    {% if world.cases and world.cases|length > 0 %}
+                    <p>Case studies provide real-world examples of ethical dilemmas and their resolutions.</p>
+
+                    {% if case_studies %}
+                    <div class="mt-3 mb-3">
+                        <h5>Available Case Studies:</h5>
+                        <div class="list-group">
+                            {% for case in case_studies %}
+                            <a href="{{ url_for('cases.view_case', id=case.id) }}"
+                                class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ case.title }}</h5>
+                                    <span class="badge bg-primary rounded-pill">Case #{{ case.id }}</span>
+                                </div>
+                                <p class="mb-1">{{ case.content|truncate(150) if case.content else "No description
+                                    available" }}</p>
+                                <small class="text-muted">Added: {{ case.created_at.strftime('%Y-%m-%d') }}</small>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% elif world.cases and world.cases|length > 0 %}
                     <div class="list-group">
                         {% for case in world.cases %}
                         <div class="list-group-item list-group-item-action">
@@ -390,6 +416,12 @@
                         <p>No cases have been added for this world yet.</p>
                     </div>
                     {% endif %}
+
+                    <div class="d-grid gap-2 col-md-6 mx-auto mt-4">
+                        <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-file-alt"></i> View All Case Studies
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

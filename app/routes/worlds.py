@@ -115,7 +115,10 @@ def view_world(id):
     from app.models.document import Document
     guidelines = Document.query.filter_by(world_id=world.id, document_type="guideline").all()
     
-    return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines)
+    # Get all case studies for this world
+    case_studies = Document.query.filter_by(world_id=world.id, document_type="case_study").all()
+    
+    return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines, case_studies=case_studies)
 
 @worlds_bp.route('/<int:id>/edit', methods=['GET'])
 def edit_world(id):
