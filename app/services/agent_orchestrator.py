@@ -24,7 +24,8 @@ class AgentOrchestrator:
     
     def __init__(self, embedding_service: Optional[EmbeddingService] = None,
                 langchain_claude: Optional[LangChainClaudeService] = None,
-                world_id: Optional[int] = None):
+                world_id: Optional[int] = None,
+                status_callback: Optional[callable] = None):
         """
         Initialize the agent orchestrator.
         
@@ -32,17 +33,20 @@ class AgentOrchestrator:
             embedding_service: Service for generating embeddings and similarity search
             langchain_claude: Service for using Claude via LangChain
             world_id: ID of the world for context (optional)
+            status_callback: Callback function for status updates (optional)
         """
         # Initialize services
         self.embedding_service = embedding_service or EmbeddingService()
         self.langchain_claude = langchain_claude or LangChainClaudeService.get_instance()
         self.world_id = world_id
+        self.status_callback = status_callback
         
         # Initialize agents
         self.guidelines_agent = GuidelinesAgent(
             embedding_service=self.embedding_service,
             langchain_claude=self.langchain_claude,
-            world_id=self.world_id
+            world_id=self.world_id,
+            status_callback=self._create_agent_status_callback("Guidelines")
         )
         
         # Create synthesis chain
@@ -76,6 +80,41 @@ class AgentOrchestrator:
         
         logger.info("Initialized Agent Orchestrator with Guidelines Agent")
     
+    def _create_agent_status_callback(self, agent_name: str) -> callable:
+        """
+        Create a status callback function for an agent.
+        
+        Args:
+            agent_name: Name of the agent
+            
+        Returns:
+            Status callback function
+        """
+        def callback(status: str, detail: Optional[str] = None):
+            if self.status_callback:
+                message = f"{agent_name} Agent: {status}"
+                if detail:
+                    message += f" - {detail}"
+                self.status_callback(message)
+            logger.info(f"{agent_name} Agent status: {status} {detail or ''}")
+        
+        return callback
+    
+    def _update_status(self, status: str, detail: Optional[str] = None):
+        """
+        Update the status of the orchestrator.
+        
+        Args:
+            status: Status message
+            detail: Additional detail (optional)
+        """
+        if self.status_callback:
+            message = f"Agent Orchestrator: {status}"
+            if detail:
+                message += f" - {detail}"
+            self.status_callback(message)
+        logger.info(f"Agent Orchestrator status: {status} {detail or ''}")
+    
     def process_decision(self, scenario_data: Dict[str, Any], decision_text: str,
                         options: List[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
         """
@@ -90,26 +129,34 @@ class AgentOrchestrator:
             Dictionary containing processing results
         """
         try:
+            self._update_status("Starting decision analysis", f"Decision: {decision_text[:50]}...")
+            
             # Initialize results dictionary
             results = {}
             
             # Process with Guidelines Agent
-            logger.info(f"Processing decision with Guidelines Agent: {decision_text[:50]}...")
+            self._update_status("Consulting Guidelines Agent")
             guidelines_result = self.guidelines_agent.analyze(
                 scenario_data=scenario_data,
                 decision_text=decision_text,
                 options=options
             )
             results["guidelines"] = guidelines_result
+            self._update_status("Guidelines analysis complete")
             
             # In the future, process with other agents here
             # For example:
+            # self._update_status("Consulting Ontology Agent")
             # results["ontology"] = self.ontology_agent.analyze(...)
+            # self._update_status("Ontology analysis complete")
+            
+            # self._update_status("Consulting Cases Agent")
             # results["cases"] = self.cases_agent.analyze(...)
+            # self._update_status("Cases analysis complete")
             # etc.
             
             # Synthesize results
-            logger.info("Synthesizing agent results...")
+            self._update_status("Synthesizing agent results")
             synthesis = self.langchain_claude.run_chain(
                 self.synthesis_chain,
                 scenario=scenario_data.get('description', ''),
@@ -117,6 +164,7 @@ class AgentOrchestrator:
                 options=self._format_options(options),
                 guidelines_analysis=guidelines_result.get('analysis', '')
             )
+            self._update_status("Synthesis complete")
             
             # Return combined results
             return {

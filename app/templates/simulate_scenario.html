@@ -196,6 +196,33 @@
             transform: rotate(360deg);
         }
     }
+
+    /* Status container styles */
+    .status-container {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .status-message {
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .status-message:last-child {
+        border-bottom: none;
+    }
+
+    .status-indicator {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .status-text {
+        font-size: 0.9rem;
+    }
 </style>
 {% endblock %}
 
@@ -231,6 +258,30 @@
                         <span v-else-if="simulationState.completed">Simulation Complete</span>
                         <span v-else>Advance Simulation</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- Status Container -->
+            <div class="card mb-4" v-if="statusMessages.length > 0">
+                <div class="card-header">
+                    <h3>Processing Status</h3>
+                </div>
+                <div class="card-body">
+                    <div class="status-container">
+                        <div v-for="(message, index) in statusMessages" :key="index" class="status-message">
+                            <div class="d-flex align-items-center">
+                                <div v-if="index === statusMessages.length - 1" class="status-indicator me-2">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <div v-else class="status-indicator me-2">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                </div>
+                                <div class="status-text">{% raw %}{{ message }}{% endraw %}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -439,6 +490,7 @@
                 inputEnabled: true,
                 promptOptions: [],
                 isProcessing: false,
+                statusMessages: [],
                 simulationState: {
                     currentStep: 0,
                     totalSteps: timelineItemCount,
@@ -521,6 +573,14 @@
         })
         .then(function (response) {
             if (response.data.status === 'success') {
+                // Clear status messages
+                self.statusMessages = [];
+
+                // Add status messages if available
+                if (response.data.status_messages && response.data.status_messages.length > 0) {
+                    self.statusMessages = response.data.status_messages;
+                }
+
                 // Add assistant response to conversation
                 self.messages.push({
                     role: 'assistant',
@@ -660,11 +720,19 @@
         axios.post(endpoint, {
             scenario_id: {{ scenario.id }},
     session_id: this.sessionId
-        })
-        .then(function (response) {
+                })
+                .then(function (response) {
         if (response.data.status === 'success') {
             // Remove thinking message
             self.messages.pop();
+
+            // Clear status messages
+            self.statusMessages = [];
+
+            // Add status messages if available
+            if (response.data.status_messages && response.data.status_messages.length > 0) {
+                self.statusMessages = response.data.status_messages;
+            }
 
             // Update simulation state
             if (self.simulationState.currentStep === 0) {
@@ -743,13 +811,16 @@
             content: 'Resetting simulation...'
         }];
 
+        // Clear status messages
+        this.statusMessages = [];
+
         this.scrollToBottom();
 
         var self = this;
         axios.post('/simulation/api/reset', {
             scenario_id: {{ scenario.id }}
-        })
-        .then(function (response) {
+                })
+                .then(function (response) {
                 if (response.data.status === 'success') {
                     // Update simulation state
                     self.simulationState.currentStep = 0;
@@ -802,22 +873,11 @@
             var resetModal = bootstrap.Modal.getInstance(document.getElementById('resetConfirmationModal'));
             resetModal.hide();
         });
-    },
+            },
     scrollToBottom: function () {
         // Scroll to bottom of conversation when new messages are added
         var self = this;
         this.$nextTick(function () {
             var container = self.$refs.conversation;
             if (container) {
-                container.scrollTop = container.scrollHeight;
-            }
-        });
-    },
-        },
-    updated: function () {
-        // Scroll to bottom of conversation when new messages are added
-        this.scrollToBottom();
-    }
-    });
-</script>
-{% endblock %}
+                container.scrollTop = container

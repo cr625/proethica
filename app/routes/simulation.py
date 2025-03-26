@@ -43,10 +43,18 @@ def start_simulation():
     # Get agent orchestrator config
     use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
     
-    # Create a simulation controller
+    # Status messages list to capture status updates
+    status_messages = []
+    
+    # Status callback function
+    def status_callback(message):
+        status_messages.append(message)
+    
+    # Create a simulation controller with status callback
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator
+        use_agent_orchestrator=use_agent_orchestrator,
+        status_callback=status_callback
     )
     
     # Start the simulation
@@ -60,7 +68,8 @@ def start_simulation():
         'message': result['message'],
         'session_id': result['state']['session_id'],
         'is_decision': result.get('is_decision', False),
-        'options': result.get('options', [])
+        'options': result.get('options', []),
+        'status_messages': status_messages
     })
 
 @simulation_bp.route('/api/advance', methods=['POST'])
@@ -85,10 +94,18 @@ def advance_simulation():
     # Get agent orchestrator config
     use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
     
-    # Create a simulation controller
+    # Status messages list to capture status updates
+    status_messages = []
+    
+    # Status callback function
+    def status_callback(message):
+        status_messages.append(message)
+    
+    # Create a simulation controller with status callback
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator
+        use_agent_orchestrator=use_agent_orchestrator,
+        status_callback=status_callback
     )
     
     # Load state from storage
@@ -106,7 +123,8 @@ def advance_simulation():
         'status': 'success',
         'message': result['message'],
         'is_decision': result.get('is_decision', False),
-        'options': result.get('options', [])
+        'options': result.get('options', []),
+        'status_messages': status_messages
     })
 
 @simulation_bp.route('/api/decide', methods=['POST'])
@@ -138,10 +156,18 @@ def make_decision():
     # Get agent orchestrator config
     use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
     
-    # Create a simulation controller
+    # Status messages list to capture status updates
+    status_messages = []
+    
+    # Status callback function
+    def status_callback(message):
+        status_messages.append(message)
+    
+    # Create a simulation controller with status callback
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator
+        use_agent_orchestrator=use_agent_orchestrator,
+        status_callback=status_callback
     )
     
     # Load state from storage
@@ -159,7 +185,8 @@ def make_decision():
         'status': 'success',
         'message': result['message'],
         'is_decision': result.get('is_decision', False),
-        'options': result.get('options', [])
+        'options': result.get('options', []),
+        'status_messages': status_messages
     })
 
 @simulation_bp.route('/api/reset', methods=['POST'])

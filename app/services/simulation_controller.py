@@ -30,7 +30,7 @@ class SimulationController:
     """
     
     def __init__(self, scenario_id: int, selected_character_id=None, perspective="specific", 
-                llm_service=None, use_agent_orchestrator=False):
+                llm_service=None, use_agent_orchestrator=False, status_callback=None):
         """
         Initialize the simulation controller.
         
@@ -40,11 +40,13 @@ class SimulationController:
             perspective: "specific" for a single character perspective, "all" for all perspectives
             llm_service: LLM service to use for simulation (optional)
             use_agent_orchestrator: Whether to use the agent orchestrator for decisions (optional)
+            status_callback: Callback function for status updates (optional)
         """
         self.scenario_id = scenario_id
         self.selected_character_id = selected_character_id
         self.perspective = perspective
         self.use_agent_orchestrator = use_agent_orchestrator
+        self.status_callback = status_callback
         
         # Try to use Claude service, fall back to LLM service if needed
         self.llm_service = llm_service
@@ -84,11 +86,38 @@ class SimulationController:
             self.agent_orchestrator = AgentOrchestrator(
                 embedding_service=embedding_service,
                 langchain_claude=langchain_claude,
-                world_id=world_id
+                world_id=world_id,
+                status_callback=self._agent_status_callback
             )
-            logger.info("Initialized Agent Orchestrator for decision processing")
+            self._update_status("Initialized Agent Orchestrator for decision processing")
         
         logger.info(f"Initialized SimulationController for scenario {scenario_id}")
+    
+    def _update_status(self, status: str, detail: Optional[str] = None):
+        """
+        Update the status of the controller.
+        
+        Args:
+            status: Status message
+            detail: Additional detail (optional)
+        """
+        if self.status_callback:
+            message = f"Simulation: {status}"
+            if detail:
+                message += f" - {detail}"
+            self.status_callback(message)
+        logger.info(f"SimulationController status: {status} {detail or ''}")
+    
+    def _agent_status_callback(self, message: str):
+        """
+        Callback function for agent status updates.
+        
+        Args:
+            message: Status message
+        """
+        if self.status_callback:
+            self.status_callback(message)
+        logger.info(f"Agent status: {message}")
     
     def _initialize_state(self) -> Dict[str, Any]:
         """Initialize the simulation state with scenario data."""
@@ -315,23 +344,26 @@ class SimulationController:
                     decision_text = item['data'].get('description', 'Decision point')
                     
                     # Process with agent orchestrator
-                    logger.info(f"Processing decision with Agent Orchestrator: {decision_text[:50]}...")
+                    self._update_status("Processing decision with Agent Orchestrator", f"{decision_text[:50]}...")
                     result = self.agent_orchestrator.process_decision(
                         scenario_data=scenario_data,
                         decision_text=decision_text,
                         options=options
                     )
                     
+                    self._update_status("Agent Orchestrator processing complete")
+                    
                     return {
                         'state': self.state,
                         'message': result['final_response'],
                         'options': options,
                         'is_decision': True,
-                        'agent_results': result  # Include full results for transparency
+                        'agent_results': result,  # Include full results for transparency
+                        'status_messages': result.get('status_messages', [])  # Include status messages
                     }
                 except Exception as e:
                     logger.error(f"Error processing with Agent Orchestrator: {str(e)}")
-                    logger.info("Falling back to direct Claude processing")
+                    self._update_status("Error in Agent Orchestrator, falling back to direct Claude processing")
                     # Fall back to direct Claude processing
             
             # Direct Claude processing (fallback or if agent orchestrator is disabled)
@@ -636,22 +668,25 @@ class SimulationController:
                 selected_options = [selected_option['text']]
                 
                 # Process with agent orchestrator
-                logger.info(f"Processing selected decision with Agent Orchestrator: {selected_option['text'][:50]}...")
+                self._update_status("Processing selected decision with Agent Orchestrator", f"{selected_option['text'][:50]}...")
                 result = self.agent_orchestrator.process_decision(
                     scenario_data=scenario_data,
                     decision_text=f"{decision_text} - Selected: {selected_option['text']}",
                     options=selected_options
                 )
                 
+                self._update_status("Agent Orchestrator processing complete")
                 response_content = result['final_response']
             except Exception as e:
                 logger.error(f"Error processing with Agent Orchestrator: {str(e)}")
-                logger.info("Falling back to direct Claude processing")
+                self._update_status("Error in Agent Orchestrator, falling back to direct Claude processing")
                 # Fall back to direct Claude processing
                 response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
         else:
             # Direct Claude processing
+            self._update_status("Processing decision with Claude")
             response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
+            self._update_status("Claude processing complete")
         
         # Update state
         self.state['current_event_index'] += 1

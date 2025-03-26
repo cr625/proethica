@@ -24,7 +24,8 @@ class GuidelinesAgent(BaseAgent):
     
     def __init__(self, embedding_service: Optional[EmbeddingService] = None, 
                 langchain_claude: Optional[LangChainClaudeService] = None,
-                world_id: Optional[int] = None):
+                world_id: Optional[int] = None,
+                status_callback: Optional[callable] = None):
         """
         Initialize the guidelines agent.
         
@@ -32,6 +33,7 @@ class GuidelinesAgent(BaseAgent):
             embedding_service: Service for generating embeddings and similarity search
             langchain_claude: Service for using Claude via LangChain
             world_id: ID of the world for context (optional)
+            status_callback: Callback function for status updates (optional)
         """
         super().__init__("Guidelines", world_id)
         
@@ -46,6 +48,9 @@ class GuidelinesAgent(BaseAgent):
             self.langchain_claude = langchain_claude
         else:
             self.langchain_claude = LangChainClaudeService.get_instance()
+            
+        # Status callback
+        self.status_callback = status_callback
         
         # Create the guidelines analysis chain
         self.analysis_chain = self.langchain_claude.create_chain(
@@ -75,6 +80,18 @@ class GuidelinesAgent(BaseAgent):
         
         logger.info("Initialized Guidelines Agent with analysis chain")
     
+    def _update_status(self, status: str, detail: Optional[str] = None):
+        """
+        Update the status of the agent.
+        
+        Args:
+            status: Status message
+            detail: Additional detail (optional)
+        """
+        if self.status_callback:
+            self.status_callback(status, detail)
+        logger.info(f"Guidelines Agent status: {status} {detail or ''}")
+    
     def analyze(self, scenario_data: Dict[str, Any], decision_text: str, 
                options: List[Union[str, Dict[str, Any]]], 
                previous_results: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -91,13 +108,17 @@ class GuidelinesAgent(BaseAgent):
             Dictionary containing analysis results
         """
         try:
+            self._update_status("Starting analysis", f"Decision: {decision_text[:50]}...")
+            
             # Extract and normalize scenario data
             normalized_scenario = self._extract_scenario_data(scenario_data)
             
             # Construct query for relevant guidelines
+            self._update_status("Constructing query")
             query = self._construct_query(normalized_scenario, decision_text, options)
             
             # Retrieve relevant guidelines using vector similarity
+            self._update_status("Searching for relevant guidelines")
             relevant_guidelines = self.embedding_service.search_similar_chunks(
                 query=query,
                 k=5,
@@ -105,17 +126,26 @@ class GuidelinesAgent(BaseAgent):
                 document_type='guideline'
             )
             
+            if relevant_guidelines:
+                self._update_status("Found relevant guidelines", f"{len(relevant_guidelines)} guidelines found")
+                for i, guideline in enumerate(relevant_guidelines[:3]):  # Show top 3 for status
+                    title = guideline.get('title', 'Untitled')
+                    self._update_status(f"Guideline {i+1}", f"{title[:50]}...")
+            else:
+                self._update_status("No relevant guidelines found via vector search")
+            
             # Format guidelines for LLM input
             guidelines_text = self._format_guidelines(relevant_guidelines)
             
             # If no guidelines found, try to get them from the Claude service
             if not guidelines_text:
-                logger.info("No guidelines found via vector search, trying Claude service")
+                self._update_status("Retrieving guidelines from Claude service")
                 guidelines_text = self.langchain_claude.get_guidelines_for_world(
                     world_id=normalized_scenario.get('world_id')
                 )
             
             # Run the analysis chain
+            self._update_status("Analyzing guidelines")
             analysis = self.langchain_claude.run_chain(
                 self.analysis_chain,
                 scenario=normalized_scenario.get('description', ''),
@@ -124,7 +154,7 @@ class GuidelinesAgent(BaseAgent):
                 guidelines=guidelines_text
             )
             
-            logger.info(f"Guidelines analysis completed for decision: {decision_text[:50]}...")
+            self._update_status("Analysis complete")
             
             return {
                 "analysis": analysis,
