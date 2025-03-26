@@ -145,7 +145,20 @@ class SimulationController:
                 })
         
         # Sort by time
-        items.sort(key=lambda x: x['time'] if x['time'] else datetime.min)
+        def get_sort_key(item):
+            time_value = item['time']
+            if not time_value:
+                return datetime.min
+            if isinstance(time_value, str):
+                try:
+                    # Try to parse the string as a datetime
+                    return datetime.fromisoformat(time_value)
+                except (ValueError, TypeError):
+                    # If parsing fails, use the string for lexicographical sorting
+                    return time_value
+            return time_value
+        
+        items.sort(key=get_sort_key)
         
         return items
     
@@ -324,7 +337,17 @@ class SimulationController:
         # Get item details
         item_type = item['type']
         item_description = item['data'].get('description', f"{item_type.capitalize()}")
-        item_time = item['time'].strftime('%Y-%m-%d %H:%M') if item['time'] else "Unknown time"
+        
+        # Handle the case where item['time'] might be a string or a datetime object
+        if not item['time']:
+            item_time = "Unknown time"
+        elif isinstance(item['time'], str):
+            item_time = item['time']
+        else:
+            try:
+                item_time = item['time'].strftime('%Y-%m-%d %H:%M')
+            except AttributeError:
+                item_time = str(item['time'])
         
         # Get character involved (if any)
         character_name = "Unknown"
@@ -368,7 +391,17 @@ class SimulationController:
         for item in past_items:
             item_type = item['type'].capitalize()
             item_description = item['data'].get('description', f"{item_type}")
-            item_time = item['time'].strftime('%Y-%m-%d %H:%M') if item['time'] else "Unknown time"
+            
+            # Handle the case where item['time'] might be a string or a datetime object
+            if not item['time']:
+                item_time = "Unknown time"
+            elif isinstance(item['time'], str):
+                item_time = item['time']
+            else:
+                try:
+                    item_time = item['time'].strftime('%Y-%m-%d %H:%M')
+                except AttributeError:
+                    item_time = str(item['time'])
             
             context.append(f"- {item_time}: {item_type} - {item_description}")
         
