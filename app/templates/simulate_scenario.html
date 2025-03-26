@@ -3,7 +3,25 @@
 {% block title %}Simulate Scenario - {{ scenario.name }} - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
+<!-- Add Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 <style>
+    /* Icon button styles */
+    .icon-button {
+        background: none;
+        border: none;
+        color: #6c757d;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        margin-left: 0.5rem;
+        transition: color 0.2s;
+    }
+
+    .icon-button:hover {
+        color: #007bff;
+    }
+
     .timeline {
         position: relative;
         padding-left: 30px;
@@ -68,6 +86,8 @@
         overflow-y: auto;
         padding: 15px;
         background-color: #f8f9fa;
+        font-size: 0.9rem;
+        /* Make text smaller */
     }
 
     .message {
@@ -149,19 +169,32 @@
 <div class="container" id="simulation-app">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>{{ scenario.name }} - Simulation</h1>
-        <div class="btn-group" role="group">
-            <a href="/scenarios/{{ scenario.id }}" class="btn btn-secondary">Back to Scenario</a>
-        </div>
     </div>
 
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-12">
             <div class="card mb-4">
-                <div class="card-header">
-                    <h3>Scenario Description</h3>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Scenario Description</h3>
+                    <div>
+                        <a href="/scenarios/{{ scenario.id }}" class="icon-button" title="Back to Scenario">
+                            <i class="bi bi-arrow-left-circle"></i>
+                        </a>
+                        <button class="icon-button" @click="showResetModal" title="Reset Simulation">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <p>{{ scenario.description }}</p>
+                </div>
+                <div class="card-footer">
+                    <!-- Moved Start Simulation button here -->
+                    <button class="btn btn-primary w-100" @click="advanceSimulation"
+                        :class="{'btn-success': simulationState.currentStep > 0}">
+                        <span v-if="simulationState.currentStep === 0">Start Simulation</span>
+                        <span v-else>Advance Simulation</span>
+                    </button>
                 </div>
             </div>
 
@@ -281,9 +314,11 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="col-md-4">
-            <!-- Simulation state window -->
+    <!-- Simulation state window -->
+    <div class="row">
+        <div class="col-md-12">
             <div class="card mb-4">
                 <div class="card-header">
                     <h3>Simulation State</h3>
@@ -319,18 +354,30 @@
                                 </button>
                             </div>
 
-                            <div class="d-flex flex-column w-100">
-                                <button class="btn btn-primary mb-2" @click="advanceSimulation"
-                                    :class="{'btn-success': simulationState.currentStep > 0}">
-                                    <span v-if="simulationState.currentStep === 0">Start Simulation</span>
-                                    <span v-else>Advance Simulation</span>
-                                </button>
-                                <button class="btn btn-secondary" @click="resetConversation">
-                                    Reset Conversation
-                                </button>
-                            </div>
+                            <!-- Reset Conversation button removed from here -->
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Confirmation Modal -->
+    <div class="modal fade" id="resetConfirmationModal" tabindex="-1" aria-labelledby="resetConfirmationModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resetConfirmationModalLabel">Reset Simulation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to reset the simulation? This will clear all progress and return to the
+                        beginning.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" @click="confirmReset">Reset</button>
                 </div>
             </div>
         </div>
@@ -339,9 +386,10 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Include Vue.js and Axios -->
+<!-- Include Vue.js, Axios, and Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Count the number of timeline items
     var timelineItemCount = {{ combined_items| length if combined_items else 10 }};
@@ -374,7 +422,7 @@
                 this.messages = [
                     {
                         role: 'assistant',
-                        content: 'Hello! I am your AI assistant for this simulation. I can help you understand the scenario and make decisions. What would you like to know?'
+                        content: 'Scenario details will appear here.'
                     }
                 ];
             },
@@ -410,7 +458,13 @@
                 }, 1000);
             },
             selectPromptOption: function (option) {
-                // Add selected option to conversation as user message
+                // If the option is "Start Simulation" or "Advance Simulation", call advanceSimulation
+                if (option.text === 'Start Simulation' || option.text === 'Advance Simulation') {
+                    this.advanceSimulation();
+                    return;
+                }
+
+                // Otherwise, handle as a normal prompt option
                 this.messages.push({ role: 'user', content: option.text });
 
                 // Clear prompt options and disable input while processing
@@ -437,11 +491,12 @@
                 }, 1000);
             },
             getPromptOptions: function () {
-                // Simulate getting prompt options
+                // Single button that changes text based on simulation state
                 this.promptOptions = [
-                    { id: 1, text: 'Tell me more about this scenario' },
-                    { id: 2, text: 'What are the key ethical considerations?' },
-                    { id: 3, text: 'How do I make a decision?' }
+                    {
+                        id: 1,
+                        text: this.simulationState.currentStep === 0 ? 'Start Simulation' : 'Advance Simulation'
+                    }
                 ];
             },
             advanceSimulation: function () {
@@ -456,6 +511,9 @@
                     });
 
                     this.scrollToBottom();
+
+                    // Scroll to the bottom of the page to show the simulation state
+                    window.scrollTo(0, document.body.scrollHeight);
                 } else if (this.simulationState.currentStep < this.simulationState.totalSteps) {
                     // Subsequent clicks - advance the simulation
                     this.simulationState.currentStep++;
@@ -466,6 +524,9 @@
                     });
 
                     this.scrollToBottom();
+
+                    // Scroll to the bottom of the page to show the simulation state
+                    window.scrollTo(0, document.body.scrollHeight);
                 } else {
                     // Simulation is complete
                     this.simulationState.completed = true;
@@ -477,13 +538,22 @@
                     this.scrollToBottom();
                 }
             },
-            resetConversation: function () {
-                // Reset conversation and simulation state
+            showResetModal: function () {
+                // Show the reset confirmation modal
+                var resetModal = new bootstrap.Modal(document.getElementById('resetConfirmationModal'));
+                resetModal.show();
+            },
+            confirmReset: function () {
+                // Reset conversation and simulation state after confirmation
                 this.initializeConversation();
                 this.getPromptOptions();
                 this.simulationState.currentStep = 0;
                 this.simulationState.completed = false;
                 this.scrollToBottom();
+
+                // Hide the modal
+                var resetModal = bootstrap.Modal.getInstance(document.getElementById('resetConfirmationModal'));
+                resetModal.hide();
             },
             scrollToBottom: function () {
                 // Scroll to bottom of conversation when new messages are added
@@ -494,7 +564,7 @@
                         container.scrollTop = container.scrollHeight;
                     }
                 });
-            }
+            },
         },
         updated: function () {
             // Scroll to bottom of conversation when new messages are added
