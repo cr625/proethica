@@ -29,7 +29,8 @@ class SimulationController:
     a hybrid approach to ethical decision-making simulations.
     """
     
-    def __init__(self, scenario_id: int, selected_character_id=None, perspective="specific", llm_service=None):
+    def __init__(self, scenario_id: int, selected_character_id=None, perspective="specific", 
+                llm_service=None, use_agent_orchestrator=False):
         """
         Initialize the simulation controller.
         
@@ -38,10 +39,12 @@ class SimulationController:
             selected_character_id: ID of the character to simulate from their perspective (optional)
             perspective: "specific" for a single character perspective, "all" for all perspectives
             llm_service: LLM service to use for simulation (optional)
+            use_agent_orchestrator: Whether to use the agent orchestrator for decisions (optional)
         """
         self.scenario_id = scenario_id
         self.selected_character_id = selected_character_id
         self.perspective = perspective
+        self.use_agent_orchestrator = use_agent_orchestrator
         
         # Try to use Claude service, fall back to LLM service if needed
         self.llm_service = llm_service
@@ -61,6 +64,29 @@ class SimulationController:
         
         # Storage for persistence
         self.storage = SimulationStorage()
+        
+        # Initialize agent orchestrator if enabled
+        self.agent_orchestrator = None
+        if self.use_agent_orchestrator:
+            # Import here to avoid circular imports
+            from app.services.agent_orchestrator import AgentOrchestrator
+            from app.services.embedding_service import EmbeddingService
+            from app.services.langchain_claude import LangChainClaudeService
+            
+            # Get world_id from state
+            world_id = self.state.get('world_id')
+            
+            # Initialize services
+            embedding_service = EmbeddingService()
+            langchain_claude = LangChainClaudeService.get_instance()
+            
+            # Initialize agent orchestrator
+            self.agent_orchestrator = AgentOrchestrator(
+                embedding_service=embedding_service,
+                langchain_claude=langchain_claude,
+                world_id=world_id
+            )
+            logger.info("Initialized Agent Orchestrator for decision processing")
         
         logger.info(f"Initialized SimulationController for scenario {scenario_id}")
     
@@ -274,6 +300,41 @@ class SimulationController:
             # If this is a decision point, generate options
             options = self._generate_decision_options(item, conversation, system_message)
             
+            # Check if we should use the agent orchestrator
+            if self.use_agent_orchestrator and self.agent_orchestrator:
+                try:
+                    # Extract scenario data
+                    scenario_data = {
+                        'id': scenario.id,
+                        'name': scenario.name,
+                        'description': scenario.description,
+                        'world_id': scenario.world_id
+                    }
+                    
+                    # Get decision text
+                    decision_text = item['data'].get('description', 'Decision point')
+                    
+                    # Process with agent orchestrator
+                    logger.info(f"Processing decision with Agent Orchestrator: {decision_text[:50]}...")
+                    result = self.agent_orchestrator.process_decision(
+                        scenario_data=scenario_data,
+                        decision_text=decision_text,
+                        options=options
+                    )
+                    
+                    return {
+                        'state': self.state,
+                        'message': result['final_response'],
+                        'options': options,
+                        'is_decision': True,
+                        'agent_results': result  # Include full results for transparency
+                    }
+                except Exception as e:
+                    logger.error(f"Error processing with Agent Orchestrator: {str(e)}")
+                    logger.info("Falling back to direct Claude processing")
+                    # Fall back to direct Claude processing
+            
+            # Direct Claude processing (fallback or if agent orchestrator is disabled)
             message = f"Process the following decision point: {item['data'].get('description', 'Decision point')}"
             
             try:
@@ -554,11 +615,64 @@ class SimulationController:
             'timestamp': datetime.utcnow().isoformat()
         })
         
+        # Get the scenario
+        scenario = Scenario.query.get(self.scenario_id)
+        
+        # Check if we should use the agent orchestrator
+        if self.use_agent_orchestrator and self.agent_orchestrator:
+            try:
+                # Extract scenario data
+                scenario_data = {
+                    'id': scenario.id,
+                    'name': scenario.name,
+                    'description': scenario.description,
+                    'world_id': scenario.world_id
+                }
+                
+                # Get decision text
+                decision_text = current_item['data'].get('description', 'Decision point')
+                
+                # Create options list with just the selected option
+                selected_options = [selected_option['text']]
+                
+                # Process with agent orchestrator
+                logger.info(f"Processing selected decision with Agent Orchestrator: {selected_option['text'][:50]}...")
+                result = self.agent_orchestrator.process_decision(
+                    scenario_data=scenario_data,
+                    decision_text=f"{decision_text} - Selected: {selected_option['text']}",
+                    options=selected_options
+                )
+                
+                response_content = result['final_response']
+            except Exception as e:
+                logger.error(f"Error processing with Agent Orchestrator: {str(e)}")
+                logger.info("Falling back to direct Claude processing")
+                # Fall back to direct Claude processing
+                response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
+        else:
+            # Direct Claude processing
+            response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
+        
+        # Update state
+        self.state['current_event_index'] += 1
+        self.state['is_decision_point'] = False
+        
+        # Store updated state
+        self.storage.store_state(self.state, self.state['session_id'])
+        
+        return {
+            'state': self.state,
+            'message': response_content,
+            'is_decision': False,
+            'options': [{'id': 1, 'text': 'Advance Simulation'}]
+        }
+    
+    def _process_decision_with_claude(self, current_item: Dict[str, Any], 
+                                     selected_option: Dict[str, Any],
+                                     scenario) -> str:
+        """Process a decision using direct Claude integration."""
         # Create a conversation for Claude
         conversation = Conversation()
-        
-        # Generate a response using the appropriate service
-        scenario = Scenario.query.get(self.scenario_id)
         
         message = f"""
         The user has selected the following option for the decision point:
@@ -584,24 +698,10 @@ class SimulationController:
                     world_id=scenario.world_id
                 )
             
-            response_content = response.content
+            return response.content
         except Exception as e:
             logger.error(f"Error processing decision: {str(e)}")
-            response_content = f"You selected: {selected_option['text']}. The simulation will now continue to the next step."
-        
-        # Update state
-        self.state['current_event_index'] += 1
-        self.state['is_decision_point'] = False
-        
-        # Store updated state
-        self.storage.store_state(self.state, self.state['session_id'])
-        
-        return {
-            'state': self.state,
-            'message': response_content,
-            'is_decision': False,
-            'options': [{'id': 1, 'text': 'Advance Simulation'}]
-        }
+            return f"You selected: {selected_option['text']}. The simulation will now continue to the next step."
     
     def get_state(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get the simulation state from storage."""

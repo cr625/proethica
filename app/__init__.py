@@ -2,6 +2,7 @@ from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
+import os
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -23,6 +24,15 @@ def create_app(config_name='default'):
     # Load configuration
     from app.config import config
     app.config.from_object(config[config_name])
+    
+    # Check if agent orchestrator is enabled
+    use_agent_orchestrator = os.environ.get('USE_AGENT_ORCHESTRATOR', 'false').lower() == 'true'
+    app.config['USE_AGENT_ORCHESTRATOR'] = use_agent_orchestrator
+    
+    if use_agent_orchestrator:
+        app.logger.info("Agent Orchestrator is ENABLED")
+    else:
+        app.logger.info("Agent Orchestrator is DISABLED")
     
     # Initialize extensions with app
     db.init_app(app)
@@ -60,6 +70,13 @@ def create_app(config_name='default'):
     
     # Get the singleton instance of MCPClient
     client = MCPClient.get_instance()
+    
+    # Register context processor to make agent orchestrator config available to templates
+    @app.context_processor
+    def inject_agent_orchestrator_config():
+        return {
+            'use_agent_orchestrator': app.config.get('USE_AGENT_ORCHESTRATOR', False)
+        }
 
     # Create routes
     @app.route('/')

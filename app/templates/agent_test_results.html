@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Test Results{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Agent Test Results</h1>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h2 class="h5 mb-0">Scenario Information</h2>
+        </div>
+        <div class="card-body">
+            <h3>{{ scenario.name }}</h3>
+            <p class="lead">{{ scenario.description }}</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h2 class="h5 mb-0">Decision Point</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead">{{ decision_text }}</p>
+
+            <h4>Options:</h4>
+            <ul class="list-group mb-3">
+                {% for option in options %}
+                <li class="list-group-item">{{ option }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h2 class="h5 mb-0">Guidelines Agent Analysis</h2>
+        </div>
+        <div class="card-body">
+            <pre class="border p-3 bg-light">{{ agent_results.agent_results.guidelines.analysis }}</pre>
+
+            <h4>Relevant Guidelines:</h4>
+            <div class="accordion" id="guidelinesAccordion">
+                {% for guideline in agent_results.agent_results.guidelines.relevant_guidelines %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="guideline-heading-{{ loop.index }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#guideline-collapse-{{ loop.index }}" aria-expanded="false"
+                            aria-controls="guideline-collapse-{{ loop.index }}">
+                            Guideline {{ loop.index }}: {{ guideline.title|default('Untitled') }}
+                        </button>
+                    </h2>
+                    <div id="guideline-collapse-{{ loop.index }}" class="accordion-collapse collapse"
+                        aria-labelledby="guideline-heading-{{ loop.index }}" data-bs-parent="#guidelinesAccordion">
+                        <div class="accordion-body">
+                            <p>{{ guideline.chunk_text }}</p>
+                            <small class="text-muted">Distance: {{ guideline.distance|round(4) }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h2 class="h5 mb-0">Final Synthesis</h2>
+        </div>
+        <div class="card-body">
+            <pre class="border p-3 bg-light">{{ agent_results.synthesis }}</pre>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h2 class="h5 mb-0">Integration Status</h2>
+        </div>
+        <div class="card-body">
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Simulation Controller with Agents
+                    {% if controller_with_agents %}
+                    <span class="badge bg-success rounded-pill">Initialized</span>
+                    {% else %}
+                    <span class="badge bg-danger rounded-pill">Failed</span>
+                    {% endif %}
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Simulation Controller without Agents
+                    {% if controller_without_agents %}
+                    <span class="badge bg-success rounded-pill">Initialized</span>
+                    {% else %}
+                    <span class="badge bg-danger rounded-pill">Failed</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <a href="{{ url_for('scenarios.view_scenario', id=scenario.id) }}" class="btn btn-primary">Back to Scenario</a>
+        <a href="{{ url_for('simulation.simulate_scenario', id=scenario.id) }}" class="btn btn-success">Start
+            Simulation</a>
+    </div>
+</div>
+{% endblock %}

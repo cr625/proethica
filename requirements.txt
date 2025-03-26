@@ -15,6 +15,7 @@ anthropic>=0.18.0  # Anthropic Python SDK for Claude API
 langchain
 langchain-core
 langchain-community
+langchain-anthropic  # For Claude integration with LangChain
 langgraph
 
 # Model Context Protocol
