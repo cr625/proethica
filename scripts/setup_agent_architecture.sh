@@ -35,6 +35,20 @@ if [ ! -f "app/services/agents/__init__.py" ]; then
     exit 1
 fi
 
+# Check if python-dotenv is installed
+if ! pip list | grep -q "python-dotenv"; then
+    echo "Installing python-dotenv..."
+    pip install python-dotenv
+fi
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo "Warning: .env file not found. Make sure you have an .env file with ANTHROPIC_API_KEY set."
+    echo "You can copy .env.example to .env and add your API key."
+    echo "cp .env.example .env"
+    echo "Then edit .env to add your ANTHROPIC_API_KEY."
+fi
+
 echo "Agent-based architecture setup complete!"
 echo ""
 echo "To run the application with the agent orchestrator enabled, use:"

@@ -53,6 +53,23 @@ controller = SimulationController(
 
 When enabled, the `SimulationController` will use the `AgentOrchestrator` to process decisions, providing more comprehensive ethical analyses.
 
+## Prerequisites
+
+Before running the agent-based architecture, ensure you have:
+
+1. **Anthropic API Key**: The agent-based architecture requires an Anthropic API key to use Claude. Add your API key to the `.env` file:
+
+```bash
+# In .env file
+ANTHROPIC_API_KEY=your_api_key_here
+```
+
+2. **Required Dependencies**: Install the required dependencies using the setup script:
+
+```bash
+./scripts/setup_agent_architecture.sh
+```
+
 ## Running with Agent Orchestrator
 
 There are two ways to enable the agent orchestrator:
