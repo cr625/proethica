@@ -5,6 +5,8 @@
 {% block styles %}
 <!-- Add Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<!-- Add Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <!-- Add simulation specific styles -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/simulation.css') }}">
 {% endblock %}
@@ -178,7 +180,7 @@
                                 :class="message.role === 'user' ? 'user-message' : 'agent-message'">
                                 {% raw %}{{ message.content }}{% endraw %}
                             </div>
-                            <div v-if="isProcessing" class="message agent-message">
+                            <div v-if="isProcessing" class="message agent-message thinking">
                                 <div class="loading"></div> Thinking...
                             </div>
                         </div>
@@ -213,7 +215,7 @@
             <div class="card mb-4" v-if="statusMessages.length > 0">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3>Agent Status</h3>
-                    <i class="bi bi-cpu text-primary fs-4"></i>
+                    <i class="fas fa-robot text-primary fs-4"></i>
                 </div>
                 <div class="card-body">
                     <div class="status-container">

@@ -132,10 +132,18 @@
 }
 
 .agent-message {
-    background-color: #e9ecef;
-    color: #212529;
+    background-color: #e3f2fd; /* Light blue background */
+    color: #0d47a1; /* Dark blue text */
     margin-right: auto;
     text-align: left;
+    border-left: 3px solid #1976d2; /* Medium blue left border */
+}
+
+/* Original gray style for agent messages in "thinking" state */
+.agent-message.thinking {
+    background-color: #e9ecef;
+    color: #212529;
+    border-left: none;
 }
 
 .input-area {
