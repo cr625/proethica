@@ -218,7 +218,7 @@
                     <div class="status-container">
                         <div v-for="(message, index) in statusMessages" :key="index" class="status-message">
                             <div class="d-flex align-items-center">
-                                <div v-if="index === statusMessages.length - 1" class="status-indicator me-2">
+                                <div v-if="index === 0" class="status-indicator me-2">
                                     <div class="spinner-border spinner-border-sm text-primary" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>

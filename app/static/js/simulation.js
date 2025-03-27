@@ -102,12 +102,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .then((response) => {
                     if (response.data.status === 'success') {
-                        // Clear status messages
-                        this.statusMessages = [];
-
-                        // Add status messages if available
+                        // Add new status messages if available
                         if (response.data.status_messages && response.data.status_messages.length > 0) {
-                            this.statusMessages = response.data.status_messages;
+                            // Add new messages to the beginning of the array
+                            this.statusMessages = [...response.data.status_messages, ...this.statusMessages];
+                            // Scroll status container to top to show newest messages
+                            this.scrollStatusToTop();
                         }
 
                         // Add assistant response to conversation
@@ -254,12 +254,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Remove thinking message
                         this.messages.pop();
 
-                        // Clear status messages
-                        this.statusMessages = [];
-
-                        // Add status messages if available
+                        // Add new status messages if available
                         if (response.data.status_messages && response.data.status_messages.length > 0) {
-                            this.statusMessages = response.data.status_messages;
+                            // Add new messages to the beginning of the array
+                            this.statusMessages = [...response.data.status_messages, ...this.statusMessages];
+                            // Scroll status container to top to show newest messages
+                            this.scrollStatusToTop();
                         }
 
                         // Update simulation state
@@ -409,11 +409,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         container.scrollTop = container.scrollHeight;
                     }
                 });
+            },
+            scrollStatusToTop() {
+                // Scroll status container to top when new messages are added
+                this.$nextTick(() => {
+                    const statusContainer = document.querySelector('.status-container');
+                    if (statusContainer) {
+                        statusContainer.scrollTop = 0;
+                    }
+                });
             }
         },
         updated() {
             // Scroll to bottom of conversation when new messages are added
             this.scrollToBottom();
+            
+            // Scroll status container to top when component is updated
+            if (this.statusMessages.length > 0) {
+                this.scrollStatusToTop();
+            }
         }
     }).mount('#simulation-app');
 });
