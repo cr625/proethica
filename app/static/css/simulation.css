@@ -191,7 +191,7 @@
 
 /* Status container styles */
 .status-container {
-    max-height: 200px;
+    max-height: 400px; /* Match the height of the agent window */
     overflow-y: auto;
 }
 
@@ -214,4 +214,9 @@
 
 .status-text {
     font-size: 0.9rem;
+}
+
+/* Agent status box styles */
+.col-md-4 .card {
+    height: 100%;
 }

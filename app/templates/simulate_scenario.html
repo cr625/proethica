@@ -44,29 +44,6 @@
                 </div>
             </div>
 
-            <!-- Status Container -->
-            <div class="card mb-4" v-if="statusMessages.length > 0">
-                <div class="card-header">
-                    <h3>Processing Status</h3>
-                </div>
-                <div class="card-body">
-                    <div class="status-container">
-                        <div v-for="(message, index) in statusMessages" :key="index" class="status-message">
-                            <div class="d-flex align-items-center">
-                                <div v-if="index === statusMessages.length - 1" class="status-indicator me-2">
-                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                </div>
-                                <div v-else class="status-indicator me-2">
-                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                </div>
-                                <div class="status-text">{% raw %}{{ message }}{% endraw %}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <div class="card mb-4">
                 <div class="card-header">
@@ -186,9 +163,10 @@
         </div>
     </div>
 
-    <!-- Simulation state window -->
+    <!-- Simulation state and agent status row -->
     <div class="row">
-        <div class="col-md-12">
+        <div class="col-md-8">
+            <!-- Simulation State card -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h3>Simulation State</h3>
@@ -225,6 +203,31 @@
                             </div>
 
                             <!-- Reset Conversation button removed from here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <!-- Agent Status box -->
+            <div class="card mb-4" v-if="statusMessages.length > 0">
+                <div class="card-header">
+                    <h3>Agent Status</h3>
+                </div>
+                <div class="card-body">
+                    <div class="status-container">
+                        <div v-for="(message, index) in statusMessages" :key="index" class="status-message">
+                            <div class="d-flex align-items-center">
+                                <div v-if="index === statusMessages.length - 1" class="status-indicator me-2">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <div v-else class="status-indicator me-2">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                </div>
+                                <div class="status-text">{% raw %}{{ message }}{% endraw %}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
