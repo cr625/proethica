@@ -5,13 +5,12 @@
 {% block content %}
 <div class="jumbotron">
     <h1 class="display-4">ProEthica</h1>
-    <p class="lead">An ethical decision-making simulator for professional domains with world-based scenarios and
-        temporal reasoning.
+<p class="lead">An ethical decision-making simulator that evaluates professional decisions within customizable worlds using
+        role-based guidelines and intelligent agents.
     </p>
     <hr class="my-4">
-    <p>ProEthica creates immersive ethical decision environments through customizable worlds and scenarios,
-        evaluating decisions using a hybrid approach of rule-based validation, case-based reasoning, and guideline-based
-        ethical assessment.
+    <p>ProEthica creates immersive scenarios in ontology-defined worlds where specialized agents evaluate decisions
+        using professional guidelines, contextual reasoning, and knowledge from integrated document sources.
     </p>
     <div class="d-flex gap-2">
         <a class="btn btn-primary btn-lg" href="/worlds" role="button">Explore Worlds</a>
@@ -24,8 +23,8 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">World Building</h5>
-                <p class="card-text">Create customizable worlds with domain-specific entities, guidelines, cases, and
-                    rulesets based on ontologies that define ethical frameworks.</p>
+                <p class="card-text">Create customizable worlds with the system's help to define entities, roles, and relationships relevant to the target domain.
+                    Incorporate guidelines and cases that establish the ethical framework for evaluating decisions.</p>
             </div>
         </div>
     </div>
@@ -33,9 +32,8 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Knowledge Integration</h5>
-                <p class="card-text">Integrates domain-specific knowledge and ethical guidelines using LangChain and
-                    Model Context Protocol (MCP) for interfacing with external models, data sources, and rules-based
-                    evaluation.</p>
+                <p class="card-text">Upload documents or provide URLs to guidelines and cases. The system processes these into a searchable knowledge base
+                    that agents can access during simulations to provide context-aware evaluations.</p>
             </div>
         </div>
     </div>
@@ -43,8 +41,8 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Ethical Decision Framework</h5>
-                <p class="card-text">Implements a hybrid ethical reasoning system combining rule-based validation,
-                    case-based reasoning, and principle-based assessment for comprehensive ethical evaluation.</p>
+                <p class="card-text">Evaluates decisions against professional guidelines while recognizing justified exceptions.
+                    The system considers both the the guidelines and standards of a profession and relevant cases.</p>
             </div>
         </div>
     </div>
@@ -56,10 +54,10 @@
         <p>To begin using ProEthica:</p>
         <ol>
             <li>Select an existing world or create a new one</li>
-            <li>Explore existing scenarios or create a new one within your world</li>
-            <li>Add characters, conditions, and resources to your scenario</li>
-            <li>Create a timeline of events and actions</li>
-            <li>Make decisions and see how they are evaluated</li>
+            <li>Explore existing scenarios or create a new one within a world</li>
+            <li>Add characters, conditions, and resources to a scenario. The system can assist by drafting descriptions and suggesting appropriate roles, conditions, resources, and actions from those defined in the world</li>
+            <li>Create a timeline of events and actions that is considered in the ethical evaluation process.</li>
+            <li>See recommendations for decisions and see how they were evaluated.</li>
         </ol>
         <div class="d-flex gap-2">
             <a href="/worlds/new" class="btn btn-primary">Create New World</a>
@@ -68,19 +66,18 @@
     </div>
     <div class="col-md-6">
         <h3>Professional Domains in Custom Worlds</h3>
-        <p>ProEthica allows you to create custom worlds for any professional domain that has an associated code of
-            ethics or standards of conduct or practice:</p>
+        <p>ProEthica enables the creation of ontology-defined worlds for any professional domain, where decisions are evaluated
+            based on the roles, guidelines, and entities that define the professional context:</p>
         <ul>
-            <li><strong>Use Existing Templates:</strong> Start with pre-configured worlds for various professional
-                domains and ethical contexts</li>
-            <li><strong>Create Custom Worlds for Domains:</strong> Define your own world which describes the
-                professional domain with custom entities,
-                guidelines, and rulesets</li>
-            <li><strong>Import Ontologies:</strong> Use exisiting knowledge to populate the key features of the world.
-                ontologies</li>
+            <li><strong>Use Existing Templates:</strong> Start with pre-configured entity worlds for various professional
+                domains.</li>
+            <li><strong>Create Custom Worlds for Domains:</strong> Define your professional context through entities,
+                their relationships, and the guidelines that govern decision-making</li>
+            <li><strong>Import Documents and Knowledge:</strong> Upload professional guidelines, case studies, and other resources (PDF, Word, text, HTML) 
+                or provide URLs. The system will analyze these documents and apply the rules and cases to the decision evaluation.</li>
         </ul>
-        <p>Each world you create becomes a foundation for scenarios, with customizable entities, guidelines, cases, and
-            rulesets tailored to the specific professional domain.</p>
+        <p>Each ontology-defined world provides the context for scenarios where professional roles and their associated guidelines
+            form the basis for ethical evaluation, supported by external tools and Zotero references through the MCP architecture.</p>
         <a href="/worlds" class="btn btn-outline-primary">Explore Available Worlds</a>
     </div>
 </div>
