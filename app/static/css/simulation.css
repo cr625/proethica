@@ -224,7 +224,7 @@
 /* Status message highlight animation */
 @keyframes highlight-fade {
     0% {
-        background-color: rgba(0, 123, 255, 0.2);
+        background-color: rgba(0, 123, 255, 0.3);
     }
     100% {
         background-color: transparent;
@@ -233,4 +233,10 @@
 
 .status-message-highlight {
     animation: highlight-fade 1s ease-out;
+}
+
+/* First status message should have a persistent light highlight */
+.status-message:first-child {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-left: 3px solid #007bff;
 }

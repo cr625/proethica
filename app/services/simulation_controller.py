@@ -349,9 +349,9 @@ class SimulationController:
         
         # Update status with detailed information
         if item_type == 'event':
-            self._update_status(f"Processing Event", f"{item_description} - Character: {character_name}")
+            self._update_status(f"Process Event", f"{item_description} - Character: {character_name}")
         else:
-            self._update_status(f"Processing Action", f"{item_description} - Character: {character_name}")
+            self._update_status(f"Process Action", f"{item_description} - Character: {character_name}")
         
         # Generate a response using the appropriate service
         if item['is_decision']:
@@ -373,7 +373,7 @@ class SimulationController:
                     decision_text = item['data'].get('description', 'Decision point')
                     
                     # Process with agent orchestrator
-                    self._update_status("Processing Decision Point", f"{decision_text} - Character: {character_name}")
+                    self._update_status("Process Decision", f"{decision_text} - Character: {character_name}")
                     result = self.agent_orchestrator.process_decision(
                         scenario_data=scenario_data,
                         decision_text=decision_text,
@@ -400,7 +400,7 @@ class SimulationController:
             message = f"Process the following decision point: {decision_text}"
             
             # Update status with decision information
-            self._update_status("Processing Decision Point", f"{decision_text} - Character: {character_name}")
+            self._update_status("Process Decision", f"{decision_text} - Character: {character_name}")
             
             try:
                 if self.use_claude:
@@ -709,7 +709,7 @@ class SimulationController:
                         character_name = getattr(current_item['data']['character'], 'name', "Unknown")
                 
                 # Process with agent orchestrator
-                self._update_status("Processing Selected Decision", f"{selected_option['text']} - Character: {character_name}")
+                self._update_status("Process Selected Decision", f"{selected_option['text']} - Character: {character_name}")
                 result = self.agent_orchestrator.process_decision(
                     scenario_data=scenario_data,
                     decision_text=f"{decision_text} - Selected: {selected_option['text']}",
@@ -733,7 +733,7 @@ class SimulationController:
                     character_name = getattr(current_item['data']['character'], 'name', "Unknown")
             
             # Direct Claude processing
-            self._update_status("Processing Selected Decision", f"{selected_option['text']} - Character: {character_name}")
+            self._update_status("Process Selected Decision", f"{selected_option['text']} - Character: {character_name}")
             response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
             self._update_status("Claude processing complete")
         

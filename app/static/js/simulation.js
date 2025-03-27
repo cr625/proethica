@@ -104,10 +104,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (response.data.status === 'success') {
                         // Add new status messages if available
                         if (response.data.status_messages && response.data.status_messages.length > 0) {
-                            // Add new messages to the beginning of the array
-                            this.statusMessages = [...response.data.status_messages, ...this.statusMessages];
-                            // Scroll status container to top to show newest messages
-                            this.scrollStatusToTop();
+                            // Filter out duplicate initialization messages
+                            const filteredMessages = response.data.status_messages.filter(message => 
+                                !message.includes("Initialized Agent Orchestrator")
+                            );
+                            
+                            // Only add messages if there are any after filtering
+                            if (filteredMessages.length > 0) {
+                                // Add new messages to the beginning of the array
+                                this.statusMessages = [...filteredMessages, ...this.statusMessages];
+                                // Scroll status container to top to show newest messages
+                                this.scrollStatusToTop();
+                            }
                         }
 
                         // Add assistant response to conversation
@@ -256,10 +264,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         // Add new status messages if available
                         if (response.data.status_messages && response.data.status_messages.length > 0) {
-                            // Add new messages to the beginning of the array
-                            this.statusMessages = [...response.data.status_messages, ...this.statusMessages];
-                            // Scroll status container to top to show newest messages
-                            this.scrollStatusToTop();
+                            // Filter out duplicate initialization messages
+                            const filteredMessages = response.data.status_messages.filter(message => 
+                                !message.includes("Initialized Agent Orchestrator")
+                            );
+                            
+                            // Only add messages if there are any after filtering
+                            if (filteredMessages.length > 0) {
+                                // Add new messages to the beginning of the array
+                                this.statusMessages = [...filteredMessages, ...this.statusMessages];
+                                // Scroll status container to top to show newest messages
+                                this.scrollStatusToTop();
+                            }
                         }
 
                         // Update simulation state

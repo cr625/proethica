@@ -48,6 +48,7 @@ def start_simulation():
     
     # Status callback function
     def status_callback(message):
+        # Include all messages in startup, including initialization
         status_messages.append(message)
     
     # Create a simulation controller with status callback

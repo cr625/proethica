@@ -211,19 +211,15 @@
         <div class="col-md-4">
             <!-- Agent Status box -->
             <div class="card mb-4" v-if="statusMessages.length > 0">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h3>Agent Status</h3>
+                    <i class="bi bi-cpu text-primary fs-4"></i>
                 </div>
                 <div class="card-body">
                     <div class="status-container">
                         <div v-for="(message, index) in statusMessages" :key="index" class="status-message">
                             <div class="d-flex align-items-center">
-                                <div v-if="index === 0" class="status-indicator me-2">
-                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                </div>
-                                <div v-else class="status-indicator me-2">
+                                <div class="status-indicator me-2">
                                     <i class="bi bi-check-circle-fill text-success"></i>
                                 </div>
                                 <div class="status-text">{% raw %}{{ message }}{% endraw %}</div>
