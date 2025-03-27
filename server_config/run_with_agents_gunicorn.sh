@@ -11,7 +11,7 @@ TIMEOUT=120
 
 # Restart the MCP server
 echo "Restarting the MCP server..."
-./scripts/restart_mcp_server_gunicorn.sh
+./scripts/restart_mcp_server_gunicorn.fixed.sh
 
 # Wait for the MCP server to start
 echo "Waiting for the MCP server to start..."
