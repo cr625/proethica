@@ -1,0 +1,31 @@
+import os
+import subprocess
+import time
+import sys
+from app import create_app
+
+# Only run the MCP server restart when not being run by gunicorn
+if 'gunicorn' not in sys.argv[0]:
+    # Restart the MCP server
+    print("Restarting the MCP server...")
+    subprocess.run(["./scripts/restart_mcp_server.sh"], shell=True)
+
+    # Wait for the MCP server to start
+    print("Waiting for the MCP server to start...")
+    time.sleep(5)  # Increased wait time to ensure MCP server is fully initialized
+
+# Set the MCP server URL environment variable if not already set
+if 'MCP_SERVER_URL' not in os.environ:
+    os.environ['MCP_SERVER_URL'] = "http://localhost:5001"
+    print(f"Set MCP_SERVER_URL to {os.environ['MCP_SERVER_URL']}")
+
+# Create app instance
+app = create_app(os.getenv('FLASK_ENV', 'default'))
+
+if __name__ == '__main__':
+    import argparse
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Run the AI Ethical DM application')
+    parser.add_argument('--port', type=int, default=5000, help='Port to run the server on')
+    args = parser.parse_args()
+    app.run(host='0.0.0.0', port=args.port, debug=True)
