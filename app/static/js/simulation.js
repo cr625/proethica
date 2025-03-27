@@ -411,11 +411,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             },
             scrollStatusToTop() {
-                // Scroll status container to top when new messages are added
+                // Scroll status container to ensure the latest entry (at the top) is visible
                 this.$nextTick(() => {
                     const statusContainer = document.querySelector('.status-container');
                     if (statusContainer) {
+                        // Scroll to top to show the newest messages
                         statusContainer.scrollTop = 0;
+                        
+                        // Add a small animation to highlight the newest message
+                        const newestMessage = statusContainer.querySelector('.status-message:first-child');
+                        if (newestMessage) {
+                            // Add a highlight class
+                            newestMessage.classList.add('status-message-highlight');
+                            
+                            // Remove the highlight class after animation completes
+                            setTimeout(() => {
+                                newestMessage.classList.remove('status-message-highlight');
+                            }, 1000);
+                        }
                     }
                 });
             }

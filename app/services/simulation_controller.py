@@ -89,7 +89,11 @@ class SimulationController:
                 world_id=world_id,
                 status_callback=self._agent_status_callback
             )
-            self._update_status("Initialized Agent Orchestrator for decision processing")
+            
+            # Only show initialization message if this is a new simulation (no session_id)
+            # This prevents the message from appearing on every action
+            if not self.state.get('session_id'):
+                self._update_status("Initialized Agent Orchestrator for decision processing")
         
         logger.info(f"Initialized SimulationController for scenario {scenario_id}")
     
@@ -102,9 +106,13 @@ class SimulationController:
             detail: Additional detail (optional)
         """
         if self.status_callback:
-            message = f"Simulation: {status}"
+            # Create a concise message limited to two lines
+            message = f"{status}"
             if detail:
-                message += f" - {detail}"
+                # Truncate detail if it's too long
+                max_detail_length = 50
+                truncated_detail = detail[:max_detail_length] + "..." if len(detail) > max_detail_length else detail
+                message += f": {truncated_detail}"
             self.status_callback(message)
         logger.info(f"SimulationController status: {status} {detail or ''}")
     
@@ -116,7 +124,10 @@ class SimulationController:
             message: Status message
         """
         if self.status_callback:
-            self.status_callback(message)
+            # Truncate message if it's too long
+            max_message_length = 50
+            truncated_message = message[:max_message_length] + "..." if len(message) > max_message_length else message
+            self.status_callback(truncated_message)
         logger.info(f"Agent status: {message}")
     
     def _initialize_state(self) -> Dict[str, Any]:
@@ -324,6 +335,24 @@ class SimulationController:
         # Add system message with context
         system_message = self._create_system_message(item, scenario.world_id)
         
+        # Get item details for status message
+        item_type = item['type']
+        item_description = item['data'].get('description', f"{item_type.capitalize()}")
+        
+        # Get character involved (if any)
+        character_name = "Unknown"
+        if 'character' in item['data'] and item['data']['character']:
+            if isinstance(item['data']['character'], dict):
+                character_name = item['data']['character'].get('name', "Unknown")
+            else:
+                character_name = getattr(item['data']['character'], 'name', "Unknown")
+        
+        # Update status with detailed information
+        if item_type == 'event':
+            self._update_status(f"Processing Event", f"{item_description} - Character: {character_name}")
+        else:
+            self._update_status(f"Processing Action", f"{item_description} - Character: {character_name}")
+        
         # Generate a response using the appropriate service
         if item['is_decision']:
             # If this is a decision point, generate options
@@ -344,7 +373,7 @@ class SimulationController:
                     decision_text = item['data'].get('description', 'Decision point')
                     
                     # Process with agent orchestrator
-                    self._update_status("Processing decision with Agent Orchestrator", f"{decision_text[:50]}...")
+                    self._update_status("Processing Decision Point", f"{decision_text} - Character: {character_name}")
                     result = self.agent_orchestrator.process_decision(
                         scenario_data=scenario_data,
                         decision_text=decision_text,
@@ -367,7 +396,11 @@ class SimulationController:
                     # Fall back to direct Claude processing
             
             # Direct Claude processing (fallback or if agent orchestrator is disabled)
-            message = f"Process the following decision point: {item['data'].get('description', 'Decision point')}"
+            decision_text = item['data'].get('description', 'Decision point')
+            message = f"Process the following decision point: {decision_text}"
+            
+            # Update status with decision information
+            self._update_status("Processing Decision Point", f"{decision_text} - Character: {character_name}")
             
             try:
                 if self.use_claude:
@@ -667,8 +700,16 @@ class SimulationController:
                 # Create options list with just the selected option
                 selected_options = [selected_option['text']]
                 
+                # Get character involved (if any)
+                character_name = "Unknown"
+                if 'character' in current_item['data'] and current_item['data']['character']:
+                    if isinstance(current_item['data']['character'], dict):
+                        character_name = current_item['data']['character'].get('name', "Unknown")
+                    else:
+                        character_name = getattr(current_item['data']['character'], 'name', "Unknown")
+                
                 # Process with agent orchestrator
-                self._update_status("Processing selected decision with Agent Orchestrator", f"{selected_option['text'][:50]}...")
+                self._update_status("Processing Selected Decision", f"{selected_option['text']} - Character: {character_name}")
                 result = self.agent_orchestrator.process_decision(
                     scenario_data=scenario_data,
                     decision_text=f"{decision_text} - Selected: {selected_option['text']}",
@@ -683,8 +724,16 @@ class SimulationController:
                 # Fall back to direct Claude processing
                 response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
         else:
+            # Get character involved (if any)
+            character_name = "Unknown"
+            if 'character' in current_item['data'] and current_item['data']['character']:
+                if isinstance(current_item['data']['character'], dict):
+                    character_name = current_item['data']['character'].get('name', "Unknown")
+                else:
+                    character_name = getattr(current_item['data']['character'], 'name', "Unknown")
+            
             # Direct Claude processing
-            self._update_status("Processing decision with Claude")
+            self._update_status("Processing Selected Decision", f"{selected_option['text']} - Character: {character_name}")
             response_content = self._process_decision_with_claude(current_item, selected_option, scenario)
             self._update_status("Claude processing complete")
         

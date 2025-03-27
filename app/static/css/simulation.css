@@ -220,3 +220,17 @@
 .col-md-4 .card {
     height: 100%;
 }
+
+/* Status message highlight animation */
+@keyframes highlight-fade {
+    0% {
+        background-color: rgba(0, 123, 255, 0.2);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.status-message-highlight {
+    animation: highlight-fade 1s ease-out;
+}
