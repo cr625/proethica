@@ -13,15 +13,11 @@
 
 {% block content %}
 <div class="container" id="simulation-app" data-timeline-count="{{ combined_items|length if combined_items else 10 }}" data-scenario-id="{{ scenario.id }}">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ scenario.name }} - Simulation</h1>
-    </div>
-
-    <div class="row">
+    <div class="row mb-2">
         <div class="col-md-12">
-            <div class="card mb-4">
+            <div class="card mb-2">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Scenario Description</h3>
+                    <h3 class="mb-0">{{ scenario.name }} - Simulation</h3>
                     <div>
                         <a href="/scenarios/{{ scenario.id }}" class="icon-button" title="Back to Scenario">
                             <i class="bi bi-arrow-left-circle"></i>
@@ -31,8 +27,8 @@
                         </button>
                     </div>
                 </div>
-                <div class="card-body">
-                    <p>{{ scenario.description }}</p>
+                <div class="card-body py-2">
+                    <p class="mb-1">{{ scenario.description }}</p>
                 </div>
                 <div class="card-footer">
                     <!-- Simulation control button -->
