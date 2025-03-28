@@ -42,9 +42,6 @@ def start_simulation():
             'message': 'Missing scenario_id parameter'
         }), 400
     
-    # Get agent orchestrator config
-    use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
-    
     # Status messages list to capture status updates
     status_messages = []
     
@@ -54,9 +51,9 @@ def start_simulation():
         status_messages.append(message)
     
     # Create a simulation controller with status callback
+    # SimulationController will automatically read USE_AGENT_ORCHESTRATOR from app config
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator,
         status_callback=status_callback
     )
     
@@ -94,9 +91,6 @@ def advance_simulation():
             'message': 'Missing session_id parameter'
         }), 400
     
-    # Get agent orchestrator config
-    use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
-    
     # Status messages list to capture status updates
     status_messages = []
     
@@ -105,9 +99,9 @@ def advance_simulation():
         status_messages.append(message)
     
     # Create a simulation controller with status callback
+    # SimulationController will automatically read USE_AGENT_ORCHESTRATOR from app config
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator,
         status_callback=status_callback
     )
     
@@ -156,8 +150,8 @@ def make_decision():
             'message': 'Missing decision_index parameter'
         }), 400
     
-    # Get agent orchestrator config
-    use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
+    # Get agent orchestrator config - default to TRUE (only disable if explicitly set to false)
+    use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', True)
     
     # Status messages list to capture status updates
     status_messages = []
@@ -167,9 +161,9 @@ def make_decision():
         status_messages.append(message)
     
     # Create a simulation controller with status callback
+    # SimulationController will automatically read USE_AGENT_ORCHESTRATOR from app config
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator,
         status_callback=status_callback
     )
     
@@ -204,13 +198,10 @@ def reset_simulation():
             'message': 'Missing scenario_id parameter'
         }), 400
     
-    # Get agent orchestrator config
-    use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
-    
-    # Create a simulation controller
+    # Create a simulation controller 
+    # SimulationController will automatically read USE_AGENT_ORCHESTRATOR from app config
     controller = SimulationController(
-        scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator
+        scenario_id=scenario_id
     )
     
     # Reset the simulation
@@ -253,9 +244,6 @@ def analyze_decision():
             'message': 'Missing timeline_index parameter'
         }), 400
     
-    # Get agent orchestrator config
-    use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', False)
-    
     # Status messages list to capture status updates
     status_messages = []
     
@@ -264,9 +252,9 @@ def analyze_decision():
         status_messages.append(message)
     
     # Create a simulation controller with status callback
+    # SimulationController will automatically read USE_AGENT_ORCHESTRATOR from app config
     controller = SimulationController(
         scenario_id=scenario_id,
-        use_agent_orchestrator=use_agent_orchestrator,
         status_callback=status_callback
     )
     
@@ -346,30 +334,71 @@ def analyze_decision():
         """
         
         try:
-            # Use the appropriate service for processing
-            if controller.use_claude:
-                response = controller.claude_service.send_message(
-                    message=message,
-                    conversation=conversation,
-                    world_id=scenario.world_id
-                )
-                analysis_text = response.content
+            # First try to use the Agent Orchestrator if it's enabled
+            if controller.use_agent_orchestrator and controller.agent_orchestrator:
+                try:
+                    # Extract scenario data
+                    scenario_data = {
+                        'id': scenario.id,
+                        'name': scenario.name,
+                        'description': scenario.description,
+                        'world_id': scenario.world_id
+                    }
+                    
+                    # Process with agent orchestrator
+                    status_callback("Using Agent Orchestrator for analysis...")
+                    result = controller.agent_orchestrator.process_decision(
+                        scenario_data=scenario_data,
+                        decision_text=decision_text,
+                        options=[opt["text"] for opt in options]
+                    )
+                    
+                    # Log and set response text
+                    status_callback("Agent Orchestrator analysis complete")
+                    analysis_text = result['final_response']
+                except Exception as e:
+                    logger.error(f"Error processing with Agent Orchestrator: {str(e)}")
+                    status_callback("Error in Agent Orchestrator, falling back to direct Claude processing")
+                    # Fall back to direct Claude processing
+                    if controller.use_claude:
+                        response = controller.claude_service.send_message(
+                            message=message,
+                            conversation=conversation,
+                            world_id=scenario.world_id
+                        )
+                        analysis_text = response.content
+                    else:
+                        response = controller.llm_service.send_message(
+                            message=message,
+                            conversation=conversation,
+                            world_id=scenario.world_id
+                        )
+                        analysis_text = response.content
             else:
-                response = controller.llm_service.send_message(
-                    message=message,
-                    conversation=conversation,
-                    world_id=scenario.world_id
-                )
-                analysis_text = response.content
-            
+                # Direct Claude processing
+                status_callback("Using direct Claude processing for analysis...")
+                if controller.use_claude:
+                    response = controller.claude_service.send_message(
+                        message=message,
+                        conversation=conversation,
+                        world_id=scenario.world_id
+                    )
+                    analysis_text = response.content
+                else:
+                    response = controller.llm_service.send_message(
+                        message=message,
+                        conversation=conversation,
+                        world_id=scenario.world_id
+                    )
+                    analysis_text = response.content
+                status_callback("LLM analysis complete")
+                
             # Render the analysis through our template for better formatting
             analysis_html = render_llm_analysis(
                 analysis_text,
                 scenario_id=scenario_id,
                 title=f"Analysis of Decision: {decision_text}"
             )
-            
-            status_callback("LLM analysis complete")
         except Exception as e:
             logger.error(f"Error processing with LLM: {str(e)}")
             status_callback("Error in LLM processing, using fallback analysis")

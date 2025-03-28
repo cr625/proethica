@@ -118,7 +118,9 @@ function parseAnalysisText(analysisText) {
       type: 'option',
       option_number: optionNum,
       option_text: optionText,
-      content: content
+      content: content,
+      // Add formatted label with bold styling
+      formatted_label: `<strong>Option ${optionNum}</strong>`
     });
     
     // Remove this option from general text

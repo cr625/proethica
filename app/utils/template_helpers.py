@@ -40,7 +40,8 @@ def parse_llm_analysis(analysis_text):
             'type': 'option',
             'option_number': option_num,
             'option_text': option_text,
-            'content': content
+            'content': content,
+            'formatted_label': f'<strong>Option {option_num}</strong>'
         })
         
         # Remove this option from general text

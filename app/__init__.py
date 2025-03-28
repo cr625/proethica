@@ -25,13 +25,18 @@ def create_app(config_name='default'):
     from app.config import config
     app.config.from_object(config[config_name])
     
-    # Use the USE_CLAUDE flag as the primary control for both Claude and agent orchestration
-    # USE_AGENT_ORCHESTRATOR is kept for backward compatibility
+    # Read environment variables - each is completely independent
     use_claude = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'
-    use_agent_orchestrator = os.environ.get('USE_AGENT_ORCHESTRATOR', 'false').lower() == 'true'
+    use_agent_orchestrator = os.environ.get('USE_AGENT_ORCHESTRATOR', 'true').lower() == 'true'
     
-    # Enable agent orchestrator if USE_CLAUDE is true (the default) or if USE_AGENT_ORCHESTRATOR is explicitly set to true
-    app.config['USE_AGENT_ORCHESTRATOR'] = use_claude or use_agent_orchestrator
+    # Use separate config settings for each feature
+    app.config['USE_CLAUDE'] = use_claude
+    app.config['USE_AGENT_ORCHESTRATOR'] = use_agent_orchestrator
+    
+    # Also update the global Config class for non-Flask contexts
+    from app.config import Config
+    Config.USE_CLAUDE = use_claude
+    Config.USE_AGENT_ORCHESTRATOR = use_agent_orchestrator
     
     if app.config['USE_AGENT_ORCHESTRATOR']:
         app.logger.info("Agent Orchestrator is ENABLED")
@@ -79,7 +84,7 @@ def create_app(config_name='default'):
     @app.context_processor
     def inject_agent_orchestrator_config():
         return {
-            'use_agent_orchestrator': app.config.get('USE_AGENT_ORCHESTRATOR', False)
+            'use_agent_orchestrator': app.config.get('USE_AGENT_ORCHESTRATOR', True)
         }
 
     # Create routes

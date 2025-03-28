@@ -5,7 +5,7 @@
     {% if section.type == 'option' %}
       <div class="option-analysis">
         <div class="option-header">
-          <strong class="option-label">Option {{ section.option_number }}</strong>: {{ section.option_text }}
+          {{ section.formatted_label|safe }}: {{ section.option_text }}
         </div>
         <div class="option-content">{{ section.content|safe }}</div>
       </div>

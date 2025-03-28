@@ -30,7 +30,7 @@ class SimulationController:
     """
     
     def __init__(self, scenario_id: int, selected_character_id=None, perspective="specific", 
-                llm_service=None, use_agent_orchestrator=False, status_callback=None):
+                llm_service=None, use_agent_orchestrator=True, status_callback=None):
         """
         Initialize the simulation controller.
         
@@ -42,11 +42,18 @@ class SimulationController:
             use_agent_orchestrator: Whether to use the agent orchestrator for decisions (optional)
             status_callback: Callback function for status updates (optional)
         """
+        from flask import current_app
+        
         self.scenario_id = scenario_id
         self.selected_character_id = selected_character_id
         self.perspective = perspective
-        self.use_agent_orchestrator = use_agent_orchestrator
+        # Get configuration directly from Flask app config
+        # This allows for real-time updates from environment variables
+        self.use_agent_orchestrator = current_app.config.get('USE_AGENT_ORCHESTRATOR', True)
         self.status_callback = status_callback
+        
+        # Debug log the configuration
+        logger.info(f"SimulationController initialized with USE_AGENT_ORCHESTRATOR={self.use_agent_orchestrator}")
         
         # Try to use Claude service, fall back to LLM service if needed
         self.llm_service = llm_service
