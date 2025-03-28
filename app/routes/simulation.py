@@ -360,6 +360,10 @@ def analyze_decision():
                 )
                 analysis_text = response.content
             
+            # Format the option labels to be bold
+            import re
+            analysis_text = re.sub(r'(Option \d+)', r'<strong>\1</strong>', analysis_text)
+            
             status_callback("LLM analysis complete")
         except Exception as e:
             logger.error(f"Error processing with LLM: {str(e)}")
@@ -369,6 +373,10 @@ def analyze_decision():
                 f"Analysis of decision '{decision_text}':\n\n"
                 f"This is an important ethical decision. Consider the implications of each option carefully before making your choice."
             )
+            
+            # Format the option labels to be bold, even in fallback text
+            import re
+            analysis_text = re.sub(r'(Option \d+)', r'<strong>\1</strong>', analysis_text)
         
         return jsonify({
             'status': 'success',
