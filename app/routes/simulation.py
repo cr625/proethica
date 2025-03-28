@@ -13,6 +13,7 @@ from app.services.simulation_controller import SimulationController
 from app.services.embedding_service import EmbeddingService
 from app.services.langchain_claude import LangChainClaudeService
 from app.services.agent_orchestrator import AgentOrchestrator
+from app.utils.template_helpers import render_llm_analysis
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -361,11 +362,12 @@ def analyze_decision():
                 )
                 analysis_text = response.content
             
-            # Apply text formatting using the improved utility function
-            analysis_text = format_llm_text(analysis_text, {
-                'bold_options': True,
-                'option_paragraphs': True
-            })
+            # Render the analysis through our template for better formatting
+            analysis_html = render_llm_analysis(
+                analysis_text,
+                scenario_id=scenario_id,
+                title=f"Analysis of Decision: {decision_text}"
+            )
             
             status_callback("LLM analysis complete")
         except Exception as e:
@@ -377,15 +379,16 @@ def analyze_decision():
                 f"This is an important ethical decision. Consider the implications of each option carefully before making your choice."
             )
             
-            # Apply text formatting using the improved utility function
-            analysis_text = format_llm_text(analysis_text, {
-                'bold_options': True,
-                'option_paragraphs': True
-            })
+            # Use our template rendering for the fallback text as well
+            analysis_html = render_llm_analysis(
+                analysis_text,
+                scenario_id=scenario_id,
+                title=f"Analysis of Decision: {decision_text}"
+            )
         
         return jsonify({
             'status': 'success',
-            'analysis': analysis_text,
+            'analysis': analysis_html,
             'options': options,
             'status_messages': status_messages
         })

@@ -1,0 +1,33 @@
+<div class="llm-analysis" id="analysis-{{ analysis_id }}">
+  {% if title %}<h4 class="analysis-title">{{ title }}</h4>{% endif %}
+  
+  {% for section in sections %}
+    {% if section.type == 'option' %}
+      <div class="option-analysis">
+        <div class="option-header">
+          <strong class="option-label">Option {{ section.option_number }}</strong>: {{ section.option_text }}
+        </div>
+        <div class="option-content">{{ section.content|safe }}</div>
+      </div>
+    {% elif section.type == 'paragraph' %}
+      <p class="analysis-paragraph">{{ section.content|safe }}</p>
+    {% elif section.type == 'list' %}
+      <ul class="analysis-list">
+        {% for item in section.items %}
+          <li>{{ item|safe }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endfor %}
+  
+  {% if entities %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const analysisElement = document.getElementById('analysis-{{ analysis_id }}');
+      if (analysisElement && window.formatEntities) {
+        window.formatEntities(analysisElement, {{ entities|tojson }});
+      }
+    });
+  </script>
+  {% endif %}
+</div>

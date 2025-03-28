@@ -183,13 +183,87 @@
 .llm-analysis {
     background-color: #e3f2fd;
     border-radius: 5px;
-    padding: 0.5rem;
+    padding: 0.75rem;
     margin-top: 1rem;
     border-left: 3px solid #1976d2;
 }
 
 .analysis-content {
     font-size: 0.9rem;
+}
+
+.analysis-title {
+    font-size: 1.05rem;
+    color: #0d47a1;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(25, 118, 210, 0.2);
+    padding-bottom: 0.5rem;
+}
+
+/* Option analysis styling */
+.option-analysis {
+    margin-bottom: 1rem;
+    border-left: 3px solid #007bff;
+    padding-left: 0.75rem;
+    background-color: rgba(0, 123, 255, 0.05);
+    border-radius: 0 4px 4px 0;
+}
+
+.option-header {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+.option-label {
+    color: #007bff;
+}
+
+.option-content {
+    padding-bottom: 0.5rem;
+}
+
+/* Paragraph styling */
+.analysis-paragraph {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+/* List styling */
+.analysis-list {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+}
+
+.analysis-list li {
+    margin-bottom: 0.5rem;
+}
+
+/* Entity styling */
+.entity {
+    border-radius: 3px;
+    padding: 1px 3px;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.entity-character {
+    background-color: rgba(108, 117, 125, 0.15);
+    border-bottom: 1px dotted #6c757d;
+}
+
+.entity-location {
+    background-color: rgba(40, 167, 69, 0.15);
+    border-bottom: 1px dotted #28a745;
+}
+
+.entity-resource {
+    background-color: rgba(255, 193, 7, 0.15);
+    border-bottom: 1px dotted #ffc107;
+}
+
+.entity:hover {
+    background-color: rgba(13, 110, 253, 0.2);
 }
 
 /* Decision options section */

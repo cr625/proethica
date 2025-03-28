@@ -147,11 +147,8 @@
                                 <!-- LLM Analysis and Decision Area (Only shown after analysis) -->
                                 <div v-if="isTimelineItemAnalyzed({{ timeline_index }})">
                                     <!-- LLM Analysis Display -->
-                                    <div class="mt-3 llm-analysis">
-                                        <h6>Analysis:</h6>
-                                        <div class="analysis-content">
-                                            <p v-html="getLlmAnalysisFor({{ timeline_index }})"></p>
-                                        </div>
+                                    <!-- LLM Analysis Display - Direct HTML insertion -->
+                                    <div class="mt-3" v-html="getLlmAnalysisFor({{ timeline_index }})">
                                     </div>
                                     
                                     <!-- Option Buttons (Only shown after analysis) -->
@@ -320,6 +317,7 @@
 <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<!-- Include simulation.js -->
+<!-- Include analysis formatter and simulation.js -->
+<script src="{{ url_for('static', filename='js/simulation/analysis-formatter.js') }}"></script>
 <script src="{{ url_for('static', filename='js/simulation.js') }}"></script>
 {% endblock %}
