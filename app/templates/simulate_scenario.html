@@ -30,16 +30,7 @@
                 <div class="card-body py-2">
                     <p class="mb-1">{{ scenario.description }}</p>
                 </div>
-                <div class="card-footer">
-                    <!-- Simulation control button -->
-                    <button class="btn btn-primary w-100" @click="advanceSimulation"
-                        :class="{'btn-success': simulationState.currentStep > 0}">
-                        <span v-if="simulationState.currentStep === 0">Start Simulation</span>
-                        <span v-else-if="simulationState.isDecisionPoint">Make Decision</span>
-                        <span v-else-if="simulationState.completed">Simulation Complete</span>
-                        <span v-else>Advance Simulation</span>
-                    </button>
-                </div>
+                <!-- Card footer removed - simulation controls now only in Simulation State window -->
             </div>
         </div>
     </div>
@@ -67,8 +58,8 @@
                         {% endfor %}
                         {% endif %}
 
-                        {% for time, item_type, item in combined_items|sort %}
-                        <div class="timeline-item" v-show="simulationState.currentStep >= {{ loop.index }}">
+                        {% for time, item_type, item in combined_items|sort(reverse=True) %}
+                        <div class="timeline-item" v-show="simulationState.currentStep >= ({{ combined_items|length }} - {{ loop.index - 1 }})">
                             <div
                                 class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
                             </div>
