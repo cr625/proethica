@@ -119,9 +119,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
 
                         // Add assistant response to conversation
+                        let message = response.data.message;
+                        
+                        // Replace event and action messages with simpler acknowledgments
+                        if (message.startsWith('Event:')) {
+                            message = 'Event registered';
+                        } else if (message.startsWith('Action:')) {
+                            message = 'Action registered';
+                        }
+                        
                         this.messages.push({
                             role: 'assistant',
-                            content: response.data.message
+                            content: message
                         });
 
                         // Update simulation state
@@ -295,9 +304,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         this.simulationState.isDecisionPoint = response.data.is_decision;
 
                         // Add message to conversation
+                        let message = response.data.message;
+                        
+                        // Replace event and action messages with simpler acknowledgments
+                        if (message.startsWith('Event:')) {
+                            message = 'Event registered';
+                        } else if (message.startsWith('Action:')) {
+                            message = 'Action registered';
+                        }
+                        
                         this.messages.push({
                             role: 'assistant',
-                            content: response.data.message
+                            content: message
                         });
 
                         // Update prompt options
