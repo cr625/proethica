@@ -13,9 +13,10 @@
 
 {% block content %}
 <div class="container" id="simulation-app" data-timeline-count="{{ combined_items|length if combined_items else 10 }}" data-scenario-id="{{ scenario.id }}">
-    <div class="row mb-2">
+    <!-- Consolidated Interface with Description and Timeline in One Card -->
+    <div class="row">
         <div class="col-md-12">
-            <div class="card mb-2">
+            <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">{{ scenario.name }} - Simulation</h3>
                     <div>
@@ -27,25 +28,42 @@
                         </button>
                     </div>
                 </div>
-                <div class="card-body py-2">
-                    <p class="mb-1">{{ scenario.description }}</p>
-                </div>
-                <!-- Card footer removed - simulation controls now only in Simulation State window -->
-            </div>
-        </div>
-    </div>
+                <div class="card-body pt-0">
+                    <!-- Scenario Description -->
+                    <div class="scenario-description border-bottom pb-2 mb-3">
+                        <p class="mb-1">{{ scenario.description }}</p>
+                    </div>
+                    
+                    <!-- Timeline Section with Progress Indicator -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">Scenario Timeline</h4>
+                        <div class="timeline-progress" v-if="simulationState.currentStep > 0">
+                            <span class="timeline-progress-text">{% raw %}{{ simulationState.currentStep }}{% endraw %} of {% raw %}{{ simulationState.totalSteps }}{% endraw %}</span>
+                            <div class="progress" style="width: 150px; height: 8px;">
+                                <div class="progress-bar" role="progressbar" 
+                                    :style="{ width: (simulationState.currentStep / simulationState.totalSteps * 100) + '%' }" 
+                                    :aria-valuenow="simulationState.currentStep" 
+                                    aria-valuemin="0" 
+                                    :aria-valuemax="simulationState.totalSteps">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Initial Welcome Message & Start Button -->
+                    <div v-if="simulationState.currentStep === 0" class="welcome-container text-center py-4">
+                        <h4>Welcome to the Simulation</h4>
+                        <p>Follow the timeline of events and make decisions at key points.</p>
+                        <div v-if="promptOptions.length > 0" class="d-inline-block mt-3">
+                            <button v-for="option in promptOptions" :key="option.id" class="btn btn-primary"
+                                @click="selectPromptOption(option)">
+                                {% raw %}{{ option.text }}{% endraw %}
+                            </button>
+                        </div>
+                    </div>
 
-    <!-- Timeline and Simulation State row -->
-    <div class="row">
-        <!-- Timeline column -->
-        <div class="col-md-5">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h3>Timeline</h3>
-                </div>
-                <div class="card-body">
+                    <!-- Dynamic Timeline -->
                     {% if scenario.actions or scenario.events %}
-                    <div class="timeline">
+                    <div class="timeline" v-if="simulationState.currentStep > 0">
                         {% set combined_items = [] %}
                         {% if scenario.actions %}
                         {% for action in scenario.actions %}
@@ -58,8 +76,18 @@
                         {% endfor %}
                         {% endif %}
 
-                        {% for time, item_type, item in combined_items|sort(reverse=True) %}
-                        <div class="timeline-item" v-show="simulationState.currentStep >= ({{ combined_items|length }} - {{ loop.index - 1 }})">
+                        {% for time, item_type, item in combined_items|sort %}
+                        {% set timeline_index = loop.index0 %}
+                        <div 
+                            class="timeline-item" 
+                            data-index="{{ timeline_index }}"
+                            :class="{
+                                'timeline-item-active': timelineItemStates[{{ timeline_index }}] && timelineItemStates[{{ timeline_index }}].active,
+                                'timeline-item-decision': timelineItemStates[{{ timeline_index }}] && timelineItemStates[{{ timeline_index }}].isDecision,
+                                'timeline-item-analyzed': timelineItemStates[{{ timeline_index }}] && timelineItemStates[{{ timeline_index }}].analyzed
+                            }"
+                            v-show="simulationState.currentStep === {{ timeline_index + 1 }}">
+                            
                             <div
                                 class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
                             </div>
@@ -110,6 +138,38 @@
                                     </ul>
                                 </div>
 
+                                <!-- LLM Analysis and Decision Area (Only shown after analysis) -->
+                                <div v-if="isTimelineItemAnalyzed({{ timeline_index }})">
+                                    <!-- LLM Analysis Display -->
+                                    <div class="mt-3 llm-analysis">
+                                        <h6>Analysis:</h6>
+                                        <div class="analysis-content">
+                                            <p v-html="getLlmAnalysisFor({{ timeline_index }})"></p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Option Buttons (Only shown after analysis) -->
+                                    <div class="mt-3" v-if="isTimelineItemActive({{ timeline_index }}) && !hasTimelineItemSelection({{ timeline_index }})">
+                                        <h6>Make your choice:</h6>
+                                        <div class="decision-options">
+                                            <button 
+                                                v-for="option in getOptionsForTimelineItem({{ timeline_index }})" 
+                                                :key="option.id" 
+                                                class="btn btn-outline-primary mb-2 me-2"
+                                                @click="selectDecisionOption({{ timeline_index }}, option)">
+                                                {% raw %}{{ option.text }}{% endraw %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- User Selection (Only shown after selection is made) -->
+                                    <div class="mt-3" v-if="hasTimelineItemSelection({{ timeline_index }})">
+                                        <h6>Your choice:</h6>
+                                        <div class="alert alert-success" v-text="getSelectionForTimelineItem({{ timeline_index }})">
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {% if item.evaluations %}
                                 <div class="mt-2">
                                     <h6>Evaluation:</h6>
@@ -145,6 +205,21 @@
                                 <small class="text-muted">Action: {{ item.action.name }}</small>
                                 {% endif %}
                                 {% endif %}
+                                
+                                <!-- Advance Button (conditionally shown at the end of the active timeline item) -->
+                                <div v-if="isTimelineItemActive({{ timeline_index }}) && (!isDecisionPoint({{ timeline_index }}) || hasTimelineItemSelection({{ timeline_index }})) && simulationState.currentStep < simulationState.totalSteps" class="mt-3 text-end advance-button-container">
+                                    <button class="btn btn-primary btn-sm advance-button" @click="advanceFromTimelineItem({{ timeline_index }})">
+                                        <i class="bi bi-arrow-down-circle me-1"></i> Advance to Next Step
+                                    </button>
+                                </div>
+                                
+                                <!-- Processing Indicator -->
+                                <div v-if="isTimelineItemActive({{ timeline_index }}) && isProcessing" class="mt-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="loading me-2"></div>
+                                        <span>Processing...</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         {% endfor %}
@@ -152,51 +227,6 @@
                     {% else %}
                     <p class="text-muted">No actions or events added yet.</p>
                     {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Simulation State column - wider -->
-        <div class="col-md-7">
-            <!-- Simulation State card -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h3>Simulation State</h3>
-                </div>
-                <div class="card-body p-0">
-                    <div class="agent-window">
-                        <div class="conversation" ref="conversation">
-                            <div v-for="(message, index) in messages" :key="index" class="message"
-                                :class="message.role === 'user' ? 'user-message' : 'agent-message'">
-                                {% raw %}{{ message.content }}{% endraw %}
-                            </div>
-                            <div v-if="isProcessing" class="message agent-message thinking">
-                                <div class="loading"></div> Thinking...
-                            </div>
-                        </div>
-
-                        <div class="input-area">
-                            <div v-if="promptOptions.length > 0" class="prompt-options w-100">
-                                <button v-for="option in promptOptions" :key="option.id" class="prompt-option"
-                                    @click="selectPromptOption(option)">
-                                    {% raw %}{{ option.text }}{% endraw %}
-                                </button>
-                            </div>
-
-                            <div v-else class="input-group mb-2">
-                                <input type="text" class="form-control" v-model="userInput"
-                                    :disabled="!inputEnabled || isProcessing"
-                                    :class="{ 'input-disabled': !inputEnabled || isProcessing }"
-                                    placeholder="Type your message..." @keyup.enter="sendMessage">
-                                <button class="btn btn-primary" @click="sendMessage"
-                                    :disabled="!inputEnabled || isProcessing">
-                                    Send
-                                </button>
-                            </div>
-
-                            <!-- Reset Conversation button removed from here -->
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -1,3 +1,9 @@
+/* Scenario description styles */
+.scenario-description {
+    padding-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
 /* Icon button styles */
 .icon-button {
     background: none;
@@ -17,11 +23,36 @@
 .timeline {
     position: relative;
     padding-left: 30px;
+    min-height: 300px; /* Ensure timeline has height even with only one item */
 }
 
 .timeline-item {
     position: relative;
     margin-bottom: 15px;
+    transition: all 0.3s ease-in-out;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* New timeline item states */
+.timeline-item-active {
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+    background-color: rgba(0, 123, 255, 0.05);
+    border-radius: 5px;
+    padding: 3px;
+    margin-left: -3px;
+}
+
+.timeline-item-decision {
+    background-color: rgba(255, 193, 7, 0.05);
+}
+
+.timeline-item-analyzed {
+    border-radius: 5px;
 }
 
 .timeline-marker {
@@ -33,6 +64,7 @@
     background-color: #007bff;
     border: 3px solid #fff;
     box-shadow: 0 0 0 3px #007bff;
+    z-index: 2;
 }
 
 .timeline-item:not(:last-child):before {
@@ -40,9 +72,10 @@
     position: absolute;
     left: -23px;
     top: 15px;
-    height: calc(100% + 0px);
+    height: calc(100% + 15px);
     width: 2px;
     background-color: #007bff;
+    z-index: 1;
 }
 
 /* Change the connecting line color for event items */
@@ -51,7 +84,7 @@
 }
 
 .timeline-content {
-    padding: 6px;
+    padding: 10px;
     border-radius: 5px;
     background-color: #f8f9fa;
     border-left: 3px solid #007bff;
@@ -96,7 +129,75 @@
     margin-bottom: 0.3rem;
 }
 
-/* Agent interaction styles */
+/* Welcome container styles */
+.welcome-container {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* LLM Analysis section */
+.llm-analysis {
+    background-color: #e3f2fd;
+    border-radius: 5px;
+    padding: 0.5rem;
+    margin-top: 1rem;
+    border-left: 3px solid #1976d2;
+}
+
+.analysis-content {
+    font-size: 0.9rem;
+}
+
+/* Decision options section */
+.decision-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Advance button styling */
+.advance-button-container {
+    margin-bottom: 5px;
+    position: relative;
+    z-index: 2;
+}
+
+.advance-button {
+    background-color: #007bff;
+    border-color: #007bff;
+    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3);
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    transition: all 0.2s ease-in-out;
+    animation: pulse 1.5s infinite;
+    font-size: 0.95rem !important;
+}
+
+.advance-button:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+    animation: none;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(0, 123, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+    }
+}
+
+/* Agent interaction styles - keeping for compatibility */
 .agent-window {
     height: 400px;
     border: 1px solid #ccc;
