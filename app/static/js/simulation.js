@@ -96,14 +96,38 @@ document.addEventListener('DOMContentLoaded', function() {
             
             advanceFromTimelineItem(index) {
                 const isDecision = this.isDecisionPoint(index);
+                const hasAnalysis = this.isTimelineItemAnalyzed(index);
                 const hasSelection = this.hasTimelineItemSelection(index);
                 
-                // If this is a decision point that hasn't been analyzed yet
-                if (isDecision && !this.isTimelineItemAnalyzed(index)) {
-                    this.analyzeDecision(index);
+                // For decision points, we handle them in stages:
+                if (isDecision) {
+                    // Stage 1: If the decision hasn't been analyzed yet, analyze it but don't advance yet
+                    if (!hasAnalysis) {
+                        console.log("Decision point - initiating analysis");
+                        this.analyzeDecision(index);
+                        return;
+                    }
+                    // Stage 2: If analyzed but no selection yet, keep the item active for user to select
+                    else if (!hasSelection) {
+                        console.log("Decision point - waiting for user selection");
+                        // Don't do anything - user needs to make a selection
+                        return;
+                    }
+                    // Stage 3: Has analysis and selection, now we can advance
+                    else {
+                        console.log("Decision point - selection made, advancing");
+                        // Mark this item as no longer active
+                        if (this.timelineItemStates[index]) {
+                            this.timelineItemStates[index].active = false;
+                        }
+                        
+                        // Advance to the next step
+                        this.advanceSimulation();
+                    }
                 } 
-                // If this is a regular item or a decision with selection, advance to the next item
-                else if (!isDecision || hasSelection) {
+                // For non-decision items, simply advance
+                else {
+                    console.log("Regular item - advancing");
                     // Mark this item as no longer active
                     if (this.timelineItemStates[index]) {
                         this.timelineItemStates[index].active = false;

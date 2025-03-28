@@ -86,7 +86,11 @@
                                 'timeline-item-decision': timelineItemStates[{{ timeline_index }}] && timelineItemStates[{{ timeline_index }}].isDecision,
                                 'timeline-item-analyzed': timelineItemStates[{{ timeline_index }}] && timelineItemStates[{{ timeline_index }}].analyzed
                             }"
-                            v-show="simulationState.currentStep === {{ timeline_index + 1 }}">
+                            v-show="simulationState.currentStep === {{ timeline_index + 1 }} || 
+                                  (timelineItemStates[{{ timeline_index }}] && 
+                                   timelineItemStates[{{ timeline_index }}].isDecision && 
+                                   timelineItemStates[{{ timeline_index }}].analyzed &&
+                                   simulationState.currentStep === {{ timeline_index + 2 }})">
                             
                             <div
                                 class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
@@ -207,8 +211,29 @@
                                 {% endif %}
                                 
                                 <!-- Advance Button (conditionally shown at the end of the active timeline item) -->
-                                <div v-if="isTimelineItemActive({{ timeline_index }}) && (!isDecisionPoint({{ timeline_index }}) || hasTimelineItemSelection({{ timeline_index }})) && simulationState.currentStep < simulationState.totalSteps" class="mt-3 text-end advance-button-container">
-                                    <button class="btn btn-primary btn-sm advance-button" @click="advanceFromTimelineItem({{ timeline_index }})">
+                                <div v-if="isTimelineItemActive({{ timeline_index }}) && simulationState.currentStep < simulationState.totalSteps" class="mt-3 text-end advance-button-container">
+                                    <!-- Different button text based on the state -->
+                                    <button v-if="isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }})" 
+                                        class="btn btn-warning btn-sm advance-button" 
+                                        @click="advanceFromTimelineItem({{ timeline_index }})">
+                                        <i class="bi bi-lightning-fill me-1"></i> Analyze Decision
+                                    </button>
+                                    
+                                    <button v-else-if="isDecisionPoint({{ timeline_index }}) && !hasTimelineItemSelection({{ timeline_index }})" 
+                                        class="btn btn-info btn-sm" 
+                                        disabled>
+                                        <i class="bi bi-hand-index me-1"></i> Please Make a Choice
+                                    </button>
+                                    
+                                    <button v-else-if="isDecisionPoint({{ timeline_index }}) && hasTimelineItemSelection({{ timeline_index }})" 
+                                        class="btn btn-success btn-sm advance-button" 
+                                        @click="advanceFromTimelineItem({{ timeline_index }})">
+                                        <i class="bi bi-arrow-down-circle me-1"></i> Continue with Selection
+                                    </button>
+                                    
+                                    <button v-else 
+                                        class="btn btn-primary btn-sm advance-button" 
+                                        @click="advanceFromTimelineItem({{ timeline_index }})">
                                         <i class="bi bi-arrow-down-circle me-1"></i> Advance to Next Step
                                     </button>
                                 </div>
