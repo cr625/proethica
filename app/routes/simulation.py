@@ -276,81 +276,106 @@ def analyze_decision():
             'message': f'No simulation state found for session ID: {session_id}'
         }), 404
     
-    # Get the decision at the given timeline index
     try:
-        # Get the current decision from the simulation state
-        actions = controller.scenario.actions
+        # Get the timeline item directly from the simulation state
+        # This ensures we're using the same state that the frontend is displaying
+        timeline_items = state.get('timeline_items', [])
         
-        # If actions are sorted by time, we need to reverse the timeline_index 
-        # to get the corresponding action (since the timeline displays newest first)
-        if actions:
-            action_count = len(actions)
-            # Get decision based on the timeline index
-            current_decision = None
-            
-            # Try to find a decision at this index
-            for action in actions:
-                if action.is_decision and getattr(action, 'timeline_index', None) == timeline_index:
-                    current_decision = action
-                    break
-
-            # If we didn't find it by timeline_index, try to get it by the UI index
-            if not current_decision:
-                # Reverse the index for timeline display (newest first)
-                adj_index = action_count - 1 - timeline_index
-                if 0 <= adj_index < action_count:
-                    potential_action = actions[adj_index]
-                    if potential_action.is_decision:
-                        current_decision = potential_action
+        # Find the decision at the specified timeline index
+        if timeline_index < 0 or timeline_index >= len(timeline_items):
+            return jsonify({
+                'status': 'error',
+                'message': f'Timeline index out of range: {timeline_index}'
+            }), 400
         
-            if not current_decision:
-                return jsonify({
-                    'status': 'error',
-                    'message': f'No decision found at timeline index: {timeline_index}'
-                }), 404
-            
-            # Analyze the decision using the LLM
-            decision_text = current_decision.description
-            decision_options = current_decision.options
-            
-            # Format options for display
-            formatted_options = []
-            for i, option in enumerate(decision_options):
+        current_item = timeline_items[timeline_index]
+        
+        # Verify this is a decision
+        if not current_item.get('is_decision', False):
+            return jsonify({
+                'status': 'error',
+                'message': f'Item at timeline index {timeline_index} is not a decision'
+            }), 400
+        
+        # Get the decision item data
+        decision_data = current_item.get('data', {})
+        decision_text = decision_data.get('description', 'Decision point')
+        
+        # Get the options
+        options = []
+        if 'options' in decision_data and decision_data['options']:
+            # Format options from the decision data
+            for i, option in enumerate(decision_data['options']):
+                option_text = option
                 if isinstance(option, dict) and 'description' in option:
                     option_text = option['description']
-                else:
-                    option_text = str(option)
-                    
-                formatted_options.append({
+                
+                options.append({
                     'id': i + 1,
                     'text': option_text
                 })
-            
-            # Use the controller to analyze the decision
-            # This would typically call a method on SimulationController
-            # If such a method doesn't exist, we mock it here
-            if hasattr(controller, 'analyze_decision'):
-                analysis_result = controller.analyze_decision(current_decision)
-                analysis_text = analysis_result.get('analysis', 'The AI has analyzed this decision and provided the options below.')
-            else:
-                # Mock analysis if the controller doesn't support it
-                analysis_text = (
-                    "This is a critical decision point that requires careful consideration. "
-                    "Each option has different ethical implications and potential consequences. "
-                    "Please review each option carefully before making your selection."
-                )
-            
-            return jsonify({
-                'status': 'success',
-                'analysis': analysis_text,
-                'options': formatted_options,
-                'status_messages': status_messages
-            })
         else:
-            return jsonify({
-                'status': 'error',
-                'message': 'No actions found in this scenario'
-            }), 404
+            # Generate options using the controller
+            options = controller._generate_decision_options(current_item, controller.claude_service.create_conversation(), "")
+        
+        # Process the decision with the LLM to get analysis
+        from app.services.llm_service import Conversation
+        conversation = Conversation()
+        
+        # Get the scenario
+        scenario = Scenario.query.get(scenario_id)
+        
+        # Craft a detailed prompt for analysis
+        status_callback("Analyzing decision with LLM...")
+        message = f"""
+        Please analyze the following decision point in the context of ethical decision-making:
+        
+        DECISION: {decision_text}
+        
+        OPTIONS:
+        {", ".join(opt["text"] for opt in options)}
+        
+        For each option, provide:
+        1. The key ethical considerations
+        2. Potential consequences (both positive and negative)
+        3. A balanced recommendation
+        
+        Keep your analysis practical, thorough, and accessible.
+        """
+        
+        try:
+            # Use the appropriate service for processing
+            if controller.use_claude:
+                response = controller.claude_service.send_message(
+                    message=message,
+                    conversation=conversation,
+                    world_id=scenario.world_id
+                )
+                analysis_text = response.content
+            else:
+                response = controller.llm_service.send_message(
+                    message=message,
+                    conversation=conversation,
+                    world_id=scenario.world_id
+                )
+                analysis_text = response.content
+            
+            status_callback("LLM analysis complete")
+        except Exception as e:
+            logger.error(f"Error processing with LLM: {str(e)}")
+            status_callback("Error in LLM processing, using fallback analysis")
+            # Fallback analysis if LLM processing fails
+            analysis_text = (
+                f"Analysis of decision '{decision_text}':\n\n"
+                f"This is an important ethical decision. Consider the implications of each option carefully before making your choice."
+            )
+        
+        return jsonify({
+            'status': 'success',
+            'analysis': analysis_text,
+            'options': options,
+            'status_messages': status_messages
+        })
             
     except Exception as e:
         logger.error(f"Error analyzing decision: {str(e)}")

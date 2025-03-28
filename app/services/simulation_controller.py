@@ -312,8 +312,34 @@ class SimulationController:
         # Get the current item
         current_item = self.state['timeline_items'][self.state['current_event_index']]
         
-        # Process the current item using Claude
-        result = self._process_item_with_claude(current_item)
+        # For decision points, don't process with LLM yet - just return the information
+        if current_item['is_decision']:
+            options = self._generate_decision_options(current_item, Conversation(), "")
+            
+            # Get item details for status message
+            item_description = current_item['data'].get('description', "Decision")
+            
+            # Get character involved (if any)
+            character_name = "Unknown"
+            if 'character' in current_item['data'] and current_item['data']['character']:
+                if isinstance(current_item['data']['character'], dict):
+                    character_name = current_item['data']['character'].get('name', "Unknown")
+                else:
+                    character_name = getattr(current_item['data']['character'], 'name', "Unknown")
+            
+            # Update status with decision information
+            self._update_status("Reached Decision Point", f"{item_description} - Character: {character_name}")
+            
+            # Create a message without LLM processing
+            result = {
+                'state': self.state,
+                'message': f"Decision: {item_description}",
+                'options': options,
+                'is_decision': True
+            }
+        else:
+            # For non-decision items, process with Claude as usual
+            result = self._process_item_with_claude(current_item)
         
         # Update state
         self.state['current_event_index'] += 1

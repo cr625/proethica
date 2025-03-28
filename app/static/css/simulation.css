@@ -61,14 +61,20 @@
     transition: all 0.3s ease;
 }
 
-/* Decision options initial view */
+/* Decision options initial view - Make this more prominent */
 .decision-options-initial {
-    border-left: 3px solid #ffc107;
+    border-left: 4px solid #ffc107;
     background-color: rgba(255, 193, 7, 0.1);
     padding: 0.75rem;
     border-radius: 0 4px 4px 0;
     margin-bottom: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    animation: highlightDecision 1s ease-in-out;
+}
+
+@keyframes highlightDecision {
+    0% { background-color: rgba(255, 193, 7, 0.3); }
+    100% { background-color: rgba(255, 193, 7, 0.1); }
 }
 
 .decision-options-initial h6 {
@@ -227,6 +233,18 @@
 /* Different button colors for different stages */
 .advance-button.btn-warning {
     animation: pulse-warning 1.5s infinite;
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+    font-weight: bold;
+    font-size: 1rem !important;
+    box-shadow: 0 3px 6px rgba(255, 193, 7, 0.4);
+}
+
+.advance-button.btn-warning:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+    box-shadow: 0 4px 8px rgba(255, 193, 7, 0.6);
 }
 
 .advance-button.btn-info {

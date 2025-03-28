@@ -101,13 +101,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // For decision points, we handle them in stages:
                 if (isDecision) {
-                    // Stage 1: First click on Analyze Decision button - mark for analysis
+                    // Stage 1: First click on Analyze Decision button - Only mark for analysis
                     if (!hasAnalysis && !this.timelineItemStates[index].waitingForAnalysis) {
                         console.log("Decision point - marking for analysis");
                         if (this.timelineItemStates[index]) {
-                            // Just mark the decision as waiting for analysis
+                            // Mark the decision as waiting for analysis
                             this.timelineItemStates[index].waitingForAnalysis = true;
-                            // Then query the LLM for analysis
+                            // NOW query the LLM for analysis (only happens AFTER user clicks "Analyze Decision")
                             this.analyzeDecision(index);
                         }
                         return;

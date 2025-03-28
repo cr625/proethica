@@ -212,8 +212,8 @@
                                 {% endif %}
                                 {% endif %}
                                 
-                                <!-- Decision options section (only for decision points on first view, before analysis) -->
-                                <div v-if="isTimelineItemActive({{ timeline_index }}) && isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }})" class="mt-3 decision-options-initial">
+                                <!-- Decision options section (Displays initially when a decision is shown, before analysis) -->
+                                <div v-if="isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }})" class="mt-3 decision-options-initial">
                                     <h6>Available options:</h6>
                                     <ul class="list-group mb-3">
                                         {% if item.options %}
