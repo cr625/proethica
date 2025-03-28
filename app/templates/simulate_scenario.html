@@ -45,8 +45,13 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-
+    <!-- Timeline and Simulation State row -->
+    <div class="row">
+        <!-- Timeline column - narrower -->
+        <div class="col-md-4">
             <div class="card mb-4">
                 <div class="card-header">
                     <h3>Timeline</h3>
@@ -163,10 +168,8 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Simulation state and agent status row -->
-    <div class="row">
+        <!-- Simulation State column - wider -->
         <div class="col-md-8">
             <!-- Simulation State card -->
             <div class="card mb-4">
@@ -205,27 +208,6 @@
                             </div>
 
                             <!-- Reset Conversation button removed from here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <!-- Agent Status box -->
-            <div class="card mb-4" v-if="statusMessages.length > 0">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3>Agent Status</h3>
-                    <i class="fas fa-robot text-primary fs-4"></i>
-                </div>
-                <div class="card-body">
-                    <div class="status-container">
-                        <div v-for="(message, index) in statusMessages" :key="index" class="status-message">
-                            <div class="d-flex align-items-center">
-                                <div class="status-indicator me-2">
-                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                </div>
-                                <div class="status-text">{% raw %}{{ message }}{% endraw %}</div>
-                            </div>
                         </div>
                     </div>
                 </div>
