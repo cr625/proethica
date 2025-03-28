@@ -6,6 +6,7 @@ This module provides functionality for simulating scenarios.
 
 import logging
 import json
+import re
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, session, current_app
 from app.models.scenario import Scenario
 from app.services.simulation_controller import SimulationController
@@ -360,9 +361,11 @@ def analyze_decision():
                 )
                 analysis_text = response.content
             
-            # Format the option labels to be bold
-            import re
-            analysis_text = re.sub(r'(Option \d+)', r'<strong>\1</strong>', analysis_text)
+            # Apply text formatting using the improved utility function
+            analysis_text = format_llm_text(analysis_text, {
+                'bold_options': True,
+                'option_paragraphs': True
+            })
             
             status_callback("LLM analysis complete")
         except Exception as e:
@@ -374,9 +377,11 @@ def analyze_decision():
                 f"This is an important ethical decision. Consider the implications of each option carefully before making your choice."
             )
             
-            # Format the option labels to be bold
-            import re
-            analysis_text = re.sub(r'(Option \d+)', r'<strong>\1</strong>', analysis_text)
+            # Apply text formatting using the improved utility function
+            analysis_text = format_llm_text(analysis_text, {
+                'bold_options': True,
+                'option_paragraphs': True
+            })
         
         return jsonify({
             'status': 'success',
@@ -391,6 +396,89 @@ def analyze_decision():
             'status': 'error',
             'message': f"Error analyzing decision: {str(e)}"
         }), 500
+
+# Text formatting utility function
+def format_llm_text(text, formatting_options=None):
+    """
+    Apply consistent formatting to LLM output text.
+    
+    Args:
+        text (str): The text to format
+        formatting_options (dict, optional): Dictionary of formatting options
+            - bold_options (bool): Whether to make "Option X" labels bold (default: True)
+            - option_paragraphs (bool): Whether to ensure options are in separate paragraphs (default: False)
+            - add_html_paragraphs (bool): Whether to wrap paragraphs in <p> tags (default: False)
+            
+    Returns:
+        str: The formatted text
+    """
+    if formatting_options is None:
+        formatting_options = {}
+    
+    # Set default formatting options
+    bold_options = formatting_options.get('bold_options', True)
+    option_paragraphs = formatting_options.get('option_paragraphs', False)
+    add_html_paragraphs = formatting_options.get('add_html_paragraphs', False)
+    
+    # Step 1: Make option labels bold if requested
+    if bold_options:
+        text = re.sub(r'(Option \d+)', r'<strong>\1</strong>', text)
+    
+    # Step 2: Ensure options are in separate paragraphs if requested
+    if option_paragraphs:
+        # Split the text into lines
+        lines = text.split('\n')
+        result_lines = []
+        
+        for i, line in enumerate(lines):
+            # Check if line starts with "Option X" or "<strong>Option X</strong>"
+            if (re.match(r'^\s*Option \d+', line) or 
+                re.match(r'^\s*<strong>Option \d+</strong>', line)):
+                # Add a blank line before if it's not the first line and the previous line isn't already blank
+                if i > 0 and lines[i-1].strip():
+                    result_lines.append('')
+                
+                # Add the current line
+                result_lines.append(line)
+            else:
+                # Just add the line as is
+                result_lines.append(line)
+        
+        # Join the lines back together
+        text = '\n'.join(result_lines)
+    
+    # Step 3: Add HTML paragraph tags if requested
+    if add_html_paragraphs:
+        # Split text into paragraphs
+        paragraphs = re.split(r'\n\n+', text)
+        # Wrap each paragraph in <p> tags
+        paragraphs = [f'<p>{p}</p>' for p in paragraphs]
+        # Join back together
+        text = ''.join(paragraphs)
+    
+    return text
+
+@simulation_bp.route('/api/format_text', methods=['POST'])
+def format_text():
+    """Format text from LLM or other sources with consistent styling."""
+    data = request.json
+    
+    if not data or 'text' not in data:
+        return jsonify({
+            'status': 'error',
+            'message': 'Missing text parameter'
+        }), 400
+    
+    text = data.get('text', '')
+    formatting_options = data.get('formatting_options', {})
+    
+    # Apply formatting to the text
+    formatted_text = format_llm_text(text, formatting_options)
+    
+    return jsonify({
+        'status': 'success',
+        'formatted_text': formatted_text
+    })
 
 @simulation_bp.route('/api/test_agents/<int:scenario_id>', methods=['GET'])
 def test_agents(scenario_id):
