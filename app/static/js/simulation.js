@@ -101,20 +101,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // For decision points, we handle them in stages:
                 if (isDecision) {
-                    // Stage 1: If the decision hasn't been analyzed yet, analyze it but don't advance yet
-                    if (!hasAnalysis) {
-                        console.log("Decision point - initiating analysis");
-                        this.analyzeDecision(index);
+                    // Stage 1: First click on Analyze Decision button - mark for analysis
+                    if (!hasAnalysis && !this.timelineItemStates[index].waitingForAnalysis) {
+                        console.log("Decision point - marking for analysis");
+                        if (this.timelineItemStates[index]) {
+                            // Just mark the decision as waiting for analysis
+                            this.timelineItemStates[index].waitingForAnalysis = true;
+                            // Then query the LLM for analysis
+                            this.analyzeDecision(index);
+                        }
                         return;
                     }
-                    // Stage 2: If analyzed but no selection yet, keep the item active for user to select
-                    else if (!hasSelection) {
+                    // Stage 3: If analyzed but no selection yet, keep the item active for user to select
+                    else if (hasAnalysis && !hasSelection) {
                         console.log("Decision point - waiting for user selection");
                         // Don't do anything - user needs to make a selection
                         return;
                     }
-                    // Stage 3: Has analysis and selection, now we can advance
-                    else {
+                    // Stage 4: If has analysis and selection, now we can advance
+                    else if (hasAnalysis && hasSelection) {
                         console.log("Decision point - selection made, advancing");
                         // Mark this item as no longer active
                         if (this.timelineItemStates[index]) {
@@ -150,6 +155,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         timelineItems[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                 });
+                
+                console.log("Making API call to analyze decision - This only happens AFTER user clicks 'Analyze Decision'");
                 
                 // Make API call to analyze decision
                 axios.post('/simulation/api/analyze', {
@@ -370,6 +377,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 this.scrollStatusToTop();
                             }
                         }
+                        
+                        // Store the current step before updating
+                        const previousStep = this.simulationState.currentStep;
 
                         // Update simulation state
                         if (this.simulationState.currentStep === 0) {
@@ -399,7 +409,29 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             // If it's a decision, setup the initial state before analysis
                             if (isDecision) {
+                                // Make sure it's ALWAYS not analyzed when we first get to it
                                 this.timelineItemStates[currentActiveIndex].analyzed = false;
+                                this.timelineItemStates[currentActiveIndex].waitingForAnalysis = false;
+                                
+                                // Try to extract options from the timeline item directly
+                                this.$nextTick(() => {
+                                    const timelineItems = document.querySelectorAll('.timeline-item');
+                                    if (timelineItems[currentActiveIndex]) {
+                                        const optionElements = timelineItems[currentActiveIndex].querySelectorAll('.list-group-item');
+                                        const options = [];
+                                        
+                                        optionElements.forEach((element, idx) => {
+                                            options.push({
+                                                id: idx + 1,
+                                                text: element.textContent.trim().replace('Selected', '').trim()
+                                            });
+                                        });
+                                        
+                                        if (options.length > 0) {
+                                            this.timelineItemStates[currentActiveIndex].options = options;
+                                        }
+                                    }
+                                });
                             }
                         }
 

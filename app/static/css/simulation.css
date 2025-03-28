@@ -55,6 +55,41 @@
     border-radius: 5px;
 }
 
+/* Style for the decision point items */
+.timeline-item[data-index] {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* Decision options initial view */
+.decision-options-initial {
+    border-left: 3px solid #ffc107;
+    background-color: rgba(255, 193, 7, 0.1);
+    padding: 0.75rem;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.decision-options-initial h6 {
+    color: #664d03;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.decision-options-initial .list-group-item {
+    background-color: rgba(255, 255, 255, 0.7);
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+/* Waiting for analysis state */
+.timeline-item[data-index] .waiting-for-analysis {
+    background-color: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    border-radius: 0 4px 4px 0;
+}
+
 .timeline-marker {
     position: absolute;
     left: -30px;
@@ -164,6 +199,7 @@
     margin-bottom: 5px;
     position: relative;
     z-index: 2;
+    text-align: center; /* Center the button for better visibility */
 }
 
 .advance-button {
@@ -175,6 +211,9 @@
     transition: all 0.2s ease-in-out;
     animation: pulse 1.5s infinite;
     font-size: 0.95rem !important;
+    display: inline-block;
+    min-width: 180px; /* Make the button wider for better visibility */
+    margin-top: 10px;
 }
 
 .advance-button:hover {
@@ -183,6 +222,55 @@
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
     transform: translateY(-1px);
     animation: none;
+}
+
+/* Different button colors for different stages */
+.advance-button.btn-warning {
+    animation: pulse-warning 1.5s infinite;
+}
+
+.advance-button.btn-info {
+    animation: pulse-info 1.5s infinite;
+}
+
+.advance-button.btn-success {
+    animation: pulse-success 1.5s infinite;
+}
+
+@keyframes pulse-warning {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(255, 193, 7, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+    }
+}
+
+@keyframes pulse-info {
+    0% {
+        box-shadow: 0 0 0 0 rgba(23, 162, 184, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(23, 162, 184, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(23, 162, 184, 0);
+    }
+}
+
+@keyframes pulse-success {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(40, 167, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
 }
 
 @keyframes pulse {

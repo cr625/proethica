@@ -87,10 +87,7 @@
                                 'timeline-item-analyzed': timelineItemStates[{{ timeline_index }}] && timelineItemStates[{{ timeline_index }}].analyzed
                             }"
                             v-show="simulationState.currentStep === {{ timeline_index + 1 }} || 
-                                  (timelineItemStates[{{ timeline_index }}] && 
-                                   timelineItemStates[{{ timeline_index }}].isDecision && 
-                                   timelineItemStates[{{ timeline_index }}].analyzed &&
-                                   simulationState.currentStep === {{ timeline_index + 2 }})">
+                                   simulationState.currentStep > {{ timeline_index + 1 }}">
                             
                             <div
                                 class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
@@ -122,23 +119,28 @@
                                 {% endif %}
 
                                 {% if item.is_decision %}
-                                <div class="mt-2">
+                                <!-- Only show this block when not actively viewing the item or after a selection is made -->
+                                <div class="mt-2" v-if="!isTimelineItemActive({{ timeline_index }}) || hasTimelineItemSelection({{ timeline_index }})">
                                     <h6>Options:</h6>
                                     <ul class="list-group">
-                                        {% for option in item.options %}
-                                        <li
-                                            class="list-group-item {% if option == item.selected_option %}list-group-item-success{% endif %}">
-                                            {% if option is string %}
-                                            {{ option }}
-                                            {% elif option is mapping and option.description is defined %}
-                                            {{ option.description }}
-                                            {% else %}
-                                            Option {{ loop.index }}
-                                            {% endif %}
-                                            {% if option == item.selected_option %}<span
-                                                class="badge bg-success float-end">Selected</span>{% endif %}
-                                        </li>
-                                        {% endfor %}
+                                        {% if item.options %}
+                                            {% for option in item.options %}
+                                            <li
+                                                class="list-group-item {% if option == item.selected_option %}list-group-item-success{% endif %}">
+                                                {% if option is string %}
+                                                {{ option }}
+                                                {% elif option is mapping and option.description is defined %}
+                                                {{ option.description }}
+                                                {% else %}
+                                                Option {{ loop.index }}
+                                                {% endif %}
+                                                {% if option == item.selected_option %}<span
+                                                    class="badge bg-success float-end">Selected</span>{% endif %}
+                                            </li>
+                                            {% endfor %}
+                                        {% else %}
+                                            <li class="list-group-item">No options available</li>
+                                        {% endif %}
                                     </ul>
                                 </div>
 
@@ -210,27 +212,60 @@
                                 {% endif %}
                                 {% endif %}
                                 
+                                <!-- Decision options section (only for decision points on first view, before analysis) -->
+                                <div v-if="isTimelineItemActive({{ timeline_index }}) && isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }})" class="mt-3 decision-options-initial">
+                                    <h6>Available options:</h6>
+                                    <ul class="list-group mb-3">
+                                        {% if item.options %}
+                                            {% for option in item.options %}
+                                            <li class="list-group-item">
+                                                {% if option is string %}
+                                                {{ option }}
+                                                {% elif option is mapping and option.description is defined %}
+                                                {{ option.description }}
+                                                {% else %}
+                                                Option {{ loop.index }}
+                                                {% endif %}
+                                            </li>
+                                            {% endfor %}
+                                        {% else %}
+                                            <li class="list-group-item">No options available</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+
                                 <!-- Advance Button (conditionally shown at the end of the active timeline item) -->
-                                <div v-if="isTimelineItemActive({{ timeline_index }}) && simulationState.currentStep < simulationState.totalSteps" class="mt-3 text-end advance-button-container">
+                                <div v-if="isTimelineItemActive({{ timeline_index }}) && simulationState.currentStep < simulationState.totalSteps" class="mt-3 advance-button-container">
                                     <!-- Different button text based on the state -->
-                                    <button v-if="isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }})" 
+                                    <!-- Initial decision state - show Analyze Decision button -->
+                                    <button v-if="isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }}) && !timelineItemStates[{{ timeline_index }}].waitingForAnalysis" 
                                         class="btn btn-warning btn-sm advance-button" 
                                         @click="advanceFromTimelineItem({{ timeline_index }})">
                                         <i class="bi bi-lightning-fill me-1"></i> Analyze Decision
                                     </button>
                                     
-                                    <button v-else-if="isDecisionPoint({{ timeline_index }}) && !hasTimelineItemSelection({{ timeline_index }})" 
+                                    <!-- When we're ready to analyze the decision (user clicked Analyze) -->
+                                    <button v-else-if="isDecisionPoint({{ timeline_index }}) && !isTimelineItemAnalyzed({{ timeline_index }}) && timelineItemStates[{{ timeline_index }}].waitingForAnalysis" 
+                                        class="btn btn-info btn-sm advance-button" 
+                                        @click="advanceFromTimelineItem({{ timeline_index }})">
+                                        <i class="bi bi-cpu me-1"></i> Get Analysis
+                                    </button>
+                                    
+                                    <!-- After analysis but before selection -->
+                                    <button v-else-if="isDecisionPoint({{ timeline_index }}) && isTimelineItemAnalyzed({{ timeline_index }}) && !hasTimelineItemSelection({{ timeline_index }})" 
                                         class="btn btn-info btn-sm" 
                                         disabled>
                                         <i class="bi bi-hand-index me-1"></i> Please Make a Choice
                                     </button>
                                     
+                                    <!-- After selection is made -->
                                     <button v-else-if="isDecisionPoint({{ timeline_index }}) && hasTimelineItemSelection({{ timeline_index }})" 
                                         class="btn btn-success btn-sm advance-button" 
                                         @click="advanceFromTimelineItem({{ timeline_index }})">
                                         <i class="bi bi-arrow-down-circle me-1"></i> Continue with Selection
                                     </button>
                                     
+                                    <!-- For non-decision items -->
                                     <button v-else 
                                         class="btn btn-primary btn-sm advance-button" 
                                         @click="advanceFromTimelineItem({{ timeline_index }})">
