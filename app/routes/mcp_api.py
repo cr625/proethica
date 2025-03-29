@@ -3,6 +3,7 @@ import os
 import json
 import subprocess
 import tempfile
+from app.services.mcp_client import MCPClient
 
 mcp_api_bp = Blueprint('mcp_api', __name__, url_prefix='/api')
 
@@ -53,7 +54,6 @@ def get_ontology_entities(ontology_source):
         if not os.path.exists(ontology_path):
             print(f"Ontology file not found: {ontology_path}")
             # Fall back to mock data if the ontology file doesn't exist
-            from app.services.mcp_client import MCPClient
             client = MCPClient.get_instance()
             mock_entities = client.get_mock_entities(ontology_source)
             return jsonify(mock_entities)
@@ -273,7 +273,7 @@ def get_ontology_entities(ontology_source):
         if entity_type in ('all', 'events') and events:
             entities["events"] = events
 
-        return jsonify({"entities": entities})
+        return jsonify({"success": True, "entities": entities})
     except Exception as e:
         import traceback
         error_message = f"Error parsing ontology file: {str(e)}"
@@ -284,10 +284,41 @@ def get_ontology_entities(ontology_source):
         print(f"Ontology path: {ontology_path}")
         
         # Fall back to mock data if there's an error
-        from app.services.mcp_client import MCPClient
         client = MCPClient.get_instance()
         mock_entities = client.get_mock_entities(ontology_source)
-        return jsonify(mock_entities)
+        return jsonify({"success": True, "entities": mock_entities})
+
+@mcp_api_bp.route('/ontology/world/<world_id>/entities', methods=['GET'])
+def get_world_entities(world_id):
+    """Get all entities for a specific world."""
+    try:
+        client = MCPClient.get_instance()
+        entities = client.get_world_entities(world_id)
+        return jsonify({"success": True, "entities": entities['entities']})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@mcp_api_bp.route('/ontology/world/<world_id>/entities/<entity_type>', methods=['GET'])
+def get_world_entities_by_type(world_id, entity_type):
+    """Get entities of a specific type for a world."""
+    try:
+        client = MCPClient.get_instance()
+        entities = client.get_world_entities(world_id, entity_type=entity_type)
+        return jsonify({"success": True, "entities": entities['entities'][entity_type]})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@mcp_api_bp.route('/ontology/entity/<entity_id>', methods=['GET'])
+def get_ontology_entity(entity_id):
+    """Get a specific entity by ID."""
+    try:
+        client = MCPClient.get_instance()
+        entity = client.get_entity(entity_id)
+        if entity is None:
+            return jsonify({"success": False, "message": f"Entity not found: {entity_id}"}), 404
+        return jsonify({"success": True, "entity": entity})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @mcp_api_bp.route('/guidelines/<path:world_name>', methods=['GET'])
 def get_guidelines(world_name):
@@ -302,9 +333,30 @@ def get_guidelines(world_name):
     """
     try:
         # Return the mock guidelines
-        from app.services.mcp_client import MCPClient
         client = MCPClient.get_instance()
         mock_guidelines = client.get_mock_guidelines(world_name)
         return jsonify(mock_guidelines)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@mcp_api_bp.route('/zotero/search', methods=['GET'])
+def search_zotero():
+    """Search for items in Zotero."""
+    query = request.args.get('query', '')
+    try:
+        client = MCPClient.get_instance()
+        results = client.search_zotero_items(query)
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@mcp_api_bp.route('/zotero/items/<item_key>/citation', methods=['GET'])
+def get_zotero_citation(item_key):
+    """Get a citation for a Zotero item."""
+    style = request.args.get('style', 'apa')
+    try:
+        client = MCPClient.get_instance()
+        citation = client.get_zotero_citation(item_key, style)
+        return jsonify({"success": True, "citation": citation})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500

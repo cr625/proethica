@@ -1,10 +1,24 @@
 from app import db
 from datetime import datetime
+from sqlalchemy import JSON, Text
 from sqlalchemy.dialects.postgresql import JSONB
+import os
 
 # Import Vector type from pgvector
-from pgvector.sqlalchemy import Vector
-VECTOR_AVAILABLE = True
+try:
+    from pgvector.sqlalchemy import Vector
+    VECTOR_AVAILABLE = True
+except ImportError:
+    VECTOR_AVAILABLE = False
+
+# Use JSONB for PostgreSQL in production, and JSON for SQLite in testing
+import flask
+if flask.has_app_context() and flask.current_app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('sqlite'):
+    # For SQLite (used in tests)
+    MetadataType = JSON
+else:
+    # For PostgreSQL (used in production)
+    MetadataType = JSONB
 
 # Processing status constants
 PROCESSING_STATUS = {
@@ -40,7 +54,7 @@ class Document(db.Model):
     file_path = db.Column(db.Text)
     file_type = db.Column(db.Text)
     content = db.Column(db.Text)
-    doc_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict with SQLAlchemy
+    doc_metadata = db.Column(MetadataType)  # Renamed from metadata to avoid conflict with SQLAlchemy
     processing_status = db.Column(db.String(20), default=PROCESSING_STATUS['PENDING'])
     processing_phase = db.Column(db.String(50), default=PROCESSING_PHASES['INITIALIZING'])
     processing_progress = db.Column(db.Integer, default=0)  # 0-100 percentage
@@ -89,7 +103,7 @@ class DocumentChunk(db.Model):
     chunk_text = db.Column(db.Text, nullable=False)
     # Use Vector type for embedding
     embedding = db.Column(Vector(384))  # 384 is the dimension of the all-MiniLM-L6-v2 model
-    chunk_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict with SQLAlchemy
+    chunk_metadata = db.Column(MetadataType)  # Renamed from metadata to avoid conflict with SQLAlchemy
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):
