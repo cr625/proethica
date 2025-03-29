@@ -1,1 +1,203 @@
-[]
+[
+  {
+    "case_number": "89-7-1",
+    "title": "Building Inspection Confidentiality Dilemma",
+    "year": 1989,
+    "full_text": "Engineer A is retained to investigate the structural integrity of a 60-year old occupied apartment building that his client is planning to sell. Under the terms of the agreement with the client, the structural report written by Engineer A is to remain confidential. In addition, the client makes clear to Engineer A that the building is being sold 'as is' and he is not planning to take any remedial action to repair or renovate any system within the building prior to its sale. Engineer A performs several structural tests on the building and determines that the building is structurally sound. However, during the course of providing services, the client confides in Engineer A and informs him that the building contains deficiencies in the electrical and mechanical systems that violate applicable codes and standards. While Engineer A is not an electrical nor mechanical engineer, he does realize those deficiencies could cause injury to the occupants of the building and so informs the client. In his report, Engineer A makes a brief mention of his conversation with the client concerning the deficiencies; however, in view of the terms of the agreement, Engineer A does not report the safety violations to any third party.",
+    "html_content": "<h2>Case 89-7-1: Building Inspection Confidentiality Dilemma</h2><p>Engineer A is retained to investigate the structural integrity of a 60-year old occupied apartment building that his client is planning to sell. Under the terms of the agreement with the client, the structural report written by Engineer A is to remain confidential. In addition, the client makes clear to Engineer A that the building is being sold 'as is' and he is not planning to take any remedial action to repair or renovate any system within the building prior to its sale.</p><p>Engineer A performs several structural tests on the building and determines that the building is structurally sound. However, during the course of providing services, the client confides in Engineer A and informs him that the building contains deficiencies in the electrical and mechanical systems that violate applicable codes and standards. While Engineer A is not an electrical nor mechanical engineer, he does realize those deficiencies could cause injury to the occupants of the building and so informs the client.</p><p>In his report, Engineer A makes a brief mention of his conversation with the client concerning the deficiencies; however, in view of the terms of the agreement, Engineer A does not report the safety violations to any third party.</p><p><strong>Question:</strong> Was it ethical for Engineer A not to report the safety violations to the appropriate public authorities?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-89-7-1",
+    "scraped_at": "2025-03-29T12:19:07.755380",
+    "metadata": {
+      "related_cases": [
+        "76-4-1",
+        "87-2"
+      ],
+      "codes_cited": [
+        "Code I.1",
+        "Code II.1.c"
+      ],
+      "principles": [
+        "public safety",
+        "confidentiality"
+      ],
+      "outcome": "unethical",
+      "operationalization_techniques": [
+        "Principle Instantiation",
+        "Conflicting Principles Resolution"
+      ],
+      "board_analysis": "The Board determined that Engineer A acted unethically by not reporting the safety violations to authorities. While Engineer A had confidentiality obligations (Code II.1.c), these were overridden by the paramount obligation to protect public safety (Code I.1). The Board noted that when an engineer discovers safety issues that could endanger the public, even outside the scope of their assignment, they have an ethical obligation to take appropriate action."
+    }
+  },
+  {
+    "case_number": "76-4-1",
+    "title": "Public Welfare - Knowledge of Information Damaging to Client's Interest",
+    "year": 1976,
+    "full_text": "Engineer Doe is hired by XYZ Corporation to study the effect of the firm's planned discharges on water quality. The firm does not like the results of the study, terminates the engineer's consultation, and directs him not to disclose the results to anyone or to write a report on those results. When the engineer discovers that the firm has presented contrary evidence at a regulatory hearing, he does not disclose the results of his study.",
+    "html_content": "<h2>Case 76-4-1: Public Welfare - Knowledge of Information Damaging to Client's Interest</h2><p>Engineer Doe is hired by XYZ Corporation to study the effect of the firm's planned discharges on water quality. The firm does not like the results of the study, terminates the engineer's consultation, and directs him not to disclose the results to anyone or to write a report on those results.</p><p>When the engineer discovers that the firm has presented contrary evidence at a regulatory hearing, he does not disclose the results of his study.</p><p><strong>Question:</strong> Was it ethical for Engineer Doe to withhold information from the regulatory authority in these circumstances?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-76-4-1",
+    "scraped_at": "2025-03-29T12:19:07.755381",
+    "metadata": {
+      "related_cases": [
+        "96-8-1"
+      ],
+      "codes_cited": [
+        "Code III.2.b",
+        "Code III.4",
+        "Code I.4",
+        "Code III.1"
+      ],
+      "principles": [
+        "public welfare",
+        "confidentiality",
+        "integrity"
+      ],
+      "outcome": "unethical",
+      "operationalization_techniques": [
+        "Principle Instantiation",
+        "Case Instantiation"
+      ],
+      "board_analysis": "The Board determined that Engineer Doe had an ethical obligation to disclose his findings to the regulatory authority, particularly after discovering that contrary evidence had been presented. The Board cited Code III.2.b which states engineers shall not complete, sign, or seal plans that are not safe for public health and welfare. In this case, Engineer Doe's silence could lead to approval of discharges that would be harmful."
+    }
+  },
+  {
+    "case_number": "84-5",
+    "title": "Engineer's Recommendation For Full-Time, On-Site Project Representative",
+    "year": 1984,
+    "full_text": "Engineer A is retained to undertake a structural review of a new building. During construction, Engineer A learns that the contractor is not following the design documents and has substituted inferior materials. Engineer A recommends that the owner hire a full-time, on-site representative to monitor the construction, but the owner declines due to cost concerns. Engineer A continues the inspection work but does not do any further on-site observation beyond the standard periodic visits.",
+    "html_content": "<h2>Case 84-5: Engineer's Recommendation For Full-Time, On-Site Project Representative</h2><p>Engineer A is retained to undertake a structural review of a new building. During construction, Engineer A learns that the contractor is not following the design documents and has substituted inferior materials.</p><p>Engineer A recommends that the owner hire a full-time, on-site representative to monitor the construction, but the owner declines due to cost concerns. Engineer A continues the inspection work but does not do any further on-site observation beyond the standard periodic visits.</p><p><strong>Question:</strong> Was it ethical for Engineer A to continue with only periodic inspections after discovering the use of inferior materials?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-84-5",
+    "scraped_at": "2025-03-29T12:19:07.755382",
+    "metadata": {
+      "related_cases": [],
+      "codes_cited": [
+        "Code I.1",
+        "Code II.1.a"
+      ],
+      "principles": [
+        "public safety",
+        "professional judgment"
+      ],
+      "outcome": "unethical",
+      "operationalization_techniques": [
+        "Principle Instantiation"
+      ],
+      "board_analysis": "The Board found that once Engineer A discovered that inferior materials were being used in the construction, continuing with only periodic inspections was insufficient to fulfill his ethical obligations to protect public safety. Engineer A should have either insisted on more frequent inspections or withdrawn from the project if the owner would not agree to adequate oversight."
+    }
+  },
+  {
+    "case_number": "96-8-1",
+    "title": "Public Safety vs. Client Confidentiality",
+    "year": 1996,
+    "full_text": "Engineer Smith has information that could impact public safety but is bound by a confidentiality agreement with her client. She must decide whether her professional obligation to protect the public outweighs her contractual obligation to maintain client confidentiality.",
+    "html_content": "<h2>Case 96-8-1: Public Safety vs. Client Confidentiality</h2><p>Engineer Smith has information that could impact public safety but is bound by a confidentiality agreement with her client. She must decide whether her professional obligation to protect the public outweighs her contractual obligation to maintain client confidentiality.</p><p>The information concerns potential structural weaknesses in a public facility that could endanger occupants under certain conditions.</p><p><strong>Question:</strong> Should Engineer Smith breach confidentiality to protect public safety?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-96-8-1",
+    "scraped_at": "2025-03-29T12:19:07.755383",
+    "metadata": {
+      "related_cases": [
+        "76-4-1",
+        "89-7-1"
+      ],
+      "codes_cited": [
+        "Code I.1",
+        "Code III.4",
+        "Code II.1.c"
+      ],
+      "principles": [
+        "public safety",
+        "confidentiality"
+      ],
+      "outcome": "ethical to breach confidentiality",
+      "operationalization_techniques": [
+        "Conflicting Principles Resolution",
+        "Case Instantiation"
+      ],
+      "board_analysis": "The Board concluded that Engineer Smith should report the safety issues despite the confidentiality agreement. The Board referenced the paramount principle that engineers must hold the safety, health, and welfare of the public above all other obligations."
+    }
+  },
+  {
+    "case_number": "87-2",
+    "title": "Confidentiality and Competitive Employment",
+    "year": 1987,
+    "full_text": "Engineer Johnson obtains confidential information about a client's proprietary process during the course of his work. Later, he is approached by a competitor of his client who wishes to hire him for consulting work. Engineer Johnson must decide whether accepting the new position would violate his ethical obligations regarding confidentiality.",
+    "html_content": "<h2>Case 87-2: Confidentiality and Competitive Employment</h2><p>Engineer Johnson obtains confidential information about a client's proprietary process during the course of his work. Later, he is approached by a competitor of his client who wishes to hire him for consulting work.</p><p>Engineer Johnson must decide whether accepting the new position would violate his ethical obligations regarding confidentiality.</p><p><strong>Question:</strong> Can Engineer Johnson ethically accept employment with his client's competitor?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-87-2",
+    "scraped_at": "2025-03-29T12:19:07.755384",
+    "metadata": {
+      "related_cases": [
+        "85-4",
+        "82-2"
+      ],
+      "codes_cited": [
+        "Code II.1.c",
+        "Code III.4"
+      ],
+      "principles": [
+        "confidentiality",
+        "conflicts of interest"
+      ],
+      "outcome": "relevant but not controlling",
+      "operationalization_techniques": [
+        "Case Grouping"
+      ],
+      "board_analysis": "The Board determined that Engineer Johnson could accept the position with the competing firm, but must maintain strict confidentiality regarding his former client's proprietary information. The engineer should inform both companies about the situation and establish clear boundaries regarding what work he can perform for the new employer."
+    }
+  },
+  {
+    "case_number": "85-4",
+    "title": "Conflict of Interest in Contractor Evaluation",
+    "year": 1985,
+    "full_text": "A government agency hires Engineer White to evaluate a contractor's work. During the evaluation, Engineer White discovers that the contractor has been cutting corners and using substandard materials. The contractor offers Engineer White a lucrative job if he will overlook these issues in his report.",
+    "html_content": "<h2>Case 85-4: Conflict of Interest in Contractor Evaluation</h2><p>A government agency hires Engineer White to evaluate a contractor's work. During the evaluation, Engineer White discovers that the contractor has been cutting corners and using substandard materials.</p><p>The contractor offers Engineer White a lucrative job if he will overlook these issues in his report.</p><p><strong>Question:</strong> Would it be ethical for Engineer White to accept the contractor's job offer?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-85-4",
+    "scraped_at": "2025-03-29T12:19:07.755385",
+    "metadata": {
+      "related_cases": [
+        "87-2"
+      ],
+      "codes_cited": [
+        "Code II.4.a",
+        "Code II.4.b",
+        "Code I.1"
+      ],
+      "principles": [
+        "conflicts of interest",
+        "public safety",
+        "integrity"
+      ],
+      "outcome": "unethical",
+      "operationalization_techniques": [
+        "Principle Instantiation"
+      ],
+      "board_analysis": "The Board determined that accepting the job offer would create a clear conflict of interest and violate Engineer White's ethical obligations. The offer appears to be a form of bribery intended to influence his professional judgment, which would compromise his integrity and potentially endanger public safety."
+    }
+  },
+  {
+    "case_number": "82-2",
+    "title": "Product Safety and Whistleblowing",
+    "year": 1982,
+    "full_text": "Engineer Garcia works for a manufacturing company and is aware that the company's products have a defect that could potentially cause harm to users. The company has decided not to issue a recall. Engineer Garcia must decide whether to report this issue to regulatory authorities despite his obligation to his employer.",
+    "html_content": "<h2>Case 82-2: Product Safety and Whistleblowing</h2><p>Engineer Garcia works for a manufacturing company and is aware that the company's products have a defect that could potentially cause harm to users. The company has decided not to issue a recall.</p><p>Engineer Garcia must decide whether to report this issue to regulatory authorities despite his obligation to his employer.</p><p><strong>Question:</strong> Is Engineer Garcia ethically obligated to report the defect to authorities if the company refuses to take action?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/case-82-2",
+    "scraped_at": "2025-03-29T12:19:07.755386",
+    "metadata": {
+      "related_cases": [
+        "87-2"
+      ],
+      "codes_cited": [
+        "Code I.1",
+        "Code II.1.a",
+        "Code I.4"
+      ],
+      "principles": [
+        "public safety",
+        "employer loyalty",
+        "whistleblowing"
+      ],
+      "outcome": "ethical to report",
+      "operationalization_techniques": [
+        "Conflicting Principles Resolution"
+      ],
+      "board_analysis": "The Board concluded that Engineer Garcia has an ethical obligation to report the defect to authorities if internal efforts to address the issue have failed. The paramount duty to protect public safety outweighs loyalty to an employer, especially when there is potential for harm to users of the product."
+    }
+  }
+]

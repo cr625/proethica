@@ -1,0 +1,105 @@
+[
+  {
+    "case_number": "Case 23-4",
+    "title": "Acknowledging Errors in Design",
+    "year": 2023,
+    "date": "June 14, 2023",
+    "full_text": "The new structural connections were located in such a way that access was limited, and the drawings clearly noted the constrained access. This design detail required the construction workers to make the connections in a contorted fashion. During construction, an accident occurred with a serious and permanent injury to a construction worker. Following the accident, Engineer T revised the site and realized that had alternative design concepts been explored early on, the new structural modifications could have been proposed in a fundamentally different, more complex, but functionally equivalent way. The alternative approach would have been more costly and taken more time, but it would have allowed the construction workers to make all connections while standing on the floor such that injury would have been far less likely. Engineer T felt some personal responsibility for the accident.\n\nEngineer T met with XYZ's Chief Structural Engineer, Engineer B, explained the situation, and expressed a belief that a design error – i.e., not exploring alternative, safer design concepts – had been made and the NSPE Code of Ethics required that the error be acknowledged. Engineer B responded that Engineer T and XYZ Consulting Engineers had responded professionally to the design project, they had recommended a straightforward structural modification approach, and they were not expected or asked to consider alternative concepts. Further, Engineer T had specifically identified the constrained areas of the new connections in the design documents, but because T was not trained in construction safety either by education (since civil engineering education typically does not include construction safety) or by specific experience (working for a construction contractor), Engineer T could not have reasonably known or assessed the level of worker safety risk posed by the connection location. The contractor had not raised questions regarding the construction safety risk or safer construction alternatives. Having thus thoughtfully considered the matter, both Engineer T and Engineer B decided that the situation did not merit acknowledgement of \"an error.\"\n\nMonths later, after a construction claim had been submitted and a lawsuit had been filed, Engineer T met with attorneys representing XYZ and XYZ's insurance company to prepare for a deposition of Engineer T. During preparation, Engineer T reviewed and discussed the project history, including the conversation with Engineer B relative to T's feeling there was, potentially, a professional obligation to acknowledge an error – i.e., not exploring alternative, safer design concepts. Both of XYZ Consulting Engineers' attorneys agreed that a clear obligation existed not to distort or alter any facts, and that Engineer T should respond to questions with complete transparency during the deposition. One of the attorneys further explained that one important concept for engineers to recall was that they must objectively evaluate facts, not feelings; the attorney added that the existence of a legal process would determine whether, based on the facts, an error had been made, and that Engineer T should clearly report the facts, but should not voluntarily characterize the design work as an error.\n\nIn the deposition, Engineer T responded factually to all questions regarding the design and the design process. Engineer T was not asked if an error had been made and did not offer an acknowledgement of a possible error.",
+    "html_content": "<h2>Case 23-4: Acknowledging Errors in Design</h2><p>The new structural connections were located in such a way that access was limited, and the drawings clearly noted the constrained access. This design detail required the construction workers to make the connections in a contorted fashion. During construction, an accident occurred with a serious and permanent injury to a construction worker. Following the accident, Engineer T revised the site and realized that had alternative design concepts been explored early on, the new structural modifications could have been proposed in a fundamentally different, more complex, but functionally equivalent way. The alternative approach would have been more costly and taken more time, but it would have allowed the construction workers to make all connections while standing on the floor such that injury would have been far less likely. Engineer T felt some personal responsibility for the accident.</p><p>Engineer T met with XYZ's Chief Structural Engineer, Engineer B, explained the situation, and expressed a belief that a design error – i.e., not exploring alternative, safer design concepts – had been made and the NSPE Code of Ethics required that the error be acknowledged. Engineer B responded that Engineer T and XYZ Consulting Engineers had responded professionally to the design project, they had recommended a straightforward structural modification approach, and they were not expected or asked to consider alternative concepts. Further, Engineer T had specifically identified the constrained areas of the new connections in the design documents, but because T was not trained in construction safety either by education (since civil engineering education typically does not include construction safety) or by specific experience (working for a construction contractor), Engineer T could not have reasonably known or assessed the level of worker safety risk posed by the connection location. The contractor had not raised questions regarding the construction safety risk or safer construction alternatives. Having thus thoughtfully considered the matter, both Engineer T and Engineer B decided that the situation did not merit acknowledgement of \"an error.\"</p><p>Months later, after a construction claim had been submitted and a lawsuit had been filed, Engineer T met with attorneys representing XYZ and XYZ's insurance company to prepare for a deposition of Engineer T. During preparation, Engineer T reviewed and discussed the project history, including the conversation with Engineer B relative to T's feeling there was, potentially, a professional obligation to acknowledge an error – i.e., not exploring alternative, safer design concepts. Both of XYZ Consulting Engineers' attorneys agreed that a clear obligation existed not to distort or alter any facts, and that Engineer T should respond to questions with complete transparency during the deposition. One of the attorneys further explained that one important concept for engineers to recall was that they must objectively evaluate facts, not feelings; the attorney added that the existence of a legal process would determine whether, based on the facts, an error had been made, and that Engineer T should clearly report the facts, but should not voluntarily characterize the design work as an error.</p><p>In the deposition, Engineer T responded factually to all questions regarding the design and the design process. Engineer T was not asked if an error had been made and did not offer an acknowledgement of a possible error.</p><h3>Question(s):</h3><ol><li>Was it ethical for Engineer T and Engineer B to conclude an error had not been made in design?</li><li>Was it ethical for Engineer T not to acknowledge an error after the accident occurred?</li><li>Was it ethical for Engineer T not to acknowledge an error during the deposition?</li></ol>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/acknowledging-errors-design",
+    "pdf_url": "https://www.nspe.org/sites/default/files/resources/pdfs/Ethics/23-4-Acknowledging-Errors-in-Design.pdf",
+    "scraped_at": "2025-03-29T12:33:39.444000",
+    "metadata": {
+      "related_cases": ["Case 97-13"],
+      "codes_cited": [
+        "Code I.1",
+        "Code II.1.a",
+        "Code II.1.b",
+        "Code II.4",
+        "Code III.1.a"
+      ],
+      "principles": [
+        "professional responsibility",
+        "public safety",
+        "honesty",
+        "disclosure"
+      ],
+      "outcome": "mixed finding",
+      "operationalization_techniques": [
+        "Principle Instantiation",
+        "Conflicting Principles Resolution"
+      ],
+      "board_analysis": "This case addresses two ethical issues in engineering practice: to what extent are design engineers obligated to account for construction safety risks in their designs if they are not trained or have experience in construction safety methods, and are engineers obligated by the NSPE Code of Ethics to 'acknowledge errors' when it is not clear an error has been made. The Board found that while contractually the contractor is responsible for construction safety, engineers have ethical obligations to consider foreseeable risks. The Board referenced Case 97-13 where limited reporting of safety issues was appropriate restraint as over-reporting could jeopardize professional reputations. The Board determined that engineers must always respond truthfully to questions and not distort facts, but are not required to voluntarily characterize their work as an error when professional judgment is involved.",
+      "ethical_questions": [
+        "Was it ethical for Engineer T and Engineer B to conclude an error had not been made in design?",
+        "Was it ethical for Engineer T not to acknowledge an error after the accident occurred?",
+        "Was it ethical for Engineer T not to acknowledge an error during the deposition?"
+      ]
+    }
+  },
+  {
+    "case_number": "Case 22-10",
+    "title": "Serving as Both Engineer and Building Official",
+    "year": 2022,
+    "date": "December 14, 2022",
+    "full_text": "Engineer A, a licensed professional engineer, is employed by XYZ Engineering, a consulting firm. Engineer A also serves as a part-time building official for Town Y. In his capacity as the building official, Engineer A inspects projects and enforces the town's building codes. One of Engineer A's clients at XYZ Engineering, Company X, has a project within Town Y's jurisdiction that requires town approval. Engineer A, as an employee of XYZ Engineering, has been performing engineering work on the project. Later, in his capacity as Town Y's building official, Engineer A would be reviewing and inspecting the work performed by Company X, including the work that he himself did as the project engineer for XYZ Engineering.",
+    "html_content": "<h2>Case 22-10: Serving as Both Engineer and Building Official</h2><p>Engineer A, a licensed professional engineer, is employed by XYZ Engineering, a consulting firm. Engineer A also serves as a part-time building official for Town Y. In his capacity as the building official, Engineer A inspects projects and enforces the town's building codes.</p><p>One of Engineer A's clients at XYZ Engineering, Company X, has a project within Town Y's jurisdiction that requires town approval. Engineer A, as an employee of XYZ Engineering, has been performing engineering work on the project. Later, in his capacity as Town Y's building official, Engineer A would be reviewing and inspecting the work performed by Company X, including the work that he himself did as the project engineer for XYZ Engineering.</p><h3>Question:</h3><p>Would it be ethical for Engineer A to serve as both the project engineer for Company X and as the building official reviewing that same project for Town Y?</p>",
+    "url": "https://www.nspe.org/sites/default/files/NSPE-BER-Case-22-10.pdf",
+    "pdf_url": "https://www.nspe.org/sites/default/files/NSPE-BER-Case-22-10.pdf",
+    "scraped_at": "2025-03-29T12:33:39.444000",
+    "metadata": {
+      "related_cases": ["Case 07-4", "Case 98-8"],
+      "codes_cited": [
+        "Code II.4.a",
+        "Code II.4.b",
+        "Code II.4.d",
+        "Code III.1.a",
+        "Code III.1.b"
+      ],
+      "principles": [
+        "conflicts of interest",
+        "objectivity",
+        "professional judgment",
+        "public service"
+      ],
+      "outcome": "unethical",
+      "operationalization_techniques": [
+        "Principle Instantiation",
+        "Case Instantiation"
+      ],
+      "board_analysis": "The Board determined that it would be unethical for Engineer A to serve in both roles. This situation creates a clear conflict of interest where Engineer A would be reviewing and approving his own work. Such a dual role compromises Engineer A's ability to be objective and exercise independent professional judgment as required by the Code of Ethics. The Board cited previous cases that established the importance of avoiding situations where engineers might be reviewing their own work or where other conflicts of interest exist in public service roles."
+    }
+  },
+  {
+    "case_number": "Case 22-5",
+    "title": "Duty to Report Unsafe Conditions",
+    "year": 2022,
+    "date": "September 15, 2022",
+    "full_text": "Engineer A is retained by Client X to perform a structural inspection of an existing commercial building that has experienced water infiltration. During the inspection, Engineer A identifies severe deterioration of structural members that poses an immediate threat to public safety. When Engineer A informs Client X of the findings, Client X acknowledges the condition but states that they cannot afford to address the issues immediately. Client X asks Engineer A to revise the report to downplay the severity of the findings and to not include any statements about imminent danger. Client X tells Engineer A that if Engineer A does not comply with this request, Client X will find another engineer who will. The building continues to be occupied by tenants who are unaware of the structural issues.",
+    "html_content": "<h2>Case 22-5: Duty to Report Unsafe Conditions</h2><p>Engineer A is retained by Client X to perform a structural inspection of an existing commercial building that has experienced water infiltration. During the inspection, Engineer A identifies severe deterioration of structural members that poses an immediate threat to public safety.</p><p>When Engineer A informs Client X of the findings, Client X acknowledges the condition but states that they cannot afford to address the issues immediately. Client X asks Engineer A to revise the report to downplay the severity of the findings and to not include any statements about imminent danger. Client X tells Engineer A that if Engineer A does not comply with this request, Client X will find another engineer who will.</p><p>The building continues to be occupied by tenants who are unaware of the structural issues.</p><h3>Question:</h3><p>Does Engineer A have an ethical obligation to report the unsafe conditions to authorities despite Client X's objections?</p>",
+    "url": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/duty-report-unsafe-conditions",
+    "pdf_url": "https://www.nspe.org/sites/default/files/resources/pdfs/Ethics/22-5-Duty-to-Report-Unsafe-Conditions.pdf",
+    "scraped_at": "2025-03-29T12:33:39.444000",
+    "metadata": {
+      "related_cases": ["Case 89-7-1", "Case 76-4-1", "Case 96-8-1"],
+      "codes_cited": [
+        "Code I.1",
+        "Code I.4",
+        "Code II.1.c",
+        "Code II.1.e",
+        "Code III.2.b"
+      ],
+      "principles": [
+        "public safety",
+        "confidentiality",
+        "professional integrity"
+      ],
+      "outcome": "ethical to report",
+      "operationalization_techniques": [
+        "Conflicting Principles Resolution",
+        "Case Instantiation"
+      ],
+      "board_analysis": "The Board concluded that Engineer A has an ethical obligation to report the unsafe conditions to proper authorities if Client X refuses to take appropriate action. The paramount duty to protect public safety (Code I.1) overrides the obligation to maintain client confidentiality (Code II.1.c). The Board noted that this case exemplifies a situation where the potential for loss of life creates a clear ethical imperative that transcends normal client-engineer confidentiality. Additionally, the request to alter professional findings violates Code III.2.b, which prohibits engineers from completing or signing documents that are not safe for public welfare."
+    }
+  }
+]
