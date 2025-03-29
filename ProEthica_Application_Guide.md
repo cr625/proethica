@@ -106,12 +106,51 @@ The multi-agent system includes:
 
 ### 4.3 Creating a New Scenario
 
+There are two approaches to creating scenarios:
+
+#### 4.3.1 Web Interface Approach
+
 1. Navigate to "Scenarios" and click "Create New Scenario"
 2. Select a world
 3. Provide a name and description
 4. Add characters, resources, and events
 5. Define decision points
 6. Save the scenario
+
+#### 4.3.2 Programmatic Approach
+
+For more complex scenarios or batch creation, you can use the entity management utilities:
+
+1. Define your scenario data in a structured format:
+   ```python
+   scenario_data = {
+     "name": "Ethical Dilemma Name",
+     "description": "Detailed description of the scenario...",
+     "characters": {...},  # Character definitions
+     "resources": [...],   # Resource definitions
+     "timeline": {
+       "events": [...],    # Event definitions
+       "actions": [...]    # Action and decision point definitions
+     }
+   }
+   ```
+
+2. Use the entity manager utilities to create the scenario:
+   ```python
+   # Using the template script
+   python populate_scenario_template.py
+
+   # Or programmatically
+   from utilities.entity_manager import create_ethical_scenario
+   scenario_id = create_ethical_scenario(
+     world_name="Engineering Ethics",
+     scenario_name=scenario_data["name"],
+     scenario_description=scenario_data["description"],
+     characters=scenario_data["characters"],
+     resources=scenario_data["resources"],
+     timeline=scenario_data["timeline"]
+   )
+   ```
 
 ### 4.4 Running a Simulation
 

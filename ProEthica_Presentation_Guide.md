@@ -28,11 +28,18 @@ ProEthica is an ethical decision-making simulator that evaluates professional de
 
 ### 4. Scenario Creation Walkthrough
 
+#### Web Interface Approach
 * **Select a world**: Choose the professional context
 * **Define scenario**: Create the ethical situation
 * **Add characters**: Assign roles and attributes
 * **Add resources**: Define available assets
 * **Create timeline**: Build events and decision points
+
+#### Entity Manager Approach
+* **Define structured data**: Create JSON-like definitions for all scenario elements
+* **Use entity manager**: Show the centralized entity manager utility
+* **Demonstrate templates**: Show the scenario template script
+* **Highlight benefits**: Explain speed and consistency advantages
 
 ### 5. Simulation Execution
 
