@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask_login import login_required
 from app import db
 from app.models.scenario import Scenario
 from app.models.character import Character
@@ -53,6 +54,7 @@ def list_scenarios():
     return render_template('scenarios.html', scenarios=scenarios, worlds=worlds, selected_world_id=world_id)
 
 @scenarios_bp.route('/new', methods=['GET'])
+@login_required
 def new_scenario():
     """Display form to create a new scenario."""
     worlds = World.query.all()
@@ -69,6 +71,7 @@ def view_scenario(id):
     return render_template('scenario_detail.html', scenario=scenario)
 
 @scenarios_bp.route('/<int:id>/edit', methods=['GET'])
+@login_required
 def edit_scenario(id):
     """Display form to edit an existing scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -76,6 +79,7 @@ def edit_scenario(id):
     return render_template('edit_scenario.html', scenario=scenario, worlds=worlds)
 
 @scenarios_bp.route('/<int:id>/edit', methods=['POST'])
+@login_required
 def update_scenario_form(id):
     """Update an existing scenario from form data."""
     scenario = Scenario.query.get_or_404(id)
@@ -108,6 +112,7 @@ def update_scenario_form(id):
 
 # Character routes
 @scenarios_bp.route('/<int:id>/characters/new', methods=['GET'])
+@login_required
 def new_character(id):
     """Display form to add a character to a scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -161,6 +166,7 @@ def new_character(id):
     )
 
 @scenarios_bp.route('/<int:id>/characters', methods=['POST'])
+@login_required
 def add_character(id):
     """Add a character to a scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -284,6 +290,7 @@ def add_character(id):
     })
 
 @scenarios_bp.route('/<int:id>/characters/<int:character_id>/edit', methods=['GET'])
+@login_required
 def edit_character(id, character_id):
     """Display form to edit a character."""
     scenario = Scenario.query.get_or_404(id)
@@ -335,6 +342,7 @@ def edit_character(id, character_id):
     )
 
 @scenarios_bp.route('/<int:id>/characters/<int:character_id>/update', methods=['POST'])
+@login_required
 def update_character(id, character_id):
     """Update a character."""
     scenario = Scenario.query.get_or_404(id)
@@ -521,6 +529,7 @@ def update_character(id, character_id):
     })
 
 @scenarios_bp.route('/<int:id>/characters/<int:character_id>/delete', methods=['POST'])
+@login_required
 def delete_character(id, character_id):
     """Delete a character and its associated actions."""
     from app.models.event import Action, Event
@@ -554,6 +563,7 @@ def delete_character(id, character_id):
 
 # Resource routes
 @scenarios_bp.route('/<int:id>/resources/new', methods=['GET'])
+@login_required
 def new_resource(id):
     """Display form to add a resource to a scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -590,6 +600,7 @@ def new_resource(id):
     )
 
 @scenarios_bp.route('/<int:id>/resources/<int:resource_id>/edit', methods=['GET'])
+@login_required
 def edit_resource(id, resource_id):
     """Display form to edit a resource."""
     scenario = Scenario.query.get_or_404(id)
@@ -624,6 +635,7 @@ def edit_resource(id, resource_id):
     )
 
 @scenarios_bp.route('/<int:id>/resources/<int:resource_id>/update', methods=['POST'])
+@login_required
 def update_resource(id, resource_id):
     """Update a resource."""
     scenario = Scenario.query.get_or_404(id)
@@ -706,6 +718,7 @@ def update_resource(id, resource_id):
     })
 
 @scenarios_bp.route('/<int:id>/resources/<int:resource_id>/delete', methods=['POST'])
+@login_required
 def delete_resource(id, resource_id):
     """Delete a resource."""
     scenario = Scenario.query.get_or_404(id)
@@ -724,6 +737,7 @@ def delete_resource(id, resource_id):
     return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>/resources', methods=['POST'])
+@login_required
 def add_resource(id):
     """Add a resource to a scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -804,6 +818,7 @@ def add_resource(id):
 
 # Action routes
 @scenarios_bp.route('/<int:id>/actions/new', methods=['GET'])
+@login_required
 def new_action(id):
     """Display form to add an action to a scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -822,6 +837,7 @@ def new_action(id):
     return render_template('create_action.html', scenario=scenario, action_types=action_types)
 
 @scenarios_bp.route('/<int:id>/actions/<int:action_id>/edit', methods=['GET'])
+@login_required
 def edit_action(id, action_id):
     """Display form to edit an action."""
     from app.models.event import Action
@@ -849,6 +865,7 @@ def edit_action(id, action_id):
     return render_template('edit_action.html', scenario=scenario, action=action, action_types=action_types)
 
 @scenarios_bp.route('/<int:id>/actions/<int:action_id>/update', methods=['POST'])
+@login_required
 def update_action(id, action_id):
     """Update an action."""
     from app.models.event import Action
@@ -928,6 +945,7 @@ def update_action(id, action_id):
     })
 
 @scenarios_bp.route('/<int:id>/actions/<int:action_id>/delete', methods=['POST'])
+@login_required
 def delete_action(id, action_id):
     """Delete an action."""
     from app.models.event import Action, Event
@@ -963,6 +981,7 @@ def delete_action(id, action_id):
     return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>/actions', methods=['POST'])
+@login_required
 def add_action(id):
     """Add an action to a scenario."""
     from app.models.event import Action
@@ -1037,6 +1056,7 @@ def add_action(id):
 
 # Event routes
 @scenarios_bp.route('/<int:id>/events/new', methods=['GET'])
+@login_required
 def new_event(id):
     """Display form to add an event to a scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -1056,6 +1076,7 @@ def new_event(id):
     return render_template('create_event.html', scenario=scenario, action_types=action_types)
 
 @scenarios_bp.route('/<int:id>/events/<int:event_id>/edit', methods=['GET'])
+@login_required
 def edit_event(id, event_id):
     """Display form to edit an event."""
     from app.models.event import Event
@@ -1084,6 +1105,7 @@ def edit_event(id, event_id):
     return render_template('edit_event.html', scenario=scenario, event=event, action_types=action_types)
 
 @scenarios_bp.route('/<int:id>/events/<int:event_id>/update', methods=['POST'])
+@login_required
 def update_event(id, event_id):
     """Update an event."""
     from app.models.event import Event
@@ -1140,6 +1162,7 @@ def update_event(id, event_id):
     })
 
 @scenarios_bp.route('/<int:id>/events/<int:event_id>/delete', methods=['POST'])
+@login_required
 def delete_event(id, event_id):
     """Delete an event."""
     from app.models.event import Event
@@ -1174,6 +1197,7 @@ def delete_event(id, event_id):
     return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>/events', methods=['POST'])
+@login_required
 def add_event(id):
     """Add an event to a scenario."""
     from app.models.event import Event
@@ -1228,12 +1252,14 @@ def add_event(id):
 
 # Decision routes
 @scenarios_bp.route('/<int:id>/decisions/new', methods=['GET'])
+@login_required
 def new_decision(id):
     """Display form to add a decision to a scenario."""
     scenario = Scenario.query.get_or_404(id)
     return render_template('create_decision.html', scenario=scenario)
 
 @scenarios_bp.route('/<int:id>/decisions', methods=['POST'])
+@login_required
 def add_decision(id):
     """Add a decision to a scenario."""
     from app.models.decision import Decision
@@ -1271,6 +1297,7 @@ def add_decision(id):
     })
 
 @scenarios_bp.route('/', methods=['POST'])
+@login_required
 def create_scenario():
     """Create a new scenario."""
     # Check if the request is JSON or form data
@@ -1367,6 +1394,7 @@ def create_scenario():
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))
 
 @scenarios_bp.route('/<int:id>', methods=['PUT'])
+@login_required
 def update_scenario(id):
     """Update an existing scenario."""
     scenario = Scenario.query.get_or_404(id)
@@ -1399,6 +1427,7 @@ def update_scenario(id):
     })
 
 @scenarios_bp.route('/<int:id>', methods=['DELETE'])
+@login_required
 def delete_scenario(id):
     """Delete a scenario via API."""
     scenario = Scenario.query.get_or_404(id)
@@ -1411,6 +1440,7 @@ def delete_scenario(id):
     })
 
 @scenarios_bp.route('/<int:id>/delete', methods=['POST'])
+@login_required
 def delete_scenario_form(id):
     """Delete a scenario from web form."""
     scenario = Scenario.query.get_or_404(id)
@@ -1469,6 +1499,7 @@ def get_reference_citation(id, item_key):
         }), 500
 
 @scenarios_bp.route('/<int:id>/references/add', methods=['POST'])
+@login_required
 def add_reference(id):
     """Add a reference to the Zotero library."""
     scenario = Scenario.query.get_or_404(id)
