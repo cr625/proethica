@@ -250,58 +250,58 @@ with app.app_context():
     db.session.commit()
 ```
 
-## Predefined Entity Type Population Scripts
+## Consolidated Entity Population Scripts
 
-The system includes scripts to populate entity types for different worlds:
+The system includes a consolidated script for populating entities at `scripts/populate_entities.py`. This script replaces the various individual scripts that were previously used.
 
-### Condition Types
+### Command Line Usage
 
-```python
-# Example from scripts/populate_condition_types.py
-law_practice_conditions = [
-    {
-        "name": "Conflict of Interest",
-        "description": "Situation where professional judgment may be compromised.",
-        "category": "Ethical",
-        "severity_range": {"min": 1, "max": 10},
-        "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#ConflictOfInterest"
-    },
-    # More condition types...
-]
+You can use this script to populate entities in several ways:
 
-# Create condition types in the database
-for condition_data in law_practice_conditions:
-    condition_type = ConditionType(
-        name=condition_data["name"],
-        description=condition_data["description"],
-        world_id=law_world.id,
-        category=condition_data["category"],
-        severity_range=condition_data["severity_range"],
-        ontology_uri=condition_data["ontology_uri"]
-    )
-    db.session.add(condition_type)
+```bash
+# Populate entity types from an ontology
+python scripts/populate_entities.py --world "Engineering Ethics" --ontology
+
+# Populate predefined entity types
+python scripts/populate_entities.py --world "Engineering Ethics" --predefined
+
+# Add test timeline items to a scenario
+python scripts/populate_entities.py --scenario 1 --test-timeline
 ```
 
-### Resource Types
+### Predefined Entity Types
+
+The script includes predefined entity types for different worlds:
 
 ```python
-# Example from scripts/create_basic_resource_types
-resource_types = [
-    {
-        'name': 'Case File',
-        'description': 'Legal documents for a specific case',
-        'category': 'Legal',
-        'world_id': world_id,
-        'ontology_uri': 'http://example.org/legal-ethics#CaseFile'
+# Example of predefined condition types in scripts/populate_entities.py
+ENTITY_TYPES = {
+    "Law Practice": {
+        "condition_types": [
+            {
+                "name": "Conflict of Interest",
+                "description": "Situation where professional judgment may be compromised.",
+                "category": "Ethical",
+                "severity_range": {"min": 1, "max": 10},
+                "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#ConflictOfInterest"
+            },
+            # More condition types...
+        ],
+        "roles": [
+            {
+                "name": "Attorney",
+                "description": "Legal professional licensed to practice law.",
+                "tier": 2,
+                "ontology_uri": "http://proethica.org/ontology/nj-legal-ethics#Attorney"
+            },
+            # More roles...
+        ]
     },
-    # More resource types...
-]
-
-# Create resource types in the database
-for rt_data in resource_types:
-    resource_type = ResourceType(**rt_data)
-    db.session.add(resource_type)
+    # More worlds...
+}
 ```
+
+These predefined entity types serve as a foundation that can be extended or modified as needed.
 
 ## Best Practices for Entity Management
 
@@ -566,5 +566,190 @@ def create_engineering_safety_scenario():
 if __name__ == "__main__":
     create_engineering_safety_scenario()
 ```
+
+## Simplified Entity Management with the Entity Manager
+
+The system includes a centralized `entity_manager` utility module that simplifies the process of managing entities. This module provides higher-level functions that handle many of the low-level details like looking up or creating entity types.
+
+### Using the Entity Manager
+
+The entity manager is located at `utilities/entity_manager.py` and provides the following key functions:
+
+1. **Creating Complete Scenarios**:
+
+```python
+from utilities.entity_manager import create_ethical_scenario
+
+# Create a complete scenario including characters, resources, and timeline
+scenario_id = create_ethical_scenario(
+    world_name="Engineering Ethics",
+    scenario_name="Bridge Safety Dilemma",
+    scenario_description="A structural engineer discovers potential safety issues...",
+    characters={
+        "engineer": {
+            "name": "Alex Chen",
+            "role": "Structural Engineer",
+            "attributes": {"years_experience": 8},
+            "conditions": [
+                {"type": "Safety Risk", "description": "Concerned about failure", "severity": 8}
+            ]
+        },
+        # More characters...
+    },
+    resources=[
+        {
+            "name": "Bridge Design Specifications",
+            "type": "Design Document",
+            "description": "Technical specifications for the bridge design"
+        },
+        # More resources...
+    ],
+    timeline={
+        "events": [
+            {
+                "description": "Alex discovers structural weakness",
+                "character": "engineer",
+                "days": 0,
+                "parameters": {"location": "Engineering office"}
+            },
+            # More events...
+        ],
+        "actions": [
+            {
+                "name": "Ethical Decision",
+                "description": "Alex must decide whether to report the concern",
+                "character": "engineer",
+                "days": 3,
+                "is_decision": True,
+                "options": [
+                    "Report safety concerns",
+                    "Suggest minor modifications",
+                    # More options...
+                ]
+            },
+            # More actions...
+        ]
+    }
+)
+```
+
+2. **Individual Entity Creation**:
+
+```python
+from utilities.entity_manager import create_or_update_character, create_or_update_resource
+
+# Create or update a character
+character = create_or_update_character(
+    scenario_id=1,
+    name="Jane Smith",
+    role_name="Attorney",
+    attributes={"specialty": "corporate law"},
+    conditions=[
+        {"type": "Conflict of Interest", "description": "Past association with client", "severity": 7}
+    ]
+)
+
+# Create or update a resource
+resource = create_or_update_resource(
+    scenario_id=1,
+    name="Legal Brief",
+    resource_type_name="Legal Document",
+    description="Arguments for motion to dismiss",
+    quantity=1
+)
+```
+
+3. **Timeline Management**:
+
+```python
+from utilities.entity_manager import create_timeline_event, create_timeline_action
+from datetime import datetime
+
+# Create an event
+event = create_timeline_event(
+    scenario_id=1,
+    description="Client reveals new information",
+    character_id=5,
+    event_time=datetime.now(),
+    parameters={"location": "Law office", "importance": "high"}
+)
+
+# Create a decision point
+action = create_timeline_action(
+    scenario_id=1,
+    name="Advise on Disclosure",
+    description="Determine how to handle sensitive information",
+    character_id=5,
+    is_decision=True,
+    options=[
+        "Full disclosure to authorities",
+        "Partial disclosure with client protections",
+        "No disclosure"
+    ]
+)
+```
+
+4. **Entity Type Population from Ontologies**:
+
+```python
+from utilities.entity_manager import populate_entity_types_from_ontology
+
+# Populate roles, condition types, and resource types from an ontology
+results = populate_entity_types_from_ontology(
+    world_id=3,
+    ontology_path="mcp/ontology/legal_ethics.ttl"
+)
+
+print(f"Created/updated {results['roles']} roles")
+print(f"Created/updated {results['condition_types']} condition types")
+print(f"Created/updated {results['resource_types']} resource types")
+```
+
+### Simplified Scenario Creation Script
+
+The system includes a template script at `scripts/populate_scenario_template.py` that demonstrates how to use the entity manager to create complete scenarios. This script uses a declarative dictionary-based format to define all aspects of a scenario:
+
+```python
+# Define your scenario data
+scenario_data = {
+    "name": "Bridge Safety Dilemma",
+    "description": "A structural engineer discovers potential safety issues...",
+    
+    "characters": {
+        "engineer": {
+            "name": "Alex Chen",
+            "role": "Structural Engineer",
+            "conditions": [...]
+        },
+        # More characters...
+    },
+    
+    "resources": [...],
+    
+    "timeline": {
+        "events": [...],
+        "actions": [...]
+    }
+}
+
+# Create the scenario
+from utilities.entity_manager import create_ethical_scenario
+scenario_id = create_ethical_scenario(
+    world_name="Engineering Ethics",
+    scenario_name=scenario_data["name"],
+    scenario_description=scenario_data["description"],
+    characters=scenario_data["characters"],
+    resources=scenario_data["resources"],
+    timeline=scenario_data["timeline"]
+)
+```
+
+### Benefits of Using the Entity Manager
+
+1. **Simplified Code**: The entity manager handles many low-level details, resulting in cleaner, more concise code
+2. **Consistent Entity Creation**: Ensures that entities are created in a consistent way across different scripts
+3. **Error Handling**: Includes robust error handling for missing entity types
+4. **Reusable Functions**: Provides reusable functions for common entity management tasks
+5. **Declarative Approach**: Enables a declarative approach to scenario creation using dictionaries
 
 This comprehensive guide should help you understand how to add and manage entities in scenarios for the AI Ethical Decision-Making Simulator.
