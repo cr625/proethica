@@ -53,12 +53,13 @@ class MCPClient:
             print(f"Error getting guidelines: {str(e)}")
             return {}
     
-    def get_world_entities(self, ontology_source: str) -> Dict[str, Any]:
+    def get_world_entities(self, ontology_source: str, entity_type: str = "all") -> Dict[str, Any]:
         """
         Get entities for a specific world from ontology.
         
         Args:
             ontology_source: Source of the ontology
+            entity_type: Type of entity to retrieve (roles, conditions, resources, actions, events, or all)
             
         Returns:
             Dictionary containing entities
@@ -71,7 +72,12 @@ class MCPClient:
             api_url = f"{self.mcp_url}/api/ontology/{ontology_source}/entities"
             print(f"MCPClient: Making request to: {api_url}")
             
-            response = self.session.get(api_url)
+            # Add entity_type as a query parameter if specified
+            params = {}
+            if entity_type and entity_type != "all":
+                params["type"] = entity_type
+                
+            response = self.session.get(api_url, params=params)
             
             # Check if request was successful
             if response.status_code == 200:

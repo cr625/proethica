@@ -25,9 +25,32 @@
                     <select class="form-select" id="role_id" name="role_id">
                         <option value="">-- Select a Role --</option>
 
-                        {% if roles or ontology_roles %}
+                        {% if ontology_roles or roles %}
 
-                        {% if roles %}
+                        <!-- Prioritize ontology roles -->
+                        {% if ontology_roles %}
+                        <optgroup label="Available Roles">
+                            {% for role in ontology_roles %}
+                            <option value="{{ role.id }}" 
+                                data-description="{{ role.description }}"
+                                data-tier="{{ role.tier }}"
+                                data-tier-level="{{ role.tier_level }}"
+                                data-parent="{{ role.parent|tojson if role.parent else '' }}"
+                                data-capabilities="{{ role.capabilities|tojson if role.capabilities else '' }}"
+                                {% if role.id==character.role_id %}selected{% endif %}>
+                                {{ role.label }} 
+                                {% if role.tier %}
+                                  ({{ role.tier_level|default('Tier 0') }})
+                                {% endif %}
+                                {% if role.parent %}
+                                  - {{ role.parent.label }}
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        
+                        <!-- Only show database roles if no ontology roles are available or for backward compatibility -->
+                        {% elif roles %}
                         <optgroup label="Database Roles">
                             {% for role in roles %}
                             <option value="{{ role.id }}" data-description="{{ role.description }}"
@@ -38,21 +61,13 @@
                         </optgroup>
                         {% endif %}
 
-                        {% if ontology_roles %}
-                        <optgroup label="Ontology Roles">
-                            {% for role in ontology_roles %}
-                            <option value="{{ role.id }}" data-description="{{ role.description }}"
-                                data-tier="{{ role.tier }}" {% if role.id==character.role_id %}selected{% endif %}>
-                                {{ role.label }} {% if role.tier %}(Tier {{ role.tier }}){% endif %}
-                            </option>
-                            {% endfor %}
-                        </optgroup>
-                        {% endif %}
-
                         {% else %}
                         <option value="" disabled>No roles available for this world</option>
                         {% endif %}
                     </select>
+                    <div class="form-text">
+                        Roles are defined in the ontology files and reflect the professional positions in this world.
+                    </div>
                 </div>
 
                 <div id="role-details" class="card mt-3 mb-3 d-none">
@@ -343,17 +358,70 @@
             const selectedOption = roleSelect.options[roleSelect.selectedIndex];
             const description = selectedOption.getAttribute('data-description');
             const tier = selectedOption.getAttribute('data-tier');
+            const tierLevel = selectedOption.getAttribute('data-tier-level');
             const roleName = selectedOption.textContent.trim();
+            
+            // Parse capabilities and parent if available
+            let capabilities = [];
+            try {
+                const capabilitiesAttr = selectedOption.getAttribute('data-capabilities');
+                if (capabilitiesAttr && capabilitiesAttr !== '') {
+                    capabilities = JSON.parse(capabilitiesAttr);
+                }
+            } catch (e) {
+                console.error('Error parsing capabilities:', e);
+            }
+            
+            let parent = null;
+            try {
+                const parentAttr = selectedOption.getAttribute('data-parent');
+                if (parentAttr && parentAttr !== '') {
+                    parent = JSON.parse(parentAttr);
+                }
+            } catch (e) {
+                console.error('Error parsing parent:', e);
+            }
 
             const roleDetails = document.getElementById('role-details');
             const roleTitle = document.getElementById('role-title');
             const roleTier = document.getElementById('role-tier');
             const roleDescription = document.getElementById('role-description');
 
-            if (description && roleSelect.value !== '') {
+            if (roleSelect.value !== '') {
+                // Set title and add parent info if available
                 roleTitle.textContent = roleName;
-                roleTier.textContent = tier ? `Tier ${tier}` : '';
-                roleDescription.innerHTML = description.replace(/\n/g, '<br>');
+                
+                // Set tier info
+                let tierText = '';
+                if (tierLevel) {
+                    tierText = `Tier ${tierLevel}`;
+                } else if (tier) {
+                    tierText = `Tier: ${tier}`;
+                }
+                roleTier.textContent = tierText;
+                
+                // Create description HTML
+                let descriptionHtml = '';
+                if (description) {
+                    descriptionHtml += `<p>${description.replace(/\n/g, '<br>')}</p>`;
+                }
+                
+                // Add parent info if available
+                if (parent) {
+                    descriptionHtml += `<p><strong>Parent Role:</strong> ${parent.label}</p>`;
+                }
+                
+                // Add capabilities if available
+                if (capabilities && capabilities.length > 0) {
+                    descriptionHtml += '<div class="mt-3"><strong>Capabilities:</strong><ul>';
+                    capabilities.forEach(capability => {
+                        descriptionHtml += `<li>${capability.label}</li>`;
+                    });
+                    descriptionHtml += '</ul></div>';
+                }
+                
+                // Set HTML content
+                roleDescription.innerHTML = descriptionHtml;
                 roleDetails.classList.remove('d-none');
             } else {
                 roleDetails.classList.add('d-none');

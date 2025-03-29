@@ -13,10 +13,13 @@ def get_ontology_entities(ontology_source):
 
     Args:
         ontology_source: Path to the ontology source file
+        type: (optional query parameter) Filter entities by type (roles, conditions, resources, actions, events, or all)
 
     Returns:
         JSON response with entities
     """
+    # Get entity_type query parameter (default to 'all')
+    entity_type = request.args.get('type', 'all')
     try:
         # Parse the TTL file directly using rdflib
         import os
@@ -70,27 +73,96 @@ def get_ontology_entities(ontology_source):
                 return str(o)
             return ""
 
-        # Extract roles
+        # Extract roles - both direct instances and roles that are also classes
         roles = []
+        
+        # First, get direct instances of Role
         for s in g.subjects(RDF.type, namespace.Role):
-            role = {
-                "id": str(s),
-                "label": label_or_id(s),
-                "description": get_description(s)
-            }
-            
-            # Add tier if available
-            for o in g.objects(s, namespace.hasTier):
-                role["tier"] = str(o)
-            
-            # Add capabilities if available
-            capabilities = []
-            for o in g.objects(s, namespace.hasCapability):
-                capabilities.append(str(o))
-            if capabilities:
-                role["capabilities"] = capabilities
-            
-            roles.append(role)
+            # Skip if it's also an OWL class (we'll handle those separately)
+            if (s, RDF.type, OWL.Class) not in g:
+                role = {
+                    "id": str(s),
+                    "label": label_or_id(s),
+                    "description": get_description(s)
+                }
+                
+                # Add tier if available
+                for o in g.objects(s, namespace.hasTier):
+                    tier_str = str(o)
+                    role["tier"] = tier_str
+                    # Extract tier level based on name
+                    if "EntryLevel" in tier_str:
+                        role["tier_level"] = 1
+                    elif "MidLevel" in tier_str:
+                        role["tier_level"] = 2
+                    elif "SeniorLevel" in tier_str:
+                        role["tier_level"] = 3
+                    elif "ExecutiveLevel" in tier_str:
+                        role["tier_level"] = 4
+                
+                # Add capabilities if available
+                capabilities = []
+                for o in g.objects(s, namespace.hasCapability):
+                    capability = {
+                        "id": str(o),
+                        "label": label_or_id(o)
+                    }
+                    capabilities.append(capability)
+                if capabilities:
+                    role["capabilities"] = capabilities
+                
+                roles.append(role)
+        
+        # Then, look for classes that are also marked as Role types
+        for s in g.subjects(RDF.type, OWL.Class):
+            # Check if this class is also a Role
+            if (s, RDF.type, namespace.Role) in g:
+                # Check if we already added this role
+                if not any(r["id"] == str(s) for r in roles):
+                    role = {
+                        "id": str(s),
+                        "label": label_or_id(s),
+                        "description": get_description(s)
+                    }
+                    
+                    # Get parent class if any
+                    for parent in g.objects(s, RDFS.subClassOf):
+                        parent_str = str(parent)
+                        if parent_str != str(namespace.Role):
+                            role["parent"] = {
+                                "id": parent_str,
+                                "label": label_or_id(parent)
+                            }
+                    
+                    # Add tier if available
+                    for o in g.objects(s, namespace.hasTier):
+                        tier_str = str(o)
+                        role["tier"] = tier_str
+                        # Extract tier level based on name
+                        if "EntryLevel" in tier_str:
+                            role["tier_level"] = 1
+                        elif "MidLevel" in tier_str:
+                            role["tier_level"] = 2
+                        elif "SeniorLevel" in tier_str:
+                            role["tier_level"] = 3
+                        elif "ExecutiveLevel" in tier_str:
+                            role["tier_level"] = 4
+                    
+                    # Add capabilities if available
+                    capabilities = []
+                    for o in g.objects(s, namespace.hasCapability):
+                        capability = {
+                            "id": str(o),
+                            "label": label_or_id(o)
+                        }
+                        capabilities.append(capability)
+                    if capabilities:
+                        role["capabilities"] = capabilities
+                    
+                    roles.append(role)
+        
+        # Sort roles by tier level if available
+        roles.sort(key=lambda r: r.get("tier_level", 0))
 
         # Extract conditions
         conditions = []
@@ -188,17 +260,17 @@ def get_ontology_entities(ontology_source):
             
             events.append(event)
 
-        # Create the entities dictionary
+        # Create the entities dictionary, filtering by entity_type if specified
         entities = {}
-        if roles:
+        if entity_type in ('all', 'roles') and roles:
             entities["roles"] = roles
-        if conditions:
+        if entity_type in ('all', 'conditions') and conditions:
             entities["conditions"] = conditions
-        if resources:
+        if entity_type in ('all', 'resources') and resources:
             entities["resources"] = resources
-        if actions:
+        if entity_type in ('all', 'actions') and actions:
             entities["actions"] = actions
-        if events:
+        if entity_type in ('all', 'events') and events:
             entities["events"] = events
 
         return jsonify({"entities": entities})

@@ -162,19 +162,94 @@ class OntologyMCPServer:
         
         def get_description(s):
             return str(next(graph.objects(s, RDFS.comment), ""))
+        
+        def extract_tier_info(s, tier_uri):
+            """Extract tier information including label and level"""
+            tier_label = label_or_id(tier_uri)
+            # Extract tier level info if available
+            if tier_uri:
+                # Check if it's EntryLevel, MidLevel, SeniorLevel, or ExecutiveLevel
+                if "EntryLevel" in str(tier_uri):
+                    return {"uri": str(tier_uri), "label": tier_label, "level": 1}
+                elif "MidLevel" in str(tier_uri):
+                    return {"uri": str(tier_uri), "label": tier_label, "level": 2}
+                elif "SeniorLevel" in str(tier_uri):
+                    return {"uri": str(tier_uri), "label": tier_label, "level": 3}
+                elif "ExecutiveLevel" in str(tier_uri):
+                    return {"uri": str(tier_uri), "label": tier_label, "level": 4}
+            return {"uri": str(tier_uri), "label": tier_label, "level": 0}
 
         out = {}
         if entity_type in ("all", "roles"):
-            out["roles"] = [
-                {
+            # Collect all possible roles - both direct instances and subclasses
+            roles = []
+            
+            # First, get direct instances of Role
+            for s in graph.subjects(RDF.type, namespace.Role):
+                # Get or create role object
+                role_obj = {
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "tier": str(next(graph.objects(s, namespace.hasTier), "")),
-                    "capabilities": [str(o) for o in graph.objects(s, namespace.hasCapability)]
+                    "capabilities": []
                 }
-                for s in graph.subjects(RDF.type, namespace.Role)
-            ]
+                
+                # Get tier information
+                tier_uri = next(graph.objects(s, namespace.hasTier), None)
+                if tier_uri:
+                    role_obj["tier"] = extract_tier_info(s, tier_uri)
+                
+                # Get capabilities
+                for o in graph.objects(s, namespace.hasCapability):
+                    capability = {
+                        "id": str(o),
+                        "label": label_or_id(o)
+                    }
+                    role_obj["capabilities"].append(capability)
+                
+                roles.append(role_obj)
+            
+            # Then, look for classes that are also marked as Role types (common pattern)
+            for s in graph.subjects(RDF.type, OWL.Class):
+                # Check if this class is also a Role
+                if (s, RDF.type, namespace.Role) in graph:
+                    # Check if we already added this role
+                    if not any(r["id"] == str(s) for r in roles):
+                        # Add new role
+                        role_obj = {
+                            "id": str(s), 
+                            "label": label_or_id(s),
+                            "description": get_description(s),
+                            "capabilities": []
+                        }
+                        
+                        # Get parent class if any
+                        for parent in graph.objects(s, RDFS.subClassOf):
+                            if str(parent) != str(namespace.Role):
+                                role_obj["parent"] = {
+                                    "id": str(parent),
+                                    "label": label_or_id(parent)
+                                }
+                        
+                        # Get tier information
+                        tier_uri = next(graph.objects(s, namespace.hasTier), None)
+                        if tier_uri:
+                            role_obj["tier"] = extract_tier_info(s, tier_uri)
+                        
+                        # Get capabilities
+                        for o in graph.objects(s, namespace.hasCapability):
+                            capability = {
+                                "id": str(o),
+                                "label": label_or_id(o)
+                            }
+                            role_obj["capabilities"].append(capability)
+                        
+                        roles.append(role_obj)
+            
+            # Sort roles by tier level if available
+            roles.sort(key=lambda r: r.get("tier", {}).get("level", 0))
+            
+            out["roles"] = roles
         if entity_type in ("all", "conditions"):
             out["conditions"] = [
                 {

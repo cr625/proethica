@@ -119,22 +119,28 @@ def new_character(id):
     # Get condition types for the scenario's world
     condition_types = ConditionType.query.filter_by(world_id=scenario.world_id).all()
     
-    # Get roles from the ontology if the world has an ontology source
+    # Get roles and condition types from the ontology if the world has an ontology source
     ontology_roles = []
-    # Get condition types from the ontology if the world has an ontology source
     ontology_condition_types = []
     
     if world and world.ontology_source:
         try:
-            # Get roles from ontology
-            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
-            if entities and 'entities' in entities and 'roles' in entities['entities']:
-                ontology_roles = entities['entities']['roles']
+            # Get all entity types from ontology in one request
+            entities = mcp_client.get_world_entities(world.ontology_source)
+            print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
+            
+            if entities and 'entities' in entities:
+                print(f"Final entities structure: {entities.keys()}")
+                entity_dict = entities['entities']
+                print(f"Entity types: {entity_dict.keys() if isinstance(entity_dict, dict) else 'not a dict'}")
                 
-            # Get condition types from ontology
-            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
-            if entities and 'entities' in entities and 'conditions' in entities['entities']:
-                ontology_condition_types = entities['entities']['conditions']
+                # Extract roles if available
+                if 'roles' in entity_dict:
+                    ontology_roles = entity_dict['roles']
+                
+                # Extract condition types if available
+                if 'conditions' in entity_dict:
+                    ontology_condition_types = entity_dict['conditions']
         except Exception as e:
             print(f"Error retrieving entities from ontology: {str(e)}")
     
@@ -296,22 +302,25 @@ def edit_character(id, character_id):
     # Get condition types for the scenario's world
     condition_types = ConditionType.query.filter_by(world_id=scenario.world_id).all()
     
-    # Get roles from the ontology if the world has an ontology source
+    # Get roles and condition types from the ontology if the world has an ontology source
     ontology_roles = []
-    # Get condition types from the ontology if the world has an ontology source
     ontology_condition_types = []
     
     if world and world.ontology_source:
         try:
-            # Get roles from ontology
-            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="roles")
-            if entities and 'entities' in entities and 'roles' in entities['entities']:
-                ontology_roles = entities['entities']['roles']
+            # Get all entity types from ontology in one request
+            entities = mcp_client.get_world_entities(world.ontology_source)
+            
+            if entities and 'entities' in entities:
+                entity_dict = entities['entities']
                 
-            # Get condition types from ontology
-            entities = mcp_client.get_world_entities(world.ontology_source, entity_type="conditions")
-            if entities and 'entities' in entities and 'conditions' in entities['entities']:
-                ontology_condition_types = entities['entities']['conditions']
+                # Extract roles if available
+                if 'roles' in entity_dict:
+                    ontology_roles = entity_dict['roles']
+                
+                # Extract condition types if available
+                if 'conditions' in entity_dict:
+                    ontology_condition_types = entity_dict['conditions']
         except Exception as e:
             print(f"Error retrieving entities from ontology: {str(e)}")
     
