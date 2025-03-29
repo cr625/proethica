@@ -51,7 +51,6 @@ eng:Professional a owl:Class ;
     rdfs:subClassOf eng:Character ;
     rdfs:label "Professional"@en ;
     rdfs:comment "A professional in the engineering field"@en .
-
 eng:Stakeholder a owl:Class ;
     rdf:type eng:CharacterType ;
     rdfs:subClassOf eng:Character ;
@@ -168,6 +167,14 @@ eng:SafetyInspector rdf:type eng:Role ;
     rdfs:comment "Professional responsible for safety inspections"@en ;
     eng:hasTier eng:MidLevel .
 
+eng:StructuralEngineer rdf:type owl:Class ;
+    rdf:type eng:Role ;
+    rdfs:subClassOf eng:Engineer ;
+    rdfs:label "Structural Engineer"@en ;
+    rdfs:comment "Engineer specialized in analyzing structural integrity of buildings and infrastructure"@en ;
+    eng:hasTier eng:MidLevel ;
+    eng:hasCapability eng:TechnicalReview, eng:SafetyAnalysis, eng:RegulatoryCompliance, eng:EthicalJudgment .
+
 # Engineering Disciplines
 eng:EngineeringDiscipline rdf:type owl:Class ;
     rdfs:label "Engineering Discipline"@en ;
@@ -252,6 +259,34 @@ eng:RegulatoryNoncompliance a owl:Class ;
     rdfs:label "Regulatory Noncompliance"@en ;
     rdfs:comment "A condition where engineering work does not comply with regulations"@en ;
     owl:equivalentClass nspe:LegalCompliance .
+
+# Building System Deficiency - New condition for Case 89-7-1
+eng:BuildingSystemDeficiency rdf:type owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:SafetyIssue ;
+    rdfs:label "Building System Deficiency"@en ;
+    rdfs:comment "A safety issue related to deficient building systems (electrical, mechanical, etc.) that may pose hazards to occupants"@en .
+
+# Confidentiality Obligation - New condition for Case 89-7-1
+eng:ConfidentialityObligation rdf:type owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Confidentiality Obligation"@en ;
+    rdfs:comment "A professional obligation to maintain confidentiality of client information and findings"@en .
+
+# Ethical Principles Conflict - New condition for Case 89-7-1
+eng:EthicalPrinciplesConflict rdf:type owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Ethical Principles Conflict"@en ;
+    rdfs:comment "A situation where two or more ethical principles or obligations conflict with each other"@en .
+
+# As-Is Property Condition - New condition for Case 89-7-1
+eng:AsIsPropertyCondition rdf:type owl:Class ;
+    rdf:type eng:ConditionType ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "As-Is Property Condition"@en ;
+    rdfs:comment "A property being sold or transferred without remediation of known issues, which may have ethical implications"@en .
 
 # Ethical categories
 eng:EthicalCategory a owl:Class ;
@@ -342,6 +377,25 @@ eng:ExpertConsultation a owl:Class ;
     rdfs:label "Expert Consultation"@en ;
     rdfs:comment "Consultation with subject matter experts"@en ;
     owl:equivalentClass nspe:ProfessionalConsultation .
+
+# Resources specific to Case 89-7-1
+eng:StructuralInspectionReport rdf:type owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:InspectionReport ;
+    rdfs:label "Structural Inspection Report"@en ;
+    rdfs:comment "A report documenting findings from a structural inspection of a building"@en .
+
+eng:ConfidentialityAgreement rdf:type owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:TechnicalDocument ;
+    rdfs:label "Confidentiality Agreement"@en ;
+    rdfs:comment "A contractual agreement that requires an engineer to maintain confidentiality of findings"@en .
+
+eng:BuildingCode rdf:type owl:Class ;
+    rdf:type eng:ResourceType ;
+    rdfs:subClassOf eng:RegulatoryStandard ;
+    rdfs:label "Building Code"@en ;
+    rdfs:comment "Official regulations governing building safety and standards"@en .
 
 # Capabilities
 eng:Capability rdf:type owl:Class ;
@@ -461,6 +515,31 @@ eng:BudgetReview a owl:Class ;
     rdfs:label "Budget Review"@en ;
     rdfs:comment "A review of project budget"@en .
 
+# Events specific to Case 89-7-1
+eng:StructuralInspectionEvent rdf:type owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ReviewEvent ;
+    rdfs:label "Structural Inspection Event"@en ;
+    rdfs:comment "An inspection of a building's structural integrity"@en .
+
+eng:ClientDisclosureEvent rdf:type owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ProjectEvent ;
+    rdfs:label "Client Disclosure Event"@en ;
+    rdfs:comment "An event where a client reveals important information to an engineer"@en .
+
+eng:ConfidentialReportDelivery rdf:type owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:ProjectEvent ;
+    rdfs:label "Confidential Report Delivery"@en ;
+    rdfs:comment "Delivery of a report under confidentiality constraints"@en .
+
+eng:SafetyHazardDiscovery rdf:type owl:Class ;
+    rdf:type eng:EventType ;
+    rdfs:subClassOf eng:SafetyIncident ;
+    rdfs:label "Safety Hazard Discovery"@en ;
+    rdfs:comment "Discovery of a potential safety hazard during professional work"@en .
+
 # Event Properties
 eng:eventSeverity rdf:type owl:DatatypeProperty ;
     rdfs:domain eng:EventType ;
@@ -553,6 +632,31 @@ eng:CertifyCompliance a owl:Class ;
     rdfs:label "Certify Compliance"@en ;
     rdfs:comment "Certify that work complies with regulations"@en .
 
+# Actions specific to Case 89-7-1
+eng:ConductStructuralInspection rdf:type owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ReviewAction ;
+    rdfs:label "Conduct Structural Inspection"@en ;
+    rdfs:comment "Perform a professional review of a structure's integrity"@en .
+
+eng:MaintainConfidentiality rdf:type owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ComplianceAction ;
+    rdfs:label "Maintain Confidentiality"@en ;
+    rdfs:comment "Keep client information confidential per contractual obligations"@en .
+
+eng:ReportSafetyViolation rdf:type owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ReportViolation ;
+    rdfs:label "Report Safety Violation"@en ;
+    rdfs:comment "Alert authorities to safety violations or hazards"@en .
+
+eng:WithholdSafetyInformation rdf:type owl:Class ;
+    rdf:type eng:ActionType ;
+    rdfs:subClassOf eng:ComplianceAction ;
+    rdfs:label "Withhold Safety Information"@en ;
+    rdfs:comment "Not disclosing safety hazards to relevant authorities"@en .
+
 # Action Properties
 eng:actionPriority rdf:type owl:DatatypeProperty ;
     rdfs:domain eng:ActionType ;
@@ -592,6 +696,13 @@ eng:DesignCompromiseDecision a owl:Class ;
     rdf:type eng:DecisionType ;
     rdfs:label "Design Compromise Decision"@en ;
     rdfs:comment "A decision about compromises in design"@en .
+
+# Decision types specific to Case 89-7-1
+eng:ConfidentialityVsSafetyDecision rdf:type owl:Class ;
+    rdf:type eng:DecisionType ;
+    rdfs:subClassOf eng:WhistleblowingDecision ;
+    rdfs:label "Confidentiality vs Safety Decision"@en ;
+    rdfs:comment "A decision between maintaining client confidentiality and protecting public safety"@en .
 
 # Properties
 eng:hasTier rdf:type owl:ObjectProperty ;
@@ -672,40 +783,3 @@ eng:ChiefEngineer eng:hasCapability eng:TechnicalDesign, eng:RiskAssessment, eng
 eng:ProjectManager eng:hasCapability eng:ProjectManagement, eng:StakeholderCommunication, eng:BudgetManagement, eng:EthicalJudgment .
 
 eng:ComplianceOfficer eng:hasCapability eng:RegulatoryCompliance, eng:EthicalJudgment, eng:WhistleblowingJudgment .
-
-# Sample individuals
-eng:Engineer1 a eng:ProfessionalEngineer ;
-    rdfs:label "Professional Engineer"@en ;
-    eng:hasDiscipline eng:CivilEngineering ;
-    eng:hasCondition eng:DesignDefect1 .
-
-eng:Client1 a eng:CorporateClient ;
-    rdfs:label "Corporate Client"@en ;
-    rdfs:comment "A corporate entity commissioning a bridge construction project"@en ;
-    eng:hasCondition eng:BudgetConstraint1 ;
-    eng:receivesAction eng:BridgeDesign1 .
-
-eng:DesignDefect1 a eng:DesignDefect ;
-    rdfs:label "Bridge Support Defect"@en ;
-    eng:severity "High"^^xsd:string ;
-    eng:impact "Public Safety"^^xsd:string ;
-    eng:hasEthicalCategory eng:HighRisk .
-
-eng:BudgetConstraint1 a eng:BudgetConstraint ;
-    rdfs:label "Project Budget Constraint"@en ;
-    eng:severity "Moderate"^^xsd:string ;
-    eng:impact "Design Limitations"^^xsd:string ;
-    eng:hasEthicalCategory eng:ModerateRisk .
-
-eng:BridgeDesign1 a eng:CreateDesign ;
-    rdfs:label "Bridge Design"@en ;
-    rdfs:comment "Design of a bridge structure"@en ;
-    eng:actionPriority "High"^^xsd:string ;
-    eng:actionDuration "240"^^xsd:integer ;
-    eng:ethicalImpact "Public Safety"^^xsd:string ;
-    eng:actionForClient eng:Client1 .
-
-eng:Blueprints1 a eng:Blueprints ;
-    rdfs:label "Bridge Design Blueprints"@en ;
-    rdfs:comment "Technical drawings for the bridge design"@en ;
-    eng:quantity "1"^^xsd:integer .
