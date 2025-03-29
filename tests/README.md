@@ -1,100 +1,99 @@
-# Route Tests
+# ProEthica Testing Guide
 
-This directory contains tests for all the routes in the application. The tests are organized by route module and use pytest as the testing framework.
+This guide explains how to run tests in the ProEthica application using PostgreSQL.
 
-## Test Structure
+## Testing Database Configuration
 
-- `conftest.py`: Contains shared fixtures and setup for all tests
-- `test_auth_routes.py`: Tests for authentication routes (login, register, logout)
-- `test_entities_routes.py`: Tests for entity management routes
-- `test_scenarios_routes.py`: Tests for scenario management routes (scenarios, characters, resources, actions, events)
-- `test_worlds_routes.py`: Tests for world management routes (worlds, cases, rulesets, references)
-- `test_all_routes.py`: Imports and runs all route tests to ensure all routes are working correctly
+ProEthica uses PostgreSQL for both production and testing to ensure consistency:
 
-## Running the Tests
+- **Production**: Uses the main PostgreSQL database `ai_ethical_dm`
+- **Testing**: Uses a dedicated PostgreSQL database `ai_ethical_dm_test`
 
-To run all tests:
+We previously used SQLite in-memory for tests, but this approach had several issues:
+- SQLite lacks some PostgreSQL features used in the app
+- Differences in SQL dialects can cause tests to pass but fail in production
+- Data type handling differences between SQLite and PostgreSQL
+- Transaction behavior differences that could mask bugs
 
-```bash
-pytest
-```
+## Test Database Management
 
-To run tests for a specific module:
+The test database is managed using scripts:
 
-```bash
-pytest tests/test_scenarios_routes.py
-```
+1. **manage_test_db.py**: Creates, drops, or resets the test database
+   ```bash
+   # Create the test database
+   python scripts/manage_test_db.py --create
+   
+   # Drop the test database
+   python scripts/manage_test_db.py --drop
+   
+   # Reset the test database (drop and recreate)
+   python scripts/manage_test_db.py --reset
+   ```
 
-To run all route tests at once:
+2. **run_tests_with_pg.py**: Sets up the test database and runs tests
+   ```bash
+   # Run all tests
+   python scripts/run_tests_with_pg.py
+   
+   # Run with verbose output
+   python scripts/run_tests_with_pg.py --verbose
+   
+   # Run a specific test
+   python scripts/run_tests_with_pg.py tests/test_mcp_api.py
+   
+   # Only setup the database without running tests
+   python scripts/run_tests_with_pg.py --setup-only
+   ```
 
-```bash
-pytest tests/test_all_routes.py
-```
+## Running Tests
 
-To run a specific test:
-
-```bash
-pytest tests/test_scenarios_routes.py::test_list_scenarios
-```
-
-To run tests with verbose output:
-
-```bash
-pytest -v
-```
-
-You can also use the run_tests.py script:
+The main `run_tests.py` script delegates to `run_tests_with_pg.py` to ensure the test database is properly set up:
 
 ```bash
 # Run all tests
-./run_tests.py
+python run_tests.py
 
 # Run with verbose output
-./run_tests.py -v
+python run_tests.py -v
 
-# Run specific test file
-./run_tests.py tests/test_scenarios_routes.py
-
-# Run all route tests
-./run_tests.py tests/test_all_routes.py
+# Run a specific test file
+python run_tests.py tests/test_mcp_api.py
 ```
 
-## Test Coverage
+## Test Fixtures
 
-The tests cover the following functionality:
+The test fixtures in `conftest.py` provide:
 
-### Authentication Routes
-- Login
-- Registration
-- Logout
-- Redirects for authenticated/unauthenticated users
+1. **Database Setup**: PostgreSQL test database creation and initialization
+2. **Test Isolation**: Each test gets a clean database state
+3. **Test Data**: Helper fixtures for creating test users, worlds, scenarios, etc.
+4. **Authentication**: Helper fixtures for authenticated clients
 
-### Entity Routes
-- Creating entities
-- Adding entities to events
-- Error handling for invalid requests
+## Best Practices
 
-### Scenario Routes
-- API endpoints for scenarios
-- Web routes for scenarios
-- Character management
-- Resource management
-- Action management
-- Event management
-- Decision management
-- References
+When writing tests:
 
-### World Routes
-- API endpoints for worlds
-- Web routes for worlds
-- Case management
-- Ruleset management
-- References
+1. **Use Fixtures**: Leverage the provided fixtures to create test data
+2. **Isolate Tests**: Don't depend on data created by other tests
+3. **Mock External Services**: Use unittest.mock to mock external services
+4. **Clean Up**: Ensure tests clean up after themselves
+5. **Test Edge Cases**: Include tests for error conditions
 
-## Test Database
+## PostgreSQL-Specific Considerations
 
-The tests use a separate test database that is created and destroyed for each test. This ensures that tests don't interfere with each other and that the production database is not affected.
+Some PostgreSQL features that might need special attention in tests:
 
-## Mocking
+1. **JSON/JSONB**: ProEthica uses JSONB fields for flexible data storage
+2. **Array Types**: PostgreSQL's array types differ from SQLite
+3. **Full-Text Search**: PostgreSQL has powerful text search capabilities
+4. **Transactions**: PostgreSQL has different transaction semantics
 
-Some tests use mocking to simulate external dependencies, such as the MCP client for ontology and reference operations. This allows testing these routes without requiring the actual external services to be available.
+## Troubleshooting
+
+If tests fail, check:
+
+1. **Database Connection**: Ensure PostgreSQL is running and the test database exists
+2. **Environment Variables**: Check if `TEST_DATABASE_URL` is set correctly
+3. **Schema Issues**: Verify the test database schema matches the application models
+4. **Test Isolation**: Ensure tests aren't interfering with each other

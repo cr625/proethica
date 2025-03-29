@@ -20,7 +20,7 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or "postgresql://postgres:PASS@localhost/ai_ethical_dm_test"
     WTF_CSRF_ENABLED = False
 
 class ProductionConfig(Config):

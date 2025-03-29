@@ -1,5 +1,7 @@
 import os
+import sys
 import pytest
+import subprocess
 from datetime import datetime
 from app import create_app, db
 from app.models.world import World
@@ -14,8 +16,35 @@ from app.models.resource_type import ResourceType
 from app.models.user import User
 
 
+@pytest.fixture(scope="session")
+def setup_test_database():
+    """Set up the test database for all tests."""
+    # Get the path to the manage_test_db.py script
+    script_path = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'manage_test_db.py')
+    
+    # Run the script to reset the test database
+    print("Setting up test database...")
+    result = subprocess.run(['python', script_path, '--reset'], capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"Error setting up test database: {result.stderr}")
+        sys.exit(1)
+    
+    print("Test database setup complete.")
+    
+    yield
+    
+    # We don't need to drop the database after tests since it's a dedicated test database
+    # If you want to clean up after tests, uncomment the following:
+    # 
+    # print("Cleaning up test database...")
+    # result = subprocess.run(['python', script_path, '--drop'], capture_output=True, text=True)
+    # if result.returncode != 0:
+    #     print(f"Error cleaning up test database: {result.stderr}")
+
+
 @pytest.fixture
-def app():
+def app(setup_test_database):
     """Create and configure a Flask app for testing."""
     # Set the testing configuration
     os.environ['FLASK_ENV'] = 'testing'
@@ -23,16 +52,20 @@ def app():
     # Create the app with the testing configuration
     app = create_app('testing')
     
-    # Create a test database
+    # Start a fresh database session
     with app.app_context():
-        db.create_all()
+        # Truncate all tables to start with a clean slate for each test
+        # but keep the schema intact
+        db.session.execute(db.text('BEGIN'))
+        for table in reversed(db.metadata.sorted_tables):
+            db.session.execute(db.text(f'TRUNCATE TABLE "{table.name}" CASCADE'))
+        db.session.execute(db.text('COMMIT'))
     
     yield app
     
-    # Clean up the database
+    # Clean up after the test
     with app.app_context():
         db.session.remove()
-        db.drop_all()
 
 
 @pytest.fixture
