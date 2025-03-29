@@ -15,12 +15,14 @@ graph TD
     Services --> Agents[Agent System]
     Services --> Embedding[Embedding Service]
     Services --> MCP[MCP Client]
+    Services --> EntityMgr[Entity Manager]
     
     LLM --> Claude[Claude API]
     Agents --> AgentOrch[Agent Orchestrator]
     AgentOrch --> Guidelines[Guidelines Agent]
     Embedding --> Vector[(Vector Database)]
     MCP --> OntologyServer[Ontology MCP Server]
+    EntityMgr --> Models
 ```
 
 ## Data Models
@@ -225,7 +227,47 @@ The `EmbeddingService` handles document processing:
 - **Similarity Search**: Finds relevant document chunks
 - **PGVector Integration**: Uses PostgreSQL vector extension
 
-### 4. MCP Integration
+### 4. Entity Manager
+
+The `EntityManager` utility provides a centralized system for managing scenario entities:
+
+- **Character Management**: Creates and updates characters with roles and conditions
+- **Resource Management**: Handles resource creation with appropriate types
+- **Timeline Creation**: Builds events and actions with proper relationships
+- **Scenario Creation**: Creates complete scenarios from structured data
+- **Ontology Integration**: Populates entity types from ontology files
+
+The Entity Manager simplifies entity creation through high-level functions:
+
+```python
+# Creating a new scenario with all entities
+scenario_id = create_ethical_scenario(
+    world_name="Engineering Ethics",
+    scenario_name="Bridge Safety Dilemma",
+    scenario_description="A structural engineer discovers potential safety issues...",
+    characters={...},
+    resources=[...],
+    timeline={...}
+)
+
+# Creating or updating individual entities
+character = create_or_update_character(scenario_id, "Jane Smith", "Attorney", ...)
+resource = create_or_update_resource(scenario_id, "Legal Brief", "Document", ...)
+event = create_timeline_event(scenario_id, "Client meeting", ...)
+action = create_timeline_action(scenario_id, "Ethical Decision", ..., is_decision=True)
+```
+
+The utility also includes a consolidated script (`scripts/populate_entities.py`) for command-line operations:
+
+```bash
+# Populate entity types from ontology
+python scripts/populate_entities.py --world "Engineering Ethics" --ontology
+
+# Add test timeline items to a scenario
+python scripts/populate_entities.py --scenario 1 --test-timeline
+```
+
+### 5. MCP Integration
 
 The Model Context Protocol integration provides:
 
