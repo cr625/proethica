@@ -16,6 +16,15 @@ This script will:
 3. Launch the Flask application with the correct configuration
 4. Enable mock data fallback to ensure roles are always available
 
+## Environment Detection
+
+The application automatically detects whether to run in development or production mode based on:
+- The `ENVIRONMENT` environment variable if set
+- The hostname (production if running on proethica.org)
+- The git branch (production if on main/master branch)
+
+This automatic detection happens in both `auto_run.sh` and `run.py` to ensure consistent operation.
+
 ## Manual Start Options
 
 ### Option 1: Using auto_run.sh
@@ -55,6 +64,51 @@ export USE_MOCK_FALLBACK=true
 # Start using the production script
 ./run_proethica_with_agents.sh
 ```
+
+## Choosing Between Development and Production Modes
+
+The application can run in two distinct modes:
+
+1. **Development Mode**:
+   - Uses Flask's built-in development server
+   - Provides debug information and auto-reloading
+   - Better for local development and testing
+   - Configuration optimized for ease of debugging
+
+2. **Production Mode**:
+   - Uses Gunicorn for better performance and security
+   - No debug information or auto-reloading
+   - Required for production deployment
+   - Runs with more workers for improved performance
+
+## Key Environment Variables
+
+These variables affect application behavior:
+
+- `ENVIRONMENT`: Set to 'development' or 'production'
+- `FLASK_ENV`: Set to 'development' for debug mode
+- `MCP_SERVER_URL`: URL for the MCP server (typically http://localhost:5001)
+- `USE_MOCK_FALLBACK`: Set to 'true' to enable fallback to mock data when the MCP server fails
+- `USE_AGENT_ORCHESTRATOR`: Set to 'true' to enable agent orchestration
+- `MCP_SERVER_PORT`: Port for the MCP server (typically 5001)
+
+These can be set in the `.env` file or directly in your environment.
+
+## Debugging Startup Issues
+
+If you encounter issues starting the application:
+
+1. Check the `.env` file exists and contains the necessary variables
+2. Ensure the MCP server is running and accessible:
+   - Use `scripts/check_mcp_roles.py` to verify
+   - Check process status: `ps aux | grep ontology_mcp_server`
+3. Verify that the required ports are available:
+   - Flask app typically uses port 3333
+   - MCP server typically uses port 5001
+4. Check logs for error messages:
+   - Development: Terminal output
+   - MCP server log: `mcp/http_server.log`
+   - Production: `mcp/server_gunicorn.log`
 
 ## Verifying MCP Server
 
