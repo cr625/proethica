@@ -20,14 +20,58 @@ class MCPClient:
         """Initialize the MCP client."""
         # Get MCP server URL from environment variable or use default
         self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5000')
-        print(f"MCPClient initialized with MCP_SERVER_URL: {self.mcp_url}")
-        print(f"Environment variables: MCP_SERVER_URL={os.environ.get('MCP_SERVER_URL', 'not set')}")
+        self.use_mock_fallback = os.environ.get('USE_MOCK_FALLBACK', 'true').lower() == 'true'
         
-        # Initialize session
+        print(f"MCPClient initialized with MCP_SERVER_URL: {self.mcp_url}")
+        print(f"Mock data fallback is {'ENABLED' if self.use_mock_fallback else 'DISABLED'}")
+        
+        # Initialize session with longer timeout
         self.session = requests.Session()
+        self.session.timeout = (5, 30)  # (connect timeout, read timeout)
         
         # Initialize ZoteroClient reference (used for testing)
         self._zotero_client = None
+        
+        # Test connection to MCP server during initialization
+        self.is_connected = self.check_connection()
+    
+    def check_connection(self) -> bool:
+        """
+        Check if the MCP server is running and accessible.
+        
+        Returns:
+            True if connected, False otherwise
+        """
+        print(f"Testing connection to MCP server at {self.mcp_url}...")
+        
+        # Try different endpoints that might be available
+        test_endpoints = [
+            # First try the dedicated ping endpoint
+            "/api/ping",
+            # If that fails, try a known API endpoint that should exist
+            "/api/guidelines/engineering-ethics",
+            # Also check the ontology endpoint
+            "/api/ontology/engineering_ethics.ttl/entities"
+        ]
+        
+        for endpoint in test_endpoints:
+            try:
+                full_url = f"{self.mcp_url}{endpoint}"
+                print(f"  Checking endpoint: {full_url}")
+                response = self.session.get(full_url, timeout=5)
+                
+                if response.status_code == 200:
+                    print(f"Successfully connected to MCP server at {full_url}")
+                    return True
+                else:
+                    print(f"  Endpoint returned status code {response.status_code}")
+            except requests.exceptions.ConnectionError:
+                print(f"  Could not connect to {full_url}")
+            except Exception as e:
+                print(f"  Error checking endpoint {full_url}: {str(e)}")
+        
+        print(f"All connection attempts to MCP server failed")
+        return False
     
     def get_guidelines(self, world_name: str) -> Dict[str, Any]:
         """
@@ -64,9 +108,25 @@ class MCPClient:
         Returns:
             Dictionary containing entities
         """
+        # If MCP server is not connected and fallback is disabled, return clear warning
+        if not self.is_connected and not self.use_mock_fallback:
+            warning = {
+                "warning": f"MCP server at {self.mcp_url} is not connected and mock fallback is disabled.",
+                "entities": {}
+            }
+            print(f"WARNING: MCP server is not connected and mock fallback is disabled.")
+            return warning
+            
         try:
             import traceback
             print(f"MCPClient: Getting entities for ontology source: {ontology_source}")
+            
+            # If server is not connected but fallback is enabled, skip API call
+            if not self.is_connected and self.use_mock_fallback:
+                print(f"MCPClient: MCP server not connected, using mock data (fallback enabled)")
+                mock_data = self.get_mock_entities(ontology_source)
+                mock_data["is_mock"] = True
+                return mock_data
             
             # Make request to MCP server
             api_url = f"{self.mcp_url}/api/ontology/{ontology_source}/entities"
@@ -77,27 +137,48 @@ class MCPClient:
             if entity_type and entity_type != "all":
                 params["type"] = entity_type
                 
-            response = self.session.get(api_url, params=params)
+            response = self.session.get(api_url, params=params, timeout=10)
             
             # Check if request was successful
             if response.status_code == 200:
                 result = response.json()
                 print(f"MCPClient: Got successful response with keys: {result.keys() if isinstance(result, dict) else 'not a dict'}")
+                
+                # Add notice that this is real data, not mock
+                result["is_mock"] = False
                 return result
             else:
                 error_message = f"Error getting entities: {response.status_code} - {response.text}"
                 print(error_message)
-                # Fall back to mock data
-                print("MCPClient: Falling back to mock data")
-                return self.get_mock_entities(ontology_source)
+                
+                # Fall back to mock data only if enabled
+                if self.use_mock_fallback:
+                    print("MCPClient: Falling back to mock data")
+                    mock_data = self.get_mock_entities(ontology_source)
+                    mock_data["is_mock"] = True
+                    return mock_data
+                else:
+                    return {
+                        "error": error_message,
+                        "entities": {}
+                    }
         except Exception as e:
             stack_trace = traceback.format_exc()
             error_message = f"Error getting entities: {str(e)}"
             print(error_message)
             print(stack_trace)
-            # Fall back to mock data
-            print("MCPClient: Falling back to mock data due to exception")
-            return self.get_mock_entities(ontology_source)
+            
+            # Fall back to mock data only if enabled
+            if self.use_mock_fallback:
+                print("MCPClient: Falling back to mock data due to exception")
+                mock_data = self.get_mock_entities(ontology_source)
+                mock_data["is_mock"] = True
+                return mock_data
+            else:
+                return {
+                    "error": error_message,
+                    "entities": {}
+                }
     
     def get_references_for_world(self, world) -> List[Dict[str, Any]]:
         """

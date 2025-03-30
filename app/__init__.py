@@ -17,13 +17,19 @@ def load_user(user_id):
     from app.models.user import User
     return User.query.get(int(user_id))
 
-def create_app(config_name='default'):
+def create_app(config_name=None):
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    
+    # Determine configuration based on environment variable if not explicitly provided
+    if config_name is None:
+        config_name = os.environ.get('ENVIRONMENT', 'development')
     
     # Load configuration
     from app.config import config
     app.config.from_object(config[config_name])
+    
+    app.logger.info(f"Starting application in {config_name.upper()} mode")
     
     # Read environment variables - each is completely independent
     use_claude = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'

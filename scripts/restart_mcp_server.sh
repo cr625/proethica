@@ -2,8 +2,9 @@
 
 # Define paths
 LOCKFILE="/tmp/ontology_mcp_server.lock"
-SERVER_PATH="/home/chris/ai-ethical-dm/mcp/ontology_mcp_server.py"
+SERVER_PATH="/home/chris/ai-ethical-dm/mcp/http_ontology_mcp_server.py"
 LOG_PATH="/home/chris/ai-ethical-dm/mcp/server.log"
+PORT=${MCP_SERVER_PORT:-5001}  # Use environment variable or default to 5001
 
 # Function to check if a process is running
 is_process_running() {
@@ -57,7 +58,9 @@ fi
 rm -f "$LOCKFILE"
 
 # Restart the server
-echo "Restarting ontology_mcp_server.py..."
+echo "Restarting http_ontology_mcp_server.py on port $PORT..."
+export MCP_SERVER_PORT=$PORT
+echo "Setting MCP_SERVER_PORT=$PORT"
 nohup python3 "$SERVER_PATH" > "$LOG_PATH" 2>&1 &
 NEW_PID=$!
 
