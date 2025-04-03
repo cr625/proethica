@@ -31,7 +31,7 @@
             <div class="tab-content" id="sourceTabContent">
                 <!-- Manual Entry Tab -->
                 <div class="tab-pane fade show active" id="manual" role="tabpanel" aria-labelledby="manual-tab">
-                    <form id="manualForm" method="post" action="{{ url_for('cases.create_case_triple') }}">
+                    <form id="manualForm" method="post" action="/cases/triple/new">
                         <input type="hidden" name="source_type" value="manual">
 
                         <div class="mb-3 mt-3">
@@ -157,8 +157,7 @@
 
                 <!-- File Upload Tab -->
                 <div class="tab-pane fade" id="file" role="tabpanel" aria-labelledby="file-tab">
-                    <form id="fileForm" method="post" action="{{ url_for('cases.create_case_triple') }}"
-                        enctype="multipart/form-data">
+                    <form id="fileForm" method="post" action="/cases/triple/new" enctype="multipart/form-data">
                         <input type="hidden" name="source_type" value="file">
 
                         <div class="mb-3 mt-3">
@@ -202,7 +201,7 @@
 
                 <!-- URL Tab -->
                 <div class="tab-pane fade" id="url" role="tabpanel" aria-labelledby="url-tab">
-                    <form id="urlForm" method="post" action="{{ url_for('cases.create_case_triple') }}">
+                    <form id="urlForm" method="post" action="/cases/triple/new">
                         <input type="hidden" name="source_type" value="url">
 
                         <div class="mb-3 mt-3">
