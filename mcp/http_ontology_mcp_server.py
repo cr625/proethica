@@ -198,7 +198,13 @@ class OntologyMCPServer:
                     "label": label_or_id(s),
                     "description": get_description(s),
                     "tier": safe_get_property(s, namespace.hasTier),
-                    "capabilities": [str(o) for o in graph.objects(s, namespace.hasCapability)]
+                    "capabilities": [
+                        {
+                            "id": str(o),
+                            "label": label_or_id(o)
+                        } 
+                        for o in graph.objects(s, proeth_namespace.hasCapability)
+                    ]
                 }
                 for s in role_subjects
             ]
