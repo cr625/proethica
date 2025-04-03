@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Union, Optional
 import requests
 import json
 from sqlalchemy import text
+import io
 
 class EmbeddingService:
     """
@@ -46,6 +47,146 @@ class EmbeddingService:
         # Provider setup and validation
         self.providers = {}
         self._setup_providers()
+        
+    def _extract_text(self, file_path: str, file_type: str) -> str:
+        """
+        Extract text from a file based on its type.
+        
+        Args:
+            file_path: Path to the file
+            file_type: Type of the file (pdf, docx, txt, html, url)
+            
+        Returns:
+            Extracted text content
+        """
+        file_type = file_type.lower() if file_type else ''
+        
+        try:
+            # Handle different file types
+            if file_type == 'pdf':
+                return self._extract_from_pdf(file_path)
+            elif file_type == 'docx':
+                return self._extract_from_docx(file_path)
+            elif file_type in ['txt', 'text']:
+                return self._extract_from_txt(file_path)
+            elif file_type in ['html', 'htm']:
+                return self._extract_from_html(file_path)
+            elif file_type == 'url':
+                return self._extract_from_url(file_path)  # In this case, file_path would be the URL
+            else:
+                raise ValueError(f"Unsupported file type: {file_type}")
+                
+        except Exception as e:
+            # Log the error and re-raise
+            print(f"Error extracting text from {file_path} ({file_type}): {str(e)}")
+            raise
+    
+    def _extract_from_pdf(self, file_path: str) -> str:
+        """Extract text from PDF file."""
+        try:
+            from PyPDF2 import PdfReader
+            
+            with open(file_path, 'rb') as f:
+                reader = PdfReader(f)
+                text = ""
+                
+                # Extract text from each page
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n\n"
+                
+                return text.strip()
+        except ImportError:
+            raise ImportError("PyPDF2 is required for PDF text extraction. Install it with 'pip install PyPDF2'")
+    
+    def _extract_from_docx(self, file_path: str) -> str:
+        """Extract text from DOCX file."""
+        try:
+            import docx
+            
+            doc = docx.Document(file_path)
+            text = ""
+            
+            # Extract text from paragraphs
+            for para in doc.paragraphs:
+                if para.text:
+                    text += para.text + "\n"
+            
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text:
+                            text += cell.text + " "
+                    text += "\n"
+            
+            return text.strip()
+        except ImportError:
+            raise ImportError("python-docx is required for DOCX text extraction. Install it with 'pip install python-docx'")
+    
+    def _extract_from_txt(self, file_path: str) -> str:
+        """Extract text from TXT file."""
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            return f.read()
+    
+    def _extract_from_html(self, file_path: str) -> str:
+        """Extract text from HTML file."""
+        try:
+            from bs4 import BeautifulSoup
+            
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                soup = BeautifulSoup(f.read(), 'html.parser')
+                
+                # Remove script and style elements
+                for script in soup(["script", "style"]):
+                    script.extract()
+                
+                # Get text
+                text = soup.get_text()
+                
+                # Break into lines and remove leading and trailing space on each
+                lines = (line.strip() for line in text.splitlines())
+                
+                # Break multi-headlines into a line each
+                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+                
+                # Drop blank lines
+                text = '\n'.join(chunk for chunk in chunks if chunk)
+                
+                return text
+        except ImportError:
+            raise ImportError("BeautifulSoup4 is required for HTML text extraction. Install it with 'pip install beautifulsoup4'")
+    
+    def _extract_from_url(self, url: str) -> str:
+        """Extract text from a URL."""
+        try:
+            from bs4 import BeautifulSoup
+            
+            # Fetch URL content
+            response = requests.get(url)
+            response.raise_for_status()
+            
+            # Parse with BeautifulSoup
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style"]):
+                script.extract()
+            
+            # Get text
+            text = soup.get_text()
+            
+            # Process similar to HTML extraction
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = '\n'.join(chunk for chunk in chunks if chunk)
+            
+            return text
+        except ImportError:
+            raise ImportError("BeautifulSoup4 is required for URL text extraction. Install it with 'pip install beautifulsoup4'")
+        except requests.RequestException as e:
+            raise ValueError(f"Error fetching URL {url}: {str(e)}")
     
     def _setup_providers(self):
         """Initialize and validate all configured providers."""
@@ -392,3 +533,170 @@ class EmbeddingService:
             })
         
         return similar_triples
+    
+    def _split_text(self, text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
+        """
+        Split text into smaller chunks for processing.
+        
+        Args:
+            text: The text to split
+            chunk_size: Maximum size of each chunk in characters
+            chunk_overlap: Number of characters to overlap between chunks
+            
+        Returns:
+            List of text chunks
+        """
+        if not text:
+            return []
+        
+        # Simple paragraph-based chunking
+        paragraphs = text.split("\n\n")
+        chunks = []
+        current_chunk = ""
+        
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+                
+            # If adding this paragraph would exceed chunk size, store current chunk and start a new one
+            if len(current_chunk) + len(paragraph) > chunk_size and current_chunk:
+                chunks.append(current_chunk.strip())
+                # Include overlap from the end of previous chunk
+                if len(current_chunk) > chunk_overlap:
+                    current_chunk = current_chunk[-chunk_overlap:] + "\n\n" + paragraph
+                else:
+                    current_chunk = paragraph
+            else:
+                if current_chunk:
+                    current_chunk += "\n\n" + paragraph
+                else:
+                    current_chunk = paragraph
+        
+        # Add the last chunk if it's not empty
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+        
+        return chunks
+    
+    def embed_documents(self, chunks: List[str]) -> List[List[float]]:
+        """
+        Generate embeddings for a list of text chunks.
+        
+        Args:
+            chunks: List of text chunks to embed
+            
+        Returns:
+            List of embedding vectors
+        """
+        embeddings = []
+        
+        print(f"Generating embeddings for {len(chunks)} chunks...")
+        
+        for chunk in chunks:
+            try:
+                embedding = self.get_embedding(chunk)
+                embeddings.append(embedding)
+            except Exception as e:
+                print(f"Error generating embedding for chunk: {str(e)}")
+                # Use zero vector as fallback for failed embeddings
+                embeddings.append([0.0] * self.embedding_dimension)
+        
+        return embeddings
+    
+    def _store_chunks(self, document_id: int, chunks: List[str], embeddings: List[List[float]]) -> int:
+        """
+        Store document chunks with their embeddings in the database.
+        
+        Args:
+            document_id: ID of the document these chunks belong to
+            chunks: List of text chunks
+            embeddings: List of embedding vectors corresponding to chunks
+            
+        Returns:
+            Number of chunks stored
+        """
+        from app import db
+        from app.models.document import DocumentChunk
+        
+        # Make sure we have the same number of chunks and embeddings
+        if len(chunks) != len(embeddings):
+            raise ValueError(f"Number of chunks ({len(chunks)}) does not match number of embeddings ({len(embeddings)})")
+        
+        # Delete existing chunks for this document
+        existing_chunks = DocumentChunk.query.filter_by(document_id=document_id).all()
+        for chunk in existing_chunks:
+            db.session.delete(chunk)
+        
+        # Store new chunks
+        for i, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
+            chunk = DocumentChunk(
+                document_id=document_id,
+                chunk_index=i,
+                chunk_text=chunk_text,
+                embedding=embedding,
+                chunk_metadata={"position": i}
+            )
+            db.session.add(chunk)
+        
+        db.session.commit()
+        return len(chunks)
+    
+    def process_url(self, url: str, title: str, document_type: str, world_id: int) -> int:
+        """
+        Process a URL into a document with embeddings.
+        
+        Args:
+            url: The URL to process
+            title: Title for the document
+            document_type: Type of document (guideline, case_study, etc.)
+            world_id: ID of the world this document belongs to
+            
+        Returns:
+            ID of the created document
+        """
+        from app import db
+        from app.models.document import Document, PROCESSING_STATUS
+        
+        # Create document record
+        document = Document(
+            title=title,
+            document_type=document_type,
+            world_id=world_id,
+            source=url,
+            file_type="url",
+            doc_metadata={},
+            processing_status=PROCESSING_STATUS['PROCESSING']
+        )
+        db.session.add(document)
+        db.session.commit()
+        
+        try:
+            # Extract text from URL
+            text = self._extract_from_url(url)
+            document.content = text
+            
+            # Split text into chunks
+            chunks = self._split_text(text)
+            
+            # Generate embeddings
+            embeddings = self.embed_documents(chunks)
+            
+            # Store chunks with embeddings
+            self._store_chunks(document.id, chunks, embeddings)
+            
+            # Update document status
+            document.processing_status = PROCESSING_STATUS['COMPLETED']
+            document.processing_progress = 100
+            db.session.commit()
+            
+            return document.id
+            
+        except Exception as e:
+            # Update document status to failed
+            document.processing_status = PROCESSING_STATUS['FAILED']
+            document.processing_error = str(e)
+            db.session.commit()
+            
+            # Re-raise the exception
+            raise
