@@ -47,7 +47,8 @@
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">{{ character.name }}</h5>
                                 <div>
-                                    <small class="me-2">{{ character.role }}</small>
+                                    <small class="me-2">{{ character.role_from_role.name if character.role_from_role
+                                        else character.role }}</small>
                                     <a href="/scenarios/{{ scenario.id }}/characters/{{ character.id }}/edit"
                                         class="btn btn-sm btn-outline-secondary" title="Edit character">
                                         <i class="bi bi-pencil"></i>

@@ -20,41 +20,10 @@
                     <input type="text" class="form-control" id="name" name="name" value="{{ character.name }}" required>
                 </div>
 
-                <!-- Current Role Display -->
-                <div class="mb-3">
-                    <label class="form-label">Current Role</label>
-                    {% if character.role_from_role %}
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <h4 class="mb-0">
-                                {{ character.role_from_role.name }}
-                                {% if character.role_from_role.tier %}
-                                (Tier {{ character.role_from_role.tier }})
-                                {% endif %}
-                            </h4>
-                        </div>
-                        <div class="card-body">
-                            {% if character.role_from_role.description %}
-                            <p>{{ character.role_from_role.description }}</p>
-                            {% endif %}
-
-                            {% if ontology_role_uri %}
-                            <small class="text-muted">Ontology URI: {{ ontology_role_uri }}</small>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        No role is currently assigned to this character.
-                    </div>
-                    {% endif %}
-                </div>
 
                 <div class="mb-3">
-                    <label for="role_id" class="form-label">Change Role (Optional)</label>
-                    <select class="form-select" id="role_id" name="role_id">
-                        <option value="">-- Keep Current Role --</option>
-
+                    <label for="role_id" class="form-label">Character Role</label>
+                    <select class="form-select" id="role_id" name="role_id" required>
                         {% if ontology_roles or roles %}
 
                         <!-- Prioritize ontology roles -->
@@ -64,7 +33,8 @@
                             <option value="{{ role.id }}" data-description="{{ role.description }}"
                                 data-tier="{{ role.tier }}" data-tier-level="{{ role.tier_level }}"
                                 data-parent="{{ role.parent|tojson if role.parent else '' }}"
-                                data-capabilities="{{ role.capabilities|tojson if role.capabilities else '' }}">
+                                data-capabilities="{{ role.capabilities|tojson if role.capabilities else '' }}" {% if
+                                ontology_role_uri and role.id==ontology_role_uri %}selected{% endif %}>
                                 {{ role.label }}
                                 {% if role.tier %}
                                 ({{ role.tier_level|default('Tier 0') }})
@@ -81,7 +51,7 @@
                         <optgroup label="Database Roles">
                             {% for role in roles %}
                             <option value="{{ role.id }}" data-description="{{ role.description }}"
-                                data-tier="{{ role.tier }}">
+                                data-tier="{{ role.tier }}" {% if character.role_id==role.id %}selected{% endif %}>
                                 {{ role.name }} {% if role.tier %}(Tier {{ role.tier }}){% endif %}
                             </option>
                             {% endfor %}

@@ -405,13 +405,9 @@ def update_character(id, character_id):
                 attributes = {}
         character.attributes = attributes
     
-    # Update role if provided - handle empty strings
+    # Always update role if provided in the request
     if 'role_id' in data:
         role_id = data['role_id']
-        
-        # Convert empty string to None
-        if role_id == '':
-            role_id = None
         
         # Check if the role_id is an ontology URI (starts with http)
         if isinstance(role_id, str) and role_id.startswith('http'):
@@ -441,25 +437,29 @@ def update_character(id, character_id):
                                     db.session.add(db_role)
                                     db.session.flush()  # Get the ID without committing
                                 
-                                # Use the database role ID
+                                # Update both role_id and legacy role field
                                 character.role_id = db_role.id
-                                character.role = role_name  # Update the role field for backward compatibility
-                                print(f"Updated character role to ontology role: {role_name}")
+                                character.role = role_name  # Update the legacy role field
+                                print(f"Updated character role to ontology role: {role_name} (ID: {db_role.id})")
                                 break
                 except Exception as e:
                     print(f"Error retrieving role from ontology: {str(e)}")
         else:
-            # This is a database role ID
-            character.role_id = role_id
-            
-            # Update the role field for backward compatibility
-            role = Role.query.get(role_id)
-            if role:
-                character.role = role.name
-                print(f"Updated character role to database role: {role.name}")
-    else:
-        # Empty role_id means keep the current role
-        print(f"Keeping current role: {character.role}")
+            # This is a database role ID - convert to integer
+            try:
+                role_id = int(role_id)
+                # Update role_id
+                character.role_id = role_id
+                
+                # Always update the legacy role field when role_id changes
+                role = Role.query.get(role_id)
+                if role:
+                    character.role = role.name
+                    print(f"Updated character role to database role: {role.name} (ID: {role_id})")
+                else:
+                    print(f"Warning: Role with ID {role_id} not found in database")
+            except ValueError:
+                print(f"Warning: Invalid role_id format: {role_id}")
     
     # Update conditions
     # First, handle existing conditions that were updated
