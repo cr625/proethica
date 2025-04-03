@@ -20,7 +20,9 @@ class OntologyMCPServer:
         self.namespaces = {
             "military-medical-triage": Namespace("http://proethica.org/ontology/military-medical-triage#"),
             "engineering-ethics": Namespace("http://proethica.org/ontology/engineering-ethics#"),
-            "nj-legal-ethics": Namespace("http://proethica.org/ontology/nj-legal-ethics#")
+            "nj-legal-ethics": Namespace("http://proethica.org/ontology/nj-legal-ethics#"),
+            "intermediate": Namespace("http://proethica.org/ontology/intermediate#"),
+            "proethica-intermediate": Namespace("http://proethica.org/ontology/intermediate#")
         }
         # Default namespace
         self.MMT = self.namespaces["military-medical-triage"]
@@ -117,104 +119,150 @@ class OntologyMCPServer:
 
     def _detect_namespace(self, graph):
         """Detect the primary namespace used in the ontology."""
+        # Track potential matches
+        matches = {}
+        
         # Try to find the ontology declaration
         for s, p, o in graph.triples((None, RDF.type, OWL.Ontology)):
             ontology_uri = str(s)
             if "military-medical-triage" in ontology_uri:
-                return self.namespaces["military-medical-triage"]
+                matches["military-medical-triage"] = 10  # Higher priority
             elif "engineering-ethics" in ontology_uri:
-                return self.namespaces["engineering-ethics"]
+                matches["engineering-ethics"] = 10
             elif "nj-legal-ethics" in ontology_uri:
-                return self.namespaces["nj-legal-ethics"]
+                matches["nj-legal-ethics"] = 10
+            elif "intermediate" in ontology_uri:
+                matches["intermediate"] = 10
         
         # Check for namespace prefixes in the graph
         for prefix, namespace in graph.namespaces():
             namespace_str = str(namespace)
             if prefix == "mmt" or "military-medical-triage" in namespace_str:
-                return self.namespaces["military-medical-triage"]
+                matches["military-medical-triage"] = matches.get("military-medical-triage", 0) + 5
             elif prefix == "eng" or "engineering-ethics" in namespace_str:
-                return self.namespaces["engineering-ethics"]
+                matches["engineering-ethics"] = matches.get("engineering-ethics", 0) + 5
             elif prefix == "njle" or "nj-legal-ethics" in namespace_str:
-                return self.namespaces["nj-legal-ethics"]
-            
-        # Check for common entity types in each namespace
-        for namespace_key, namespace in self.namespaces.items():
-            # Check if any entities with this namespace's Role type exist
-            if any(graph.subjects(RDF.type, namespace.Role)):
-                return namespace
+                matches["nj-legal-ethics"] = matches.get("nj-legal-ethics", 0) + 5
+            elif prefix == "proeth" or "intermediate" in namespace_str:
+                matches["intermediate"] = matches.get("intermediate", 0) + 5
         
-        # Default to MMT if not found
+        # Look for potential file identifiers in the source filename
+        src_file = getattr(graph, 'source', '')
+        if isinstance(src_file, str):
+            if "military-medical-triage" in src_file:
+                matches["military-medical-triage"] = matches.get("military-medical-triage", 0) + 3
+            elif "engineering-ethics" in src_file:
+                matches["engineering-ethics"] = matches.get("engineering-ethics", 0) + 3
+            elif "nj-legal-ethics" in src_file:
+                matches["nj-legal-ethics"] = matches.get("nj-legal-ethics", 0) + 3
+            elif "intermediate" in src_file or "proethica-intermediate" in src_file:
+                matches["intermediate"] = matches.get("intermediate", 0) + 3
+        
+        # Find the namespace with the highest score
+        if matches:
+            best_match = max(matches.items(), key=lambda x: x[1])[0]
+            return self.namespaces[best_match]
+            
+        # Default to MMT if no clear match
         return self.MMT
 
     def _extract_entities(self, graph, entity_type):
-        # Detect namespace
+        # Detect primary namespace
         namespace = self._detect_namespace(graph)
+        
+        # Always include the intermediate namespace for entity types
+        proeth_namespace = self.namespaces["intermediate"]
         
         def label_or_id(s):
             return str(next(graph.objects(s, RDFS.label), s))
         
         def get_description(s):
             return str(next(graph.objects(s, RDFS.comment), ""))
+        
+        def safe_get_property(s, prop, default=""):
+            try:
+                return str(next(graph.objects(s, prop), default))
+            except:
+                return default
 
         out = {}
         if entity_type in ("all", "roles"):
+            # Look for both namespace.Role and proeth:Role
+            role_subjects = set()
+            role_subjects.update(graph.subjects(RDF.type, namespace.Role))
+            role_subjects.update(graph.subjects(RDF.type, proeth_namespace.Role))
+            
             out["roles"] = [
                 {
                     "id": str(s), 
                     "label": label_or_id(s),
                     "description": get_description(s),
-                    "tier": str(next(graph.objects(s, namespace.hasTier), "")),
+                    "tier": safe_get_property(s, namespace.hasTier),
                     "capabilities": [str(o) for o in graph.objects(s, namespace.hasCapability)]
                 }
-                for s in graph.subjects(RDF.type, namespace.Role)
+                for s in role_subjects
             ]
+        
         if entity_type in ("all", "conditions"):
+            # Look for both namespace.ConditionType and proeth:ConditionType
+            condition_subjects = set()
+            condition_subjects.update(graph.subjects(RDF.type, namespace.ConditionType))
+            condition_subjects.update(graph.subjects(RDF.type, proeth_namespace.ConditionType))
+            
             out["conditions"] = [
                 {
                     "id": str(s), 
                     "label": label_or_id(s),
-                    "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.ConditionType), "")),
-                    "severity": str(next(graph.objects(s, namespace.severity), "")),
-                    "location": str(next(graph.objects(s, namespace.location), ""))
+                    "description": get_description(s)
                 }
-                for s in graph.subjects(RDF.type, namespace.ConditionType)
+                for s in condition_subjects
             ]
+        
         if entity_type in ("all", "resources"):
+            # Look for both namespace.ResourceType and proeth:ResourceType
+            resource_subjects = set()
+            resource_subjects.update(graph.subjects(RDF.type, namespace.ResourceType))
+            resource_subjects.update(graph.subjects(RDF.type, proeth_namespace.ResourceType))
+            
             out["resources"] = [
                 {
                     "id": str(s), 
                     "label": label_or_id(s),
-                    "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.ResourceType), "")),
-                    "quantity": str(next(graph.objects(s, namespace.quantity), ""))
+                    "description": get_description(s)
                 }
-                for s in graph.subjects(RDF.type, namespace.ResourceType)
+                for s in resource_subjects
             ]
+        
         if entity_type in ("all", "events"):
+            # Look for both namespace.EventType and proeth:EventType
+            event_subjects = set()
+            event_subjects.update(graph.subjects(RDF.type, namespace.EventType))
+            event_subjects.update(graph.subjects(RDF.type, proeth_namespace.EventType))
+            
             out["events"] = [
                 {
                     "id": str(s), 
                     "label": label_or_id(s),
-                    "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.EventType), "")),
-                    "severity": str(next(graph.objects(s, namespace.eventSeverity), "")),
-                    "location": str(next(graph.objects(s, namespace.eventLocation), ""))
+                    "description": get_description(s)
                 }
-                for s in graph.subjects(RDF.type, namespace.EventType)
+                for s in event_subjects
             ]
+        
         if entity_type in ("all", "actions"):
+            # Look for both namespace.ActionType and proeth:ActionType
+            action_subjects = set()
+            action_subjects.update(graph.subjects(RDF.type, namespace.ActionType))
+            action_subjects.update(graph.subjects(RDF.type, proeth_namespace.ActionType))
+            
             out["actions"] = [
                 {
                     "id": str(s), 
                     "label": label_or_id(s),
-                    "description": get_description(s),
-                    "type": str(next((o for o in graph.objects(s, RDF.type) if o != namespace.ActionType), "")),
-                    "priority": str(next(graph.objects(s, namespace.actionPriority), "")),
-                    "duration": str(next(graph.objects(s, namespace.actionDuration), ""))
+                    "description": get_description(s)
                 }
-                for s in graph.subjects(RDF.type, namespace.ActionType)
+                for s in action_subjects
             ]
+            
         return out
 
     # API routes for direct access
