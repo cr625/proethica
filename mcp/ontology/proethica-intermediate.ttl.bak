@@ -254,11 +254,13 @@
     rdfs:label "action priority"@en ;
     rdfs:comment "Indicates the priority level of an action"@en .
 
+
 :actionDuration rdf:type owl:DatatypeProperty ;
     rdfs:domain :Action ;
     rdfs:range xsd:duration ;
     rdfs:label "action duration"@en ;
     rdfs:comment "Indicates how long an action takes"@en .
+
 
 :actionAgent rdf:type owl:ObjectProperty ;
     rdfs:domain :Action ;
