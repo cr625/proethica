@@ -1,0 +1,53 @@
+# Engineering Ethics World
+
+## Summary
+The Engineering Ethics World represents a domain where engineers navigate complex ethical dilemmas requiring the application of abstract principles to concrete situations. In this world, professionals must balance their paramount duty to protect public safety against other obligations such as client confidentiality, employer loyalty, and professional integrity. Decision-making involves analyzing specific facts, identifying relevant ethical codes, resolving conflicts between competing principles through operationalization, and drawing analogies to precedent cases. The world encompasses scenarios involving safety assessments, environmental impacts, product integrity, confidential information, and professional conduct, all within organizational contexts that include established hierarchies, procedures, and economic pressures that influence ethical judgments.
+
+## General Description
+A professional environment where engineers face complex ethical dilemmas involving competing obligations, principles, and values inherent in engineering practice. Engineers must navigate conflicts between their paramount duty to protect public safety and welfare and other professional obligations such as confidentiality to clients, loyalty to employers, and professional integrity.
+
+## Key Ethical Tensions
+- Public safety and welfare vs. client/employer confidentiality
+- Professional judgment vs. authority structures
+- Truth-telling vs. loyalty obligations
+- Whistleblowing vs. organizational loyalty
+- Technical accuracy vs. commercial pressures
+- Professional integrity vs. economic interests
+- Intellectual property rights vs. knowledge sharing
+
+## Ethical Framework
+This world is governed by formal engineering codes of ethics (such as the NSPE Code of Ethics), which provide abstract principles that engineers must operationalize in specific contexts. These principles include:
+
+1. Holding paramount the safety, health, and welfare of the public
+2. Performing services only in areas of competence
+3. Issuing public statements only in an objective and truthful manner
+4. Acting as faithful agents for clients/employers
+5. Avoiding conflicts of interest
+6. Protecting confidential information
+7. Upholding the honor and dignity of the profession
+
+## Decision-Making Process
+Engineers must analyze specific fact situations, identify relevant ethical principles, resolve conflicts between competing principles, and determine appropriate actions. This process often involves:
+
+- Identifying critical facts and their temporal relationships
+- Applying abstract principles to concrete situations
+- Drawing analogies to precedent cases
+- Resolving conflicts between principles
+- Considering alternative actions and their consequences
+- Documenting decisions and rationales
+
+## Typical Scenarios
+This world encompasses scenarios where engineers encounter ethical challenges related to:
+
+- Building/structure safety assessments and reporting obligations
+- Environmental impact disclosures
+- Product safety and design integrity
+- Confidential information management
+- Client/employer relationships
+- Whistleblowing considerations
+- Professional competence boundaries
+- Conflicts of interest
+- Intellectual property and credit
+
+## Context-Specific Features
+Engineering ethics dilemmas typically arise within organizational contexts (firms, government agencies, academic institutions) with established hierarchies, procedures, and economic pressures that influence ethical decision-making. Engineers operate within legal, regulatory, and professional frameworks that both constrain and guide their actions.

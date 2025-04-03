@@ -1,0 +1,57 @@
+{
+  "title": "Building Inspection Safety vs. Confidentiality",
+  "description": "Engineer A is retained to investigate the structural integrity of a 60-year old occupied apartment building that his client is planning to sell. Under the terms of the agreement with the client, the structural report written by Engineer A is to remain confidential. In addition, the client makes clear to Engineer A that the building is being sold 'as is' and he is not planning to take any remedial action to repair or renovate any system within the building prior to its sale.\n\nEngineer A performs several structural tests on the building and determines that the building is structurally sound. However, during the course of providing services, the client confides in Engineer A and informs him that the building contains deficiencies in the electrical and mechanical systems that violate applicable codes and standards. While Engineer A is not an electrical nor mechanical engineer, he does realize those deficiencies could cause injury to the occupants of the building and so informs the client.\n\nIn his report, Engineer A makes a brief mention of his conversation with the client concerning the deficiencies; however, in view of the terms of the agreement, Engineer A does not report the safety violations to any third party.",
+  "decision": "Engineer A chose to adhere to the confidentiality agreement, only briefly mentioning the safety violations in his report to the client, but not reporting the violations to authorities.",
+  "outcome": "The NSPE Board of Ethical Review found that it would be unethical for Engineer A not to report the safety violations to the appropriate public authorities. The Board determined that Engineer A's primary ethical obligation to protect public safety overrides his confidentiality obligation to the client.",
+  "ethical_analysis": "This case highlights a fundamental conflict between two important ethical principles in engineering: the paramount obligation to protect public safety and welfare (NSPE Code I.1) versus the duty to maintain client confidentiality (NSPE Code II.1.c).\n\nThe Board determined that when an engineer discovers safety issues that could endanger the public, the obligation to protect the public overrides confidentiality agreements. While Engineer A properly informed his client about the safety concerns, his failure to notify the proper authorities when the client indicated no action would be taken placed the building occupants at risk.\n\nThe Board's decision emphasizes that in situations where public safety is at stake, engineers must take further steps beyond just informing the client, especially when the client does not intend to address the dangerous conditions.",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:BuildingInspectionDilemma",
+        "predicate": "involves:EthicalPrinciple",
+        "object": "ENG_ETHICS:PublicSafety"
+      },
+      {
+        "subject": "Case:BuildingInspectionDilemma",
+        "predicate": "involves:EthicalPrinciple",
+        "object": "ENG_ETHICS:Confidentiality"
+      },
+      {
+        "subject": "Case:BuildingInspectionDilemma",
+        "predicate": "hasConflict",
+        "object": "ENG_ETHICS:ConfidentialityVsSafety"
+      },
+      {
+        "subject": "Case:BuildingInspectionDilemma",
+        "predicate": "references:Code",
+        "object": "NSPE:CodeI.1"
+      },
+      {
+        "subject": "Case:BuildingInspectionDilemma",
+        "predicate": "references:Code",
+        "object": "NSPE:CodeII.1.c"
+      },
+      {
+        "subject": "NSPE:CodeI.1",
+        "predicate": "overrides",
+        "object": "NSPE:CodeII.1.c"
+      },
+      {
+        "subject": "Case:BuildingInspectionDilemma",
+        "predicate": "hasDecision",
+        "object": "Decision:UnethicalNotToReport"
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "involves": "http://proethica.org/relation/",
+      "references": "http://proethica.org/relation/",
+      "hasConflict": "http://proethica.org/relation/",
+      "hasDecision": "http://proethica.org/relation/",
+      "overrides": "http://proethica.org/relation/",
+      "ENG_ETHICS": "http://proethica.org/eng_ethics/",
+      "NSPE": "http://proethica.org/nspe/",
+      "Decision": "http://proethica.org/decision/"
+    }
+  }
+}

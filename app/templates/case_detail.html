@@ -69,6 +69,56 @@
         </div>
     </div>
 
+    <!-- RDF Triples Metadata Display -->
+    {% if case.document_id and case.doc_metadata and case.doc_metadata.rdf_triples %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>RDF Triple Metadata</h3>
+        </div>
+        <div class="card-body">
+            <h4>Triples</h4>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Predicate</th>
+                        <th>Object</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for triple in case.doc_metadata.rdf_triples %}
+                    <tr>
+                        <td>{{ triple.subject }}</td>
+                        <td>{{ triple.predicate }}</td>
+                        <td>{{ triple.object }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if case.doc_metadata.rdf_namespaces %}
+            <h4>Namespaces</h4>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Prefix</th>
+                        <th>URI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prefix, uri in case.doc_metadata.rdf_namespaces.items() %}
+                    <tr>
+                        <td><code>{{ prefix }}</code></td>
+                        <td><code>{{ uri }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-header">
             <h3>Related Cases</h3>

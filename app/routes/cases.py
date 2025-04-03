@@ -205,6 +205,7 @@ def create_case():
     ethical_analysis = request.form.get('ethical_analysis')
     source = request.form.get('source')
     world_id = request.form.get('world_id', type=int)
+    rdf_metadata = request.form.get('rdf_metadata', '')
     
     # Validate required fields
     if not title:
@@ -222,6 +223,48 @@ def create_case():
             flash(f'World with ID {world_id} not found', 'danger')
             return redirect(url_for('cases.new_case'))
     
+    # Initialize metadata
+    metadata = {
+        'decision': decision,
+        'outcome': outcome,
+        'ethical_analysis': ethical_analysis
+    }
+    
+    # Process RDF metadata if provided
+    if rdf_metadata:
+        try:
+            import json
+            rdf_data = json.loads(rdf_metadata)
+            
+            # Validate the basic structure
+            if 'triples' not in rdf_data:
+                rdf_data['triples'] = []
+            
+            if 'namespaces' not in rdf_data:
+                rdf_data['namespaces'] = {}
+                
+            # Add the RDF data to the metadata
+            metadata['rdf_triples'] = rdf_data['triples']
+            metadata['rdf_namespaces'] = rdf_data['namespaces']
+            
+            # Convert to entity triples if possible
+            if world_id == 1:  # Engineering world
+                from app.services.entity_triple_service import EntityTripleService
+                triple_service = EntityTripleService()
+                
+                try:
+                    # Store a reference to process this document's triples later
+                    metadata['process_entity_triples'] = True
+                except Exception as e:
+                    flash(f'Warning: RDF triples could not be converted to entity triples: {str(e)}', 'warning')
+        
+        except json.JSONDecodeError:
+            flash('Warning: RDF metadata is not valid JSON. It will be stored as plain text.', 'warning')
+            metadata['rdf_metadata_text'] = rdf_metadata
+        except Exception as e:
+            flash(f'Warning: Error processing RDF metadata: {str(e)}', 'warning')
+            metadata['rdf_metadata_text'] = rdf_metadata
+    
     # Create document record
     document = Document(
         title=title,
@@ -229,11 +272,7 @@ def create_case():
         document_type='case_study',
         world_id=world_id,
         source=source,
-        doc_metadata={
-            'decision': decision,
-            'outcome': outcome,
-            'ethical_analysis': ethical_analysis
-        }
+        doc_metadata=metadata
     )
     
     # Add to database
@@ -244,6 +283,30 @@ def create_case():
     try:
         embedding_service = EmbeddingService()
         embedding_service.process_document(document.id)
+        
+        # Process entity triples if needed
+        if metadata.get('process_entity_triples'):
+            try:
+                from app.services.entity_triple_service import EntityTripleService
+                triple_service = EntityTripleService()
+                
+                # Get the document with its ID
+                doc = Document.query.get(document.id)
+                
+                # Convert RDF triples to entity triples
+                for triple in metadata.get('rdf_triples', []):
+                    triple_service.create_triple(
+                        entity_type='document',
+                        entity_id=document.id,
+                        predicate=triple['predicate'],
+                        object_value=triple['object'],
+                        object_type='uri'
+                    )
+                
+                flash('RDF triples processed successfully', 'success')
+            except Exception as e:
+                flash(f'Warning: Error processing entity triples: {str(e)}', 'warning')
+        
         flash('Case created and processed successfully', 'success')
     except Exception as e:
         flash(f'Case created but error processing embeddings: {str(e)}', 'warning')
