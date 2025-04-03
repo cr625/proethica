@@ -15,11 +15,11 @@ class Action(db.Model):
     scenario_id = db.Column(db.Integer, db.ForeignKey('scenarios.id'), nullable=True)
     character_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=True)
     action_time = db.Column(db.DateTime, default=datetime.utcnow)
-    parameters = db.Column(JSON)  # Parameters that can be set for this action
+    parameters = db.Column(JSON, default=dict)  # Parameters that can be set for this action
     
     # Decision-specific fields
     is_decision = db.Column(db.Boolean, default=False)  # Flag to indicate if this is a decision point
-    options = db.Column(JSON)  # Available options (for decisions)
+    options = db.Column(JSON, default=list)  # Available options (for decisions)
     selected_option = db.Column(db.String(255))  # The option selected (for decisions)
     
     # Ontology integration
@@ -74,7 +74,7 @@ class Event(db.Model):
     action_id = db.Column(db.Integer, db.ForeignKey('actions.id'), nullable=True)
     event_time = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
-    parameters = db.Column(JSON)  # Specific parameters for this event instance
+    parameters = db.Column(JSON, default=dict)  # Specific parameters for this event instance
     
     # Relationships
     entities = db.relationship('Entity', secondary='event_entity', back_populates='events')

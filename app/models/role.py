@@ -21,7 +21,7 @@ class Role(db.Model):
     world = db.relationship('World', backref='roles')
     
     # Relationship with characters
-    characters = db.relationship('Character', backref='role_obj')
+    characters = db.relationship('Character', foreign_keys='Character.role_id')
     
     # Metadata for storing additional information
     role_metadata = db.Column(db.JSON, default=lambda: {})

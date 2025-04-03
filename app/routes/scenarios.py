@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required
+import json
 from app import db
 from app.models.scenario import Scenario
 from app.models.character import Character
@@ -172,8 +173,15 @@ def add_character(id):
     scenario = Scenario.query.get_or_404(id)
     data = request.json
     
-    # Check if the role_id is an ontology URI (starts with http)
+    # Validate required role
     role_id = data.get('role_id')
+    if not role_id:
+        return jsonify({
+            'success': False,
+            'message': 'A role must be selected for the character'
+        }), 400
+    
+    # Initialize variables for role information
     role_name = None
     role_description = None
     
@@ -210,12 +218,23 @@ def add_character(id):
         if db_role:
             role_id = db_role.id
     
-    # Create character
+    # Create character - ensure attributes is a Python dictionary
+    attributes = data.get('attributes', {})
+    if isinstance(attributes, str):
+        try:
+            attributes = json.loads(attributes)
+        except json.JSONDecodeError:
+            attributes = {}
+    
+    # Convert empty string role_id to None
+    if role_id == '':
+        role_id = None
+    
     character = Character(
         scenario=scenario,
         name=data['name'],
         role_id=role_id,
-        attributes=data.get('attributes', {})
+        attributes=attributes
     )
     
     # Set the role name for backward compatibility
@@ -313,6 +332,13 @@ def edit_character(id, character_id):
     ontology_roles = []
     ontology_condition_types = []
     
+    # Get ontology URI if the character has a database role with an ontology reference
+    ontology_role_uri = None
+    if character.role_id:
+        if character.role_from_role and character.role_from_role.ontology_uri:
+            ontology_role_uri = character.role_from_role.ontology_uri
+            print(f"Character's role has ontology URI: {ontology_role_uri}")
+    
     if world and world.ontology_source:
         try:
             # Get all entity types from ontology in one request
@@ -324,6 +350,13 @@ def edit_character(id, character_id):
                 # Extract roles if available
                 if 'roles' in entity_dict:
                     ontology_roles = entity_dict['roles']
+                    
+                    # Mark selected role in ontology roles
+                    if ontology_role_uri:
+                        for role in ontology_roles:
+                            if role['id'] == ontology_role_uri:
+                                role['selected'] = True
+                                print(f"Marked ontology role {role['label']} as selected")
                 
                 # Extract condition types if available
                 if 'conditions' in entity_dict:
@@ -338,7 +371,8 @@ def edit_character(id, character_id):
         roles=db_roles, 
         ontology_roles=ontology_roles,
         condition_types=condition_types,
-        ontology_condition_types=ontology_condition_types
+        ontology_condition_types=ontology_condition_types,
+        ontology_role_uri=ontology_role_uri
     )
 
 @scenarios_bp.route('/<int:id>/characters/<int:character_id>/update', methods=['POST'])
@@ -361,9 +395,23 @@ def update_character(id, character_id):
     if 'name' in data:
         character.name = data['name']
     
-    # Update role if provided
-    if 'role_id' in data and data['role_id']:
+    # Handle attributes if provided
+    if 'attributes' in data:
+        attributes = data['attributes']
+        if isinstance(attributes, str):
+            try:
+                attributes = json.loads(attributes)
+            except json.JSONDecodeError:
+                attributes = {}
+        character.attributes = attributes
+    
+    # Update role if provided - handle empty strings
+    if 'role_id' in data:
         role_id = data['role_id']
+        
+        # Convert empty string to None
+        if role_id == '':
+            role_id = None
         
         # Check if the role_id is an ontology URI (starts with http)
         if isinstance(role_id, str) and role_id.startswith('http'):
@@ -396,6 +444,7 @@ def update_character(id, character_id):
                                 # Use the database role ID
                                 character.role_id = db_role.id
                                 character.role = role_name  # Update the role field for backward compatibility
+                                print(f"Updated character role to ontology role: {role_name}")
                                 break
                 except Exception as e:
                     print(f"Error retrieving role from ontology: {str(e)}")
@@ -407,6 +456,10 @@ def update_character(id, character_id):
             role = Role.query.get(role_id)
             if role:
                 character.role = role.name
+                print(f"Updated character role to database role: {role.name}")
+    else:
+        # Empty role_id means keep the current role
+        print(f"Keeping current role: {character.role}")
     
     # Update conditions
     # First, handle existing conditions that were updated
@@ -911,7 +964,13 @@ def update_action(id, action_id):
     if 'action_type' in data:
         action.action_type = data['action_type']
     if 'parameters' in data:
-        action.parameters = data['parameters']
+        parameters = data['parameters']
+        if isinstance(parameters, str):
+            try:
+                parameters = json.loads(parameters)
+            except json.JSONDecodeError:
+                parameters = {}
+        action.parameters = parameters
     
     # Update decision-specific fields
     if 'is_decision' in data:
@@ -1013,6 +1072,14 @@ def add_action(id):
                     # Default to current time if parsing fails
                     action_time = datetime.now()
     
+    # Process parameters to ensure they're a Python dictionary
+    parameters = data.get('parameters', {})
+    if isinstance(parameters, str):
+        try:
+            parameters = json.loads(parameters)
+        except json.JSONDecodeError:
+            parameters = {}
+    
     # Create action
     action = Action(
         name=data['name'],
@@ -1021,7 +1088,7 @@ def add_action(id):
         character_id=character_id,
         action_time=action_time,
         action_type=data.get('action_type'),
-        parameters=data.get('parameters', {}),
+        parameters=parameters,
         is_decision=data.get('is_decision', False),
         options=data.get('options', []) if data.get('is_decision', False) else None
     )
@@ -1147,7 +1214,13 @@ def update_event(id, event_id):
     if 'character_id' in data:
         event.character_id = data['character_id']
     if 'metadata' in data:
-        event.parameters = data['metadata']
+        metadata = data['metadata']
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+        event.parameters = metadata
     
     db.session.commit()
     
@@ -1229,13 +1302,21 @@ def add_event(id):
                     # Default to current time if parsing fails
                     event_time = datetime.now()
     
+    # Process metadata to ensure it's a Python dictionary
+    metadata = data.get('metadata', {})
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    
     # Create event
     event = Event(
         scenario=scenario,
         event_time=event_time,
         description=data['description'],
         character_id=character_id,
-        parameters=data.get('metadata', {})
+        parameters=metadata
     )
     db.session.add(event)
     db.session.commit()
