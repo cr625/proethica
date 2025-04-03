@@ -1,120 +1,149 @@
 # ProEthica Intermediate Ontology Guide
 
-## Overview
+This guide explains the structure and usage of the ProEthica Intermediate Ontology, which serves as a bridge between the Basic Formal Ontology (BFO) and domain-specific ontologies like the Engineering Ethics Ontology.
 
-The ProEthica system uses a layered ontology approach to model ethical domains:
+## Purpose
 
-1. **Foundation Layer**: BFO Core Ontology (Basic Formal Ontology)
-2. **Intermediate Layer**: ProEthica Intermediate Ontology
-3. **Domain Layer**: Domain-specific ethics ontologies (e.g., Engineering Ethics)
-4. **Instance Layer**: World-specific instances and scenarios
+The Intermediate Ontology provides:
 
-This guide explains how to use the intermediate ontology as a bridge between BFO and domain-specific ontologies, and how to create your own domain-specific worlds.
+1. A standardized set of entity types that can be used across different ethical domains
+2. A consistent framework for representing ethical scenarios
+3. Alignment with BFO to ensure philosophical rigor
+4. A foundation for domain-specific ontologies to build upon
 
-## Ontology Structure
+## Core Entity Types
 
+The Intermediate Ontology defines six core entity types that are recognized by the ProEthica system:
+
+### 1. Role
+
+Roles represent professional positions and responsibilities. They are based on BFO's role class (BFO_0000023).
+
+Key properties:
+- `hasTier`: Indicates the level or tier of a role
+- `hasCapability`: Relates a role to capabilities it possesses
+- `hasResponsibility`: Relates a role to responsibilities it entails
+
+Example usage in a domain ontology:
 ```
-Foundation (BFO)
-     ↓
-Intermediate (proethica-intermediate.ttl)
-     ↓
-Domain (engineering-ethics.ttl, legal-ethics.ttl, etc.)
-     ↓
-World Instances (scenarios, cases, entities)
+:StructuralEngineerRole rdf:type owl:Class ;
+    rdf:type proeth:EntityType ;
+    rdf:type proeth:Role ;
+    rdfs:subClassOf :EngineeringRole ;
+    rdfs:label "Structural Engineer Role"@en ;
+    rdfs:comment "The role of an engineer who analyzes and designs structural systems"@en ;
+    proeth:hasCapability :StructuralAnalysisCapability ;
+    proeth:hasCapability :StructuralDesignCapability .
 ```
 
-## Core Entity Categories
+### 2. Condition
 
-The intermediate ontology defines six core entity categories that form the foundation of the ProEthica system:
+Conditions represent states, situations, and contexts. They are based on BFO's quality class (BFO_0000019).
 
-1. **Roles**: Professional positions and responsibilities
-2. **Conditions**: States, situations, and contexts
-3. **Resources**: Tangible and intangible assets
-4. **Events**: Occurrences, happenings, situations
-5. **Actions**: Activities, processes, interventions
-6. **Decisions**: Choices and determinations
+Key properties:
+- `severity`: Indicates the severity level of a condition (1-10)
+- `location`: Indicates the location where a condition applies
+- `duration`: Indicates how long a condition persists
 
-Each of these categories is properly aligned with BFO concepts and provides the structure for domain-specific extensions.
+### 3. Resource
 
-## How Entities Appear in the UI
+Resources represent tangible and intangible assets. They are based on BFO's material entity class (BFO_0000040).
 
-The world detail page displays entities from the ontology under "World Entities" in five categories:
-- Roles
-- Conditions
-- Resources
-- Events
-- Actions (includes Decisions)
+Key properties:
+- `quantity`: Indicates the quantity of a resource
+- `resourceOwner`: Indicates who owns or controls a resource
+- `resourceValue`: Indicates the importance or value of a resource
 
-For an entity class to appear in these categories, it must:
-1. Be a subclass of the corresponding intermediate ontology class (`proeth:Role`, `proeth:Condition`, etc.)
-2. Have the `rdf:type proeth:EntityType` triple to mark it for extraction
-3. Be included in the ontology source specified in the world configuration
+### 4. Event
+
+Events represent occurrences, happenings, and situations. They are based on BFO's process class (BFO_0000015).
+
+Key properties:
+- `eventSeverity`: Indicates the severity or impact level of an event
+- `eventLocation`: Indicates where an event takes place
+- `eventDuration`: Indicates how long an event lasts
+
+### 5. Action
+
+Actions represent activities, processes, and interventions. They are based on BFO's process class (BFO_0000015).
+
+Key properties:
+- `actionPriority`: Indicates the priority level of an action
+- `actionDuration`: Indicates how long an action takes
+- `actionAgent`: Indicates who performs an action
+
+### 6. Decision
+
+Decisions represent choices and determinations. They are a subclass of Action.
+
+Key properties:
+- `decisionImpact`: Describes the impact or consequences of a decision
+- `decisionCriteria`: Factors considered in making a decision
+- `decisionAlternatives`: Alternative options considered in the decision
+
+## Relationship Properties
+
+The Intermediate Ontology also defines several relationship properties that connect entities:
+
+- `involves`: General relation indicating involvement between entities
+- `precedes`: Indicates temporal precedence between processes
+- `resultsIn`: Indicates a causal relationship
+- `participatesIn`: Relates an agent to a process they participate in
+- `hasRole`: Relates an agent to a role they have
+- `usesResource`: Relates an action to resources it uses
+- `hasCondition`: Relates an entity to conditions that apply to it
+- `requiresDecision`: Relates an ethical dilemma to the decision it requires
 
 ## Creating Domain-Specific Ontologies
 
-To create a new domain-specific ontology:
+When creating a domain-specific ontology based on the Intermediate Ontology:
 
-1. Create a new TTL file (e.g., `your-domain-ethics.ttl`)
-2. Import both BFO and the intermediate ontology:
-   ```ttl
+1. Import both the BFO and the Intermediate Ontology:
+   ```
    owl:imports <http://purl.obolibrary.org/obo/bfo.owl> ;
    owl:imports <http://proethica.org/ontology/intermediate> ;
    ```
-3. Define domain-specific classes that extend the intermediate classes
-4. Mark entity classes for extraction using `rdf:type proeth:EntityType`
-5. Add appropriate labels and descriptions
 
-### Example Domain Class Definition
+2. Define domain-specific subclasses for each entity type:
+   ```
+   :EngineeringRole rdfs:subClassOf proeth:Role ;
+   :EngineeringCondition rdfs:subClassOf proeth:Condition ;
+   ```
 
-```ttl
-:LegalAdvocateRole rdf:type owl:Class ;
-    rdf:type proeth:EntityType ;         # Mark for extraction
-    rdfs:subClassOf proeth:Role ;        # Inherit from intermediate class
-    rdfs:label "Legal Advocate Role"@en ;
-    rdfs:comment "The role of representing and advocating for a client in legal proceedings"@en .
-```
+3. Mark instances with the appropriate entity types:
+   ```
+   :StructuralEngineerRole rdf:type proeth:EntityType ;
+                           rdf:type proeth:Role ;
+   ```
 
-## Using Ontologies with Worlds
+4. Use the properties defined in the Intermediate Ontology:
+   ```
+   :StructuralEngineerRole proeth:hasCapability :StructuralAnalysisCapability ;
+   ```
 
-To use an ontology with a world in ProEthica:
+5. Define domain-specific object properties as needed:
+   ```
+   :documentsHazard rdfs:domain :EngineeringReport ;
+                    rdfs:range :SafetyHazard ;
+   ```
 
-1. Upload your ontology file to the `mcp/ontology/` directory
-2. Create a new world in the ProEthica UI
-3. Set the "Ontology Source" field to your ontology file name (e.g., `legal-ethics.ttl`)
-4. Save the world
+## ProEthica System Integration
 
-The system will automatically extract entity classes from your ontology and display them on the world detail page under "World Entities".
+The ProEthica system recognizes entities marked with the appropriate entity types:
 
-## Testing Ontology Extraction
+- `proeth:Role` for roles
+- `proeth:ConditionType` for conditions
+- `proeth:ResourceType` for resources
+- `proeth:EventType` for events
+- `proeth:ActionType` for actions and decisions
 
-You can test your ontology with the provided script:
-
-```bash
-python scripts/test_intermediate_ontology.py
-```
-
-Add the `--create-worlds` flag to automatically create test worlds:
-
-```bash
-python scripts/test_intermediate_ontology.py --create-worlds
-```
+These entities will appear in the "World Entities" section of the ProEthica application, categorized by type.
 
 ## Best Practices
 
-1. **Proper Inheritance**: Always extend from the appropriate intermediate class
-2. **Mark for Extraction**: Use `rdf:type proeth:EntityType` for classes you want displayed
-3. **Clear Labeling**: Provide clear, descriptive labels and comments
-4. **Domain Specificity**: Create domain-specific classes rather than using intermediate classes directly
-5. **Relationship Modeling**: Use appropriate object properties to model relationships between entities
-
-## Engineering Ethics Example
-
-The `engineering-ethics.ttl` ontology demonstrates how to extend the intermediate ontology for a specific domain:
-
-- It defines engineering-specific roles (StructuralEngineerRole, ConsultingEngineerRole)
-- It models domain-specific conditions (SafetyHazard, CodeViolation)
-- It includes domain-specific resources (EngineeringReport, BuildingCode)
-- It defines relevant events (InspectionEvent, HazardDiscoveryEvent)
-- It models domain actions and decisions (HazardReportingAction, WhistleblowingDecision)
-
-This provides a template for creating other domain-specific ontologies.
+1. Always mark domain-specific entities with both `rdf:type proeth:EntityType` and the specific type (e.g., `rdf:type proeth:Role`)
+2. Provide clear labels and comments for all entities
+3. Use the properties defined in the Intermediate Ontology when possible
+4. Define domain-specific properties only when needed
+5. Use the hasCapability property to specify what a role can do
+6. Align all entities with the appropriate BFO classes
