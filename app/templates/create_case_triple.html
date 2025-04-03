@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Case - Triple-Based Approach{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create New Case (Triple-Based)</h1>
+        <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary">Back to Cases</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>Case Source</h3>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" id="sourceTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual"
+                        type="button" role="tab" aria-controls="manual" aria-selected="true">Manual Entry</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file" type="button"
+                        role="tab" aria-controls="file" aria-selected="false">Upload Document</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url" type="button"
+                        role="tab" aria-controls="url" aria-selected="false">From URL</button>
+                </li>
+            </ul>
+            <div class="tab-content" id="sourceTabContent">
+                <!-- Manual Entry Tab -->
+                <div class="tab-pane fade show active" id="manual" role="tabpanel" aria-labelledby="manual-tab">
+                    <form id="manualForm" method="post" action="{{ url_for('cases.create_case_triple') }}">
+                        <input type="hidden" name="source_type" value="manual">
+
+                        <div class="mb-3 mt-3">
+                            <label for="title" class="form-label">Case Title</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="world_id" class="form-label">World</label>
+                            <select class="form-select" id="world_id" name="world_id" required>
+                                <option value="">-- Select World --</option>
+                                {% for world in worlds %}
+                                <option value="{{ world.id }}" {% if world.id==1 %}selected{% endif %}>{{ world.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select the world this case belongs to.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Case Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="5"></textarea>
+                            <div class="form-text">Brief description of the case (optional).</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="source" class="form-label">Source Reference</label>
+                            <input type="text" class="form-control" id="source" name="source">
+                            <div class="form-text">URL or citation of the original source (optional).</div>
+                        </div>
+
+                        <div class="card border-primary mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h4>RDF Triples</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="triplesContainer">
+                                    <div class="triple-row mb-3">
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" name="subjects[]"
+                                                    placeholder="Subject" required>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" name="predicates[]"
+                                                    placeholder="Predicate" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="text" class="form-control" name="objects[]"
+                                                    placeholder="Object" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <select class="form-select" name="is_literals[]">
+                                                    <option value="true">Literal</option>
+                                                    <option value="false" selected>URI</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="button" class="btn btn-outline-primary" id="addTripleBtn">
+                                    <i class="bi bi-plus-circle"></i> Add Triple
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card border-info mb-3">
+                            <div class="card-header bg-info text-white">
+                                <h4>Namespaces</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="namespacesContainer">
+                                    <div class="namespace-row mb-3">
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" name="prefixes[]"
+                                                    placeholder="Prefix" value="Case">
+                                            </div>
+                                            <div class="col-md-9">
+                                                <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                                    value="http://proethica.org/case/">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="namespace-row mb-3">
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" name="prefixes[]"
+                                                    placeholder="Prefix" value="ENG_ETHICS">
+                                            </div>
+                                            <div class="col-md-9">
+                                                <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                                    value="http://proethica.org/eng_ethics/">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="namespace-row mb-3">
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" name="prefixes[]"
+                                                    placeholder="Prefix" value="involves">
+                                            </div>
+                                            <div class="col-md-9">
+                                                <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                                    value="http://proethica.org/relation/">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="button" class="btn btn-outline-info" id="addNamespaceBtn">
+                                    <i class="bi bi-plus-circle"></i> Add Namespace
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">Create Case</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- File Upload Tab -->
+                <div class="tab-pane fade" id="file" role="tabpanel" aria-labelledby="file-tab">
+                    <form id="fileForm" method="post" action="{{ url_for('cases.create_case_triple') }}"
+                        enctype="multipart/form-data">
+                        <input type="hidden" name="source_type" value="file">
+
+                        <div class="mb-3 mt-3">
+                            <label for="title_file" class="form-label">Case Title</label>
+                            <input type="text" class="form-control" id="title_file" name="title" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="world_id_file" class="form-label">World</label>
+                            <select class="form-select" id="world_id_file" name="world_id" required>
+                                <option value="">-- Select World --</option>
+                                {% for world in worlds %}
+                                <option value="{{ world.id }}" {% if world.id==1 %}selected{% endif %}>{{ world.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="case_file" class="form-label">Upload Document</label>
+                            <input class="form-control" type="file" id="case_file" name="case_file" required>
+                            <div class="form-text">Supported file types: PDF, DOCX, TXT, HTML</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="source_file" class="form-label">Source Reference</label>
+                            <input type="text" class="form-control" id="source_file" name="source">
+                            <div class="form-text">URL or citation of the original source (optional).</div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> After uploading, you'll be redirected to a page where you
+                            can create triples based on the document content.
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">Upload & Continue</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- URL Tab -->
+                <div class="tab-pane fade" id="url" role="tabpanel" aria-labelledby="url-tab">
+                    <form id="urlForm" method="post" action="{{ url_for('cases.create_case_triple') }}">
+                        <input type="hidden" name="source_type" value="url">
+
+                        <div class="mb-3 mt-3">
+                            <label for="title_url" class="form-label">Case Title</label>
+                            <input type="text" class="form-control" id="title_url" name="title" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="world_id_url" class="form-label">World</label>
+                            <select class="form-select" id="world_id_url" name="world_id" required>
+                                <option value="">-- Select World --</option>
+                                {% for world in worlds %}
+                                <option value="{{ world.id }}" {% if world.id==1 %}selected{% endif %}>{{ world.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="case_url" class="form-label">Document URL</label>
+                            <input type="url" class="form-control" id="case_url" name="case_url" required>
+                            <div class="form-text">URL of the case document to process.</div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> After processing the URL, you'll be redirected to a page
+                            where you can create triples based on the document content.
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">Process URL & Continue</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Common Templates and Examples -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Triple Templates</h3>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h5>Common Engineering Ethics Patterns</h5>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                    data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
+                    data-object="ENG_ETHICS:PublicSafety">
+                    Case involves Public Safety
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                    data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
+                    data-object="ENG_ETHICS:Confidentiality">
+                    Case involves Confidentiality
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                    data-subject="Case:ThisCase" data-predicate="hasConflict"
+                    data-object="ENG_ETHICS:ConfidentialityVsSafety">
+                    Conflict: Confidentiality vs Safety
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                    data-subject="Case:ThisCase" data-predicate="references:Code" data-object="NSPE:CodeI.1">
+                    References NSPE Code I.1
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                    data-subject="NSPE:CodeI.1" data-predicate="overrides" data-object="NSPE:CodeII.1.c">
+                    Code I.1 overrides Code II.1.c
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                    data-subject="Case:ThisCase" data-predicate="hasDecision" data-object="Decision:Unethical">
+                    Decision: Unethical
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Add triple button
+        document.getElementById('addTripleBtn').addEventListener('click', function () {
+            const container = document.getElementById('triplesContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'triple-row mb-3';
+            newRow.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="subjects[]" placeholder="Subject" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="predicates[]" placeholder="Predicate" required>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control" name="objects[]" placeholder="Object" required>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="is_literals[]">
+                        <option value="true">Literal</option>
+                        <option value="false" selected>URI</option>
+                    </select>
+                </div>
+            </div>
+        `;
+            container.appendChild(newRow);
+        });
+
+        // Add namespace button
+        document.getElementById('addNamespaceBtn').addEventListener('click', function () {
+            const container = document.getElementById('namespacesContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'namespace-row mb-3';
+            newRow.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="prefixes[]" placeholder="Prefix">
+                </div>
+                <div class="col-md-9">
+                    <input type="text" class="form-control" name="uris[]" placeholder="URI">
+                </div>
+            </div>
+        `;
+            container.appendChild(newRow);
+        });
+
+        // Template buttons
+        document.querySelectorAll('.template-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                // Get the template data
+                const subject = this.getAttribute('data-subject');
+                const predicate = this.getAttribute('data-predicate');
+                const object = this.getAttribute('data-object');
+
+                // Add a new triple row with this data
+                const container = document.getElementById('triplesContainer');
+                const newRow = document.createElement('div');
+                newRow.className = 'triple-row mb-3';
+                newRow.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="subjects[]" placeholder="Subject" value="${subject}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="predicates[]" placeholder="Predicate" value="${predicate}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" name="objects[]" placeholder="Object" value="${object}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" name="is_literals[]">
+                            <option value="true">Literal</option>
+                            <option value="false" selected>URI</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+                container.appendChild(newRow);
+            });
+        });
+    });
+</script>
+{% endblock %}

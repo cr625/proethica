@@ -21,7 +21,12 @@
             </form>
         </div>
         <div class="col-md-6 text-end">
-            <a href="/cases/new" class="btn btn-success">Add New Case</a>
+            <div class="btn-group">
+                <a href="/cases/new" class="btn btn-success">Add New Case</a>
+                <a href="{{ url_for('cases_triple.new_case_triple') }}" class="btn btn-primary">
+                    <i class="bi bi-diagram-3"></i> Create Triple-Based Case
+                </a>
+            </div>
         </div>
     </div>
 

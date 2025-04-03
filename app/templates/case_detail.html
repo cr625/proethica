@@ -8,6 +8,11 @@
         <h1>{{ case.title }}</h1>
         <div>
             <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary">Back to Cases</a>
+            {% if case.document_id %}
+            <a href="{{ url_for('cases_triple.edit_triples', id=case.document_id) }}" class="btn btn-primary">
+                <i class="bi bi-diagram-3"></i> Edit Triples
+            </a>
+            {% endif %}
             {% if case.source %}
             <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
             {% endif %}

@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Case Triples - {{ document.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit Case Triples</h1>
+        <div>
+            <a href="{{ url_for('cases.view_case', id=document.id) }}" class="btn btn-secondary me-2">Back to Case</a>
+            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary">All Cases</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Document Info and Content Column -->
+        <div class="col-md-5">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3>Document Information</h3>
+                </div>
+                <div class="card-body">
+                    <h4>{{ document.title }}</h4>
+                    <p class="text-muted mb-2">
+                        <strong>World:</strong> {{ world.name if world else 'None' }}<br>
+                        <strong>Type:</strong> {{ document.document_type }}<br>
+                        <strong>Created:</strong> {{ document.created_at.strftime('%Y-%m-%d %H:%M') if
+                        document.created_at else 'Unknown' }}<br>
+                        {% if document.source %}
+                        <strong>Source:</strong> <a
+                            href="{{ document.source if document.source.startswith('http') else '#' }}"
+                            target="_blank">{{ document.source }}</a>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h3>Document Content</h3>
+                </div>
+                <div class="card-body">
+                    {% if document.processing_status == 'pending' or document.processing_status == 'processing' %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Document is still being processed...
+                        <div class="progress mt-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                style="width: {{ document.processing_progress or 0 }}%"
+                                aria-valuenow="{{ document.processing_progress or 0 }}" aria-valuemin="0"
+                                aria-valuemax="100">{{ document.processing_progress or 0 }}%</div>
+                        </div>
+                        <div class="text-center mt-2">
+                            <small>{{ document.processing_phase or 'Initializing' }}</small>
+                        </div>
+                    </div>
+                    <div id="processing-status" data-document-id="{{ document.id }}"></div>
+                    {% elif document.content %}
+                    <div class="content-display p-3 border rounded bg-light"
+                        style="max-height: 500px; overflow-y: auto;">
+                        <pre style="white-space: pre-wrap;">{{ document.content }}</pre>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> No document content available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Triple Editor Column -->
+        <div class="col-md-7">
+            <form id="triplesForm" method="post" action="{{ url_for('cases_triple.update_triples', id=document.id) }}">
+                <div class="card border-primary mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h4>RDF Triples</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="triplesContainer">
+                            {% if existing_triples %}
+                            {% for triple in existing_triples %}
+                            <div class="triple-row mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="subjects[]" placeholder="Subject"
+                                            value="{{ triple.subject }}" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="predicates[]"
+                                            placeholder="Predicate" value="{{ triple.predicate }}" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" name="objects[]" placeholder="Object"
+                                            value="{{ triple.object }}" required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <select class="form-select" name="is_literals[]">
+                                            <option value="true" {% if triple.is_literal %}selected{% endif %}>Literal
+                                            </option>
+                                            <option value="false" {% if not triple.is_literal %}selected{% endif %}>URI
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="triple-row mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="subjects[]" placeholder="Subject"
+                                            required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="predicates[]"
+                                            placeholder="Predicate" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" name="objects[]" placeholder="Object"
+                                            required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <select class="form-select" name="is_literals[]">
+                                            <option value="true">Literal</option>
+                                            <option value="false" selected>URI</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <button type="button" class="btn btn-outline-primary" id="addTripleBtn">
+                            <i class="bi bi-plus-circle"></i> Add Triple
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card border-info mb-3">
+                    <div class="card-header bg-info text-white">
+                        <h4>Namespaces</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="namespacesContainer">
+                            {% if existing_namespaces %}
+                            {% for prefix, uri in existing_namespaces.items() %}
+                            <div class="namespace-row mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="prefixes[]" placeholder="Prefix"
+                                            value="{{ prefix }}">
+                                    </div>
+                                    <div class="col-md-9">
+                                        <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                            value="{{ uri }}">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="namespace-row mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="prefixes[]" placeholder="Prefix"
+                                            value="Case">
+                                    </div>
+                                    <div class="col-md-9">
+                                        <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                            value="http://proethica.org/case/">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="namespace-row mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="prefixes[]" placeholder="Prefix"
+                                            value="ENG_ETHICS">
+                                    </div>
+                                    <div class="col-md-9">
+                                        <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                            value="http://proethica.org/eng_ethics/">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="namespace-row mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" name="prefixes[]" placeholder="Prefix"
+                                            value="involves">
+                                    </div>
+                                    <div class="col-md-9">
+                                        <input type="text" class="form-control" name="uris[]" placeholder="URI"
+                                            value="http://proethica.org/relation/">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <button type="button" class="btn btn-outline-info" id="addNamespaceBtn">
+                            <i class="bi bi-plus-circle"></i> Add Namespace
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-save"></i> Save Triples
+                    </button>
+                </div>
+            </form>
+
+            <!-- Common Templates and Examples -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3>Triple Templates</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h5>Common Engineering Ethics Patterns</h5>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
+                            data-object="ENG_ETHICS:PublicSafety">
+                            Case involves Public Safety
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
+                            data-object="ENG_ETHICS:Confidentiality">
+                            Case involves Confidentiality
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="hasConflict"
+                            data-object="ENG_ETHICS:ConfidentialityVsSafety">
+                            Conflict: Confidentiality vs Safety
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="references:Code" data-object="NSPE:CodeI.1">
+                            References NSPE Code I.1
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="NSPE:CodeI.1" data-predicate="overrides" data-object="NSPE:CodeII.1.c">
+                            Code I.1 overrides Code II.1.c
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="hasDecision" data-object="Decision:Unethical">
+                            Decision: Unethical
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Add triple button
+        document.getElementById('addTripleBtn').addEventListener('click', function () {
+            const container = document.getElementById('triplesContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'triple-row mb-3';
+            newRow.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="subjects[]" placeholder="Subject" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="predicates[]" placeholder="Predicate" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" name="objects[]" placeholder="Object" required>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" name="is_literals[]">
+                            <option value="true">Literal</option>
+                            <option value="false" selected>URI</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            container.appendChild(newRow);
+        });
+
+        // Add namespace button
+        document.getElementById('addNamespaceBtn').addEventListener('click', function () {
+            const container = document.getElementById('namespacesContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'namespace-row mb-3';
+            newRow.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="prefixes[]" placeholder="Prefix">
+                    </div>
+                    <div class="col-md-9">
+                        <input type="text" class="form-control" name="uris[]" placeholder="URI">
+                    </div>
+                </div>
+            `;
+            container.appendChild(newRow);
+        });
+
+        // Template buttons
+        document.querySelectorAll('.template-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                // Get the template data
+                const subject = this.getAttribute('data-subject');
+                const predicate = this.getAttribute('data-predicate');
+                const object = this.getAttribute('data-object');
+
+                // Add a new triple row with this data
+                const container = document.getElementById('triplesContainer');
+                const newRow = document.createElement('div');
+                newRow.className = 'triple-row mb-3';
+                newRow.innerHTML = `
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" name="subjects[]" placeholder="Subject" value="${subject}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" name="predicates[]" placeholder="Predicate" value="${predicate}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" name="objects[]" placeholder="Object" value="${object}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" name="is_literals[]">
+                                <option value="true">Literal</option>
+                                <option value="false" selected>URI</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(newRow);
+            });
+        });
+
+        // Check document processing status 
+        const processingStatus = document.getElementById('processing-status');
+        if (processingStatus) {
+            const documentId = processingStatus.getAttribute('data-document-id');
+
+            function checkStatus() {
+                fetch(`/cases/triple/api/document-status/${documentId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'processing' || data.status === 'pending') {
+                            // Update progress bar
+                            document.querySelector('.progress-bar').style.width = `${data.progress}%`;
+                            document.querySelector('.progress-bar').setAttribute('aria-valuenow', data.progress);
+                            document.querySelector('.progress-bar').textContent = `${data.progress}%`;
+
+                            // Update phase text
+                            document.querySelector('.text-center small').textContent = data.phase || 'Processing';
+
+                            // Check again in 2 seconds
+                            setTimeout(checkStatus, 2000);
+                        } else if (data.status === 'completed' && data.has_content) {
+                            // Reload page to show content
+                            window.location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking document status:', error);
+                    });
+            }
+
+            // Start checking status
+            checkStatus();
+        }
+    });
+</script>
+{% endblock %}

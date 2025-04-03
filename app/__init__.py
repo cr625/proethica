@@ -64,6 +64,7 @@ def create_app(config_name=None):
     from app.routes.documents import documents_bp, documents_web_bp
     from app.routes.simulation import simulation_bp
     from app.routes.cases import cases_bp
+    from app.routes.cases_triple import cases_triple_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(worlds_bp)
@@ -75,6 +76,7 @@ def create_app(config_name=None):
     app.register_blueprint(documents_web_bp)
     app.register_blueprint(simulation_bp)
     app.register_blueprint(cases_bp)
+    app.register_blueprint(cases_triple_bp)
     
     # Register template filters
     from app import template_filters
