@@ -298,6 +298,16 @@ def add_character(id):
     
     db.session.commit()
     
+    # Synchronize the new character with the RDF triple store
+    from app.services.rdf_service import RDFService
+    rdf_service = RDFService()
+    try:
+        print(f"Syncing new character {character.id} ({character.name}) to RDF triple store")
+        rdf_service.sync_character(character)
+        print(f"Character {character.id} successfully synced with RDF triple store")
+    except Exception as e:
+        print(f"Error syncing character with RDF triple store: {str(e)}")
+    
     return jsonify({
         'success': True,
         'message': 'Character added successfully',
@@ -379,6 +389,8 @@ def edit_character(id, character_id):
 @login_required
 def update_character(id, character_id):
     """Update a character."""
+    from app.services.rdf_service import RDFService
+    
     scenario = Scenario.query.get_or_404(id)
     character = Character.query.get_or_404(character_id)
     
@@ -571,6 +583,16 @@ def update_character(id, character_id):
     
     db.session.commit()
     
+    # Synchronize the character with the RDF triple store
+    rdf_service = RDFService()
+    try:
+        # Sync will delete existing triples and create new ones based on current character state
+        print(f"Syncing character {character.id} ({character.name}) to RDF triple store")
+        rdf_service.sync_character(character)
+        print(f"Character {character.id} successfully synced with RDF triple store")
+    except Exception as e:
+        print(f"Error syncing character with RDF triple store: {str(e)}")
+    
     return jsonify({
         'success': True,
         'message': 'Character updated successfully',
@@ -586,6 +608,7 @@ def update_character(id, character_id):
 def delete_character(id, character_id):
     """Delete a character and its associated actions."""
     from app.models.event import Action, Event
+    from app.services.rdf_service import RDFService
     
     scenario = Scenario.query.get_or_404(id)
     character = Character.query.get_or_404(character_id)
@@ -594,6 +617,15 @@ def delete_character(id, character_id):
     if character.scenario_id != scenario.id:
         flash('Character does not belong to this scenario', 'danger')
         return redirect(url_for('scenarios.view_scenario', id=scenario.id))
+    
+    # Delete character triples from the RDF store
+    try:
+        rdf_service = RDFService()
+        print(f"Deleting RDF triples for character {character_id} ({character.name})")
+        deleted_count = rdf_service.delete_triples(character_id=character_id)
+        print(f"Deleted {deleted_count} RDF triples for character {character_id}")
+    except Exception as e:
+        print(f"Error deleting RDF triples for character {character_id}: {str(e)}")
     
     # First, find all actions associated with this character
     actions = Action.query.filter_by(character_id=character_id).all()
