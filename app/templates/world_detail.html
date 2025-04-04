@@ -363,10 +363,15 @@
                         <a href="{{ url_for('cases.list_cases') }}" class="btn btn-primary">
                             <i class="fas fa-book"></i> View All Cases
                         </a>
-                        <button type="button" class="btn btn-success" data-bs-toggle="modal"
-                            data-bs-target="#addCaseModal">
-                            <i class="fas fa-plus"></i> Add Case
-                        </button>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-success" data-bs-toggle="modal"
+                                data-bs-target="#addCaseModal">
+                                <i class="fas fa-plus"></i> Add Case
+                            </button>
+                            <a href="/cases/triple/new" class="btn btn-primary">
+                                <i class="bi bi-diagram-3"></i> Create Triple Based Case
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
