@@ -22,3 +22,4 @@ def get_entity_triple_service():
 def get_rdf_serialization_service():
     from app.services.rdf_serialization_service import RDFSerializationService
     return RDFSerializationService
+from app.services import temporal_context_service_enhancements

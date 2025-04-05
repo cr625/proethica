@@ -368,6 +368,96 @@
     rdfs:label "Action Temporal Context"@en ;
     rdfs:comment "The temporal context in which an action occurs"@en .
 
+#################################################################
+#    Enhanced Decision Temporal Concepts
+#################################################################
+
+# Decision sequence
+:DecisionSequence rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "Decision Sequence"@en ;
+    rdfs:comment "A series of related decisions that form a coherent sequence"@en .
+
+# Decision option
+:DecisionOption rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000023 ; # role
+    rdfs:label "Decision Option"@en ;
+    rdfs:comment "An option or alternative considered in a decision"@en .
+
+# Decision consequence
+:DecisionConsequence rdf:type owl:Class ;
+    rdfs:subClassOf :Event ;
+    rdfs:label "Decision Consequence"@en ;
+    rdfs:comment "An event that occurs as a direct result of a decision"@en .
+
+# Decision branching point
+:DecisionBranchingPoint rdf:type owl:Class ;
+    rdfs:subClassOf :TimelineSegment ;
+    rdfs:label "Decision Branching Point"@en ;
+    rdfs:comment "A point in the timeline where multiple alternative futures are possible based on a decision"@en .
+
+# Decision context
+:DecisionContext rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000040 ; # material entity
+    rdfs:label "Decision Context"@en ;
+    rdfs:comment "The situational context in which a decision is made, including relevant facts and constraints"@en .
+
+#################################################################
+#    Timeline Segmentation Concepts
+#################################################################
+
+# Timeline phase
+:TimelinePhase rdf:type owl:Class ;
+    rdfs:subClassOf :TimelineSegment ;
+    rdfs:label "Timeline Phase"@en ;
+    rdfs:comment "A distinct phase or stage in a scenario timeline"@en .
+
+# Timeline episode
+:TimelineEpisode rdf:type owl:Class ;
+    rdfs:subClassOf :TimelineSegment ;
+    rdfs:label "Timeline Episode"@en ;
+    rdfs:comment "A self-contained episode within a timeline, with a beginning, middle, and end"@en .
+
+# Timeline marker
+:TimelineMarker rdf:type owl:Class ;
+    rdfs:subClassOf :EventTimePoint ;
+    rdfs:label "Timeline Marker"@en ;
+    rdfs:comment "A significant point in time that marks a transition or boundary in the timeline"@en .
+
+# Timeline sequence
+:TimelineSequence rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "Timeline Sequence"@en ;
+    rdfs:comment "An ordered sequence of events, actions, or decisions in temporal order"@en .
+
+#################################################################
+#    Temporal Pattern Concepts
+#################################################################
+
+# Temporal pattern
+:TemporalPattern rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "Temporal Pattern"@en ;
+    rdfs:comment "A recurring pattern of events or actions across time"@en .
+
+# Temporal cycle
+:TemporalCycle rdf:type owl:Class ;
+    rdfs:subClassOf :TemporalPattern ;
+    rdfs:label "Temporal Cycle"@en ;
+    rdfs:comment "A cyclical pattern that repeats over time"@en .
+
+# Temporal rule
+:TemporalRule rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant
+    rdfs:label "Temporal Rule"@en ;
+    rdfs:comment "A rule that governs or describes temporal relationships between events"@en .
+
+# Conditional temporal structure
+:ConditionalTemporalStructure rdf:type owl:Class ;
+    rdfs:subClassOf :TemporalPattern ;
+    rdfs:label "Conditional Temporal Structure"@en ;
+    rdfs:comment "A temporal structure that depends on certain conditions being met (if X happens, then Y follows)"@en .
+
 # Temporal properties
 :temporallyPrecedes rdf:type owl:ObjectProperty ;
     rdfs:subPropertyOf bfo:BFO_0000062 ; # preceded_by (inverse)
@@ -450,3 +540,84 @@
     rdfs:range bfo:BFO_0000148 ; # zero-dimensional temporal region
     rdfs:label "has end point"@en ;
     rdfs:comment "Relates a temporal interval to its ending point"@en .
+
+#################################################################
+#    Enhanced Temporal Relation Properties
+#################################################################
+
+:causedBy rdf:type owl:ObjectProperty ;
+    rdfs:subPropertyOf :temporallyFollows ;
+    rdfs:domain :Event ;
+    rdfs:range :Event ;
+    rdfs:label "caused by"@en ;
+    rdfs:comment "Indicates that one event is caused by another"@en .
+
+:enabledBy rdf:type owl:ObjectProperty ;
+    rdfs:subPropertyOf :temporallyFollows ;
+    rdfs:domain :Event ;
+    rdfs:range :Event ;
+    rdfs:label "enabled by"@en ;
+    rdfs:comment "Indicates that one event is made possible by another"@en .
+
+:preventedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain :Event ;
+    rdfs:range :Event ;
+    rdfs:label "prevented by"@en ;
+    rdfs:comment "Indicates that one event prevents another from occurring"@en .
+
+:precededByWithGap rdf:type owl:ObjectProperty ;
+    rdfs:subPropertyOf :temporallyFollows ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range bfo:BFO_0000008 ; # temporal region
+    rdfs:label "preceded by with gap"@en ;
+    rdfs:comment "Indicates that one temporal region follows another with a significant gap"@en .
+
+:hasTemporalGap rdf:type owl:DatatypeProperty ;
+    rdfs:domain :precededByWithGap ;
+    rdfs:range xsd:duration ;
+    rdfs:label "has temporal gap"@en ;
+    rdfs:comment "The duration of the gap between two temporal regions"@en .
+
+:hasTemporalConfidence rdf:type owl:DatatypeProperty ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range xsd:float ;
+    rdfs:label "has temporal confidence"@en ;
+    rdfs:comment "The confidence level in the temporal information (0.0-1.0)"@en .
+
+:hasTimelineOrder rdf:type owl:DatatypeProperty ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range xsd:integer ;
+    rdfs:label "has timeline order"@en ;
+    rdfs:comment "The explicit ordering position in a timeline"@en .
+
+:belongsToTimelineGroup rdf:type owl:ObjectProperty ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range :TimelineSegment ;
+    rdfs:label "belongs to timeline group"@en ;
+    rdfs:comment "Associates a temporal entity with a timeline group it belongs to"@en .
+
+# Decision option properties
+:hasOption rdf:type owl:ObjectProperty ;
+    rdfs:domain :Decision ;
+    rdfs:range :DecisionOption ;
+    rdfs:label "has option"@en ;
+    rdfs:comment "Relates a decision to one of its options"@en .
+
+:hasSelectedOption rdf:type owl:ObjectProperty ;
+    rdfs:subPropertyOf :hasOption ;
+    rdfs:domain :Decision ;
+    rdfs:range :DecisionOption ;
+    rdfs:label "has selected option"@en ;
+    rdfs:comment "Relates a decision to the option that was selected"@en .
+
+:leadsTo rdf:type owl:ObjectProperty ;
+    rdfs:domain :DecisionOption ;
+    rdfs:range :Event ;
+    rdfs:label "leads to"@en ;
+    rdfs:comment "Indicates that a decision option leads to certain events or consequences"@en .
+
+:hasProbability rdf:type owl:DatatypeProperty ;
+    rdfs:domain :leadsTo ;
+    rdfs:range xsd:float ;
+    rdfs:label "has probability"@en ;
+    rdfs:comment "The probability that this decision option leads to the specified consequence"@en .

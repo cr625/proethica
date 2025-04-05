@@ -1,237 +1,117 @@
-# Temporal Representation in ProEthica
+# Temporal Representation for Timeline Entities
 
-This document describes the BFO-based temporal representation system implemented in ProEthica for timeline entities (events, actions, and decisions).
+This document outlines the approach for representing timeline entities (events, actions, decisions) using the RDF triple model with temporal components, allowing for effective integration with LangChain/LangGraph via the MCP server.
 
-## Overview
+## Current State
 
-ProEthica now uses a sophisticated temporal representation system based on the Basic Formal Ontology (BFO) to represent timeline entities with precise temporal properties. This enhancement enables:
+- Timeline entities are currently stored as events, actions, and decision-type actions
+- Entity information is represented as triples in the `entity_triples` table
+- The table already includes temporal fields based on BFO ontology concepts:
+  - `temporal_region_type`: BFO_0000038 (1D temporal region) or BFO_0000148 (0D temporal region)
+  - `temporal_start`: Start time for intervals, time point for instants
+  - `temporal_end`: End time for intervals, null for instants
+  - `temporal_relation_type`: Type of relation (precedes, follows, etc.)
+  - `temporal_relation_to`: Related triple ID
+  - `temporal_granularity`: Granularity of time measurement (seconds, minutes, etc.)
+- A `TemporalContextService` enables operations on these temporal aspects
+- The MCP server exposes timeline and temporal data through REST endpoints
 
-1. **Temporal Queries**: Search for events that occurred within specific timeframes
-2. **Timeline Sequencing**: Generate ordered timelines for scenarios
-3. **Temporal Reasoning**: Infer causal relationships and consequences based on temporal ordering
-4. **Context Generation**: Create rich temporal context for Claude to understand event sequences
+## Enhancements Required
 
-## BFO Temporal Concepts
+### 1. Database Changes
 
-The system leverages BFO's temporal region concepts:
+The current `entity_triples` table structure is well-designed for temporal representation, but we should add:
 
-- **Zero-dimensional Temporal Regions** (BFO_0000148): Represent instantaneous events or decision points
-- **One-dimensional Temporal Regions** (BFO_0000038): Represent intervals with duration, like actions that take time to complete
-- **Temporal Boundaries** (BFO_0000011): Represent the start or end of temporal regions
+1. **Improved indexing** for temporal queries:
+   - Create a composite index on `(scenario_id, temporal_start)` for faster timeline generation
+   - Create an index on `(temporal_relation_type, temporal_relation_to)` for relation queries
 
-Temporal relationships between entities use BFO-aligned properties:
+2. **Additional metadata fields**:
+   - Add `temporal_confidence` (float): Confidence level in the temporal information (0.0-1.0)
+   - Add `temporal_context` (jsonb): Additional context about the temporal situation
 
-- **temporallyPrecedes**: Entity A occurs before Entity B
-- **temporallyFollows**: Entity A occurs after Entity B
-- **temporallyCoincidesWith**: Entities occur at the same time
-- **temporallyOverlaps**: Temporal regions have an overlapping period
-- **temporallyNecessitates**: An event creates the need for a decision
-- **hasTemporalConsequence**: Relates a decision to resulting events
+3. **Timeline ordering**:
+   - Add `timeline_order` (integer): Explicit ordering value for timeline items when exact timestamps aren't available
+   - Add `timeline_group` (string): For grouping related temporal items
 
-## Database Schema
+### 2. Ontology Changes
 
-The `EntityTriple` model has been enhanced with temporal fields:
+The intermediate ontology needs enrichment to better support temporal reasoning for decisions:
 
-```python
-# BFO-based temporal fields
-temporal_region_type = db.Column(String(255))  # BFO_0000038 (1D) or BFO_0000148 (0D)
-temporal_start = db.Column(DateTime)           # Start time for intervals, time point for instants
-temporal_end = db.Column(DateTime)             # End time for intervals, None for instants
-temporal_relation_type = db.Column(String(50)) # precedes, follows, etc.
-temporal_relation_to = db.Column(Integer)      # Related triple
-temporal_granularity = db.Column(String(50))   # seconds, minutes, days, etc.
+1. **Enhanced decision temporal concepts**:
+   - Add `DecisionSequence` class for representing a series of related decisions
+   - Add `DecisionOption` class to explicitly model decision alternatives
+   - Add `DecisionConsequence` class to model outcomes of decisions
+
+2. **Temporal relation properties**:
+   - Add more specific causal-temporal relations like `causedBy`, `enabledBy`, `preventedBy`
+   - Add qualified temporal relations with context, like `precededByWithGap`
+
+3. **Timeline segmentation concepts**:
+   - Add concepts for timeline phases, episodes, and segments
+   - Support temporal aggregation of events into meaningful units
+
+4. **Temporal patterns**:
+   - Model recurring patterns, cycles, and temporal rules
+   - Support conditional temporal structures (if X happens, then Y happens after Z time)
+
+## Implementation Strategy
+
+### Phase 1: Database Enhancements
+
+1. Create a migration script to add new fields and indexes to the `entity_triples` table
+2. Update the `EntityTriple` model to include new fields
+3. Enhance `TemporalContextService` with methods to leverage the new fields
+4. Add indexing function to calculate `timeline_order` for existing triples
+
+### Phase 2: Ontology Extension
+
+1. Extend the intermediate ontology with new temporal classes and properties
+2. Add domain-specific temporal concepts for decisions and actions
+3. Create mapping functions to translate between database and ontology representations
+4. Implement validation rules for temporal consistency
+
+### Phase 3: MCP Server Integration
+
+1. Enhance MCP server with additional temporal endpoints
+2. Create specialized endpoints for decision sequence analysis
+3. Implement LangChain/LangGraph compatible output formats
+4. Add temporal reasoning capabilities to the MCP server
+
+### Phase 4: LangChain/LangGraph Integration
+
+1. Create LangChain custom tools for temporal queries
+2. Build LangGraph components for temporal reasoning
+3. Implement temporal constraints and validation in flows
+4. Create prompt templates that leverage temporal context
+
+## Benefits
+
+This enhanced approach will provide:
+
+1. **Improved temporal reasoning**: Better understanding of the sequence and timing of events
+2. **Richer decision modeling**: More detailed representation of decision options and consequences
+3. **Contextual awareness**: Ability to reason about what was known at different points in time
+4. **Causal analysis**: Understanding of how events and decisions influence each other
+5. **Scenario exploration**: Support for "what if" analysis based on temporal modifications
+
+## Example Usage with Claude
+
+With these enhancements, we can provide Claude with rich temporal context like:
+
+```
+TIMELINE:
+- At t1, Character A observed situation X (EVENT)
+- At t2, Character A had to decide between options Y and Z (DECISION)
+  - Option Y would lead to consequence Y1 after time Δt1
+  - Option Z would lead to consequence Z1 after time Δt2
+- At t3, Character A selected option Y (ACTION)
+- At t4, Consequence Y1 occurred (EVENT)
+
+TEMPORAL RELATIONSHIPS:
+- Decision at t2 was necessitated by observation at t1
+- Action at t3 was part of decision at t2
+- Consequence at t4 was caused by action at t3
 ```
 
-## Services
-
-### TemporalContextService
-
-A new service provides methods for working with temporal aspects of entities:
-
-```python
-from app.services.temporal_context_service import TemporalContextService
-
-# Initialize
-temporal_service = TemporalContextService()
-
-# Find events in a timeframe
-events = temporal_service.find_triples_in_timeframe(
-    start_time=datetime(2025, 4, 1),
-    end_time=datetime(2025, 4, 5),
-    entity_type='event',
-    scenario_id=1
-)
-
-# Find events in temporal sequence
-sequence = temporal_service.find_temporal_sequence(scenario_id=1)
-
-# Build a timeline
-timeline = temporal_service.build_timeline(scenario_id=1)
-
-# Generate context for Claude
-context = temporal_service.get_temporal_context_for_claude(scenario_id=1)
-```
-
-### Enhanced EntityTripleService
-
-The `EntityTripleService` has been updated to automatically add temporal data to entity triples:
-
-```python
-# When creating events
-event_triples = entity_triple_service.event_to_triples(event)
-
-# When creating actions
-action_triples = entity_triple_service.action_to_triples(action)
-
-# When creating decisions (special case of actions)
-decision_triples = entity_triple_service.action_to_triples(decision)
-```
-
-## MCP Server Integration
-
-The HTTP ontology MCP server has been enhanced with temporal endpoints:
-
-- `/api/timeline/<scenario_id>`: Get a complete timeline for a scenario
-- `/api/temporal_context/<scenario_id>`: Get temporal context formatted for Claude
-- `/api/events_in_timeframe`: Find events within a specific timeframe
-- `/api/temporal_sequence/<scenario_id>`: Get events in temporal order
-- `/api/temporal_relation/<triple_id>`: Get related triples by temporal relation
-- `/api/create_temporal_relation`: Create a temporal relation between triples
-
-## Usage Examples
-
-### Creating a Timeline
-
-```python
-# Create events with temporal data
-event1 = Event(
-    scenario_id=1,
-    character_id=1,
-    event_time=datetime(2025, 4, 1, 9, 0, 0),
-    description="Project kickoff meeting"
-)
-db.session.add(event1)
-
-# Create actions with temporal data
-action1 = Action(
-    scenario_id=1,
-    character_id=1,
-    action_time=datetime(2025, 4, 1, 14, 0, 0),
-    name="Safety inspection",
-    description="Engineer performs safety inspection of the building"
-)
-db.session.add(action1)
-
-# Create a decision with temporal data
-decision1 = Action(
-    scenario_id=1,
-    character_id=1,
-    action_time=datetime(2025, 4, 2, 10, 0, 0),
-    name="Report safety violations",
-    description="Engineer decides whether to report safety violations",
-    is_decision=True,
-    options={
-        "report": {
-            "description": "Report violations to authorities",
-            "ethical_principles": ["integrity", "public_safety"]
-        },
-        "inform_client": {
-            "description": "Inform client only",
-            "ethical_principles": ["confidentiality", "client_service"]
-        }
-    },
-    selected_option="report"
-)
-db.session.add(decision1)
-db.session.commit()
-
-# Convert to triples with temporal data
-triple_service = EntityTripleService()
-temporal_service = TemporalContextService()
-
-event_triples = triple_service.event_to_triples(event1)
-action_triples = triple_service.action_to_triples(action1)
-decision_triples = triple_service.action_to_triples(decision1)
-
-# Add duration to action (it takes 2 hours)
-temporal_service.enhance_action_with_temporal_data(
-    action_id=action1.id,
-    action_time=action1.action_time,
-    duration_minutes=120,
-    is_decision=False
-)
-
-# Create temporal relationships
-temporal_service.create_temporal_relation(
-    event_triples[0].id,
-    action_triples[0].id,
-    "precedes"
-)
-
-temporal_service.create_temporal_relation(
-    action_triples[0].id,
-    decision_triples[0].id,
-    "precedes"
-)
-```
-
-### Querying Timeline Data
-
-```python
-# Get all events in the morning of April 1st
-morning_events = temporal_service.find_triples_in_timeframe(
-    start_time=datetime(2025, 4, 1, 8, 0, 0),
-    end_time=datetime(2025, 4, 1, 12, 0, 0),
-    entity_type='event',
-    scenario_id=1
-)
-
-# Get the complete timeline for a scenario
-timeline = temporal_service.build_timeline(scenario_id=1)
-
-# Get the temporal context for Claude
-context = temporal_service.get_temporal_context_for_claude(scenario_id=1)
-```
-
-## Integration with LangChain/LangGraph
-
-When using the MCP server with Claude, you can now include temporal context:
-
-```python
-# Example pseudocode for Claude integration
-async def get_ethical_analysis(scenario_id):
-    # Get the timeline data
-    timeline_data = await fetch('/api/timeline/' + scenario_id)
-    
-    # Get the temporal context for Claude
-    temporal_context = await fetch('/api/temporal_context/' + scenario_id)
-    
-    # Create a prompt with temporal context
-    prompt = f"""
-    Scenario: {scenario.description}
-    
-    Timeline:
-    {temporal_context}
-    
-    Analyze the ethical implications of the engineer's decisions in this scenario,
-    considering the temporal sequence of events and the consequences that followed.
-    """
-    
-    # Send to Claude
-    response = await claude.complete(prompt)
-    return response
-```
-
-## Setup and Testing
-
-To set up and test the temporal enhancements:
-
-```bash
-# Run the setup script
-./scripts/setup_temporal_enhancements.sh
-
-# Test temporal functionality
-python scripts/test_temporal_functionality.py
-
-# Restart the MCP server to enable temporal endpoints
-./scripts/restart_mcp_server.sh
+This structured temporal context will enable Claude to provide more accurate and contextually appropriate responses based on what information was available at different points in time.

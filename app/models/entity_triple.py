@@ -39,6 +39,12 @@ class EntityTriple(db.Model):
     temporal_relation_to = db.Column(Integer, db.ForeignKey('entity_triples.id'), nullable=True)  # Related triple
     temporal_granularity = db.Column(String(50), nullable=True)  # seconds, minutes, days, etc.
     
+    # Enhanced temporal fields
+    temporal_confidence = db.Column(db.Float, default=1.0)  # Confidence level in temporal information
+    temporal_context = db.Column(JSONB, default=dict)  # Additional context about the temporal situation
+    timeline_order = db.Column(Integer, nullable=True)  # Explicit ordering for timeline items
+    timeline_group = db.Column(String(255), nullable=True)  # For grouping related temporal items
+    
     # Polymorphic entity reference
     entity_type = db.Column(String(50), nullable=False)  # 'character', 'action', 'event', 'resource'
     entity_id = db.Column(Integer, nullable=False)
@@ -77,7 +83,12 @@ class EntityTriple(db.Model):
             'temporal_end': self.temporal_end.isoformat() if self.temporal_end else None,
             'temporal_relation_type': self.temporal_relation_type,
             'temporal_relation_to': self.temporal_relation_to,
-            'temporal_granularity': self.temporal_granularity
+            'temporal_granularity': self.temporal_granularity,
+            # Enhanced temporal fields
+            'temporal_confidence': self.temporal_confidence,
+            'temporal_context': self.temporal_context,
+            'timeline_order': self.timeline_order,
+            'timeline_group': self.timeline_group
         }
     
     def to_rdf_tuple(self):

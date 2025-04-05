@@ -7,7 +7,10 @@ import rdflib
 from rdflib import Graph, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import OWL
 from aiohttp import web
-from mcp.add_temporal_functionality import add_temporal_endpoints
+
+# Add the parent directory to the path so we can import mcp as a package
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from add_temporal_functionality import add_temporal_endpoints
 
 # Configurable environment setup
 ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", os.path.join(os.path.dirname(__file__), "ontology"))
@@ -368,12 +371,12 @@ class OntologyMCPServer:
         # Return mock guidelines for the specified world or empty dictionary if not found
         return web.json_response({"guidelines": mock_guidelines.get(world_name, [])})
 
-    # Add temporal endpoints
-    add_temporal_endpoints(app)
-
 async def run_server():
     server = OntologyMCPServer()
     app = web.Application()
+    
+    # Add temporal endpoints
+    add_temporal_endpoints(app)
     
     # JSON-RPC endpoint
     app.router.add_post('/jsonrpc', server.handle_jsonrpc)
