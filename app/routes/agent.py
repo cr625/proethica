@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import login_required
 from app.services.llm_service import LLMService, Conversation, Message
 from app.services.claude_service import ClaudeService
+from app.services.application_context_service import ApplicationContextService
 from app.models.world import World
 import json
 import os
@@ -57,26 +58,42 @@ def send_message():
     # Get message and world_id from request
     message = data.get('message', '')
     world_id = data.get('world_id')
+    scenario_id = data.get('scenario_id')
     
     # Get conversation from session
     conversation_data = json.loads(session.get('conversation', '{}'))
     conversation = Conversation.from_dict(conversation_data)
     
-    # Update world_id in metadata if provided
+    # Update metadata if provided
     if world_id is not None:
         conversation.metadata['world_id'] = world_id
+    if scenario_id is not None:
+        conversation.metadata['scenario_id'] = scenario_id
     
-    # Send message to the appropriate service based on active_service flag
+    # Get application context
+    app_context_service = ApplicationContextService.get_instance()
+    context = app_context_service.get_full_context(
+        world_id=conversation.metadata.get('world_id'),
+        scenario_id=conversation.metadata.get('scenario_id'),
+        query=message
+    )
+    
+    # Format context for LLM
+    formatted_context = app_context_service.format_context_for_llm(context)
+    
+    # Send message to the appropriate service with enhanced context
     if active_service == 'claude':
-        response = claude_service.send_message(
+        response = claude_service.send_message_with_context(
             message=message,
             conversation=conversation,
+            application_context=formatted_context,
             world_id=conversation.metadata.get('world_id')
         )
     else:
-        response = llm_service.send_message(
+        response = llm_service.send_message_with_context(
             message=message,
             conversation=conversation,
+            application_context=formatted_context,
             world_id=conversation.metadata.get('world_id')
         )
     

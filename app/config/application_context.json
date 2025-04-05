@@ -1,0 +1,21 @@
+{
+  "max_tokens": 2000,
+  "sections": {
+    "world_context": {"priority": 1, "max_percent": 40},
+    "scenario_context": {"priority": 2, "max_percent": 30},
+    "navigation": {"priority": 3, "max_percent": 10},
+    "entities": {"priority": 4, "max_percent": 20}
+  },
+  "context_providers": {
+    "default": {"enabled": true},
+    "navigation": {"enabled": true},
+    "entity": {"enabled": true},
+    "temporal": {"enabled": true},
+    "analytics": {"enabled": false}
+  },
+  "caching": {
+    "enabled": true,
+    "ttl_seconds": 300
+  },
+  "schema_version": "1.0.0"
+}

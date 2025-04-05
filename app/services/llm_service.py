@@ -379,6 +379,23 @@ class LLMService:
         Returns:
             Response message
         """
+        # For backward compatibility, delegate to send_message_with_context
+        return self.send_message_with_context(message, conversation, None, world_id)
+    
+    def send_message_with_context(self, message: str, conversation: Optional[Conversation] = None, 
+                                application_context: Optional[str] = None, world_id: Optional[int] = None) -> Message:
+        """
+        Send a message to the language model with enhanced application context.
+        
+        Args:
+            message: Message to send
+            conversation: Conversation object (optional)
+            application_context: Enhanced application context (optional)
+            world_id: ID of the world for context (optional)
+            
+        Returns:
+            Response message
+        """
         # Create conversation if not provided
         if conversation is None:
             conversation = Conversation()
@@ -393,12 +410,34 @@ class LLMService:
             # Get conversation context
             context = conversation.get_context_string()
             
-            # Run the chain using the new RunnableSequence API
-            response = self.chat_chain.invoke({
-                "context": context,
-                "message": message,
-                "guidelines": guidelines
-            })
+            if application_context:
+                # Create enhanced prompt with application context
+                enhanced_prompt = f"""
+                You are an AI assistant helping users with ethical decision-making scenarios.
+                
+                APPLICATION INFORMATION:
+                {application_context}
+                
+                Conversation history:
+                {context}
+                
+                Guidelines for reference:
+                {guidelines}
+                
+                User message: {message}
+                
+                Respond to the user's message, taking into account the application context, conversation history, and the guidelines provided.
+                """
+                
+                # Process with LLM directly
+                response = self.llm.invoke(enhanced_prompt)
+            else:
+                # Use the standard chat chain when no application context is provided
+                response = self.chat_chain.invoke({
+                    "context": context,
+                    "message": message,
+                    "guidelines": guidelines
+                })
         except Exception as e:
             print(f"Error generating response: {str(e)}")
             # Use a default response in case of error
