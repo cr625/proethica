@@ -1,6 +1,6 @@
-# NSPE Engineering Ethics Case Import
+# NSPE Engineering Ethics Case Import Guide
 
-This directory contains scripts for importing cases from the NSPE Board of Ethical Review into the ProEthica system. These scripts allow you to fetch, process, and store engineering ethics cases from NSPE as semantic triples in the ProEthica database.
+This guide details the scripts and process for importing cases from the National Society of Professional Engineers (NSPE) Board of Ethical Review into the ProEthica system. These scripts allow you to fetch, process, and store engineering ethics cases from NSPE as semantic triples in the ProEthica database.
 
 ## Overview
 

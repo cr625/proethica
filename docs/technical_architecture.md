@@ -1,4 +1,6 @@
-# ProEthica Technical Overview
+# ProEthica Technical Architecture
+
+This document provides a comprehensive overview of the ProEthica system's technical architecture and implementation details.
 
 ## System Architecture
 
@@ -110,6 +112,34 @@ classDiagram
         +embedding: Vector
     }
 ```
+
+## RDF Triple-Based Data Structure
+
+ProEthica uses an RDF triple-based data structure for representing entities and their relationships:
+
+### Entity Triples
+
+- **Unified Storage**: The `entity_triples` table stores data for all entity types (characters, events, actions, resources)
+- **Polymorphic References**: Uses entity_type and entity_id fields to reference different entity types
+- **Vector Integration**: Maintains pgvector compatibility for semantic similarity search
+- **Temporal Features**: Includes valid_from and valid_to fields for time-based queries
+
+### Entity Triple Structure
+
+Each triple follows the standard RDF format:
+- **Subject**: The entity (e.g., a character, event, action, or resource)
+- **Predicate**: The relationship or property (e.g., hasRole, participatesIn)
+- **Object**: The target entity or literal value
+- **Graph**: Optional named graph for contextual organization
+- **Metadata**: Additional fields for temporal information and context
+
+### Temporal Enhancement
+
+The entity_triples table includes temporal enhancements:
+- `temporal_confidence`: Confidence level in temporal information (0.0-1.0)
+- `temporal_context`: Additional context about the temporal situation (JSONB)
+- `timeline_order`: Explicit ordering value for timeline items
+- `timeline_group`: For grouping related temporal items
 
 ## Key Processes
 
@@ -223,9 +253,9 @@ The `EmbeddingService` handles document processing:
 
 - **Text Extraction**: Processes various document formats
 - **Chunking**: Splits documents into manageable segments
-- **Embedding Generation**: Creates vector representations
-- **Similarity Search**: Finds relevant document chunks
-- **PGVector Integration**: Uses PostgreSQL vector extension
+- **Embedding Generation**: Creates vector representations using Sentence-Transformers
+- **Similarity Search**: Finds relevant document chunks using pgvector
+- **PGVector Integration**: Uses PostgreSQL vector extension for efficient vector operations
 
 ### 4. Entity Manager
 
@@ -237,37 +267,16 @@ The `EntityManager` utility provides a centralized system for managing scenario 
 - **Scenario Creation**: Creates complete scenarios from structured data
 - **Ontology Integration**: Populates entity types from ontology files
 
-The Entity Manager simplifies entity creation through high-level functions:
+### 5. TemporalContextService
 
-```python
-# Creating a new scenario with all entities
-scenario_id = create_ethical_scenario(
-    world_name="Engineering Ethics",
-    scenario_name="Bridge Safety Dilemma",
-    scenario_description="A structural engineer discovers potential safety issues...",
-    characters={...},
-    resources=[...],
-    timeline={...}
-)
+The `TemporalContextService` handles temporal aspects of scenarios:
 
-# Creating or updating individual entities
-character = create_or_update_character(scenario_id, "Jane Smith", "Attorney", ...)
-resource = create_or_update_resource(scenario_id, "Legal Brief", "Document", ...)
-event = create_timeline_event(scenario_id, "Client meeting", ...)
-action = create_timeline_action(scenario_id, "Ethical Decision", ..., is_decision=True)
-```
+- **Timeline Ordering**: Manages explicit ordering of timeline items
+- **Temporal Grouping**: Groups timeline items by various criteria
+- **Relationship Inference**: Automatically infers temporal relationships
+- **Context Generation**: Creates rich temporal context for Claude prompts
 
-The utility also includes a consolidated script (`scripts/populate_entities.py`) for command-line operations:
-
-```bash
-# Populate entity types from ontology
-python scripts/populate_entities.py --world "Engineering Ethics" --ontology
-
-# Add test timeline items to a scenario
-python scripts/populate_entities.py --scenario 1 --test-timeline
-```
-
-### 5. MCP Integration
+### 6. MCP Integration
 
 The Model Context Protocol integration provides:
 
@@ -348,6 +357,20 @@ erDiagram
         vector embedding
     }
     
+    ENTITY_TRIPLES {
+        int id PK
+        string subject
+        string predicate
+        string object
+        string graph
+        timestamp valid_from
+        timestamp valid_to
+        float temporal_confidence
+        jsonb temporal_context
+        int timeline_order
+        string timeline_group
+    }
+    
     WORLDS ||--o{ SCENARIOS : contains
     WORLDS ||--o{ DOCUMENTS : contains
     SCENARIOS ||--o{ CHARACTERS : contains
@@ -384,6 +407,11 @@ erDiagram
 - `POST /documents/upload` - Upload a document
 - `GET /documents/<id>` - Get document details
 - `GET /documents/search` - Search documents
+
+### MCP Integration
+- `GET /mcp/roles` - Get available roles from ontology
+- `GET /mcp/concepts/<world_id>` - Get concepts for a specific world
+- `POST /mcp/query` - Execute a query against the ontology
 
 ## Technology Stack
 
