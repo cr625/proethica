@@ -72,7 +72,7 @@ The application is built with:
    ZOTERO_USER_ID=your-zotero-user-id
    ```
    
-   See `ZOTERO_INTEGRATION.md` for more details on setting up the Zotero integration.
+   See the [documentation index](docs/index.md) for more details on setting up the Zotero integration.
 
 6. Initialize the database:
    ```
