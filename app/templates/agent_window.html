@@ -146,6 +146,18 @@
                     </div>
 
                     <div class="input-area">
+                        <!-- Add suggestion button when world is selected but no suggestions are shown -->
+                        <div v-if="selectedWorldId && promptOptions.length === 0" class="w-100 mb-2">
+                            <button 
+                                class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center" 
+                                @click="generateSuggestions" 
+                                :disabled="isFetchingSuggestions">
+                                <i class="bi bi-lightbulb me-2" style="font-size: 1.1rem;"></i>
+                                <span>Generate Suggestions</span>
+                                <span v-if="isFetchingSuggestions" class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        
                         <!-- Show prompt options when world is selected and options are available -->
                         <div v-if="selectedWorldId && promptOptions.length > 0" class="prompt-options w-100">
                             <button v-for="option in promptOptions" :key="option.id" class="prompt-option"
@@ -200,6 +212,7 @@
             inputEnabled: true,
             promptOptions: [],
             isProcessing: false,
+            isFetchingSuggestions: false, // Added for suggestion button loading state
             selectedWorldId: '{{ selected_world.id if selected_world else "" }}',
             selectedService: 'claude', // Default to Claude
             guidelines: '',
@@ -209,12 +222,10 @@
             // Initialize conversation from session
             this.initializeConversation();
 
-            // Get prompt options
-            this.getPromptOptions();
-
             // Get guidelines if world is selected
             if (this.selectedWorldId) {
                 this.getGuidelines();
+                // No longer automatically fetch prompt options
             }
         },
         methods: {
@@ -345,6 +356,33 @@
                         this.promptOptions = [];
                     });
             },
+            generateSuggestions() {
+                if (!this.selectedWorldId || this.isFetchingSuggestions) return;
+                
+                // Set loading state
+                this.isFetchingSuggestions = true;
+                
+                // Call API to get suggestions
+                axios.get('/agent/api/options', {
+                    params: {
+                        world_id: this.selectedWorldId || null
+                    }
+                })
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            this.promptOptions = response.data.options;
+                        } else {
+                            this.promptOptions = [];
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error getting prompt options:', error);
+                        this.promptOptions = [];
+                    })
+                    .finally(() => {
+                        this.isFetchingSuggestions = false;
+                    });
+            },
             worldChanged() {
                 // Reset conversation when world changes
                 this.resetConversation();
@@ -352,6 +390,7 @@
                 // Get guidelines for the selected world
                 if (this.selectedWorldId) {
                     this.getGuidelines();
+                    // No longer automatically fetch prompt options
                 } else {
                     this.guidelines = '';
                     this.formattedGuidelines = '';
@@ -391,9 +430,9 @@
                         if (response.data.status === 'success') {
                             // Reset conversation
                             this.initializeConversation();
-
-                            // Get new prompt options
-                            this.getPromptOptions();
+                            
+                            // Clear any existing prompt options
+                            this.promptOptions = [];
                         }
                     })
                     .catch(error => {
@@ -418,8 +457,8 @@
                                 }
                             ];
 
-                            // Get new prompt options
-                            this.getPromptOptions();
+                            // Clear any existing prompt options
+                            this.promptOptions = [];
                         } else {
                             // Add error message
                             this.messages.push({
