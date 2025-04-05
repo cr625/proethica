@@ -4,9 +4,9 @@
 
 A backup of the current database has been created:
 
-- **Backup filename**: `ai_ethical_dm_backup_20250405_123841.dump`
-- **Backup size**: 103K
-- **Backup date**: April 5, 2025, 12:38:41 PM
+- **Backup filename**: `ai_ethical_dm_backup_20250405_182557.dump`
+- **Backup size**: 154K
+- **Backup date**: April 5, 2025, 6:25:57 PM
 - **Location**: `/home/chris/ai-ethical-dm/backups/`
 
 ## How to Restore from this Backup
@@ -15,7 +15,7 @@ To restore the database from this backup, run:
 
 ```bash
 cd /home/chris/ai-ethical-dm
-bash backups/restore_database.sh backups/ai_ethical_dm_backup_20250405_123841.dump
+bash backups/restore_database.sh backups/ai_ethical_dm_backup_20250405_182557.dump
 ```
 
 When prompted, type `y` to confirm the restoration.
