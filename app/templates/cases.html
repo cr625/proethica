@@ -13,14 +13,24 @@
     {% endif %}
 
     <div class="row mb-4">
-        <div class="col-md-6">
-            <form class="d-flex" action="/cases/search" method="get">
-                <input class="form-control me-2" type="search" placeholder="Search cases..." name="query"
-                    aria-label="Search">
-                <button class="btn btn-outline-primary" type="submit">Search</button>
+        <div class="col-md-8">
+            <form id="caseFilterForm" class="d-flex" action="/cases/" method="get">
+                <div class="input-group me-2">
+                    <select class="form-select" name="world_id" id="worldFilter" aria-label="Filter by World" onchange="this.form.submit()">
+                        <option value="">All Worlds</option>
+                        {% for world in worlds %}
+                        <option value="{{ world.id }}" {% if selected_world_id == world.id %}selected{% endif %}>
+                            {{ world.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <input class="form-control" type="search" placeholder="Search cases..." name="query" value="{{ query }}"
+                        aria-label="Search">
+                    <button class="btn btn-outline-primary" type="submit">Search</button>
+                </div>
             </form>
         </div>
-        <div class="col-md-6 text-end">
+        <div class="col-md-4 text-end">
             <div class="btn-group">
                 <a href="/cases/new" class="btn btn-success">Add New Case</a>
                 <a href="/cases/triple/new" class="btn btn-primary">
@@ -31,35 +41,24 @@
     </div>
 
     {% if cases %}
-    {% for case in cases %}
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h3>{{ case.title }}</h3>
-            <span class="badge bg-primary">Case #{{ case.id }}</span>
-        </div>
-        <div class="card-body">
-            <h5>Description</h5>
-            <p class="card-text">{{ case.description }}</p>
-
-            <h5 class="mt-3">Decision</h5>
-            <p class="card-text">{{ case.decision }}</p>
-
-            {% if case.outcome %}
-            <h5 class="mt-3">Outcome</h5>
-            <p class="card-text">{{ case.outcome }}</p>
-            {% endif %}
-
-            {% if case.ethical_analysis %}
-            <h5 class="mt-3">Ethical Analysis</h5>
-            <p class="card-text">{{ case.ethical_analysis }}</p>
-            {% endif %}
-
-            <div class="mt-3">
-                <a href="/cases/{{ case.id }}" class="btn btn-primary">View Details</a>
+    <div class="row row-cols-1 row-cols-md-2 g-3">
+        {% for case in cases %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ case.title }}</h5>
+                    <span class="badge bg-primary">Case #{{ case.id }}</span>
+                </div>
+                <div class="card-body py-2">
+                    <p class="card-text small">{{ case.description[:150] }}{% if case.description|length > 150 %}...{% endif %}</p>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="/cases/{{ case.id }}" class="btn btn-sm btn-primary">View Details</a>
+                    </div>
+                </div>
             </div>
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
     {% else %}
     <div class="alert alert-info" role="alert">
         No cases available. Please check the MCP server connection or add new cases.
