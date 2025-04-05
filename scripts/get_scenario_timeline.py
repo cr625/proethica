@@ -69,7 +69,7 @@ def main():
         if len(sys.argv) > 2 and sys.argv[2].lower() in ('sim', 'simulation', 'true', 'yes'):
             is_simulation = True
         
-        scenario = Scenario.query.get(scenario_id)
+        scenario = db.session.get(Scenario, scenario_id)
         if not scenario:
             print(f"Scenario {scenario_id} not found")
             return
