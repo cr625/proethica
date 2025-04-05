@@ -12,6 +12,9 @@
             <a href="/cases/triple/{{ case.document_id }}/edit" class="btn btn-primary">
                 <i class="bi bi-diagram-3"></i> Edit Triples
             </a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="bi bi-trash"></i> Delete Case
+            </button>
             {% endif %}
             {% if case.source %}
             <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
@@ -133,6 +136,28 @@
                 This feature will show cases that are similar to this one based on content similarity.
                 Coming soon!
             </p>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete case "{{ case.title }}"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('cases.delete_case', id=case.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Delete Case</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

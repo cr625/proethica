@@ -215,6 +215,42 @@ def new_case():
     
     return render_template('create_case.html', worlds=worlds)
 
+@cases_bp.route('/<int:id>/delete', methods=['POST'])
+def delete_case(id):
+    """Delete a case by ID."""
+    # Try to get the case as a document
+    document = Document.query.get_or_404(id)
+    
+    # Check if it's a case study
+    if document.document_type != 'case_study':
+        flash('The requested document is not a case study', 'warning')
+        return redirect(url_for('cases.list_cases'))
+    
+    # Get the world ID if applicable
+    world_id = document.world_id
+    
+    # If this is part of a world, remove it from the world's cases list
+    if world_id:
+        world = World.query.get(world_id)
+        if world and world.cases and id in world.cases:
+            world.cases.remove(id)
+            db.session.add(world)
+    
+    # Delete any associated entity triples
+    try:
+        from app.services.entity_triple_service import EntityTripleService
+        triple_service = EntityTripleService()
+        triple_service.delete_triples_for_entity('document', id)
+    except Exception as e:
+        flash(f"Warning: Could not delete associated entity triples: {str(e)}", 'warning')
+    
+    # Delete the document
+    db.session.delete(document)
+    db.session.commit()
+    
+    flash(f"Case '{document.title}' deleted successfully", 'success')
+    return redirect(url_for('cases.list_cases'))
+
 @cases_bp.route('/new', methods=['POST'])
 def create_case():
     """Create a new case."""
