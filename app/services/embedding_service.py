@@ -5,6 +5,10 @@ import requests
 import json
 from sqlalchemy import text
 import io
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     """
@@ -467,6 +471,81 @@ class EmbeddingService:
         db.session.commit()
         
         return len(triples)
+    
+    def search_similar_chunks(self, query: str, k: int = 5, world_id: Optional[int] = None, document_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Find document chunks similar to the query text.
+        
+        Args:
+            query: The query text to find similar chunks for
+            k: Maximum number of results to return
+            world_id: Optional world ID to filter chunks by
+            document_type: Optional document type to filter by
+            
+        Returns:
+            List of similar document chunks with metadata
+        """
+        from app import db
+        from app.models.document import Document, DocumentChunk
+        
+        try:
+            # Generate embedding for the query text
+            embedding = self.get_embedding(query)
+            
+            # Convert the embedding to a string representation for SQL
+            embedding_str = f"[{','.join(str(x) for x in embedding)}]"
+            
+            # Build the base query
+            query_parts = [
+                "SELECT dc.id, dc.chunk_text, dc.chunk_index, d.title, d.document_type,",
+                "dc.embedding <-> :embedding AS distance",
+                "FROM document_chunks dc",
+                "JOIN documents d ON dc.document_id = d.id",
+                "WHERE dc.embedding IS NOT NULL"
+            ]
+            
+            # Add filters if provided
+            params = {"embedding": embedding_str}
+            
+            if world_id is not None:
+                query_parts.append("AND d.world_id = :world_id")
+                params["world_id"] = world_id
+                
+            if document_type is not None:
+                query_parts.append("AND d.document_type = :document_type")
+                params["document_type"] = document_type
+                
+            # Add ordering and limit
+            query_parts.append("ORDER BY distance")
+            query_parts.append("LIMIT :k")
+            params["k"] = k
+            
+            # Combine query parts
+            query_str = " ".join(query_parts)
+            
+            # Execute the query
+            result = db.session.execute(text(query_str), params)
+            
+            # Format results
+            similar_chunks = []
+            for row in result:
+                similar_chunks.append({
+                    "id": row.id,
+                    "chunk_text": row.chunk_text,
+                    "chunk_index": row.chunk_index,
+                    "title": row.title,
+                    "document_type": row.document_type,
+                    "distance": row.distance,
+                    "similarity": 1.0 - float(row.distance) if row.distance is not None else 0.0
+                })
+            
+            return similar_chunks
+            
+        except Exception as e:
+            import traceback
+            logger.error(f"Error in search_similar_chunks: {str(e)}")
+            logger.error(traceback.format_exc())
+            return []
     
     def find_similar_triples(self, text: str, field: str = "subject", limit: int = 10) -> List[Dict[str, Any]]:
         """
