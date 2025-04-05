@@ -24,7 +24,6 @@ from rdflib import Namespace
 
 # Initialize Flask app
 app = create_app()
-app.app_context().push()
 
 # Define namespaces for testing
 PROETHICA = Namespace("http://proethica.org/ontology/")
@@ -254,35 +253,37 @@ def test_temporal_queries(scenario_id):
 
 def main():
     """Main function to run the test."""
-    # Get scenario to use for testing
-    scenario = Scenario.query.first()
-    if not scenario:
-        print("No scenarios found in the database. Please create a scenario first.")
-        return
-    
-    print(f"Using scenario: {scenario.id} - {scenario.name}")
-    
-    # Get character for testing
-    character = Character.query.filter_by(scenario_id=scenario.id).first()
-    if not character:
-        print("No characters found for this scenario. Please create a character first.")
-        return
-    
-    print(f"Using character: {character.id} - {character.name}")
-    
-    # Clean up any existing test data
-    clear_test_data(scenario.id)
-    
-    # Create test timeline
-    timeline = create_test_timeline(scenario.id, character.id)
-    
-    # Convert timeline to triples with temporal data
-    convert_timeline_to_triples(timeline, scenario.id)
-    
-    # Test temporal queries
-    test_temporal_queries(scenario.id)
-    
-    print("\nTemporal functionality test completed successfully!")
+    # Use a Flask application context for all database operations
+    with app.app_context():
+        # Get scenario to use for testing
+        scenario = Scenario.query.first()
+        if not scenario:
+            print("No scenarios found in the database. Please create a scenario first.")
+            return
+        
+        print(f"Using scenario: {scenario.id} - {scenario.name}")
+        
+        # Get character for testing
+        character = Character.query.filter_by(scenario_id=scenario.id).first()
+        if not character:
+            print("No characters found for this scenario. Please create a character first.")
+            return
+        
+        print(f"Using character: {character.id} - {character.name}")
+        
+        # Clean up any existing test data
+        clear_test_data(scenario.id)
+        
+        # Create test timeline
+        timeline = create_test_timeline(scenario.id, character.id)
+        
+        # Convert timeline to triples with temporal data
+        convert_timeline_to_triples(timeline, scenario.id)
+        
+        # Test temporal queries
+        test_temporal_queries(scenario.id)
+        
+        print("\nTemporal functionality test completed successfully!")
 
 if __name__ == "__main__":
     main()

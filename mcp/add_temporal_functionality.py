@@ -10,9 +10,10 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from flask import Flask, jsonify, request
 from datetime import datetime
 import logging
+import json
+from aiohttp import web
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, 
@@ -22,155 +23,192 @@ logger = logging.getLogger(__name__)
 # Function to add temporal endpoints to the HTTP MCP server
 def add_temporal_endpoints(app):
     """
-    Add temporal endpoints to the Flask application for the MCP server.
+    Add temporal endpoints to the aiohttp application for the MCP server.
     
     Args:
-        app: Flask application instance
+        app: aiohttp application instance
     """
     logger.info("Adding temporal endpoints to MCP server...")
     
-    @app.route('/api/timeline/<int:scenario_id>', methods=['GET'])
-    def get_timeline(scenario_id):
+    # Create a Flask app context helper to interact with the ORM
+    async def get_flask_context():
+        from app import create_app
+        app = create_app()
+        return app
+    
+    # Timeline endpoint
+    async def get_timeline(request):
         """Get the complete timeline for a scenario."""
-        from app.services.temporal_context_service import TemporalContextService
-        temporal_service = TemporalContextService()
-        
         try:
-            timeline = temporal_service.build_timeline(scenario_id)
-            return jsonify(timeline)
+            scenario_id = int(request.match_info['scenario_id'])
+            
+            # Use Flask app context
+            flask_app = await get_flask_context()
+            with flask_app.app_context():
+                from app.services.temporal_context_service import TemporalContextService
+                temporal_service = TemporalContextService()
+                timeline = temporal_service.build_timeline(scenario_id)
+            
+            return web.json_response(timeline)
         except Exception as e:
             logger.error(f"Error building timeline: {str(e)}")
-            return jsonify({"error": str(e)}), 500
+            return web.json_response({"error": str(e)}, status=500)
     
-    @app.route('/api/temporal_context/<int:scenario_id>', methods=['GET'])
-    def get_temporal_context(scenario_id):
+    # Temporal context endpoint
+    async def get_temporal_context(request):
         """Get formatted temporal context for Claude."""
-        from app.services.temporal_context_service import TemporalContextService
-        temporal_service = TemporalContextService()
-        
         try:
-            context = temporal_service.get_temporal_context_for_claude(scenario_id)
-            return jsonify({"context": context})
+            scenario_id = int(request.match_info['scenario_id'])
+            
+            # Use Flask app context
+            flask_app = await get_flask_context()
+            with flask_app.app_context():
+                from app.services.temporal_context_service import TemporalContextService
+                temporal_service = TemporalContextService()
+                context = temporal_service.get_temporal_context_for_claude(scenario_id)
+            
+            return web.json_response({"context": context})
         except Exception as e:
             logger.error(f"Error getting temporal context: {str(e)}")
-            return jsonify({"error": str(e)}), 500
+            return web.json_response({"error": str(e)}, status=500)
     
-    @app.route('/api/events_in_timeframe', methods=['POST'])
-    def get_events_in_timeframe():
+    # Events in timeframe endpoint
+    async def get_events_in_timeframe(request):
         """Get events within a specific timeframe."""
-        from app.services.temporal_context_service import TemporalContextService
-        temporal_service = TemporalContextService()
-        
         try:
-            data = request.json
+            data = await request.json()
             if not data:
-                return jsonify({"error": "Missing request data"}), 400
-                
+                return web.json_response({"error": "Missing request data"}, status=400)
+            
             start_time = data.get('start_time')
             end_time = data.get('end_time')
             scenario_id = data.get('scenario_id')
             entity_type = data.get('entity_type')
             
             if not all([start_time, end_time, scenario_id]):
-                return jsonify({"error": "Missing required parameters: start_time, end_time, scenario_id"}), 400
+                return web.json_response({
+                    "error": "Missing required parameters: start_time, end_time, scenario_id"
+                }, status=400)
             
             try:
                 start_dt = datetime.fromisoformat(start_time)
                 end_dt = datetime.fromisoformat(end_time)
             except ValueError:
-                return jsonify({"error": "Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM:SS)"}), 400
+                return web.json_response({
+                    "error": "Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM:SS)"
+                }, status=400)
             
-            triples = temporal_service.find_triples_in_timeframe(
-                start_dt, end_dt, entity_type=entity_type, scenario_id=scenario_id
-            )
+            # Use Flask app context
+            flask_app = await get_flask_context()
+            with flask_app.app_context():
+                from app.services.temporal_context_service import TemporalContextService
+                temporal_service = TemporalContextService()
+                triples = temporal_service.find_triples_in_timeframe(
+                    start_dt, end_dt, entity_type=entity_type, scenario_id=scenario_id
+                )
+                results = [triple.to_dict() for triple in triples]
             
-            results = [triple.to_dict() for triple in triples]
-            return jsonify({"events": results})
-            
+            return web.json_response({"events": results})
         except Exception as e:
             logger.error(f"Error finding events in timeframe: {str(e)}")
-            return jsonify({"error": str(e)}), 500
+            return web.json_response({"error": str(e)}, status=500)
     
-    @app.route('/api/temporal_sequence/<int:scenario_id>', methods=['GET'])
-    def get_temporal_sequence(scenario_id):
+    # Temporal sequence endpoint
+    async def get_temporal_sequence(request):
         """Get a sequence of events in temporal order."""
-        from app.services.temporal_context_service import TemporalContextService
-        temporal_service = TemporalContextService()
-        
         try:
-            entity_type = request.args.get('entity_type')
-            limit = request.args.get('limit')
+            scenario_id = int(request.match_info['scenario_id'])
+            
+            # Get query parameters
+            entity_type = request.query.get('entity_type')
+            limit = request.query.get('limit')
             if limit:
                 try:
                     limit = int(limit)
                 except ValueError:
-                    return jsonify({"error": "Invalid limit parameter"}), 400
+                    return web.json_response({"error": "Invalid limit parameter"}, status=400)
             
-            sequence = temporal_service.find_temporal_sequence(
-                scenario_id, entity_type=entity_type, limit=limit
-            )
+            # Use Flask app context
+            flask_app = await get_flask_context()
+            with flask_app.app_context():
+                from app.services.temporal_context_service import TemporalContextService
+                temporal_service = TemporalContextService()
+                sequence = temporal_service.find_temporal_sequence(
+                    scenario_id, entity_type=entity_type, limit=limit
+                )
+                results = [triple.to_dict() for triple in sequence]
             
-            results = [triple.to_dict() for triple in sequence]
-            return jsonify({"sequence": results})
-            
+            return web.json_response({"sequence": results})
         except Exception as e:
             logger.error(f"Error getting temporal sequence: {str(e)}")
-            return jsonify({"error": str(e)}), 500
+            return web.json_response({"error": str(e)}, status=500)
     
-    @app.route('/api/temporal_relation/<int:triple_id>', methods=['GET'])
-    def get_temporal_relation(triple_id):
+    # Temporal relation endpoint
+    async def get_temporal_relation(request):
         """Get triples with a specific temporal relation to a given triple."""
-        from app.services.temporal_context_service import TemporalContextService
-        temporal_service = TemporalContextService()
-        
         try:
-            relation_type = request.args.get('relation_type')
+            triple_id = int(request.match_info['triple_id'])
+            
+            # Get query parameters
+            relation_type = request.query.get('relation_type')
             if not relation_type:
-                return jsonify({"error": "Missing relation_type parameter"}), 400
+                return web.json_response({"error": "Missing relation_type parameter"}, status=400)
             
-            relations = temporal_service.find_temporal_relations(triple_id, relation_type)
+            # Use Flask app context
+            flask_app = await get_flask_context()
+            with flask_app.app_context():
+                from app.services.temporal_context_service import TemporalContextService
+                temporal_service = TemporalContextService()
+                relations = temporal_service.find_temporal_relations(triple_id, relation_type)
+                results = [triple.to_dict() for triple in relations]
             
-            results = [triple.to_dict() for triple in relations]
-            return jsonify({"relations": results})
-            
+            return web.json_response({"relations": results})
         except Exception as e:
             logger.error(f"Error getting temporal relations: {str(e)}")
-            return jsonify({"error": str(e)}), 500
+            return web.json_response({"error": str(e)}, status=500)
     
-    # Endpoint for creating temporal links between events
-    @app.route('/api/create_temporal_relation', methods=['POST'])
-    def create_temporal_relation():
+    # Create temporal relation endpoint
+    async def create_temporal_relation(request):
         """Create a temporal relation between two triples."""
-        from app.services.temporal_context_service import TemporalContextService
-        temporal_service = TemporalContextService()
-        
         try:
-            data = request.json
+            data = await request.json()
             if not data:
-                return jsonify({"error": "Missing request data"}), 400
-                
+                return web.json_response({"error": "Missing request data"}, status=400)
+            
             from_triple_id = data.get('from_triple_id')
             to_triple_id = data.get('to_triple_id')
             relation_type = data.get('relation_type')
             
             if not all([from_triple_id, to_triple_id, relation_type]):
-                return jsonify({
+                return web.json_response({
                     "error": "Missing required parameters: from_triple_id, to_triple_id, relation_type"
-                }), 400
+                }, status=400)
             
-            success = temporal_service.create_temporal_relation(
-                from_triple_id, to_triple_id, relation_type
-            )
+            # Use Flask app context
+            flask_app = await get_flask_context()
+            with flask_app.app_context():
+                from app.services.temporal_context_service import TemporalContextService
+                temporal_service = TemporalContextService()
+                success = temporal_service.create_temporal_relation(
+                    from_triple_id, to_triple_id, relation_type
+                )
             
             if success:
-                return jsonify({"success": True})
+                return web.json_response({"success": True})
             else:
-                return jsonify({"error": "Failed to create temporal relation"}), 400
-                
+                return web.json_response({"error": "Failed to create temporal relation"}, status=400)
         except Exception as e:
             logger.error(f"Error creating temporal relation: {str(e)}")
-            return jsonify({"error": str(e)}), 500
-
+            return web.json_response({"error": str(e)}, status=500)
+    
+    # Add routes to the application
+    app.router.add_get('/api/timeline/{scenario_id}', get_timeline)
+    app.router.add_get('/api/temporal_context/{scenario_id}', get_temporal_context)
+    app.router.add_post('/api/events_in_timeframe', get_events_in_timeframe)
+    app.router.add_get('/api/temporal_sequence/{scenario_id}', get_temporal_sequence)
+    app.router.add_get('/api/temporal_relation/{triple_id}', get_temporal_relation)
+    app.router.add_post('/api/create_temporal_relation', create_temporal_relation)
+    
     logger.info("Temporal endpoints added successfully.")
 
 def modify_mcp_server_file():
@@ -194,9 +232,9 @@ def modify_mcp_server_file():
         return True
     
     # Find the app creation part
-    app_creation_index = content.find('app = Flask(__name__)')
+    app_creation_index = content.find('app = web.Application()')
     if app_creation_index == -1:
-        logger.error("Could not find Flask app creation in MCP server file.")
+        logger.error("Could not find aiohttp app creation in MCP server file.")
         return False
     
     # Find a good position to add the import
@@ -210,21 +248,15 @@ def modify_mcp_server_file():
     content = content[:import_section_end] + new_import + content[import_section_end:]
     
     # Find a good position to add the function call
-    # Look for the line before the app.run() call
-    run_index = content.find('if __name__ == "__main__"')
-    if run_index == -1:
-        # Alternative: find before the route definitions
-        run_index = content.find('@app.route')
-        if run_index == -1:
-            logger.error("Could not find appropriate position to add temporal endpoints.")
-            return False
-        
-        # Find the line before @app.route
-        run_index = content.rfind('\n', 0, run_index)
+    # Look for the line after app creation
+    app_line_end = content.find('\n', app_creation_index)
+    if app_line_end == -1:
+        logger.error("Could not find appropriate position to add temporal endpoints.")
+        return False
     
     # Add function call to add temporal endpoints
-    new_call = '\n# Add temporal endpoints\nadd_temporal_endpoints(app)\n'
-    content = content[:run_index] + new_call + content[run_index:]
+    new_call = '\n    # Add temporal endpoints\n    add_temporal_endpoints(app)\n'
+    content = content[:app_line_end] + content[app_line_end:app_line_end+1] + new_call + content[app_line_end+1:]
     
     # Write the modified content back
     with open(mcp_server_path, 'w') as f:

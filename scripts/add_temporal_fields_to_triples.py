@@ -10,7 +10,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app import db
+from app import db, create_app
 from sqlalchemy import text
 import logging
 
@@ -51,19 +51,33 @@ def add_temporal_fields():
         for command in commands:
             db.session.execute(text(command))
         
-        # Add foreign key constraint
-        db.session.execute(text("""
-            ALTER TABLE entity_triples 
-            ADD CONSTRAINT IF NOT EXISTS fk_temporal_relation 
-            FOREIGN KEY (temporal_relation_to) 
-            REFERENCES entity_triples(id)
-        """))
+        # Add foreign key constraint - check if it exists first
+        constraint_exists = db.session.execute(text("""
+            SELECT 1 FROM pg_constraint 
+            WHERE conname = 'fk_temporal_relation' 
+            AND conrelid = 'entity_triples'::regclass
+        """)).scalar() is not None
         
-        # Create index for temporal queries
-        db.session.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_entity_triples_temporal 
-            ON entity_triples(temporal_start, temporal_end)
-        """))
+        if not constraint_exists:
+            db.session.execute(text("""
+                ALTER TABLE entity_triples 
+                ADD CONSTRAINT fk_temporal_relation 
+                FOREIGN KEY (temporal_relation_to) 
+                REFERENCES entity_triples(id)
+            """))
+        
+        # Check if index exists
+        index_exists = db.session.execute(text("""
+            SELECT 1 FROM pg_indexes 
+            WHERE indexname = 'idx_entity_triples_temporal'
+        """)).scalar() is not None
+        
+        # Create index for temporal queries if it doesn't exist
+        if not index_exists:
+            db.session.execute(text("""
+                CREATE INDEX idx_entity_triples_temporal 
+                ON entity_triples(temporal_start, temporal_end)
+            """))
         
         db.session.commit()
         logger.info("Temporal fields added successfully!")
@@ -76,8 +90,11 @@ def add_temporal_fields():
 def main():
     """Main execution function."""
     try:
-        add_temporal_fields()
-        logger.info("Migration completed successfully.")
+        # Create the Flask app and push an application context
+        app = create_app()
+        with app.app_context():
+            add_temporal_fields()
+            logger.info("Migration completed successfully.")
     except Exception as e:
         logger.error(f"Migration failed: {str(e)}")
         sys.exit(1)

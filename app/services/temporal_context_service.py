@@ -1,441 +1,599 @@
+#!/usr/bin/env python
 """
-Temporal Context Service
+TemporalContextService: Service for temporal operations on entities.
 
-This service provides methods for working with temporal aspects of entities
-in the RDF triple-based structure. It leverages the BFO-based temporal concepts
-defined in the ontology to enable temporal reasoning and timeline construction.
+This service provides functionality for working with the temporal aspects
+of entity triples, including querying based on time, building timelines,
+and generating temporal context for Claude.
 """
 
-import datetime
-from typing import List, Dict, Tuple, Optional, Union, Any
-from app.services.entity_triple_service import EntityTripleService
-from app.models.entity_triple import EntityTriple
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any, Union, Tuple
+from sqlalchemy import and_, or_, desc, asc
+
 from app import db
-from sqlalchemy import text, func
-from rdflib import Namespace
+from app.models.entity_triple import EntityTriple
+from app.models.event import Event, Action
+from app.services.entity_triple_service import EntityTripleService
+from app.services.bfo_service import BFOService
+from rdflib import Namespace, URIRef, Literal, Graph
 
-# BFO namespaces for temporal concepts
+# Define BFO namespace
 BFO = Namespace("http://purl.obolibrary.org/obo/")
 PROETHICA = Namespace("http://proethica.org/ontology/")
 PROETHICA_INT = Namespace("http://proethica.org/ontology/intermediate#")
 
+
 class TemporalContextService:
-    """
-    Service for handling temporal aspects of entity triples,
-    including timelines, temporal queries, and temporal relationships.
-    """
-    
+    """Service for temporal operations on entity triples."""
+
     def __init__(self):
-        """Initialize with the EntityTripleService for basic triple operations."""
+        """Initialize the service."""
         self.triple_service = EntityTripleService()
-    
-    def find_triples_in_timeframe(self, start_time: datetime.datetime, 
-                                 end_time: datetime.datetime, 
-                                 entity_type: Optional[str] = None, 
-                                 scenario_id: Optional[int] = None) -> List[EntityTriple]:
+        self.bfo_service = BFOService()
+
+    def enhance_event_with_temporal_data(
+        self, event_id: int, event_time: datetime, duration_minutes: Optional[int] = None
+    ) -> bool:
         """
-        Find entity triples that are valid within the specified timeframe.
-        
-        Args:
-            start_time: Start of the timeframe
-            end_time: End of the timeframe
-            entity_type: Optional filter by entity type
-            scenario_id: Optional filter by scenario ID
-            
-        Returns:
-            List of EntityTriple objects valid in the timeframe
-        """
-        query = db.session.query(EntityTriple)
-        
-        # Time window conditions - handle both instants and intervals
-        query = query.filter(
-            # Case 1: Triple is an instant within the timeframe
-            ((EntityTriple.temporal_end.is_(None)) & 
-             (EntityTriple.temporal_start >= start_time) & 
-             (EntityTriple.temporal_start <= end_time)) |
-            # Case 2: Triple is an interval that overlaps with the timeframe
-            ((EntityTriple.temporal_end.isnot(None)) & 
-             (EntityTriple.temporal_start <= end_time) & 
-             (EntityTriple.temporal_end >= start_time))
-        )
-        
-        if entity_type:
-            query = query.filter(EntityTriple.entity_type == entity_type)
-        
-        if scenario_id:
-            query = query.filter(EntityTriple.scenario_id == scenario_id)
-        
-        return query.all()
-    
-    def find_temporal_sequence(self, scenario_id: int, 
-                             entity_type: Optional[str] = None, 
-                             limit: Optional[int] = None) -> List[EntityTriple]:
-        """
-        Find a sequence of triples ordered by their temporal properties.
-        
-        Args:
-            scenario_id: Scenario ID
-            entity_type: Optional filter by entity type
-            limit: Maximum number of results
-            
-        Returns:
-            List of EntityTriple objects in temporal order
-        """
-        query = db.session.query(EntityTriple)
-        
-        query = query.filter(EntityTriple.scenario_id == scenario_id)
-        query = query.filter(EntityTriple.temporal_start.isnot(None))
-        
-        if entity_type:
-            query = query.filter(EntityTriple.entity_type == entity_type)
-        
-        query = query.order_by(EntityTriple.temporal_start)
-        
-        if limit:
-            query = query.limit(limit)
-        
-        return query.all()
-    
-    def find_temporal_relations(self, triple_id: int, 
-                              relation_type: str) -> List[EntityTriple]:
-        """
-        Find triples that have a specific temporal relation to a given triple.
-        
-        Args:
-            triple_id: ID of the reference EntityTriple
-            relation_type: Type of temporal relation ('precedes', 'follows', etc.)
-            
-        Returns:
-            List of EntityTriple objects with the specified relation
-        """
-        return EntityTriple.query.filter_by(
-            temporal_relation_to=triple_id,
-            temporal_relation_type=relation_type
-        ).all()
-    
-    def add_temporal_data_to_triple(self, triple_id: int, 
-                                  temporal_type: str, 
-                                  start_time: Optional[datetime.datetime] = None,
-                                  end_time: Optional[datetime.datetime] = None, 
-                                  relation_type: Optional[str] = None, 
-                                  relation_to: Optional[int] = None,
-                                  granularity: Optional[str] = None) -> EntityTriple:
-        """
-        Add temporal data to an existing triple.
-        
-        Args:
-            triple_id: ID of the EntityTriple to update
-            temporal_type: BFO temporal region type ('BFO_0000038' for interval, 'BFO_0000148' for instant)
-            start_time: Start timestamp for interval or timestamp for instant
-            end_time: End timestamp for interval (None for instant)
-            relation_type: Type of temporal relation ('precedes', 'follows', etc.)
-            relation_to: ID of the related EntityTriple
-            granularity: Temporal granularity ('seconds', 'minutes', 'days', etc.)
-            
-        Returns:
-            Updated EntityTriple object
-        """
-        triple = EntityTriple.query.get(triple_id)
-        if not triple:
-            raise ValueError(f"Triple with ID {triple_id} not found")
-        
-        triple.temporal_region_type = temporal_type
-        triple.temporal_start = start_time
-        triple.temporal_end = end_time
-        triple.temporal_relation_type = relation_type
-        triple.temporal_relation_to = relation_to
-        triple.temporal_granularity = granularity
-        
-        db.session.commit()
-        return triple
-    
-    def enhance_event_with_temporal_data(self, event_id: int, 
-                                       event_time: datetime.datetime, 
-                                       duration_minutes: Optional[int] = None,
-                                       granularity: str = "minutes") -> List[EntityTriple]:
-        """
-        Enhance an event's triples with temporal data.
+        Add temporal data to an event's entity triples.
         
         Args:
             event_id: ID of the event
-            event_time: Timestamp when the event occurred
-            duration_minutes: Optional duration (for non-instantaneous events)
-            granularity: Temporal granularity
+            event_time: Timestamp of the event
+            duration_minutes: Optional duration in minutes
             
         Returns:
-            List of updated triples
+            bool: Success indicator
         """
-        # Find all triples related to this event
-        triples = self.triple_service.find_triples(entity_type='event', entity_id=event_id)
-        updated_triples = []
-        
-        for triple in triples:
-            # Determine temporal region type
-            temporal_type = "BFO_0000148"  # zero-dimensional temporal region (instant)
-            end_time = None
+        try:
+            # Find the event triples
+            event_triples = self.triple_service.find_triples(
+                entity_type="event", entity_id=event_id
+            )
             
-            # If duration is provided, it's an interval
-            if duration_minutes:
-                temporal_type = "BFO_0000038"  # one-dimensional temporal region (interval)
-                end_time = event_time + datetime.timedelta(minutes=duration_minutes)
+            if not event_triples:
+                return False
+                
+            for triple in event_triples:
+                # Determine temporal region type based on duration
+                if duration_minutes and duration_minutes > 0:
+                    # Events with duration are 1D temporal regions
+                    region_type = str(BFO.BFO_0000038)  # 1D temporal region
+                    temporal_end = event_time + timedelta(minutes=duration_minutes)
+                else:
+                    # Events without duration are 0D temporal regions (instants)
+                    region_type = str(BFO.BFO_0000148)  # 0D temporal region
+                    temporal_end = None
+                
+                # Update the triple with temporal data
+                triple.temporal_region_type = region_type
+                triple.temporal_start = event_time
+                triple.temporal_end = temporal_end
+                triple.temporal_granularity = "minutes"
+                
+            db.session.commit()
+            return True
             
-            # Update the triple with temporal data
-            triple.temporal_region_type = temporal_type
-            triple.temporal_start = event_time
-            triple.temporal_end = end_time
-            triple.temporal_granularity = granularity
-            
-            updated_triples.append(triple)
-        
-        db.session.commit()
-        return updated_triples
-    
-    def enhance_action_with_temporal_data(self, action_id: int, 
-                                        action_time: datetime.datetime, 
-                                        duration_minutes: Optional[int] = None,
-                                        is_decision: bool = False,
-                                        granularity: str = "minutes") -> List[EntityTriple]:
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error enhancing event with temporal data: {str(e)}")
+            return False
+
+    def enhance_action_with_temporal_data(
+        self, action_id: int, action_time: datetime, 
+        duration_minutes: Optional[int] = None, is_decision: bool = False
+    ) -> bool:
         """
-        Enhance an action's triples with temporal data.
+        Add temporal data to an action's entity triples.
         
         Args:
             action_id: ID of the action
-            action_time: Timestamp when the action occurred
-            duration_minutes: Optional duration (for non-instantaneous actions)
-            is_decision: Whether this action is a decision
-            granularity: Temporal granularity
+            action_time: Timestamp of the action
+            duration_minutes: Optional duration in minutes
+            is_decision: Whether this is a decision action
             
         Returns:
-            List of updated triples
+            bool: Success indicator
         """
-        # Find all triples related to this action
-        triples = self.triple_service.find_triples(entity_type='action', entity_id=action_id)
-        updated_triples = []
-        
-        for triple in triples:
-            # Decisions are typically instantaneous
-            if is_decision:
-                temporal_type = "BFO_0000148"  # zero-dimensional temporal region (instant)
-                end_time = None
-            else:
-                # Regular actions might have duration
-                if duration_minutes:
-                    temporal_type = "BFO_0000038"  # one-dimensional temporal region (interval)
-                    end_time = action_time + datetime.timedelta(minutes=duration_minutes)
+        try:
+            # Find the action triples
+            action_triples = self.triple_service.find_triples(
+                entity_type="action", entity_id=action_id
+            )
+            
+            if not action_triples:
+                return False
+                
+            for triple in action_triples:
+                # Decisions are typically treated as instantaneous (0D)
+                # Regular actions with duration are 1D temporal regions
+                if is_decision or not duration_minutes or duration_minutes <= 0:
+                    region_type = str(BFO.BFO_0000148)  # 0D temporal region
+                    temporal_end = None
                 else:
-                    temporal_type = "BFO_0000148"  # zero-dimensional temporal region (instant)
-                    end_time = None
+                    region_type = str(BFO.BFO_0000038)  # 1D temporal region
+                    temporal_end = action_time + timedelta(minutes=duration_minutes)
+                
+                # Update the triple with temporal data
+                triple.temporal_region_type = region_type
+                triple.temporal_start = action_time
+                triple.temporal_end = temporal_end
+                
+                # Use a finer granularity for decisions which often happen in sequence
+                triple.temporal_granularity = "seconds" if is_decision else "minutes"
+                
+                # For decision triples, add additional metadata in the RDF
+                if is_decision:
+                    # This would involve retrieving or creating additional BFO metadata
+                    # about the decision process, options, and outcomes
+                    pass
+                    
+            db.session.commit()
+            return True
             
-            # Update the triple with temporal data
-            triple.temporal_region_type = temporal_type
-            triple.temporal_start = action_time
-            triple.temporal_end = end_time
-            triple.temporal_granularity = granularity
-            
-            updated_triples.append(triple)
-        
-        db.session.commit()
-        return updated_triples
-    
-    def create_temporal_relation(self, from_triple_id: int, 
-                               to_triple_id: int, 
-                               relation_type: str) -> bool:
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error enhancing action with temporal data: {str(e)}")
+            return False
+
+    def create_temporal_relation(
+        self, from_triple_id: int, to_triple_id: int, relation_type: str
+    ) -> bool:
         """
-        Create a temporal relation between two triples.
+        Create a temporal relation between two entity triples.
         
         Args:
             from_triple_id: ID of the source triple
             to_triple_id: ID of the target triple
-            relation_type: Type of temporal relation ('precedes', 'follows', etc.)
+            relation_type: Type of temporal relation (precedes, follows, etc.)
             
         Returns:
-            True if successful, False otherwise
+            bool: Success indicator
         """
-        from_triple = EntityTriple.query.get(from_triple_id)
-        to_triple = EntityTriple.query.get(to_triple_id)
-        
-        if not from_triple or not to_triple:
+        try:
+            # Verify the triples exist
+            from_triple = EntityTriple.query.get(from_triple_id)
+            to_triple = EntityTriple.query.get(to_triple_id)
+            
+            if not from_triple or not to_triple:
+                return False
+                
+            # Validate relation type
+            valid_relations = [
+                "precedes", "follows", "coincidesWith", "overlaps", 
+                "necessitates", "hasConsequence"
+            ]
+            
+            if relation_type not in valid_relations:
+                print(f"Invalid relation type: {relation_type}")
+                return False
+                
+            # Create the relation by setting a reference on the source triple
+            from_triple.temporal_relation_type = relation_type
+            from_triple.temporal_relation_to = to_triple_id
+            
+            # If the relation is symmetrical or has an inverse, create that too
+            if relation_type == "coincidesWith":
+                # Coincidence is symmetrical
+                to_triple.temporal_relation_type = "coincidesWith"
+                to_triple.temporal_relation_to = from_triple_id
+            elif relation_type == "precedes":
+                # Precedes has an inverse: follows
+                to_triple.temporal_relation_type = "follows"
+                to_triple.temporal_relation_to = from_triple_id
+            elif relation_type == "follows":
+                # Follows has an inverse: precedes
+                to_triple.temporal_relation_type = "precedes"
+                to_triple.temporal_relation_to = from_triple_id
+            elif relation_type == "necessitates":
+                # Necessitates has an inverse: isNecessitatedBy
+                to_triple.temporal_relation_type = "isNecessitatedBy"
+                to_triple.temporal_relation_to = from_triple_id
+            elif relation_type == "hasConsequence":
+                # hasConsequence has an inverse: isConsequenceOf
+                to_triple.temporal_relation_type = "isConsequenceOf"
+                to_triple.temporal_relation_to = from_triple_id
+                
+            db.session.commit()
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating temporal relation: {str(e)}")
             return False
-        
-        from_triple.temporal_relation_type = relation_type
-        from_triple.temporal_relation_to = to_triple_id
-        
-        db.session.commit()
-        return True
-    
-    def build_timeline(self, scenario_id: int) -> Dict[str, Any]:
+
+    def find_triples_in_timeframe(
+        self, start_time: datetime, end_time: datetime, 
+        entity_type: Optional[str] = None, scenario_id: Optional[int] = None
+    ) -> List[EntityTriple]:
         """
-        Build a complete timeline representation for a scenario.
+        Find all entity triples valid within a specific timeframe.
+        
+        Args:
+            start_time: Start of the timeframe
+            end_time: End of the timeframe
+            entity_type: Optional entity type filter (event, action, etc.)
+            scenario_id: Optional scenario ID filter
+            
+        Returns:
+            List of entity triples
+        """
+        try:
+            # Base query with timeframe conditions
+            query = EntityTriple.query.filter(
+                # For 1D temporal regions (intervals):
+                # - Start time must be before the end of the frame
+                # - End time must be after the start of the frame
+                or_(
+                    # Case 1: 1D temporal region (has start and end)
+                    and_(
+                        EntityTriple.temporal_region_type == str(BFO.BFO_0000038),
+                        EntityTriple.temporal_start <= end_time,
+                        or_(
+                            EntityTriple.temporal_end >= start_time,
+                            EntityTriple.temporal_end.is_(None)
+                        )
+                    ),
+                    # Case 2: 0D temporal region (instant)
+                    and_(
+                        EntityTriple.temporal_region_type == str(BFO.BFO_0000148),
+                        EntityTriple.temporal_start >= start_time,
+                        EntityTriple.temporal_start <= end_time
+                    )
+                )
+            )
+            
+            # Add optional filters
+            if entity_type:
+                query = query.filter(EntityTriple.entity_type == entity_type)
+                
+            if scenario_id:
+                query = query.filter(EntityTriple.scenario_id == scenario_id)
+                
+            # Order by start time
+            query = query.order_by(EntityTriple.temporal_start)
+            
+            return query.all()
+            
+        except Exception as e:
+            print(f"Error finding triples in timeframe: {str(e)}")
+            return []
+
+    def find_temporal_sequence(
+        self, scenario_id: int, entity_type: Optional[str] = None, 
+        limit: Optional[int] = None
+    ) -> List[EntityTriple]:
+        """
+        Find a sequence of entity triples in temporal order.
+        
+        Args:
+            scenario_id: Scenario ID
+            entity_type: Optional entity type filter
+            limit: Optional limit on number of results
+            
+        Returns:
+            List of entity triples in temporal order
+        """
+        try:
+            # Base query with scenario filter
+            query = EntityTriple.query.filter(EntityTriple.scenario_id == scenario_id)
+            
+            # Make sure we only include triples with temporal data
+            query = query.filter(EntityTriple.temporal_start.isnot(None))
+            
+            # Add optional entity type filter
+            if entity_type:
+                query = query.filter(EntityTriple.entity_type == entity_type)
+                
+            # Order by start time
+            query = query.order_by(EntityTriple.temporal_start)
+            
+            # Add optional limit
+            if limit:
+                query = query.limit(limit)
+                
+            return query.all()
+            
+        except Exception as e:
+            print(f"Error finding temporal sequence: {str(e)}")
+            return []
+
+    def find_temporal_relations(
+        self, triple_id: int, relation_type: str
+    ) -> List[EntityTriple]:
+        """
+        Find triples with a specific temporal relation to a given triple.
+        
+        Args:
+            triple_id: ID of the reference triple
+            relation_type: Type of temporal relation to find
+            
+        Returns:
+            List of related entity triples
+        """
+        try:
+            # Find all triples with the specified relation to the given triple
+            query = EntityTriple.query.filter(
+                EntityTriple.temporal_relation_type == relation_type,
+                EntityTriple.temporal_relation_to == triple_id
+            )
+            
+            return query.all()
+            
+        except Exception as e:
+            print(f"Error finding temporal relations: {str(e)}")
+            return []
+
+    def build_timeline(self, scenario_id: int) -> Dict[str, List[Dict]]:
+        """
+        Build a complete timeline for a scenario.
         
         Args:
             scenario_id: Scenario ID
             
         Returns:
-            Dictionary representing the timeline with events, actions, and decisions
+            Dictionary containing events, actions, and decisions
         """
-        # Get all event triples for the scenario
-        event_triples = self.triple_service.find_triples(
-            entity_type='event',
-            scenario_id=scenario_id
-        )
-        
-        # Get all action triples for the scenario
-        action_triples = self.triple_service.find_triples(
-            entity_type='action',
-            scenario_id=scenario_id
-        )
-        
-        # Extract events with temporal data
-        events = []
-        for triple in event_triples:
-            # Use only triples that represent the event itself (not its properties)
-            if triple.predicate == str(PROETHICA.occursAt):
-                event_data = {
-                    'id': triple.entity_id,
-                    'time': triple.temporal_start,
-                    'end_time': triple.temporal_end,
-                    'description': triple.object_literal or "Unnamed event"
-                }
-                events.append(event_data)
-        
-        # Extract actions with temporal data
-        actions = []
-        decisions = []
-        
-        for triple in action_triples:
-            # Check if this is a decision
-            is_decision = False
-            if triple.predicate == str(PROETHICA.type) and "Decision" in triple.object_uri:
-                is_decision = True
+        try:
+            # Get all temporal triples for the scenario
+            query = EntityTriple.query.filter(
+                EntityTriple.scenario_id == scenario_id,
+                EntityTriple.temporal_start.isnot(None)
+            ).order_by(EntityTriple.temporal_start)
             
-            # Use only triples that represent the action itself (not its properties)
-            if triple.predicate == str(PROETHICA.occursAt):
-                action_data = {
-                    'id': triple.entity_id,
-                    'time': triple.temporal_start,
-                    'end_time': triple.temporal_end,
-                    'description': triple.object_literal or "Unnamed action"
-                }
+            triples = query.all()
+            
+            # Group triples by entity type and ID
+            events = {}
+            actions = {}
+            decisions = {}
+            
+            for triple in triples:
+                if triple.entity_type == "event":
+                    if triple.entity_id not in events:
+                        # Get the actual event
+                        event = Event.query.get(triple.entity_id)
+                        if event:
+                            events[triple.entity_id] = {
+                                "id": triple.entity_id,
+                                "time": triple.temporal_start,
+                                "end_time": triple.temporal_end,
+                                "description": event.description,
+                                "character_id": event.character_id,
+                                "triples": []
+                            }
+                    
+                    if triple.entity_id in events:
+                        events[triple.entity_id]["triples"].append({
+                            "id": triple.id,
+                            "subject": triple.subject,
+                            "predicate": triple.predicate,
+                            "object": triple.object,
+                            "time": triple.temporal_start,
+                            "relation_type": triple.temporal_relation_type,
+                            "relation_to": triple.temporal_relation_to
+                        })
                 
-                if is_decision:
-                    # Get decision options from other triples
-                    option_triples = self.triple_service.find_triples(
-                        entity_type='action',
-                        entity_id=triple.entity_id,
-                        predicate=str(PROETHICA_INT.decisionAlternatives)
-                    )
-                    
-                    if option_triples:
-                        action_data['options'] = option_triples[0].object_literal
-                    
-                    # Get selected option
-                    selected_option_triples = self.triple_service.find_triples(
-                        entity_type='action',
-                        entity_id=triple.entity_id,
-                        predicate=str(PROETHICA_INT.hasSelectedOption)
-                    )
-                    
-                    if selected_option_triples:
-                        action_data['selected_option'] = selected_option_triples[0].object_literal
-                    
-                    decisions.append(action_data)
-                else:
-                    actions.append(action_data)
-        
-        # Sort all items by time
-        events.sort(key=lambda x: x['time'] if x['time'] else datetime.datetime.min)
-        actions.sort(key=lambda x: x['time'] if x['time'] else datetime.datetime.min)
-        decisions.sort(key=lambda x: x['time'] if x['time'] else datetime.datetime.min)
-        
-        # Combine into a timeline
-        timeline = {
-            'scenario_id': scenario_id,
-            'events': events,
-            'actions': actions,
-            'decisions': decisions
-        }
-        
-        return timeline
-    
+                elif triple.entity_type == "action":
+                    # Check if this is a decision
+                    action = Action.query.get(triple.entity_id)
+                    if not action:
+                        continue
+                        
+                    if action.is_decision:
+                        if triple.entity_id not in decisions:
+                            decisions[triple.entity_id] = {
+                                "id": triple.entity_id,
+                                "time": triple.temporal_start,
+                                "name": action.name,
+                                "description": action.description,
+                                "character_id": action.character_id,
+                                "options": action.options,
+                                "selected_option": action.selected_option,
+                                "triples": []
+                            }
+                            
+                        if triple.entity_id in decisions:
+                            decisions[triple.entity_id]["triples"].append({
+                                "id": triple.id,
+                                "subject": triple.subject,
+                                "predicate": triple.predicate,
+                                "object": triple.object,
+                                "time": triple.temporal_start,
+                                "relation_type": triple.temporal_relation_type,
+                                "relation_to": triple.temporal_relation_to
+                            })
+                    else:
+                        if triple.entity_id not in actions:
+                            actions[triple.entity_id] = {
+                                "id": triple.entity_id,
+                                "time": triple.temporal_start,
+                                "end_time": triple.temporal_end,
+                                "name": action.name,
+                                "description": action.description,
+                                "character_id": action.character_id,
+                                "triples": []
+                            }
+                            
+                        if triple.entity_id in actions:
+                            actions[triple.entity_id]["triples"].append({
+                                "id": triple.id,
+                                "subject": triple.subject,
+                                "predicate": triple.predicate,
+                                "object": triple.object,
+                                "time": triple.temporal_start,
+                                "relation_type": triple.temporal_relation_type,
+                                "relation_to": triple.temporal_relation_to
+                            })
+            
+            return {
+                "events": list(events.values()),
+                "actions": list(actions.values()),
+                "decisions": list(decisions.values())
+            }
+            
+        except Exception as e:
+            print(f"Error building timeline: {str(e)}")
+            return {"events": [], "actions": [], "decisions": []}
+
     def get_temporal_context_for_claude(self, scenario_id: int) -> str:
         """
-        Generate a structured context about the timeline for Claude.
+        Generate a formatted temporal context for Claude to understand the scenario.
         
         Args:
             scenario_id: Scenario ID
             
         Returns:
-            String context with timeline information
+            String representation of the temporal context
         """
-        timeline = self.build_timeline(scenario_id)
-        
-        # Merge all items for sequential timeline
-        all_items = []
-        
-        for event in timeline['events']:
-            all_items.append({
-                'type': 'event',
-                'time': event['time'],
-                'end_time': event.get('end_time'),
-                'description': event['description']
-            })
-        
-        for action in timeline['actions']:
-            all_items.append({
-                'type': 'action',
-                'time': action['time'],
-                'end_time': action.get('end_time'),
-                'description': action['description']
-            })
-        
-        for decision in timeline['decisions']:
-            all_items.append({
-                'type': 'decision',
-                'time': decision['time'],
-                'end_time': decision.get('end_time'),
-                'description': decision['description'],
-                'options': decision.get('options', []),
-                'selected_option': decision.get('selected_option')
-            })
-        
-        # Sort all items by time
-        all_items.sort(key=lambda x: x['time'] if x['time'] else datetime.datetime.min)
-        
-        # Build a natural language context
-        context = f"Timeline for Scenario {scenario_id}:\n\n"
-        
-        for i, item in enumerate(all_items):
-            time_str = item['time'].strftime('%Y-%m-%d %H:%M:%S') if item['time'] else "Unknown time"
+        try:
+            # Get the timeline
+            timeline = self.build_timeline(scenario_id)
             
-            if item['end_time']:
-                end_time_str = item['end_time'].strftime('%Y-%m-%d %H:%M:%S')
-                context += f"{i+1}. [{time_str} to {end_time_str}] {item['type'].upper()}: {item['description']}\n"
-            else:
-                context += f"{i+1}. [{time_str}] {item['type'].upper()}: {item['description']}\n"
+            # Combine all timeline elements and sort by time
+            timeline_items = []
             
-            if item['type'] == 'decision' and 'options' in item and 'selected_option' in item:
-                context += "   Options:\n"
-                for opt_id, opt_data in item.get('options', {}).items():
-                    selected = " (SELECTED)" if opt_id == item.get('selected_option') else ""
-                    description = opt_data.get('description', 'No description')
-                    context += f"   - {opt_id}: {description}{selected}\n"
-            
-            context += "\n"
-        
-        # Add temporal relationships
-        if len(all_items) > 1:
-            context += "\nTemporal Relationships:\n"
-            
-            # For each item, describe its relationship to adjacent items
-            for i in range(len(all_items) - 1):
-                current = all_items[i]
-                next_item = all_items[i+1]
+            for event in timeline["events"]:
+                timeline_items.append({
+                    "type": "event",
+                    "time": event["time"],
+                    "description": event["description"],
+                    "entity_id": event["id"]
+                })
                 
-                context += f"- {current['description']} occurs before {next_item['description']}\n"
+            for action in timeline["actions"]:
+                timeline_items.append({
+                    "type": "action",
+                    "time": action["time"],
+                    "description": action["description"],
+                    "name": action["name"],
+                    "entity_id": action["id"]
+                })
                 
-                # For decisions, show consequences
-                if current['type'] == 'decision' and i < len(all_items) - 1:
-                    if 'selected_option' in current and current['selected_option']:
-                        context += f"  The decision to {current['selected_option']} leads to {next_item['description']}\n"
+            for decision in timeline["decisions"]:
+                timeline_items.append({
+                    "type": "decision",
+                    "time": decision["time"],
+                    "description": decision["description"],
+                    "name": decision["name"],
+                    "options": decision["options"],
+                    "selected_option": decision["selected_option"],
+                    "entity_id": decision["id"]
+                })
+                
+            # Sort by time
+            timeline_items.sort(key=lambda x: x["time"])
+            
+            # Format the context
+            context = "TIMELINE:\n\n"
+            
+            for item in timeline_items:
+                time_str = item["time"].strftime("%Y-%m-%d %H:%M:%S")
+                
+                if item["type"] == "event":
+                    context += f"EVENT [{time_str}]: {item['description']}\n"
+                elif item["type"] == "action":
+                    context += f"ACTION [{time_str}]: {item['name']} - {item['description']}\n"
+                elif item["type"] == "decision":
+                    context += f"DECISION [{time_str}]: {item['name']} - {item['description']}\n"
+                    
+                    # Add options
+                    if item.get("options"):
+                        context += "  Options:\n"
+                        for option_key, option_data in item["options"].items():
+                            selected = " (SELECTED)" if option_key == item.get("selected_option") else ""
+                            context += f"    - {option_key}{selected}: {option_data.get('description', '')}\n"
+                            
+                            if "ethical_principles" in option_data:
+                                principles = ", ".join(option_data["ethical_principles"])
+                                context += f"      Ethical principles: {principles}\n"
+                    
+                context += "\n"
+                
+            # Add temporal relations at the end
+            context += "TEMPORAL RELATIONSHIPS:\n\n"
+            
+            # Collect all the triples
+            all_triples = []
+            for event in timeline["events"]:
+                all_triples.extend(event["triples"])
+            for action in timeline["actions"]:
+                all_triples.extend(action["triples"])
+            for decision in timeline["decisions"]:
+                all_triples.extend(decision["triples"])
+                
+            # Create a lookup dictionary for triples
+            triple_dict = {triple["id"]: triple for triple in all_triples}
+            
+            # Add temporal relation descriptions
+            for triple in all_triples:
+                if triple.get("relation_type") and triple.get("relation_to"):
+                    related_triple = triple_dict.get(triple["relation_to"])
+                    
+                    if related_triple:
+                        # Try to make a human-readable description
+                        relation_type = triple["relation_type"]
+                        
+                        # Get entity descriptions
+                        from_entity = self._get_entity_description(triple["subject"])
+                        to_entity = self._get_entity_description(related_triple["subject"])
+                        
+                        if from_entity and to_entity:
+                            if relation_type == "precedes":
+                                context += f"- {from_entity} happens before {to_entity}\n"
+                            elif relation_type == "follows":
+                                context += f"- {from_entity} happens after {to_entity}\n"
+                            elif relation_type == "coincidesWith":
+                                context += f"- {from_entity} happens at the same time as {to_entity}\n"
+                            elif relation_type == "overlaps":
+                                context += f"- {from_entity} overlaps in time with {to_entity}\n"
+                            elif relation_type == "necessitates":
+                                context += f"- {from_entity} creates the need for {to_entity}\n"
+                            elif relation_type == "hasConsequence":
+                                context += f"- {from_entity} leads to {to_entity}\n"
+                            elif relation_type == "isNecessitatedBy":
+                                context += f"- {from_entity} is necessitated by {to_entity}\n"
+                            elif relation_type == "isConsequenceOf":
+                                context += f"- {from_entity} is a consequence of {to_entity}\n"
+            
+            return context
+            
+        except Exception as e:
+            print(f"Error generating temporal context: {str(e)}")
+            return "Error generating timeline context."
+
+    def _get_entity_description(self, uri: str) -> Optional[str]:
+        """
+        Get a human-readable description of an entity.
         
-        return context
+        Args:
+            uri: URI of the entity
+            
+        Returns:
+            String description or None
+        """
+        try:
+            if not uri:
+                return None
+                
+            # Check if this is an event
+            if "event" in uri.lower():
+                event_id = int(uri.split("/")[-1])
+                event = Event.query.get(event_id)
+                if event:
+                    return f"Event '{event.description}'"
+                    
+            # Check if this is an action
+            if "action" in uri.lower():
+                action_id = int(uri.split("/")[-1])
+                action = Action.query.get(action_id)
+                if action:
+                    return f"Action '{action.name}'"
+                    
+            # Otherwise just return the URI
+            return uri
+            
+        except Exception as e:
+            print(f"Error getting entity description: {str(e)}")
+            return uri

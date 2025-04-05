@@ -446,6 +446,8 @@ class EntityTripleService:
             if action:
                 action_uri = self.generate_uri('action', action.name or "action", action.id, action.scenario_id)
                 
+                action_uri_str = str(action_uri)
+                
                 triples.append(self.add_triple(
                     action_uri_str,
                     str(PROETHICA.generates),
@@ -597,9 +599,11 @@ class EntityTripleService:
         
         # Add character relationship
         if action.character_id:
-            character = action.character
+            character = Character.query.get(action.character_id)
             if character:
                 character_uri = self.generate_uri('character', character.name, character.id, character.scenario_id)
+                
+                character_uri_str = str(character_uri)
                 
                 triples.append(self.add_triple(
                     character_uri_str,
