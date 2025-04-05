@@ -40,14 +40,21 @@ def list_cases():
         
         # Convert documents to case format
         for doc in document_cases:
-            # Extract metadata
-            metadata = doc.doc_metadata or {}
+            # Extract metadata - ensuring it's a dictionary
+            metadata = {}
+            if doc.doc_metadata:
+                if isinstance(doc.doc_metadata, dict):
+                    metadata = doc.doc_metadata
+                else:
+                    # If it's not a dict (likely a string), initialize as empty dict
+                    # and log the issue
+                    print(f"Warning: doc_metadata for document {doc.id} is not a dictionary: {type(doc.doc_metadata)}")
             
             # Create case object
             case = {
                 'id': doc.id,
                 'title': doc.title,
-                'description': doc.content[:500] + '...' if len(doc.content) > 500 else doc.content,
+                'description': doc.content[:500] + '...' if doc.content and len(doc.content) > 500 else (doc.content or ''),
                 'decision': metadata.get('decision', ''),
                 'outcome': metadata.get('outcome', ''),
                 'ethical_analysis': metadata.get('ethical_analysis', ''),
@@ -115,14 +122,21 @@ def search_cases():
             # Get the document
             document = Document.query.get(document_id)
             if document:
-                # Extract metadata
-                metadata = document.doc_metadata or {}
+                # Extract metadata - ensuring it's a dictionary
+                metadata = {}
+                if document.doc_metadata:
+                    if isinstance(document.doc_metadata, dict):
+                        metadata = document.doc_metadata
+                    else:
+                        # If it's not a dict (likely a string), initialize as empty dict
+                        # and log the issue
+                        print(f"Warning: doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
                 
                 # Create case object
                 case = {
                     'id': document.id,
                     'title': document.title,
-                    'description': document.content[:500] + '...' if len(document.content) > 500 else document.content,
+                    'description': document.content[:500] + '...' if document.content and len(document.content) > 500 else (document.content or ''),
                     'decision': metadata.get('decision', ''),
                     'outcome': metadata.get('outcome', ''),
                     'ethical_analysis': metadata.get('ethical_analysis', ''),
@@ -162,14 +176,21 @@ def view_case(id):
         flash('The requested document is not a case study', 'warning')
         return redirect(url_for('cases.list_cases'))
     
-    # Extract metadata
-    metadata = document.doc_metadata or {}
+    # Extract metadata - ensuring it's a dictionary
+    metadata = {}
+    if document.doc_metadata:
+        if isinstance(document.doc_metadata, dict):
+            metadata = document.doc_metadata
+        else:
+            # If it's not a dict (likely a string), initialize as empty dict
+            # and log the issue
+            print(f"Warning: doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
     
     # Create case object
     case = {
         'id': document.id,
         'title': document.title,
-        'description': document.content,
+        'description': document.content or '',
         'decision': metadata.get('decision', ''),
         'outcome': metadata.get('outcome', ''),
         'ethical_analysis': metadata.get('ethical_analysis', ''),
