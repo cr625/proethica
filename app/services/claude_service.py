@@ -128,10 +128,9 @@ class ClaudeService:
             if not world or not world.ontology_source:
                 return {}
                 
-            # Get entities from MCP client
+            # Get entities from MCP client using the get_world_entities method
             print(f"Getting entities for world {world_id} with ontology source: {world.ontology_source}")
-            # The correct way to get entities from MCP client
-            entities = self.mcp_client.make_request(f"/api/ontology/{world.ontology_source}/entities")
+            entities = self.mcp_client.get_world_entities(world.ontology_source)
             return entities
         except Exception as e:
             print(f"Error getting world entities: {str(e)}")

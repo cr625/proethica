@@ -5,7 +5,7 @@
 {% block styles %}
 <style>
     .agent-window {
-        height: 400px;
+        height: 70vh; /* Use viewport height to make it taller */
         border: 1px solid #ccc;
         border-radius: 8px;
         margin-bottom: 20px;
@@ -64,8 +64,10 @@
     .prompt-option {
         background-color: #e9ecef;
         border: none;
-        border-radius: 16px;
-        padding: 8px 16px;
+        border-radius: 12px;
+        padding: 4px 10px;
+        font-size: 0.9rem;
+        margin: 2px;
         cursor: pointer;
     }
 
@@ -79,13 +81,13 @@
     }
 
     .guidelines {
-        margin-top: 20px;
         padding: 15px;
         background-color: #f8f9fa;
         border: 1px solid #ccc;
         border-radius: 8px;
-        max-height: 300px;
+        height: 70vh; /* Match the agent window height */
         overflow-y: auto;
+        margin-bottom: 20px;
     }
 
     .loading {
@@ -108,9 +110,6 @@
 
 {% block content %}
 <div class="container">
-    <h1>Agent Window Prototype</h1>
-    <p class="lead">This is a prototype of the agent window interface.</p>
-
     <div id="agent-app">
         <!-- World selection and service selection -->
         <div class="row mb-3">
@@ -132,51 +131,57 @@
             </div>
         </div>
 
-        <!-- Agent window -->
-        <div class="agent-window">
-            <div class="conversation" ref="conversation">
-                <div v-for="(message, index) in messages" :key="index" class="message"
-                    :class="message.role === 'user' ? 'user-message' : 'agent-message'">
-                    {% raw %}{{ message.content }}{% endraw %}
+        <div class="row">
+            <!-- Agent window - left column -->
+            <div class="col-md-8">
+                <div class="agent-window">
+                    <div class="conversation" ref="conversation">
+                        <div v-for="(message, index) in messages" :key="index" class="message"
+                            :class="message.role === 'user' ? 'user-message' : 'agent-message'">
+                            {% raw %}{{ message.content }}{% endraw %}
+                        </div>
+                        <div v-if="isProcessing" class="message agent-message">
+                            <div class="loading"></div> Thinking...
+                        </div>
+                    </div>
+
+                    <div class="input-area">
+                        <!-- Show prompt options when world is selected and options are available -->
+                        <div v-if="selectedWorldId && promptOptions.length > 0" class="prompt-options w-100">
+                            <button v-for="option in promptOptions" :key="option.id" class="prompt-option"
+                                @click="selectPromptOption(option)">
+                                {% raw %}{{ option.text }}{% endraw %}
+                            </button>
+                        </div>
+
+                        <!-- Input box is always shown, but with different placeholder based on world selection -->
+                        <div class="input-group">
+                            <input type="text" class="form-control" v-model="userInput"
+                                :disabled="!inputEnabled || isProcessing"
+                                :class="{ 'input-disabled': !inputEnabled || isProcessing }" 
+                                :placeholder="selectedWorldId ? 'Type your message about this world...' : 'Type any test message to Claude...'"
+                                @keyup.enter="sendMessage">
+                            <button class="btn btn-primary" @click="sendMessage" :disabled="!inputEnabled || isProcessing">
+                                Send
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div v-if="isProcessing" class="message agent-message">
-                    <div class="loading"></div> Thinking...
-                </div>
+
+                <!-- Reset button -->
+                <button class="btn btn-secondary mt-2" @click="resetConversation">
+                    Reset Conversation
+                </button>
             </div>
 
-            <div class="input-area">
-                <!-- Show prompt options when world is selected and options are available -->
-                <div v-if="selectedWorldId && promptOptions.length > 0" class="prompt-options w-100">
-                    <button v-for="option in promptOptions" :key="option.id" class="prompt-option"
-                        @click="selectPromptOption(option)">
-                        {% raw %}{{ option.text }}{% endraw %}
-                    </button>
-                </div>
-
-                <!-- Input box is always shown, but with different placeholder based on world selection -->
-                <div class="input-group">
-                    <input type="text" class="form-control" v-model="userInput"
-                        :disabled="!inputEnabled || isProcessing"
-                        :class="{ 'input-disabled': !inputEnabled || isProcessing }" 
-                        :placeholder="selectedWorldId ? 'Type your message about this world...' : 'Type any test message to Claude...'"
-                        @keyup.enter="sendMessage">
-                    <button class="btn btn-primary" @click="sendMessage" :disabled="!inputEnabled || isProcessing">
-                        Send
-                    </button>
+            <!-- Guidelines section - right column -->
+            <div class="col-md-4">
+                <div v-if="guidelines" class="guidelines h-100">
+                    <h5>World Guidelines</h5>
+                    <div v-html="formattedGuidelines"></div>
                 </div>
             </div>
         </div>
-
-        <!-- Guidelines section -->
-        <div v-if="guidelines" class="guidelines">
-            <h3>Guidelines</h3>
-            <div v-html="formattedGuidelines"></div>
-        </div>
-
-        <!-- Reset button -->
-        <button class="btn btn-secondary mt-3" @click="resetConversation">
-            Reset Conversation
-        </button>
     </div>
 </div>
 {% endblock %}
