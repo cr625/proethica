@@ -84,26 +84,26 @@ def test_list_scenarios_with_world_filter(client, create_test_world, create_test
     assert b'Scenario 2' not in response.data
 
 
-def test_new_scenario(client, create_test_world):
+def test_new_scenario(auth_client, create_test_world):
     """Test the new_scenario route."""
     # Create test data
     world = create_test_world()
     
     # Send request
-    response = client.get('/scenarios/new')
+    response = auth_client.get('/scenarios/new')
     
     # Verify response
     assert response.status_code == 200
     assert b'Create New Scenario' in response.data
 
 
-def test_new_scenario_with_world(client, create_test_world):
+def test_new_scenario_with_world(auth_client, create_test_world):
     """Test the new_scenario route with world_id parameter."""
     # Create test data
     world = create_test_world()
     
     # Send request with world_id
-    response = client.get(f'/scenarios/new?world_id={world.id}')
+    response = auth_client.get(f'/scenarios/new?world_id={world.id}')
     
     # Verify response
     assert response.status_code == 200
@@ -135,14 +135,14 @@ def test_view_scenario_not_found(client):
     assert response.status_code == 404
 
 
-def test_edit_scenario(client, create_test_world, create_test_scenario):
+def test_edit_scenario(auth_client, create_test_world, create_test_scenario):
     """Test the edit_scenario route."""
     # Create test data
     world = create_test_world()
     scenario = create_test_scenario(world_id=world.id)
     
     # Send request
-    response = client.get(f'/scenarios/{scenario.id}/edit')
+    response = auth_client.get(f'/scenarios/{scenario.id}/edit')
     
     # Verify response
     assert response.status_code == 200
