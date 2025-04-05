@@ -145,17 +145,20 @@
             </div>
 
             <div class="input-area">
-                <div v-if="promptOptions.length > 0" class="prompt-options w-100">
+                <!-- Show prompt options when world is selected and options are available -->
+                <div v-if="selectedWorldId && promptOptions.length > 0" class="prompt-options w-100">
                     <button v-for="option in promptOptions" :key="option.id" class="prompt-option"
                         @click="selectPromptOption(option)">
                         {% raw %}{{ option.text }}{% endraw %}
                     </button>
                 </div>
 
-                <div v-else class="input-group">
+                <!-- Input box is always shown, but with different placeholder based on world selection -->
+                <div class="input-group">
                     <input type="text" class="form-control" v-model="userInput"
                         :disabled="!inputEnabled || isProcessing"
-                        :class="{ 'input-disabled': !inputEnabled || isProcessing }" placeholder="Type your message..."
+                        :class="{ 'input-disabled': !inputEnabled || isProcessing }" 
+                        :placeholder="selectedWorldId ? 'Type your message about this world...' : 'Type any test message to Claude...'"
                         @keyup.enter="sendMessage">
                     <button class="btn btn-primary" @click="sendMessage" :disabled="!inputEnabled || isProcessing">
                         Send

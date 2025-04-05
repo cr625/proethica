@@ -29,18 +29,25 @@ class ClaudeService:
         # Get MCP client for accessing guidelines (same as LLMService)
         self.mcp_client = MCPClient.get_instance()
         
-        # Default system prompt
-        self.system_prompt = """
+        # Default system prompt (used when no world is selected)
+        self.general_system_prompt = """
         You are an AI assistant helping users with ethical decision-making scenarios.
         Provide thoughtful, nuanced responses that consider multiple ethical perspectives.
         When appropriate, reference relevant ethical frameworks and principles.
         """
         
-        # Default options for testing
-        self._default_options = [
+        # General testing options (used when no world is selected)
+        self._general_options = [
+            {"id": 1, "text": "Tell me more about ethical decision-making"},
+            {"id": 2, "text": "What are some key ethical frameworks?"},
+            {"id": 3, "text": "How can I apply ethics to everyday decisions?"}
+        ]
+        
+        # Default options for when a world is selected but no conversation history exists
+        self._default_world_options = [
             {"id": 1, "text": "Tell me more about this scenario"},
-            {"id": 2, "text": "What ethical principles apply here?"},
-            {"id": 3, "text": "How should I approach this decision?"}
+            {"id": 2, "text": "What ethical principles apply in this world?"},
+            {"id": 3, "text": "How should I approach decisions in this context?"}
         ]
     
     def get_guidelines_for_world(self, world_id=None, world_name=None):
@@ -99,6 +106,78 @@ class ClaudeService:
             
         return claude_messages
     
+    def get_world_entities(self, world_id):
+        """
+        Get entities for a specific world from the MCP server.
+        
+        Args:
+            world_id: ID of the world
+            
+        Returns:
+            Dictionary of entities or empty dict if error occurs
+        """
+        if not world_id:
+            return {}
+            
+        try:
+            # Import here to avoid circular imports
+            from app.models.world import World
+            
+            # Get the world by ID
+            world = World.query.get(world_id)
+            if not world or not world.ontology_source:
+                return {}
+                
+            # Get entities from MCP client
+            print(f"Getting entities for world {world_id} with ontology source: {world.ontology_source}")
+            # The correct way to get entities from MCP client
+            entities = self.mcp_client.make_request(f"/api/ontology/{world.ontology_source}/entities")
+            return entities
+        except Exception as e:
+            print(f"Error getting world entities: {str(e)}")
+            return {}
+    
+    def build_system_prompt(self, world_id=None):
+        """
+        Build a system prompt based on the world context.
+        
+        Args:
+            world_id: ID of the world for context (optional)
+            
+        Returns:
+            String containing the system prompt
+        """
+        if not world_id:
+            return self.general_system_prompt
+            
+        # Get guidelines and entities for the world
+        guidelines = self.get_guidelines_for_world(world_id=world_id)
+        entities = self.get_world_entities(world_id)
+        
+        # Start with the general system prompt
+        system_prompt = self.general_system_prompt
+        
+        # Add world-specific constraints
+        system_prompt += "\n\nIMPORTANT: You are currently operating within a specific ethical world context."
+        system_prompt += "\nYou must constrain your responses to be relevant to this context."
+        
+        # Add guidelines if available
+        if guidelines:
+            system_prompt += f"\n\nGuidelines for this world:\n{guidelines}"
+        
+        # Add key entities if available
+        if entities and 'entities' in entities:
+            # Get the top entities (limit to avoid token issues)
+            top_entities = list(entities['entities'].keys())[:15]
+            if top_entities:
+                system_prompt += "\n\nKey concepts in this world:"
+                for entity in top_entities:
+                    # Clean up URI format if needed
+                    entity_name = entity.split('/')[-1].replace('_', ' ')
+                    system_prompt += f"\n- {entity_name}"
+        
+        return system_prompt
+        
     def send_message(self, message, conversation=None, world_id=None):
         """
         Send a message to Claude.
@@ -120,16 +199,11 @@ class ClaudeService:
         
         # Always attempt to use the Claude API since this service was explicitly selected
         try:
-            # Get guidelines for the world
-            guidelines = self.get_guidelines_for_world(world_id=world_id)
-            
             # Format messages for Claude
             claude_messages = self._format_messages_for_claude(conversation)
             
-            # Prepare system prompt with guidelines if available
-            system_prompt = self.system_prompt
-            if guidelines:
-                system_prompt = f"{self.system_prompt}\n\nGuidelines for reference:\n{guidelines}"
+            # Build appropriate system prompt based on world context
+            system_prompt = self.build_system_prompt(world_id)
             
             # Call Claude API with system parameter
             response = self.client.messages.create(
@@ -161,27 +235,39 @@ class ClaudeService:
         Returns:
             List of prompt options
         """
+        # If no conversation or empty conversation, return appropriate default options
         if conversation is None or len(conversation.messages) == 0:
-            return self._default_options
+            if world_id:
+                return self._default_world_options  # World-specific default options
+            else:
+                return self._general_options  # General default options for no world
         
         # Always attempt to use the Claude API since this service was explicitly selected
         try:
-            # Get guidelines for the world
-            guidelines = self.get_guidelines_for_world(world_id=world_id)
-            
             # Format messages for Claude
             claude_messages = self._format_messages_for_claude(conversation)
             
-            # Add a specific instruction for generating options
+            # Add world context to the prompt option generation
+            instruction = "Generate 3-5 suggested prompt options that would be helpful for the user to select based on our conversation."
+            
+            if world_id:
+                # Get world info to enhance the instruction
+                from app.models.world import World
+                world = World.query.get(world_id)
+                if world and world.name:
+                    instruction = f"Generate 3-5 suggested prompt options related to the '{world.name}' world that would be helpful for the user based on our conversation."
+            
+            # Add the instruction for format
+            instruction += " Format your response as a JSON array of objects with 'id' and 'text' fields. Example: [{\"id\": 1, \"text\": \"Tell me more about this scenario\"}, {\"id\": 2, \"text\": \"What ethical principles apply here?\"}]"
+            
+            # Add the instruction to the messages
             claude_messages.append({
                 "role": "user",
-                "content": "Generate 3-5 suggested prompt options that would be helpful for the user to select based on our conversation. Format your response as a JSON array of objects with 'id' and 'text' fields. Example: [{\"id\": 1, \"text\": \"Tell me more about this scenario\"}, {\"id\": 2, \"text\": \"What ethical principles apply here?\"}]"
+                "content": instruction
             })
             
-            # Prepare system prompt with guidelines if available
-            system_prompt = self.system_prompt
-            if guidelines:
-                system_prompt = f"{self.system_prompt}\n\nGuidelines for reference:\n{guidelines}"
+            # Build appropriate system prompt based on world context
+            system_prompt = self.build_system_prompt(world_id)
             
             # Call Claude API with system parameter
             response = self.client.messages.create(
@@ -210,9 +296,16 @@ class ClaudeService:
             except:
                 pass
                 
-            # If all parsing fails, return default options
-            return self._default_options
+            # If all parsing fails, return appropriate default options
+            if world_id:
+                return self._default_world_options
+            else:
+                return self._general_options
             
         except Exception as e:
             print(f"Error generating prompt options from Claude: {str(e)}")
-            return self._default_options
+            # Return appropriate default options based on world context
+            if world_id:
+                return self._default_world_options
+            else:
+                return self._general_options
