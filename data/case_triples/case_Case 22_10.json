@@ -1,0 +1,258 @@
+{
+  "title": "Serving as Both Engineer and Building Official",
+  "description": "Engineer A, a licensed professional engineer, is employed by XYZ Engineering, a consulting firm. Engineer A also serves as a part-time building official for Town Y. In his capacity as the building official, Engineer A inspects projects and enforces the town's building codes. One of Engineer A's clients at XYZ Engineering, Company X, has a project within Town Y's jurisdiction that requires town approval. Engineer A, as an employee of XYZ Engineering, has been performing engineering work on the project. Later, in his capacity as Town Y's building official, Engineer A would be reviewing and inspecting the work performed by Company X, including the work that he himself did as the project engineer for XYZ Engineering.",
+  "source": "https://www.nspe.org/sites/default/files/NSPE-BER-Case-22-10.pdf",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rdfs:label",
+        "object": "Serving as Both Engineer and Building Official",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rdfs:comment",
+        "object": "Engineer A, a licensed professional engineer, is employed by XYZ Engineering, a consulting firm. Engineer A also serves as a part-time building official for Town Y. In his capacity as the building official, Engineer A inspects projects and enforces the town's building codes. One of Engineer A's clients at XYZ Engineering, Company X, has a project within Town Y's jurisdiction that requires town approval. Engineer A, as an employee of XYZ Engineering, has been performing engineering work on the project. Later, in his capacity as Town Y's building official, Engineer A would be reviewing and inspecting the work performed by Company X, including the work that he himself did as the project engineer for XYZ Engineering.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "NSPE:caseNumber",
+        "object": "Case 22-10",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "NSPE:caseYear",
+        "object": "2022",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "NSPE:sourceUrl",
+        "object": "https://www.nspe.org/sites/default/files/NSPE-BER-Case-22-10.pdf",
+        "is_literal": true
+      },
+      {
+        "subject": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConflictOfInterestAvoidanceObligation"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 22_10"
+      },
+      {
+        "subject": "ENG_ETHICS:ObjectivityPrincipleInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ObjectivityPrincipleInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ObjectivityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ObjectivityPrincipleInstance_Case 22_10"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 22_10"
+      },
+      {
+        "subject": "NSPE:public_servicePrincipleInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:public_servicePrincipleInstance_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "NSPE:public_servicePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:public_servicePrincipleInstance_Case 22_10"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4a"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4b"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4d"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1a"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1b"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConflictOfInterestCondition"
+      },
+      {
+        "subject": "Engineer_A_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 22_10",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 22_10",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 22_10"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 22_10"
+      },
+      {
+        "subject": "Decision_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Decision_Case 22_10",
+        "predicate": "rdf:type",
+        "object": "eng:EthicalDecision"
+      },
+      {
+        "subject": "Decision_Case 22_10",
+        "predicate": "rdfs:label",
+        "object": "NSPE Board Decision for Case Case 22-10",
+        "is_literal": true
+      },
+      {
+        "subject": "Decision_Case 22_10",
+        "predicate": "NSPE:outcome",
+        "object": "Unethical",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:hasDecision",
+        "object": "Decision_Case 22_10"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "NSPE:boardAnalysis",
+        "object": "The Board determined that it would be unethical for Engineer A to serve in both roles. This situation creates a clear conflict of interest where Engineer A would be reviewing and approving his own work. Such a dual role compromises Engineer A's ability to be objective and exercise independent professional judgment as required by the Code of Ethics. The Board cited previous cases that established the importance of avoiding situations where engineers might be reviewing their own work or where other conflicts of interest exist in public service roles.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 07_4"
+      },
+      {
+        "subject": "Case:Case_Case 22_10_Serving_as_Both_Engineer_and_Building_Official",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 98_8"
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "NSPE": "http://proethica.org/nspe/",
+      "ENG_ETHICS": "http://proethica.org/ontology/engineering-ethics#",
+      "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "bfo": "http://purl.obolibrary.org/obo/",
+      "proeth": "http://proethica.org/ontology/intermediate#",
+      "dc": "http://purl.org/dc/elements/1.1/",
+      "ar": "http://proethica.org/ontology/agent-role#",
+      "eng": "http://proethica.org/ontology/engineering-ethics#",
+      "nspe": "http://proethica.org/nspe/",
+      "rel": "http://proethica.org/relation/"
+    }
+  },
+  "metadata": {
+    "related_cases": [
+      "Case 07-4",
+      "Case 98-8"
+    ],
+    "codes_cited": [
+      "Code II.4.a",
+      "Code II.4.b",
+      "Code II.4.d",
+      "Code III.1.a",
+      "Code III.1.b"
+    ],
+    "principles": [
+      "conflicts of interest",
+      "objectivity",
+      "professional judgment",
+      "public service"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation"
+    ],
+    "board_analysis": "The Board determined that it would be unethical for Engineer A to serve in both roles. This situation creates a clear conflict of interest where Engineer A would be reviewing and approving his own work. Such a dual role compromises Engineer A's ability to be objective and exercise independent professional judgment as required by the Code of Ethics. The Board cited previous cases that established the importance of avoiding situations where engineers might be reviewing their own work or where other conflicts of interest exist in public service roles."
+  }
+}

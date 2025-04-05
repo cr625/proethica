@@ -1,0 +1,433 @@
+@prefix : <http://proethica.org/ontology/nspe-engineering-ethics#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix bfo: <http://purl.obolibrary.org/obo/> .
+@prefix ar: <http://proethica.org/ontology/agent-role#> .
+@prefix eng: <http://proethica.org/ontology/engineering-ethics#> .
+@prefix nspe: <http://proethica.org/ontology/nspe-code#> .
+@base <http://proethica.org/ontology/nspe-engineering-ethics> .
+
+# Declare key types needed by the OntologyMCPServer for entity extraction
+:Role rdf:type owl:Class .
+:ConditionType rdf:type owl:Class .
+:ResourceType rdf:type owl:Class .
+:EventType rdf:type owl:Class .
+:ActionType rdf:type owl:Class .
+
+# Properties recognized by the system
+:hasTier rdf:type owl:ObjectProperty .
+:hasCapability rdf:type owl:ObjectProperty .
+:severity rdf:type owl:DatatypeProperty .
+:location rdf:type owl:DatatypeProperty .
+:quantity rdf:type owl:DatatypeProperty .
+:eventSeverity rdf:type owl:DatatypeProperty .
+:eventLocation rdf:type owl:DatatypeProperty .
+:actionPriority rdf:type owl:DatatypeProperty .
+:actionDuration rdf:type owl:DatatypeProperty .
+
+<http://proethica.org/ontology/nspe-engineering-ethics> rdf:type owl:Ontology ;
+    owl:imports <http://purl.obolibrary.org/obo/bfo.owl> ;
+    owl:imports <http://proethica.org/ontology/agent-role> ;
+    owl:imports <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:label "NSPE Engineering Ethics Ontology"@en ;
+    rdfs:comment "General ontology for NSPE engineering ethics cases"@en ;
+    dc:creator "ProEthica AI"@en ;
+    dc:date "2025-04-02"^^xsd:date .
+
+#################################################################
+#    Engineering Professional Classes
+#################################################################
+
+### EngineeringProfessionalTypes - different specializations
+:StructuralEngineer rdf:type owl:Class ;
+    rdfs:subClassOf eng:StructuralEngineer ;
+    rdfs:subClassOf ar:EngineeringProfessional ;
+    rdfs:label "Structural Engineer"@en ;
+    rdfs:comment "An engineer who specializes in structural analysis and design"@en .
+
+:ElectricalEngineer rdf:type owl:Class ;
+    rdfs:subClassOf eng:Engineer ;
+    rdfs:subClassOf ar:EngineeringProfessional ;
+    rdfs:label "Electrical Engineer"@en ;
+    rdfs:comment "An engineer who specializes in electrical systems"@en .
+
+:MechanicalEngineer rdf:type owl:Class ;
+    rdfs:subClassOf eng:Engineer ;
+    rdfs:subClassOf ar:EngineeringProfessional ;
+    rdfs:label "Mechanical Engineer"@en ;
+    rdfs:comment "An engineer who specializes in mechanical systems"@en .
+
+:ConsultingEngineer rdf:type owl:Class ;
+    rdfs:subClassOf eng:Engineer ;
+    rdfs:subClassOf ar:EngineeringProfessional ;
+    rdfs:label "Consulting Engineer"@en ;
+    rdfs:comment "An engineer who provides professional consulting services"@en .
+
+### Client and Stakeholder Types
+:BuildingOwner rdf:type owl:Class ;
+    rdfs:subClassOf eng:Client ;
+    rdfs:subClassOf ar:HumanAgent ;
+    rdfs:label "Building Owner"@en ;
+    rdfs:comment "Owner of a building who hires engineering services"@en .
+
+:ProjectDeveloper rdf:type owl:Class ;
+    rdfs:subClassOf eng:Client ;
+    rdfs:subClassOf ar:HumanAgent ;
+    rdfs:label "Project Developer"@en ;
+    rdfs:comment "Developer of projects who hires engineering services"@en .
+
+:PublicAuthority rdf:type owl:Class ;
+    rdfs:subClassOf ar:OrganizationalAgent ;
+    rdfs:label "Public Authority"@en ;
+    rdfs:comment "Government authority responsible for public safety and regulatory enforcement"@en .
+
+### Subject Entities - what engineers work with
+:EngineeredStructure rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000040 ; # material entity
+    rdfs:label "Engineered Structure"@en ;
+    rdfs:comment "A structure that is designed, analyzed, or built using engineering principles"@en .
+
+:Building rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeredStructure ;
+    rdfs:label "Building"@en ;
+    rdfs:comment "A structure with walls and a roof, such as a house or factory"@en .
+
+:Infrastructure rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeredStructure ;
+    rdfs:label "Infrastructure"@en ;
+    rdfs:comment "Basic physical systems such as roads, bridges, utilities, and public facilities"@en .
+
+:EngineeringSystem rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000040 ; # material entity
+    rdfs:label "Engineering System"@en ;
+    rdfs:comment "A system of interconnected components designed for a specific engineering purpose"@en .
+
+:BuildingSystem rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringSystem ;
+    rdfs:label "Building System"@en ;
+    rdfs:comment "A system within a building such as electrical, mechanical, or plumbing systems"@en .
+
+:ElectricalSystem rdf:type owl:Class ;
+    rdfs:subClassOf :BuildingSystem ;
+    rdfs:label "Electrical System"@en ;
+    rdfs:comment "The system of electrical components in a structure"@en .
+
+:MechanicalSystem rdf:type owl:Class ;
+    rdfs:subClassOf :BuildingSystem ;
+    rdfs:label "Mechanical System"@en ;
+    rdfs:comment "The system of mechanical components in a structure"@en .
+
+:StructuralSystem rdf:type owl:Class ;
+    rdfs:subClassOf :BuildingSystem ;
+    rdfs:label "Structural System"@en ;
+    rdfs:comment "The load-bearing elements of a structure"@en .
+
+### Engineering Problems and Deficiencies
+:EngineeringDeficiency rdf:type owl:Class ;
+    rdfs:subClassOf eng:EthicalCondition ;
+    rdfs:label "Engineering Deficiency"@en ;
+    rdfs:comment "A problem, defect, or inadequacy in an engineered structure or system"@en .
+
+:BuildingSystemDeficiency rdf:type owl:Class ;
+    rdf:type :ConditionType ;
+    rdfs:subClassOf :EngineeringDeficiency ;
+    rdfs:subClassOf eng:BuildingSystemDeficiency ;
+    rdfs:label "Building System Deficiency"@en ;
+    rdfs:comment "A deficiency in a building system that may pose safety hazards"@en .
+
+:ElectricalSystemDeficiency rdf:type owl:Class ;
+    rdfs:subClassOf :BuildingSystemDeficiency ;
+    rdfs:label "Electrical System Deficiency"@en ;
+    rdfs:comment "A deficiency in a building's electrical system that may violate codes or standards"@en .
+
+:MechanicalSystemDeficiency rdf:type owl:Class ;
+    rdfs:subClassOf :BuildingSystemDeficiency ;
+    rdfs:label "Mechanical System Deficiency"@en ;
+    rdfs:comment "A deficiency in a building's mechanical system that may violate codes or standards"@en .
+
+:StructuralDeficiency rdf:type owl:Class ;
+    rdfs:subClassOf :BuildingSystemDeficiency ;
+    rdfs:label "Structural Deficiency"@en ;
+    rdfs:comment "A deficiency in a building's structural system that may compromise integrity or safety"@en .
+
+:CodeViolation rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringDeficiency ;
+    rdfs:label "Code Violation"@en ;
+    rdfs:comment "A violation of building, safety, or engineering codes and standards"@en .
+
+#################################################################
+#    Professional Roles and Obligations
+#################################################################
+
+### Engineer Roles
+:InspectionEngineerRole rdf:type owl:Class ;
+    rdf:type :Role ;
+    rdfs:subClassOf ar:ProfessionalServiceProviderRole ;
+    rdfs:label "Inspection Engineer Role"@en ;
+    rdfs:comment "The role of an engineer performing inspection services"@en .
+
+:ConsultantRole rdf:type owl:Class ;
+    rdf:type :Role ;
+    rdfs:subClassOf ar:ProfessionalServiceProviderRole ;
+    rdfs:label "Consultant Role"@en ;
+    rdfs:comment "The role of an engineer providing professional consultation services"@en .
+
+:DesignEngineerRole rdf:type owl:Class ;
+    rdf:type :Role ;
+    rdfs:subClassOf ar:ProfessionalServiceProviderRole ;
+    rdfs:label "Design Engineer Role"@en ;
+    rdfs:comment "The role of an engineer who designs structures, systems, or components"@en .
+
+:ProjectEngineerRole rdf:type owl:Class ;
+    rdf:type :Role ;
+    rdfs:subClassOf ar:ProfessionalServiceProviderRole ;
+    rdfs:label "Project Engineer Role"@en ;
+    rdfs:comment "The role of an engineer who oversees engineering aspects of a project"@en .
+
+:ConfidentialConsultantRole rdf:type owl:Class ;
+    rdf:type :Role ;
+    rdfs:subClassOf :ConsultantRole ;
+    rdfs:label "Confidential Consultant Role"@en ;
+    rdfs:comment "The role of an engineer bound by confidentiality agreements"@en .
+
+### Ethical Obligations common in engineering ethics
+:EthicalObligationInEngineering rdf:type owl:Class ;
+    rdfs:subClassOf ar:EthicalObligation ;
+    rdfs:label "Ethical Obligation in Engineering"@en ;
+    rdfs:comment "An ethical obligation specific to engineering practice"@en .
+
+:ConfidentialityToClientObligation rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalObligationInEngineering ;
+    rdfs:subClassOf ar:ConfidentialityObligation ;
+    rdfs:label "Confidentiality to Client Obligation"@en ;
+    rdfs:comment "An ethical obligation to maintain the confidentiality of client information"@en .
+
+:PublicSafetyProtectionObligation rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalObligationInEngineering ;
+    rdfs:subClassOf ar:PublicSafetyObligation ;
+    rdfs:label "Public Safety Protection Obligation"@en ;
+    rdfs:comment "An ethical obligation to protect public safety when safety hazards are discovered"@en .
+
+:ProfessionalCompetenceObligation rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalObligationInEngineering ;
+    rdfs:label "Professional Competence Obligation"@en ;
+    rdfs:comment "An ethical obligation to practice only within areas of professional competence"@en .
+
+:HonestyInReportingObligation rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalObligationInEngineering ;
+    rdfs:label "Honesty in Reporting Obligation"@en ;
+    rdfs:comment "An ethical obligation to be honest and complete in technical reports"@en .
+
+:ConflictOfInterestAvoidanceObligation rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalObligationInEngineering ;
+    rdfs:label "Conflict of Interest Avoidance Obligation"@en ;
+    rdfs:comment "An ethical obligation to avoid conflicts of interest in professional practice"@en .
+
+### NSPE Ethical Principles
+:NSPEPrinciple rdf:type owl:Class ;
+    rdfs:subClassOf ar:EthicalPrinciple ;
+    rdfs:label "NSPE Principle"@en ;
+    rdfs:comment "A principle from the NSPE Code of Ethics"@en .
+
+:PublicSafetyPrinciple rdf:type owl:Class ;
+    rdfs:subClassOf :NSPEPrinciple ;
+    rdfs:label "Public Safety Principle"@en ;
+    rdfs:comment "The principle that engineers shall hold paramount the safety, health, and welfare of the public (NSPE Code I.1)"@en .
+
+:ConfidentialityPrinciple rdf:type owl:Class ;
+    rdfs:subClassOf :NSPEPrinciple ;
+    rdfs:label "Confidentiality Principle"@en ;
+    rdfs:comment "The principle that engineers shall not reveal facts, data, or information without prior consent of the client (NSPE Code II.1.c)"@en .
+
+:SafeDocumentsPrinciple rdf:type owl:Class ;
+    rdfs:subClassOf :NSPEPrinciple ;
+    rdfs:label "Safe Documents Principle"@en ;
+    rdfs:comment "The principle that engineers shall not complete, sign or seal plans that are not safe to public health and welfare (NSPE Code III.2.b)"@en .
+
+:CompetencyPrinciple rdf:type owl:Class ;
+    rdfs:subClassOf :NSPEPrinciple ;
+    rdfs:label "Competency Principle"@en ;
+    rdfs:comment "The principle that engineers shall perform services only in areas of their competence (NSPE Code II.2)"@en .
+
+:ObjectivityPrinciple rdf:type owl:Class ;
+    rdfs:subClassOf :NSPEPrinciple ;
+    rdfs:label "Objectivity Principle"@en ;
+    rdfs:comment "The principle that engineers shall be objective and truthful in professional reports, statements, or testimony (NSPE Code II.3.a)"@en .
+
+#################################################################
+#    Engineering Documents and Professional Activities
+#################################################################
+
+### Engineering Documents
+:EngineeringDocument rdf:type owl:Class ;
+    rdfs:subClassOf eng:TechnicalDocument ;
+    rdfs:label "Engineering Document"@en ;
+    rdfs:comment "A document created during engineering practice"@en .
+
+:EngineeringReport rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringDocument ;
+    rdfs:label "Engineering Report"@en ;
+    rdfs:comment "A report documenting engineering findings or analysis"@en .
+
+:InspectionReport rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringReport ;
+    rdfs:label "Inspection Report"@en ;
+    rdfs:comment "A report documenting findings from an engineering inspection"@en .
+
+:StructuralReport rdf:type owl:Class ;
+    rdfs:subClassOf :InspectionReport ;
+    rdfs:label "Structural Report"@en ;
+    rdfs:comment "A report documenting findings of a structural inspection"@en .
+
+:ConfidentialityAgreement rdf:type owl:Class ;
+    rdfs:subClassOf eng:ConfidentialityAgreement ;
+    rdfs:label "Confidentiality Agreement"@en ;
+    rdfs:comment "An agreement specifying that engineering findings should remain confidential"@en .
+
+:EngineeringDrawing rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringDocument ;
+    rdfs:label "Engineering Drawing"@en ;
+    rdfs:comment "Technical drawing showing engineering design details"@en .
+
+:EngineeringSpecification rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringDocument ;
+    rdfs:label "Engineering Specification"@en ;
+    rdfs:comment "Detailed requirements for engineering work"@en .
+
+### Engineering Processes and Events
+:EngineeringProcess rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000015 ; # process
+    rdfs:label "Engineering Process"@en ;
+    rdfs:comment "A process related to engineering practice"@en .
+
+:InspectionProcess rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringProcess ;
+    rdfs:label "Inspection Process"@en ;
+    rdfs:comment "The process of inspecting an engineered structure or system"@en .
+
+:StructuralInspectionProcess rdf:type owl:Class ;
+    rdfs:subClassOf :InspectionProcess ;
+    rdfs:label "Structural Inspection Process"@en ;
+    rdfs:comment "The process of inspecting a structure's integrity"@en .
+
+:HazardDiscoveryEvent rdf:type owl:Class ;
+    rdfs:subClassOf eng:SafetyHazardDiscovery ;
+    rdfs:label "Hazard Discovery Event"@en ;
+    rdfs:comment "An event where a safety hazard is discovered during professional work"@en .
+
+:ConfidentialReportingEvent rdf:type owl:Class ;
+    rdfs:subClassOf eng:ConfidentialReportDelivery ;
+    rdfs:label "Confidential Reporting Event"@en ;
+    rdfs:comment "An event where findings are reported under confidentiality constraints"@en .
+
+:SafetyReportingEvent rdf:type owl:Class ;
+    rdfs:subClassOf :EngineeringProcess ;
+    rdfs:label "Safety Reporting Event"@en ;
+    rdfs:comment "An event where safety issues are reported to authorities"@en .
+
+:NonDisclosureEvent rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000015 ; # process
+    rdfs:label "Non-Disclosure Event"@en ;
+    rdfs:comment "An event where information is not disclosed to relevant parties"@en .
+
+### Ethical Dilemmas and Decisions
+:EthicalDilemma rdf:type owl:Class ;
+    rdfs:subClassOf eng:EthicalPrinciplesConflict ;
+    rdfs:label "Ethical Dilemma"@en ;
+    rdfs:comment "A situation where an engineer faces conflicting ethical principles or obligations"@en .
+
+:ConfidentialityVsSafetyDilemma rdf:type owl:Class ;
+    rdf:type :ConditionType ;
+    rdfs:subClassOf :EthicalDilemma ;
+    rdfs:label "Confidentiality vs Safety Dilemma"@en ;
+    rdfs:comment "A dilemma where confidentiality obligations conflict with public safety obligations"@en .
+
+:CompetencyVsClientWishesDilemma rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalDilemma ;
+    rdfs:label "Competency vs Client Wishes Dilemma"@en ;
+    rdfs:comment "A dilemma where professional competency limitations conflict with client demands"@en .
+
+:EthicalDecision rdf:type owl:Class ;
+    rdfs:subClassOf eng:DecisionType ;
+    rdfs:label "Ethical Decision"@en ;
+    rdfs:comment "A decision made in response to an ethical dilemma"@en .
+
+:PublicSafetyVsConfidentialityDecision rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalDecision ;
+    rdfs:subClassOf eng:ConfidentialityVsSafetyDecision ;
+    rdfs:label "Public Safety vs Confidentiality Decision"@en ;
+    rdfs:comment "A decision weighing public safety obligations against confidentiality obligations"@en .
+
+:WhistleblowingDecision rdf:type owl:Class ;
+    rdfs:subClassOf :EthicalDecision ;
+    rdfs:subClassOf eng:WhistleblowingDecision ;
+    rdfs:label "Whistleblowing Decision"@en ;
+    rdfs:comment "A decision about whether to report unethical practices or dangerous conditions"@en .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+:hasDeficiency rdf:type owl:ObjectProperty ;
+    rdfs:domain :EngineeredStructure ;
+    rdfs:range :EngineeringDeficiency ;
+    rdfs:label "has deficiency"@en ;
+    rdfs:comment "Relates a structure to deficiencies that it has"@en .
+
+:hasSystem rdf:type owl:ObjectProperty ;
+    rdfs:domain :EngineeredStructure ;
+    rdfs:range :EngineeringSystem ;
+    rdfs:label "has system"@en ;
+    rdfs:comment "Relates a structure to its engineering systems"@en .
+
+:governs rdf:type owl:ObjectProperty ;
+    rdfs:domain :NSPEPrinciple ;
+    rdfs:range :EthicalObligationInEngineering ;
+    rdfs:label "governs"@en ;
+    rdfs:comment "Relates an NSPE principle to the ethical obligation it governs"@en .
+
+:performsProcess rdf:type owl:ObjectProperty ;
+    rdfs:domain ar:Agent ;
+    rdfs:range :EngineeringProcess ;
+    rdfs:label "performs process"@en ;
+    rdfs:comment "Relates an agent to an engineering process they perform"@en .
+
+:hasRoleIn rdf:type owl:ObjectProperty ;
+    rdfs:domain ar:Agent ;
+    rdfs:range :EngineeringProcess ;
+    rdfs:label "has role in"@en ;
+    rdfs:comment "Relates an agent to an engineering process in which they have a role"@en .
+
+:producesDocument rdf:type owl:ObjectProperty ;
+    rdfs:domain ar:Agent ;
+    rdfs:range :EngineeringDocument ;
+    rdfs:label "produces document"@en ;
+    rdfs:comment "Relates an agent to a document they produce"@en .
+
+:documentsDeficiency rdf:type owl:ObjectProperty ;
+    rdfs:domain :EngineeringDocument ;
+    rdfs:range :EngineeringDeficiency ;
+    rdfs:label "documents deficiency"@en ;
+    rdfs:comment "Relates a document to deficiencies it documents"@en .
+
+:conflictsWith rdf:type owl:ObjectProperty ;
+    rdfs:domain :EthicalObligationInEngineering ;
+    rdfs:range :EthicalObligationInEngineering ;
+    rdfs:label "conflicts with"@en ;
+    rdfs:comment "Relates an ethical obligation to another with which it conflicts"@en .
+
+:requiresDecision rdf:type owl:ObjectProperty ;
+    rdfs:domain :EthicalDilemma ;
+    rdfs:range :EthicalDecision ;
+    rdfs:label "requires decision"@en ;
+    rdfs:comment "Relates an ethical dilemma to the decision it requires"@en .
+
+:involvesPrinciple rdf:type owl:ObjectProperty ;
+    rdfs:domain :EthicalDilemma ;
+    rdfs:range :NSPEPrinciple ;
+    rdfs:label "involves principle"@en ;
+    rdfs:comment "Relates an ethical dilemma to the principles involved"@en .

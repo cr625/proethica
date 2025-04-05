@@ -1,0 +1,257 @@
+{
+  "title": "Acknowledging Errors in Design",
+  "description": "The new structural connections were located in such a way that access was limited, and the drawings clearly noted the constrained access. This design detail required the construction workers to make the connections in a contorted fashion. During construction, an accident occurred with a serious and permanent injury to a construction worker. Following the accident, Engineer T revised the site and realized that had alternative design concepts been explored early on, the new structural modifications could have been proposed in a fundamentally different, more complex, but functionally equivalent way. The alternative approach would have been more costly and taken more time, but it would have allowed the construction workers to make all connections while standing on the floor such that injury would have been far less likely. Engineer T felt some personal responsibility for the accident.\n\nEngineer T met with XYZ's Chief Structural Engineer, Engineer B, explained the situation, and expressed a belief that a design error \u2013 i.e., not exploring alternative, safer design concepts \u2013 had been made and the NSPE Code of Ethics required that the error be acknowledged. Engineer B responded that Engineer T and XYZ Consulting Engineers had responded professionally to the design project, they had recommended a straightforward structural modification approach, and they were not expected or asked to consider alternative concepts. Further, Engineer T had specifically identified the constrained areas of the new connections in the design documents, but because T was not trained in construction safety either by education (since civil engineering education typically does not include construction safety) or by specific experience (working for a construction contractor), Engineer T could not have reasonably known or assessed the level of worker safety risk posed by the connection location. The contractor had not raised questions regarding the construction safety risk or safer construction alternatives. Having thus thoughtfully considered the matter, both Engineer T and Engineer B decided that the situation did not merit acknowledgement of \"an error.\"\n\nMonths later, after a construction claim had been submitted and a lawsuit had been filed, Engineer T met with attorneys representing XYZ and XYZ's insurance company to prepare for a deposition of Engineer T. During preparation, Engineer T reviewed and discussed the project history, including the conversation with Engineer B relative to T's feeling there was, potentially, a professional obligation to acknowledge an error \u2013 i.e., not exploring alternative, safer design concepts. Both of XYZ Consulting Engineers' attorneys agreed that a clear obligation existed not to distort or alter any facts, and that Engineer T should respond to questions with complete transparency during the deposition. One of the attorneys further explained that one important concept for engineers to recall was that they must objectively evaluate facts, not feelings; the attorney added that the existence of a legal process would determine whether, based on the facts, an error had been made, and that Engineer T should clearly report the facts, but should not voluntarily characterize the design work as an error.\n\nIn the deposition, Engineer T responded factually to all questions regarding the design and the design process. Engineer T was not asked if an error had been made and did not offer an acknowledgement of a possible error.",
+  "source": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/acknowledging-errors-design",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rdfs:label",
+        "object": "Acknowledging Errors in Design",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rdfs:comment",
+        "object": "The new structural connections were located in such a way that access was limited, and the drawings clearly noted the constrained access. This design detail required the construction workers to make the connections in a contorted fashion. During construction, an accident occurred with a serious and permanent injury to a construction worker. Following the accident, Engineer T revised the site and realized that had alternative design concepts been explored early on, the new structural modifications could have been proposed in a fundamentally different, more complex, but functionally equivalent way. The alternative approach would have been more costly and taken more time, but it would have allowed the construction workers to make all connections while standing on the floor such that injury would have been far less likely. Engineer T felt some personal responsibility for the accident.\n\nEngineer T met with XYZ's Chief Structural Engineer, Engineer B, explained the situation, and expressed a belief that a design error \u2013 i.e., not exploring alternative, safer design concepts \u2013 had been made and the NSPE Code of Ethics required that the error be acknowledged. Engineer B responded that Engineer T and XYZ Consulting Engineers had responded professionally to the design project, they had recommended a straightforward structural modification approach, and they were not expected or asked to consider alternative concepts. Further, Engineer T had specifically identified the constrained areas of the new connections in the design documents, but because T was not trained in construction safety either by education (since civil engineering education typically does not include construction safety) or by specific experience (working for a construction contractor), Engineer T could not have reasonably known or assessed the level of worker safety risk posed by the connection location. The contractor had not raised questions regarding the construction safety risk or safer construction alternatives. Having thus thoughtfully considered the matter, both Engineer T and Engineer B decided that the situation did not merit acknowledgement of \"an error.\"\n\nMonths later, after a construction claim had been submitted and a lawsuit had been filed, Engineer T met with attorneys representing XYZ and XYZ's insurance company to prepare for a deposition of Engineer T. During preparation, Engineer T reviewed and discussed the project history, including the conversation with Engineer B relative to T's feeling there was, potentially, a professional obligation to acknowledge an error \u2013 i.e., not exploring alternative, safer design concepts. Both of XYZ Consulting Engineers' attorneys agreed that a clear obligation existed not to distort or alter any facts, and that Engineer T should respond to questions with complete transparency during the deposition. One of the attorneys further explained that one important concept for engineers to recall was that they must objectively evaluate facts, not feelings; the attorney added that the existence of a legal process would determine whether, based on the facts, an error had been made, and that Engineer T should clearly report the facts, but should not voluntarily characterize the design work as an error.\n\nIn the deposition, Engineer T responded factually to all questions regarding the design and the design process. Engineer T was not asked if an error had been made and did not offer an acknowledgement of a possible error.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "NSPE:caseNumber",
+        "object": "Case 23-4",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "NSPE:caseYear",
+        "object": "2023",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "NSPE:sourceUrl",
+        "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/acknowledging-errors-design",
+        "is_literal": true
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ProfessionalResponsibility"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 23_4"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 23_4"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 23_4"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 23_4"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI1"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1a"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1b"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1a"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:WhistleblowingDecision"
+      },
+      {
+        "subject": "Engineer_B_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 23_4",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 23_4",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 23_4"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 23_4"
+      },
+      {
+        "subject": "Decision_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Decision_Case 23_4",
+        "predicate": "rdf:type",
+        "object": "eng:EthicalDecision"
+      },
+      {
+        "subject": "Decision_Case 23_4",
+        "predicate": "rdfs:label",
+        "object": "NSPE Board Decision for Case Case 23-4",
+        "is_literal": true
+      },
+      {
+        "subject": "Decision_Case 23_4",
+        "predicate": "NSPE:outcome",
+        "object": "mixed finding",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:hasDecision",
+        "object": "Decision_Case 23_4"
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "NSPE:boardAnalysis",
+        "object": "This case addresses two ethical issues in engineering practice: to what extent are design engineers obligated to account for construction safety risks in their designs if they are not trained or have experience in construction safety methods, and are engineers obligated by the NSPE Code of Ethics to 'acknowledge errors' when it is not clear an error has been made. The Board found that while contractually the contractor is responsible for construction safety, engineers have ethical obligations to consider foreseeable risks. The Board referenced Case 97-13 where limited reporting of safety issues was appropriate restraint as over-reporting could jeopardize professional reputations. The Board determined that engineers must always respond truthfully to questions and not distort facts, but are not required to voluntarily characterize their work as an error when professional judgment is involved.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 23_4_Acknowledging_Errors_in_Design",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 97_13"
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "NSPE": "http://proethica.org/nspe/",
+      "ENG_ETHICS": "http://proethica.org/ontology/engineering-ethics#",
+      "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "bfo": "http://purl.obolibrary.org/obo/",
+      "proeth": "http://proethica.org/ontology/intermediate#",
+      "dc": "http://purl.org/dc/elements/1.1/",
+      "ar": "http://proethica.org/ontology/agent-role#",
+      "eng": "http://proethica.org/ontology/engineering-ethics#",
+      "nspe": "http://proethica.org/nspe/",
+      "rel": "http://proethica.org/relation/"
+    }
+  },
+  "metadata": {
+    "related_cases": [
+      "Case 97-13"
+    ],
+    "codes_cited": [
+      "Code I.1",
+      "Code II.1.a",
+      "Code II.1.b",
+      "Code II.4",
+      "Code III.1.a"
+    ],
+    "principles": [
+      "professional responsibility",
+      "public safety",
+      "honesty",
+      "disclosure"
+    ],
+    "outcome": "mixed finding",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "This case addresses two ethical issues in engineering practice: to what extent are design engineers obligated to account for construction safety risks in their designs if they are not trained or have experience in construction safety methods, and are engineers obligated by the NSPE Code of Ethics to 'acknowledge errors' when it is not clear an error has been made. The Board found that while contractually the contractor is responsible for construction safety, engineers have ethical obligations to consider foreseeable risks. The Board referenced Case 97-13 where limited reporting of safety issues was appropriate restraint as over-reporting could jeopardize professional reputations. The Board determined that engineers must always respond truthfully to questions and not distort facts, but are not required to voluntarily characterize their work as an error when professional judgment is involved.",
+    "ethical_questions": [
+      "Was it ethical for Engineer T and Engineer B to conclude an error had not been made in design?",
+      "Was it ethical for Engineer T not to acknowledge an error after the accident occurred?",
+      "Was it ethical for Engineer T not to acknowledge an error during the deposition?"
+    ]
+  }
+}

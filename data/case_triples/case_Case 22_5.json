@@ -1,0 +1,284 @@
+{
+  "title": "Duty to Report Unsafe Conditions",
+  "description": "Engineer A is retained by Client X to perform a structural inspection of an existing commercial building that has experienced water infiltration. During the inspection, Engineer A identifies severe deterioration of structural members that poses an immediate threat to public safety. When Engineer A informs Client X of the findings, Client X acknowledges the condition but states that they cannot afford to address the issues immediately. Client X asks Engineer A to revise the report to downplay the severity of the findings and to not include any statements about imminent danger. Client X tells Engineer A that if Engineer A does not comply with this request, Client X will find another engineer who will. The building continues to be occupied by tenants who are unaware of the structural issues.",
+  "source": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/duty-report-unsafe-conditions",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rdfs:label",
+        "object": "Duty to Report Unsafe Conditions",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rdfs:comment",
+        "object": "Engineer A is retained by Client X to perform a structural inspection of an existing commercial building that has experienced water infiltration. During the inspection, Engineer A identifies severe deterioration of structural members that poses an immediate threat to public safety. When Engineer A informs Client X of the findings, Client X acknowledges the condition but states that they cannot afford to address the issues immediately. Client X asks Engineer A to revise the report to downplay the severity of the findings and to not include any statements about imminent danger. Client X tells Engineer A that if Engineer A does not comply with this request, Client X will find another engineer who will. The building continues to be occupied by tenants who are unaware of the structural issues.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "NSPE:caseNumber",
+        "object": "Case 22-5",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "NSPE:caseYear",
+        "object": "2022",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "NSPE:sourceUrl",
+        "object": "https://www.nspe.org/resources/ethics/ethics-resources/board-ethical-review-cases/duty-report-unsafe-conditions",
+        "is_literal": true
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 22_5"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 22_5"
+      },
+      {
+        "subject": "NSPE:professional_integrityPrincipleInstance_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:professional_integrityPrincipleInstance_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "NSPE:professional_integrityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:professional_integrityPrincipleInstance_Case 22_5"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI1"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI4"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1c"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1e"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII2b"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityVsSafetyDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 22_5",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 22_5",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 22_5"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 22_5"
+      },
+      {
+        "subject": "Client_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Client_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Client_Case 22_5",
+        "predicate": "rdfs:label",
+        "object": "Client",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "eng:ClientRole"
+      },
+      {
+        "subject": "Client_Case 22_5",
+        "predicate": "ar:hasRole",
+        "object": "eng:ClientRoleInstance_Client_Case 22_5"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:involves",
+        "object": "Client_Case 22_5"
+      },
+      {
+        "subject": "Decision_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Decision_Case 22_5",
+        "predicate": "rdf:type",
+        "object": "eng:EthicalDecision"
+      },
+      {
+        "subject": "Decision_Case 22_5",
+        "predicate": "rdfs:label",
+        "object": "NSPE Board Decision for Case Case 22-5",
+        "is_literal": true
+      },
+      {
+        "subject": "Decision_Case 22_5",
+        "predicate": "NSPE:outcome",
+        "object": "Ethical",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:hasDecision",
+        "object": "Decision_Case 22_5"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "NSPE:boardAnalysis",
+        "object": "The Board concluded that Engineer A has an ethical obligation to report the unsafe conditions to proper authorities if Client X refuses to take appropriate action. The paramount duty to protect public safety (Code I.1) overrides the obligation to maintain client confidentiality (Code II.1.c). The Board noted that this case exemplifies a situation where the potential for loss of life creates a clear ethical imperative that transcends normal client-engineer confidentiality. Additionally, the request to alter professional findings violates Code III.2.b, which prohibits engineers from completing or signing documents that are not safe for public welfare.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 89_7_1"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 76_4_1"
+      },
+      {
+        "subject": "Case:Case_Case 22_5_Duty_to_Report_Unsafe_Conditions",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 96_8_1"
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "NSPE": "http://proethica.org/nspe/",
+      "ENG_ETHICS": "http://proethica.org/ontology/engineering-ethics#",
+      "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "bfo": "http://purl.obolibrary.org/obo/",
+      "proeth": "http://proethica.org/ontology/intermediate#",
+      "dc": "http://purl.org/dc/elements/1.1/",
+      "ar": "http://proethica.org/ontology/agent-role#",
+      "eng": "http://proethica.org/ontology/engineering-ethics#",
+      "nspe": "http://proethica.org/nspe/",
+      "rel": "http://proethica.org/relation/"
+    }
+  },
+  "metadata": {
+    "related_cases": [
+      "Case 89-7-1",
+      "Case 76-4-1",
+      "Case 96-8-1"
+    ],
+    "codes_cited": [
+      "Code I.1",
+      "Code I.4",
+      "Code II.1.c",
+      "Code II.1.e",
+      "Code III.2.b"
+    ],
+    "principles": [
+      "public safety",
+      "confidentiality",
+      "professional integrity"
+    ],
+    "outcome": "ethical to report",
+    "operationalization_techniques": [
+      "Conflicting Principles Resolution",
+      "Case Instantiation"
+    ],
+    "board_analysis": "The Board concluded that Engineer A has an ethical obligation to report the unsafe conditions to proper authorities if Client X refuses to take appropriate action. The paramount duty to protect public safety (Code I.1) overrides the obligation to maintain client confidentiality (Code II.1.c). The Board noted that this case exemplifies a situation where the potential for loss of life creates a clear ethical imperative that transcends normal client-engineer confidentiality. Additionally, the request to alter professional findings violates Code III.2.b, which prohibits engineers from completing or signing documents that are not safe for public welfare."
+  }
+}
