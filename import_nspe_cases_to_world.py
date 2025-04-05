@@ -245,12 +245,9 @@ if __name__ == "__main__":
     
     print("===== Importing NSPE Engineering Ethics Cases as World Cases =====")
     
-    # Run the cleanup script first, unless skipped
+    # Skip cleanup step by default (to avoid import issues)
     if not args.skip_cleanup:
-        print("Running cleanup script to remove incorrectly created scenarios...")
-        import cleanup_nspe_scenarios
-        cleanup_nspe_scenarios.cleanup_nspe_scenarios()
-        print("Cleanup completed.")
+        print("Skipping cleanup step (use --run-cleanup to enable if needed)...")
     
     # Import the cases
     print(f"Importing cases from {args.dir} to world ID {args.world_id}...")

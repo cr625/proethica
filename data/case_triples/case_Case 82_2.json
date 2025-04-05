@@ -1,0 +1,113 @@
+{
+  "title": "Pre Header Utility Links",
+  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "source": "https://www.nspe.org/career-resources/ethics/sharing-built-drawings",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "rdfs:label",
+        "object": "Pre Header Utility Links",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "rdfs:comment",
+        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "NSPE:caseNumber",
+        "object": "Case 82-2",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "NSPE:caseYear",
+        "object": "2082",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "NSPE:sourceUrl",
+        "object": "https://www.nspe.org/career-resources/ethics/sharing-built-drawings",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Decision_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Decision_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "eng:EthicalDecision"
+      },
+      {
+        "subject": "Decision_Case 82_2",
+        "predicate": "rdfs:label",
+        "object": "NSPE Board Decision for Case Case 82-2",
+        "is_literal": true
+      },
+      {
+        "subject": "Decision_Case 82_2",
+        "predicate": "NSPE:outcome",
+        "object": "outcome not specified",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "rel:hasDecision",
+        "object": "Decision_Case 82_2"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "predicate": "NSPE:boardAnalysis",
+        "object": "\u00d7",
+        "is_literal": true
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "NSPE": "http://proethica.org/nspe/",
+      "ENG_ETHICS": "http://proethica.org/ontology/engineering-ethics#",
+      "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "bfo": "http://purl.obolibrary.org/obo/",
+      "proeth": "http://proethica.org/ontology/intermediate#",
+      "dc": "http://purl.org/dc/elements/1.1/",
+      "ar": "http://proethica.org/ontology/agent-role#",
+      "eng": "http://proethica.org/ontology/engineering-ethics#",
+      "nspe": "http://proethica.org/nspe/",
+      "rel": "http://proethica.org/relation/"
+    }
+  },
+  "metadata": {
+    "related_cases": [],
+    "codes_cited": [],
+    "principles": [],
+    "outcome": "outcome not specified",
+    "operationalization_techniques": [
+      "Principle Instantiation"
+    ],
+    "board_analysis": "\u00d7",
+    "ethical_questions": []
+  }
+}
