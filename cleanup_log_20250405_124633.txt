@@ -1,0 +1,27 @@
+Repository Cleanup Log - 2025-04-05 12:46:33
+======================================================================
+
+Files scheduled for deletion: 15
+
+DELETED: cleanup_nspe_scenarios.py
+DELETED: cleanup_nspe_scenarios_auto.py
+DELETED: check_worlds_and_scenarios.py
+DELETED: check_world_cases.py
+DELETED: check_world_ontology.py
+DELETED: list_nspe_ethics_cases.py
+DELETED: archive_obsolete_db_scripts.py
+DELETED: add_characters_to_scenario1.py
+DELETED: add_resources_conditions_to_scenario1.py
+DELETED: populate_scenario_template.py
+DELETED: scripts/test_document.txt
+DELETED: scripts/implement_phase1.sh
+DELETED: scripts/implement_phase1_fixed.py
+DELETED: backups/ai_ethical_dm_backup_20250323_135340.dump
+DELETED: backups/ai_ethical_dm_backup_20250326_110159.dump
+
+======================================================================
+SUMMARY - 2025-04-05 12:46:33
+Total files processed: 15
+Successfully deleted: 15
+Failed to delete: 0
+Skipped (not found): 0
