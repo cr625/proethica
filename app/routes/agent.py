@@ -38,7 +38,7 @@ def agent_window():
         session['conversation'] = json.dumps({
             'messages': [
                 {
-                    'content': 'Hello! I am your AI assistant for ethical decision-making. How can I help you today?',
+                    'content': 'Hello! I am your assistant for ethical decision analysis. Choose a world to generate suggestions or type your message below.',
                     'role': 'assistant',
                     'timestamp': None
                 }
@@ -134,7 +134,7 @@ def reset_conversation():
     session['conversation'] = json.dumps({
         'messages': [
             {
-                'content': 'Hello! I am your AI assistant for ethical decision-making. How can I help you today?',
+                'content': 'Hello! I am your assistant for ethical decision analysis. Choose a world to generate suggestions or type your message below.',
                 'role': 'assistant',
                 'timestamp': None
             }
