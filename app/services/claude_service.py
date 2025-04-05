@@ -189,6 +189,22 @@ class ClaudeService:
         Returns:
             Response message
         """
+        # For backward compatibility, delegate to send_message_with_context
+        return self.send_message_with_context(message, conversation, None, world_id)
+    
+    def send_message_with_context(self, message, conversation=None, application_context=None, world_id=None):
+        """
+        Send a message to Claude with enhanced application context.
+        
+        Args:
+            message: Message to send
+            conversation: Conversation object (optional)
+            application_context: Enhanced application context (optional)
+            world_id: ID of the world for context (optional)
+            
+        Returns:
+            Response message
+        """
         # Create conversation if not provided
         if conversation is None:
             conversation = Conversation()
@@ -203,6 +219,10 @@ class ClaudeService:
             
             # Build appropriate system prompt based on world context
             system_prompt = self.build_system_prompt(world_id)
+            
+            # Add application context to system prompt if provided
+            if application_context:
+                system_prompt += "\n\nAPPLICATION INFORMATION:\n" + application_context
             
             # Call Claude API with system parameter
             response = self.client.messages.create(
