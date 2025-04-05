@@ -1,0 +1,453 @@
+{
+  "title": "I.1.",
+  "description": "Engineer B is a design engineer from Firm X and has only completed a 30% design. However, Engineer B has requested the project manager to assign someone to perform a higher 60% design review to justify release of a higher 60% design fee from the Client. She has also requested that the reviewer consider a completely new design concept. Two situations are presented below to clarify how an internal plan review would differ from a third-party peer review.\n\nSituation 1: Engineer A also works for consulting engineering Firm X and has been requested to perform a plan review of Engineer B\u2019s in-house 60% design. Engineer A\u2019s work normally involves providing a quality assurance/quality control (QA/QC) plan reviews on projects designed by other in-house engineers. Engineer A has been given general corporate design checklists for level of design completeness and an electrical QC form for signing off on level of completeness to provide to clients. Engineer A provides significant detail in design reviews, but does not exaggerate level of completeness and typically stops short of making review comments that would totally change the basis of design of such projects. The plan review role is to review the accuracy and content of both plans and specifications, and identify design elements that need additional analysis, revision, and improvement to fulfill the anticipated percent level of design. Frequently, designs that Engineer A has been given to review do not reach the level of completeness represented.\n\nSituation 2: Engineer C is an independent consulting engineer with Firm Y that has been retained to perform a peer review of Engineer B\u2019s (of Firm X) 60% progress design. Engineer C has a consulting engineering firm and occasionally performs peer reviews for project owners and public agencies. Engineer C has been asked to sign a three-party agreement with Engineer B and Firm X that provides for consent but also addresses costs, liabilities, procedures, indemnification, and other relevant factors. A frequently used peer re\u0002view document for this is EJCDC E-581 which calls for an independent peer review of another engineer\u2019s design work. Engineer C\u2019s firm, Firm Y, signs a three-party agreement that follows procedures outlined in EJCDC Doc. No. E-581 and agrees to provide a 60% review of Engineer B\u2019s design. If it is determined by Engineer C that the peer review is on a design that is not 60% , Engineer C is asked to stop work immediately and return design documents to Firm X.\n\nWas it ethical for Engineer B to knowingly submit a 30% design for a 60% design review?\n\n\t\tWould it be ethical for Engineer B to make a request for radically different design recommendations by (in-house) Engineer A including recommendations for total redesign?\n\n\t\tWhat were Engineer A\u2019s ethical obligations for the plan review?\n\n\t\tWhat were Engineer C\u2019s obligations for the peer review\n\nWas it ethical for Engineer B to knowingly submit a 30% design for a 60% design review?\n\nWould it be ethical for Engineer B to make a request for radically different design recommendations by (in-house) Engineer A including recommendations for total redesign?\n\nWhat were Engineer A\u2019s ethical obligations for the plan review?\n\nWhat were Engineer C\u2019s obligations for the peer review\n\nThe NSPE Board of Ethical Review has not considered similar cases where engineers performing plan reviews or peer reviews particularly if the requested design review is intended to get funding under questionable circumstances or to totally change or recommend radical changes to the designs of the original engineer. A licensed consulting engineer plans reviewer (such as Engineer A) or 3rd-party peer reviewer (such as Engineer C) needs to exercise some level of restraint in performing design reviews, as they may not have been given all project specifics and may not have a complete understanding of the scope of work. The review efforts are intended to ensure that the level of design is in fact a 60% submittal and to look for design errors, omissions, and then recommend improvements to the plans and specifications for that level of completeness. An entire redevelopment of Engineer B\u2019s documents should not be recommended unless Engineer A and Engineer C believe that the project will not be successful.\n\nRelative to Situation 1, BER Case 01-7 relates to this discussion in that the ethics of a County initiating a new ordinance to give property owners the ability to hire private engineers and architects to perform plan reviews, as opposed to these reviews previously being performed by a building department, is relevant. The modus operandi for this ordinance was to get more timely action in the review process. PEs must be above reproach and avoid situations that would compromise their judgment and integrity. As long as the licensed PE providing plan review exercises full disclosure, and therefore has no conflict of interest as stated in NSPE Code of Ethics Section II.4.a. and possesses skill sets that are within their area of competence as stated in NSPE Code of Ethics Section I.2, there is no reason he or she cannot serve in this capacity and be a protector of the public interest.\n\nThe duties required of plans/specifications reviewer Engineer A are less formal and can typically be represented by handwritten or track-change comments on the specifications and handwritten or computer-generated drawing markups via drawing review software (e.g., Bluebeam\u00ae). Completed checklists and sign off on an Electrical QC Form for level of completeness rather than issuance of a formal report is common and satisfies the needs of an in-house consulting firm and project owner. However, it is important to note that Engineer A needs to provide substantive and meaningful comments on the design, but Engineer A is not hired to perform design.\n\nRelative to Situation 2, BER Case 18-10 describes a case wherein Engineer A is a P.E. and owner of ABC Engineering who is retained by a state agency to participate in an independent external peer review of a major state transportation project prepared by the agency. The peer review is limited in scope, but various clarifications and refinements to the plans and specifications are ultimately incorporated into a RFP soliciting proposals for design-build services to complete the major transportation project. The question arises whether it is ethical for Engineer A and his firm ABC Engineering to participate in a design-build joint venture and submit a proposal for the project. Therefore, this case deals with potential conflict of interest issues (noted in NSPE Code of Ethics Section II.4.a.) when a peer reviewer participates in a subsequent design-build joint venture and then submits a proposal. It is deemed not to be unethical as long as the state agency approves and the work complies with state laws and regulations.\n\nBER Case 96-8 relates to 3rd-party peer review confidentiality agreements. It is common practice that peer reviewers must sign confidentiality agreements when agreeing to an independent peer review. Confidentiality assures that the maximum amount of disclosure will occur and helps to build trust between the parties. In that case, as part of a peer review visit, Engineer A visits Engineer B\u2019s firm. Following review of technical documentation in connection with a series of design projects involving Engineer B\u2019s firm, Engineer A dis\u0002covers that Engineer B\u2019s work may be in violation of state and local safety code requirements and therefore could endanger public health and safety. Engineer A has an obligation not to disclose confidential information concerning the business affairs and procedures of any present or former client. However, if Engineer A determines that the design of Engineer B creates imminent risk of harm to public health and safety and violates the Code of Ethics as stated in NSPE Code of Ethics Section I.1. and Section III.1.b., it is incumbent on Engineer A to discuss this concern with Engineer B to seek early resolution of the issue. If Engineer A and Engineer B are unable to resolve their differences, Engineer A must inform Engineer B that in his/her role as a P.E. the only alternative is to notify proper authorities.\n\nThe duties of Engineer C for commentary in Situation 2 are more formal and typically involve a very detailed report depicting all recommended changes to the documents. Because Engineer B requested the review, Engineer C does not need to be concerned about informing Engineer B before performing a peer review as required by NSPE Code of Ethics Section III.7.a.\n\n[EJCDC E-581 recommends creating a separate peer review consent form but does not publish one.] Indemnification and liability are relevant factors and must be addressed in a peer review consent form.\n\nIn conclusion, both forms of design review services are effective in achieving desired results when required by lenders, government agencies and project owners. However, a formal peer review is typically more expensive and more common on 100% rather than partially complete designs. Engineer A and Engineer C should specifically state that it is their understanding of the review process to comment only and not provide a radically different design by making recommendations overriding the original design scope of Engineer B. Neither was hired to perform design services. Although Engineer A may not have a full understanding of the project scope, Engineer C should be fully briefed in order to fulfill the expectations of a 3rd-party peer review.\n\nNeither Engineer A nor C should engage in the deceptive practice of making a 30% project appear to be 60% complete.\n\nI.1.\n\nHold paramount the safety, health, and welfare of the public.\n\nI.2.\n\nPerform services only in areas of their competence.\n\nI.5.\n\nAvoid deceptive acts.\n\nII.4.\n\nEngineers shall act for each employer or client as faithful agents or trustees.\n\nII.4.a.\n\nEngineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nIt is unethical for Engineer B to knowingly submit a 30% design for a 60% design review.\n\n\t\tAlthough it is not unethical at any design stage of a project for Engineer B to request Engineer A for radically different design recommendations leading to complete redesign, such recommendations are normally outside the scope of an in-house QA/ QC review. If Engineer B is looking for a sounding board or for additional ideas, Engineer B is free to approach any of the engineering employees for an informal discussion. However, if Engineer B has serious doubts about the efficacy of the proposed design, such concerns should be raised as soon as possible for a full review.\n\n\t\tEngineer A is ethically obligated to return the 30% plans submitted as 60% complete.\n\n\t\tLikewise, as a 3rd-party peer review, Engineer C\u2019s obligation is to review documents for primarily technical content and not to review documents that are only 30% complete submitted as 60% complete.\n\nIt is unethical for Engineer B to knowingly submit a 30% design for a 60% design review.\n\nAlthough it is not unethical at any design stage of a project for Engineer B to request Engineer A for radically different design recommendations leading to complete redesign, such recommendations are normally outside the scope of an in-house QA/ QC review. If Engineer B is looking for a sounding board or for additional ideas, Engineer B is free to approach any of the engineering employees for an informal discussion. However, if Engineer B has serious doubts about the efficacy of the proposed design, such concerns should be raised as soon as possible for a full review.\n\nEngineer A is ethically obligated to return the 30% plans submitted as 60% complete.\n\nLikewise, as a 3rd-party peer review, Engineer C\u2019s obligation is to review documents for primarily technical content and not to review documents that are only 30% complete submitted as 60% complete.",
+  "source": "https://www.nspe.org/career-resources/ethics/internal-plan-reviews-vsthird-party-peer-reviews-duties",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rdfs:label",
+        "object": "I.1.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rdfs:comment",
+        "object": "Engineer B is a design engineer from Firm X and has only completed a 30% design. However, Engineer B has requested the project manager to assign someone to perform a higher 60% design review to justify release of a higher 60% design fee from the Client. She has also requested that the reviewer consider a completely new design concept. Two situations are presented below to clarify how an internal plan review would differ from a third-party peer review.\n\nSituation 1: Engineer A also works for consulting engineering Firm X and has been requested to perform a plan review of Engineer B\u2019s in-house 60% design. Engineer A\u2019s work normally involves providing a quality assurance/quality control (QA/QC) plan reviews on projects designed by other in-house engineers. Engineer A has been given general corporate design checklists for level of design completeness and an electrical QC form for signing off on level of completeness to provide to clients. Engineer A provides significant detail in design reviews, but does not exaggerate level of completeness and typically stops short of making review comments that would totally change the basis of design of such projects. The plan review role is to review the accuracy and content of both plans and specifications, and identify design elements that need additional analysis, revision, and improvement to fulfill the anticipated percent level of design. Frequently, designs that Engineer A has been given to review do not reach the level of completeness represented.\n\nSituation 2: Engineer C is an independent consulting engineer with Firm Y that has been retained to perform a peer review of Engineer B\u2019s (of Firm X) 60% progress design. Engineer C has a consulting engineering firm and occasionally performs peer reviews for project owners and public agencies. Engineer C has been asked to sign a three-party agreement with Engineer B and Firm X that provides for consent but also addresses costs, liabilities, procedures, indemnification, and other relevant factors. A frequently used peer re\u0002view document for this is EJCDC E-581 which calls for an independent peer review of another engineer\u2019s design work. Engineer C\u2019s firm, Firm Y, signs a three-party agreement that follows procedures outlined in EJCDC Doc. No. E-581 and agrees to provide a 60% review of Engineer B\u2019s design. If it is determined by Engineer C that the peer review is on a design that is not 60% , Engineer C is asked to stop work immediately and return design documents to Firm X.\n\nWas it ethical for Engineer B to knowingly submit a 30% design for a 60% design review?\n\n\t\tWould it be ethical for Engineer B to make a request for radically different design recommendations by (in-house) Engineer A including recommendations for total redesign?\n\n\t\tWhat were Engineer A\u2019s ethical obligations for the plan review?\n\n\t\tWhat were Engineer C\u2019s obligations for the peer review\n\nWas it ethical for Engineer B to knowingly submit a 30% design for a 60% design review?\n\nWould it be ethical for Engineer B to make a request for radically different design recommendations by (in-house) Engineer A including recommendations for total redesign?\n\nWhat were Engineer A\u2019s ethical obligations for the plan review?\n\nWhat were Engineer C\u2019s obligations for the peer review\n\nThe NSPE Board of Ethical Review has not considered similar cases where engineers performing plan reviews or peer reviews particularly if the requested design review is intended to get funding under questionable circumstances or to totally change or recommend radical changes to the designs of the original engineer. A licensed consulting engineer plans reviewer (such as Engineer A) or 3rd-party peer reviewer (such as Engineer C) needs to exercise some level of restraint in performing design reviews, as they may not have been given all project specifics and may not have a complete understanding of the scope of work. The review efforts are intended to ensure that the level of design is in fact a 60% submittal and to look for design errors, omissions, and then recommend improvements to the plans and specifications for that level of completeness. An entire redevelopment of Engineer B\u2019s documents should not be recommended unless Engineer A and Engineer C believe that the project will not be successful.\n\nRelative to Situation 1, BER Case 01-7 relates to this discussion in that the ethics of a County initiating a new ordinance to give property owners the ability to hire private engineers and architects to perform plan reviews, as opposed to these reviews previously being performed by a building department, is relevant. The modus operandi for this ordinance was to get more timely action in the review process. PEs must be above reproach and avoid situations that would compromise their judgment and integrity. As long as the licensed PE providing plan review exercises full disclosure, and therefore has no conflict of interest as stated in NSPE Code of Ethics Section II.4.a. and possesses skill sets that are within their area of competence as stated in NSPE Code of Ethics Section I.2, there is no reason he or she cannot serve in this capacity and be a protector of the public interest.\n\nThe duties required of plans/specifications reviewer Engineer A are less formal and can typically be represented by handwritten or track-change comments on the specifications and handwritten or computer-generated drawing markups via drawing review software (e.g., Bluebeam\u00ae). Completed checklists and sign off on an Electrical QC Form for level of completeness rather than issuance of a formal report is common and satisfies the needs of an in-house consulting firm and project owner. However, it is important to note that Engineer A needs to provide substantive and meaningful comments on the design, but Engineer A is not hired to perform design.\n\nRelative to Situation 2, BER Case 18-10 describes a case wherein Engineer A is a P.E. and owner of ABC Engineering who is retained by a state agency to participate in an independent external peer review of a major state transportation project prepared by the agency. The peer review is limited in scope, but various clarifications and refinements to the plans and specifications are ultimately incorporated into a RFP soliciting proposals for design-build services to complete the major transportation project. The question arises whether it is ethical for Engineer A and his firm ABC Engineering to participate in a design-build joint venture and submit a proposal for the project. Therefore, this case deals with potential conflict of interest issues (noted in NSPE Code of Ethics Section II.4.a.) when a peer reviewer participates in a subsequent design-build joint venture and then submits a proposal. It is deemed not to be unethical as long as the state agency approves and the work complies with state laws and regulations.\n\nBER Case 96-8 relates to 3rd-party peer review confidentiality agreements. It is common practice that peer reviewers must sign confidentiality agreements when agreeing to an independent peer review. Confidentiality assures that the maximum amount of disclosure will occur and helps to build trust between the parties. In that case, as part of a peer review visit, Engineer A visits Engineer B\u2019s firm. Following review of technical documentation in connection with a series of design projects involving Engineer B\u2019s firm, Engineer A dis\u0002covers that Engineer B\u2019s work may be in violation of state and local safety code requirements and therefore could endanger public health and safety. Engineer A has an obligation not to disclose confidential information concerning the business affairs and procedures of any present or former client. However, if Engineer A determines that the design of Engineer B creates imminent risk of harm to public health and safety and violates the Code of Ethics as stated in NSPE Code of Ethics Section I.1. and Section III.1.b., it is incumbent on Engineer A to discuss this concern with Engineer B to seek early resolution of the issue. If Engineer A and Engineer B are unable to resolve their differences, Engineer A must inform Engineer B that in his/her role as a P.E. the only alternative is to notify proper authorities.\n\nThe duties of Engineer C for commentary in Situation 2 are more formal and typically involve a very detailed report depicting all recommended changes to the documents. Because Engineer B requested the review, Engineer C does not need to be concerned about informing Engineer B before performing a peer review as required by NSPE Code of Ethics Section III.7.a.\n\n[EJCDC E-581 recommends creating a separate peer review consent form but does not publish one.] Indemnification and liability are relevant factors and must be addressed in a peer review consent form.\n\nIn conclusion, both forms of design review services are effective in achieving desired results when required by lenders, government agencies and project owners. However, a formal peer review is typically more expensive and more common on 100% rather than partially complete designs. Engineer A and Engineer C should specifically state that it is their understanding of the review process to comment only and not provide a radically different design by making recommendations overriding the original design scope of Engineer B. Neither was hired to perform design services. Although Engineer A may not have a full understanding of the project scope, Engineer C should be fully briefed in order to fulfill the expectations of a 3rd-party peer review.\n\nNeither Engineer A nor C should engage in the deceptive practice of making a 30% project appear to be 60% complete.\n\nI.1.\n\nHold paramount the safety, health, and welfare of the public.\n\nI.2.\n\nPerform services only in areas of their competence.\n\nI.5.\n\nAvoid deceptive acts.\n\nII.4.\n\nEngineers shall act for each employer or client as faithful agents or trustees.\n\nII.4.a.\n\nEngineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nIt is unethical for Engineer B to knowingly submit a 30% design for a 60% design review.\n\n\t\tAlthough it is not unethical at any design stage of a project for Engineer B to request Engineer A for radically different design recommendations leading to complete redesign, such recommendations are normally outside the scope of an in-house QA/ QC review. If Engineer B is looking for a sounding board or for additional ideas, Engineer B is free to approach any of the engineering employees for an informal discussion. However, if Engineer B has serious doubts about the efficacy of the proposed design, such concerns should be raised as soon as possible for a full review.\n\n\t\tEngineer A is ethically obligated to return the 30% plans submitted as 60% complete.\n\n\t\tLikewise, as a 3rd-party peer review, Engineer C\u2019s obligation is to review documents for primarily technical content and not to review documents that are only 30% complete submitted as 60% complete.\n\nIt is unethical for Engineer B to knowingly submit a 30% design for a 60% design review.\n\nAlthough it is not unethical at any design stage of a project for Engineer B to request Engineer A for radically different design recommendations leading to complete redesign, such recommendations are normally outside the scope of an in-house QA/ QC review. If Engineer B is looking for a sounding board or for additional ideas, Engineer B is free to approach any of the engineering employees for an informal discussion. However, if Engineer B has serious doubts about the efficacy of the proposed design, such concerns should be raised as soon as possible for a full review.\n\nEngineer A is ethically obligated to return the 30% plans submitted as 60% complete.\n\nLikewise, as a 3rd-party peer review, Engineer C\u2019s obligation is to review documents for primarily technical content and not to review documents that are only 30% complete submitted as 60% complete.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "NSPE:caseNumber",
+        "object": "Case 01-7",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "NSPE:caseYear",
+        "object": "2001",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "NSPE:sourceUrl",
+        "object": "https://www.nspe.org/career-resources/ethics/internal-plan-reviews-vsthird-party-peer-reviews-duties",
+        "is_literal": true
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:safetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:safetyPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConflictOfInterestAvoidanceObligation"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 01_7"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:healthPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:public_healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:public_healthPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 01_7"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4a"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_I_2"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI1"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_I_5"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_7_a"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1b"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityVsSafetyDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 01_7",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 01_7",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 01_7"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 01_7"
+      },
+      {
+        "subject": "Engineer_B_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 01_7",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 01_7",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 01_7"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 01_7"
+      },
+      {
+        "subject": "Client_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Client_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Client_Case 01_7",
+        "predicate": "rdfs:label",
+        "object": "Client",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "eng:ClientRole"
+      },
+      {
+        "subject": "Client_Case 01_7",
+        "predicate": "ar:hasRole",
+        "object": "eng:ClientRoleInstance_Client_Case 01_7"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:involves",
+        "object": "Client_Case 01_7"
+      },
+      {
+        "subject": "Decision_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Decision_Case 01_7",
+        "predicate": "rdf:type",
+        "object": "eng:EthicalDecision"
+      },
+      {
+        "subject": "Decision_Case 01_7",
+        "predicate": "rdfs:label",
+        "object": "NSPE Board Decision for Case Case 01-7",
+        "is_literal": true
+      },
+      {
+        "subject": "Decision_Case 01_7",
+        "predicate": "NSPE:outcome",
+        "object": "Unethical",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:hasDecision",
+        "object": "Decision_Case 01_7"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "NSPE:boardAnalysis",
+        "object": "s. Because Engineer B requested the review, Engineer C does not need to be concerned about informing Engineer B before performing a peer review as required by NSPE Code of Ethics Section III.7.a.\n\n[EJCDC E-581 recommends creating a separate peer review consent form but does not publish one.] Indemnification and liability are relevant factors and must be addressed in a peer review consent form.\n\nIn conclusion, both forms of design review services are effective in achieving desired results when required by lenders, government agencies and project owners. However, a formal peer review is typically more expensive and more common on 100% rather than partially complete designs. Engineer A and Engineer C should specifically state that it is their understanding of the review process to comment only and not provide a radically different design by making recommendations overriding the original design scope of Engineer B. Neither was hired to perform design services. Although Engineer A may not h\n[content truncated]",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 01_7"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 96_8"
+      },
+      {
+        "subject": "Case:Case_Case 01_7_I_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 18_10"
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "NSPE": "http://proethica.org/nspe/",
+      "ENG_ETHICS": "http://proethica.org/ontology/engineering-ethics#",
+      "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "bfo": "http://purl.obolibrary.org/obo/",
+      "proeth": "http://proethica.org/ontology/intermediate#",
+      "dc": "http://purl.org/dc/elements/1.1/",
+      "ar": "http://proethica.org/ontology/agent-role#",
+      "eng": "http://proethica.org/ontology/engineering-ethics#",
+      "nspe": "http://proethica.org/nspe/",
+      "rel": "http://proethica.org/relation/"
+    }
+  },
+  "metadata": {
+    "related_cases": [
+      "Case 01-7",
+      "Case 96-8",
+      "Case 18-10"
+    ],
+    "codes_cited": [
+      "Code II.4.a",
+      "Code II.4",
+      "Code I.2",
+      "Code I.1",
+      "Code I.5",
+      "Code III.7.a",
+      "Code III.1.b"
+    ],
+    "principles": [
+      "public safety",
+      "safety",
+      "honesty",
+      "welfare",
+      "conflicts of interest",
+      "confidentiality",
+      "health",
+      "public health",
+      "disclosure",
+      "competency"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "s. Because Engineer B requested the review, Engineer C does not need to be concerned about informing Engineer B before performing a peer review as required by NSPE Code of Ethics Section III.7.a.\n\n[EJCDC E-581 recommends creating a separate peer review consent form but does not publish one.] Indemnification and liability are relevant factors and must be addressed in a peer review consent form.\n\nIn conclusion, both forms of design review services are effective in achieving desired results when required by lenders, government agencies and project owners. However, a formal peer review is typically more expensive and more common on 100% rather than partially complete designs. Engineer A and Engineer C should specifically state that it is their understanding of the review process to comment only and not provide a radically different design by making recommendations overriding the original design scope of Engineer B. Neither was hired to perform design services. Although Engineer A may not h\n[content truncated]",
+    "ethical_questions": [
+      "Was it ethical for Engineer B to knowingly submit a 30% design for a 60% design review?",
+      "Would it be ethical for Engineer B to make a request for radically different design recommendations by (in-house) Engineer A including recommendations for total redesign?",
+      "What were Engineer A\u2019s ethical obligations for the plan review?",
+      "What were Engineer C\u2019s obligations for the peer review\n\nWas it ethical for Engineer B to knowingly submit a 30% design for a 60% design review?",
+      "Would it be ethical for Engineer B to make a request for radically different design recommendations by (in-house) Engineer A including recommendations for total redesign?",
+      "What were Engineer A\u2019s ethical obligations for the plan review?"
+    ]
+  }
+}

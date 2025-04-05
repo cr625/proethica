@@ -14,6 +14,13 @@
     owl:imports <http://proethica.org/ontology/intermediate>,
         bfo:bfo.owl .
 
+:AsBuiltDrawings a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "As-Built Drawings"@en ;
+    rdfs:comment "Drawings that show how a structure was actually built, which may differ from the original design drawings"@en ;
+    rdfs:subClassOf :EngineeringDocument .
+
 :BuildingCode a proeth:EntityType,
         proeth:ResourceType,
         owl:Class ;
@@ -28,6 +35,20 @@
     rdfs:comment "The role of an official who enforces building codes and regulations"@en ;
     rdfs:subClassOf :RegulatoryOfficialRole .
 
+:BuildingPermit a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "Building Permit"@en ;
+    rdfs:comment "An official authorization to proceed with construction or renovation"@en ;
+    rdfs:subClassOf :EngineeringDocument .
+
+:CityEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "City Engineer Role"@en ;
+    rdfs:comment "The role of an engineer employed by a city government to oversee public infrastructure"@en ;
+    rdfs:subClassOf :EngineeringRole .
+
 :ClientMeetingEvent a proeth:EntityType,
         proeth:EventType,
         owl:Class ;
@@ -35,24 +56,19 @@
     rdfs:comment "An event where an engineer meets with a client"@en ;
     rdfs:subClassOf :EngineeringEvent .
 
-:ClientRole a :EntityType,
-        :Role,
-        proeth:EntityType,
+:ClientRole a proeth:EntityType,
         proeth:Role,
         owl:Class ;
-    rdfs:label "Client Role"@en,
-        "client Role"@en ;
-    rdfs:comment "The role of a person or organization that commissions engineering services"@en,
-        "The role of client in engineering practice"@en ;
-    rdfs:subClassOf :EngineeringRole,
-        proeth:Role .
+    rdfs:label "Client Role"@en ;
+    rdfs:comment "The role of a person or organization that commissions engineering services"@en ;
+    rdfs:subClassOf proeth:Role .
 
-:Code a :EntityType,
-        :ResourceType,
+:ClimateChangeCondition a proeth:ConditionType,
+        proeth:EntityType,
         owl:Class ;
-    rdfs:label "code"@en ;
-    rdfs:comment "A resource involving code in engineering practice"@en ;
-    rdfs:subClassOf :EngineeringResource .
+    rdfs:label "Climate Change Condition"@en ;
+    rdfs:comment "A condition related to climate change that affects engineering practice and decisions"@en ;
+    rdfs:subClassOf :EngineeringCondition .
 
 :CodeViolation a proeth:ConditionType,
         proeth:EntityType,
@@ -61,50 +77,12 @@
     rdfs:comment "A condition that violates building codes or engineering standards"@en ;
     rdfs:subClassOf :EngineeringCondition .
 
-:Code_III_1_a a :EntityType,
-        :ResourceType,
+:CompetenceDeficiencyCondition a proeth:ConditionType,
+        proeth:EntityType,
         owl:Class ;
-    rdfs:label "Code III.1.a"@en ;
-    rdfs:comment "A resource involving code iii.1.a in engineering practice"@en,
-        "Section Code III.1.a of the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :EngineeringResource,
-        :NSPECodeSection .
-
-:Code_II_1_a a :EntityType,
-        :ResourceType,
-        owl:Class ;
-    rdfs:label "Code II.1.a"@en ;
-    rdfs:comment "A resource involving code ii.1.a in engineering practice"@en,
-        "Section Code II.1.a of the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :EngineeringResource,
-        :NSPECodeSection .
-
-:Code_II_1_b a :EntityType,
-        :ResourceType,
-        owl:Class ;
-    rdfs:label "Code II.1.b"@en ;
-    rdfs:comment "A resource involving code ii.1.b in engineering practice"@en,
-        "Section Code II.1.b of the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :EngineeringResource,
-        :NSPECodeSection .
-
-:Code_II_4 a :EntityType,
-        :ResourceType,
-        owl:Class ;
-    rdfs:label "Code II.4"@en ;
-    rdfs:comment "A resource involving code ii.4 in engineering practice"@en,
-        "Section Code II.4 of the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :EngineeringResource,
-        :NSPECodeSection .
-
-:Code_I_1 a :EntityType,
-        :ResourceType,
-        owl:Class ;
-    rdfs:label "Code I.1"@en ;
-    rdfs:comment "A resource involving code i.1 in engineering practice"@en,
-        "Section Code I.1 of the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :EngineeringResource,
-        :NSPECodeSection .
+    rdfs:label "Competence Deficiency Condition"@en ;
+    rdfs:comment "A condition where an engineer lacks the necessary competence for a specific task"@en ;
+    rdfs:subClassOf :EngineeringCondition .
 
 :CompetenceVsClientWishesDilemma a proeth:ConditionType,
         proeth:EntityType,
@@ -148,6 +126,20 @@
     rdfs:comment "A dilemma where confidentiality obligations conflict with public safety obligations"@en ;
     rdfs:subClassOf :EngineeringEthicalDilemma .
 
+:ConflictOfInterestDilemma a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Conflict of Interest Dilemma"@en ;
+    rdfs:comment "A dilemma where an engineer must navigate conflicting interests in professional practice"@en ;
+    rdfs:subClassOf :EngineeringEthicalDilemma .
+
+:ContinuingEducationPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Continuing Education Principle"@en ;
+    rdfs:comment "The principle that engineers should maintain and improve their technical competence"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
 :DesignApprovalDecision a proeth:ActionType,
         proeth:EntityType,
         owl:Class ;
@@ -155,12 +147,33 @@
     rdfs:comment "A decision about whether to approve an engineering design"@en ;
     rdfs:subClassOf :EngineeringDecision .
 
+:DesignBuildEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Design-Build Engineer Role"@en ;
+    rdfs:comment "The role of an engineer who works on combined design and construction projects"@en ;
+    rdfs:subClassOf :EngineeringRole .
+
+:DesignResponsibilityPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Design Responsibility Principle"@en ;
+    rdfs:comment "The principle that engineers are responsible for the safety of their designs"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
 :DesignRevisionAction a proeth:ActionType,
         proeth:EntityType,
         owl:Class ;
     rdfs:label "Design Revision Action"@en ;
     rdfs:comment "An action of modifying an engineering design"@en ;
     rdfs:subClassOf :EngineeringAction .
+
+:DisclosurePrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Disclosure Principle"@en ;
+    rdfs:comment "The principle that engineers should disclose relevant information to affected parties"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
 
 :DualRoleConflict a proeth:ConditionType,
         proeth:EntityType,
@@ -187,19 +200,17 @@
     rdfs:comment "A deficiency in a building's electrical system that may violate codes or standards"@en ;
     rdfs:subClassOf :BuildingSystemDeficiency .
 
-:EngineerRole a :EntityType,
-        :Role,
-        owl:Class ;
-    rdfs:label "engineer Role"@en ;
-    rdfs:comment "The role of engineer in engineering practice"@en ;
-    rdfs:subClassOf :EngineeringRole .
-
 :EngineeringDrawing a proeth:EntityType,
         proeth:ResourceType,
         owl:Class ;
     rdfs:label "Engineering Drawing"@en ;
     rdfs:comment "Technical drawing showing engineering design details"@en ;
     rdfs:subClassOf :EngineeringDocument .
+
+:EngineeringResource a owl:Class ;
+    rdfs:label "Engineering Resource"@en ;
+    rdfs:comment "A resource used in engineering practice"@en ;
+    rdfs:subClassOf proeth:Resource .
 
 :EngineeringSpecification a proeth:EntityType,
         proeth:ResourceType,
@@ -208,6 +219,27 @@
     rdfs:comment "Detailed requirements for engineering work"@en ;
     rdfs:subClassOf :EngineeringDocument .
 
+:FairCompensationPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Fair Compensation Principle"@en ;
+    rdfs:comment "The principle that engineers should receive fair compensation for their services"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
+:GiftsPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Gifts Principle"@en ;
+    rdfs:comment "The principle that engineers should avoid accepting gifts that may appear to influence their judgment"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
+:GoodSamaritanPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Good Samaritan Principle"@en ;
+    rdfs:comment "The principle that engineers should provide voluntary services during emergencies"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
 :HazardReportingAction a proeth:ActionType,
         proeth:EntityType,
         owl:Class ;
@@ -215,15 +247,25 @@
     rdfs:comment "An action of reporting a safety hazard to authorities or stakeholders"@en ;
     rdfs:subClassOf :EngineeringAction .
 
-:HonestyPrinciple a :ConditionType,
-        :EntityType,
-        proeth:ConditionType,
+:HonestyPrinciple a proeth:ConditionType,
         proeth:EntityType,
         owl:Class ;
-    rdfs:label "Honesty Principle"@en,
-        "honesty Principle"@en ;
-    rdfs:comment "The principle of honesty in engineering ethics"@en,
-        "The principle that engineers shall be objective and truthful in professional reports and statements"@en ;
+    rdfs:label "Honesty Principle"@en ;
+    rdfs:comment "The principle that engineers shall be objective and truthful in professional reports and statements"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
+:ImpairedPracticeCondition a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Impaired Practice Condition"@en ;
+    rdfs:comment "A condition where an engineer's practice is impaired due to health or other factors"@en ;
+    rdfs:subClassOf :EngineeringCondition .
+
+:IndependencePrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Independence Principle"@en ;
+    rdfs:comment "The principle that engineers should maintain independence in their professional judgments"@en ;
     rdfs:subClassOf :EngineeringEthicalPrinciple .
 
 :InspectionEngineerRole a proeth:EntityType,
@@ -268,6 +310,13 @@
     rdfs:comment "The National Society of Professional Engineers Code of Ethics"@en ;
     rdfs:subClassOf :EngineeringEthicsCode .
 
+:NSPECodeSection a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "NSPE Code Section"@en ;
+    rdfs:comment "A specific section of the NSPE Code of Ethics"@en ;
+    rdfs:subClassOf :CodeSection .
+
 :NSPECompetencyPrinciple a proeth:ConditionType,
         proeth:EntityType,
         owl:Class ;
@@ -306,11 +355,46 @@
     rdfs:comment "An event where information is not disclosed to relevant parties"@en ;
     rdfs:subClassOf :EngineeringEvent .
 
-:Professional_responsibilityPrinciple a :ConditionType,
-        :EntityType,
+:ObjectivityPrinciple a proeth:ConditionType,
+        proeth:EntityType,
         owl:Class ;
-    rdfs:label "professional responsibility Principle"@en ;
-    rdfs:comment "The principle of professional responsibility in engineering ethics"@en ;
+    rdfs:label "Objectivity Principle"@en ;
+    rdfs:comment "The principle that engineers should maintain objectivity in their professional judgments"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
+:PeerReviewPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Peer Review Principle"@en ;
+    rdfs:comment "The principle that engineers should engage in honest and objective peer reviews"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
+:PeerReviewerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Peer Reviewer Role"@en ;
+    rdfs:comment "The role of an engineer who reviews the work of other engineers for quality and compliance"@en ;
+    rdfs:subClassOf :EngineeringRole .
+
+:PlanReview a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "Plan Review"@en ;
+    rdfs:comment "A formal review of engineering plans for compliance and safety"@en ;
+    rdfs:subClassOf :EngineeringDocument .
+
+:ProfessionalResponsibilityDilemma a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Professional Responsibility Dilemma"@en ;
+    rdfs:comment "A dilemma where an engineer must determine the extent of their professional responsibility"@en ;
+    rdfs:subClassOf :EngineeringEthicalDilemma .
+
+:ProfessionalResponsibilityPrinciple a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Professional Responsibility Principle"@en ;
+    rdfs:comment "The principle that engineers have a responsibility to take action when public safety is at risk"@en ;
     rdfs:subClassOf :EngineeringEthicalPrinciple .
 
 :ProjectEngineerRole a proeth:EntityType,
@@ -331,6 +415,13 @@
     rdfs:comment "A decision weighing public safety obligations against confidentiality obligations"@en ;
     rdfs:subClassOf :SafetyVsConfidentialityDecision .
 
+:PublicSafetyVsResourceConstraintsDilemma a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Public Safety vs Resource Constraints Dilemma"@en ;
+    rdfs:comment "A dilemma where ensuring public safety conflicts with resource or budget constraints"@en ;
+    rdfs:subClassOf :EngineeringEthicalDilemma .
+
 :PublicStakeholderRole a proeth:EntityType,
         proeth:Role,
         owl:Class ;
@@ -338,12 +429,12 @@
     rdfs:comment "The role of a member of the public affected by engineering work"@en ;
     rdfs:subClassOf proeth:Role .
 
-:Public_safety a :ConditionType,
-        :EntityType,
+:QualificationsPrinciple a proeth:ConditionType,
+        proeth:EntityType,
         owl:Class ;
-    rdfs:label "public safety"@en ;
-    rdfs:comment "A condition involving public safety in engineering practice"@en ;
-    rdfs:subClassOf :EngineeringCondition .
+    rdfs:label "Qualifications Principle"@en ;
+    rdfs:comment "The principle that engineers should not misrepresent their qualifications"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
 
 :QualityVsBudgetDilemma a proeth:ConditionType,
         proeth:EntityType,
@@ -359,13 +450,6 @@
     rdfs:comment "An action of preparing an engineering report"@en ;
     rdfs:subClassOf :EngineeringAction .
 
-:Safety a :ConditionType,
-        :EntityType,
-        owl:Class ;
-    rdfs:label "safety"@en ;
-    rdfs:comment "A condition involving safety in engineering practice"@en ;
-    rdfs:subClassOf :EngineeringCondition .
-
 :SafetyHazardDiscovery a proeth:EntityType,
         proeth:EventType,
         owl:Class ;
@@ -379,6 +463,20 @@
     rdfs:label "Safety Reporting Event"@en ;
     rdfs:comment "An event where safety issues are reported to authorities"@en ;
     rdfs:subClassOf :EngineeringEvent .
+
+:StateEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "State Engineer Role"@en ;
+    rdfs:comment "The role of an engineer employed by a state government agency"@en ;
+    rdfs:subClassOf :EngineeringRole .
+
+:StormwaterRunoffCondition a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Stormwater Runoff Condition"@en ;
+    rdfs:comment "A condition related to excessive stormwater runoff that affects engineering projects or public safety"@en ;
+    rdfs:subClassOf :EngineeringCondition .
 
 :StructuralDeficiency a proeth:ConditionType,
         proeth:EntityType,
@@ -412,6 +510,13 @@
     rdfs:label "Structural Report"@en ;
     rdfs:comment "A report documenting structural engineering findings"@en ;
     rdfs:subClassOf :EngineeringReport .
+
+:WaterQualityCondition a proeth:ConditionType,
+        proeth:EntityType,
+        owl:Class ;
+    rdfs:label "Water Quality Condition"@en ;
+    rdfs:comment "A condition related to drinking water quality that requires engineering assessment or intervention"@en ;
+    rdfs:subClassOf :EngineeringCondition .
 
 :WhistleblowingDecision a proeth:ActionType,
         proeth:EntityType,
@@ -569,6 +674,11 @@
     rdfs:comment "A decision made in engineering practice"@en ;
     rdfs:subClassOf proeth:EthicalDecision .
 
+:NSPEPrinciple a owl:Class ;
+    rdfs:label "NSPE Principle"@en ;
+    rdfs:comment "A principle from the NSPE Code of Ethics"@en ;
+    rdfs:subClassOf :EngineeringEthicalPrinciple .
+
 :EngineeringDocument a owl:Class ;
     rdfs:label "Engineering Document"@en ;
     rdfs:comment "A document created during engineering practice"@en ;
@@ -579,32 +689,10 @@
     rdfs:comment "A situation involving conflicting ethical principles in engineering practice"@en ;
     rdfs:subClassOf proeth:EthicalDilemma .
 
-:NSPEPrinciple a owl:Class ;
-    rdfs:label "NSPE Principle"@en ;
-    rdfs:comment "A principle from the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :EngineeringEthicalPrinciple .
-
-:NSPECodeSection a proeth:EntityType,
-        proeth:ResourceType,
-        owl:Class ;
-    rdfs:label "NSPE Code Section"@en ;
-    rdfs:comment "A specific section of the NSPE Code of Ethics"@en ;
-    rdfs:subClassOf :CodeSection .
-
-:EngineeringEthicalPrinciple a owl:Class ;
-    rdfs:label "Engineering Ethical Principle"@en ;
-    rdfs:comment "A principle that provides ethical guidance in engineering practice"@en ;
-    rdfs:subClassOf proeth:EthicalPrinciple .
-
 :EngineeringEvent a owl:Class ;
     rdfs:label "Engineering Event"@en ;
     rdfs:comment "An event related to engineering practice"@en ;
     rdfs:subClassOf proeth:Event .
-
-:EngineeringResource a owl:Class ;
-    rdfs:label "Engineering Resource"@en ;
-    rdfs:comment "A resource used in engineering practice"@en ;
-    rdfs:subClassOf proeth:Resource .
 
 :SafetyAssessmentCapability a owl:Class ;
     rdfs:label "Safety Assessment Capability"@en ;
@@ -616,22 +704,27 @@
     rdfs:comment "The capability to prepare technical reports"@en ;
     rdfs:subClassOf :EngineeringCapability .
 
-:EngineeringCondition a owl:Class ;
-    rdfs:label "Engineering Condition"@en ;
-    rdfs:comment "A condition relevant to engineering practice"@en ;
-    rdfs:subClassOf proeth:Condition .
-
 :RegulatoryComplianceCapability a owl:Class ;
     rdfs:label "Regulatory Compliance Capability"@en ;
     rdfs:comment "The capability to ensure compliance with regulations"@en ;
     rdfs:subClassOf :EngineeringCapability .
+
+:EngineeringCapability a owl:Class ;
+    rdfs:label "Engineering Capability"@en ;
+    rdfs:comment "A capability possessed by engineering professionals"@en .
+
+:EngineeringCondition a owl:Class ;
+    rdfs:label "Engineering Condition"@en ;
+    rdfs:comment "A condition relevant to engineering practice"@en ;
+    rdfs:subClassOf proeth:Condition .
 
 :EngineeringRole a owl:Class ;
     rdfs:label "Engineering Role"@en ;
     rdfs:comment "A professional role in engineering"@en ;
     rdfs:subClassOf proeth:Role .
 
-:EngineeringCapability a owl:Class ;
-    rdfs:label "Engineering Capability"@en ;
-    rdfs:comment "A capability possessed by engineering professionals"@en .
+:EngineeringEthicalPrinciple a owl:Class ;
+    rdfs:label "Engineering Ethical Principle"@en ;
+    rdfs:comment "A principle that provides ethical guidance in engineering practice"@en ;
+    rdfs:subClassOf proeth:EthicalPrinciple .
 

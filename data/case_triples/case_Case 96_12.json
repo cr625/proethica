@@ -1,53 +1,280 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "I.6.",
+  "description": "Engineer A, a registered professional engineer in State Z, is discussing with colleague Engineer B a recently enacted law in their state that provides design professionals with immunity from liability when they volunteer during a natural or man-made disasters. Engineer B believes the new law significantly improves the ability of design professionals to assist communities in need during times of trouble; Engineer A feels that the new law does not change an engineer\u2019s ethical obligations.\n\nIs Engineer A correct?\n\n\t\tIs Engineer B correct?\n\nIs Engineer A correct?\n\nIs Engineer B correct?\n\nEngineers, like other professionals, have a history of performing pro-bono work. As litigation has become more prevalent in our society, some engineers have become reluctant to lend their time and expertise to volunteer work. When a \u201cGood Samaritan\u201d Law1 was proposed in Ohio\u2019s 2015 legislative biennium, NSPE indicated that professional engineers who voluntarily assist their communities, states, and the nation in times of crisis, when requested by the appropriate public official, should be protected from liability exposure when performing these duties.\n\nIn testimony to the Ohio Legislature regarding this bill, AIA Ohio\u2019s immediate past president stated that architects are unable to volunteer in emergencies because of their status as licensed professionals - they risk losing their licenses if they offer opinions on damaged structures if contractual language is not in place.\n\nSimilarly, a February 2013 article about New York\u2019s Volunteer Protection Act, the NYSPE stated:\n\nWe know that many of our members want to volunteer, but when doing so, please remember that volunteering is not without risk.\n\nThe Code of Ethics encourages engineers to contribute to their community; lending skills during a disaster is certainly work for the advancement of the safety, health, and well-being of their community. Note too that an engineer\u2019s ethical obligations to their employer allow accepting outside work consistent with employer\u2019s policies and prohibit use of the employer\u2019s equipment for outside activities without the employer\u2019s consent.\n\nProfessional obligation III.8 speaks directly to seeking indemnification for professional activities. BER Case 96-12 deals specifically with this section of the code of ethics (as does related BER Case 93-8). Both cases have similar language regarding accepting responsibility for professional services. Quoting from BER Case 93-8:\n\nA basic tenet of ethical conduct relates to the obligation of the engineer to accept responsibility for professional services that the engineer renders. This tenet is based upon the view that as a member of a learned profession, an engineer possesses skill, knowledge and expertise and is expected to use those attributes for the betterment of mankind. Engineers, through the enactment of engineering licensing laws and other legal restrictions, are granted the authority to practice their profession to the exclusion of others. As a result of this grant of authority, the law expects licensed engineers as they do other professions to perform professional services in a non-negligent manner. In addition, as with other professions, engineers are also expected to be personally liable for their acts, errors, or omissions in the performance of their professional services.\n\nBER Case 96-12 notes that \u201cengineers typically address issues of liability through a variety of risk management techniques such as insurance, contract document language and other professional practice considerations.\u201d NSPE\u2019s website includes an informative section discussing liability of employed engineers, but note that an engineer, volunteering during a disaster is likely not \u201cemployed.\u201d The Good Samaritan Laws provide a crucial risk management tool for practicing engineers when their normal risk management techniques do not apply.\n\nWith or without indemnification, an engineer\u2019s primary obligation is to the public health, safety, and welfare. Further, although an engineer may be held harmless before the law when making decisions during public emergencies, they are committed to practice only in areas of competence and must conduct themselves honorably. Good Samaritan laws do nothing to change these obligations, and in fact, taken to the extreme, they might lead an engineer without sharp ethical presence of mind to attempt a task they would ordinarily conclude they are not qualified to undertake. In the end, the BER concludes that although these Good Samaritan laws serve a tremendous practical benefit, they do not relieve engineers of ethical obligations.\n\nFootnote 1 Section 2305.2310 of the Revised Code of Ohio\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.2.\n\nEngineers shall perform services only in the areas of their competence.\n\nIII.2.a.\n\nEngineers are encouraged to participate in civic affairs; career guidance for youths; and work for the advancement of the safety, health, and well-being of their community.\n\nIII.6.b.\n\nEngineers in salaried positions shall accept part-time engineering work only to the extent consistent with policies of the employer and in accordance with ethical considerations.\n\nIII.6.c.\n\nEngineers shall not, without consent, use equipment, supplies, laboratory, or office facilities of an employer to carry on outside private practice.\n\nIII.8.\n\nEngineers shall accept personal responsibility for their professional activities, provided, however, that engineers may seek indemnification for services arising out of their practice for other than gross negligence, where the engineer's interests cannot otherwise be protected.\n\nBoth Engineer A and Engineer B are correct. Although Good Samaritan Laws may make it easier to volunteer during natural or man-made disasters, they do not change an engineer\u2019s ethical obligations.",
   "source": "https://www.nspe.org/career-resources/ethics/good-samaritan-laws",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "I.6.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "Engineer A, a registered professional engineer in State Z, is discussing with colleague Engineer B a recently enacted law in their state that provides design professionals with immunity from liability when they volunteer during a natural or man-made disasters. Engineer B believes the new law significantly improves the ability of design professionals to assist communities in need during times of trouble; Engineer A feels that the new law does not change an engineer\u2019s ethical obligations.\n\nIs Engineer A correct?\n\n\t\tIs Engineer B correct?\n\nIs Engineer A correct?\n\nIs Engineer B correct?\n\nEngineers, like other professionals, have a history of performing pro-bono work. As litigation has become more prevalent in our society, some engineers have become reluctant to lend their time and expertise to volunteer work. When a \u201cGood Samaritan\u201d Law1 was proposed in Ohio\u2019s 2015 legislative biennium, NSPE indicated that professional engineers who voluntarily assist their communities, states, and the nation in times of crisis, when requested by the appropriate public official, should be protected from liability exposure when performing these duties.\n\nIn testimony to the Ohio Legislature regarding this bill, AIA Ohio\u2019s immediate past president stated that architects are unable to volunteer in emergencies because of their status as licensed professionals - they risk losing their licenses if they offer opinions on damaged structures if contractual language is not in place.\n\nSimilarly, a February 2013 article about New York\u2019s Volunteer Protection Act, the NYSPE stated:\n\nWe know that many of our members want to volunteer, but when doing so, please remember that volunteering is not without risk.\n\nThe Code of Ethics encourages engineers to contribute to their community; lending skills during a disaster is certainly work for the advancement of the safety, health, and well-being of their community. Note too that an engineer\u2019s ethical obligations to their employer allow accepting outside work consistent with employer\u2019s policies and prohibit use of the employer\u2019s equipment for outside activities without the employer\u2019s consent.\n\nProfessional obligation III.8 speaks directly to seeking indemnification for professional activities. BER Case 96-12 deals specifically with this section of the code of ethics (as does related BER Case 93-8). Both cases have similar language regarding accepting responsibility for professional services. Quoting from BER Case 93-8:\n\nA basic tenet of ethical conduct relates to the obligation of the engineer to accept responsibility for professional services that the engineer renders. This tenet is based upon the view that as a member of a learned profession, an engineer possesses skill, knowledge and expertise and is expected to use those attributes for the betterment of mankind. Engineers, through the enactment of engineering licensing laws and other legal restrictions, are granted the authority to practice their profession to the exclusion of others. As a result of this grant of authority, the law expects licensed engineers as they do other professions to perform professional services in a non-negligent manner. In addition, as with other professions, engineers are also expected to be personally liable for their acts, errors, or omissions in the performance of their professional services.\n\nBER Case 96-12 notes that \u201cengineers typically address issues of liability through a variety of risk management techniques such as insurance, contract document language and other professional practice considerations.\u201d NSPE\u2019s website includes an informative section discussing liability of employed engineers, but note that an engineer, volunteering during a disaster is likely not \u201cemployed.\u201d The Good Samaritan Laws provide a crucial risk management tool for practicing engineers when their normal risk management techniques do not apply.\n\nWith or without indemnification, an engineer\u2019s primary obligation is to the public health, safety, and welfare. Further, although an engineer may be held harmless before the law when making decisions during public emergencies, they are committed to practice only in areas of competence and must conduct themselves honorably. Good Samaritan laws do nothing to change these obligations, and in fact, taken to the extreme, they might lead an engineer without sharp ethical presence of mind to attempt a task they would ordinarily conclude they are not qualified to undertake. In the end, the BER concludes that although these Good Samaritan laws serve a tremendous practical benefit, they do not relieve engineers of ethical obligations.\n\nFootnote 1 Section 2305.2310 of the Revised Code of Ohio\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.2.\n\nEngineers shall perform services only in the areas of their competence.\n\nIII.2.a.\n\nEngineers are encouraged to participate in civic affairs; career guidance for youths; and work for the advancement of the safety, health, and well-being of their community.\n\nIII.6.b.\n\nEngineers in salaried positions shall accept part-time engineering work only to the extent consistent with policies of the employer and in accordance with ethical considerations.\n\nIII.6.c.\n\nEngineers shall not, without consent, use equipment, supplies, laboratory, or office facilities of an employer to carry on outside private practice.\n\nIII.8.\n\nEngineers shall accept personal responsibility for their professional activities, provided, however, that engineers may seek indemnification for services arising out of their practice for other than gross negligence, where the engineer's interests cannot otherwise be protected.\n\nBoth Engineer A and Engineer B are correct. Although Good Samaritan Laws may make it easier to volunteer during natural or man-made disasters, they do not change an engineer\u2019s ethical obligations.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "NSPE:caseNumber",
         "object": "Case 96-12",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "NSPE:caseYear",
-        "object": "2096",
+        "object": "1996",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/good-samaritan-laws",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 96_12",
         "predicate": "rdf:type",
-        "object": "proeth:EthicalDilemma"
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "NSPE:safetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:safetyPrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "NSPE:professional_conductPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:professional_conductPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "NSPE:professional_conductPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:professional_conductPrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ProfessionalResponsibility"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 96_12"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "NSPE:healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:healthPrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "NSPE:public_healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:public_healthPrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 96_12"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_6_b"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII2"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_I_6"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_6_c"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_8"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_2_a"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_1"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:WhistleblowingDecision"
+      },
+      {
+        "subject": "Engineer_A_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 96_12",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 96_12",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 96_12"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 96_12"
+      },
+      {
+        "subject": "Engineer_B_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 96_12",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 96_12",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 96_12",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 96_12"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 96_12"
       },
       {
         "subject": "Decision_Case 96_12",
@@ -72,15 +299,25 @@
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 96_12"
       },
       {
-        "subject": "Case:Case_Case 96_12_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 96_12_I_6",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": ". Good Samaritan laws do nothing to change these obligations, and in fact, taken to the extreme, they might lead an engineer without sharp ethical presence of mind to attempt a task they would ordinarily conclude they are not qualified to undertake. In the end, the BER concludes that although these Good Samaritan laws serve a tremendous practical benefit, they do not relieve engineers of ethical obligations.\n\nFootnote 1 Section 2305.2310 of the Revised Code of Ohio\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.2.\n\nEngineers shall perform services only in the areas of their competence.\n\nIII.2.a.\n\nEngineers are encouraged to participate in civic affairs; career guidance for youths; and work for the advancement of the safety, health, and well-being of their community.\n\nIII.6.b.\n\nEngineers in salaried\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 96_12"
+      },
+      {
+        "subject": "Case:Case_Case 96_12_I_6",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 93_8"
       }
     ],
     "namespaces": {
@@ -100,14 +337,38 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
+    "related_cases": [
+      "Case 96-12",
+      "Case 93-8"
+    ],
+    "codes_cited": [
+      "Code III.6.b",
+      "Code II.2",
+      "Code I.6",
+      "Code III.6.c",
+      "Code III.8",
+      "Code III.2.a",
+      "Code II.1"
+    ],
+    "principles": [
+      "public safety",
+      "safety",
+      "professional conduct",
+      "welfare",
+      "professional responsibility",
+      "health",
+      "public health",
+      "competency"
+    ],
     "outcome": "outcome not specified",
     "operationalization_techniques": [
-      "Principle Instantiation"
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "board_analysis": ". Good Samaritan laws do nothing to change these obligations, and in fact, taken to the extreme, they might lead an engineer without sharp ethical presence of mind to attempt a task they would ordinarily conclude they are not qualified to undertake. In the end, the BER concludes that although these Good Samaritan laws serve a tremendous practical benefit, they do not relieve engineers of ethical obligations.\n\nFootnote 1 Section 2305.2310 of the Revised Code of Ohio\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.2.\n\nEngineers shall perform services only in the areas of their competence.\n\nIII.2.a.\n\nEngineers are encouraged to participate in civic affairs; career guidance for youths; and work for the advancement of the safety, health, and well-being of their community.\n\nIII.6.b.\n\nEngineers in salaried\n[content truncated]",
+    "ethical_questions": [
+      "Was the engineer's conduct regarding engineer a, a registered professional engineer in state z, is discussing with colleague engineer b a recently enacted law in their state that provides design professionals with immunity from liability when they volunteer during a natural or man-made disasters ethical?"
+    ]
   }
 }

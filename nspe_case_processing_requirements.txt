@@ -1,0 +1,3 @@
+beautifulsoup4>=4.9.0  # For HTML parsing in import_missing_nspe_cases.py
+requests>=2.25.0  # For HTTP requests in import_missing_nspe_cases.py
+rdflib>=6.0.0  # For RDF processing in extend_nspe_engineering_ontology.py

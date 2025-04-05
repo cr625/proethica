@@ -1,0 +1,415 @@
+{
+  "title": "II.1.",
+  "description": "Engineer A is a professional engineer who serves as the superintendent and chief engineer for the Metropolitan Water Commission (MWC). In order to reduce municipal expenditures and lower water rates, the MWC has been considering changing its water supply source from purchasing water from remote reservoirs from another regional authority to using the local river as the MWC\u2019s source. Engineer B, a consulting engineer retained by the MWC charged with evaluating water treatment needs for the change in water source, provided a report to Engineer A recommending extensive capital investments and a three-year timeline for further evaluation of water quality, design, and construction of improvements. The improvements are needed prior to the change in water source to ensure that sufficient corrosion control is provided so that old service pipes in the MWC service area don\u2019t leach lead at levels in excess of drinking water standards. Both Engineer A and Engineer B met with the MWC at a meeting sparsely attended by the public and recommended that the change in water source be substantially delayed until improvements could be completed. Despite those recommendations, the MWC voted to proceed simultaneously with the accelerated evaluation and design of needed water treatment improvements and the change in water source.\n\nWhat are the ethical obligations of Engineer A and Engineer B in this circumstance?\n\n\t\tWhat should Engineer A and Engineer B do?\n\nWhat are the ethical obligations of Engineer A and Engineer B in this circumstance?\n\nWhat should Engineer A and Engineer B do?\n\nThe role of the professional engineer in protecting the public health, safety, and welfare is fundamental to the practice of engineering and is the overriding charge in the NSPE Code of Ethics. This fundamental canon has been considered many times in past cases.\n\nIn a case that has been cited many times, BER Case No. 00-5 centered on the reopening of a dangerous, closed bridge by a nonengineer public works director. The NSPE Board of Ethical Review stressed the importance of holding the public safety paramount. More recently, in BER Case No. 19-10 Engineer A was hired by Client B to provide a building investigation after a fire. Engineer A determined that the building was unstable. Additionally, Engineer A determined that recent structural changes to the building, which was issued a certificate of occupancy by a county building official, might have caused new structural problems. In its conclusion, the Board of Ethical Review wrote, \u201cEngineer A had an obligation to continue to pursue a resolution of the matter by working with Client B and in contacting in writing the supervisor of the county official, the fire marshal, or any other agency with jurisdiction, advising them of the structural deficiencies.\u201d\n\nPrevious cases have also addressed the duty to report when safety concerns exist. In BER Case No. 89-7, Engineer A was retained to investigate the structural components of an apartment building. While the building was structurally sound, Engineer A was informed that there were deficiencies in electrical and mechanical systems that violated applicable codes and standards. The agreement between the client and Engineer A indicated that the structural report was to remain confidential. Engineer A did not report the electrical and mechanical deficiencies to the appropriate authorities. In this case, the NSPE Board of Ethical Review determined that \u201cit was unethical for Engineer A not to report the safety violations to the appropriate public authorities,\u201d stating \u201cwe believe Engineer A could have taken other steps to address the situation, not the least of which was his paramount professional obligation to notify the appropriate authority if his professional judgment is overruled under circumstances where the safety of the public is endangered.\u201d\n\nAs stated in the previous cases, the need to hold paramount the safety, health, and welfare of the public is well established. The remaining referenced Code sections provide a step-by-step path forward in this case for Engineer A and Engineer B with Section II.1. in mind. It is important to note that Engineers A and B have presented the findings and recommendations jointly and, as such, their actions should be in concert, although not identical.\n\nThe engineering judgments of Engineer A and Engineer B were overruled by the MWC. If Engineers A and B believe life or property is endangered, Section II.1.a. provides that not only shall the employer or client be notified, but also all other appropriate authorities. It appears that the state regulatory agency has been contacted; however, there should be a formal presentation of the facts, findings, and recommendations. This action may also address Section II.1.c. As Engineers A and B are required to hold paramount the safety, health, and welfare of the public, and as this duty is a fundamental canon of the NSPE Code of Ethics, the consent of the MWC is not required.\n\nAdditionally, if project success is defined as \u201cthe public will not be endangered at all,\u201d then Engineers A and B should advise their client that they believe the project will not be successful. Again, as with the state regulatory agency, this advisement should proceed in a formal manner.\n\nThe formal presentations satisfy Engineer A\u2019s and Engineer B\u2019s duty to report. However, in the event that these formal presentations fail to sway the MWC to change its plans, given the gravity of the danger to public health and safety, Engineers A and B have an obligation to further pursue the matter.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.b.\n\nEngineers shall advise their clients or employers when they believe a project will not be successful.\n\nIn fulfillment of their ethical obligations under the Code, Engineers A and B should formally communicate their concerns to the MWC, including that they believe the project will not be successful.\n\n\t\tBoth Engineers A and B have ethical obligations to notify the MWC and other appropriate authorities that prematurely changing the water source puts the public health and safety at risk. Furthermore, Engineers A and B have independent obligations to formally and in writing report their concerns to the state regulatory agency. While they may provide a joint and cooperative report, each has an independent obligation. Neither the consent nor opposition of the client is a factor in their fulfillment of this obligation.\n\nIn fulfillment of their ethical obligations under the Code, Engineers A and B should formally communicate their concerns to the MWC, including that they believe the project will not be successful.\n\nBoth Engineers A and B have ethical obligations to notify the MWC and other appropriate authorities that prematurely changing the water source puts the public health and safety at risk. Furthermore, Engineers A and B have independent obligations to formally and in writing report their concerns to the state regulatory agency. While they may provide a joint and cooperative report, each has an independent obligation. Neither the consent nor opposition of the client is a factor in their fulfillment of this obligation.",
+  "source": "https://www.nspe.org/career-resources/ethics/public-health-safety-welfare-drinking-water-quality",
+  "rdf_triples": {
+    "triples": [
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rdf:type",
+        "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rdfs:label",
+        "object": "II.1.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rdfs:comment",
+        "object": "Engineer A is a professional engineer who serves as the superintendent and chief engineer for the Metropolitan Water Commission (MWC). In order to reduce municipal expenditures and lower water rates, the MWC has been considering changing its water supply source from purchasing water from remote reservoirs from another regional authority to using the local river as the MWC\u2019s source. Engineer B, a consulting engineer retained by the MWC charged with evaluating water treatment needs for the change in water source, provided a report to Engineer A recommending extensive capital investments and a three-year timeline for further evaluation of water quality, design, and construction of improvements. The improvements are needed prior to the change in water source to ensure that sufficient corrosion control is provided so that old service pipes in the MWC service area don\u2019t leach lead at levels in excess of drinking water standards. Both Engineer A and Engineer B met with the MWC at a meeting sparsely attended by the public and recommended that the change in water source be substantially delayed until improvements could be completed. Despite those recommendations, the MWC voted to proceed simultaneously with the accelerated evaluation and design of needed water treatment improvements and the change in water source.\n\nWhat are the ethical obligations of Engineer A and Engineer B in this circumstance?\n\n\t\tWhat should Engineer A and Engineer B do?\n\nWhat are the ethical obligations of Engineer A and Engineer B in this circumstance?\n\nWhat should Engineer A and Engineer B do?\n\nThe role of the professional engineer in protecting the public health, safety, and welfare is fundamental to the practice of engineering and is the overriding charge in the NSPE Code of Ethics. This fundamental canon has been considered many times in past cases.\n\nIn a case that has been cited many times, BER Case No. 00-5 centered on the reopening of a dangerous, closed bridge by a nonengineer public works director. The NSPE Board of Ethical Review stressed the importance of holding the public safety paramount. More recently, in BER Case No. 19-10 Engineer A was hired by Client B to provide a building investigation after a fire. Engineer A determined that the building was unstable. Additionally, Engineer A determined that recent structural changes to the building, which was issued a certificate of occupancy by a county building official, might have caused new structural problems. In its conclusion, the Board of Ethical Review wrote, \u201cEngineer A had an obligation to continue to pursue a resolution of the matter by working with Client B and in contacting in writing the supervisor of the county official, the fire marshal, or any other agency with jurisdiction, advising them of the structural deficiencies.\u201d\n\nPrevious cases have also addressed the duty to report when safety concerns exist. In BER Case No. 89-7, Engineer A was retained to investigate the structural components of an apartment building. While the building was structurally sound, Engineer A was informed that there were deficiencies in electrical and mechanical systems that violated applicable codes and standards. The agreement between the client and Engineer A indicated that the structural report was to remain confidential. Engineer A did not report the electrical and mechanical deficiencies to the appropriate authorities. In this case, the NSPE Board of Ethical Review determined that \u201cit was unethical for Engineer A not to report the safety violations to the appropriate public authorities,\u201d stating \u201cwe believe Engineer A could have taken other steps to address the situation, not the least of which was his paramount professional obligation to notify the appropriate authority if his professional judgment is overruled under circumstances where the safety of the public is endangered.\u201d\n\nAs stated in the previous cases, the need to hold paramount the safety, health, and welfare of the public is well established. The remaining referenced Code sections provide a step-by-step path forward in this case for Engineer A and Engineer B with Section II.1. in mind. It is important to note that Engineers A and B have presented the findings and recommendations jointly and, as such, their actions should be in concert, although not identical.\n\nThe engineering judgments of Engineer A and Engineer B were overruled by the MWC. If Engineers A and B believe life or property is endangered, Section II.1.a. provides that not only shall the employer or client be notified, but also all other appropriate authorities. It appears that the state regulatory agency has been contacted; however, there should be a formal presentation of the facts, findings, and recommendations. This action may also address Section II.1.c. As Engineers A and B are required to hold paramount the safety, health, and welfare of the public, and as this duty is a fundamental canon of the NSPE Code of Ethics, the consent of the MWC is not required.\n\nAdditionally, if project success is defined as \u201cthe public will not be endangered at all,\u201d then Engineers A and B should advise their client that they believe the project will not be successful. Again, as with the state regulatory agency, this advisement should proceed in a formal manner.\n\nThe formal presentations satisfy Engineer A\u2019s and Engineer B\u2019s duty to report. However, in the event that these formal presentations fail to sway the MWC to change its plans, given the gravity of the danger to public health and safety, Engineers A and B have an obligation to further pursue the matter.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.b.\n\nEngineers shall advise their clients or employers when they believe a project will not be successful.\n\nIn fulfillment of their ethical obligations under the Code, Engineers A and B should formally communicate their concerns to the MWC, including that they believe the project will not be successful.\n\n\t\tBoth Engineers A and B have ethical obligations to notify the MWC and other appropriate authorities that prematurely changing the water source puts the public health and safety at risk. Furthermore, Engineers A and B have independent obligations to formally and in writing report their concerns to the state regulatory agency. While they may provide a joint and cooperative report, each has an independent obligation. Neither the consent nor opposition of the client is a factor in their fulfillment of this obligation.\n\nIn fulfillment of their ethical obligations under the Code, Engineers A and B should formally communicate their concerns to the MWC, including that they believe the project will not be successful.\n\nBoth Engineers A and B have ethical obligations to notify the MWC and other appropriate authorities that prematurely changing the water source puts the public health and safety at risk. Furthermore, Engineers A and B have independent obligations to formally and in writing report their concerns to the state regulatory agency. While they may provide a joint and cooperative report, each has an independent obligation. Neither the consent nor opposition of the client is a factor in their fulfillment of this obligation.",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "NSPE:caseNumber",
+        "object": "Case 00-5",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "NSPE:caseYear",
+        "object": "2000",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "NSPE:sourceUrl",
+        "object": "https://www.nspe.org/career-resources/ethics/public-health-safety-welfare-drinking-water-quality",
+        "is_literal": true
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "NSPE:safetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:safetyPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ProfessionalResponsibility"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 00_5"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "NSPE:healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:healthPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "NSPE:public_healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:public_healthPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 00_5"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1a"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1b"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_1"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1c"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityVsSafetyDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 00_5",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 00_5",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 00_5"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 00_5"
+      },
+      {
+        "subject": "Engineer_B_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 00_5",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 00_5",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 00_5"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 00_5"
+      },
+      {
+        "subject": "Client_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Client_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Client_Case 00_5",
+        "predicate": "rdfs:label",
+        "object": "Client",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "eng:ClientRole"
+      },
+      {
+        "subject": "Client_Case 00_5",
+        "predicate": "ar:hasRole",
+        "object": "eng:ClientRoleInstance_Client_Case 00_5"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:involves",
+        "object": "Client_Case 00_5"
+      },
+      {
+        "subject": "Decision_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Decision_Case 00_5",
+        "predicate": "rdf:type",
+        "object": "eng:EthicalDecision"
+      },
+      {
+        "subject": "Decision_Case 00_5",
+        "predicate": "rdfs:label",
+        "object": "NSPE Board Decision for Case Case 00-5",
+        "is_literal": true
+      },
+      {
+        "subject": "Decision_Case 00_5",
+        "predicate": "NSPE:outcome",
+        "object": "Unethical",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:hasDecision",
+        "object": "Decision_Case 00_5"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "NSPE:boardAnalysis",
+        "object": "satisfy Engineer A\u2019s and Engineer B\u2019s duty to report. However, in the event that these formal presentations fail to sway the MWC to change its plans, given the gravity of the danger to public health and safety, Engineers A and B have an obligation to further pursue the matter.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.b.\n\nEngineers shall advise their clients or employers when they believe a project will not be successful.\n\nIn fulfillment of their ethical obligations under the Code, Engineers A and B should formally communicate their concerns to the MWC, including that they believe t\n[content truncated]",
+        "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 00_5"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 19_10"
+      },
+      {
+        "subject": "Case:Case_Case 00_5_II_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 89_7"
+      }
+    ],
+    "namespaces": {
+      "Case": "http://proethica.org/case/",
+      "NSPE": "http://proethica.org/nspe/",
+      "ENG_ETHICS": "http://proethica.org/ontology/engineering-ethics#",
+      "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "owl": "http://www.w3.org/2002/07/owl#",
+      "bfo": "http://purl.obolibrary.org/obo/",
+      "proeth": "http://proethica.org/ontology/intermediate#",
+      "dc": "http://purl.org/dc/elements/1.1/",
+      "ar": "http://proethica.org/ontology/agent-role#",
+      "eng": "http://proethica.org/ontology/engineering-ethics#",
+      "nspe": "http://proethica.org/nspe/",
+      "rel": "http://proethica.org/relation/"
+    }
+  },
+  "metadata": {
+    "related_cases": [
+      "Case 00-5",
+      "Case 19-10",
+      "Case 89-7"
+    ],
+    "codes_cited": [
+      "Code II.1.a",
+      "Code III.1.b",
+      "Code II.1",
+      "Code II.1.c"
+    ],
+    "principles": [
+      "public safety",
+      "professional judgment",
+      "safety",
+      "welfare",
+      "confidentiality",
+      "professional responsibility",
+      "health",
+      "public health",
+      "disclosure"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "satisfy Engineer A\u2019s and Engineer B\u2019s duty to report. However, in the event that these formal presentations fail to sway the MWC to change its plans, given the gravity of the danger to public health and safety, Engineers A and B have an obligation to further pursue the matter.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.b.\n\nEngineers shall advise their clients or employers when they believe a project will not be successful.\n\nIn fulfillment of their ethical obligations under the Code, Engineers A and B should formally communicate their concerns to the MWC, including that they believe t\n[content truncated]",
+    "ethical_questions": [
+      "What are the ethical obligations of Engineer A and Engineer B in this circumstance?",
+      "What are the ethical obligations of Engineer A and Engineer B in this circumstance?"
+    ]
+  }
+}

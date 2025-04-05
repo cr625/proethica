@@ -1,53 +1,285 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "I.1.",
+  "description": "wner is developing a site with two mirror-image towers to be built two years apart. As the first tower is built, several significant design errors are discovered in the plans and design of Engineer A. Owner decides to obtain a peer review of the plans and design of Engineer A for the second tower and retains Engineer B. Owner instructs Engineer B to conduct the peer review without letting Engineer A know. Engineer B objects to conducting the peer review without advising Engineer A. When Owner reluctantly consents to notifying Engineer A, Engineer A objects and refused to consent to the peer review.\n\nIs Engineer B ethically required to make certain that Engineer A is advised of the planned peer review?\n\n\t\tIs Engineer A ethically required to cooperate with the peer review of Engineer B?\n\nIs Engineer B ethically required to make certain that Engineer A is advised of the planned peer review?\n\nIs Engineer A ethically required to cooperate with the peer review of Engineer B?\n\nPeer review issues are arising with increasing frequency. In many cases, the possibility that the client will obtain a peer review is specified in design-build bid or contract documents to the effect that any party who bids or contracts with the client has, by participating, consented to the peer review. Frequently that disclosure is accompanied by an agreement that the client will require the peer reviewer to keep the results of the peer review confidential or, at the very least, the original designer will be provided with an opportunity to explain (and defend) the design decisions. Such confidentiality agreements encourage the firm being reviewed to cooperate fully, build trust, and support a collegial atmosphere. However, that is not always the case and it is not the case here.\n\nIt is helpful to consider how the BER has addressed peer review issues in the past. For example, in BER Case 18-10, Engineer A was the lead engineer on an independent external review of an agency-prepared project. The review\u2019s scope was limited to clarifications and refinements, and there was no confidentiality agreement. (Of course, as a public project, there would not be.) About a year later, Engineer A\u2019s firm is invited to be part of a joint venture responding to a design-build RFP for the project. In BER Case 18-10, the Board concluded that, so long as the agency approves and the work complies with applicable state laws and regulations regarding conflicts of interest, it would not be unethical for Engineer A\u2019s firm to participate in a de\u0002sign-build joint venture submitting a proposal for the project.\n\nIn BER Case 96-8, Engineer A was a peer reviewer serving as part of an organized peer-review program. When selected as a reviewer for the program, Engineer A contractually agreed not to disclose confidential information acquired in the review. Engineer A was assigned to review the design work of Engineer B\u2019s firm on several projects. In the course of the review, Engineer A determined that Engineer B\u2019s work may be in violation of state and local safety code requirements, placing the public health, safety, and welfare at risk. The BER concluded that Engineer A had an obligation to immediately discuss these issues with Engineer B in order to seek clarification and resolution. That could range from a joint determination that there no violation of code requirements, that the violations were de minimis and did not threaten public health, safety, and welfare, or that there were violations and that the violations did threaten public, health, safety, and welfare but that Engineer B refused to make adjustments. And, if Engineers A and B were unable to successfully resolve Engineer A\u2019s concerns, Engineer A had an obligation to first advise Engineer B that Engineer A had an obligation to inform the appropriate authorities, and then to so inform the appropriate authorities.\n\nIn the present case, Professional Obligation III.7.a. is very clear: \u201cEngineers in private practice shall not review the work of another engineer for the same client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated.\u201d Accordingly, Engineer B was completely correct in declining an assignment to conduct a peer review of Engineer A\u2019s work subject to an instruction not to disclose the peer review to Engineer A. Owner reluctantly agreed to advise Engineer A of the planned peer review. [93-3 discussed a situation in which the Owner refused to advise the engineer of the planned peer review.] While Professional Obligation III.7.a. does not require the consent of the engineer whose work is being reviewed, it will likely be a fruitless exercise to attempt to conduct a peer review without Engineer A\u2019s cooperation.) If Engineer A refused to consent and cooperate, Owner would be then face with three options: to move forward with the peer review conducted under difficult and limiting circumstances, to move forward without the peer review . . . or to move forward without Engineer A.\n\nUnder the facts, the Board concludes that it would be unethical for Engineer A to fail to cooperate. Engineers must take responsibility for their actions, must acknowledge their errors, must act in the best interests of their clients, and must at all times hold paramount the health, welfare, and safety of the public. Each of those requirements strongly indicates that Engineer A should participate fully and cooperatively in Engineer B\u2019s peer review. The known design defects in the first tower simply makes each of those requirements more urgent.\n\nI.1.\n\nHold paramount the safety, health, and welfare of the public.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.a.\n\nEngineers shall acknowledge their errors and shall not distort or alter the facts.\n\nIII.1.f.\n\nEngineers shall treat all persons with dignity, respect, fairness and without discrimination.\n\nIII.4.\n\nEngineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer, or public body on which they serve.\n\nIII.7.a.\n\nEngineers in private practice shall not review the work of another engineer for the same client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated.\n\nEngineer B is ethically required to make certain that Engineer A is advised of the planned peer review. It is not necessary for Engineer B to provide that notice personally, but Engineer B must know either that Engineer A has been advised or that Engineer A has been terminated from the project.\n\n\t\tOwner and Engineer B are not required to obtain Engineer A\u2019s consent to the peer review, merely to assure that Engineer A has been informed of the peer review. Especially in the face of known design defects in the first tower, Engineer A may not ethically object to the peer review.\n\nEngineer B is ethically required to make certain that Engineer A is advised of the planned peer review. It is not necessary for Engineer B to provide that notice personally, but Engineer B must know either that Engineer A has been advised or that Engineer A has been terminated from the project.\n\nOwner and Engineer B are not required to obtain Engineer A\u2019s consent to the peer review, merely to assure that Engineer A has been informed of the peer review. Especially in the face of known design defects in the first tower, Engineer A may not ethically object to the peer review.",
   "source": "https://www.nspe.org/career-resources/ethics/independence-peer-reviewer",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "I.1.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "wner is developing a site with two mirror-image towers to be built two years apart. As the first tower is built, several significant design errors are discovered in the plans and design of Engineer A. Owner decides to obtain a peer review of the plans and design of Engineer A for the second tower and retains Engineer B. Owner instructs Engineer B to conduct the peer review without letting Engineer A know. Engineer B objects to conducting the peer review without advising Engineer A. When Owner reluctantly consents to notifying Engineer A, Engineer A objects and refused to consent to the peer review.\n\nIs Engineer B ethically required to make certain that Engineer A is advised of the planned peer review?\n\n\t\tIs Engineer A ethically required to cooperate with the peer review of Engineer B?\n\nIs Engineer B ethically required to make certain that Engineer A is advised of the planned peer review?\n\nIs Engineer A ethically required to cooperate with the peer review of Engineer B?\n\nPeer review issues are arising with increasing frequency. In many cases, the possibility that the client will obtain a peer review is specified in design-build bid or contract documents to the effect that any party who bids or contracts with the client has, by participating, consented to the peer review. Frequently that disclosure is accompanied by an agreement that the client will require the peer reviewer to keep the results of the peer review confidential or, at the very least, the original designer will be provided with an opportunity to explain (and defend) the design decisions. Such confidentiality agreements encourage the firm being reviewed to cooperate fully, build trust, and support a collegial atmosphere. However, that is not always the case and it is not the case here.\n\nIt is helpful to consider how the BER has addressed peer review issues in the past. For example, in BER Case 18-10, Engineer A was the lead engineer on an independent external review of an agency-prepared project. The review\u2019s scope was limited to clarifications and refinements, and there was no confidentiality agreement. (Of course, as a public project, there would not be.) About a year later, Engineer A\u2019s firm is invited to be part of a joint venture responding to a design-build RFP for the project. In BER Case 18-10, the Board concluded that, so long as the agency approves and the work complies with applicable state laws and regulations regarding conflicts of interest, it would not be unethical for Engineer A\u2019s firm to participate in a de\u0002sign-build joint venture submitting a proposal for the project.\n\nIn BER Case 96-8, Engineer A was a peer reviewer serving as part of an organized peer-review program. When selected as a reviewer for the program, Engineer A contractually agreed not to disclose confidential information acquired in the review. Engineer A was assigned to review the design work of Engineer B\u2019s firm on several projects. In the course of the review, Engineer A determined that Engineer B\u2019s work may be in violation of state and local safety code requirements, placing the public health, safety, and welfare at risk. The BER concluded that Engineer A had an obligation to immediately discuss these issues with Engineer B in order to seek clarification and resolution. That could range from a joint determination that there no violation of code requirements, that the violations were de minimis and did not threaten public health, safety, and welfare, or that there were violations and that the violations did threaten public, health, safety, and welfare but that Engineer B refused to make adjustments. And, if Engineers A and B were unable to successfully resolve Engineer A\u2019s concerns, Engineer A had an obligation to first advise Engineer B that Engineer A had an obligation to inform the appropriate authorities, and then to so inform the appropriate authorities.\n\nIn the present case, Professional Obligation III.7.a. is very clear: \u201cEngineers in private practice shall not review the work of another engineer for the same client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated.\u201d Accordingly, Engineer B was completely correct in declining an assignment to conduct a peer review of Engineer A\u2019s work subject to an instruction not to disclose the peer review to Engineer A. Owner reluctantly agreed to advise Engineer A of the planned peer review. [93-3 discussed a situation in which the Owner refused to advise the engineer of the planned peer review.] While Professional Obligation III.7.a. does not require the consent of the engineer whose work is being reviewed, it will likely be a fruitless exercise to attempt to conduct a peer review without Engineer A\u2019s cooperation.) If Engineer A refused to consent and cooperate, Owner would be then face with three options: to move forward with the peer review conducted under difficult and limiting circumstances, to move forward without the peer review . . . or to move forward without Engineer A.\n\nUnder the facts, the Board concludes that it would be unethical for Engineer A to fail to cooperate. Engineers must take responsibility for their actions, must acknowledge their errors, must act in the best interests of their clients, and must at all times hold paramount the health, welfare, and safety of the public. Each of those requirements strongly indicates that Engineer A should participate fully and cooperatively in Engineer B\u2019s peer review. The known design defects in the first tower simply makes each of those requirements more urgent.\n\nI.1.\n\nHold paramount the safety, health, and welfare of the public.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.a.\n\nEngineers shall acknowledge their errors and shall not distort or alter the facts.\n\nIII.1.f.\n\nEngineers shall treat all persons with dignity, respect, fairness and without discrimination.\n\nIII.4.\n\nEngineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer, or public body on which they serve.\n\nIII.7.a.\n\nEngineers in private practice shall not review the work of another engineer for the same client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated.\n\nEngineer B is ethically required to make certain that Engineer A is advised of the planned peer review. It is not necessary for Engineer B to provide that notice personally, but Engineer B must know either that Engineer A has been advised or that Engineer A has been terminated from the project.\n\n\t\tOwner and Engineer B are not required to obtain Engineer A\u2019s consent to the peer review, merely to assure that Engineer A has been informed of the peer review. Especially in the face of known design defects in the first tower, Engineer A may not ethically object to the peer review.\n\nEngineer B is ethically required to make certain that Engineer A is advised of the planned peer review. It is not necessary for Engineer B to provide that notice personally, but Engineer B must know either that Engineer A has been advised or that Engineer A has been terminated from the project.\n\nOwner and Engineer B are not required to obtain Engineer A\u2019s consent to the peer review, merely to assure that Engineer A has been informed of the peer review. Especially in the face of known design defects in the first tower, Engineer A may not ethically object to the peer review.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "NSPE:caseNumber",
         "object": "Case 18-10",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "NSPE:caseYear",
         "object": "2018",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/independence-peer-reviewer",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 18_10",
         "predicate": "rdf:type",
-        "object": "proeth:EthicalDilemma"
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "NSPE:safetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:safetyPrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ProfessionalResponsibility"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ProfessionalResponsibilityInstance_Case 18_10"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "NSPE:healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:healthPrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:public_healthPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "NSPE:public_healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:public_healthPrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 18_10"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_I_6"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_1_f"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1a"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI1"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1c"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI4"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII4"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_7_a"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityVsSafetyDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 18_10",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 18_10",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 18_10"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 18_10"
+      },
+      {
+        "subject": "Engineer_B_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 18_10",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 18_10",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 18_10",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 18_10"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 18_10"
       },
       {
         "subject": "Decision_Case 18_10",
@@ -68,19 +300,29 @@
       {
         "subject": "Decision_Case 18_10",
         "predicate": "NSPE:outcome",
-        "object": "outcome not specified",
+        "object": "Unethical",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 18_10"
       },
       {
-        "subject": "Case:Case_Case 18_10_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 18_10_I_1",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": "n design defects in the first tower simply makes each of those requirements more urgent.\n\nI.1.\n\nHold paramount the safety, health, and welfare of the public.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.a.\n\nEngineers shall acknowledge their errors and shall not distort or alter the facts.\n\nIII.1.f.\n\nEngineers shall treat all persons with dignity, respect, fairness and without discrimination.\n\nIII.4.\n\nEngineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer, or public body on which they serve.\n\nIII.7.a.\n\nEngineers in private prac\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 96_8"
+      },
+      {
+        "subject": "Case:Case_Case 18_10_I_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 18_10"
       }
     ],
     "namespaces": {
@@ -100,14 +342,42 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
-    "outcome": "outcome not specified",
-    "operationalization_techniques": [
-      "Principle Instantiation"
+    "related_cases": [
+      "Case 96-8",
+      "Case 18-10"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "codes_cited": [
+      "Code I.6",
+      "Code III.1.f",
+      "Code III.1.a",
+      "Code I.1",
+      "Code II.1.c",
+      "Code I.4",
+      "Code III.4",
+      "Code III.7.a"
+    ],
+    "principles": [
+      "public safety",
+      "safety",
+      "welfare",
+      "confidentiality",
+      "professional responsibility",
+      "health",
+      "public health",
+      "disclosure"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "n design defects in the first tower simply makes each of those requirements more urgent.\n\nI.1.\n\nHold paramount the safety, health, and welfare of the public.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nIII.1.a.\n\nEngineers shall acknowledge their errors and shall not distort or alter the facts.\n\nIII.1.f.\n\nEngineers shall treat all persons with dignity, respect, fairness and without discrimination.\n\nIII.4.\n\nEngineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer, or public body on which they serve.\n\nIII.7.a.\n\nEngineers in private prac\n[content truncated]",
+    "ethical_questions": [
+      "Is Engineer B ethically required to make certain that Engineer A is advised of the planned peer review?",
+      "Is Engineer A ethically required to cooperate with the peer review of Engineer B?",
+      "Is Engineer B ethically required to make certain that Engineer A is advised of the planned peer review?",
+      "Is Engineer A ethically required to cooperate with the peer review of Engineer B?"
+    ]
   }
 }

@@ -1,53 +1,221 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "III.6.",
+  "description": "Client A is a city which receives consulting engineering services from a selected private firm. The contract runs for 3 years. Engineer B is currently hired under these contract terms and is in the final year of the 3-year contract. The City Administrator leads the effort for the city to coordinate the work of Engineer B. The City Administrator will also be heavily involved in the effort to select the consulting firm for the next 3-year contract. The City Administrator has questioned the judgment of Engineer B on several occasions during the contract period. The City Administrator also has previous experiences with a competing firm, Engineer C. The City Administrator contacts Engineer C to question him on specific issues Engineer B has worked on for the City. Engineer C fully realizes that answering these questions in a certain perspective would be a pretext to gaining an advantage in the competition for the next 3-year contract. Engineer C answers the City Administrator\u2019s questions on the specific issues and is critical of Engineer B\u2019s decisions.\n\nIs Engineer C\u2019s answering of the City Administrator\u2019s questions and his criticism of Engineer B ethical?\n\nCompetition for engineering work by private consulting firms can be quite intense. Selection of a winning proposal may be made on razor-thin margins. Competitive edges are sought to win work over other firms. The potential benefit of stretching ethical bounds to achieve a competitive edge may seem to merit consideration.\n\nIn this case, Engineer C has criticized the work of another engineer, Engineer B. Further, Engineer C voiced this criticism while Engineer B was still under contract with Client A, and Engineer C may not have known all the circumstances under which Engineer B performed his work as Engineer C was not involved in Engineer B\u2019s decision-making process.\n\nNSPE Code of Ethics Section III.6 states that Engineers shall not attempt to obtain employment or advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods. Engineer C could be truthful, as far as C is aware, in this conversation. However, Engineer C\u2019s statements may not be accurate since C might not know all the circumstances. As such, Engineer C\u2019s conversation with Client A could easily be seen as improper and questionable since, during the conversation with the City Administrator, Engineer C was not fully cognizant of Engineer B\u2019s situation.\n\nIn BER Case 93-3, Engineer A was retained by a major franchiser to provide engineering design services for a chain of stores throughout the United States. After several years, the franchiser decided to terminate its relationship with Engineer A and provided Engineer A of notice of its intent not to renew its contract with Engineer A\u2019s firm. In order to maintain continuity and before the contract expired, the franchiser began discussions with Engineer B and retained Engineer B to provide immediate review of design concerns. Prior to the review, franchiser specifically told Engineer B not to disclose to Engineer A, Engineer B\u2019s relationship with franchiser. Nevertheless, Engineer B notified Engineer A of his relationship with franchiser and the preliminary results of his review. The BER in this case determined that Engineer B\u2019s act of notifying Engineer A of his relationship with franchiser was not consistent with the Code stating that Engineer B had an obligation as \u201cfaithful agent and trustee\u201d to not to tell Engineer A of his relationship with the client. Case 93-3 differs from the current case as Engineer C in the present case is not under contract with Client A.\n\nIn BER Case 01-1, the BER reviewed a situation where Engineer A left Firm X to start a new Firm Y. Engineer A also contacted another engineer from Firm X, Engineer C, to convince them to join Firm Y. Thereafter, Engineer A contacted clients of Firm X to convince them to contract with the new firm since the old firm would be \u201chard-pressed\u201d to continue to perform services adequately without Engineers A and C. The BER found that it was not ethical for Engineer A to make such representations as these methods were questionable and improper. Section III.7 states that Engineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional reputation, prospects, practice, or employment of other engineers. For this reason, in the present case, using the situation to Engineer C\u2019s advantage could be perceived the same way.\n\nIn the present case, Engineer C has been put in a difficult position by Client A. Engineer C has been asked to evaluate another engineer\u2019s work, which in turn could give Engineer C a significant advantage in securing future work. Two sections of the Code of Ethics provide guidance for Engineer C\u2019s response: 1) Engineers shall not attempt to obtain advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods, and 2) Engineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional practice of other engineers. Not being fully aware of the circumstances of Engineer B\u2019s decisions could result in Engineer C giving an opinion that is not accurate, even though C feels that the opinion is truthful. Engineer C should have refrained from any criticism. While Engineer C could answer Client A\u2019s questions in a very general sense, C should have avoided commenting on specific issues.\n\nFurther, the Code states engineers in private practice shall not review the work of another engineer for the ame client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated. In the present case, Engineer B had no knowledge of Client A\u2019s conversation with Engineer C. Additionally, Engineer B is still under contract with Client A; the contract has not been terminated.\n\nIII.6.\n\nEngineers shall not attempt to obtain employment or advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods.\n\nIII.7.\n\nEngineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional reputation, prospects, practice, or employment of other engineers. Engineers who believe others are guilty of unethical or illegal practice shall present such information to the proper authority for action.\n\nIII.7.a.\n\nEngineers in private practice shall not review the work of another engineer for the same client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated.\n\nIn answering the City Administrator\u2019s specific questions and by criticizing the work of Engineer B, Engineer C\u2019s action were unethical.",
   "source": "https://www.nspe.org/career-resources/ethics/review-other-engineer-s-work",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "III.6.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "Client A is a city which receives consulting engineering services from a selected private firm. The contract runs for 3 years. Engineer B is currently hired under these contract terms and is in the final year of the 3-year contract. The City Administrator leads the effort for the city to coordinate the work of Engineer B. The City Administrator will also be heavily involved in the effort to select the consulting firm for the next 3-year contract. The City Administrator has questioned the judgment of Engineer B on several occasions during the contract period. The City Administrator also has previous experiences with a competing firm, Engineer C. The City Administrator contacts Engineer C to question him on specific issues Engineer B has worked on for the City. Engineer C fully realizes that answering these questions in a certain perspective would be a pretext to gaining an advantage in the competition for the next 3-year contract. Engineer C answers the City Administrator\u2019s questions on the specific issues and is critical of Engineer B\u2019s decisions.\n\nIs Engineer C\u2019s answering of the City Administrator\u2019s questions and his criticism of Engineer B ethical?\n\nCompetition for engineering work by private consulting firms can be quite intense. Selection of a winning proposal may be made on razor-thin margins. Competitive edges are sought to win work over other firms. The potential benefit of stretching ethical bounds to achieve a competitive edge may seem to merit consideration.\n\nIn this case, Engineer C has criticized the work of another engineer, Engineer B. Further, Engineer C voiced this criticism while Engineer B was still under contract with Client A, and Engineer C may not have known all the circumstances under which Engineer B performed his work as Engineer C was not involved in Engineer B\u2019s decision-making process.\n\nNSPE Code of Ethics Section III.6 states that Engineers shall not attempt to obtain employment or advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods. Engineer C could be truthful, as far as C is aware, in this conversation. However, Engineer C\u2019s statements may not be accurate since C might not know all the circumstances. As such, Engineer C\u2019s conversation with Client A could easily be seen as improper and questionable since, during the conversation with the City Administrator, Engineer C was not fully cognizant of Engineer B\u2019s situation.\n\nIn BER Case 93-3, Engineer A was retained by a major franchiser to provide engineering design services for a chain of stores throughout the United States. After several years, the franchiser decided to terminate its relationship with Engineer A and provided Engineer A of notice of its intent not to renew its contract with Engineer A\u2019s firm. In order to maintain continuity and before the contract expired, the franchiser began discussions with Engineer B and retained Engineer B to provide immediate review of design concerns. Prior to the review, franchiser specifically told Engineer B not to disclose to Engineer A, Engineer B\u2019s relationship with franchiser. Nevertheless, Engineer B notified Engineer A of his relationship with franchiser and the preliminary results of his review. The BER in this case determined that Engineer B\u2019s act of notifying Engineer A of his relationship with franchiser was not consistent with the Code stating that Engineer B had an obligation as \u201cfaithful agent and trustee\u201d to not to tell Engineer A of his relationship with the client. Case 93-3 differs from the current case as Engineer C in the present case is not under contract with Client A.\n\nIn BER Case 01-1, the BER reviewed a situation where Engineer A left Firm X to start a new Firm Y. Engineer A also contacted another engineer from Firm X, Engineer C, to convince them to join Firm Y. Thereafter, Engineer A contacted clients of Firm X to convince them to contract with the new firm since the old firm would be \u201chard-pressed\u201d to continue to perform services adequately without Engineers A and C. The BER found that it was not ethical for Engineer A to make such representations as these methods were questionable and improper. Section III.7 states that Engineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional reputation, prospects, practice, or employment of other engineers. For this reason, in the present case, using the situation to Engineer C\u2019s advantage could be perceived the same way.\n\nIn the present case, Engineer C has been put in a difficult position by Client A. Engineer C has been asked to evaluate another engineer\u2019s work, which in turn could give Engineer C a significant advantage in securing future work. Two sections of the Code of Ethics provide guidance for Engineer C\u2019s response: 1) Engineers shall not attempt to obtain advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods, and 2) Engineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional practice of other engineers. Not being fully aware of the circumstances of Engineer B\u2019s decisions could result in Engineer C giving an opinion that is not accurate, even though C feels that the opinion is truthful. Engineer C should have refrained from any criticism. While Engineer C could answer Client A\u2019s questions in a very general sense, C should have avoided commenting on specific issues.\n\nFurther, the Code states engineers in private practice shall not review the work of another engineer for the ame client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated. In the present case, Engineer B had no knowledge of Client A\u2019s conversation with Engineer C. Additionally, Engineer B is still under contract with Client A; the contract has not been terminated.\n\nIII.6.\n\nEngineers shall not attempt to obtain employment or advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods.\n\nIII.7.\n\nEngineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional reputation, prospects, practice, or employment of other engineers. Engineers who believe others are guilty of unethical or illegal practice shall present such information to the proper authority for action.\n\nIII.7.a.\n\nEngineers in private practice shall not review the work of another engineer for the same client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated.\n\nIn answering the City Administrator\u2019s specific questions and by criticizing the work of Engineer B, Engineer C\u2019s action were unethical.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "NSPE:caseNumber",
         "object": "Case 93-3",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "NSPE:caseYear",
-        "object": "2093",
+        "object": "1993",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/review-other-engineer-s-work",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 93_3"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 93_3"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 93_3"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_7"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_7_a"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_6"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 93_3",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 93_3",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 93_3"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 93_3"
+      },
+      {
+        "subject": "Engineer_B_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 93_3",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 93_3",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 93_3"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 93_3"
+      },
+      {
+        "subject": "Client_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Client_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Client_Case 93_3",
+        "predicate": "rdfs:label",
+        "object": "Client",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 93_3",
+        "predicate": "rdf:type",
+        "object": "eng:ClientRole"
+      },
+      {
+        "subject": "Client_Case 93_3",
+        "predicate": "ar:hasRole",
+        "object": "eng:ClientRoleInstance_Client_Case 93_3"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:involves",
+        "object": "Client_Case 93_3"
       },
       {
         "subject": "Decision_Case 93_3",
@@ -68,19 +236,29 @@
       {
         "subject": "Decision_Case 93_3",
         "predicate": "NSPE:outcome",
-        "object": "outcome not specified",
+        "object": "Unethical",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 93_3"
       },
       {
-        "subject": "Case:Case_Case 93_3_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 93_3_III_6",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": "thics provide guidance for Engineer C\u2019s response: 1) Engineers shall not attempt to obtain advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods, and 2) Engineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional practice of other engineers. Not being fully aware of the circumstances of Engineer B\u2019s decisions could result in Engineer C giving an opinion that is not accurate, even though C feels that the opinion is truthful. Engineer C should have refrained from any criticism. While Engineer C could answer Client A\u2019s questions in a very general sense, C should have avoided commenting on specific issues.\n\nFurther, the Code states engineers in private practice shall not review the work of another engineer for the ame client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated. In the present case, Engine\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 93_3"
+      },
+      {
+        "subject": "Case:Case_Case 93_3_III_6",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 01_1"
       }
     ],
     "namespaces": {
@@ -100,14 +278,29 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
-    "outcome": "outcome not specified",
-    "operationalization_techniques": [
-      "Principle Instantiation"
+    "related_cases": [
+      "Case 93-3",
+      "Case 01-1"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "codes_cited": [
+      "Code III.7",
+      "Code III.7.a",
+      "Code III.6"
+    ],
+    "principles": [
+      "honesty",
+      "welfare",
+      "disclosure"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "thics provide guidance for Engineer C\u2019s response: 1) Engineers shall not attempt to obtain advancement or professional engagements by untruthfully criticizing other engineers, or by other improper or questionable methods, and 2) Engineers shall not attempt to injure, maliciously or falsely, directly or indirectly, the professional practice of other engineers. Not being fully aware of the circumstances of Engineer B\u2019s decisions could result in Engineer C giving an opinion that is not accurate, even though C feels that the opinion is truthful. Engineer C should have refrained from any criticism. While Engineer C could answer Client A\u2019s questions in a very general sense, C should have avoided commenting on specific issues.\n\nFurther, the Code states engineers in private practice shall not review the work of another engineer for the ame client, except with the knowledge of such engineer, or unless the connection of such engineer with the work has been terminated. In the present case, Engine\n[content truncated]",
+    "ethical_questions": [
+      "Is Engineer C\u2019s answering of the City Administrator\u2019s questions and his criticism of Engineer B ethical?"
+    ]
   }
 }

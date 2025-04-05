@@ -1,53 +1,326 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "II.1.",
+  "description": "Engineer D is the Engineer of Record (EOR) as part of a design-build team led by Contractor W. Under the terms of an Agency funding grant, the project is re\u0002quired to have an independent peer review of the design, the design approach, compatibility with the site, and a constructability assessment related to the design approach. Engineer D prepares the design and drawings and directly hires Engineer F to perform the peer review.\n\nWas it ethical for Engineer D to hire Engineer F to perform the required peer review?\n\nWas it ethical for Engineer D to hire Engineer F to perform the required peer review?\n\nThe contractual relationships and roles of the many parties illustrate how a conflict of interest can go unnoticed. In this case, an independent peer review of the design was required by the Agency and the peer reviewer was in a direct contractual relationship with the EOR. Two reputable engineers can and often do disagree and they can both be right. A key question the peer reviewer needs to answer is whether the EOR did it wrong or just a different, but still acceptable, way.\n\nIn BER Case 91-2, the Client hired Engineer B to perform a review of Engineer A\u2019s work. The Client determined that there were errors/omissions in Engineer A\u2019s work. Engineer B\u2019s fee is dependent on the ultimate court judgement or settlement made with Engineer A in contemplation of a suit for breach of contract. The BER concluded that Engineer B is being placed in a position of identifying errors/omissions in Engineer A\u2019s work in order to pressure Engineer A into a settlement which would result in a fee for Engineer B. The nature of the services and the related contingency arrangement suggest a strong possibility that the engineer\u2019s judgement could be compromised or at the very least create the appearance of being compromised.\n\nPeer reviews are common on complicated engineering projects. The \u201cindependent\u201d requirement in this case must withstand the scrutiny of a conflict of interest.\n\nWhat does it mean to perform an independent peer review of engineering work? NSPE Position Statement No. 10-178 (Peer Review Legislation) recommends that \u201c\u2026peer reviewer must not be an employee, coworker, partner or subconsultant of the professional engineer whose design is being peer reviewed.\u201d\n\nIn order to avoid any perception of a conflict of interest, an independent peer reviewer needs to be contracted directly by and compensated by the project owner (Client) and not the EOR. In the case of Design-Build teams, the lead party could potentially hire both the EOR and the peer reviewer, as long as they are different firms. A peer review performed by another office of the EOR or a subconsultant to the EOR does not meet the requirement of being independent and squarely has a conflict of interest.\n\nIn the present case, the EOR hired the peer review firm, putting the peer review firm in a similarly conflicted position of potentially disagreeing the EOR and possibly not getting compensated if their conclusions result in significant changes to the EOR\u2019s design. The peer review engineer must be free to provide objective, unbiased professional judgements to serve the best interests of their client and not compromise integrity in pursuit of a professional fee. Contractor W should have retained Engineer F (or other engineer of Contractor W\u2019s choice) to assure the independence of Engineer F\u2019s review.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.4.\n\nEngineers shall act for each employer or client as faithful agents or trustees.\n\nII.4.a.\n\nEngineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nIII.1.b.\n\nEngineers shall advise their clients or employers when they believe a project will not be successful.\n\nOn its face, the peer review was not independent, as required by the agency. Therefore, it would not be ethical for Engineer D to hire and enter into a direct contractual relationship with Engineer F to perform the peer review.",
   "source": "https://www.nspe.org/career-resources/ethics/conflict-interest-designbuild-project",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "II.1.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "Engineer D is the Engineer of Record (EOR) as part of a design-build team led by Contractor W. Under the terms of an Agency funding grant, the project is re\u0002quired to have an independent peer review of the design, the design approach, compatibility with the site, and a constructability assessment related to the design approach. Engineer D prepares the design and drawings and directly hires Engineer F to perform the peer review.\n\nWas it ethical for Engineer D to hire Engineer F to perform the required peer review?\n\nWas it ethical for Engineer D to hire Engineer F to perform the required peer review?\n\nThe contractual relationships and roles of the many parties illustrate how a conflict of interest can go unnoticed. In this case, an independent peer review of the design was required by the Agency and the peer reviewer was in a direct contractual relationship with the EOR. Two reputable engineers can and often do disagree and they can both be right. A key question the peer reviewer needs to answer is whether the EOR did it wrong or just a different, but still acceptable, way.\n\nIn BER Case 91-2, the Client hired Engineer B to perform a review of Engineer A\u2019s work. The Client determined that there were errors/omissions in Engineer A\u2019s work. Engineer B\u2019s fee is dependent on the ultimate court judgement or settlement made with Engineer A in contemplation of a suit for breach of contract. The BER concluded that Engineer B is being placed in a position of identifying errors/omissions in Engineer A\u2019s work in order to pressure Engineer A into a settlement which would result in a fee for Engineer B. The nature of the services and the related contingency arrangement suggest a strong possibility that the engineer\u2019s judgement could be compromised or at the very least create the appearance of being compromised.\n\nPeer reviews are common on complicated engineering projects. The \u201cindependent\u201d requirement in this case must withstand the scrutiny of a conflict of interest.\n\nWhat does it mean to perform an independent peer review of engineering work? NSPE Position Statement No. 10-178 (Peer Review Legislation) recommends that \u201c\u2026peer reviewer must not be an employee, coworker, partner or subconsultant of the professional engineer whose design is being peer reviewed.\u201d\n\nIn order to avoid any perception of a conflict of interest, an independent peer reviewer needs to be contracted directly by and compensated by the project owner (Client) and not the EOR. In the case of Design-Build teams, the lead party could potentially hire both the EOR and the peer reviewer, as long as they are different firms. A peer review performed by another office of the EOR or a subconsultant to the EOR does not meet the requirement of being independent and squarely has a conflict of interest.\n\nIn the present case, the EOR hired the peer review firm, putting the peer review firm in a similarly conflicted position of potentially disagreeing the EOR and possibly not getting compensated if their conclusions result in significant changes to the EOR\u2019s design. The peer review engineer must be free to provide objective, unbiased professional judgements to serve the best interests of their client and not compromise integrity in pursuit of a professional fee. Contractor W should have retained Engineer F (or other engineer of Contractor W\u2019s choice) to assure the independence of Engineer F\u2019s review.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.4.\n\nEngineers shall act for each employer or client as faithful agents or trustees.\n\nII.4.a.\n\nEngineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nIII.1.b.\n\nEngineers shall advise their clients or employers when they believe a project will not be successful.\n\nOn its face, the peer review was not independent, as required by the agency. Therefore, it would not be ethical for Engineer D to hire and enter into a direct contractual relationship with Engineer F to perform the peer review.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "NSPE:caseNumber",
         "object": "Case 91-2",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "NSPE:caseYear",
-        "object": "2091",
+        "object": "1991",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/conflict-interest-designbuild-project",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:ObjectivityPrincipleInstance_Case 91_2",
         "predicate": "rdf:type",
-        "object": "proeth:EthicalDilemma"
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ObjectivityPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ObjectivityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ObjectivityPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "NSPE:safetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:safetyPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConflictOfInterestAvoidanceObligation"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConflictOfInterestAvoidanceObligationInstance_Case 91_2"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "NSPE:healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:healthPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 91_2"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII4a"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_2_a"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_1"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1a"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1b"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConflictOfInterestCondition"
+      },
+      {
+        "subject": "Engineer_A_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 91_2",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 91_2",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 91_2"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 91_2"
+      },
+      {
+        "subject": "Engineer_B_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 91_2",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 91_2",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 91_2"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 91_2"
+      },
+      {
+        "subject": "Client_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Client_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Client_Case 91_2",
+        "predicate": "rdfs:label",
+        "object": "Client",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:ClientRoleInstance_Client_Case 91_2",
+        "predicate": "rdf:type",
+        "object": "eng:ClientRole"
+      },
+      {
+        "subject": "Client_Case 91_2",
+        "predicate": "ar:hasRole",
+        "object": "eng:ClientRoleInstance_Client_Case 91_2"
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:involves",
+        "object": "Client_Case 91_2"
       },
       {
         "subject": "Decision_Case 91_2",
@@ -72,15 +345,20 @@
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 91_2"
       },
       {
-        "subject": "Case:Case_Case 91_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 91_2_II_1",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": "e free to provide objective, unbiased professional judgements to serve the best interests of their client and not compromise integrity in pursuit of a professional fee. Contractor W should have retained Engineer F (or other engineer of Contractor W\u2019s choice) to assure the independence of Engineer F\u2019s review.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.4.\n\nEngineers shall act for each employer or client as faithful agents or trustees.\n\nII.4.a.\n\nEngineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nIII.1.b.\n\nEngin\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 91_2_II_1",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 91_2"
       }
     ],
     "namespaces": {
@@ -100,14 +378,38 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
+    "related_cases": [
+      "Case 91-2"
+    ],
+    "codes_cited": [
+      "Code II.4",
+      "Code II.4.a",
+      "Code II.2.a",
+      "Code II.1",
+      "Code II.1.a",
+      "Code III.1.b"
+    ],
+    "principles": [
+      "objectivity",
+      "public safety",
+      "safety",
+      "honesty",
+      "welfare",
+      "conflicts of interest",
+      "health",
+      "disclosure",
+      "competency"
+    ],
     "outcome": "outcome not specified",
     "operationalization_techniques": [
-      "Principle Instantiation"
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "board_analysis": "e free to provide objective, unbiased professional judgements to serve the best interests of their client and not compromise integrity in pursuit of a professional fee. Contractor W should have retained Engineer F (or other engineer of Contractor W\u2019s choice) to assure the independence of Engineer F\u2019s review.\n\nII.1.\n\nEngineers shall hold paramount the safety, health, and welfare of the public.\n\nII.1.a.\n\nIf engineers' judgment is overruled under circumstances that endanger life or property, they shall notify their employer or client and such other authority as may be appropriate.\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.4.\n\nEngineers shall act for each employer or client as faithful agents or trustees.\n\nII.4.a.\n\nEngineers shall disclose all known or potential conflicts of interest that could influence or appear to influence their judgment or the quality of their services.\n\nIII.1.b.\n\nEngin\n[content truncated]",
+    "ethical_questions": [
+      "Was it ethical for Engineer D to hire Engineer F to perform the required peer review?",
+      "Was it ethical for Engineer D to hire Engineer F to perform the required peer review?"
+    ]
   }
 }

@@ -1,53 +1,149 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "II.5.b.",
+  "description": "A small city has been notified by the State\u2019s environmental agency that its water system is not compliant with drinking water standards and the city must resolve its non-compliant issues. The city decides to hire an engineering firm for assistance and, subsequently, advertises a Request for Qualifications (RFQ) for engineering firms to respond. Services required include Preliminary Engineering to evaluate alternatives for solution of the non-compliance, and Design and Construction Engineering for the selected alternative. The RFQ requests specific information from the engineering firms that respond. Engineer A, in an effort to improve its chances of being selected by the city, offers to provide free Preliminary Engineering. The RFQ did not request any information regarding fees or engineering costs.\n\nWas the offer by Engineer A for free Preliminary Engineering ethical?\n\nWas the offer by Engineer A for free Preliminary Engineering ethical?\n\nThe competition for work among engineering firms in such circumstances is significant. Setting one firm apart from its competitors is difficult. Engineering firms must find increasingly creative ways to become successful.\n\nThe BER has reviewed many cases previously in this regard, but none that has had the specifics of this case. Most have addressed the issue of direct gifts to individuals rather than the offer here, which is the reduced fees associated with the project.\n\nIn BER Case 76-6, an engineering firm was negotiating for a contract in a foreign country in which it had not worked previously. They were advised by a high-ranking government official of that country that it is established practice for those awarded contracts to make personal gifts to the governmental officials who are authorized to award the contracts, and that such practice is legal in that country. They were further advised that the failure to make the gifts would result in no further work being awarded to the firm and to expect poor cooperation in performing the first contract. The firm was further told that other firms have adhered to the local practice in regard to such gifts. In this case, the BER determined that the code was clear and direct to the point. The gifts were a direct consideration for securing the work, and that the code must be read on the most basic point of honor and integrity. It was unethical for the engineering firm to accept the contract and make the gifts as described.\n\nIn BER Case 92-8, Engineer A was the principal of a large engineering firm that provides civil engineering services to state, county and local governments and agencies. The firm was planning to relocate one of its regional offices to a medium-sized city. The relocation would greatly benefit the city selected. Having the city employ the engineering services offered by the firm would have been an added incentive to the firm\u2019s selection of the city. Engineer A verbally suggested to a certain city\u2019s officials during the relocation negotiations with the city that he \u201choped the city would consider employing the services of his firm in the future for part of its engineering services requirements.\u201d City officials at the meeting did not respond specifically to Engineer A\u2019s verbal suggestion. Ultimately, Engineer A\u2019s firm agreed to relocate to that city. The BER determined in this case that there was no offer of any gift or other valuable consideration in order to secure work. There did not appear to be any \u201cquid pro quo\u201d involved under which an understanding or agreement to provide something of value in exchange for some other thing of value. While the BER was not entirely comfortable with the context in which the suggestion was made, they did not believe that the suggestion during the relocation negotiations rises to a level of impropriety or Code violation. Regardless, the utmost concern of the BER was the offering of valuable consideration to secure work, as it should be in the currently considered case.\n\nIn the evaluation of the case at hand, therefore, the determination must be made of whether or not the offer of free Preliminary Engineering should be considered a gift or valuable consideration to secure work. The offer certainly has the potential to sway the opinion of those involved in the selection process and thus influencing the award. An argument could be made that Engineer A is providing a favorable negotiation position for the city if awarded the work. However, the use of the words \u201cfree or no charge\u201d produces a logical conclusion to the public perception that it is a gift. In the truest interpretation of the Code, there is no question that the offer meets this definition.\n\nAdditionally, it is important to note that the RFQ did not request information regarding fees or engineering costs. The inclusion of such information by Engineer A did not comply with the instructions. Section III.1.f. of the Code states that all persons shall be treated with fairness. This ethical requirement should extent to competitors as well. It is not fair to other engineering firms who fully complied with the requirements of the RFQ to compete with the firm that does not comply and includes competitive fee information which was not requested.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of influencing the awarding of a contract. They shall not offer any gift or other valuable consideration in order to secure work. They shall not pay a commission, percentage, or brokerage fee in order to secure work, except to a bona fide employee or bona fide established commercial or marketing agencies retained by them.\n\nIII.1.f.\n\nEngineers shall treat all persons with dignity, respect, fairness and without discrimination.\n\nIII.8.a.\n\nEngineers shall conform with state registration laws in the practice of engineering.\n\nThe offer by Engineer A for free Preliminary Engineering should be considered a gift or valuable consideration in order to secure work and provided an unfair advantage over other firms. Therefore, the offer was unethical. Furthermore, if this matter occurs in a state in which Qualification-Based Selection (QBS) is required, the action of Engineer A is both unethical and potentially illegal.",
   "source": "https://www.nspe.org/career-resources/ethics/offer-free-or-reduced-fee-services",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "II.5.b.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "A small city has been notified by the State\u2019s environmental agency that its water system is not compliant with drinking water standards and the city must resolve its non-compliant issues. The city decides to hire an engineering firm for assistance and, subsequently, advertises a Request for Qualifications (RFQ) for engineering firms to respond. Services required include Preliminary Engineering to evaluate alternatives for solution of the non-compliance, and Design and Construction Engineering for the selected alternative. The RFQ requests specific information from the engineering firms that respond. Engineer A, in an effort to improve its chances of being selected by the city, offers to provide free Preliminary Engineering. The RFQ did not request any information regarding fees or engineering costs.\n\nWas the offer by Engineer A for free Preliminary Engineering ethical?\n\nWas the offer by Engineer A for free Preliminary Engineering ethical?\n\nThe competition for work among engineering firms in such circumstances is significant. Setting one firm apart from its competitors is difficult. Engineering firms must find increasingly creative ways to become successful.\n\nThe BER has reviewed many cases previously in this regard, but none that has had the specifics of this case. Most have addressed the issue of direct gifts to individuals rather than the offer here, which is the reduced fees associated with the project.\n\nIn BER Case 76-6, an engineering firm was negotiating for a contract in a foreign country in which it had not worked previously. They were advised by a high-ranking government official of that country that it is established practice for those awarded contracts to make personal gifts to the governmental officials who are authorized to award the contracts, and that such practice is legal in that country. They were further advised that the failure to make the gifts would result in no further work being awarded to the firm and to expect poor cooperation in performing the first contract. The firm was further told that other firms have adhered to the local practice in regard to such gifts. In this case, the BER determined that the code was clear and direct to the point. The gifts were a direct consideration for securing the work, and that the code must be read on the most basic point of honor and integrity. It was unethical for the engineering firm to accept the contract and make the gifts as described.\n\nIn BER Case 92-8, Engineer A was the principal of a large engineering firm that provides civil engineering services to state, county and local governments and agencies. The firm was planning to relocate one of its regional offices to a medium-sized city. The relocation would greatly benefit the city selected. Having the city employ the engineering services offered by the firm would have been an added incentive to the firm\u2019s selection of the city. Engineer A verbally suggested to a certain city\u2019s officials during the relocation negotiations with the city that he \u201choped the city would consider employing the services of his firm in the future for part of its engineering services requirements.\u201d City officials at the meeting did not respond specifically to Engineer A\u2019s verbal suggestion. Ultimately, Engineer A\u2019s firm agreed to relocate to that city. The BER determined in this case that there was no offer of any gift or other valuable consideration in order to secure work. There did not appear to be any \u201cquid pro quo\u201d involved under which an understanding or agreement to provide something of value in exchange for some other thing of value. While the BER was not entirely comfortable with the context in which the suggestion was made, they did not believe that the suggestion during the relocation negotiations rises to a level of impropriety or Code violation. Regardless, the utmost concern of the BER was the offering of valuable consideration to secure work, as it should be in the currently considered case.\n\nIn the evaluation of the case at hand, therefore, the determination must be made of whether or not the offer of free Preliminary Engineering should be considered a gift or valuable consideration to secure work. The offer certainly has the potential to sway the opinion of those involved in the selection process and thus influencing the award. An argument could be made that Engineer A is providing a favorable negotiation position for the city if awarded the work. However, the use of the words \u201cfree or no charge\u201d produces a logical conclusion to the public perception that it is a gift. In the truest interpretation of the Code, there is no question that the offer meets this definition.\n\nAdditionally, it is important to note that the RFQ did not request information regarding fees or engineering costs. The inclusion of such information by Engineer A did not comply with the instructions. Section III.1.f. of the Code states that all persons shall be treated with fairness. This ethical requirement should extent to competitors as well. It is not fair to other engineering firms who fully complied with the requirements of the RFQ to compete with the firm that does not comply and includes competitive fee information which was not requested.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of influencing the awarding of a contract. They shall not offer any gift or other valuable consideration in order to secure work. They shall not pay a commission, percentage, or brokerage fee in order to secure work, except to a bona fide employee or bona fide established commercial or marketing agencies retained by them.\n\nIII.1.f.\n\nEngineers shall treat all persons with dignity, respect, fairness and without discrimination.\n\nIII.8.a.\n\nEngineers shall conform with state registration laws in the practice of engineering.\n\nThe offer by Engineer A for free Preliminary Engineering should be considered a gift or valuable consideration in order to secure work and provided an unfair advantage over other firms. Therefore, the offer was unethical. Furthermore, if this matter occurs in a state in which Qualification-Based Selection (QBS) is required, the action of Engineer A is both unethical and potentially illegal.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "NSPE:caseNumber",
         "object": "Case 76-6",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "NSPE:caseYear",
-        "object": "2076",
+        "object": "1976",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/offer-free-or-reduced-fee-services",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 76_6"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 76_6"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 76_6"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_8_a"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_5_b"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_III_1_f"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 76_6",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 76_6",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 76_6",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 76_6"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 76_6"
       },
       {
         "subject": "Decision_Case 76_6",
@@ -68,19 +164,29 @@
       {
         "subject": "Decision_Case 76_6",
         "predicate": "NSPE:outcome",
-        "object": "outcome not specified",
+        "object": "Unethical",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 76_6"
       },
       {
-        "subject": "Case:Case_Case 76_6_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 76_6_II_5_b",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": "or no charge\u201d produces a logical conclusion to the public perception that it is a gift. In the truest interpretation of the Code, there is no question that the offer meets this definition.\n\nAdditionally, it is important to note that the RFQ did not request information regarding fees or engineering costs. The inclusion of such information by Engineer A did not comply with the instructions. Section III.1.f. of the Code states that all persons shall be treated with fairness. This ethical requirement should extent to competitors as well. It is not fair to other engineering firms who fully complied with the requirements of the RFQ to compete with the firm that does not comply and includes competitive fee information which was not requested.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 76_6"
+      },
+      {
+        "subject": "Case:Case_Case 76_6_II_5_b",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 92_8"
       }
     ],
     "namespaces": {
@@ -100,14 +206,30 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
-    "outcome": "outcome not specified",
-    "operationalization_techniques": [
-      "Principle Instantiation"
+    "related_cases": [
+      "Case 76-6",
+      "Case 92-8"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "codes_cited": [
+      "Code III.8.a",
+      "Code II.5.b",
+      "Code III.1.f"
+    ],
+    "principles": [
+      "honesty",
+      "welfare",
+      "competency"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "or no charge\u201d produces a logical conclusion to the public perception that it is a gift. In the truest interpretation of the Code, there is no question that the offer meets this definition.\n\nAdditionally, it is important to note that the RFQ did not request information regarding fees or engineering costs. The inclusion of such information by Engineer A did not comply with the instructions. Section III.1.f. of the Code states that all persons shall be treated with fairness. This ethical requirement should extent to competitors as well. It is not fair to other engineering firms who fully complied with the requirements of the RFQ to compete with the firm that does not comply and includes competitive fee information which was not requested.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of\n[content truncated]",
+    "ethical_questions": [
+      "Was the offer by Engineer A for free Preliminary Engineering ethical?",
+      "Was the offer by Engineer A for free Preliminary Engineering ethical?"
+    ]
   }
 }

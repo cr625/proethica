@@ -1,53 +1,194 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "I.4.",
+  "description": "Engineer D is a fire protection engineer in the public sector and works for a state agency. The agency advertises for bids on major building renovation projects; the bid documents made no reference to existing as-builts or drawings for the bidders\u2019 or awarded contractor\u2019s use. After bids are opened and contracts are awarded, the successful sprinkler contractor asks Engineer D for as-built drawings of the existing sprinkler system. D provides the drawings. Over time, sprinkler contractors who received as-built drawings from Engineer D in the past begin to ask for these documents when projects are advertised, before bids are turned in.\n\nIs it ethical for Engineer D to provide access to as-builts after projects were awarded?\nIs it ethical for Engineer D to share as-builts with sprinkler contractors who ask for information during the bidding phase?\n\nIs it ethical for Engineer D to provide access to as-builts after projects were awarded?\n\nIs it ethical for Engineer D to share as-builts with sprinkler contractors who ask for information during the bidding phase?\n\nActing as a faithful agent or trustee for a client or employer is an obligation for any engineer and is one of the fundamental canons in NSPE\u2019s code of ethics. Engineer D\u2019s efforts to make as-built drawings available for reference appears to be acting in the employer\u2019s best interest. Providing more information about existing conditions should help produce a better design. When D provides as-built drawings after bid openings, is employer information being shared without consent? In addition, if information is shared selectively with contractors before bids are opened; will D\u2019s actions influence the award of a contract?\n\nBER Case 82-2 is a useful starting point in this discussion. In that case, an engineer offers a service providing inspection of residences to prospective homeowners. For the situation in question, the engineer produced a report for their client and provided a copy to the real estate firm handling the home sale. The client complained the engineer acted unethically by providing a copy to the real estate firm and caused harm by lessening their bargaining position with the owners of the residence.\n\nCase discussion notes there was no transmission of the client\u2019s confidential information by the engineer (presumably the real estate firm could have had the home inspected and gained the same knowledge). The BER states \u201cwe read into this case an assumption that Engineer A acted without thought or consideration of any ulterior motive; that he, as a matter of course, considered it right and proper to make his findings known to all interested parties \u2026\u201d The board exonerated the engineer of substantial or deliberate wrongdoing, but determined it was incorrect to not recognize the confidentiality of a client relationship. The engineer acted unethically in submitting a copy of the home inspection report to the real estate agent.\n\nBER Case 15-7 involves the ubiquitous Engineer A working for Firm X. A\u2019s firm is retained by a municipality to design a water treatment facility. A believes the project can benefit from a discussion of constructability issues, and is tempted to begin a discussion with local Contractor B. A is concerned that potential discussions with B will provide an unfair advantage. The board advised that \u201crather than consulting solely with Contractor B, Engineer A could have conducted a publically (sic) advertised constructability meeting, inviting all interested contractors to provide Engineer A with the input necessary to achieve a better design and construction outcome. Such a process would avoid any appearance of favoritism toward one particular contractor, serve the client\u2019s interests, and gain the benefit of broader input to improve the design and construction process.\u201d\n\nThe above summary of case history focused on engineers providing or being in position to have access to information not generally available to others. BER Case 16-3 involves Engineer A who receives a submittal by a highly qualified engineering firm (Firm B) a few hours after a well-publicized deadline. In 16-3, \u201cthe Board is concerned that allowing Firm B\u2019s submittal to be considered would open the procurement to challenge or at the very least create a climate in which non-adherence to public procurement rules and policies are tolerated. Such a situation would not reflect well on that process, the city, or the engineering profession.\u201d The conclusion was that A should return the submittal to firm B, unopened and explain that the bid/submittal was received late.\n\nReturning to the case at hand, Engineer D seems to be acting without what was termed in case 82-2, an ulterior motive - D\u2019s desire is to make information available to improve designs. Even so, informally sharing as-built information is troubling. Working through informal mechanisms on public projects can give the appearance of impropriety or favoritism. Engineer D can advise that as-built drawings are available, but D should direct subcontractors to request them as part of the standard project process. D should not share documents on their own initiative or without formal permission. Because as-builts are useful and can help improve designs, Engineer D should initiate a process to include as-built drawings, when available, on projects going forward. It would be unethical for D to share as-builts with selected contractors pre-bid.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of influencing the awarding of a contract. They shall not offer any gift or other valuable consideration in order to secure work. They shall not pay a commission, percentage, or brokerage fee in order to secure work, except to a bona fide employee or bona fide established commercial or marketing agencies retained by them.\n\nIII.1.\n\nEngineers shall be guided in all their relations by the highest standards of honesty and integrity.\n\nIII.4.\n\nEngineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer, or public body on which they serve.\n\nIt is ethical for Engineer D to make it known that as-built drawings are available; but they should be readily available to contractors as part of the standard project delivery process to assure that all contractors have equal access to the information.\nIt is unethical for Engineer D to share as-built documents selectively pre-bid. D should work to make as-built documents available for all bidders as part of contract documents.\n\nIt is ethical for Engineer D to make it known that as-built drawings are available; but they should be readily available to contractors as part of the standard project delivery process to assure that all contractors have equal access to the information.\n\nIt is unethical for Engineer D to share as-built documents selectively pre-bid. D should work to make as-built documents available for all bidders as part of contract documents.",
   "source": "https://www.nspe.org/career-resources/ethics/sharing-built-drawings",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "I.4.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "Engineer D is a fire protection engineer in the public sector and works for a state agency. The agency advertises for bids on major building renovation projects; the bid documents made no reference to existing as-builts or drawings for the bidders\u2019 or awarded contractor\u2019s use. After bids are opened and contracts are awarded, the successful sprinkler contractor asks Engineer D for as-built drawings of the existing sprinkler system. D provides the drawings. Over time, sprinkler contractors who received as-built drawings from Engineer D in the past begin to ask for these documents when projects are advertised, before bids are turned in.\n\nIs it ethical for Engineer D to provide access to as-builts after projects were awarded?\nIs it ethical for Engineer D to share as-builts with sprinkler contractors who ask for information during the bidding phase?\n\nIs it ethical for Engineer D to provide access to as-builts after projects were awarded?\n\nIs it ethical for Engineer D to share as-builts with sprinkler contractors who ask for information during the bidding phase?\n\nActing as a faithful agent or trustee for a client or employer is an obligation for any engineer and is one of the fundamental canons in NSPE\u2019s code of ethics. Engineer D\u2019s efforts to make as-built drawings available for reference appears to be acting in the employer\u2019s best interest. Providing more information about existing conditions should help produce a better design. When D provides as-built drawings after bid openings, is employer information being shared without consent? In addition, if information is shared selectively with contractors before bids are opened; will D\u2019s actions influence the award of a contract?\n\nBER Case 82-2 is a useful starting point in this discussion. In that case, an engineer offers a service providing inspection of residences to prospective homeowners. For the situation in question, the engineer produced a report for their client and provided a copy to the real estate firm handling the home sale. The client complained the engineer acted unethically by providing a copy to the real estate firm and caused harm by lessening their bargaining position with the owners of the residence.\n\nCase discussion notes there was no transmission of the client\u2019s confidential information by the engineer (presumably the real estate firm could have had the home inspected and gained the same knowledge). The BER states \u201cwe read into this case an assumption that Engineer A acted without thought or consideration of any ulterior motive; that he, as a matter of course, considered it right and proper to make his findings known to all interested parties \u2026\u201d The board exonerated the engineer of substantial or deliberate wrongdoing, but determined it was incorrect to not recognize the confidentiality of a client relationship. The engineer acted unethically in submitting a copy of the home inspection report to the real estate agent.\n\nBER Case 15-7 involves the ubiquitous Engineer A working for Firm X. A\u2019s firm is retained by a municipality to design a water treatment facility. A believes the project can benefit from a discussion of constructability issues, and is tempted to begin a discussion with local Contractor B. A is concerned that potential discussions with B will provide an unfair advantage. The board advised that \u201crather than consulting solely with Contractor B, Engineer A could have conducted a publically (sic) advertised constructability meeting, inviting all interested contractors to provide Engineer A with the input necessary to achieve a better design and construction outcome. Such a process would avoid any appearance of favoritism toward one particular contractor, serve the client\u2019s interests, and gain the benefit of broader input to improve the design and construction process.\u201d\n\nThe above summary of case history focused on engineers providing or being in position to have access to information not generally available to others. BER Case 16-3 involves Engineer A who receives a submittal by a highly qualified engineering firm (Firm B) a few hours after a well-publicized deadline. In 16-3, \u201cthe Board is concerned that allowing Firm B\u2019s submittal to be considered would open the procurement to challenge or at the very least create a climate in which non-adherence to public procurement rules and policies are tolerated. Such a situation would not reflect well on that process, the city, or the engineering profession.\u201d The conclusion was that A should return the submittal to firm B, unopened and explain that the bid/submittal was received late.\n\nReturning to the case at hand, Engineer D seems to be acting without what was termed in case 82-2, an ulterior motive - D\u2019s desire is to make information available to improve designs. Even so, informally sharing as-built information is troubling. Working through informal mechanisms on public projects can give the appearance of impropriety or favoritism. Engineer D can advise that as-built drawings are available, but D should direct subcontractors to request them as part of the standard project process. D should not share documents on their own initiative or without formal permission. Because as-builts are useful and can help improve designs, Engineer D should initiate a process to include as-built drawings, when available, on projects going forward. It would be unethical for D to share as-builts with selected contractors pre-bid.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of influencing the awarding of a contract. They shall not offer any gift or other valuable consideration in order to secure work. They shall not pay a commission, percentage, or brokerage fee in order to secure work, except to a bona fide employee or bona fide established commercial or marketing agencies retained by them.\n\nIII.1.\n\nEngineers shall be guided in all their relations by the highest standards of honesty and integrity.\n\nIII.4.\n\nEngineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer, or public body on which they serve.\n\nIt is ethical for Engineer D to make it known that as-built drawings are available; but they should be readily available to contractors as part of the standard project delivery process to assure that all contractors have equal access to the information.\nIt is unethical for Engineer D to share as-built documents selectively pre-bid. D should work to make as-built documents available for all bidders as part of contract documents.\n\nIt is ethical for Engineer D to make it known that as-built drawings are available; but they should be readily available to contractors as part of the standard project delivery process to assure that all contractors have equal access to the information.\n\nIt is unethical for Engineer D to share as-built documents selectively pre-bid. D should work to make as-built documents available for all bidders as part of contract documents.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "NSPE:caseNumber",
         "object": "Case 82-2",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "NSPE:caseYear",
-        "object": "2082",
+        "object": "1982",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/sharing-built-drawings",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 82_2"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 82_2"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:ConfidentialityPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:ConfidentialityPrincipleInstance_Case 82_2"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:HonestyPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:HonestyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:HonestyPrincipleInstance_Case 82_2"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 82_2"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_I_6"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_5_b"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeII1c"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeI4"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII1"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:references",
+        "object": "NSPE:NSPECodeIII4"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 82_2",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 82_2",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 82_2",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 82_2"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 82_2"
       },
       {
         "subject": "Decision_Case 82_2",
@@ -68,19 +209,34 @@
       {
         "subject": "Decision_Case 82_2",
         "predicate": "NSPE:outcome",
-        "object": "outcome not specified",
+        "object": "Unethical",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 82_2"
       },
       {
-        "subject": "Case:Case_Case 82_2_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 82_2_I_4",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": "ailable, on projects going forward. It would be unethical for D to share as-builts with selected contractors pre-bid.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of influencing the awarding of a contract. They shall not offer any gift or other valuable consideration in order to secure work. They shall not pay a commission, percentage, or brokerage fee in order to secure work, except to a bona fide e\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 16_3"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 82_2"
+      },
+      {
+        "subject": "Case:Case_Case 82_2_I_4",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 15_7"
       }
     ],
     "namespaces": {
@@ -100,14 +256,38 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
-    "outcome": "outcome not specified",
-    "operationalization_techniques": [
-      "Principle Instantiation"
+    "related_cases": [
+      "Case 16-3",
+      "Case 82-2",
+      "Case 15-7"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "codes_cited": [
+      "Code I.6",
+      "Code II.5.b",
+      "Code II.1.c",
+      "Code I.4",
+      "Code III.1",
+      "Code III.4"
+    ],
+    "principles": [
+      "honesty",
+      "welfare",
+      "confidentiality",
+      "disclosure",
+      "competency"
+    ],
+    "outcome": "unethical",
+    "operationalization_techniques": [
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
+    ],
+    "board_analysis": "ailable, on projects going forward. It would be unethical for D to share as-builts with selected contractors pre-bid.\n\nI.4.\n\nAct for each employer or client as faithful agents or trustees.\n\nI.6.\n\nConduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.\n\nII.1.c.\n\nEngineers shall not reveal facts, data, or information without the prior consent of the client or employer except as authorized or required by law or this Code.\n\nII.5.b.\n\nEngineers shall not offer, give, solicit, or receive, either directly or indirectly, any contribution to influence the award of a contract by public authority, or which may be reasonably construed by the public as having the effect or intent of influencing the awarding of a contract. They shall not offer any gift or other valuable consideration in order to secure work. They shall not pay a commission, percentage, or brokerage fee in order to secure work, except to a bona fide e\n[content truncated]",
+    "ethical_questions": [
+      "Is it ethical for Engineer D to provide access to as-builts after projects were awarded?",
+      "Is it ethical for Engineer D to share as-builts with sprinkler contractors who ask for information during the bidding phase?",
+      "Is it ethical for Engineer D to provide access to as-builts after projects were awarded?",
+      "Is it ethical for Engineer D to share as-builts with sprinkler contractors who ask for information during the bidding phase?"
+    ]
   }
 }

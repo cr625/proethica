@@ -1,53 +1,230 @@
 {
-  "title": "Pre Header Utility Links",
-  "description": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+  "title": "II.2.a.",
+  "description": "Engineer M works as a building manager for a public entity and is aware that a new piece of equipment being installed in the facility has a requirement for a design release (a document filed with the state building commissioner\u2019s office). Engineer M has no formal role in approving contracts or accepting equipment for the employing public entity . The design release requirements include provisions for a signature from a licensed professional on the application.\n\nFirm A designs and assembles the equipment, and Engineer M has monitored the progress of the equipment design and is familiar with who completed the various portions of the work. The design includes electrical and mechanical systems and also requires structural analysis; compliance with applicable provisions of the state building code is required for this equipment. As the time for final approval of the project to install the equipment approaches, Engineer M is shown a copy of a design release Firm A obtained from the state for the equipment.\n\nEngineer B is listed as the design professional of record on the state release. A review of the website for Engineer B\u2019s firm shows their specialty is electrical work, and Engineer M was unaware of Engineer B\u2019s involvement with any stage of the project until the design release was prepared.\n\nShould Engineer B have signed (certified) the application for design release for this equipment?\n\n\t\tWhat should Engineer M do?\n\nShould Engineer B have signed (certified) the application for design release for this equipment?\n\nWhat should Engineer M do?\n\nThe issue of an engineer\u2019s role in a project and acceptance of responsible charge is a subject that the NSPE Board of Ethical Review (BER) has visited numerous times over the last five decades. As technology evolves and new engineering fields progress, our Code of Ethics also evolves, as does the definition of responsible charge. 1\n\nThe BER has visited the issue of sealing plans and responsible charge as far back as 1964. In BER Case 64-7, the policy of a state health department office was to use the District Sanitary Engineer\u2019s seal and name on all plans and engineering documents when the assistant sanitary engineer performed the actual engineering review. The policy went so far as to specify, \u201cthat when the district sanitary engineer is absent the assistant sanitary engineer shall review the plans and applications for permits and, after approval, sign the name of the district sanitary engineer, even though the district sanitary engineer has not seen or reviewed the documents.\u201d\n\nThe Board found that it was not unusual for an engineer to sign his name and title to engineering documents that were prepared or reviewed by his subordinates if he is familiar with the work and checked the work involved. Said the Board, \u201cWe see no objection, however, in the interests of clarity and continuity of authority, for the approval to indicate by stamp or printing the name of the district sanitary engineer, provided his name is followed by the name and signature of the assistant sanitary engineer. This will indicate that the approval is under the general authority of the district sanitary engineer and that the assistant sanitary engineer is acting within the scope of a delegation of authority to pass professional judgment on his own responsibility.\u201d\n\nIn Case 64-7, the BER further made the distinction that, \u201cthe facts are that the assistant sanitary engineer on occasion reviews the engineering documents on his own responsibility and without the supervision or verification of the district sanitary engineer. In that case it is obvious that the assistant sanitary engineer takes sole responsibility for the decision to approve the plans or authorize the issuance of a permit. On that basis he alone should sign the engineering documents.\u201d\n\nThe BER also evaluated responsible charge in Case 19-11. In this instance, Engineer A signed and sealed plans provided by the manufacturer with changes to the panel as well as an interface, designed by Engineer A, connecting it to existing speakers and alarm triggers. The Board concluded, \u201cThe facts are as follows: Engineer A did not have \u2018responsible charge\u2019 (direct control or personal supervision) over the work of [alarm manufacturer], an independent contractor; was not involved in the initial design of [alarm manufacturers], manufactured alarm and public address system; and did not have any authority or control over any changes made by [alarm manufacturer], to its drawings.\u201d\n\nThe Board further added, \u201cA far better course of action would be for Engineer A to seal only the interface drawings for the client. Also, if necessary, Engineer A should work with [alarm manufacturer], to have [alarm manufacturer], have another professional engineer sign and seal its work so that the work had been completed in a proper professional manner, consistent with State X laws and regulations.\u201d\n\nUpon reading the facts of the present case, the equipment design is multidisciplinary and arguably complex, and the first impression (or prima facie evidence) implies that some wrongdoing in the form of rubberstamping has occurred. But Engineer M\u2019s concern about rubberstamping reflects only a limited internet search and the firm\u2019s website. It is acknowledged that equipment manufacturers don\u2019t always employ engineers who are licensed in all 50 states, and some firms partner with engineers who have familiarized themselves sufficiently and worked on the equipment to claim responsible charge for the work. Simply because Engineer M was not personally working with this particular engineer (Engineer B) on this specific piece of equipment does not mean that Engineer B is not sufficiently familiar with the particular piece of equipment to be deemed in responsible charge. On the other hand, Engineer M has monitored the progress of the equipment design and she is familiar with who completed the various portions of the work. So, at a minimum, reasonable questions about design responsibility remain unanswered.\n\n1 One current definition of responsible charge, NSPE Position Statement No. 10-1778 (revised September 2019), states that \u201cthe professional engineer in responsible charge is actively engaged in the engineering process, from conception to completion. Engineering decisions must be personally made by the professional engineer or by others over which the PE provides supervisory direction and control authority. Reviewing drawings or documents after preparation without involvement in the design and development process does not satisfy the definition of responsible charge.\u201d\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.2.b.\n\nEngineers shall not affix their signatures to any plans or documents dealing with subject matter in which they lack competence, nor to any plan or document not prepared under their direction and control.\n\nII.2.c.\n\nEngineers may accept assignments and assume responsibility for coordination of an entire project and sign and seal the engineering documents for the entire project, provided that each technical segment is signed and sealed only by the qualified engineers who prepared the segment.\n\nBased on the facts in the case, the BER does not have enough knowledge of Engineer B\u2019s relationship with Firm A to support a conclusion as to Engineer B\u2019s role in accepting responsible charge. Some state engineering boards recognize that engineers may have a role in a project and that they may sign and seal the documents that have been \u201ccritically examined and evaluated.\u201d\n\n\t\tHealth, safety, and welfare considerations for this public entity project are such that Engineer M has reason for concern regarding the apparent acceptance of responsible charge by Engineer B. Engineer M should contact Engineer B and Firm A regarding Engineer B\u2019s role in the project. Depending on the outcome, further steps may be legally and ethically necessary, including making a complaint to the licensing board.\n\nBased on the facts in the case, the BER does not have enough knowledge of Engineer B\u2019s relationship with Firm A to support a conclusion as to Engineer B\u2019s role in accepting responsible charge. Some state engineering boards recognize that engineers may have a role in a project and that they may sign and seal the documents that have been \u201ccritically examined and evaluated.\u201d\n\nHealth, safety, and welfare considerations for this public entity project are such that Engineer M has reason for concern regarding the apparent acceptance of responsible charge by Engineer B. Engineer M should contact Engineer B and Firm A regarding Engineer B\u2019s role in the project. Depending on the outcome, further steps may be legally and ethically necessary, including making a complaint to the licensing board.",
   "source": "https://www.nspe.org/career-resources/ethics/equipment-design-certification-plan-stamping",
   "rdf_triples": {
     "triples": [
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "rdf:type",
         "object": "owl:NamedIndividual"
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "rdf:type",
         "object": "proeth:EthicalDilemma"
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "rdfs:label",
-        "object": "Pre Header Utility Links",
+        "object": "II.2.a.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "rdfs:comment",
-        "object": "Submit\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\t\u00d7",
+        "object": "Engineer M works as a building manager for a public entity and is aware that a new piece of equipment being installed in the facility has a requirement for a design release (a document filed with the state building commissioner\u2019s office). Engineer M has no formal role in approving contracts or accepting equipment for the employing public entity . The design release requirements include provisions for a signature from a licensed professional on the application.\n\nFirm A designs and assembles the equipment, and Engineer M has monitored the progress of the equipment design and is familiar with who completed the various portions of the work. The design includes electrical and mechanical systems and also requires structural analysis; compliance with applicable provisions of the state building code is required for this equipment. As the time for final approval of the project to install the equipment approaches, Engineer M is shown a copy of a design release Firm A obtained from the state for the equipment.\n\nEngineer B is listed as the design professional of record on the state release. A review of the website for Engineer B\u2019s firm shows their specialty is electrical work, and Engineer M was unaware of Engineer B\u2019s involvement with any stage of the project until the design release was prepared.\n\nShould Engineer B have signed (certified) the application for design release for this equipment?\n\n\t\tWhat should Engineer M do?\n\nShould Engineer B have signed (certified) the application for design release for this equipment?\n\nWhat should Engineer M do?\n\nThe issue of an engineer\u2019s role in a project and acceptance of responsible charge is a subject that the NSPE Board of Ethical Review (BER) has visited numerous times over the last five decades. As technology evolves and new engineering fields progress, our Code of Ethics also evolves, as does the definition of responsible charge. 1\n\nThe BER has visited the issue of sealing plans and responsible charge as far back as 1964. In BER Case 64-7, the policy of a state health department office was to use the District Sanitary Engineer\u2019s seal and name on all plans and engineering documents when the assistant sanitary engineer performed the actual engineering review. The policy went so far as to specify, \u201cthat when the district sanitary engineer is absent the assistant sanitary engineer shall review the plans and applications for permits and, after approval, sign the name of the district sanitary engineer, even though the district sanitary engineer has not seen or reviewed the documents.\u201d\n\nThe Board found that it was not unusual for an engineer to sign his name and title to engineering documents that were prepared or reviewed by his subordinates if he is familiar with the work and checked the work involved. Said the Board, \u201cWe see no objection, however, in the interests of clarity and continuity of authority, for the approval to indicate by stamp or printing the name of the district sanitary engineer, provided his name is followed by the name and signature of the assistant sanitary engineer. This will indicate that the approval is under the general authority of the district sanitary engineer and that the assistant sanitary engineer is acting within the scope of a delegation of authority to pass professional judgment on his own responsibility.\u201d\n\nIn Case 64-7, the BER further made the distinction that, \u201cthe facts are that the assistant sanitary engineer on occasion reviews the engineering documents on his own responsibility and without the supervision or verification of the district sanitary engineer. In that case it is obvious that the assistant sanitary engineer takes sole responsibility for the decision to approve the plans or authorize the issuance of a permit. On that basis he alone should sign the engineering documents.\u201d\n\nThe BER also evaluated responsible charge in Case 19-11. In this instance, Engineer A signed and sealed plans provided by the manufacturer with changes to the panel as well as an interface, designed by Engineer A, connecting it to existing speakers and alarm triggers. The Board concluded, \u201cThe facts are as follows: Engineer A did not have \u2018responsible charge\u2019 (direct control or personal supervision) over the work of [alarm manufacturer], an independent contractor; was not involved in the initial design of [alarm manufacturers], manufactured alarm and public address system; and did not have any authority or control over any changes made by [alarm manufacturer], to its drawings.\u201d\n\nThe Board further added, \u201cA far better course of action would be for Engineer A to seal only the interface drawings for the client. Also, if necessary, Engineer A should work with [alarm manufacturer], to have [alarm manufacturer], have another professional engineer sign and seal its work so that the work had been completed in a proper professional manner, consistent with State X laws and regulations.\u201d\n\nUpon reading the facts of the present case, the equipment design is multidisciplinary and arguably complex, and the first impression (or prima facie evidence) implies that some wrongdoing in the form of rubberstamping has occurred. But Engineer M\u2019s concern about rubberstamping reflects only a limited internet search and the firm\u2019s website. It is acknowledged that equipment manufacturers don\u2019t always employ engineers who are licensed in all 50 states, and some firms partner with engineers who have familiarized themselves sufficiently and worked on the equipment to claim responsible charge for the work. Simply because Engineer M was not personally working with this particular engineer (Engineer B) on this specific piece of equipment does not mean that Engineer B is not sufficiently familiar with the particular piece of equipment to be deemed in responsible charge. On the other hand, Engineer M has monitored the progress of the equipment design and she is familiar with who completed the various portions of the work. So, at a minimum, reasonable questions about design responsibility remain unanswered.\n\n1 One current definition of responsible charge, NSPE Position Statement No. 10-1778 (revised September 2019), states that \u201cthe professional engineer in responsible charge is actively engaged in the engineering process, from conception to completion. Engineering decisions must be personally made by the professional engineer or by others over which the PE provides supervisory direction and control authority. Reviewing drawings or documents after preparation without involvement in the design and development process does not satisfy the definition of responsible charge.\u201d\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.2.b.\n\nEngineers shall not affix their signatures to any plans or documents dealing with subject matter in which they lack competence, nor to any plan or document not prepared under their direction and control.\n\nII.2.c.\n\nEngineers may accept assignments and assume responsibility for coordination of an entire project and sign and seal the engineering documents for the entire project, provided that each technical segment is signed and sealed only by the qualified engineers who prepared the segment.\n\nBased on the facts in the case, the BER does not have enough knowledge of Engineer B\u2019s relationship with Firm A to support a conclusion as to Engineer B\u2019s role in accepting responsible charge. Some state engineering boards recognize that engineers may have a role in a project and that they may sign and seal the documents that have been \u201ccritically examined and evaluated.\u201d\n\n\t\tHealth, safety, and welfare considerations for this public entity project are such that Engineer M has reason for concern regarding the apparent acceptance of responsible charge by Engineer B. Engineer M should contact Engineer B and Firm A regarding Engineer B\u2019s role in the project. Depending on the outcome, further steps may be legally and ethically necessary, including making a complaint to the licensing board.\n\nBased on the facts in the case, the BER does not have enough knowledge of Engineer B\u2019s relationship with Firm A to support a conclusion as to Engineer B\u2019s role in accepting responsible charge. Some state engineering boards recognize that engineers may have a role in a project and that they may sign and seal the documents that have been \u201ccritically examined and evaluated.\u201d\n\nHealth, safety, and welfare considerations for this public entity project are such that Engineer M has reason for concern regarding the apparent acceptance of responsible charge by Engineer B. Engineer M should contact Engineer B and Firm A regarding Engineer B\u2019s role in the project. Depending on the outcome, further steps may be legally and ethically necessary, including making a complaint to the licensing board.",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "NSPE:caseNumber",
         "object": "Case 64-7",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "NSPE:caseYear",
-        "object": "2064",
+        "object": "1964",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "NSPE:sourceUrl",
         "object": "https://www.nspe.org/career-resources/ethics/equipment-design-certification-plan-stamping",
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 64_7",
         "predicate": "rdf:type",
-        "object": "proeth:EthicalDilemma"
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:PublicSafetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:PublicSafetyPrincipleInstance_Case 64_7"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 64_7"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:safetyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:safetyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:safetyPrincipleInstance_Case 64_7"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:welfarePrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:welfarePrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:welfarePrincipleInstance_Case 64_7"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "NSPE:healthPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "NSPE:healthPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "eng:involvesPrinciple",
+        "object": "NSPE:healthPrincipleInstance_Case 64_7"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "ENG_ETHICS:CompetencyPrincipleInstance_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyPrinciple"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "eng:involvesPrinciple",
+        "object": "ENG_ETHICS:CompetencyPrincipleInstance_Case 64_7"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_2_c"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_2_b"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:references",
+        "object": "NSPE:Code_II_2_a"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rdf:type",
+        "object": "ENG_ETHICS:CompetencyVsClientWishesDilemma"
+      },
+      {
+        "subject": "Engineer_A_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_A_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_A_Case 64_7",
+        "predicate": "rdfs:label",
+        "object": "Engineer A",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_A_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_A_Case 64_7",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_A_Case 64_7"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:involves",
+        "object": "Engineer_A_Case 64_7"
+      },
+      {
+        "subject": "Engineer_B_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "Engineer_B_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "ar:Character"
+      },
+      {
+        "subject": "Engineer_B_Case 64_7",
+        "predicate": "rdfs:label",
+        "object": "Engineer B",
+        "is_literal": true
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "owl:NamedIndividual"
+      },
+      {
+        "subject": "eng:EngineeringRoleInstance_Engineer_B_Case 64_7",
+        "predicate": "rdf:type",
+        "object": "eng:EngineeringRole"
+      },
+      {
+        "subject": "Engineer_B_Case 64_7",
+        "predicate": "ar:hasRole",
+        "object": "eng:EngineeringRoleInstance_Engineer_B_Case 64_7"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:involves",
+        "object": "Engineer_B_Case 64_7"
       },
       {
         "subject": "Decision_Case 64_7",
@@ -72,15 +249,25 @@
         "is_literal": true
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "rel:hasDecision",
         "object": "Decision_Case 64_7"
       },
       {
-        "subject": "Case:Case_Case 64_7_Pre_Header_Utility_Links",
+        "subject": "Case:Case_Case 64_7_II_2_a",
         "predicate": "NSPE:boardAnalysis",
-        "object": "\u00d7",
+        "object": "onsible charge is actively engaged in the engineering process, from conception to completion. Engineering decisions must be personally made by the professional engineer or by others over which the PE provides supervisory direction and control authority. Reviewing drawings or documents after preparation without involvement in the design and development process does not satisfy the definition of responsible charge.\u201d\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.2.b.\n\nEngineers shall not affix their signatures to any plans or documents dealing with subject matter in which they lack competence, nor to any plan or document not prepared under their direction and control.\n\nII.2.c.\n\nEngineers may accept assignments and assume responsibility for coordination of an entire project and sign and seal the engineering documents for the entire project, provided that each technical segment is signed and seal\n[content truncated]",
         "is_literal": true
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 19_11"
+      },
+      {
+        "subject": "Case:Case_Case 64_7_II_2_a",
+        "predicate": "rel:relatedTo",
+        "object": "Case:Case_Case 64_7"
       }
     ],
     "namespaces": {
@@ -100,14 +287,32 @@
     }
   },
   "metadata": {
-    "related_cases": [],
-    "codes_cited": [],
-    "principles": [],
+    "related_cases": [
+      "Case 19-11",
+      "Case 64-7"
+    ],
+    "codes_cited": [
+      "Code II.2.c",
+      "Code II.2.b",
+      "Code II.2.a"
+    ],
+    "principles": [
+      "public safety",
+      "professional judgment",
+      "safety",
+      "welfare",
+      "health",
+      "competency"
+    ],
     "outcome": "outcome not specified",
     "operationalization_techniques": [
-      "Principle Instantiation"
+      "Principle Instantiation",
+      "Case Instantiation",
+      "Conflicting Principles Resolution"
     ],
-    "board_analysis": "\u00d7",
-    "ethical_questions": []
+    "board_analysis": "onsible charge is actively engaged in the engineering process, from conception to completion. Engineering decisions must be personally made by the professional engineer or by others over which the PE provides supervisory direction and control authority. Reviewing drawings or documents after preparation without involvement in the design and development process does not satisfy the definition of responsible charge.\u201d\n\nII.2.a.\n\nEngineers shall undertake assignments only when qualified by education or experience in the specific technical fields involved.\n\nII.2.b.\n\nEngineers shall not affix their signatures to any plans or documents dealing with subject matter in which they lack competence, nor to any plan or document not prepared under their direction and control.\n\nII.2.c.\n\nEngineers may accept assignments and assume responsibility for coordination of an entire project and sign and seal the engineering documents for the entire project, provided that each technical segment is signed and seal\n[content truncated]",
+    "ethical_questions": [
+      "Was the engineer's conduct regarding engineer m works as a building manager for a public entity and is aware that a new piece of equipment being installed in the facility has a requirement for a design release (a document filed with the state building commissioner\u2019s office) ethical?"
+    ]
   }
 }
