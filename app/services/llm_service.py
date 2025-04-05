@@ -1,8 +1,8 @@
 from typing import Dict, List, Any, Optional, Union
-from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms.base import BaseLLM
 from langchain_community.llms.fake import FakeListLLM
+from langchain.schema.runnable import RunnableSequence
 import os
 import json
 import time
@@ -170,9 +170,9 @@ class LLMService:
             """
         )
         
-        # Setup chains
-        self.chat_chain = LLMChain(llm=self.llm, prompt=self.chat_prompt)
-        self.options_chain = LLMChain(llm=self.llm, prompt=self.options_prompt)
+        # Setup runnable sequences (replacing deprecated LLMChain)
+        self.chat_chain = self.chat_prompt | self.llm
+        self.options_chain = self.options_prompt | self.llm
         
         # Set default responses for testing
         self._default_options = [
@@ -393,12 +393,12 @@ class LLMService:
             # Get conversation context
             context = conversation.get_context_string()
             
-            # Run the chain
-            response = self.chat_chain.run(
-                context=context,
-                message=message,
-                guidelines=guidelines
-            )
+            # Run the chain using the new RunnableSequence API
+            response = self.chat_chain.invoke({
+                "context": context,
+                "message": message,
+                "guidelines": guidelines
+            })
         except Exception as e:
             print(f"Error generating response: {str(e)}")
             # Use a default response in case of error
@@ -420,5 +420,25 @@ class LLMService:
             List of prompt options
         """
         # For now, return default options to avoid LangChain issues
-        # This will be replaced with actual LLM calls in the future
+        # When we switch to using the LLM for options, we'll use this code:
+        # try:
+        #     # Get guidelines for the world
+        #     guidelines = self.get_guidelines_for_world(world_id=world_id)
+        #     
+        #     # Get conversation context
+        #     context = conversation.get_context_string() if conversation else ""
+        #     
+        #     # Run the chain using the new RunnableSequence API
+        #     json_response = self.options_chain.invoke({
+        #         "context": context,
+        #         "guidelines": guidelines
+        #     })
+        #     
+        #     # Parse JSON response
+        #     options = json.loads(json_response)
+        #     return options
+        # except Exception as e:
+        #     print(f"Error generating options: {str(e)}")
+        
+        # In the meantime, return default options
         return self._default_options
