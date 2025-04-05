@@ -402,18 +402,26 @@ class EntityTripleService:
             scenario_id=event.scenario_id
         ))
         
-        # Add event time
+        # Add event time with BFO temporal region data
         if event.event_time:
-            triples.append(self.add_triple(
+            time_triple = self.add_triple(
                 event_uri_str,
-                str(PROETHICA.hasTimestamp),
+                str(PROETHICA.occursAt),
                 event.event_time.isoformat(),
                 is_literal=True,
                 graph=graph,
                 entity_type='event',
                 entity_id=event.id,
                 scenario_id=event.scenario_id
-            ))
+            )
+            
+            # Add BFO temporal region type - default to instant (zero-dimensional temporal region)
+            time_triple.temporal_region_type = "BFO_0000148"  # zero-dimensional temporal region
+            time_triple.temporal_start = event.event_time
+            time_triple.temporal_end = None  # Instant has no end time
+            time_triple.temporal_granularity = "seconds"
+            
+            triples.append(time_triple)
         
         # Add character relationship
         if event.character_id:
@@ -558,18 +566,34 @@ class EntityTripleService:
                 scenario_id=action.scenario_id
             ))
         
-        # Add action time
+        # Add action time with BFO temporal region data
         if action.action_time:
-            triples.append(self.add_triple(
+            time_triple = self.add_triple(
                 action_uri_str,
-                str(PROETHICA.hasTimestamp),
+                str(PROETHICA.occursAt),
                 action.action_time.isoformat(),
                 is_literal=True,
                 graph=graph,
                 entity_type='action',
                 entity_id=action.id,
                 scenario_id=action.scenario_id
-            ))
+            )
+            
+            # Add BFO temporal region type - decisions are typically instants,
+            # regular actions may have duration but default to instant
+            if action.is_decision:
+                # Decisions are typically instantaneous points in time
+                time_triple.temporal_region_type = "BFO_0000148"  # zero-dimensional temporal region
+                time_triple.temporal_start = action.action_time
+                time_triple.temporal_end = None  # Instant has no end time
+            else:
+                # Regular actions default to instants but can be updated later with duration
+                time_triple.temporal_region_type = "BFO_0000148"  # zero-dimensional temporal region
+                time_triple.temporal_start = action.action_time
+                time_triple.temporal_end = None
+            
+            time_triple.temporal_granularity = "seconds"
+            triples.append(time_triple)
         
         # Add character relationship
         if action.character_id:

@@ -31,6 +31,14 @@ class EntityTriple(db.Model):
     created_at = db.Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     
+    # BFO-based temporal fields
+    temporal_region_type = db.Column(String(255), nullable=True)  # BFO_0000038 (1D) or BFO_0000148 (0D)
+    temporal_start = db.Column(DateTime, nullable=True, index=True)  # Start time for intervals, time point for instants
+    temporal_end = db.Column(DateTime, nullable=True, index=True)  # End time for intervals, None for instants
+    temporal_relation_type = db.Column(String(50), nullable=True)  # precedes, follows, etc.
+    temporal_relation_to = db.Column(Integer, db.ForeignKey('entity_triples.id'), nullable=True)  # Related triple
+    temporal_granularity = db.Column(String(50), nullable=True)  # seconds, minutes, days, etc.
+    
     # Polymorphic entity reference
     entity_type = db.Column(String(50), nullable=False)  # 'character', 'action', 'event', 'resource'
     entity_id = db.Column(Integer, nullable=False)
@@ -62,7 +70,14 @@ class EntityTriple(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'scenario_id': self.scenario_id,
-            'character_id': self.character_id
+            'character_id': self.character_id,
+            # Temporal fields
+            'temporal_region_type': self.temporal_region_type,
+            'temporal_start': self.temporal_start.isoformat() if self.temporal_start else None,
+            'temporal_end': self.temporal_end.isoformat() if self.temporal_end else None,
+            'temporal_relation_type': self.temporal_relation_type,
+            'temporal_relation_to': self.temporal_relation_to,
+            'temporal_granularity': self.temporal_granularity
         }
     
     def to_rdf_tuple(self):

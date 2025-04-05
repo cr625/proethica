@@ -13,7 +13,7 @@
     rdfs:label "ProEthica Intermediate Ontology"@en ;
     rdfs:comment "A mid-level ontology bridging BFO to domain-specific ethical frameworks"@en ;
     dc:creator "ProEthica AI"@en ;
-    dc:date "2025-04-03"^^xsd:date .
+    dc:date "2025-04-05"^^xsd:date .
 
 #################################################################
 #    Core Categories
@@ -328,3 +328,125 @@
     rdfs:range :Decision ;
     rdfs:label "requires decision"@en ;
     rdfs:comment "Relates an ethical dilemma to the decision it requires"@en .
+
+#################################################################
+#    Temporal Concepts Based on BFO
+#################################################################
+
+# Timeline as a one-dimensional temporal region
+:Timeline rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "Timeline"@en ;
+    rdfs:comment "A continuous temporal region representing the duration of a scenario"@en .
+
+# Timeline segment
+:TimelineSegment rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:subClassOf [
+        rdf:type owl:Restriction ;
+        owl:onProperty bfo:BFO_0000050 ; # is_part_of
+        owl:someValuesFrom :Timeline
+    ] ;
+    rdfs:label "Timeline Segment"@en ;
+    rdfs:comment "A portion of the timeline containing related events"@en .
+
+# Event time point
+:EventTimePoint rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000148 ; # zero-dimensional temporal region
+    rdfs:label "Event Time Point"@en ;
+    rdfs:comment "A specific point in time when an event occurs"@en .
+
+# Decision temporal context
+:DecisionTemporalContext rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "Decision Temporal Context"@en ;
+    rdfs:comment "The temporal context in which a decision is made"@en .
+
+# Action temporal context
+:ActionTemporalContext rdf:type owl:Class ;
+    rdfs:subClassOf bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "Action Temporal Context"@en ;
+    rdfs:comment "The temporal context in which an action occurs"@en .
+
+# Temporal properties
+:temporallyPrecedes rdf:type owl:ObjectProperty ;
+    rdfs:subPropertyOf bfo:BFO_0000062 ; # preceded_by (inverse)
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range bfo:BFO_0000008 ; # temporal region
+    rdfs:label "temporally precedes"@en ;
+    rdfs:comment "Indicates that one temporal region occurs before another"@en .
+
+:temporallyFollows rdf:type owl:ObjectProperty ;
+    rdfs:subPropertyOf bfo:BFO_0000063 ; # precedes
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range bfo:BFO_0000008 ; # temporal region
+    rdfs:label "temporally follows"@en ;
+    rdfs:comment "Indicates that one temporal region occurs after another"@en .
+
+:temporalDistance rdf:type owl:DatatypeProperty ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range xsd:duration ;
+    rdfs:label "temporal distance"@en ;
+    rdfs:comment "The duration between two temporal regions"@en .
+
+:occursAt rdf:type owl:ObjectProperty ;
+    rdfs:domain bfo:BFO_0000015 ; # process
+    rdfs:range bfo:BFO_0000008 ; # temporal region
+    rdfs:label "occurs at"@en ;
+    rdfs:comment "Relates a process to its temporal region"@en .
+
+:hasDuration rdf:type owl:DatatypeProperty ;
+    rdfs:domain bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:range xsd:duration ;
+    rdfs:label "has duration"@en ;
+    rdfs:comment "The duration of a temporal region"@en .
+
+:hasTemporalGranularity rdf:type owl:DatatypeProperty ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range xsd:string ;
+    rdfs:label "has temporal granularity"@en ;
+    rdfs:comment "The granularity at which a temporal region is measured"@en .
+
+# Decision-specific temporal properties
+:hasDecisionPoint rdf:type owl:ObjectProperty ;
+    rdfs:domain :Decision ;
+    rdfs:range :EventTimePoint ;
+    rdfs:label "has decision point"@en ;
+    rdfs:comment "The specific time point when a decision was made"@en .
+
+:hasTemporalConsequence rdf:type owl:ObjectProperty ;
+    rdfs:domain :Decision ;
+    rdfs:range :Event ;
+    rdfs:label "has temporal consequence"@en ;
+    rdfs:comment "Relates a decision to events that occur as a result"@en .
+
+:temporallyNecessitates rdf:type owl:ObjectProperty ;
+    rdfs:domain :Event ;
+    rdfs:range :Decision ;
+    rdfs:label "temporally necessitates"@en ;
+    rdfs:comment "Indicates that an event creates the need for a decision"@en .
+
+# Additional temporal relationships
+:temporallyCoincidesWith rdf:type owl:ObjectProperty ;
+    rdfs:domain bfo:BFO_0000008 ; # temporal region
+    rdfs:range bfo:BFO_0000008 ; # temporal region
+    rdfs:label "temporally coincides with"@en ;
+    rdfs:comment "Indicates that two temporal regions occur at the same time"@en .
+
+:temporallyOverlaps rdf:type owl:ObjectProperty ;
+    rdfs:domain bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:range bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:label "temporally overlaps"@en ;
+    rdfs:comment "Indicates that two temporal intervals have an overlapping period"@en .
+
+:hasStartPoint rdf:type owl:ObjectProperty ;
+    rdfs:domain bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:range bfo:BFO_0000148 ; # zero-dimensional temporal region
+    rdfs:label "has start point"@en ;
+    rdfs:comment "Relates a temporal interval to its starting point"@en .
+
+:hasEndPoint rdf:type owl:ObjectProperty ;
+    rdfs:domain bfo:BFO_0000038 ; # one-dimensional temporal region
+    rdfs:range bfo:BFO_0000148 ; # zero-dimensional temporal region
+    rdfs:label "has end point"@en ;
+    rdfs:comment "Relates a temporal interval to its ending point"@en .
