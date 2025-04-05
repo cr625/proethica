@@ -65,3 +65,4 @@ mcp/server.log
 run_with_agents_gunicorn.sh
 .secrets
 CLAUDE.md
+.env.backup
