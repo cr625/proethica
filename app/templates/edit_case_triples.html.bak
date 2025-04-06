@@ -216,167 +216,37 @@
                     <h3>Triple Templates</h3>
                 </div>
                 <div class="card-body">
-            <div class="mb-3">
-                <h5>Common Engineering Ethics Patterns</h5>
-                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-                    data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
-                    data-object="ENG_ETHICS:PublicSafety">
-                    Case involves Public Safety
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-                    data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
-                    data-object="ENG_ETHICS:Confidentiality">
-                    Case involves Confidentiality
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-                    data-subject="Case:ThisCase" data-predicate="hasConflict"
-                    data-object="ENG_ETHICS:ConfidentialityVsSafety">
-                    Conflict: Confidentiality vs Safety
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-                    data-subject="Case:ThisCase" data-predicate="references:Code" data-object="NSPE:CodeI.1">
-                    References NSPE Code I.1
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-                    data-subject="NSPE:CodeI.1" data-predicate="overrides" data-object="NSPE:CodeII.1.c">
-                    Code I.1 overrides Code II.1.c
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-                    data-subject="Case:ThisCase" data-predicate="hasDecision" data-object="Decision:Unethical">
-                    Decision: Unethical
-                </button>
-            </div>
-            
-    <div class="mb-3">
-        <h5>Dublin Core</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="dc:creator"
-        data-object="Engineer" data-is-literal="true">
-        Engineer as creator
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="dc:subject"
-        data-object="Engineering Ethics" data-is-literal="true">
-        Subject: Engineering Ethics
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="dc:date"
-        data-object="2025-04-06" data-is-literal="true">
-        Date Published
-    </button>
-    </div>
-    <div class="mb-3">
-        <h5>Basic Formal Ontology</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="bfo:hasParticipant"
-        data-object="ENG_ETHICS:Engineer" data-is-literal="false">
-        Has Participant: Engineer
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="ENG_ETHICS:Decision" data-predicate="bfo:occursIn"
-        data-object="Case:ThisCase" data-is-literal="false">
-        Decision occurs in Case
-    </button>
-    </div>
-    <div class="mb-3">
-        <h5>Time-Based Relations</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="time:hasBeginning"
-        data-object="2025-01-01" data-is-literal="true">
-        Case Start Date
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="ENG_ETHICS:Event1" data-predicate="time:before"
-        data-object="ENG_ETHICS:Event2" data-is-literal="false">
-        Event1 before Event2
-    </button>
-    </div>
-    <div class="mb-3">
-        <h5>Engineering Ethics Context</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="involves:Context"
-        data-object="ENG_ETHICS:Professional" data-is-literal="false">
-        Professional Context
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="involves:Context"
-        data-object="ENG_ETHICS:Academic" data-is-literal="false">
-        Academic Context
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="involves:Context"
-        data-object="ENG_ETHICS:Government" data-is-literal="false">
-        Government Context
-    </button>
-    </div>
-    <div class="mb-3">
-        <h5>Ethics Reasoning</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Decision:Ethical" data-predicate="eth:basedOn"
-        data-object="ENG_ETHICS:UtilitarianPrinciple" data-is-literal="false">
-        Based on Utilitarian Principle
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Decision:Unethical" data-predicate="eth:conflicts"
-        data-object="NSPE:CodeII.1" data-is-literal="false">
-        Conflicts with Code II.1
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="ENG_ETHICS:Action" data-predicate="eth:consequencesInclude"
-        data-object="Public harm" data-is-literal="true">
-        Consequences: Public Harm
-    </button>
-    </div>
-    <div class="mb-3">
-        <h5>NSPE Code References</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="references:Code"
-        data-object="NSPE:CodeI.1" data-is-literal="false">
-        References Code I.1 (Safety)
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="references:Code"
-        data-object="NSPE:CodeII.1.c" data-is-literal="false">
-        References Code II.1.c (Confidentiality)
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="references:Code"
-        data-object="NSPE:CodeII.3.a" data-is-literal="false">
-        References Code II.3.a (Objectivity)
-    </button>
-    </div>
-    <div class="mb-3">
-        <h5>Relationships</h5>
-        
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="Case:ThisCase" data-predicate="belongsTo"
-        data-object="World:1" data-is-literal="false">
-        Belongs to Engineering World
-    </button>
-
-    <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
-        data-subject="ENG_ETHICS:Engineer" data-predicate="hasRole"
-        data-object="ENG_ETHICS:Consultant" data-is-literal="false">
-        Engineer has Consultant Role
-    </button>
-    </div>
-        </div>
+                    <div class="mb-3">
+                        <h5>Common Engineering Ethics Patterns</h5>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
+                            data-object="ENG_ETHICS:PublicSafety">
+                            Case involves Public Safety
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="involves:EthicalPrinciple"
+                            data-object="ENG_ETHICS:Confidentiality">
+                            Case involves Confidentiality
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="hasConflict"
+                            data-object="ENG_ETHICS:ConfidentialityVsSafety">
+                            Conflict: Confidentiality vs Safety
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="references:Code" data-object="NSPE:CodeI.1">
+                            References NSPE Code I.1
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="NSPE:CodeI.1" data-predicate="overrides" data-object="NSPE:CodeII.1.c">
+                            Code I.1 overrides Code II.1.c
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success mb-1 template-btn"
+                            data-subject="Case:ThisCase" data-predicate="hasDecision" data-object="Decision:Unethical">
+                            Decision: Unethical
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -436,7 +306,6 @@
                 const subject = this.getAttribute('data-subject');
                 const predicate = this.getAttribute('data-predicate');
                 const object = this.getAttribute('data-object');
-                const isLiteral = this.getAttribute('data-is-literal') === 'true';
 
                 // Add a new triple row with this data
                 const container = document.getElementById('triplesContainer');
@@ -455,15 +324,14 @@
                         </div>
                         <div class="col-md-2">
                             <select class="form-select" name="is_literals[]">
-                                <option value="true" ${isLiteral ? 'selected' : ''}>Literal</option>
-                                <option value="false" ${!isLiteral ? 'selected' : ''}>URI</option>
+                                <option value="true">Literal</option>
+                                <option value="false" selected>URI</option>
                             </select>
                         </div>
                     </div>
                 `;
                 container.appendChild(newRow);
             });
-        });
         });
 
         // Check document processing status 
