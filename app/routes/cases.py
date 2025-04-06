@@ -7,6 +7,7 @@ from app.models.document import Document
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db
+from app.services.entity_triple_service import EntityTripleService
 
 # Create blueprints
 cases_bp = Blueprint('cases', __name__, url_prefix='/cases')
@@ -205,7 +206,15 @@ def view_case(id):
     # Get the world
     world = World.query.get(document.world_id) if document.world_id else None
     
-    return render_template('case_detail.html', case=case, world=world)
+    # Get entity triples associated with this document
+    entity_triples = []
+    try:
+        triple_service = EntityTripleService()
+        entity_triples = triple_service.find_triples(entity_type='document', entity_id=document.id)
+    except Exception as e:
+        flash(f"Warning: Could not retrieve entity triples: {str(e)}", 'warning')
+    
+    return render_template('case_detail.html', case=case, world=world, entity_triples=entity_triples)
 
 @cases_bp.route('/new', methods=['GET'])
 def new_case():

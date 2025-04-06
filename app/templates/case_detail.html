@@ -127,6 +127,35 @@
     </div>
     {% endif %}
 
+    <!-- Entity Triples Display -->
+    {% if entity_triples %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Entity Triples</h3>
+        </div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Predicate</th>
+                        <th>Object</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for triple in entity_triples %}
+                    <tr>
+                        <td>{{ triple.subject }}</td>
+                        <td>{{ triple.predicate }}</td>
+                        <td>{{ triple.object_literal if triple.is_literal else triple.object_uri }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-header">
             <h3>Related Cases</h3>

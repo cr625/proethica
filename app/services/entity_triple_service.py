@@ -785,6 +785,19 @@ class EntityTripleService:
         
         return results
     
+    def delete_triples_for_entity(self, entity_type, entity_id):
+        """
+        Delete all triples for a specific entity.
+        
+        Args:
+            entity_type: The type of entity ('character', 'event', 'action', 'resource', 'document')
+            entity_id: The ID of the entity
+            
+        Returns:
+            Number of triples deleted
+        """
+        return self.delete_triples(entity_type=entity_type, entity_id=entity_id)
+    
     def find_similar_subjects(self, embedding, entity_type=None, limit=10):
         """
         Find subjects with similar embeddings.
