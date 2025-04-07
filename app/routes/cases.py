@@ -206,15 +206,43 @@ def view_case(id):
     # Get the world
     world = World.query.get(document.world_id) if document.world_id else None
     
-    # Get entity triples associated with this document
+    # Get entity triples and related cases
     entity_triples = []
+    knowledge_graph_connections = {}
     try:
         triple_service = EntityTripleService()
         entity_triples = triple_service.find_triples(entity_type='document', entity_id=document.id)
+        
+        # Find related cases by triples
+        related_cases_data = triple_service.find_related_cases_by_triples(document.id)
+        
+        # If we have related cases, get their titles and sort by number of shared triples
+        if related_cases_data:
+            # For each predicate and related case
+            for predicate, data in related_cases_data.items():
+                for case_info in data['related_cases']:
+                    case_id = case_info['entity_id']
+                    # Get the document
+                    related_doc = Document.query.get(case_id)
+                    if related_doc:
+                        # Add the title to the case info
+                        case_info['title'] = related_doc.title
+                
+                # Sort related cases by number of shared triples in descending order
+                data['related_cases'] = sorted(
+                    data['related_cases'], 
+                    key=lambda x: len(x['shared_triples']), 
+                    reverse=True
+                )
+            
+            # Save the data
+            knowledge_graph_connections = related_cases_data
     except Exception as e:
-        flash(f"Warning: Could not retrieve entity triples: {str(e)}", 'warning')
+        flash(f"Warning: Could not retrieve entity triples or related cases: {str(e)}", 'warning')
     
-    return render_template('case_detail.html', case=case, world=world, entity_triples=entity_triples)
+    return render_template('case_detail.html', case=case, world=world, 
+                          entity_triples=entity_triples, 
+                          knowledge_graph_connections=knowledge_graph_connections)
 
 @cases_bp.route('/new', methods=['GET'])
 def new_case():

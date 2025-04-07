@@ -798,6 +798,76 @@ class EntityTripleService:
         """
         return self.delete_triples(entity_type=entity_type, entity_id=entity_id)
     
+    def find_related_cases_by_triples(self, document_id):
+        """
+        Find cases that share similar triples with the given document.
+        
+        Args:
+            document_id: The ID of the document to find related cases for
+            
+        Returns:
+            Dictionary mapping predicates to lists of related cases and their shared triples
+        """
+        # Get all triples for the source document
+        source_triples = self.find_triples(entity_type='document', entity_id=document_id)
+        
+        # If no triples found, return empty result
+        if not source_triples:
+            return {}
+        
+        # Group source triples by predicate
+        predicates_to_triples = {}
+        for triple in source_triples:
+            if triple.predicate not in predicates_to_triples:
+                predicates_to_triples[triple.predicate] = []
+            predicates_to_triples[triple.predicate].append(triple)
+        
+        # Initialize result structure
+        result = {}
+        
+        # For each predicate, find related cases
+        for predicate, triples in predicates_to_triples.items():
+            related_cases = {}
+            
+            for triple in triples:
+                # Find documents that have triples with the same predicate and object
+                object_value = triple.object_literal if triple.is_literal else triple.object_uri
+                
+                # Find matching triples in other documents
+                matching_triples = self.find_triples(
+                    predicate=predicate,
+                    obj=object_value,
+                    is_literal=triple.is_literal,
+                    entity_type='document'
+                )
+                
+                # Group by document ID
+                for mt in matching_triples:
+                    # Skip if it's the same document
+                    if mt.entity_id == document_id:
+                        continue
+                    
+                    # Add to related cases
+                    if mt.entity_id not in related_cases:
+                        related_cases[mt.entity_id] = {
+                            'entity_id': mt.entity_id,
+                            'shared_triples': []
+                        }
+                    
+                    related_cases[mt.entity_id]['shared_triples'].append({
+                        'source_triple': triple.to_dict(),
+                        'related_triple': mt.to_dict()
+                    })
+            
+            # If there are related cases for this predicate, add to result
+            if related_cases:
+                result[predicate] = {
+                    'source_triples': [t.to_dict() for t in triples],
+                    'related_cases': list(related_cases.values())
+                }
+        
+        return result
+    
     def find_similar_subjects(self, embedding, entity_type=None, limit=10):
         """
         Find subjects with similar embeddings.
