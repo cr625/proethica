@@ -77,20 +77,42 @@
         </div>
     </div>
 
-    <!-- Triple Text Labels -->
+    <!-- Triple Text Labels (Clickable) -->
     {% if entity_triples %}
     <div class="card mb-4">
-        <div class="card-header bg-secondary text-white">
+        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
             <h3>Triple Text Labels</h3>
+            <button id="clearSelection" class="btn btn-sm btn-light" style="display: none;">
+                Clear Selection
+            </button>
         </div>
         <div class="card-body">
             <div class="triple-labels">
                 {% for triple in entity_triples %}
-                <span class="badge bg-info text-dark me-2 mb-2">
+                <span class="badge bg-info text-dark me-2 mb-2 triple-label" 
+                      data-predicate="{{ triple.predicate }}"
+                      data-object="{{ triple.object_literal if triple.is_literal else triple.object_uri }}"
+                      data-is-literal="{{ 'true' if triple.is_literal else 'false' }}"
+                      style="cursor: pointer;">
                     {{ triple.predicate.split('/')[-1] }}: 
                     {{ triple.object_literal if triple.is_literal else triple.object_uri.split('/')[-1] }}
                 </span>
                 {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Cases (Dynamic) -->
+    <div id="relatedCasesContainer" class="card mb-4" style="display: none;">
+        <div class="card-header bg-primary text-white">
+            <h3>Related Cases</h3>
+        </div>
+        <div class="card-body">
+            <div id="relatedCasesContent">
+                <p class="text-muted">Select one or more triple labels above to see related cases.</p>
+            </div>
+            <div id="relatedCasesList" class="list-group mt-3">
+                <!-- Cases will be loaded here dynamically -->
             </div>
         </div>
     </div>
@@ -146,136 +168,7 @@
     </div>
     {% endif %}
 
-    <!-- Knowledge Graph Connections -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h3>Knowledge Graph Connections</h3>
-        </div>
-        <div class="card-body">
-            {% if knowledge_graph_connections %}
-                {% for predicate, data in knowledge_graph_connections.items() %}
-                    <div class="mb-4">
-                        <h4 class="border-bottom pb-2">Relationship: {{ predicate.split('/')[-1] }}</h4>
-                        
-                        <!-- Current Case Triples -->
-                        <div class="mb-3">
-                            <h5>This Case's Triples</h5>
-                            <table class="table table-sm table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Subject</th>
-                                        <th>Predicate</th>
-                                        <th>Object</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for triple in data.source_triples %}
-                                    <tr>
-                                        <td><small>{{ triple.subject.split('/')[-1] }}</small></td>
-                                        <td><small>{{ triple.predicate.split('/')[-1] }}</small></td>
-                                        <td><small>{{ (triple.object if triple.is_literal else triple.object.split('/')[-1]) }}</small></td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <!-- Related Cases -->
-                        <div>
-                            <h5>Related Cases</h5>
-                            <div class="list-group">
-                                {% for case_info in data.related_cases %}
-                                <div class="list-group-item">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-1">
-                                            <a href="{{ url_for('cases.view_case', id=case_info.entity_id) }}">{{ case_info.title }}</a>
-                                        </h6>
-                                        <span class="badge bg-primary rounded-pill">{{ case_info.shared_triples|length }} shared {{ 'triple' if case_info.shared_triples|length == 1 else 'triples' }}</span>
-                                    </div>
-                                    <div class="mt-2">
-                                        <small class="text-muted">This case shares the following {{ 'triple' if case_info.shared_triples|length == 1 else 'triples' }} with the current case:</small>
-                                        <table class="table table-sm mt-2 table-borderless">
-                                            {% for shared in case_info.shared_triples %}
-                                            <tr>
-                                                <td>
-                                                    <small>
-                                                        <i class="bi bi-diagram-3 text-primary me-1"></i>
-                                                        <span class="badge bg-light text-dark border">
-                                                            {% if 'subject_uri' in shared.related_triple %}
-                                                                {{ shared.related_triple.subject_uri.split('/')[-1] }}
-                                                            {% elif 'subject' in shared.related_triple %}
-                                                                {{ shared.related_triple.subject.split('/')[-1] if '/' in shared.related_triple.subject else shared.related_triple.subject }}
-                                                            {% else %}
-                                                                {{ shared.related_triple.entity_id }}
-                                                            {% endif %}
-                                                        </span>
-                                                        <i class="bi bi-arrow-right text-muted mx-1"></i>
-                                                        <span class="badge bg-info text-dark">
-                                                            {{ predicate.split('/')[-1] }}
-                                                        </span>
-                                                        <i class="bi bi-arrow-right text-muted mx-1"></i>
-                                                        {% if 'is_literal' in shared.related_triple %}
-                                                            {% set object_value = shared.related_triple.object_literal if shared.related_triple.is_literal else shared.related_triple.object_uri %}
-                                                        {% elif 'object_literal' in shared.related_triple %}
-                                                            {% set object_value = shared.related_triple.object_literal %}
-                                                        {% elif 'object_uri' in shared.related_triple %}
-                                                            {% set object_value = shared.related_triple.object_uri %}
-                                                        {% elif 'object' in shared.related_triple %}
-                                                            {% set object_value = shared.related_triple.object %}
-                                                        {% else %}
-                                                            {% set object_value = "Unknown" %}
-                                                        {% endif %}
-                                                        
-                                                        {% if '/' in object_value|string and (('is_literal' in shared.related_triple and not shared.related_triple.is_literal) or 'object_uri' in shared.related_triple) %}
-                                                            {% set split_object = object_value.split('/') %}
-                                                            {% set object_name = split_object[-1] %}
-                                                            {% set object_type = split_object[-2] if split_object|length > 2 else 'Entity' %}
-                                                            <span class="badge bg-light text-primary border border-primary">
-                                                                {{ object_type }}:{{ object_name }}
-                                                            </span>
-                                                        {% else %}
-                                                            <span class="badge bg-light text-dark border">
-                                                                {{ object_value }}
-                                                            </span>
-                                                        {% endif %}
-                                                    </small>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </table>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% elif entity_triples %}
-                <h4>Triple Information</h4>
-                <p>This case has {{ entity_triples|length }} triples, but no connections to other cases were found.</p>
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Predicate</th>
-                            <th>Object</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for triple in entity_triples %}
-                        <tr>
-                            <td>{{ triple.predicate.split('/')[-1] }}</td>
-                            <td>{{ triple.object_literal if triple.is_literal else triple.object_uri.split('/')[-1] }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-muted">
-                    No knowledge graph data is available for this case. Add triples to connect this case to other cases in the knowledge graph.
-                </p>
-            {% endif %}
-        </div>
-    </div>
+    <!-- Knowledge Graph Connections section has been replaced by interactive Triple Labels -->
 
 </div>
 
@@ -300,4 +193,139 @@
         </div>
     </div>
 </div>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Store the selected triples
+    const selectedTriples = new Set();
+    const documentId = {{ case.id }};
+    const tripleLabels = document.querySelectorAll('.triple-label');
+    const relatedCasesContainer = document.getElementById('relatedCasesContainer');
+    const relatedCasesContent = document.getElementById('relatedCasesContent');
+    const relatedCasesList = document.getElementById('relatedCasesList');
+    const clearSelectionBtn = document.getElementById('clearSelection');
+    
+    // Add click event to all triple labels
+    tripleLabels.forEach(label => {
+        label.addEventListener('click', function() {
+            // Toggle selection
+            const selected = this.classList.toggle('selected');
+            const tripleKey = getTripleKey(this);
+            
+            if (selected) {
+                selectedTriples.add(tripleKey);
+                this.classList.replace('bg-info', 'bg-primary');
+                this.classList.replace('text-dark', 'text-white');
+            } else {
+                selectedTriples.delete(tripleKey);
+                this.classList.replace('bg-primary', 'bg-info');
+                this.classList.replace('text-white', 'text-dark');
+            }
+            
+            // Update UI
+            if (selectedTriples.size > 0) {
+                clearSelectionBtn.style.display = 'block';
+                relatedCasesContainer.style.display = 'block';
+                fetchRelatedCases();
+            } else {
+                clearSelectionBtn.style.display = 'none';
+                relatedCasesContainer.style.display = 'none';
+            }
+        });
+    });
+    
+    // Clear selection button
+    clearSelectionBtn.addEventListener('click', function() {
+        selectedTriples.clear();
+        tripleLabels.forEach(label => {
+            label.classList.remove('selected');
+            label.classList.replace('bg-primary', 'bg-info');
+            label.classList.replace('text-white', 'text-dark');
+        });
+        clearSelectionBtn.style.display = 'none';
+        relatedCasesContainer.style.display = 'none';
+    });
+    
+    // Helper to get a unique key for a triple
+    function getTripleKey(label) {
+        return JSON.stringify({
+            predicate: label.getAttribute('data-predicate'),
+            object: label.getAttribute('data-object'),
+            is_literal: label.getAttribute('data-is-literal') === 'true'
+        });
+    }
+    
+    // Fetch related cases based on selected triples
+    function fetchRelatedCases() {
+        // Show loading state
+        relatedCasesContent.innerHTML = '<p class="text-muted">Loading related cases...</p>';
+        relatedCasesList.innerHTML = '';
+        
+        // Convert selected triples to array of objects
+        const triples = Array.from(selectedTriples).map(key => JSON.parse(key));
+        
+        // Make API request
+        fetch('/cases/api/related-cases', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                document_id: documentId,
+                selected_triples: triples
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                relatedCasesContent.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                return;
+            }
+            
+            // Update the related cases content
+            const cases = data.related_cases || [];
+            if (cases.length === 0) {
+                relatedCasesContent.innerHTML = '<p class="text-muted">No related cases found for the selected triple(s).</p>';
+            } else {
+                relatedCasesContent.innerHTML = 
+                    `<p>Found ${cases.length} case(s) that match all selected triple labels:</p>`;
+                
+                // Build the list of cases
+                let caseListHTML = '';
+                cases.forEach(caseData => {
+                    let caseNumber = '';
+                    if (caseData.case_number) {
+                        caseNumber = `<span class="badge bg-primary me-2">Case #${caseData.case_number}</span>`;
+                    }
+                    
+                    let yearBadge = '';
+                    if (caseData.year) {
+                        yearBadge = `<span class="badge bg-secondary">${caseData.year}</span>`;
+                    }
+                    
+                    caseListHTML += `
+                        <a href="/cases/${caseData.id}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-1">${caseData.title}</h6>
+                                <div>
+                                    ${caseNumber}
+                                    ${yearBadge}
+                                </div>
+                            </div>
+                            <p class="mb-1 small text-muted">${caseData.description || ''}</p>
+                        </a>
+                    `;
+                });
+                
+                relatedCasesList.innerHTML = caseListHTML;
+            }
+        })
+        .catch(error => {
+            relatedCasesContent.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+        });
+    }
+});
+</script>
+{% endblock %}
 {% endblock %}

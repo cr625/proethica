@@ -406,3 +406,27 @@ def create_case():
         flash(f'Case created but error processing embeddings: {str(e)}', 'warning')
     
     return redirect(url_for('cases.view_case', id=document.id))
+
+@cases_bp.route('/api/related-cases', methods=['POST'])
+def get_related_cases():
+    """Get cases related to specified triples."""
+    data = request.json
+    document_id = data.get('document_id')
+    selected_triples = data.get('selected_triples', [])
+    
+    if not document_id:
+        return jsonify({'error': 'Document ID is required'}), 400
+    
+    try:
+        triple_service = EntityTripleService()
+        
+        # If no triples selected, return empty result
+        if not selected_triples:
+            return jsonify({'related_cases': []})
+        
+        # Find cases that match ALL selected triples (intersection)
+        matching_cases = triple_service.find_cases_matching_all_triples(document_id, selected_triples)
+        
+        return jsonify({'related_cases': matching_cases})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

@@ -913,3 +913,64 @@ class EntityTripleService:
         
         # Format results
         return [(row.subject, row.entity_type, row.entity_id, 1.0 - row.distance) for row in result]
+        
+    def find_cases_matching_all_triples(self, source_document_id, triple_selectors):
+        """
+        Find cases that match ALL of the given triple selectors.
+        
+        Args:
+            source_document_id: The ID of the document to exclude from results
+            triple_selectors: List of {predicate, object, is_literal} dictionaries
+            
+        Returns:
+            List of matching case information
+        """
+        if not triple_selectors:
+            return []
+        
+        # For each selector, find matching cases
+        matching_case_sets = []
+        
+        for selector in triple_selectors:
+            # Find documents with matching triple
+            matching_triples = self.find_triples(
+                predicate=selector['predicate'],
+                obj=selector['object'],
+                is_literal=selector.get('is_literal', True),
+                entity_type='document'
+            )
+            
+            # Extract unique document IDs (excluding source document)
+            matching_cases = set(
+                t.entity_id for t in matching_triples 
+                if t.entity_id != int(source_document_id)
+            )
+            
+            matching_case_sets.append(matching_cases)
+        
+        # Find intersection of all matching case sets (cases that match ALL selectors)
+        if matching_case_sets:
+            intersection = set.intersection(*matching_case_sets)
+        else:
+            intersection = set()
+        
+        # Get case details for the matching cases
+        result = []
+        for case_id in intersection:
+            from app.models.document import Document
+            doc = Document.query.get(case_id)
+            if doc:
+                # Extract metadata
+                metadata = {}
+                if doc.doc_metadata and isinstance(doc.doc_metadata, dict):
+                    metadata = doc.doc_metadata
+                
+                result.append({
+                    'id': doc.id,
+                    'title': doc.title,
+                    'description': doc.content[:150] + '...' if doc.content and len(doc.content) > 150 else (doc.content or ''),
+                    'case_number': metadata.get('case_number', ''),
+                    'year': metadata.get('year', '')
+                })
+        
+        return result
