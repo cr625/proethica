@@ -1,0 +1,104 @@
+{
+  "nspe": {
+    "case_number": {
+      "pattern": "(?:BER\\s+)?Case\\s+(\\d+-\\d+(?:-\\d+)?)",
+      "field": "case_number",
+      "priority": 10
+    },
+    "date": {
+      "pattern": "(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d+,\\s+\\d{4}",
+      "field": "date",
+      "priority": 5
+    },
+    "year": {
+      "pattern": "\\b(20\\d{2})\\b",
+      "field": "year",
+      "priority": 3
+    },
+    "title": {
+      "pattern": "<h1[^>]*>([^<]+)</h1>",
+      "field": "title",
+      "priority": 8
+    },
+    "ethical_principles": [
+      {
+        "pattern": "\\b(public safety|safety|public health|health|welfare)\\b",
+        "value": "Public Safety and Welfare",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(conflict of interest|conflicts of interest)\\b",
+        "value": "Conflict of Interest",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(confidentiality)\\b",
+        "value": "Confidentiality",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(competency|competence)\\b",
+        "value": "Professional Competence",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(honesty|integrity)\\b",
+        "value": "Honesty and Integrity",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(professional responsibility)\\b",
+        "value": "Professional Responsibility",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(objectivity)\\b",
+        "value": "Objectivity",
+        "field": "principles",
+        "priority": 7
+      },
+      {
+        "pattern": "\\b(disclosure)\\b",
+        "value": "Disclosure",
+        "field": "principles",
+        "priority": 7
+      }
+    ],
+    "codes_cited": {
+      "pattern": "Code\\s+([IVX]+)\\.([0-9]+)(?:\\.([a-z]))?",
+      "field": "codes_cited",
+      "priority": 6
+    },
+    "ethical_questions": {
+      "pattern": "(?:QUESTION|QUESTIONS)(?:\\s*:\\s*|\\s*\\?\\s*)([^\\n]+)",
+      "field": "ethical_questions",
+      "priority": 9
+    },
+    "outcome": [
+      {
+        "pattern": "\\b(not ethical|unethical)\\b",
+        "value": "unethical",
+        "field": "outcome",
+        "priority": 4
+      },
+      {
+        "pattern": "\\b(ethical)\\b",
+        "value": "ethical",
+        "field": "outcome",
+        "priority": 4
+      },
+      {
+        "pattern": "\\b(mixed finding|partially ethical)\\b",
+        "value": "mixed finding",
+        "field": "outcome",
+        "priority": 4
+      }
+    ]
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "https://www.nspe.org/career-resources/ethics/responsible-charge-sealing-drawings": {
+    "result": {
+      "url": "https://www.nspe.org/career-resources/ethics/responsible-charge-sealing-drawings",
+      "title": "Responsible Charge and Sealing Drawings",
+      "content": "\nResponsible Charge and Sealing Drawings\n\nThis article addresses the ethical responsibilities of professional engineers regarding responsible charge and the sealing of engineering drawings.\nKey topics discussed include:\nDefinition of \"responsible charge\" in engineering practice\nEthical obligations when sealing or signing engineering documents\nRequirements for proper supervision of engineering work\nProfessional responsibility for the accuracy and compliance of sealed documents\nGuidelines for determining when an engineer can ethically seal documents\nDefinition of \"responsible charge\" in engineering practice\nEthical obligations when sealing or signing engineering documents\nRequirements for proper supervision of engineering work\nProfessional responsibility for the accuracy and compliance of sealed documents\nGuidelines for determining when an engineer can ethically seal documents\nThe NSPE Code of Ethics requires that engineers shall:\nPerform services only in areas of their competence\nIssue public statements only in an objective and truthful manner\nAvoid deceptive acts in the solicitation of professional employment\nAct for each employer or client as faithful agents or trustees\nPerform services only in areas of their competence\nIssue public statements only in an objective and truthful manner\nAvoid deceptive acts in the solicitation of professional employment\nAct for each employer or client as faithful agents or trustees\nEngineers in responsible charge must maintain direct control and personal supervision over engineering work that bears their seal.",
+      "metadata": {
+        "title": "Responsible Charge and Sealing Drawings",
+        "ethical_questions": [
+          "What are the ethical responsibilities of professional engineers regarding responsible charge and sealing of engineering drawings?",
+          "What constitutes responsible charge in engineering practice?",
+          "When is it ethically appropriate for an engineer to seal documents?"
+        ],
+        "ethical_principles": [
+          "Performing services only in areas of competence",
+          "Issuing public statements in an objective and truthful manner",
+          "Avoiding deceptive acts in solicitation of professional employment",
+          "Acting as faithful agents or trustees for employers or clients"
+        ],
+        "involved_parties": [
+          "Professional engineers",
+          "Employers",
+          "Clients"
+        ],
+        "summary": "This article discusses the ethical responsibilities of professional engineers in relation to responsible charge and sealing of engineering drawings. It covers the definition of responsible charge, ethical obligations when sealing documents, requirements for proper supervision, professional responsibility for accuracy and compliance, and guidelines for determining when an engineer can ethically seal documents.",
+        "engineering_disciplines": [],
+        "year": null,
+        "potential_triples": [
+          {
+            "subject": "Professional engineer",
+            "predicate": "has ethical responsibility",
+            "object": "Responsible charge and sealing of engineering drawings"
+          },
+          {
+            "subject": "Professional engineer",
+            "predicate": "must maintain",
+            "object": "Direct control and personal supervision over sealed engineering work"
+          },
+          {
+            "subject": "NSPE Code of Ethics",
+            "predicate": "requires engineers to",
+            "object": "Perform services only in areas of their competence"
+          },
+          {
+            "subject": "NSPE Code of Ethics",
+            "predicate": "requires engineers to",
+            "object": "Issue public statements only in an objective and truthful manner"
+          },
+          {
+            "subject": "NSPE Code of Ethics",
+            "predicate": "requires engineers to",
+            "object": "Act as faithful agents or trustees for each employer or client"
+          }
+        ],
+        "url": "https://www.nspe.org/career-resources/ethics/responsible-charge-sealing-drawings",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/career-resources/ethics/responsible-charge-sealing-drawings",
+        "title": "Responsible Charge and Sealing Drawings",
+        "principles": [
+          "Professional Competence",
+          "Professional Responsibility"
+        ],
+        "outcome": [
+          "ethical"
+        ],
+        "related_cases": [],
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "dc:title",
+          "object": "Responsible Charge and Sealing Drawings",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "dc:description",
+          "object": "This article discusses the ethical responsibilities of professional engineers in relation to responsible charge and sealing of engineering drawings. It covers the definition of responsible charge, ethical obligations when sealing documents, requirements for proper supervision, professional responsibility for accuracy and compliance, and guidelines for determining when an engineer can ethically seal documents.",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/career-resources/ethics/responsible-charge-sealing-drawings",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:raisesQuestion",
+          "object": "What are the ethical responsibilities of professional engineers regarding responsible charge and sealing of engineering drawings?",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:raisesQuestion",
+          "object": "What constitutes responsible charge in engineering practice?",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:raisesQuestion",
+          "object": "When is it ethically appropriate for an engineer to seal documents?",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesEthicalPrinciple",
+          "object": "http://proethica.org/onto/ethics/ProfessionalCompetence",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesEthicalPrinciple",
+          "object": "http://proethica.org/onto/ethics/Issuing_public_statements_in_an_objective_and_truthful_manner",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesEthicalPrinciple",
+          "object": "http://proethica.org/onto/ethics/Avoiding_deceptive_acts_in_solicitation_of_professional_employment",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesEthicalPrinciple",
+          "object": "http://proethica.org/onto/ethics/Acting_as_faithful_agents_or_trustees_for_employers_or_clients",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesRole",
+          "object": "http://proethica.org/onto/eng/Professional_engineersRole",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesRole",
+          "object": "http://proethica.org/onto/eng/EmployersRole",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/Responsible_Charge_and_Sealing_Drawings",
+          "predicate": "proethica:involvesRole",
+          "object": "http://proethica.org/onto/eng/ClientsRole",
+          "is_literal": false
+        }
+      ],
+      "processing_time": 1744041772.3923442,
+      "processing_method": "automatic",
+      "world_id": 1,
+      "cached": false
+    },
+    "timestamp": 1744041772.3924222,
+    "last_accessed": 1744041772.3924222,
+    "user_id": 1
+  }
+}

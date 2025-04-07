@@ -6,11 +6,13 @@ import os
 import re
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from app.models.document import Document
+from flask_login import login_required, current_user
+from app.models.document import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db
 from app.services.entity_triple_service import EntityTripleService
+from app.services.case_url_processor import CaseUrlProcessor
 
 # Create blueprints
 cases_bp = Blueprint('cases', __name__, url_prefix='/cases')
@@ -261,6 +263,7 @@ def manual_create_form():
     return render_template('create_case_manual.html', worlds=worlds)
 
 @cases_bp.route('/new/url', methods=['GET'])
+@login_required
 def url_form():
     """Display form to create a case from URL."""
     # Get all worlds for the dropdown
@@ -416,12 +419,13 @@ def create_case_manual():
                 
                 # Convert RDF triples to entity triples
                 for triple in metadata.get('rdf_triples', []):
-                    triple_service.create_triple(
-                        entity_type='document',
-                        entity_id=document.id,
+                    triple_service.add_triple(
+                        subject=f"http://proethica.org/entity/document_{document.id}",
                         predicate=triple['predicate'],
-                        object_value=triple['object'],
-                        object_type='uri'
+                        obj=triple['object'],
+                        is_literal=False,  # RDF triples are URIs by default
+                        entity_type='entity',  # Using 'entity' type as it's one of the valid types
+                        entity_id=document.id
                     )
                 
                 flash('RDF triples processed successfully', 'success')
@@ -435,11 +439,13 @@ def create_case_manual():
     return redirect(url_for('cases.view_case', id=document.id))
     
 @cases_bp.route('/new/url', methods=['POST'])
+@login_required
 def create_from_url():
     """Create a new case from URL."""
     # Get form data
     url = request.form.get('url')
     world_id = request.form.get('world_id', type=int)
+    user_id = current_user.id if current_user.is_authenticated else None
     
     # Validate required fields
     if not url:
@@ -457,41 +463,64 @@ def create_from_url():
         return redirect(url_for('cases.url_form'))
     
     try:
-        # Use embedding service to process URL
-        embedding_service = EmbeddingService()
+        # Use new case_url_processor instead of embedding_service
+        processor = CaseUrlProcessor()
         
-        # Generate a title from the URL
-        from urllib.parse import urlparse
-        import re
+        # Process the URL
+        result = processor.process_url(url, world_id, user_id)
         
-        # Try to extract a domain name and path to create a title
-        parsed_url = urlparse(url)
-        domain = parsed_url.netloc
-        path = parsed_url.path
+        # Check for errors in the result
+        if 'status' in result and result['status'] == 'error':
+            flash(result['message'], 'danger')
+            return redirect(url_for('cases.url_form'))
         
-        # Clean up the path
-        path = re.sub(r'[_\-\/\.]', ' ', path).strip()
-        
-        # Generate a default title
-        title = f"Case from {domain}"
-        if path:
-            # Add path info if it exists and is meaningful
-            path_words = [word for word in path.split() if len(word) > 1]
-            if path_words:
-                path_title = " ".join(path_words[:5])  # Limit to first 5 path segments
-                title = f"{path_title} - {domain}"
-        
-        document_id = embedding_service.process_url(
-            url=url,
-            title=title,
+        # Create document record
+        document = Document(
+            title=result.get('title', 'Case from URL'),
+            content=result.get('content', ''),
             document_type='case_study',
-            world_id=world_id
+            world_id=world_id,
+            source=url,
+            file_type='url',
+            doc_metadata=result.get('metadata', {})
         )
         
+        # Store user_id in metadata instead since Document doesn't have creator_id field
+        if user_id and document.doc_metadata:
+            document.doc_metadata['created_by_user_id'] = user_id
+        
+        # If we have embedding data, set the processing status to completed
+        if result.get('content'):
+            document.processing_status = PROCESSING_STATUS['COMPLETED']
+            document.processing_progress = 100
+        
+        db.session.add(document)
+        db.session.commit()
+        
+        # Add any extracted triples
+        if 'triples' in result and result['triples']:
+            triple_service = EntityTripleService()
+            
+            for triple in result['triples']:
+                try:
+                    # Create entity triple record using the add_triple method with valid entity_type
+                    triple_service.add_triple(
+                        subject=f"http://proethica.org/entity/document_{document.id}",
+                        predicate=triple['predicate'],
+                        obj=triple['object'],
+                        is_literal=triple.get('is_literal', True),
+                        entity_type='entity',  # Using 'entity' type as it's one of the valid types
+                        entity_id=document.id
+                    )
+                except Exception as e:
+                    flash(f'Warning: Error creating triple: {str(e)}', 'warning')
+        
         flash('URL processed and case created successfully', 'success')
-        return redirect(url_for('cases.edit_case_form', id=document_id))
+        return redirect(url_for('cases.edit_case_form', id=document.id))
         
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         flash(f'Error processing URL: {str(e)}', 'danger')
         return redirect(url_for('cases.url_form'))
 
