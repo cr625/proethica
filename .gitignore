@@ -64,5 +64,4 @@ mcp/server.log
 .secretsserver_config/
 run_with_agents_gunicorn.sh
 .secrets
-CLAUDE.md
 .env.backup
