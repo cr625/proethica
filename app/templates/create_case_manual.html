@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Case - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create Case</h1>
+        <div>
+            <a href="{{ url_for('cases.case_options') }}" class="btn btn-secondary me-2">Back to Options</a>
+            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary">All Cases</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">Enter Case Information</h3>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('cases.create_case_manual') }}">
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+
+                <!-- Pre-select Engineering world (ID=1) -->
+                <div class="mb-3">
+                    <label for="world_id" class="form-label">World</label>
+                    <select class="form-select" id="world_id" name="world_id" required>
+                        {% for world in worlds %}
+                        <option value="{{ world.id }}" {% if world.id==1 %}selected{% endif %}>{{ world.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Engineering Ethics world is pre-selected.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="10" required></textarea>
+                    <div class="form-text">Provide a detailed description of the engineering ethics case scenario.</div>
+                </div>
+
+                <div class="card mb-4 bg-light">
+                    <div class="card-header">
+                        <h4>Optional Fields</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="decision" class="form-label">Decision</label>
+                            <textarea class="form-control" id="decision" name="decision" rows="3"></textarea>
+                            <div class="form-text">What action was taken in this case? (Optional)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="outcome" class="form-label">Outcome</label>
+                            <textarea class="form-control" id="outcome" name="outcome" rows="3"></textarea>
+                            <div class="form-text">What was the result of the decision? (Optional)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="ethical_analysis" class="form-label">Ethical Analysis</label>
+                            <textarea class="form-control" id="ethical_analysis" name="ethical_analysis"
+                                rows="3"></textarea>
+                            <div class="form-text">Provide an ethical analysis of the case. (Optional)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="source" class="form-label">Source</label>
+                            <input type="url" class="form-control" id="source" name="source">
+                            <div class="form-text">URL or reference to the original source. (Optional)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RDF Triples Metadata Field -->
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h4>RDF Triple Metadata</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="rdf_metadata" class="form-label">RDF Triple Metadata (JSON Format)</label>
+                            <textarea class="form-control" id="rdf_metadata" name="rdf_metadata" rows="10"></textarea>
+                            <div class="form-text">
+                                Enter RDF triples in JSON format to provide structured metadata about this case.
+                                This allows integration with the Engineering Ethics ontology.
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <h5>Example Format:</h5>
+                            <pre>{
+  "triples": [
+    {
+      "subject": "Case:ThisCase",
+      "predicate": "involves:EthicalPrinciple",
+      "object": "ENG_ETHICS:PublicSafety"
+    },
+    {
+      "subject": "Case:ThisCase",
+      "predicate": "hasConflict",
+      "object": "ENG_ETHICS:ConfidentialityVsSafety"
+    }
+  ],
+  "namespaces": {
+    "Case": "http://proethica.org/case/",
+    "involves": "http://proethica.org/relation/",
+    "ENG_ETHICS": "http://proethica.org/eng_ethics/"
+  }
+}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-info">Create Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

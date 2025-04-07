@@ -245,12 +245,33 @@ def view_case(id):
                           knowledge_graph_connections=knowledge_graph_connections)
 
 @cases_bp.route('/new', methods=['GET'])
-def new_case():
-    """Display form to create a new case."""
+def case_options():
+    """Display case creation options."""
+    return render_template('create_case_options.html')
+
+@cases_bp.route('/new/manual', methods=['GET'])
+def manual_create_form():
+    """Display form to manually create a new case."""
     # Get all worlds for the dropdown
     worlds = World.query.all()
     
-    return render_template('create_case.html', worlds=worlds)
+    return render_template('create_case_manual.html', worlds=worlds)
+
+@cases_bp.route('/new/url', methods=['GET'])
+def url_form():
+    """Display form to create a case from URL."""
+    # Get all worlds for the dropdown
+    worlds = World.query.all()
+    
+    return render_template('create_case_from_url.html', worlds=worlds)
+
+@cases_bp.route('/new/document', methods=['GET'])
+def upload_document_form():
+    """Display form to create a case from document upload."""
+    # Get all worlds for the dropdown
+    worlds = World.query.all()
+    
+    return render_template('create_case_from_document.html', worlds=worlds)
 
 @cases_bp.route('/<int:id>/delete', methods=['POST'])
 def delete_case(id):
@@ -288,9 +309,9 @@ def delete_case(id):
     flash(f"Case '{document.title}' deleted successfully", 'success')
     return redirect(url_for('cases.list_cases'))
 
-@cases_bp.route('/new', methods=['POST'])
-def create_case():
-    """Create a new case."""
+@cases_bp.route('/new/manual', methods=['POST'])
+def create_case_manual():
+    """Create a new case manually."""
     # Get form data
     title = request.form.get('title')
     description = request.form.get('description')
@@ -304,18 +325,21 @@ def create_case():
     # Validate required fields
     if not title:
         flash('Title is required', 'danger')
-        return redirect(url_for('cases.new_case'))
+        return redirect(url_for('cases.manual_create_form'))
     
     if not description:
         flash('Description is required', 'danger')
-        return redirect(url_for('cases.new_case'))
+        return redirect(url_for('cases.manual_create_form'))
     
-    # Validate world_id if provided
-    if world_id:
-        world = World.query.get(world_id)
-        if not world:
-            flash(f'World with ID {world_id} not found', 'danger')
-            return redirect(url_for('cases.new_case'))
+    # Validate world_id (required)
+    if not world_id:
+        flash('World selection is required', 'danger')
+        return redirect(url_for('cases.manual_create_form'))
+        
+    world = World.query.get(world_id)
+    if not world:
+        flash(f'World with ID {world_id} not found', 'danger')
+        return redirect(url_for('cases.manual_create_form'))
     
     # Initialize metadata
     metadata = {
@@ -406,6 +430,160 @@ def create_case():
         flash(f'Case created but error processing embeddings: {str(e)}', 'warning')
     
     return redirect(url_for('cases.view_case', id=document.id))
+    
+@cases_bp.route('/new/url', methods=['POST'])
+def create_from_url():
+    """Create a new case from URL."""
+    # Get form data
+    title = request.form.get('title')
+    url = request.form.get('url')
+    world_id = request.form.get('world_id', type=int)
+    
+    # Validate required fields
+    if not title:
+        flash('Title is required', 'danger')
+        return redirect(url_for('cases.url_form'))
+    
+    if not url:
+        flash('URL is required', 'danger')
+        return redirect(url_for('cases.url_form'))
+    
+    # Validate world_id (required)
+    if not world_id:
+        flash('World selection is required', 'danger')
+        return redirect(url_for('cases.url_form'))
+        
+    world = World.query.get(world_id)
+    if not world:
+        flash(f'World with ID {world_id} not found', 'danger')
+        return redirect(url_for('cases.url_form'))
+    
+    try:
+        # Use embedding service to process URL
+        embedding_service = EmbeddingService()
+        document_id = embedding_service.process_url(
+            url=url,
+            title=title,
+            document_type='case_study',
+            world_id=world_id
+        )
+        
+        flash('URL processed and case created successfully', 'success')
+        return redirect(url_for('cases.edit_case_form', id=document_id))
+        
+    except Exception as e:
+        flash(f'Error processing URL: {str(e)}', 'danger')
+        return redirect(url_for('cases.url_form'))
+
+@cases_bp.route('/new/document', methods=['POST'])
+def create_from_document():
+    """Create a new case from document upload."""
+    # Get form data
+    title = request.form.get('title')
+    world_id = request.form.get('world_id', type=int)
+    
+    # Validate required fields
+    if not title:
+        flash('Title is required', 'danger')
+        return redirect(url_for('cases.upload_document_form'))
+    
+    # Check if document file was provided
+    if 'document' not in request.files:
+        flash('Document file is required', 'danger')
+        return redirect(url_for('cases.upload_document_form'))
+    
+    document_file = request.files['document']
+    
+    # Check if file is empty
+    if document_file.filename == '':
+        flash('No file selected', 'danger')
+        return redirect(url_for('cases.upload_document_form'))
+    
+    # Validate world_id (required)
+    if not world_id:
+        flash('World selection is required', 'danger')
+        return redirect(url_for('cases.upload_document_form'))
+        
+    world = World.query.get(world_id)
+    if not world:
+        flash(f'World with ID {world_id} not found', 'danger')
+        return redirect(url_for('cases.upload_document_form'))
+    
+    try:
+        # Get file extension
+        file_ext = os.path.splitext(document_file.filename)[1].lower()
+        
+        # Determine file type
+        file_type_map = {
+            '.pdf': 'pdf',
+            '.docx': 'docx',
+            '.doc': 'docx',
+            '.txt': 'txt',
+            '.html': 'html',
+            '.htm': 'html'
+        }
+        
+        if file_ext not in file_type_map:
+            flash(f'Unsupported file type: {file_ext}', 'danger')
+            return redirect(url_for('cases.upload_document_form'))
+            
+        file_type = file_type_map[file_ext]
+        
+        # Create upload directory if it doesn't exist
+        upload_dir = os.path.join('app', 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save the file
+        from werkzeug.utils import secure_filename
+        import uuid
+        
+        # Generate a unique filename
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        document_file.save(file_path)
+        
+        # Create document record
+        from app.models.document import Document, PROCESSING_STATUS
+        
+        document = Document(
+            title=title,
+            document_type='case_study',
+            world_id=world_id,
+            file_path=file_path,
+            file_type=file_type,
+            source=document_file.filename,
+            processing_status=PROCESSING_STATUS['PROCESSING'],
+            doc_metadata={}
+        )
+        
+        db.session.add(document)
+        db.session.commit()
+        
+        # Process the document
+        embedding_service = EmbeddingService()
+        
+        # Extract text based on file type
+        text = embedding_service._extract_text(file_path, file_type)
+        document.content = text
+        
+        # Split text into chunks and create embeddings
+        chunks = embedding_service._split_text(text)
+        embeddings = embedding_service.embed_documents(chunks)
+        embedding_service._store_chunks(document.id, chunks, embeddings)
+        
+        # Update document status
+        document.processing_status = PROCESSING_STATUS['COMPLETED']
+        document.processing_progress = 100
+        db.session.commit()
+        
+        flash('Document processed and case created successfully', 'success')
+        return redirect(url_for('cases.edit_case_form', id=document.id))
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        flash(f'Error processing document: {str(e)}', 'danger')
+        return redirect(url_for('cases.upload_document_form'))
 
 @cases_bp.route('/<int:id>/edit', methods=['GET'])
 def edit_case_form(id):
