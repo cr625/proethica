@@ -2,6 +2,27 @@
 
 {% block title %}{{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
 
+{% block styles %}
+<style>
+    .description-truncated {
+        max-height: 300px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .description-truncated::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50px;
+        background: linear-gradient(transparent, white);
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
 <div class="mb-4">
@@ -45,7 +66,14 @@
 
             <h4>Description</h4>
             <div class="mb-4">
-                {{ case.description|safe|nl2br }}
+                <div id="description-truncated" class="{% if case.description|length > 500 %}description-truncated{% endif %}">
+                    {{ case.description|safe|nl2br }}
+                </div>
+                {% if case.description|length > 500 %}
+                <button id="toggleDescription" class="btn btn-link p-0 text-muted mt-2">
+                    Show more
+                </button>
+                {% endif %}
             </div>
 
             {% if case.decision %}
@@ -77,16 +105,19 @@
         </div>
     </div>
 
-    <!-- Triple Text Labels (Clickable) -->
+    <!-- RDF Property-Value Labels (Clickable) -->
     {% if entity_triples %}
     <div class="card mb-4">
         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-            <h3>Triple Text Labels</h3>
+            <h3>RDF Properties</h3>
             <button id="clearSelection" class="btn btn-sm btn-light" style="display: none;">
                 Clear Selection
             </button>
         </div>
         <div class="card-body">
+            <p class="text-muted small mb-3">
+                <i class="bi bi-info-circle"></i> Click on any property to see related cases. Select multiple properties to find cases matching all selected criteria.
+            </p>
             <div class="triple-labels">
                 {% for triple in entity_triples %}
                 <span class="badge bg-info text-dark me-2 mb-2 triple-label" 
@@ -109,7 +140,7 @@
         </div>
         <div class="card-body">
             <div id="relatedCasesContent">
-                <p class="text-muted">Select one or more triple labels above to see related cases.</p>
+                <p class="text-muted">Select one or more RDF property values above to see related cases.</p>
             </div>
             <div id="relatedCasesList" class="list-group mt-3">
                 <!-- Cases will be loaded here dynamically -->
@@ -193,8 +224,10 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Store the selected triples
@@ -206,9 +239,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const relatedCasesList = document.getElementById('relatedCasesList');
     const clearSelectionBtn = document.getElementById('clearSelection');
     
+    console.log('Initializing triple labels interaction...');
+    console.log('Found ' + tripleLabels.length + ' triple labels');
+    
     // Add click event to all triple labels
     tripleLabels.forEach(label => {
         label.addEventListener('click', function() {
+            console.log('Triple label clicked:', this.textContent.trim());
+            
             // Toggle selection
             const selected = this.classList.toggle('selected');
             const tripleKey = getTripleKey(this);
@@ -217,10 +255,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 selectedTriples.add(tripleKey);
                 this.classList.replace('bg-info', 'bg-primary');
                 this.classList.replace('text-dark', 'text-white');
+                console.log('Label selected, total selected:', selectedTriples.size);
             } else {
                 selectedTriples.delete(tripleKey);
                 this.classList.replace('bg-primary', 'bg-info');
                 this.classList.replace('text-white', 'text-dark');
+                console.log('Label deselected, total selected:', selectedTriples.size);
             }
             
             // Update UI
@@ -237,6 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Clear selection button
     clearSelectionBtn.addEventListener('click', function() {
+        console.log('Clearing all selections');
         selectedTriples.clear();
         tripleLabels.forEach(label => {
             label.classList.remove('selected');
@@ -258,12 +299,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fetch related cases based on selected triples
     function fetchRelatedCases() {
+        console.log('Fetching related cases for selected triples...');
+        
         // Show loading state
         relatedCasesContent.innerHTML = '<p class="text-muted">Loading related cases...</p>';
         relatedCasesList.innerHTML = '';
         
         // Convert selected triples to array of objects
         const triples = Array.from(selectedTriples).map(key => JSON.parse(key));
+        console.log('Selected triples for API request:', triples);
         
         // Make API request
         fetch('/cases/api/related-cases', {
@@ -276,8 +320,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 selected_triples: triples
             }),
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('API response status:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('API response data:', data);
+            
             if (data.error) {
                 relatedCasesContent.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
                 return;
@@ -319,13 +368,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 relatedCasesList.innerHTML = caseListHTML;
+                console.log('Updated related cases list with ' + cases.length + ' cases');
+                
+                // Add click handlers for the show more/less buttons
+                document.querySelectorAll('.toggle-description').forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation(); // Prevent the card click-through
+                        
+                        const caseId = this.getAttribute('data-case-id');
+                        const isExpanded = this.getAttribute('data-expanded') === 'true';
+                        const truncatedElement = document.getElementById(`desc-${caseId}`);
+                        const fullElement = document.getElementById(`desc-full-${caseId}`);
+                        
+                        if (isExpanded) {
+                            // Collapse the description
+                            truncatedElement.style.display = 'block';
+                            fullElement.style.display = 'none';
+                            this.textContent = 'Show more';
+                            this.setAttribute('data-expanded', 'false');
+                        } else {
+                            // Expand the description
+                            truncatedElement.style.display = 'none';
+                            fullElement.style.display = 'block';
+                            this.textContent = 'Show less';
+                            this.setAttribute('data-expanded', 'true');
+                        }
+                    });
+                });
             }
         })
         .catch(error => {
+            console.error('Error fetching related cases:', error);
             relatedCasesContent.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+        });
+    }
+    
+    // Description show more/less toggle
+    const toggleDescriptionBtn = document.getElementById('toggleDescription');
+    if (toggleDescriptionBtn) {
+        const descriptionElement = document.getElementById('description-truncated');
+        
+        toggleDescriptionBtn.addEventListener('click', function() {
+            if (descriptionElement.classList.contains('description-truncated')) {
+                // Expand
+                descriptionElement.classList.remove('description-truncated');
+                this.textContent = 'Show less';
+            } else {
+                // Collapse
+                descriptionElement.classList.add('description-truncated');
+                this.textContent = 'Show more';
+            }
         });
     }
 });
 </script>
-{% endblock %}
 {% endblock %}
