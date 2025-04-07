@@ -2,6 +2,9 @@
 Routes for case management, including listing, viewing, and searching cases.
 """
 
+import os
+import re
+from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from app.models.document import Document
 from app.models.world import World
@@ -435,15 +438,10 @@ def create_case_manual():
 def create_from_url():
     """Create a new case from URL."""
     # Get form data
-    title = request.form.get('title')
     url = request.form.get('url')
     world_id = request.form.get('world_id', type=int)
     
     # Validate required fields
-    if not title:
-        flash('Title is required', 'danger')
-        return redirect(url_for('cases.url_form'))
-    
     if not url:
         flash('URL is required', 'danger')
         return redirect(url_for('cases.url_form'))
@@ -461,6 +459,28 @@ def create_from_url():
     try:
         # Use embedding service to process URL
         embedding_service = EmbeddingService()
+        
+        # Generate a title from the URL
+        from urllib.parse import urlparse
+        import re
+        
+        # Try to extract a domain name and path to create a title
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        path = parsed_url.path
+        
+        # Clean up the path
+        path = re.sub(r'[_\-\/\.]', ' ', path).strip()
+        
+        # Generate a default title
+        title = f"Case from {domain}"
+        if path:
+            # Add path info if it exists and is meaningful
+            path_words = [word for word in path.split() if len(word) > 1]
+            if path_words:
+                path_title = " ".join(path_words[:5])  # Limit to first 5 path segments
+                title = f"{path_title} - {domain}"
+        
         document_id = embedding_service.process_url(
             url=url,
             title=title,
