@@ -360,3 +360,32 @@ def check_document_status(document_id):
         'has_content': bool(document.content),
         'title': document.title
     })
+
+@cases_triple_bp.route('/api/update-title/<int:id>', methods=['POST'])
+def update_document_title(id):
+    """API endpoint to update a document's title."""
+    # Get document
+    document = Document.query.get_or_404(id)
+    
+    # Get new title from request data
+    data = request.json
+    new_title = data.get('title')
+    
+    # Validate title
+    if not new_title or not new_title.strip():
+        return jsonify({'error': 'Title cannot be empty'}), 400
+    
+    # Update document title
+    document.title = new_title.strip()
+    
+    # Save changes
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'id': document.id,
+            'title': document.title
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

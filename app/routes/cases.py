@@ -407,6 +407,60 @@ def create_case():
     
     return redirect(url_for('cases.view_case', id=document.id))
 
+@cases_bp.route('/<int:id>/edit', methods=['GET'])
+def edit_case_form(id):
+    """Display form to edit case title and description."""
+    # Try to get the case as a document
+    document = Document.query.get_or_404(id)
+    
+    # Check if it's a case study
+    if document.document_type != 'case_study':
+        flash('The requested document is not a case study', 'warning')
+        return redirect(url_for('cases.list_cases'))
+    
+    # Get the world if applicable
+    world = World.query.get(document.world_id) if document.world_id else None
+    
+    return render_template('edit_case_details.html', document=document, world=world)
+
+@cases_bp.route('/<int:id>/edit', methods=['POST'])
+def edit_case(id):
+    """Process the case edit form submission."""
+    # Try to get the case as a document
+    document = Document.query.get_or_404(id)
+    
+    # Check if it's a case study
+    if document.document_type != 'case_study':
+        flash('The requested document is not a case study', 'warning')
+        return redirect(url_for('cases.list_cases'))
+    
+    # Get form data
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+    
+    # Validate required fields
+    if not title:
+        flash('Title is required', 'danger')
+        return redirect(url_for('cases.edit_case_form', id=id))
+    
+    if not description:
+        flash('Description is required', 'danger')
+        return redirect(url_for('cases.edit_case_form', id=id))
+    
+    # Update document
+    document.title = title
+    document.content = description
+    
+    # Save changes
+    try:
+        db.session.commit()
+        flash('Case details updated successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating case: {str(e)}', 'danger')
+    
+    return redirect(url_for('cases.view_case', id=id))
+
 @cases_bp.route('/api/related-cases', methods=['POST'])
 def get_related_cases():
     """Get cases related to specified triples."""
