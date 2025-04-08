@@ -10,6 +10,31 @@ DB_HOST="localhost"
 DB_PORT="5432"
 BACKUP_DIR="$(dirname "$0")"  # Use the directory where this script is located
 
+# IMPORTANT: Before using this script, ensure that md5 authentication is properly configured
+# for the postgres user in pg_hba.conf. Otherwise, authentication might fail.
+
+# Extract password from .env file
+ENV_FILE="../.env"  # Path when running from backups directory
+if [ -f "${ENV_FILE}" ]; then
+    # Extract password from DATABASE_URL in .env file
+    DB_PASS=$(grep DATABASE_URL "${ENV_FILE}" | sed -E 's/.*postgres:([^@]+)@.*/\1/')
+    echo "Found database password in .env file"
+else
+    # Try with project root path (when running from project root)
+    ENV_FILE=".env"
+    if [ -f "${ENV_FILE}" ]; then
+        # Extract password from DATABASE_URL in .env file
+        DB_PASS=$(grep DATABASE_URL "${ENV_FILE}" | sed -E 's/.*postgres:([^@]+)@.*/\1/')
+        echo "Found database password in .env file"
+    else
+        DB_PASS="PASS"  # Default password if .env not found
+        echo "Warning: .env file not found, using default password"
+    fi
+fi
+
+# Export the password for PostgreSQL commands
+export PGPASSWORD="${DB_PASS}"
+
 # Create timestamp for the backup filename
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/${DB_NAME}_backup_${TIMESTAMP}.dump"

@@ -42,7 +42,21 @@ Enhanced the case creation workflow with a comprehensive URL processing system:
    - **Triple Visualization**: Add visualization for extracted RDF triples
    - **UI Improvements**: Further improve edit case forms
 
+## Database Management (Updated 4/8/2025)
+
+When working with the database backup and restore functionality:
+
+1. **Authentication Check**: Before running database backup or restore scripts, ensure that md5 authentication is properly configured for the postgres user in pg_hba.conf. This is crucial for password-based authentication to work correctly.
+
+2. **Restore Process**: The restore script (`backups/restore_database.sh`) has been updated to include a reminder about the authentication requirement.
+
+3. **Configuration Files**: If encountering authentication issues, check:
+   - PostgreSQL configuration in pg_hba.conf
+   - Database connection settings in the application's .env file
+   - Password export in the backup/restore scripts
+
 ## IMPORTANT REMINDER
 When returning to this project, focus first on:
 1. Adding triples for extracted content
 2. Enhancing full text extraction, especially for complex websites
+3. Verifying database authentication settings before backup/restore operations
