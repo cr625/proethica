@@ -1,5 +1,34 @@
 # ProEthica Development Progress
 
+## Deployment Infrastructure (Updated 4/11/2025)
+
+Implemented a comprehensive deployment and Git workflow system:
+
+1. **Multiple Deployment Options:**
+   - Direct sync from local to production using rsync (tested & working)
+   - Git-based deployment with full workflow support
+   - Easy service restart on the production server
+
+2. **Git Workflow Management:**
+   - Implemented dev → main → production workflow
+   - Created workflow script (`scripts/git_workflow.sh`) for managing branches and deployment
+   - Added production sync script (`scripts/sync_from_production.sh`) for syncing back from production
+
+3. **Git Authentication System:**
+   - Created wizard for setting up GitHub authentication (`scripts/setup_git_auth.sh`)
+   - Added conflict resolution tool for handling Git issues (`scripts/resolve_git_conflicts.sh`)
+   - Implemented Windows SSH key management
+
+4. **Documentation:**
+   - Added detailed workflow guide (`docs/git_workflow.md`)
+   - Created quick reference for Git authentication (`docs/git_auth_quickref.md`)
+   - Added clear migration instructions (`docs/migration_clarification.md`)
+
+5. **Next Steps:**
+   - Test run the application in the WSL dev environment
+   - Run the production update workflow and test on the server
+   - Further automate with CI/CD integration if needed
+
 ## URL Processing for Case Import (Updated 4/7/2025)
 
 Enhanced the case creation workflow with a comprehensive URL processing system:
