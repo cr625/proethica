@@ -21,6 +21,7 @@ claude_service = ClaudeService(api_key=api_key)
 active_service = 'claude'  # Default to Claude
 
 @agent_bp.route('/', methods=['GET'])
+@login_required
 def agent_window():
     """Display the agent window prototype."""
     # Get world_id from query parameters if provided
@@ -51,6 +52,7 @@ def agent_window():
     return render_template('agent_window.html', worlds=worlds, selected_world=selected_world)
 
 @agent_bp.route('/api/message', methods=['POST'])
+@login_required
 def send_message():
     """Send a message to the agent."""
     data = request.json
@@ -107,6 +109,7 @@ def send_message():
     })
 
 @agent_bp.route('/api/options', methods=['GET'])
+@login_required
 def get_options():
     """Get available prompt options."""
     # Get world_id from query parameters
@@ -141,6 +144,7 @@ def get_options():
     })
 
 @agent_bp.route('/api/reset', methods=['POST'])
+@login_required
 def reset_conversation():
     """Reset the conversation."""
     # Get world_id from request
@@ -166,6 +170,7 @@ def reset_conversation():
     })
 
 @agent_bp.route('/api/guidelines', methods=['GET'])
+@login_required
 def get_guidelines():
     """Get guidelines for a specific world."""
     # Get world_id from query parameters
@@ -190,6 +195,7 @@ def get_guidelines():
     })
 
 @agent_bp.route('/api/switch_service', methods=['POST'])
+@login_required
 def switch_service():
     """Switch between Claude and LangChain services."""
     global active_service

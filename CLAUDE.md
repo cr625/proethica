@@ -84,6 +84,15 @@ When working with the database backup and restore functionality:
    - Database connection settings in the application's .env file
    - Password export in the backup/restore scripts
 
+## Authentication Enhancements (Updated 4/11/2025)
+
+Enhanced application security with authentication requirements:
+
+1. **Agent Route Authentication:**
+   - Added `@login_required` decorator to all routes in the agent blueprint
+   - Protected all agent API endpoints with authentication
+   - Ensures only authenticated users can access agent functionality
+
 ## IMPORTANT REMINDER
 When returning to this project, focus first on:
 1. Adding triples for extracted content
