@@ -1,0 +1,63 @@
+<!-- History panel with collapsible functionality -->
+<div class="history-panel" :class="{'history-panel-collapsed': isHistoryCollapsed}">
+    <div class="history-header">
+        <h5 class="m-0">Conversation History</h5>
+        <div class="d-flex">
+            <button class="btn btn-sm btn-outline-secondary me-2 refresh-button" @click="refreshHistory">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary toggle-history" @click="toggleHistoryPanel">
+                <i class="bi" :class="isHistoryCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div v-if="historyLoading" class="text-center p-5">
+        <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Loading conversations...</p>
+    </div>
+    
+    <div v-else-if="conversations.length === 0" class="no-conversations">
+        <i class="bi bi-chat-square-text" style="font-size: 3rem;"></i>
+        <h5 class="mt-3">No conversations found</h5>
+        <p>Your conversation history will appear here.</p>
+    </div>
+    
+    <div v-else class="conversation-list">
+        <div v-for="conversation in conversations" :key="conversation.id" 
+            v-if="conversation"
+            class="conversation-item" 
+            :class="{'active': currentConversationId === conversation.id}"
+            @click="loadConversation(conversation.id)">
+            <div class="conversation-header">
+                <div class="conversation-title">{% raw %}{{ conversation.title || 'Untitled Conversation' }}{% endraw %}</div>
+                <div class="conversation-timestamp">
+                    {% raw %}{{ formatDate(conversation.updated_at) }}{% endraw %}
+                </div>
+            </div>
+            <div class="conversation-context">
+                {% raw %}{{ conversation.context_name || conversation.context_type || 'No Context' }}{% endraw %}
+                <span v-if="conversation.context_id"> - ID: {% raw %}{{ conversation.context_id }}{% endraw %}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pagination for history -->
+    <div class="pagination-controls mt-3" v-if="totalPages > 1 && !isHistoryCollapsed">
+        <nav aria-label="Conversation pagination">
+            <ul class="pagination pagination-sm">
+                <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(currentPage - 1)">Previous</a>
+                </li>
+                <li v-for="page in paginationPages" :key="page" class="page-item" :class="{ active: currentPage === page }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(page)">{% raw %}{{ page }}{% endraw %}</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(currentPage + 1)">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>

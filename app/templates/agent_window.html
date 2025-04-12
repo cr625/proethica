@@ -106,7 +106,7 @@
         }
     }
 
-    /* New styles for history panel */
+    /* Styles for history panel */
     .history-panel {
         height: 70vh;
         border: 1px solid #ccc;
@@ -114,6 +114,28 @@
         overflow-y: auto;
         background-color: #f8f9fa;
         padding: 0;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    /* Collapsed history panel */
+    .history-panel-collapsed {
+        width: 60px;
+        overflow: hidden;
+    }
+
+    .history-panel-collapsed .history-header h5,
+    .history-panel-collapsed .conversation-list,
+    .history-panel-collapsed .no-conversations,
+    .history-panel-collapsed .spinner-border,
+    .history-panel-collapsed .pagination-controls,
+    .history-panel-collapsed .refresh-button {
+        display: none;
+    }
+
+    .history-panel-collapsed .history-header {
+        padding: 10px 5px;
+        justify-content: center;
     }
 
     .conversation-item {
@@ -189,6 +211,11 @@
         display: flex;
         justify-content: center;
     }
+
+    /* Toggle button styling */
+    .toggle-history {
+        min-width: 30px;
+    }
 </style>
 {% endblock %}
 
@@ -218,68 +245,12 @@
         <!-- Three-column layout -->
         <div class="row">
             <!-- History panel - left column -->
-            <div class="col-md-3">
-                <div class="history-panel">
-                    <div class="history-header">
-                        <h5 class="m-0">Conversation History</h5>
-                        <button class="btn btn-sm btn-outline-secondary" @click="refreshHistory">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
-                    </div>
-                    
-                    <div v-if="historyLoading" class="text-center p-5">
-                        <div class="spinner-border text-secondary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-3">Loading conversations...</p>
-                    </div>
-                    
-                    <div v-else-if="conversations.length === 0" class="no-conversations">
-                        <i class="bi bi-chat-square-text" style="font-size: 3rem;"></i>
-                        <h5 class="mt-3">No conversations found</h5>
-                        <p>Your conversation history will appear here.</p>
-                    </div>
-                    
-                    <div v-else class="conversation-list">
-                        <div v-for="conversation in conversations" :key="conversation.id" 
-                            v-if="conversation"
-                            class="conversation-item" 
-                            :class="{'active': currentConversationId === conversation.id}"
-                            @click="loadConversation(conversation.id)">
-                            <div class="conversation-header">
-                                <div class="conversation-title">{% raw %}{{ conversation.title || 'Untitled Conversation' }}{% endraw %}</div>
-                                <div class="conversation-timestamp">
-                                    {% raw %}{{ formatDate(conversation.updated_at) }}{% endraw %}
-                                </div>
-                            </div>
-                            <div class="conversation-context">
-                                {% raw %}{{ conversation.context_name || conversation.context_type || 'No Context' }}{% endraw %}
-                                <span v-if="conversation.context_id"> - ID: {% raw %}{{ conversation.context_id }}{% endraw %}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Pagination for history -->
-                    <div class="pagination-controls mt-3" v-if="totalPages > 1">
-                        <nav aria-label="Conversation pagination">
-                            <ul class="pagination pagination-sm">
-                                <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                                    <a class="page-link" href="#" @click.prevent="loadConversations(currentPage - 1)">Previous</a>
-                                </li>
-                                <li v-for="page in paginationPages" :key="page" class="page-item" :class="{ active: currentPage === page }">
-                                    <a class="page-link" href="#" @click.prevent="loadConversations(page)">{% raw %}{{ page }}{% endraw %}</a>
-                                </li>
-                                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-                                    <a class="page-link" href="#" @click.prevent="loadConversations(currentPage + 1)">Next</a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
-                </div>
+            <div :class="{'col-md-3': !isHistoryCollapsed, 'col-md-1': isHistoryCollapsed}">
+                {% include "agent_module/history_panel.html" %}
             </div>
             
             <!-- Chat window - middle column -->
-            <div class="col-md-6">
+            <div :class="{'col-md-6': !isHistoryCollapsed, 'col-md-8': isHistoryCollapsed}">
                 <div class="agent-window">
                     <div class="conversation" ref="conversation">
                         <div v-for="(message, index) in messages" :key="index" class="message"
@@ -445,7 +416,8 @@
             filterContextType: '',
             filterContextId: '',
             searchText: '',
-            currentConversationId: null
+            currentConversationId: null,
+            isHistoryCollapsed: false // New property for collapsible history panel
         },
         computed: {
             totalPages() {
@@ -487,6 +459,12 @@
             
             // Load conversation history
             this.loadConversations(1);
+            
+            // Check for saved collapsed state
+            const savedState = localStorage.getItem('historyPanelCollapsed');
+            if (savedState) {
+                this.isHistoryCollapsed = savedState === 'true';
+            }
         },
         methods: {
             // Load conversation history
@@ -890,6 +868,13 @@
                         this.$refs.conversation.scrollTop = this.$refs.conversation.scrollHeight;
                     }
                 });
+            },
+            
+            // Toggle history panel collapse state
+            toggleHistoryPanel() {
+                this.isHistoryCollapsed = !this.isHistoryCollapsed;
+                // Save state to localStorage
+                localStorage.setItem('historyPanelCollapsed', this.isHistoryCollapsed);
             },
             
             // Handle world change
