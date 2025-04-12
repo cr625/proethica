@@ -59,7 +59,8 @@ def create_app(config_name=None):
     from app.routes.worlds import worlds_bp
     from app.routes.scenarios import scenarios_bp
     from app.routes.entities import entities_bp
-    from app.routes.agent import agent_bp
+    # Use modular agent blueprint
+    from app.agent_module import create_proethica_agent_blueprint
     from app.routes.mcp_api import mcp_api_bp
     from app.routes.documents import documents_bp, documents_web_bp
     from app.routes.simulation import simulation_bp
@@ -70,7 +71,18 @@ def create_app(config_name=None):
     app.register_blueprint(worlds_bp)
     app.register_blueprint(scenarios_bp)
     app.register_blueprint(entities_bp)
+    
+    # Create agent blueprint with authentication
+    agent_bp = create_proethica_agent_blueprint(
+        config={
+            'require_auth': True,  # Force authentication for agent routes
+            'api_key': os.environ.get('ANTHROPIC_API_KEY'),
+            'use_claude': app.config.get('USE_CLAUDE', True)
+        },
+        url_prefix='/agent'
+    )
     app.register_blueprint(agent_bp)
+    
     app.register_blueprint(mcp_api_bp)
     app.register_blueprint(documents_bp)
     app.register_blueprint(documents_web_bp)
