@@ -216,7 +216,8 @@
             selectedWorldId: '{{ selected_world.id if selected_world else "" }}',
             selectedService: 'claude', // Default to Claude
             guidelines: '',
-            formattedGuidelines: ''
+            formattedGuidelines: '',
+            welcomeMessage: '{{ welcome_message | safe }}' // Get welcome message from Flask
         },
         created() {
             // Initialize conversation from session
@@ -230,9 +231,9 @@
         },
         methods: {
             initializeConversation() {
-                // Initialize with a welcome message
+                // Initialize with a welcome message from the server
                 this.messages = [
-                    { role: 'assistant', content: 'Hello! I am your assistant for ethical decision analysis. Choose a world to generate suggestions or type your message below.' }
+                    { role: 'assistant', content: this.welcomeMessage }
                 ];
             },
             sendMessage() {

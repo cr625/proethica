@@ -79,6 +79,13 @@ def create_app(config_name=None):
             'api_key': os.environ.get('ANTHROPIC_API_KEY'),
             'use_claude': app.config.get('USE_CLAUDE', True)
         },
+        config_override={
+            'prompt_templates': {
+                'default': {
+                    'welcome_message': 'Choose a world to generate suggestions or type your message below.'
+                }
+            }
+        },
         url_prefix='/agent'
     )
     app.register_blueprint(agent_bp)
