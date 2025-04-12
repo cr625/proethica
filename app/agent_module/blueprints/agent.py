@@ -88,7 +88,7 @@ def create_agent_blueprint(
             conversation = {
                 'messages': [
                     {
-                        'content': 'Hello! I am your assistant. Choose a source to get started.',
+                        'content': 'Hello! I am your assistant. Choose a world to get started.',
                         'role': 'assistant',
                         'timestamp': None
                     }
@@ -99,8 +99,8 @@ def create_agent_blueprint(
         
         return render_template(
             'agent_window.html', 
-            sources=sources, 
-            selected_source=selected_source
+            worlds=sources,  # Pass as 'worlds' to match template expectations
+            selected_world=selected_source  # Pass as 'selected_world' to match template expectations
         )
     
     @agent_bp.route('/api/message', methods=['POST'])
@@ -111,7 +111,7 @@ def create_agent_blueprint(
         
         # Get message and source_id from request
         message_text = data.get('message', '')
-        source_id = data.get('source_id')
+        source_id = data.get('source_id') or data.get('world_id')  # Support both source_id and world_id
         additional_params = data.get('params', {})
         
         # Get conversation from session
@@ -169,7 +169,7 @@ def create_agent_blueprint(
     def get_suggestions():
         """Get suggested prompts for the user."""
         # Get source_id from query parameters
-        source_id = request.args.get('source_id', type=int)
+        source_id = request.args.get('source_id', type=int) or request.args.get('world_id', type=int)
         
         # Get conversation from session
         conversation_dict = session_mgr.get_conversation()
@@ -200,7 +200,7 @@ def create_agent_blueprint(
         data = request.json
         
         # Get source_id from request
-        source_id = data.get('source_id')
+        source_id = data.get('source_id') or data.get('world_id')
         
         # Reset conversation
         new_conversation = session_mgr.reset_conversation(source_id)
@@ -215,13 +215,13 @@ def create_agent_blueprint(
     @auth_required
     def get_guidelines():
         """Get guidelines for a specific source."""
-        # Get source_id from query parameters
-        source_id = request.args.get('source_id', type=int)
+        # Get source_id from query parameters (also support world_id)
+        source_id = request.args.get('source_id', type=int) or request.args.get('world_id', type=int)
         
         if not source_id:
             return jsonify({
                 'status': 'error',
-                'message': 'Source ID is required'
+                'message': 'Source ID or World ID is required'
             }), 400
         
         # Get guidelines from the context provider

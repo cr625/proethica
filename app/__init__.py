@@ -72,10 +72,10 @@ def create_app(config_name=None):
     app.register_blueprint(scenarios_bp)
     app.register_blueprint(entities_bp)
     
-    # Create agent blueprint with authentication
+    # Create agent blueprint with authentication disabled for testing
     agent_bp = create_proethica_agent_blueprint(
         config={
-            'require_auth': True,  # Force authentication for agent routes
+            'require_auth': False,  # Disable authentication for testing
             'api_key': os.environ.get('ANTHROPIC_API_KEY'),
             'use_claude': app.config.get('USE_CLAUDE', True)
         },

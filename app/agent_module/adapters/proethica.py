@@ -128,9 +128,9 @@ class ApplicationContextAdapter(ContextProviderInterface):
         if hasattr(world, 'guidelines') and world.guidelines:
             guidelines = world.guidelines
         
-        # If no direct guidelines attribute, try to extract from the ontology
-        if not guidelines and world.ontology:
-            guidelines = self.app_context_service.extract_guidelines_from_ontology(world.ontology)
+        # If no direct guidelines attribute, use the world description as a fallback
+        if not guidelines and world.description:
+            guidelines = f"# Guidelines for {world.name}\n\n{world.description}"
         
         return guidelines
 
