@@ -90,6 +90,13 @@ def create_app(config_name=None):
     )
     app.register_blueprint(agent_bp)
     
+    # Create and register history blueprint
+    from app.agent_module import create_proethica_history_blueprint
+    history_bp = create_proethica_history_blueprint(
+        url_prefix='/agent/history'
+    )
+    app.register_blueprint(history_bp)
+    
     app.register_blueprint(mcp_api_bp)
     app.register_blueprint(documents_bp)
     app.register_blueprint(documents_web_bp)

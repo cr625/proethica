@@ -131,11 +131,31 @@
             </div>
         </div>
 
-        <div class="row">
-            <!-- Agent window - left column -->
-            <div class="col-md-8">
-                <div class="agent-window">
-                    <div class="conversation" ref="conversation">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" id="agentTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat-pane" 
+                        type="button" role="tab" aria-controls="chat-pane" aria-selected="true">
+                    <i class="bi bi-chat-dots"></i> Chat
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-pane" 
+                        type="button" role="tab" aria-controls="history-pane" aria-selected="false">
+                    <i class="bi bi-clock-history"></i> History
+                </button>
+            </li>
+        </ul>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="agentTabContent">
+            <!-- Chat Tab -->
+            <div class="tab-pane fade show active" id="chat-pane" role="tabpanel" aria-labelledby="chat-tab">
+                <div class="row">
+                    <!-- Agent window - left column -->
+                    <div class="col-md-8">
+                        <div class="agent-window">
+                            <div class="conversation" ref="conversation">
                         <div v-for="(message, index) in messages" :key="index" class="message"
                             :class="message.role === 'user' ? 'user-message' : 'agent-message'">
                             {% raw %}{{ message.content }}{% endraw %}
@@ -178,19 +198,64 @@
                             </button>
                         </div>
                     </div>
+                            </div>
+
+                            <!-- Agent window control buttons -->
+                            <div class="d-flex mt-2 gap-2">
+                                <button class="btn btn-secondary" @click="resetConversation">
+                                    <i class="bi bi-arrow-repeat"></i> Reset Conversation
+                                </button>
+                                <button class="btn btn-success" @click="saveConversation" :disabled="messages.length <= 1">
+                                    <i class="bi bi-save"></i> Save Conversation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Guidelines section - right column -->
+                    <div class="col-md-4">
+                        <div v-if="guidelines" class="guidelines h-100">
+                            <h5>World Guidelines</h5>
+                            <div v-html="formattedGuidelines"></div>
+                        </div>
+                    </div>
                 </div>
-
-                <!-- Reset button -->
-                <button class="btn btn-secondary mt-2" @click="resetConversation">
-                    Reset Conversation
-                </button>
             </div>
+            
+            <!-- History Tab -->
+            <div class="tab-pane fade" id="history-pane" role="tabpanel" aria-labelledby="history-tab">
+                <iframe src="/agent/history/" style="width: 100%; height: 80vh; border: 0;"></iframe>
+            </div>
+        </div>
 
-            <!-- Guidelines section - right column -->
-            <div class="col-md-4">
-                <div v-if="guidelines" class="guidelines h-100">
-                    <h5>World Guidelines</h5>
-                    <div v-html="formattedGuidelines"></div>
+        <!-- Save Conversation Modal -->
+        <div class="modal fade" id="saveConversationModal" tabindex="-1" aria-labelledby="saveConversationModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="saveConversationModalLabel">Save Conversation</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="conversation-title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="conversation-title" v-model="saveTitle" 
+                                   placeholder="Enter a title for this conversation">
+                        </div>
+                        <div v-if="savingConversation" class="d-flex justify-content-center my-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Saving...</span>
+                            </div>
+                        </div>
+                        <div v-if="saveError" class="alert alert-danger" role="alert">
+                            {% raw %}{{ saveError }}{% endraw %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" @click="confirmSaveConversation" 
+                                :disabled="savingConversation">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -217,7 +282,25 @@
             selectedService: 'claude', // Default to Claude
             guidelines: '',
             formattedGuidelines: '',
-            welcomeMessage: '{{ welcome_message | safe }}' // Get welcome message from Flask
+            welcomeMessage: '{{ welcome_message | safe }}', // Get welcome message from Flask
+            
+            // Save conversation related
+            saveTitle: '',
+            savingConversation: false,
+            saveError: null,
+            saveModal: null  // Will hold the bootstrap modal instance
+        },
+        mounted() {
+            // Initialize modal after DOM is loaded
+            this.saveModal = new bootstrap.Modal(document.getElementById('saveConversationModal'));
+            // Initialize conversation from session
+            this.initializeConversation();
+
+            // Get guidelines if world is selected
+            if (this.selectedWorldId) {
+                this.getGuidelines();
+                // No longer automatically fetch prompt options
+            }
         },
         created() {
             // Initialize conversation from session
@@ -230,6 +313,69 @@
             }
         },
         methods: {
+            // Save conversation to database
+            saveConversation() {
+                // Reset form state
+                this.saveTitle = '';
+                this.saveError = null;
+                
+                // Generate default title if not specified
+                if (this.selectedWorldId) {
+                    const worldName = document.querySelector(`#world-select option[value="${this.selectedWorldId}"]`).textContent;
+                    this.saveTitle = `${worldName} - ${new Date().toLocaleString()}`;
+                } else {
+                    this.saveTitle = `Conversation - ${new Date().toLocaleString()}`;
+                }
+                
+                // Show modal
+                this.saveModal.show();
+            },
+            
+            confirmSaveConversation() {
+                // Validate title
+                if (!this.saveTitle.trim()) {
+                    this.saveError = 'Please enter a title for this conversation';
+                    return;
+                }
+                
+                this.savingConversation = true;
+                this.saveError = null;
+                
+                // Prepare data for API
+                const data = {
+                    conversation: {
+                        title: this.saveTitle,
+                        context_id: this.selectedWorldId || '',
+                        context_type: 'world',
+                        context_name: this.selectedWorldId ? 
+                            document.querySelector(`#world-select option[value="${this.selectedWorldId}"]`).textContent : ''
+                    },
+                    messages: this.messages.map(msg => ({
+                        role: msg.role,
+                        content: msg.content,
+                        timestamp: new Date().toISOString()
+                    }))
+                };
+                
+                // Save via API
+                axios.post('/agent/history/api/conversations/save', data)
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            // Close modal and show success message
+                            this.saveModal.hide();
+                            alert('Conversation saved successfully!');
+                        } else {
+                            this.saveError = response.data.message || 'Failed to save conversation';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saving conversation:', error);
+                        this.saveError = 'An error occurred while saving the conversation';
+                    })
+                    .finally(() => {
+                        this.savingConversation = false;
+                    });
+            },
             initializeConversation() {
                 // Initialize with a welcome message from the server
                 this.messages = [
