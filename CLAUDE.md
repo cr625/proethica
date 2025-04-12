@@ -1,39 +1,53 @@
 # ProEthica Development Progress
 
-## Collapsible Conversation History Panel (2025-04-12)
+## Collapsible Panels for Agent Window (2025-04-12)
 
 ### Completed Tasks:
 
-1. **Modular History Panel Implementation**:
-   - Created a separate history panel template in `app/agent_module/templates/history_panel.html`
-   - Integrated the panel into the main agent window using template inclusion
-   - Improved organizational structure by maintaining module separation
+1. **Modular Panel Implementation**:
+   - Created separate templates in the agent_module:
+     - `app/agent_module/templates/history_panel.html` for conversation history
+     - `app/agent_module/templates/guidelines_panel.html` for world guidelines
+   - Integrated both panels into main agent window using template inclusion
+   - Established proper module separation for better maintenance
 
-2. **Collapsible Functionality**:
-   - Added toggle button to expand/collapse the history panel
-   - Implemented smooth transition animation with CSS
-   - Dynamically resized columns when collapsed (history: col-md-3 → col-md-1, agent: col-md-6 → col-md-8)
-   - Created compact collapsed view showing only essential controls
-   - Added user preference persistence using localStorage
+2. **Collapsible Functionality for Both Panels**:
+   - Added toggle buttons to expand/collapse both history and guidelines panels
+   - Implemented smooth transition animations with CSS
+   - Created intelligent column width management:
+     - When both panels expanded: History (3) + Chat (6) + Guidelines (3)
+     - When one panel collapsed: Collapsed panel (1) + Chat (8) + Other panel (3)
+     - When both panels collapsed: History (1) + Chat (10) + Guidelines (1)
+   - Added compact collapsed views showing only toggle controls
 
-3. **Responsive Design**:
-   - Ensured proper layout at different screen sizes
-   - Maintained usability in both collapsed and expanded states
+3. **Template Organization Improvements**:
+   - Relocated templates to maintain proper module boundaries
+   - Fixed template inclusion paths to correctly reference agent_module templates
+   - Ensured proper component separation while maintaining visual consistency
+
+4. **User Preference Persistence**:
+   - Added localStorage persistence for both panel states
+   - Automatically restores user's preferred layout on page reload
 
 ### Current Status:
-The conversation history panel can now be minimized to provide more space for the agent conversation window, allowing users to focus on their current interaction while still having quick access to history when needed.
+The agent interface now features collapsible panels on both sides, giving users full control over their workspace layout. Users can maximize the chat area when needed while maintaining quick access to both conversation history and guidelines through intuitive toggle controls.
 
 ### Next Steps To Consider:
 
 1. **Enhanced User Experience**:
-   - Add keyboard shortcuts for toggling panel state
-   - Implement hover reveal functionality for collapsed panel
+   - Add keyboard shortcuts for toggling panel states
+   - Implement hover preview functionality for collapsed panels
    - Add animations for panel content to improve visual feedback
 
-2. **Additional Panel Improvements**:
-   - Add conversation filtering options directly in the panel
-   - Implement search functionality in collapsed view
-   - Add conversation tagging capabilities
+2. **Panel Feature Enhancements**:
+   - Add conversation filtering and search within history panel
+   - Implement guidelines section navigation/jumps for quick reference
+   - Add content highlighting for key information in guidelines
+
+3. **Further Template Organization**:
+   - Review other components for potential modularization
+   - Consider extracting the chat window itself as a separate component
+   - Standardize template locations for all agent module components
 
 ## Authentication Implementation for Agent Routes (2025-04-11)
 

@@ -80,16 +80,6 @@
         cursor: not-allowed;
     }
 
-    .guidelines {
-        padding: 15px;
-        background-color: #f8f9fa;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        height: 70vh; /* Match the agent window height */
-        overflow-y: auto;
-        margin-bottom: 20px;
-    }
-
     .loading {
         display: inline-block;
         width: 20px;
@@ -138,6 +128,54 @@
         justify-content: center;
     }
 
+    /* Styles for guidelines panel */
+    .guidelines-panel {
+        height: 70vh;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        padding: 15px;
+        transition: all 0.3s ease;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .guidelines-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+
+    .guidelines-content {
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+
+    /* Collapsed guidelines panel */
+    .guidelines-panel-collapsed {
+        width: 60px;
+        overflow: hidden;
+        padding: 10px 5px;
+    }
+
+    .guidelines-panel-collapsed .guidelines-header h5,
+    .guidelines-panel-collapsed .guidelines-content {
+        display: none;
+    }
+
+    .guidelines-panel-collapsed .guidelines-header {
+        padding: 0;
+        margin: 0;
+        border: none;
+        justify-content: center;
+    }
+
+    /* Common styles for the history panel */
     .conversation-item {
         padding: 15px;
         border-bottom: 1px solid #e5e5e5;
@@ -213,7 +251,7 @@
     }
 
     /* Toggle button styling */
-    .toggle-history {
+    .toggle-history, .toggle-guidelines {
         min-width: 30px;
     }
 </style>
@@ -246,11 +284,15 @@
         <div class="row">
             <!-- History panel - left column -->
             <div :class="{'col-md-3': !isHistoryCollapsed, 'col-md-1': isHistoryCollapsed}">
-                {% include "agent_module/history_panel.html" %}
+                {% include "agent:history_panel.html" %}
             </div>
             
             <!-- Chat window - middle column -->
-            <div :class="{'col-md-6': !isHistoryCollapsed, 'col-md-8': isHistoryCollapsed}">
+            <div :class="{
+                'col-md-6': !isHistoryCollapsed && !isGuidelinesCollapsed,
+                'col-md-8': (isHistoryCollapsed && !isGuidelinesCollapsed) || (!isHistoryCollapsed && isGuidelinesCollapsed),
+                'col-md-10': isHistoryCollapsed && isGuidelinesCollapsed
+            }">
                 <div class="agent-window">
                     <div class="conversation" ref="conversation">
                         <div v-for="(message, index) in messages" :key="index" class="message"
@@ -312,15 +354,8 @@
             </div>
 
             <!-- Guidelines section - right column -->
-            <div class="col-md-3">
-                <div v-if="guidelines" class="guidelines h-100">
-                    <h5>World Guidelines</h5>
-                    <div v-html="formattedGuidelines"></div>
-                </div>
-                <div v-else class="guidelines h-100">
-                    <h5>World Guidelines</h5>
-                    <p class="text-muted">Select a world to view guidelines.</p>
-                </div>
+            <div :class="{'col-md-3': !isGuidelinesCollapsed, 'col-md-1': isGuidelinesCollapsed}">
+                {% include "agent:guidelines_panel.html" %}
             </div>
         </div>
 
@@ -417,7 +452,10 @@
             filterContextId: '',
             searchText: '',
             currentConversationId: null,
-            isHistoryCollapsed: false // New property for collapsible history panel
+            
+            // Panel state
+            isHistoryCollapsed: false,
+            isGuidelinesCollapsed: false
         },
         computed: {
             totalPages() {
@@ -460,10 +498,15 @@
             // Load conversation history
             this.loadConversations(1);
             
-            // Check for saved collapsed state
-            const savedState = localStorage.getItem('historyPanelCollapsed');
-            if (savedState) {
-                this.isHistoryCollapsed = savedState === 'true';
+            // Check for saved collapsed states
+            const savedHistoryState = localStorage.getItem('historyPanelCollapsed');
+            if (savedHistoryState) {
+                this.isHistoryCollapsed = savedHistoryState === 'true';
+            }
+            
+            const savedGuidelinesState = localStorage.getItem('guidelinesPanelCollapsed');
+            if (savedGuidelinesState) {
+                this.isGuidelinesCollapsed = savedGuidelinesState === 'true';
             }
         },
         methods: {
@@ -877,6 +920,13 @@
                 localStorage.setItem('historyPanelCollapsed', this.isHistoryCollapsed);
             },
             
+            // Toggle guidelines panel collapse state
+            toggleGuidelinesPanel() {
+                this.isGuidelinesCollapsed = !this.isGuidelinesCollapsed;
+                // Save state to localStorage
+                localStorage.setItem('guidelinesPanelCollapsed', this.isGuidelinesCollapsed);
+            },
+            
             // Handle world change
             worldChanged() {
                 // Reset conversation when world changes
@@ -914,4 +964,3 @@
         }
     });
 </script>
-{% endblock %}
