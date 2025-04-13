@@ -1,0 +1,78 @@
+<!-- History Panel -->
+<div :class="[isHistoryCollapsed ? 'history-panel history-panel-collapsed' : 'history-panel']">
+    <!-- Header -->
+    <div class="history-header">
+        <h5 v-if="!isHistoryCollapsed">Conversation History</h5>
+        <button class="btn btn-sm btn-outline-secondary toggle-history" @click="toggleHistoryPanel">
+            <i :class="isHistoryCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left'"></i>
+        </button>
+    </div>
+
+    <!-- Loading indicator -->
+    <div v-if="historyLoading" class="text-center p-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <!-- No conversations message -->
+    <div v-else-if="conversations.length === 0" class="no-conversations">
+        <i class="bi bi-chat-left-text" style="font-size: 2rem; opacity: 0.5;"></i>
+        <p class="mt-3">No saved conversations yet.</p>
+    </div>
+
+    <!-- Conversation list -->
+    <div v-else class="conversation-list">
+        <div v-for="conversation in conversations" :key="conversation.id"
+            :class="['conversation-item', { active: currentConversationId === conversation.id }]"
+            @click="loadConversation(conversation.id)">
+            <div class="conversation-header">
+                <div class="conversation-title">{{ conversation.title }}</div>
+            </div>
+            <div class="conversation-timestamp">
+                {{ formatDate(conversation.created_at) }}
+            </div>
+            <div class="conversation-context" v-if="conversation.context_name">
+                {{ conversation.context_name }}
+            </div>
+            <div class="conversation-preview" v-if="conversation.snippet">
+                {{ conversation.snippet }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination controls -->
+    <div class="pagination-controls" v-if="totalPages > 1 && !isHistoryCollapsed">
+        <nav aria-label="Conversation history pagination">
+            <ul class="pagination pagination-sm">
+                <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(1)">First</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(currentPage - 1)">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                <li v-for="page in paginationPages" :key="page" class="page-item" 
+                    :class="{ active: currentPage === page }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(page)">{{ page }}</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(currentPage + 1)">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                    <a class="page-link" href="#" @click.prevent="loadConversations(totalPages)">Last</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Refresh button -->
+    <div class="text-center mt-3 mb-3 refresh-button" v-if="!isHistoryCollapsed">
+        <button class="btn btn-sm btn-outline-secondary" @click="refreshHistory">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+</div>

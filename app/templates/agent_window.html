@@ -284,7 +284,7 @@
         <div class="row">
             <!-- History panel - left column -->
             <div :class="{'col-md-3': !isHistoryCollapsed, 'col-md-1': isHistoryCollapsed}">
-                {% include "agent:history_panel.html" %}
+                {% include "history_panel.html" %}
             </div>
             
             <!-- Chat window - middle column -->
@@ -355,7 +355,7 @@
 
             <!-- Guidelines section - right column -->
             <div :class="{'col-md-3': !isGuidelinesCollapsed, 'col-md-1': isGuidelinesCollapsed}">
-                {% include "agent:guidelines_panel.html" %}
+                {% include "guidelines_panel.html" %}
             </div>
         </div>
 
@@ -866,3 +866,104 @@
                 this.scrollToBottom();
                 
                 // Send to API
+                axios.post('/agent/api/message', {
+                    message: option.text,
+                    world_id: this.selectedWorldId || null,
+                    service: this.selectedService
+                })
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            // Add assistant response to conversation
+                            this.messages.push({
+                                role: response.data.message.role,
+                                content: response.data.message.content
+                            });
+                            
+                            // Get new prompt options
+                            this.getPromptOptions();
+                            
+                            // This is a new conversation, no longer connected to history
+                            this.currentConversationId = null;
+                        } else {
+                            // Add error message
+                            this.messages.push({
+                                role: 'assistant',
+                                content: 'Sorry, there was an error processing your request.'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+                        // Add error message
+                        this.messages.push({
+                            role: 'assistant',
+                            content: 'Sorry, there was an error processing your request.'
+                        });
+                    })
+                    .finally(() => {
+                        // Re-enable input
+                        this.isProcessing = false;
+                        this.scrollToBottom();
+                    });
+            },
+            
+            // Generate prompt options/suggestions
+            generateSuggestions() {
+                if (!this.selectedWorldId || this.isFetchingSuggestions) return;
+                
+                this.isFetchingSuggestions = true;
+                
+                axios.post('/agent/api/suggestions', {
+                    world_id: this.selectedWorldId,
+                    service: this.selectedService
+                })
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            this.promptOptions = response.data.suggestions || [];
+                        } else {
+                            console.error('Error generating suggestions:', response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error generating suggestions:', error);
+                    })
+                    .finally(() => {
+                        this.isFetchingSuggestions = false;
+                    });
+            },
+            
+            // Get prompt options from API
+            getPromptOptions() {
+                if (!this.selectedWorldId) return;
+                
+                axios.get(`/agent/api/prompt-options?world_id=${this.selectedWorldId}`)
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            this.promptOptions = response.data.options || [];
+                        } else {
+                            console.error('Error getting prompt options:', response.data.message);
+                            this.promptOptions = [];
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error getting prompt options:', error);
+                        this.promptOptions = [];
+                    });
+            },
+            
+            // Reset conversation
+            resetConversation() {
+                // Initialize with welcome message
+                this.initializeConversation();
+                this.promptOptions = [];
+                
+                // Reset conversation state on server
+                axios.post('/agent/api/reset')
+                    .catch(error => {
+                        console.error('Error resetting conversation:', error);
+                    });
+            }
+        }
+    });
+</script>
+{% endblock %}
