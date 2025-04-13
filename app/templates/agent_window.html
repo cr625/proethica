@@ -510,6 +510,93 @@
             }
         },
         methods: {
+            // Toggle the history panel collapse state
+            toggleHistoryPanel() {
+                this.isHistoryCollapsed = !this.isHistoryCollapsed;
+                localStorage.setItem('historyPanelCollapsed', this.isHistoryCollapsed);
+            },
+            
+            // Toggle the guidelines panel collapse state
+            toggleGuidelinesPanel() {
+                this.isGuidelinesCollapsed = !this.isGuidelinesCollapsed;
+                localStorage.setItem('guidelinesPanelCollapsed', this.isGuidelinesCollapsed);
+            },
+            
+            // Handle world change
+            worldChanged() {
+                // Reset conversation if world changes
+                if (this.messages.length > 1) {
+                    if (confirm('Changing worlds will reset your current conversation. Continue?')) {
+                        this.resetConversation();
+                    } else {
+                        // Restore the previous selection
+                        this.$nextTick(() => {
+                            const select = document.getElementById('world-select');
+                            if (select) {
+                                select.value = this.selectedWorldId;
+                            }
+                        });
+                        return;
+                    }
+                }
+                
+                // Get guidelines for the selected world
+                this.getGuidelines();
+                
+                // Save selection to session
+                axios.post('/agent/api/select-world', {
+                    world_id: this.selectedWorldId
+                }).catch(error => {
+                    console.error('Error saving world selection:', error);
+                });
+            },
+            
+            // Handle service change
+            serviceChanged() {
+                // Save selection to session
+                axios.post('/agent/api/select-service', {
+                    service: this.selectedService
+                }).catch(error => {
+                    console.error('Error saving service selection:', error);
+                });
+            },
+            
+            // Get guidelines for selected world
+            getGuidelines() {
+                if (!this.selectedWorldId) {
+                    this.guidelines = '';
+                    this.formattedGuidelines = '';
+                    return;
+                }
+                
+                axios.get(`/agent/api/guidelines?world_id=${this.selectedWorldId}`)
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            this.guidelines = response.data.guidelines || '';
+                            // Format the guidelines with markdown
+                            this.formattedGuidelines = this.guidelines ? marked.parse(this.guidelines) : '';
+                        } else {
+                            console.error('Error getting guidelines:', response.data.message);
+                            this.guidelines = '';
+                            this.formattedGuidelines = '';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error getting guidelines:', error);
+                        this.guidelines = '';
+                        this.formattedGuidelines = '';
+                    });
+            },
+            
+            // Scroll to bottom of conversation
+            scrollToBottom() {
+                this.$nextTick(() => {
+                    if (this.$refs.conversation) {
+                        this.$refs.conversation.scrollTop = this.$refs.conversation.scrollHeight;
+                    }
+                });
+            },
+            
             // Load conversation history
             loadConversations(page) {
                 this.historyLoading = true;
@@ -727,7 +814,8 @@
                 // Send message to API
                 axios.post('/agent/api/message', {
                     message: userMessage,
-                    world_id: this.selectedWorldId || null
+                    world_id: this.selectedWorldId || null,
+                    service: this.selectedService
                 })
                     .then(response => {
                         if (response.data.status === 'success') {
@@ -777,190 +865,4 @@
                 // Scroll to bottom
                 this.scrollToBottom();
                 
-                // Send message to API
-                axios.post('/agent/api/message', {
-                    message: option.text,
-                    world_id: this.selectedWorldId || null
-                })
-                    .then(response => {
-                        if (response.data.status === 'success') {
-                            // Add assistant response to conversation
-                            this.messages.push({
-                                role: response.data.message.role,
-                                content: response.data.message.content
-                            });
-                            
-                            // Get new prompt options
-                            this.getPromptOptions();
-                            
-                            // This is a new conversation, no longer connected to history
-                            this.currentConversationId = null;
-                        } else {
-                            // Add error message
-                            this.messages.push({
-                                role: 'assistant',
-                                content: 'Sorry, there was an error processing your request.'
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error sending message:', error);
-                        // Add error message
-                        this.messages.push({
-                            role: 'assistant',
-                            content: 'Sorry, there was an error processing your request.'
-                        });
-                    })
-                    .finally(() => {
-                        // Re-enable input
-                        this.isProcessing = false;
-                        this.scrollToBottom();
-                    });
-            },
-            
-            getPromptOptions() {
-                // Get prompt options from API
-                axios.get('/agent/api/options', {
-                    params: {
-                        world_id: this.selectedWorldId || null
-                    }
-                })
-                    .then(response => {
-                        if (response.data.status === 'success') {
-                            this.promptOptions = response.data.options;
-                        } else {
-                            this.promptOptions = [];
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error getting prompt options:', error);
-                        this.promptOptions = [];
-                    });
-            },
-            
-            generateSuggestions() {
-                if (!this.selectedWorldId || this.isFetchingSuggestions) return;
-                
-                // Set loading state
-                this.isFetchingSuggestions = true;
-                
-                // Call API to get suggestions
-                axios.get('/agent/api/options', {
-                    params: {
-                        world_id: this.selectedWorldId || null
-                    }
-                })
-                    .then(response => {
-                        if (response.data.status === 'success') {
-                            this.promptOptions = response.data.options;
-                        } else {
-                            this.promptOptions = [];
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error getting prompt options:', error);
-                        this.promptOptions = [];
-                    })
-                    .finally(() => {
-                        this.isFetchingSuggestions = false;
-                    });
-            },
-            
-            // Reset conversation to initial state
-            resetConversation() {
-                this.messages = [
-                    { role: 'assistant', content: this.welcomeMessage }
-                ];
-                this.promptOptions = [];
-                this.currentConversationId = null;
-            },
-            
-            // Get world guidelines
-            getGuidelines() {
-                if (!this.selectedWorldId) {
-                    this.guidelines = '';
-                    this.formattedGuidelines = '';
-                    return;
-                }
-                
-                axios.get(`/agent/api/guidelines`, {
-                    params: {
-                        world_id: this.selectedWorldId
-                    }
-                })
-                    .then(response => {
-                        if (response.data.status === 'success') {
-                            this.guidelines = response.data.guidelines || '';
-                            this.formattedGuidelines = marked.parse(this.guidelines);
-                        } else {
-                            this.guidelines = '';
-                            this.formattedGuidelines = '';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error getting guidelines:', error);
-                        this.guidelines = '';
-                        this.formattedGuidelines = '';
-                    });
-            },
-            
-            // Scroll to bottom of conversation
-            scrollToBottom() {
-                this.$nextTick(() => {
-                    if (this.$refs.conversation) {
-                        this.$refs.conversation.scrollTop = this.$refs.conversation.scrollHeight;
-                    }
-                });
-            },
-            
-            // Toggle history panel collapse state
-            toggleHistoryPanel() {
-                this.isHistoryCollapsed = !this.isHistoryCollapsed;
-                // Save state to localStorage
-                localStorage.setItem('historyPanelCollapsed', this.isHistoryCollapsed);
-            },
-            
-            // Toggle guidelines panel collapse state
-            toggleGuidelinesPanel() {
-                this.isGuidelinesCollapsed = !this.isGuidelinesCollapsed;
-                // Save state to localStorage
-                localStorage.setItem('guidelinesPanelCollapsed', this.isGuidelinesCollapsed);
-            },
-            
-            // Handle world change
-            worldChanged() {
-                // Reset conversation when world changes
-                this.resetConversation();
-                
-                // Get new guidelines
-                this.getGuidelines();
-                
-                // Clear prompt options
-                this.promptOptions = [];
-            },
-            
-            // Handle service change
-            serviceChanged() {
-                // Reset conversation when service changes
-                this.resetConversation();
-                
-                // Update service settings
-                axios.post('/agent/api/service', {
-                    service: this.selectedService
-                })
-                    .then(response => {
-                        if (response.data.status === 'success') {
-                            // Update welcome message if provided
-                            if (response.data.welcome_message) {
-                                this.welcomeMessage = response.data.welcome_message;
-                                this.resetConversation();
-                            }
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error setting service:', error);
-                    });
-            }
-        }
-    });
-</script>
+                // Send to API
