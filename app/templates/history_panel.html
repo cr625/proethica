@@ -23,20 +23,20 @@
 
     <!-- Conversation list -->
     <div v-else class="conversation-list">
-        <div v-for="conversation in conversations" :key="conversation.id"
-            :class="['conversation-item', { active: currentConversationId === conversation.id }]"
-            @click="loadConversation(conversation.id)">
+        <div v-for="conv in conversations" :key="conv.id"
+            :class="['conversation-item', { active: currentConversationId === conv.id }]"
+            @click="loadConversation(conv.id)">
             <div class="conversation-header">
-                <div class="conversation-title">{{ conversation.title }}</div>
+                <div class="conversation-title">{{ conv.title }}</div>
             </div>
             <div class="conversation-timestamp">
-                {{ formatDate(conversation.created_at) }}
+                {{ formatDate(conv.created_at) }}
             </div>
-            <div class="conversation-context" v-if="conversation.context_name">
-                {{ conversation.context_name }}
+            <div class="conversation-context" v-if="conv.context_name">
+                {{ conv.context_name }}
             </div>
-            <div class="conversation-preview" v-if="conversation.snippet">
-                {{ conversation.snippet }}
+            <div class="conversation-preview" v-if="conv.snippet">
+                {{ conv.snippet }}
             </div>
         </div>
     </div>
