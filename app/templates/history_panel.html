@@ -27,16 +27,16 @@
             :class="['conversation-item', { active: currentConversationId === conv.id }]"
             @click="loadConversation(conv.id)">
             <div class="conversation-header">
-                <div class="conversation-title">{{ conv.title }}</div>
+                <div class="conversation-title">{% raw %}{{ conv.title }}{% endraw %}</div>
             </div>
             <div class="conversation-timestamp">
-                {{ formatDate(conv.created_at) }}
+                {% raw %}{{ formatDate(conv.created_at) }}{% endraw %}
             </div>
             <div class="conversation-context" v-if="conv.context_name">
-                {{ conv.context_name }}
+                {% raw %}{{ conv.context_name }}{% endraw %}
             </div>
             <div class="conversation-preview" v-if="conv.snippet">
-                {{ conv.snippet }}
+                {% raw %}{{ conv.snippet }}{% endraw %}
             </div>
         </div>
     </div>
@@ -55,7 +55,7 @@
                 </li>
                 <li v-for="page in paginationPages" :key="page" class="page-item" 
                     :class="{ active: currentPage === page }">
-                    <a class="page-link" href="#" @click.prevent="loadConversations(page)">{{ page }}</a>
+                    <a class="page-link" href="#" @click.prevent="loadConversations(page)">{% raw %}{{ page }}{% endraw %}</a>
                 </li>
                 <li class="page-item" :class="{ disabled: currentPage === totalPages }">
                     <a class="page-link" href="#" @click.prevent="loadConversations(currentPage + 1)">
