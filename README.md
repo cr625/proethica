@@ -135,3 +135,7 @@ GPL 3
 ## Contributors
 
 - Christopher Rauch
+
+## External Repositories
+
+The external repository `agent_module` is now located in the `_src/agent_module` directory. Please ensure to update your local setup accordingly.
