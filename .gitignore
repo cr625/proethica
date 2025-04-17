@@ -1,4 +1,3 @@
-
 # Server-specific configuration
 server_config/
 # Python
@@ -65,3 +64,6 @@ mcp/server.log
 run_with_agents_gunicorn.sh
 .secrets
 .env.backup
+
+# External Repositories
+_src/
