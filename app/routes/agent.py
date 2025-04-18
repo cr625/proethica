@@ -14,7 +14,9 @@ agent_bp = Blueprint('agent', __name__, url_prefix='/agent')
 llm_service = LLMService()
 
 # Initialize Claude service with API key
-api_key = os.environ.get("ANTHROPIC_API_KEY", "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")
+api_key = os.environ.get("ANTHROPIC_API_KEY")
+if not api_key:
+    raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set. Please set it to use ClaudeService.")
 claude_service = ClaudeService(api_key=api_key)
 
 # Service selection flag - set to 'claude' to use Claude, 'langchain' to use LangChain

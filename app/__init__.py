@@ -60,7 +60,7 @@ def create_app(config_name=None):
     from app.routes.scenarios import scenarios_bp
     from app.routes.entities import entities_bp
     # Use modular agent blueprint
-    from app.agent_module import create_proethica_agent_blueprint
+    from _src.agent_module import create_proethica_agent_blueprint
     from app.routes.mcp_api import mcp_api_bp
     from app.routes.documents import documents_bp, documents_web_bp
     from app.routes.simulation import simulation_bp
@@ -91,7 +91,7 @@ def create_app(config_name=None):
     app.register_blueprint(agent_bp)
     
     # Create and register history blueprint
-    from app.agent_module import create_proethica_history_blueprint
+    from _src.agent_module import create_proethica_history_blueprint
     history_bp = create_proethica_history_blueprint(
         url_prefix='/agent/history'
     )
