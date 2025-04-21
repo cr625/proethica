@@ -2,8 +2,8 @@
 
 # Define paths
 LOCKFILE="/tmp/http_ontology_mcp_server.lock"
-SERVER_PATH="/home/chris/ai-ethical-dm/mcp/http_ontology_mcp_server.py"
-LOG_PATH="/home/chris/ai-ethical-dm/mcp/http_server.log"
+SERVER_PATH="$(pwd)/mcp/http_ontology_mcp_server.py"
+LOG_PATH="$(pwd)/mcp/http_server.log"
 PORT=${MCP_SERVER_PORT:-5001}  # Use environment variable or default to 5001
 
 # Function to check if a process is running
