@@ -1,0 +1,62 @@
+# CORE DEPENDENCIES - Essential for the application to run
+flask                 # Core web framework
+sqlalchemy            # Database ORM
+flask-sqlalchemy      # Flask integration for SQLAlchemy
+flask-migrate         # Database migrations
+flask-login           # User authentication
+flask-wtf             # Form handling
+python-dotenv         # Environment variable loading
+werkzeug              # WSGI utilities
+psycopg2-binary       # PostgreSQL driver
+
+# MCP SERVER DEPENDENCIES
+rdflib                # RDF graph processing for ontology support
+aiohttp               # Async HTTP server for MCP server
+
+# API COMMUNICATION
+requests              # HTTP client for API requests 
+
+# PRODUCTION
+gunicorn              # WSGI HTTP Server
+
+# TESTING & DEVELOPMENT - Keep these for development workflow
+pytest
+pytest-flask
+email_validator
+black
+flake8
+
+# FEATURE-SPECIFIC DEPENDENCIES
+# The following packages are used by specific features and can be installed only when those features are needed
+
+# CLAUDE API INTEGRATION (Required when USE_CLAUDE=true in .env)
+anthropic>=0.18.0     # Anthropic Python SDK
+
+# LANGCHAIN/LANGGRAPH (Required when USE_AGENT_ORCHESTRATOR=true in .env)
+# These packages have minimal dependencies and are needed for agent functionality
+langchain
+langchain-core
+langchain-anthropic
+langchain-community
+langgraph
+
+# DOCUMENT PROCESSING (Required for document upload and processing features)
+# Consider installing only if document processing features are used
+PyPDF2                # PDF text extraction
+python-docx           # DOCX text extraction
+beautifulsoup4        # HTML text extraction
+
+# VECTOR EMBEDDINGS (Required when using embedding features)
+# Heavy dependencies with CUDA requirements - install only if needed
+# Controlled by EMBEDDING_PROVIDER_PRIORITY in .env
+pgvector              # PostgreSQL vector extension
+sentence-transformers # For generating embeddings
+chromadb              # Vector database
+
+# ZOTERO INTEGRATION (Required when using Zotero features)
+# Install only if Zotero integration is needed
+pyzotero              # Zotero API client
+
+# MODEL CONTEXT PROTOCOL
+# Only needed if using MCP CLI tools directly
+# mcp[cli]             # Model Context Protocol CLI tools

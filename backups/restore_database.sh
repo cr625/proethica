@@ -7,7 +7,7 @@
 DB_NAME="ai_ethical_dm"
 DB_USER="postgres"
 DB_HOST="localhost"
-DB_PORT="5432"
+DB_PORT="5433"
 BACKUP_DIR="$(dirname "$0")"  # Use the directory where this script is located
 
 # IMPORTANT: Before using this script, ensure that md5 authentication is properly configured

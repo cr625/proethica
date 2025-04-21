@@ -1,5 +1,73 @@
 # ProEthica Development Progress
 
+## PostgreSQL Configuration Update (2025-04-21)
+
+### Completed Tasks:
+
+1. **PostgreSQL Configuration Cleanup**:
+   - Removed system-installed PostgreSQL packages to avoid conflicts
+   - Standardized on Docker-based PostgreSQL (pgvector image)
+   - Verified database connection using port 5433 as specified in .env
+   - Cleaned up unused dependencies related to the system PostgreSQL
+
+### Current Status:
+The application now exclusively uses Docker-based PostgreSQL with pgvector support. This provides a cleaner environment with reduced potential for port conflicts and ensures consistency across development environments.
+
+### Next Steps To Consider:
+
+1. **Database Documentation**:
+   - Update setup documentation to clarify Docker-based PostgreSQL requirements
+   - Document database backup/restore procedures for the Docker configuration
+   - Create scripts to simplify container management for development
+
+2. **Environment Standardization**:
+   - Ensure consistent database setup across all deployment environments
+   - Create database initialization scripts for fresh installations
+   - Update CI/CD pipelines to align with the Docker-based setup
+
+## Dependency Management Improvements (2025-04-21)
+
+### Completed Tasks:
+
+1. **Dependency Organization and Management**:
+   - Created categorized requirements files:
+     - `requirements-final.txt`: Organized by feature with detailed comments
+     - `requirements-cleaned.txt`: Initial analysis of dependencies
+   - Developed dependency management utility script:
+     - `scripts/manage_dependencies.py`: Tool to selectively install dependencies
+   - Added comprehensive documentation in `docs/dependency_management.md`
+
+2. **CUDA Dependencies Optimization**:
+   - Identified and categorized heavy dependencies with CUDA requirements
+   - Created feature-specific installation options to avoid unnecessary packages
+   - Implemented detection of active features based on .env configuration
+   - Enabled selective installation of only required dependencies
+
+3. **Feature Detection and Configuration**:
+   - Added automatic detection of active features based on .env settings
+   - Created analysis command to show which features are active
+   - Provided clear installation commands for different deployment scenarios
+
+### Current Status:
+The application now has an improved dependency management system that allows developers to install only the dependencies needed for active features. This reduces overhead from unnecessary packages, particularly those with heavy CUDA dependencies.
+
+### Next Steps To Consider:
+
+1. **Containerization Improvements**:
+   - Update Docker configurations to use the new dependency management approach
+   - Create specialized Docker images for different feature sets
+   - Optimize container sizes by excluding unnecessary dependencies
+
+2. **CI/CD Integration**:
+   - Update CI/CD pipelines to use the dependency management script
+   - Create specialized test environments for different feature combinations
+   - Optimize build times by installing only required dependencies
+
+3. **Environment Templates**:
+   - Create template .env files for common deployment scenarios
+   - Add environment configuration presets to the dependency script
+   - Document common deployment patterns with corresponding dependency sets
+
 ## Collapsible Panels for Agent Window (2025-04-12)
 
 ### Completed Tasks:
