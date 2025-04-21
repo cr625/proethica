@@ -59,6 +59,46 @@ if [ ! -x "./scripts/restart_http_mcp_server.sh" ]; then
     chmod +x ./scripts/restart_http_mcp_server.sh
 fi
 
+# Check if Docker is installed and running
+echo -e "${BLUE}Checking Docker and PostgreSQL container...${NC}"
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}Docker is not installed or not in PATH. Please install Docker to use the PostgreSQL container.${NC}"
+    echo -e "${YELLOW}Continuing without Docker verification, but database connection may fail...${NC}"
+else
+    # Check if PostgreSQL container exists and is running
+    POSTGRES_CONTAINER="postgres17-pgvector"
+    
+    # Extract database connection details from .env file
+    DB_PORT=$(grep "DATABASE_URL" .env | sed -E 's/.*localhost:([0-9]+).*/\1/')
+    
+    if [ -z "$DB_PORT" ]; then
+        DB_PORT="5433"  # Default port if not found in .env
+    fi
+    
+    CONTAINER_STATUS=$(docker ps -a --filter "name=$POSTGRES_CONTAINER" --format "{{.Status}}")
+    
+    if [ -z "$CONTAINER_STATUS" ]; then
+        echo -e "${RED}PostgreSQL container '$POSTGRES_CONTAINER' not found.${NC}"
+        echo -e "${YELLOW}Please create the container with: docker run -d --name $POSTGRES_CONTAINER -p $DB_PORT:5432 -e POSTGRES_PASSWORD=PASS -e POSTGRES_DB=ai_ethical_dm pgvector/pgvector:pg17${NC}"
+        echo -e "${YELLOW}Continuing without Docker PostgreSQL, but database connection may fail...${NC}"
+    else
+        if [[ $CONTAINER_STATUS == Exited* ]] || [[ $CONTAINER_STATUS == Created* ]]; then
+            echo -e "${YELLOW}PostgreSQL container '$POSTGRES_CONTAINER' exists but is not running. Starting it now...${NC}"
+            if docker start $POSTGRES_CONTAINER; then
+                echo -e "${GREEN}PostgreSQL container started successfully on port $DB_PORT.${NC}"
+                # Wait a moment for PostgreSQL to initialize
+                echo -e "${YELLOW}Waiting for PostgreSQL to initialize...${NC}"
+                sleep 3
+            else
+                echo -e "${RED}Failed to start PostgreSQL container. Please check Docker logs.${NC}"
+                echo -e "${YELLOW}Continuing anyway, but database connection may fail...${NC}"
+            fi
+        else
+            echo -e "${GREEN}PostgreSQL container '$POSTGRES_CONTAINER' is already running on port $DB_PORT.${NC}"
+        fi
+    fi
+fi
+
 # Launch the application
 echo -e "${GREEN}Launching ProEthica with auto-detected environment...${NC}"
 ./auto_run.sh

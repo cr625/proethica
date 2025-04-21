@@ -80,6 +80,28 @@ The application now exclusively uses Docker-based PostgreSQL with pgvector suppo
    - Create database initialization scripts for fresh installations
    - Update CI/CD pipelines to align with the Docker-based setup
 
+## Docker PostgreSQL Integration (2025-04-21)
+
+### Completed Tasks:
+
+1. **Docker Container Management**:
+   - Added automated Docker PostgreSQL container checks to `start_proethica.sh`
+   - Implemented container status detection and auto-starting capability
+   - Added port extraction from .env file to ensure consistent container configuration
+   - Included informative error messages and instructions for container creation
+   - Added a short delay after container startup to allow PostgreSQL to initialize
+
+### Current Status:
+The application startup script now automatically checks for and starts the Docker PostgreSQL container if it's not running. This ensures the database is ready before the application attempts to connect, reducing startup errors and improving the developer experience. The script provides clear error messages and instructions if Docker is not available or the container doesn't exist.
+
+### Next Steps To Consider:
+
+1. **Further Docker Integration**:
+   - Add similar container management to other scripts like `run_proethica_with_agents.sh`
+   - Create a dedicated container management script for more complex operations
+   - Add volume mounting for persistent data across container restarts
+   - Implement container health checks beyond simple status checking
+
 ## Dependency Management Improvements (2025-04-21)
 
 ### Completed Tasks:
