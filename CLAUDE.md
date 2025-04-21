@@ -9,6 +9,8 @@
    - Standardized on Docker-based PostgreSQL (pgvector image)
    - Verified database connection using port 5433 as specified in .env
    - Cleaned up unused dependencies related to the system PostgreSQL
+   - Updated restore_database.sh script to work with Docker PostgreSQL on port 5433
+   - Successfully tested database restoration procedure
 
 ### Current Status:
 The application now exclusively uses Docker-based PostgreSQL with pgvector support. This provides a cleaner environment with reduced potential for port conflicts and ensures consistency across development environments.
