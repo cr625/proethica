@@ -1,0 +1,131 @@
+/* Hierarchy visualization styles */
+
+/* Override bootstrap styles */
+.card {
+    border-radius: 0.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1rem;
+}
+
+/* Hierarchy tree styles */
+#hierarchyContainer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+#hierarchyTree {
+    padding: 1rem;
+}
+
+/* Tree node styles */
+.node {
+    cursor: pointer;
+}
+
+.node circle {
+    fill: #fff;
+    stroke: steelblue;
+    stroke-width: 1.5px;
+}
+
+.node text {
+    font: 12px sans-serif;
+}
+
+/* BFO-specific node styles */
+.node.bfo circle {
+    fill: #0d6efd;
+    stroke: #0a58ca;
+}
+
+.node.bfo-aligned circle {
+    fill: #198754;
+    stroke: #146c43;
+}
+
+.node.non-bfo circle {
+    fill: #ffc107;
+    stroke: #cc9a06;
+}
+
+.node.property circle {
+    fill: #0dcaf0;
+    stroke: #0aa2c0;
+}
+
+.node.individual circle {
+    fill: #6c757d;
+    stroke: #565e64;
+}
+
+/* Path styles */
+.link {
+    fill: none;
+    stroke: #ccc;
+    stroke-width: 1.5px;
+}
+
+/* Legend styles */
+.legend-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+}
+
+/* Entity details styles */
+#entityDetails {
+    font-size: 0.9rem;
+}
+
+.entity-header {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.entity-uri {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.entity-property {
+    margin-bottom: 0.5rem;
+}
+
+.entity-property-name {
+    font-weight: bold;
+}
+
+.entity-property-value {
+    margin-left: 1rem;
+}
+
+/* Button spacing */
+.card-header .btn {
+    margin-left: 0.25rem;
+}
+
+/* Loading indicator */
+#loadingIndicator {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Node collapsible/expandable indicators */
+.node--internal circle {
+    fill: #555;
+}
+
+.node--internal text {
+    text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff;
+}
+
+.node--leaf text {
+    fill: #333;
+}
