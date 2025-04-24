@@ -9,14 +9,24 @@
 let editor;               // ACE editor instance
 let currentOntologyId;    // Currently loaded ontology ID
 let isEditorDirty = false; // Track if changes have been made
+let sourceParam = null;    // Track source parameter from URL
 
 // Document ready function
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize the ACE editor
     initializeEditor();
     
-    // Load the list of ontologies
-    loadOntologyList();
+    // Get source parameter from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    sourceParam = urlParams.get('source');
+    
+    // If source parameter is available, load that ontology directly
+    if (sourceParam) {
+        loadOntologyBySource(sourceParam);
+    } else {
+        // Otherwise, load the list of ontologies
+        loadOntologyList();
+    }
     
     // Set up event listeners
     setupEventListeners();
@@ -72,6 +82,76 @@ function setupEventListeners() {
     
     // Create ontology button
     document.getElementById('createOntologyBtn').addEventListener('click', createNewOntology);
+}
+
+/**
+ * Load an ontology by its source identifier (filename)
+ * 
+ * @param {string} source - Source identifier of the ontology to load
+ */
+function loadOntologyBySource(source) {
+    console.log('Loading ontology by source:', source);
+    
+    // Show loading indicator
+    const editorContainer = document.getElementById('editorContainer');
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay';
+    loadingOverlay.innerHTML = `
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    `;
+    editorContainer.appendChild(loadingOverlay);
+    
+    // Fetch the ontology content by source
+    fetch(`/ontology-editor/api/ontology/${source}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load ontology by source');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update editor content
+            editor.setValue(data.content || '# No content available');
+            editor.clearSelection();
+            
+            // Update current ontology ID
+            currentOntologyId = data.ontology.id;
+            
+            // Reset dirty flag
+            isEditorDirty = false;
+            
+            // Update UI
+            document.getElementById('editorTitle').innerText = `Editing: ${data.ontology.title || source}`;
+            document.getElementById('saveBtn').disabled = true;
+            document.getElementById('validateBtn').disabled = false;
+            document.getElementById('visualizeBtn').disabled = false;
+            
+            // Load versions for this ontology if available
+            if (data.ontology.id) {
+                loadVersions(data.ontology.id);
+            }
+            
+            // Remove loading indicator
+            editorContainer.removeChild(loadingOverlay);
+        })
+        .catch(error => {
+            console.error('Error loading ontology by source:', error);
+            
+            // Display error
+            editorContainer.removeChild(loadingOverlay);
+            editor.setValue(`# Error loading ontology: ${error.message}\n\n# This might be because:\n# 1. The ontology file does not exist\n# 2. The source parameter is incorrect\n# 3. The server is not properly configured\n\n# Try creating a new ontology or contact your administrator.`);
+            
+            // Reset state
+            currentOntologyId = null;
+            document.getElementById('saveBtn').disabled = true;
+            document.getElementById('validateBtn').disabled = true;
+            document.getElementById('visualizeBtn').disabled = true;
+            
+            // Load the list of ontologies as a fallback
+            loadOntologyList();
+        });
 }
 
 /**
@@ -550,9 +630,9 @@ function saveOntology() {
     `;
     editorContainer.appendChild(loadingOverlay);
     
-    // Create a new version
-    fetch(`/ontology-editor/api/versions/${currentOntologyId}`, {
-        method: 'POST',
+    // Update the ontology content
+    fetch(`/ontology-editor/api/ontologies/${currentOntologyId}`, {
+        method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
         },
@@ -563,7 +643,7 @@ function saveOntology() {
     })
     .then(response => {
         if (!response.ok) {
-            throw new Error('Failed to save version');
+            throw new Error('Failed to save ontology');
         }
         return response.json();
     })

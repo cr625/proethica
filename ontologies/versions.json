@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": 1,
+    "ontology_id": 1,
+    "version_number": 1,
+    "commit_message": "Initial version",
+    "file_path": "domains/engineering_ethics_nspe_extended/main/versions/v1.ttl",
+    "committed_at": "2025-04-24T10:54:00",
+    "committed_by": 1
+  },
+  {
+    "id": 2,
+    "ontology_id": 2,
+    "version_number": 1,
+    "commit_message": "Initial version",
+    "file_path": "domains/proethica_intermediate/main/versions/v1.ttl",
+    "committed_at": "2025-04-24T10:54:00",
+    "committed_by": 1
+  }
+]

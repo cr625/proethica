@@ -1,75 +1,106 @@
 # A-Proxy Development Log
 
-## 2025-04-24: Implemented Ontology Editor Integration
+## 2025-04-24: Fixed UI Inconsistencies in World Detail Page and API Route References
 
-The ontology editor has been successfully integrated into the ProEthica application. This integration allows for direct editing of ontologies associated with worlds, as well as specific editing of individual entities.
+Fixed inconsistencies in the world detail page UI and updated API route references:
 
 ### Changes Made:
-1. **Extended MCPClient Service**:
-   - Added methods for ontology status checking
-   - Added methods for fetching and updating ontology content
-   - Added methods for refreshing world entities after ontology changes
+1. **Fixed Button Labels in World Detail Page**:
+   - Corrected the button label in the World Entities section to show "Edit Entities" instead of incorrectly showing "Edit Ontology"
+   - Ensured proper URL parameters are maintained for both buttons to direct to the correct editor views
 
-2. **Created Bridge Routes**:
-   - Added `app/routes/ontology.py` with bridging functionality
-   - Registered the ontology blueprint in `app/__init__.py`
+2. **Updated API Route References**:
+   - Fixed document API endpoint references to match the actual implementation:
+     - Changed `documents.view_document` to `api_documents.get_document`
+     - Changed `documents.edit_document` to `api_documents.update_document`
+     - Changed `documents.delete_document` to `api_documents.delete_document`
+   - Updated parameter names for route consistency (using `document_id` instead of `doc_id` where needed)
 
-3. **UI Integration**:
-   - Updated the world detail template to show ontology status
-   - Added "Edit Ontology" buttons to world details page
-   - Added "Edit in Ontology" functionality to entity detail modals
-   - Created JavaScript file to handle entity editing integration
+3. **Fixed Template Structure Issues**:
+   - Ensured all Jinja template blocks are properly closed
+   - Fixed parameter name consistency across URL routes (using `id` instead of `world_id` in some places)
+   - Corrected HTML structure to ensure proper rendering
 
-4. **Documentation**:
-   - Created detailed integration documentation
-
-### How to Use:
-- The ontologies can be accessed/edited from the world details page
-- Individual entities can be edited by clicking on the "Details" button for an entity and then "Edit in Ontology"
-- All changes to ontologies automatically update the associated worlds
+### Previous Issues Fixed:
+- Button labeling inconsistency in the World Entities section
+- Template rendering errors due to incorrect endpoint references
+- Jinja template syntax errors causing 500 responses
 
 ### Next Steps:
-- Create custom entity types beyond the default five types (roles, conditions, resources, events, actions)
-- Implement proper versioning UI for ontologies
-- Add ability to revert to previous ontology versions
+- Continue improving the ontology editor integration with database storage
+- Enhance entity type handling in world detail view
+- Add validation for ontology format during upload and editing
 
-## 2025-04-22: Extended Proethica with Agent-Based Architecture
+## 2025-04-24: Migrated Ontologies to Database Storage and Fixed UI Issues
 
-We've successfully implemented the agent-based architecture to enhance the ethical reasoning capabilities. The new system supports multiple types of agents, each specialized for different tasks.
+Implemented a comprehensive database-backed system for ontology storage and management:
 
 ### Changes Made:
-1. Added agent module with support for:
-   - Guidelines agent for retrieving and interpreting ethical guidelines
-   - Scenario agent for analyzing scenarios
-   - Entity agent for entity relationship analysis
-   
-2. Implemented a communication protocol between agents
+1. **Created Database Models for Ontology Storage**:
+   - Added `Ontology` model to store ontology metadata and content
+   - Added `OntologyVersion` model to maintain version history
+   - Updated `World` model with a foreign key reference to ontologies
 
-3. Set up test cases to validate the agent architecture
+2. **Migration Process**:
+   - Created migration script to move ontologies from filesystem to database
+   - Preserved backward compatibility with filesystem storage
+   - Created database column creation utility for existing databases
+
+3. **UI Improvements**:
+   - Fixed label issue where both buttons were saying "Edit Ontology" in the world detail page
+   - Updated "Edit Entities" button in the World Entities section 
+   - Standardized URL parameter handling for the ontology editor
+
+4. **API Enhancements**:
+   - Modified API routes to query database first, then fall back to filesystem
+   - Added support for both formats of ontology sources (with and without .ttl extension)
+   - Improved error handling and added detailed logging
+
+### Previous Issues Fixed:
+- Fixed 404 errors when accessing ontologies via the editor
+- Fixed inconsistent button labels in the world detail page
+- Addressed metadata inconsistencies between ontology sources and filesystem paths
+- Implemented database storage for better reliability and consistency
 
 ### Next Steps:
-- Enhance agent reasoning with more sophisticated ethical frameworks
-- Add support for dynamic agent creation based on scenario context
-- Implement visualization of agent reasoning process
+- Complete the transition to database storage by updating entity retrieval
+- Implement proper entity editing through the database
+- Enhance database queries with joins for better performance
+- Add database backup and restore for ontologies
 
-## 2025-04-10: Improved World Entities and Triple Relationships
+## 2025-04-24: Fixed Ontology Editor URL Handling
 
-Added better support for entity triple relationships and improved the world entity management interface.
-
-### Changes Made:
-1. Enhanced the triple data model with temporal attributes
-2. Added UI for visualizing entity relationships
-3. Implemented filtering and search for entities
-
-### Known Issues:
-- Some performance issues with large entity graphs
-- Occasional glitches in the visualization UI
-
-## 2025-04-03: Initial Setup of Model Context Protocol
-
-Implemented the Model Context Protocol (MCP) for better integration with AI services.
+Fixed an issue with ontology editor URL handling to properly process ontology sources without .ttl extension:
 
 ### Changes Made:
-1. Created MCP server integration
-2. Set up HTTP MCP server for ontology management
-3. Added client API for MCP server communication
+1. **Modified API Routes in `ontology_editor/api/routes.py`**:
+   - Added a dedicated route to handle ontology requests without .ttl extension
+   - Updated the `get_ontology_by_source` function to properly handle both cases (with/without extension)
+   - Improved logging for better debugging
+   - Added automatic domain name conversion between dash and underscore formats
+
+2. **Updated World Template**:
+   - Modified the world detail template to correctly strip .ttl extensions from ontology sources
+   - Fixed "Edit Entities" button label (was incorrectly shown as "Edit Ontology")
+   - Updated URL parameter handling to ensure proper routing
+
+### Previous Issues Fixed:
+- Fixed 404 error when accessing ontology via API with stripped extension
+- Addressed metadata inconsistencies between ontology sources and filesystem paths
+- Improved error handling and added more verbose logging
+
+### Next Steps:
+- Create database model for ontologies to provide more robust storage
+- Implement proper entity type handling in world detail view
+- Add validation for ontology format during upload and editing
+- Consider implementing a visual ontology editor
+
+## 2025-04-24: Fixed Ontology Editor Integration Issues
+
+Fixed several issues with the ontology editor integration to ensure proper functionality:
+
+### Changes Made:
+1. **Fixed 404 Error and URL Issues**:
+   - Added proper routes in the ontology editor blueprint to handle direct access to `/ontology-editor`
+   - Updated routes to support both full ontology editing and entity-specific editing
+   - Configured the blueprint to use the correct templates

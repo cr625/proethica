@@ -12,7 +12,8 @@ class World(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    ontology_source = db.Column(db.String(255))  # Reference to the ontology source
+    ontology_source = db.Column(db.String(255))  # Reference to the ontology source (kept for backward compatibility)
+    ontology_id = db.Column(db.Integer, db.ForeignKey('ontologies.id'), nullable=True)  # Direct reference to Ontology model
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -36,6 +37,7 @@ class World(db.Model):
             'name': self.name,
             'description': self.description,
             'ontology_source': self.ontology_source,
+            'ontology_id': self.ontology_id,
             'cases': self.cases,
             'rulesets': self.rulesets,
             'created_at': self.created_at.isoformat() if self.created_at else None,

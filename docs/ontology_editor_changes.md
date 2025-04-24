@@ -1,134 +1,87 @@
-# Ontology Editor Implementation Changes
+# Ontology Editor Integration Changes
 
-This document records all the changes made to implement the BFO-based ontology editor for the ProEthica system.
+## Overview
 
-## Documentation
+This document outlines the changes made to the ontology editor integration in the A-Proxy project, focusing on the interface improvements, database integration, and fixing of URL handling issues.
 
-1. **Created implementation plan**: `docs/ontology_editor_plan.md`
-   - Detailed architecture, features, and milestones
-   - Phased approach for implementation
-   - Technical specifications and directory structure
+## Recent Changes (2025-04-24)
 
-2. **Created this change log**: `docs/ontology_editor_changes.md`
-   - To track all changes made during implementation
+### UI Improvements
 
-3. **Updated CLAUDE.md**:
-   - Added section about the ontology editor implementation
-   - Updated status and next steps
+1. **Button Label Consistency**
+   - Fixed inconsistent button labels in the world detail page
+   - Changed the previously generic "Edit Ontology" button in the World Entities card to "Edit Entities" to better describe its purpose
+   - Maintained the "Edit Ontology" label for the button next to the Ontology Source field
+   - Each button now clearly indicates its specific purpose based on location and function
 
-## Core Module Structure
+2. **URL Parameter Handling**
+   - Standardized URL parameter handling for the ontology editor
+   - Added support for the `view` parameter to specify whether the user is:
+     - Editing the full ontology (`view=full`)
+     - Editing only entities (`view=entities`)
+     - Editing a specific entity (`view=entity` with an additional `uri` parameter)
+   - Fixed stripping of `.ttl` extensions from ontology sources for consistent URL handling
 
-Created the main ontology editor module with the following structure:
+### API and Backend Changes
 
-```
-ontology_editor/
-├── __init__.py                # Blueprint factory pattern
-├── README.md                  # Module documentation
-├── api/                       # API endpoints
-│   ├── __init__.py
-│   └── routes.py              # RESTful API routes
-├── models/                    # Data models
-│   ├── __init__.py
-│   ├── metadata.py            # Metadata storage
-│   └── ontology.py            # Ontology data models
-├── services/                  # Business logic
-│   ├── __init__.py
-│   ├── file_storage.py        # File-based storage with versioning
-│   └── validator.py           # TTL syntax and BFO validator
-├── static/                    # Static assets
-│   ├── css/
-│   │   ├── editor.css         # Editor styles
-│   │   └── hierarchy.css      # Visualization styles
-│   └── js/
-│       ├── editor.js          # Editor client-side functionality
-│       └── hierarchy.js       # Visualization functionality
-└── templates/                 # HTML templates
-    ├── editor.html            # Main editor interface
-    └── hierarchy.html         # Visualization interface
-```
+1. **Database Models**
+   - Added `Ontology` model to store ontology metadata and content
+   - Added `OntologyVersion` model to maintain version history
+   - Updated `World` model with a foreign key reference to ontologies
 
-## Integration Components
+2. **API Route Improvements**
+   - Modified API routes to handle both file system and database storage
+   - Added proper fallback mechanisms for backward compatibility
+   - Fixed URL pattern handling to support ontology sources with and without `.ttl` extension
+   - Updated route functions to consistently use parameter names across endpoints
 
-1. **Created integration script**: `scripts/integrate_ontology_editor.py`
-   - Imports existing ontologies from `mcp/ontology`
-   - Sets up directory structure for ontology storage
-   - Registers the blueprint with the Flask application
-   - Command-line options for authentication settings
+3. **Error Handling**
+   - Improved error logging for better troubleshooting
+   - Added more descriptive error messages for common issues
+   - Implemented status checks for ontology availability
 
-## Key Components Implementation
+### Migration Process
 
-### Models and Storage
+1. **Data Migration**
+   - Created scripts to migrate ontologies from filesystem to database
+   - Ensured metadata is preserved during migration
+   - Set up backward compatibility for existing systems
 
-1. **Ontology Models** (`models/ontology.py`):
-   - `Ontology` class for metadata about ontologies
-   - `Version` class for tracking versions of ontologies
-   - Conversion methods between objects and dictionaries
+2. **Database Schema Updates**
+   - Added necessary columns to the `worlds` table to support the ontology reference
+   - Created utility scripts for applying schema changes to existing databases
+   - Added indexes for efficient querying of ontology data
 
-2. **Metadata Storage** (`models/metadata.py`):
-   - File-based storage implementation for metadata
-   - JSON storage for ontology and version information
-   - CRUD operations for ontologies and versions
+## Usage Instructions
 
-### Services
+### Accessing the Ontology Editor
 
-1. **File Storage** (`services/file_storage.py`):
-   - Directory structure creation and management
-   - Ontology file reading and writing
-   - Version control with commit history
-   - Integration with metadata storage
+The ontology editor can now be accessed in several ways:
 
-2. **Validator** (`services/validator.py`):
-   - TTL syntax validation using RDFLib
-   - BFO compliance checking with warning system
-   - Suggestions for improving BFO alignment
-   - Support for loading BFO ontology for reference
+1. **From the World Detail Page**:
+   - "Edit Ontology" button next to Ontology Source - opens the full ontology editor
+   - "Edit Entities" button in the World Entities card - opens the entity-focused editor view
 
-### API and Routes
+2. **Direct URL Access**:
+   - `/ontology-editor?source=<ontology_source>&view=full` - full ontology editing
+   - `/ontology-editor?source=<ontology_source>&view=entities` - entity-focused editing
+   - `/ontology-editor?source=<ontology_source>&view=entity&uri=<entity_uri>` - specific entity editing
 
-1. **API Routes** (`api/routes.py`):
-   - RESTful endpoints for ontology CRUD operations
-   - Version management endpoints
-   - Validation endpoints
-   - Authentication and authorization checks
+### URL Parameters
 
-### Frontend
+- `source`: The ontology source identifier (with or without .ttl extension)
+- `view`: The editor view type (`full`, `entities`, or `entity`)
+- `uri`: Required when `view=entity`, specifies which entity to edit
 
-1. **Editor Interface** (`templates/editor.html`, `static/js/editor.js`, `static/css/editor.css`):
-   - ACE editor integration for syntax highlighting
-   - Ontology list sidebar with version history
-   - Validation results display
-   - Save/commit functionality
+## Known Issues
 
-2. **Visualization Interface** (`templates/hierarchy.html`, `static/js/hierarchy.js`, `static/css/hierarchy.css`):
-   - D3.js hierarchical tree visualization
-   - Node expansion/collapse functionality
-   - Entity details display
-   - Filtering and search capabilities
+- Some older ontologies may require manual migration to the database
+- Very large ontologies might experience performance issues in the editor
+- Entity relationship visualization is limited in the current implementation
 
-## Features Implemented
+## Future Enhancements
 
-1. **Ontology Editing**:
-   - Create, read, update, delete ontologies
-   - Syntax highlighting and validation
-   - BFO compliance checking
-   - Version control with commit messages
-
-2. **Hierarchical Visualization**:
-   - Tree-based visualization of class hierarchies
-   - Interactive node expansion/collapse
-   - Entity details display
-   - Filtering by entity type and search term
-
-3. **Integration Features**:
-   - Authentication and authorization
-   - Import from existing ontologies
-   - File-based storage with metadata tracking
-   - API for programmatic access
-
-## Future Work
-
-The implementation follows the phased approach outlined in the plan:
-
-1. **Current Phase (MVP)**: Basic editing, validation, and visualization
-2. **Phase 2**: Additional ontology support, improved version control, enhanced visualization
-3. **Phase 3**: Persona service integration, reasoning support, collaborative editing
+- Implement a visual ontology editor with relationship diagram support
+- Add collaborative editing features for ontologies
+- Provide version comparison and rollback capabilities
+- Enhance search and filter capabilities for large ontologies

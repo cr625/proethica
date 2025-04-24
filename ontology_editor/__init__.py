@@ -6,7 +6,7 @@ designed to be integrated with the ProEthica application.
 """
 
 import os
-from flask import Blueprint
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 
 def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor'):
     """
@@ -33,5 +33,39 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
     # Register routes
     api_routes = create_api_routes(config or {})
     blueprint.register_blueprint(api_routes)
+    
+    # Add main routes
+    @blueprint.route('/')
+    def index():
+        """Main ontology editor landing page"""
+        source = request.args.get('source')
+        view = request.args.get('view', 'full')
+        highlight_entity = request.args.get('highlight_entity')
+        entity_type = request.args.get('entity_type')
+        
+        # If view is 'entities', this is a specialized entity view
+        if view == 'entities':
+            return render_template('hierarchy.html', 
+                                 source=source,
+                                 highlight_entity=highlight_entity,
+                                 entity_type=entity_type)
+        
+        # Default full editor view
+        return render_template('editor.html', 
+                             source=source,
+                             highlight_entity=highlight_entity,
+                             entity_type=entity_type)
+    
+    @blueprint.route('/entity')
+    def edit_entity():
+        """Entity-specific editor view"""
+        source = request.args.get('source')
+        entity_id = request.args.get('highlight_entity')
+        entity_type = request.args.get('entity_type')
+        
+        return render_template('hierarchy.html', 
+                             source=source,
+                             highlight_entity=entity_id,
+                             entity_type=entity_type)
     
     return blueprint

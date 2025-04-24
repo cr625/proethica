@@ -140,6 +140,8 @@ def get_documents():
 def get_document(document_id):
     """Get a specific document by ID."""
     try:
+        # For backwards compatibility, assign document_id to doc_id
+        doc_id = document_id
         document = Document.query.get_or_404(document_id)
         
         return jsonify({
@@ -164,6 +166,8 @@ def get_document(document_id):
 def download_document(document_id):
     """Download the original document file."""
     try:
+        # For backwards compatibility
+        doc_id = document_id
         document = Document.query.get_or_404(document_id)
         
         if not document.file_path or not os.path.exists(document.file_path):
@@ -179,6 +183,8 @@ def download_document(document_id):
 def delete_document(document_id):
     """Delete a document by ID."""
     try:
+        # For backwards compatibility
+        doc_id = document_id
         document = Document.query.get_or_404(document_id)
         
         # Delete the file if it exists
@@ -275,6 +281,8 @@ def process_url():
 def download_document_web(document_id):
     """Web route to download a document."""
     try:
+        # For backwards compatibility
+        doc_id = document_id
         document = Document.query.get_or_404(document_id)
         
         if not document.file_path or not os.path.exists(document.file_path):
@@ -290,6 +298,8 @@ def download_document_web(document_id):
 def document_status(document_id):
     """Get the processing status of a document."""
     try:
+        # For backwards compatibility
+        doc_id = document_id
         document = Document.query.get_or_404(document_id)
         
         # Check if document has content but status is still processing

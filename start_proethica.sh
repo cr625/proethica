@@ -59,6 +59,17 @@ if [ ! -x "./scripts/restart_http_mcp_server.sh" ]; then
     chmod +x ./scripts/restart_http_mcp_server.sh
 fi
 
+# Check for WSL environment
+if grep -qi microsoft /proc/version; then
+    echo -e "${BLUE}Detected WSL environment...${NC}"
+    
+    # Check if native PostgreSQL is running and stop it if needed
+    if command -v service &> /dev/null && service postgresql status &> /dev/null; then
+        echo -e "${YELLOW}Native PostgreSQL is running in WSL. Stopping it to avoid port conflicts...${NC}"
+        sudo service postgresql stop || echo -e "${RED}Could not stop PostgreSQL service. You may experience port conflicts.${NC}"
+    fi
+fi
+
 # Check if Docker is installed and running
 echo -e "${BLUE}Checking Docker and PostgreSQL container...${NC}"
 if ! command -v docker &> /dev/null; then
