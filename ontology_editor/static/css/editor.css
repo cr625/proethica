@@ -98,3 +98,20 @@
     align-items: center;
     z-index: 1000;
 }
+
+/* Validation card */
+#validationCard {
+    margin-top: 20px;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+#validationResults {
+    padding: 15px;
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+#validationResults ul {
+    padding-left: 20px;
+}

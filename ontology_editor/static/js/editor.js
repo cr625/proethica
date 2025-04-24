@@ -542,14 +542,20 @@ function validateOntology() {
                 <div class="validation-error">
                     <strong>Syntax Validation Failed</strong>
                 </div>
-                <ul class="validation-error">
             `;
             
-            syntaxResult.errors.forEach(error => {
-                errorHtml += `<li>${error}</li>`;
-            });
+            // Check if errors array exists before iterating
+            if (syntaxResult.errors && Array.isArray(syntaxResult.errors) && syntaxResult.errors.length > 0) {
+                errorHtml += '<ul class="validation-error">';
+                syntaxResult.errors.forEach(error => {
+                    errorHtml += `<li>${error}</li>`;
+                });
+                errorHtml += '</ul>';
+            } else {
+                // Generic error message if no specific errors are provided
+                errorHtml += `<p class="validation-error">The ontology contains syntax errors. Please check your syntax.</p>`;
+            }
             
-            errorHtml += '</ul>';
             resultsElement.innerHTML = errorHtml;
             return;
         }
