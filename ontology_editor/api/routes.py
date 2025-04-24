@@ -243,10 +243,15 @@ def create_api_routes(config):
             db.session.add(version)
             db.session.commit()
             
-            # For backward compatibility, also write to file
+            # For backward compatibility, create empty placeholder file
+            # but don't actually write content (database is source of truth)
             fs_domain = data['domain'].replace('-', '_')  # Convert to filesystem format
-            write_ontology_file(fs_domain, 'main/current.ttl', template_content)
-            write_ontology_file(fs_domain, 'main/versions/v1.ttl', template_content)
+            os.makedirs(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main'), exist_ok=True)
+            os.makedirs(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main', 'versions'), exist_ok=True)
+            
+            # Create empty placeholder files
+            open(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main', 'current.ttl'), 'w').close()
+            open(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main', 'versions', 'v1.ttl'), 'w').close()
             
             return jsonify({
                 'success': True,
@@ -305,17 +310,17 @@ def create_api_routes(config):
                         )
                         db.session.add(version)
                         
-                        # For backward compatibility, also write to file
-                        # Convert domain ID to filesystem format
+                        # For backward compatibility, create empty placeholder file
+                        # but don't actually write content (database is source of truth)
                         fs_domain = ontology.domain_id.replace('-', '_')
                         
-                        # Write to files
-                        write_ontology_file(fs_domain, 'main/current.ttl', data['content'])
-                        write_ontology_file(
-                            fs_domain, 
-                            f"main/versions/v{new_version_number}.ttl", 
-                            data['content']
-                        )
+                        # Ensure directories exist
+                        os.makedirs(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main'), exist_ok=True)
+                        os.makedirs(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main', 'versions'), exist_ok=True)
+                        
+                        # Update/create empty placeholder files
+                        open(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main', 'current.ttl'), 'w').close()
+                        open(os.path.join(current_app.config['ONTOLOGY_DIR'], fs_domain, 'main', 'versions', f'v{new_version_number}.ttl'), 'w').close()
                     else:
                         # Return validation errors
                         return jsonify({
