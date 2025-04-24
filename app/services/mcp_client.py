@@ -180,6 +180,123 @@ class MCPClient:
                     "entities": {}
                 }
     
+    # New methods for ontology editor integration
+    
+    def get_ontology_status(self, ontology_source: str) -> str:
+        """
+        Check if an ontology is current or deprecated.
+        
+        Args:
+            ontology_source: Source of the ontology (e.g., filename.ttl)
+            
+        Returns:
+            Status: 'current', 'deprecated', or 'unknown'
+        """
+        try:
+            # Check if source is in the form of a filename
+            if ontology_source.endswith('.ttl'):
+                # Make request to check ontology status
+                response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/status")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get('status', 'unknown')
+                else:
+                    print(f"Error checking ontology status: {response.status_code} - {response.text}")
+                    return 'unknown'
+            
+            # If not a TTL file or other unexpected format, return unknown
+            return 'unknown'
+        except Exception as e:
+            print(f"Error checking ontology status: {str(e)}")
+            return 'unknown'
+    
+    def get_ontology_content(self, ontology_source: str) -> str:
+        """
+        Get the content of an ontology file.
+        
+        Args:
+            ontology_source: Source of the ontology (e.g., filename.ttl)
+            
+        Returns:
+            Content of the ontology file as string
+        """
+        try:
+            # Make request to get ontology content
+            response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/content")
+            
+            if response.status_code == 200:
+                # Return content as text
+                return response.text
+            else:
+                print(f"Error getting ontology content: {response.status_code} - {response.text}")
+                return ""
+        except Exception as e:
+            print(f"Error getting ontology content: {str(e)}")
+            return ""
+    
+    def update_ontology_content(self, ontology_source: str, content: str) -> bool:
+        """
+        Update the content of an ontology file.
+        
+        Args:
+            ontology_source: Source of the ontology (e.g., filename.ttl)
+            content: New content for the ontology file
+            
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            # Make request to update ontology content
+            response = self.session.put(
+                f"{self.mcp_url}/api/ontology/{ontology_source}/content",
+                data=content,
+                headers={'Content-Type': 'text/turtle'}
+            )
+            
+            if response.status_code == 200:
+                return True
+            else:
+                print(f"Error updating ontology content: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            print(f"Error updating ontology content: {str(e)}")
+            return False
+    
+    def refresh_world_entities(self, world_id: int) -> bool:
+        """
+        Refresh world entities after ontology changes.
+        
+        Args:
+            world_id: ID of the world to refresh
+            
+        Returns:
+            True if refresh was successful, False otherwise
+        """
+        try:
+            from app.models.world import World
+            
+            # Get the world
+            world = World.query.get(world_id)
+            if not world or not world.ontology_source:
+                print(f"World not found or no ontology source for world {world_id}")
+                return False
+            
+            # Make request to refresh entities
+            response = self.session.post(
+                f"{self.mcp_url}/api/ontology/{world.ontology_source}/refresh",
+                json={'world_id': world_id}
+            )
+            
+            if response.status_code == 200:
+                return True
+            else:
+                print(f"Error refreshing world entities: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            print(f"Error refreshing world entities: {str(e)}")
+            return False
+    
     def get_references_for_world(self, world) -> List[Dict[str, Any]]:
         """
         Get references for a specific world.
@@ -261,7 +378,7 @@ class MCPClient:
             # Search for references using the search_zotero_items method
             return self.search_zotero_items(query)
         except Exception as e:
-            print(f"Error retrieving references: {str(e)}")
+            print(f"Error retrieving references for scenario: {str(e)}")
             return []
     
     def search_zotero_items(self, query: str, collection_key: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
@@ -391,103 +508,6 @@ class MCPClient:
             print(f"Error adding item: {str(e)}")
             return {"error": str(e)}
     
-    def get_mock_guidelines(self, world_name: str) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Get mock guidelines for development and testing.
-        
-        Args:
-            world_name: Name of the world
-            
-        Returns:
-            Dictionary containing mock guidelines
-        """
-        # Mock guidelines for different worlds
-        mock_guidelines = {
-            "engineering-ethics": [
-                {
-                    "name": "Engineering Code of Ethics",
-                    "description": "Engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties.",
-                    "principles": [
-                        "Engineers shall recognize that the lives, safety, health and welfare of the general public are dependent upon engineering judgments, decisions and practices incorporated into structures, machines, products, processes and devices.",
-                        "Engineers shall approve or seal only those design documents, reviewed or prepared by them, which are determined to be safe for public health and welfare in conformity with accepted engineering standards.",
-                        "Engineers shall not reveal facts, data or information obtained in a professional capacity without the prior consent of the client or employer except as authorized or required by law.",
-                        "Engineers shall act in professional matters for each employer or client as faithful agents or trustees.",
-                        "Engineers shall disclose all known or potential conflicts of interest to their employers or clients by promptly informing them of any business association, interest, or other circumstances which could influence or appear to influence their judgment or the quality of their services."
-                    ],
-                    "factors": [
-                        "Public safety and welfare",
-                        "Professional competence",
-                        "Truthfulness and objectivity",
-                        "Confidentiality",
-                        "Conflicts of interest",
-                        "Professional development"
-                    ]
-                }
-            ],
-            "military-medical-ethics": [
-                {
-                    "name": "Military Medical Triage Guidelines",
-                    "description": "Triage is the process of sorting casualties based on the severity of injury and likelihood of survival to determine treatment priority.",
-                    "principles": [
-                        "Maximize the number of lives saved",
-                        "Allocate scarce resources efficiently",
-                        "Treat patients according to medical need and urgency",
-                        "Reassess patients regularly",
-                        "Document decisions and rationales"
-                    ],
-                    "categories": [
-                        {
-                            "name": "Immediate (T1/Red)",
-                            "description": "Casualties who require immediate life-saving intervention. Without immediate treatment, they will likely die within 1-2 hours."
-                        },
-                        {
-                            "name": "Delayed (T2/Yellow)",
-                            "description": "Casualties whose treatment can be delayed without significant risk to life or limb. They require medical care but can wait hours without serious consequences."
-                        },
-                        {
-                            "name": "Minimal (T3/Green)",
-                            "description": "Casualties with minor injuries who can effectively care for themselves or be helped by untrained personnel."
-                        },
-                        {
-                            "name": "Expectant (T4/Black)",
-                            "description": "Casualties who are so severely injured that they are unlikely to survive given the available resources. In mass casualty situations, these patients receive palliative care rather than resource-intensive interventions."
-                        }
-                    ],
-                    "considerations": [
-                        "Available medical resources (personnel, equipment, supplies)",
-                        "Number and types of casualties",
-                        "Environmental conditions",
-                        "Evacuation capabilities",
-                        "Ongoing threats or hazards"
-                    ]
-                }
-            ],
-            "legal-ethics": [
-                {
-                    "name": "Legal Ethics Guidelines",
-                    "description": "Lawyers must maintain the highest standards of ethical conduct. These guidelines outline the ethical responsibilities of legal professionals.",
-                    "principles": [
-                        "Competence: Lawyers shall provide competent representation to clients.",
-                        "Confidentiality: Lawyers shall not reveal information relating to the representation of a client unless the client gives informed consent.",
-                        "Conflicts of Interest: Lawyers shall not represent a client if the representation involves a concurrent conflict of interest.",
-                        "Candor: Lawyers shall not knowingly make a false statement of fact or law to a tribunal.",
-                        "Fairness: Lawyers shall deal fairly with all parties in legal proceedings."
-                    ],
-                    "steps": [
-                        "Identify the ethical issue",
-                        "Consult relevant rules and precedents",
-                        "Consider all stakeholders affected",
-                        "Evaluate alternative courses of action",
-                        "Make a decision and implement it",
-                        "Reflect on the outcome and learn from it"
-                    ]
-                }
-            ]
-        }
-        
-        # Return mock guidelines for the specified world or empty dictionary if not found
-        return {"guidelines": mock_guidelines.get(world_name, [])}
-    
     def get_mock_entities(self, ontology_source: str) -> Dict[str, Any]:
         """
         Get mock entities for development and testing.
@@ -551,184 +571,6 @@ class MCPClient:
                     {
                         "label": "Request Additional Testing",
                         "description": "Ask for more verification of a system's performance or safety."
-                    }
-                ]
-            },
-            "military_medical_ethics.ttl": {
-                "roles": [
-                    {
-                        "label": "Medical Officer",
-                        "description": "Military physician responsible for providing medical care to personnel."
-                    },
-                    {
-                        "label": "Combat Medic",
-                        "description": "Soldier with medical training who provides first aid in combat situations."
-                    },
-                    {
-                        "label": "Triage Officer",
-                        "description": "Medical professional responsible for sorting casualties based on severity and priority."
-                    }
-                ],
-                "conditions": [
-                    {
-                        "label": "Mass Casualty Event",
-                        "description": "Situation where the number of casualties exceeds available medical resources."
-                    },
-                    {
-                        "label": "Active Combat",
-                        "description": "Ongoing military engagement with hostile forces."
-                    },
-                    {
-                        "label": "Resource Limitation",
-                        "description": "Shortage of medical supplies, equipment, or personnel."
-                    }
-                ],
-                "resources": [
-                    {
-                        "label": "Medical Supplies",
-                        "description": "Materials used for treating injuries and illnesses."
-                    },
-                    {
-                        "label": "Evacuation Assets",
-                        "description": "Vehicles and aircraft used to transport casualties."
-                    }
-                ],
-                "actions": [
-                    {
-                        "label": "Perform Triage",
-                        "description": "Sort casualties based on severity and treatment priority."
-                    },
-                    {
-                        "label": "Administer Treatment",
-                        "description": "Provide medical care to injured personnel."
-                    },
-                    {
-                        "label": "Order Evacuation",
-                        "description": "Arrange for transport of casualties to higher levels of care."
-                    }
-                ]
-            },
-            "legal_ethics.ttl": {
-                "roles": [
-                    {
-                        "label": "Attorney",
-                        "description": "Legal professional qualified to represent clients in court."
-                    },
-                    {
-                        "label": "Client",
-                        "description": "Person or entity receiving legal representation."
-                    },
-                    {
-                        "label": "Judge",
-                        "description": "Official who presides over court proceedings."
-                    }
-                ],
-                "conditions": [
-                    {
-                        "label": "Conflict of Interest",
-                        "description": "Situation where professional judgment may be compromised by personal interests."
-                    },
-                    {
-                        "label": "Confidential Information",
-                        "description": "Private details protected by attorney-client privilege."
-                    }
-                ],
-                "resources": [
-                    {
-                        "label": "Rules of Professional Conduct",
-                        "description": "Ethical standards governing the legal profession."
-                    },
-                    {
-                        "label": "Case Law",
-                        "description": "Previous court decisions that establish precedent."
-                    }
-                ],
-                "actions": [
-                    {
-                        "label": "Disclose Conflict",
-                        "description": "Inform affected parties about potential conflicts of interest."
-                    },
-                    {
-                        "label": "Maintain Confidentiality",
-                        "description": "Protect private information shared by clients."
-                    },
-                    {
-                        "label": "Withdraw Representation",
-                        "description": "End attorney-client relationship when ethically required."
-                    }
-                ]
-            },
-            "nj_legal_ethics.ttl": {
-                "roles": [
-                    {
-                        "label": "Attorney",
-                        "description": "Legal professional qualified to represent clients in New Jersey courts."
-                    },
-                    {
-                        "label": "Client",
-                        "description": "Person or entity receiving legal representation in New Jersey."
-                    },
-                    {
-                        "label": "Judge",
-                        "description": "Official who presides over New Jersey court proceedings."
-                    },
-                    {
-                        "label": "Paralegal",
-                        "description": "Legal assistant who supports attorneys in case preparation and research."
-                    }
-                ],
-                "conditions": [
-                    {
-                        "label": "Conflict of Interest",
-                        "description": "Situation where professional judgment may be compromised by personal interests (RPC 1.7)."
-                    },
-                    {
-                        "label": "Confidentiality Issue",
-                        "description": "Concerns about protecting private client information (RPC 1.6)."
-                    },
-                    {
-                        "label": "Client Perjury",
-                        "description": "Ethical dilemma when a client intends to commit perjury (RPC 3.3)."
-                    },
-                    {
-                        "label": "Evidence Handling",
-                        "description": "Proper treatment of documentary and physical evidence (RPC 3.4)."
-                    }
-                ],
-                "resources": [
-                    {
-                        "label": "NJ Rules of Professional Conduct",
-                        "description": "Ethical standards governing the legal profession in New Jersey."
-                    },
-                    {
-                        "label": "NJ Case Law",
-                        "description": "Previous New Jersey court decisions that establish precedent."
-                    },
-                    {
-                        "label": "Legal Research Database",
-                        "description": "Electronic resources for researching legal issues and precedents."
-                    }
-                ],
-                "actions": [
-                    {
-                        "label": "Disclose Conflict",
-                        "description": "Inform affected parties about potential conflicts of interest."
-                    },
-                    {
-                        "label": "Maintain Confidentiality",
-                        "description": "Protect private information shared by clients."
-                    },
-                    {
-                        "label": "Withdraw Representation",
-                        "description": "End attorney-client relationship when ethically required."
-                    },
-                    {
-                        "label": "File Motion",
-                        "description": "Submit formal request to the court for a specific action or decision."
-                    },
-                    {
-                        "label": "Report Misconduct",
-                        "description": "Notify appropriate authorities about unethical behavior by legal professionals."
                     }
                 ]
             }

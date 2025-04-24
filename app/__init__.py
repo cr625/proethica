@@ -66,11 +66,24 @@ def create_app(config_name=None):
     from app.routes.simulation import simulation_bp
     from app.routes.cases import cases_bp
     from app.routes.cases_triple import cases_triple_bp
+    from app.routes.ontology import ontology_bp
+    # Ontology editor blueprint
+    from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(worlds_bp)
     app.register_blueprint(scenarios_bp)
     app.register_blueprint(entities_bp)
+
+    # Register ontology editor blueprint
+    ontology_editor_bp = create_ontology_editor_blueprint(
+        config={
+            'require_auth': True,
+            'admin_only': True,  # Admin-only access
+            'entity_types': ['roles', 'conditions', 'resources', 'events', 'actions']
+        }
+    )
+    app.register_blueprint(ontology_editor_bp)
     
     # Agent blueprint
     agent_bp = create_proethica_agent_blueprint(
@@ -103,6 +116,7 @@ def create_app(config_name=None):
     app.register_blueprint(simulation_bp)
     app.register_blueprint(cases_bp)
     app.register_blueprint(cases_triple_bp)
+    app.register_blueprint(ontology_bp)
     
     # Register template filters
     from app import template_filters

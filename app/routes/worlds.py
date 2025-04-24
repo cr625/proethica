@@ -84,11 +84,17 @@ def view_world(id):
     
     # Get world entities from MCP client if ontology source is specified
     entities = {"entities": {}}  # Initialize with empty entities structure
+    ontology_status = 'current'  # Default status
+    
     if world.ontology_source:
         try:
             import traceback
             print(f"Retrieving entities for world {world.id} with ontology source: {world.ontology_source}")
             
+            # Check ontology status
+            ontology_status = mcp_client.get_ontology_status(world.ontology_source)
+            
+            # Get entities
             result = mcp_client.get_world_entities(world.ontology_source)
             
             print(f"Retrieved entities result: {result.keys() if isinstance(result, dict) else 'not a dict'}")
@@ -118,7 +124,8 @@ def view_world(id):
     # Get all case studies for this world
     case_studies = Document.query.filter_by(world_id=world.id, document_type="case_study").all()
     
-    return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines, case_studies=case_studies)
+    return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines,
+                           case_studies=case_studies, ontology_status=ontology_status)
 
 @worlds_bp.route('/<int:id>/edit', methods=['GET'])
 def edit_world(id):

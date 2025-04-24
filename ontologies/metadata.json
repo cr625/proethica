@@ -1,0 +1,20 @@
+[
+  {
+    "filename": "proethica-intermediate.ttl",
+    "title": "Proethica Intermediate",
+    "domain": "proethica_intermediate",
+    "description": "Imported from mcp/ontology/proethica-intermediate.ttl",
+    "created_at": "2025-04-23T21:48:50.580523",
+    "updated_at": "2025-04-23T21:48:50.580532",
+    "id": "1745444930"
+  },
+  {
+    "filename": "engineering-ethics-nspe-extended.ttl",
+    "title": "Engineering Ethics Nspe Extended",
+    "domain": "engineering_ethics_nspe_extended",
+    "description": "Imported from mcp/ontology/engineering-ethics-nspe-extended.ttl",
+    "created_at": "2025-04-23T21:48:50.581972",
+    "updated_at": "2025-04-23T21:48:50.581978",
+    "id": "1745444930"
+  }
+]
