@@ -1,139 +1,177 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
-from app.services.mcp_client import MCPClient
-from app.models.world import World
-from app import db
+"""
+Routes for the ontology editor integration with the main application.
+"""
+
+from flask import Blueprint, redirect, request, jsonify, current_app, url_for, flash, render_template
+from flask_login import login_required, current_user 
+from app.services import MCPClient
 
 ontology_bp = Blueprint('ontology', __name__, url_prefix='/ontology')
 
-# Get singleton instances
-mcp_client = MCPClient.get_instance()
-
-@ontology_bp.route('/', methods=['GET'])
-def list_ontologies():
-    """List all ontologies."""
-    # Redirect to the ontology editor with no source parameter
-    return redirect('/ontology-editor')
-
-@ontology_bp.route('/<path:source>', methods=['GET'])
-def view_ontology(source):
-    """View an ontology by source."""
-    # Redirect to the ontology editor with source parameter
+@ontology_bp.route('/<source>')
+@login_required
+def edit_ontology(source):
+    """
+    Redirect to the ontology editor for the specified ontology source.
+    
+    Args:
+        source (str): Source identifier for the ontology
+        
+    Returns:
+        Redirect to the ontology editor
+    """
+    # Check if user has admin permission
+    if not getattr(current_user, 'is_admin', False):
+        flash('You must be an admin to edit ontologies', 'error')
+        return redirect(url_for('worlds.list_worlds'))
+        
+    # Redirect to the ontology editor
     return redirect(f'/ontology-editor?source={source}')
 
-@ontology_bp.route('/<path:source>/content', methods=['GET'])
+@ontology_bp.route('/<source>/content')
+@login_required
 def get_ontology_content(source):
-    """Get the content of an ontology file."""
-    content = mcp_client.get_ontology_content(source)
-    if content:
-        return content, 200, {'Content-Type': 'text/turtle'}
-    else:
-        return jsonify({'error': 'Ontology not found'}), 404
-
-@ontology_bp.route('/<path:source>/content', methods=['PUT'])
-def update_ontology_content(source):
-    """Update the content of an ontology file."""
-    # Check if the user is authenticated
+    """
+    Get the content of the specified ontology.
+    
+    Args:
+        source (str): Source identifier for the ontology
+        
+    Returns:
+        JSON response with the ontology content
+    """
+    # Check if user has admin permission
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'error': 'Unauthorized'}), 403
+        
     try:
-        from flask_login import current_user
-        if not current_user.is_authenticated:
-            return jsonify({'error': 'Authentication required'}), 401
-    except ImportError:
-        pass  # If Flask-Login is not installed, continue without authentication
-    
-    # Get the content from the request
-    content = request.data.decode('utf-8')
-    if not content:
-        return jsonify({'error': 'No content provided'}), 400
-    
-    # Update the ontology content
-    success = mcp_client.update_ontology_content(source, content)
-    if success:
-        # Find worlds that use this ontology source
-        worlds = World.query.filter_by(ontology_source=source).all()
+        # Get MCP client instance
+        client = MCPClient.get_instance()
         
-        # Refresh entities for each world
-        for world in worlds:
-            try:
-                success = mcp_client.refresh_world_entities(world.id)
-                if success:
-                    print(f"Successfully refreshed entities for world {world.id}")
-                else:
-                    print(f"Failed to refresh entities for world {world.id}")
-            except Exception as e:
-                print(f"Error refreshing entities for world {world.id}: {str(e)}")
+        # Get the content of the ontology
+        result = client.get_ontology_content(source)
         
-        return jsonify({'success': True, 'message': 'Ontology updated successfully'}), 200
-    else:
-        return jsonify({'error': 'Failed to update ontology'}), 500
-
-@ontology_bp.route('/<path:source>/status', methods=['GET'])
-def get_ontology_status(source):
-    """Get the status of an ontology (current or deprecated)."""
-    status = mcp_client.get_ontology_status(source)
-    return jsonify({'status': status})
-
-@ontology_bp.route('/<path:source>/refresh', methods=['POST'])
-def refresh_ontology(source):
-    """Refresh entities derived from an ontology."""
-    # Check if the user is authenticated
-    try:
-        from flask_login import current_user
-        if not current_user.is_authenticated:
-            return jsonify({'error': 'Authentication required'}), 401
-    except ImportError:
-        pass  # If Flask-Login is not installed, continue without authentication
-    
-    # Get world_id from the request
-    data = request.json
-    if not data or 'world_id' not in data:
-        # If no world_id is provided, find all worlds that use this ontology source
-        worlds = World.query.filter_by(ontology_source=source).all()
-        
-        # Refresh entities for each world
-        results = []
-        for world in worlds:
-            try:
-                success = mcp_client.refresh_world_entities(world.id)
-                results.append({
-                    'world_id': world.id,
-                    'success': success
-                })
-            except Exception as e:
-                results.append({
-                    'world_id': world.id,
-                    'success': False,
-                    'error': str(e)
-                })
-        
-        return jsonify({'results': results})
-    
-    # Refresh entities for the specified world
-    world_id = data['world_id']
-    try:
-        success = mcp_client.refresh_world_entities(world_id)
-        if success:
-            return jsonify({'success': True, 'message': f'Successfully refreshed entities for world {world_id}'}), 200
-        else:
-            return jsonify({'error': f'Failed to refresh entities for world {world_id}'}), 500
+        return jsonify(result)
     except Exception as e:
+        current_app.logger.error(f"Failed to get ontology content for {source}: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@ontology_bp.route('/create', methods=['GET'])
-def create_form():
-    """Display form to create a new ontology."""
-    # Redirect to the ontology editor with create parameter
-    return redirect('/ontology-editor?create=true')
-
-@ontology_bp.route('/create', methods=['POST'])
-def create_ontology():
-    """Create a new ontology."""
-    # Check if the user is authenticated
-    try:
-        from flask_login import current_user
-        if not current_user.is_authenticated:
-            return jsonify({'error': 'Authentication required'}), 401
-    except ImportError:
-        pass  # If Flask-Login is not installed, continue without authentication
+@ontology_bp.route('/<source>/content', methods=['PUT'])
+@login_required
+def update_ontology_content(source):
+    """
+    Update the content of the specified ontology.
     
-    # This endpoint is just a proxy to the ontology editor API
-    return jsonify({'error': 'Not implemented yet. Use the ontology editor to create new ontologies.'}), 501
+    Args:
+        source (str): Source identifier for the ontology
+        
+    Returns:
+        JSON response with the update status
+    """
+    # Check if user has admin permission
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        # Get the request data
+        data = request.get_json()
+        
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Missing content parameter'}), 400
+            
+        # Get MCP client instance
+        client = MCPClient.get_instance()
+        
+        # Update the content of the ontology
+        result = client.update_ontology_content(source, data['content'])
+        
+        # Refresh entities for worlds using this ontology
+        client.refresh_world_entities_by_ontology(source)
+        
+        return jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"Failed to update ontology content for {source}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@ontology_bp.route('/<source>/status')
+@login_required
+def get_ontology_status(source):
+    """
+    Get the status of the specified ontology.
+    
+    Args:
+        source (str): Source identifier for the ontology
+        
+    Returns:
+        JSON response with the ontology status
+    """
+    try:
+        # Get MCP client instance
+        client = MCPClient.get_instance()
+        
+        # Get the status of the ontology
+        result = client.get_ontology_status(source)
+        
+        return jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"Failed to get ontology status for {source}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@ontology_bp.route('/<source>/refresh', methods=['POST'])
+@login_required
+def refresh_ontology(source):
+    """
+    Refresh entities derived from the specified ontology.
+    
+    Args:
+        source (str): Source identifier for the ontology
+        
+    Returns:
+        JSON response with the refresh status
+    """
+    # Check if user has admin permission
+    if not getattr(current_user, 'is_admin', False):
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    try:
+        # Get MCP client instance
+        client = MCPClient.get_instance()
+        
+        # Refresh entities for worlds using this ontology
+        result = client.refresh_world_entities_by_ontology(source)
+        
+        return jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"Failed to refresh entities for ontology {source}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@ontology_bp.route('/entity')
+@login_required
+def edit_entity():
+    """
+    Redirect to the ontology editor for editing a specific entity.
+    
+    Query parameters:
+        entity_id (str): ID of the entity to edit
+        type (str): Type of the entity (role, condition, resource, etc.)
+        source (str): Source identifier for the ontology
+        
+    Returns:
+        Redirect to the ontology editor with the entity highlighted
+    """
+    # Check if user has admin permission
+    if not getattr(current_user, 'is_admin', False):
+        flash('You must be an admin to edit ontologies', 'error')
+        return redirect(url_for('worlds.list_worlds'))
+        
+    # Get the query parameters
+    entity_id = request.args.get('entity_id')
+    entity_type = request.args.get('type')
+    ontology_source = request.args.get('source')
+    
+    if not entity_id or not entity_type or not ontology_source:
+        flash('Missing required parameters', 'error')
+        return redirect(url_for('worlds.list_worlds'))
+        
+    # Redirect to the ontology editor with the entity highlighted
+    return redirect(f'/ontology-editor?source={ontology_source}&highlight_entity={entity_id}&entity_type={entity_type}')

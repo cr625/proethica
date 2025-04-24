@@ -92,7 +92,8 @@ def view_world(id):
             print(f"Retrieving entities for world {world.id} with ontology source: {world.ontology_source}")
             
             # Check ontology status
-            ontology_status = mcp_client.get_ontology_status(world.ontology_source)
+            status_result = mcp_client.get_ontology_status(world.ontology_source)
+            ontology_status = status_result.get('status', 'current')
             
             # Get entities
             result = mcp_client.get_world_entities(world.ontology_source)

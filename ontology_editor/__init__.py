@@ -19,7 +19,7 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
     Returns:
         Blueprint: Flask blueprint for the ontology editor
     """
-    from ontology_editor.api.routes import register_routes
+    from ontology_editor.api.routes import create_api_routes
     
     # Create blueprint
     blueprint = Blueprint(
@@ -31,6 +31,7 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
     )
     
     # Register routes
-    register_routes(blueprint, config)
+    api_routes = create_api_routes(config or {})
+    blueprint.register_blueprint(api_routes)
     
     return blueprint

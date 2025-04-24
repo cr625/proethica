@@ -5,6 +5,12 @@ import os
 from app.services.zotero_client import ZoteroClient
 
 class MCPClient:
+    """
+    Model Context Protocol client for interacting with the MCP server.
+    
+    This client handles communication with the MCP server for various operations
+    related to world entities, ontologies, guidelines, and other resources.
+    """
     """Client for interacting with the MCP server."""
     
     _instance = None
@@ -180,9 +186,9 @@ class MCPClient:
                     "entities": {}
                 }
     
-    # New methods for ontology editor integration
+    # Methods for ontology editor integration
     
-    def get_ontology_status(self, ontology_source: str) -> str:
+    def get_ontology_status(self, ontology_source: str) -> Dict[str, Any]:
         """
         Check if an ontology is current or deprecated.
         
@@ -190,28 +196,22 @@ class MCPClient:
             ontology_source: Source of the ontology (e.g., filename.ttl)
             
         Returns:
-            Status: 'current', 'deprecated', or 'unknown'
+            Dictionary with status info including 'status' key with value 'current', 'deprecated', or 'unknown'
         """
         try:
-            # Check if source is in the form of a filename
-            if ontology_source.endswith('.ttl'):
-                # Make request to check ontology status
-                response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/status")
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return result.get('status', 'unknown')
-                else:
-                    print(f"Error checking ontology status: {response.status_code} - {response.text}")
-                    return 'unknown'
+            # Make request to check ontology status
+            response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/status")
             
-            # If not a TTL file or other unexpected format, return unknown
-            return 'unknown'
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Error checking ontology status: {response.status_code} - {response.text}")
+                return {'status': 'unknown', 'message': f'Error: {response.status_code}'}
         except Exception as e:
             print(f"Error checking ontology status: {str(e)}")
-            return 'unknown'
+            return {'status': 'unknown', 'message': f'Error: {str(e)}'}
     
-    def get_ontology_content(self, ontology_source: str) -> str:
+    def get_ontology_content(self, ontology_source: str) -> Dict[str, Any]:
         """
         Get the content of an ontology file.
         
@@ -226,16 +226,16 @@ class MCPClient:
             response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/content")
             
             if response.status_code == 200:
-                # Return content as text
-                return response.text
+                # Return content in a dictionary
+                return {'content': response.text, 'success': True}
             else:
                 print(f"Error getting ontology content: {response.status_code} - {response.text}")
-                return ""
+                return {'content': '', 'success': False, 'error': f"{response.status_code} - {response.text}"}
         except Exception as e:
             print(f"Error getting ontology content: {str(e)}")
-            return ""
+            return {'content': '', 'success': False, 'error': str(e)}
     
-    def update_ontology_content(self, ontology_source: str, content: str) -> bool:
+    def update_ontology_content(self, ontology_source: str, content: str) -> Dict[str, Any]:
         """
         Update the content of an ontology file.
         
@@ -244,7 +244,7 @@ class MCPClient:
             content: New content for the ontology file
             
         Returns:
-            True if update was successful, False otherwise
+            Dictionary containing success status and message
         """
         try:
             # Make request to update ontology content
@@ -255,13 +255,54 @@ class MCPClient:
             )
             
             if response.status_code == 200:
-                return True
+                return {'success': True, 'message': 'Ontology updated successfully'}
             else:
                 print(f"Error updating ontology content: {response.status_code} - {response.text}")
-                return False
+                return {'success': False, 'message': f"Error: {response.status_code} - {response.text}"}
         except Exception as e:
             print(f"Error updating ontology content: {str(e)}")
-            return False
+            return {'success': False, 'message': f"Error: {str(e)}"}
+    
+    def refresh_world_entities_by_ontology(self, ontology_source: str) -> Dict[str, Any]:
+        """
+        Refresh all worlds using a specific ontology.
+        
+        Args:
+            ontology_source: Source of the ontology
+            
+        Returns:
+            Dictionary with results of the refresh operation
+        """
+        try:
+            # Find all worlds using this ontology source
+            from app.models.world import World
+            from app import db
+            
+            worlds = World.query.filter_by(ontology_source=ontology_source).all()
+            
+            if not worlds:
+                return {'success': True, 'message': f'No worlds found using ontology {ontology_source}'}
+            
+            results = []
+            for world in worlds:
+                result = self.refresh_world_entities(world.id)
+                results.append({
+                    'world_id': world.id,
+                    'world_name': world.name,
+                    'success': result
+                })
+            
+            # Check if any refreshes failed
+            all_successful = all(r['success'] for r in results)
+            
+            return {
+                'success': all_successful,
+                'message': f"Refreshed {len(results)} world(s) using ontology {ontology_source}",
+                'details': results
+            }
+        except Exception as e:
+            print(f"Error refreshing worlds for ontology {ontology_source}: {str(e)}")
+            return {'success': False, 'message': f"Error: {str(e)}"}
     
     def refresh_world_entities(self, world_id: int) -> bool:
         """
@@ -284,8 +325,8 @@ class MCPClient:
             
             # Make request to refresh entities
             response = self.session.post(
-                f"{self.mcp_url}/api/ontology/{world.ontology_source}/refresh",
-                json={'world_id': world_id}
+                f"{self.mcp_url}/api/world/{world_id}/refresh_entities",
+                json={'ontology_source': world.ontology_source}
             )
             
             if response.status_code == 200:

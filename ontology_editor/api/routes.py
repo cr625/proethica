@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
 import os
 from ..models.metadata import MetadataStorage
-from ..services.file_storage import read_ontology_file, write_ontology_file
+from ..services.file_storage_utils import read_ontology_file, write_ontology_file
 from ..services.validator import validate_ontology
 
 def create_api_routes(config):

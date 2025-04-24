@@ -1,46 +1,97 @@
 /**
- * JavaScript for handling ontology-related interactions in the world view
+ * World Ontology Integration JavaScript
+ * 
+ * This file contains JavaScript code for integrating the ontology editor
+ * with the world details page, specifically for entity editing.
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Get the edit link
+    // Entity details modal
+    const entityDetailsModal = document.getElementById('entityDetailsModal');
+    const entityDetailsContent = document.getElementById('entityDetailsContent');
     const editEntityBtn = document.getElementById('edit-entity-ontology-btn');
     
-    if (editEntityBtn) {
-        editEntityBtn.addEventListener('click', function(e) {
-            e.preventDefault();
+    if (entityDetailsModal) {
+        // Store the currently selected entity when the modal is opened
+        let currentEntityId = null;
+        let currentEntityType = null;
+        
+        // Listen for modal open event
+        entityDetailsModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            currentEntityId = button.getAttribute('data-entity-id');
+            currentEntityType = button.getAttribute('data-entity-type');
             
-            // Get the current entity data from the modal
-            const entityTypeElement = document.querySelector('.view-details[data-bs-toggle="modal"][aria-expanded="true"]');
-            if (!entityTypeElement) {
-                console.error('Could not determine current entity type and ID');
-                alert('Could not determine which entity to edit. Please try again.');
-                return;
+            // Get the entity details from the data attribute
+            const entityType = currentEntityType;
+            const entityIndex = currentEntityId;
+            
+            // Get the entity data from the global window object (populated by server-side)
+            const entities = window.worldEntities || {};
+            
+            // Find the entity in the correct collection
+            let entity = null;
+            if (entities[entityType + 's'] && entities[entityType + 's'][entityIndex]) {
+                entity = entities[entityType + 's'][entityIndex];
             }
             
-            const entityType = entityTypeElement.getAttribute('data-entity-type');
-            const entityId = entityTypeElement.getAttribute('data-entity-id');
-            const worldId = document.body.getAttribute('data-world-id') || 
-                            window.location.pathname.split('/').filter(Boolean)[1];
-            
-            // Get the source
-            const source = document.querySelector('a[href^="/ontology-editor?source="]')
-                         .getAttribute('href').split('source=')[1];
-            
-            if (!entityType || !entityId || !source) {
-                console.error('Missing required data', { entityType, entityId, source });
-                alert('Missing information required to edit this entity. Please try again.');
-                return;
+            // Populate the modal with entity details
+            if (entity) {
+                let content = `
+                    <h4>${entity.label || 'Unknown Entity'}</h4>
+                    <hr>
+                    <dl class="row">
+                        <dt class="col-sm-3">ID</dt>
+                        <dd class="col-sm-9">${entity.id || 'None'}</dd>
+                        
+                        <dt class="col-sm-3">Type</dt>
+                        <dd class="col-sm-9">${capitalizeFirstLetter(entityType)}</dd>
+                        
+                        <dt class="col-sm-3">Description</dt>
+                        <dd class="col-sm-9">${entity.description || 'No description available'}</dd>
+                `;
+                
+                // Add additional properties as they exist
+                if (entity.properties) {
+                    for (const [key, value] of Object.entries(entity.properties)) {
+                        if (key !== 'id' && key !== 'label' && key !== 'description') {
+                            content += `
+                                <dt class="col-sm-3">${capitalizeFirstLetter(key)}</dt>
+                                <dd class="col-sm-9">${value}</dd>
+                            `;
+                        }
+                    }
+                }
+                
+                content += '</dl>';
+                entityDetailsContent.innerHTML = content;
+            } else {
+                entityDetailsContent.innerHTML = '<div class="alert alert-warning">Entity details not available</div>';
             }
-            
-            // Redirect to the ontology editor with the entity highlighted
-            window.location.href = `/ontology-editor/entity?entity_id=${entityId}&type=${entityType}&source=${source}`;
         });
+        
+        // Handle edit entity button click
+        if (editEntityBtn) {
+            editEntityBtn.addEventListener('click', function() {
+                // Get the ontology source from the world details
+                const worldOntologySource = document.getElementById('world-ontology-source')?.value || '';
+                
+                if (worldOntologySource && currentEntityId !== null && currentEntityType !== null) {
+                    // Construct the URL for the ontology editor
+                    const url = `/ontology/entity?entity_id=${encodeURIComponent(currentEntityId)}&type=${encodeURIComponent(currentEntityType)}&source=${encodeURIComponent(worldOntologySource)}`;
+                    
+                    // Navigate to the ontology editor
+                    window.location.href = url;
+                } else {
+                    console.error('Missing required parameters for editing entity in ontology');
+                    alert('Unable to edit entity: missing required parameters');
+                }
+            });
+        }
     }
     
-    // Add world ID to body for JavaScript reference
-    const worldIdMatch = window.location.pathname.match(/\/worlds\/(\d+)/);
-    if (worldIdMatch && worldIdMatch[1]) {
-        document.body.setAttribute('data-world-id', worldIdMatch[1]);
+    // Helper function to capitalize the first letter of a string
+    function capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
     }
 });
