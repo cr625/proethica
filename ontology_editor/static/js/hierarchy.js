@@ -49,7 +49,13 @@ function setupEventListeners() {
  * Load the ontology data from the API
  */
 function loadOntologyData() {
-    if (!ontologyId) {
+    // Get parameters from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    const ontologyId = urlParams.get('ontology_id');
+    
+    // Check if we have an ontology ID
+    if (!ontologyId && !source) {
         document.getElementById('loadingIndicator').innerHTML = `
             <div class="alert alert-danger">
                 No ontology ID provided. Please select an ontology from the editor.
@@ -58,12 +64,20 @@ function loadOntologyData() {
         return;
     }
     
+    // Get the ID to use for API calls
+    const idToUse = ontologyId || source;
+    
     // Show loading indicator
     document.getElementById('loadingIndicator').style.display = 'block';
     document.getElementById('hierarchyTree').style.display = 'none';
     
     // Fetch the ontology content
-    fetch(`/ontology-editor/api/ontologies/${ontologyId}`)
+    // Use different API endpoints depending on whether we have a numeric ID or a source string
+    const apiUrl = !isNaN(parseInt(idToUse)) 
+        ? `/ontology-editor/api/ontologies/${idToUse}`  // Numeric ID - use /ontologies endpoint
+        : `/ontology-editor/api/ontology/${idToUse}`;   // Source string - use /ontology endpoint
+    
+    fetch(apiUrl)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load ontology');

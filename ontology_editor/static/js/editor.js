@@ -16,16 +16,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize the ACE editor
     initializeEditor();
     
-    // Get source parameter from URL
+    // Get parameters from URL
     const urlParams = new URLSearchParams(window.location.search);
     sourceParam = urlParams.get('source');
+    const ontologyId = urlParams.get('ontology_id');
     
-    // If source parameter is available, load that ontology directly
-    if (sourceParam) {
+    // If ontology_id is available, load by ID
+    if (ontologyId) {
+        loadOntology(ontologyId);
+    }
+    // Otherwise, if source parameter is available, load that ontology
+    else if (sourceParam) {
         loadOntologyBySource(sourceParam);
     } else {
         // Otherwise, load the list of ontologies
-        loadOntologyList();
+        loadOntologyList(); 
     }
     
     // Set up event listeners
@@ -103,8 +108,13 @@ function loadOntologyBySource(source) {
     `;
     editorContainer.appendChild(loadingOverlay);
     
+    // Determine if source is numeric ID or string identifier
+    const apiUrl = !isNaN(parseInt(source)) 
+        ? `/ontology-editor/api/ontologies/${source}`  // Numeric ID - use /ontologies endpoint
+        : `/ontology-editor/api/ontology/${source}`;   // Source string - use /ontology endpoint
+    
     // Fetch the ontology content by source
-    fetch(`/ontology-editor/api/ontology/${source}`)
+    fetch(apiUrl)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load ontology by source');

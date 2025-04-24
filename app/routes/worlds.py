@@ -8,6 +8,7 @@ from app.models.scenario import Scenario
 from app.models.role import Role
 from app.models.condition_type import ConditionType
 from app.models.resource_type import ResourceType
+from app.models.ontology import Ontology
 from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 
@@ -46,7 +47,32 @@ def list_worlds():
 @worlds_bp.route('/new', methods=['GET'])
 def new_world():
     """Display form to create a new world."""
-    return render_template('create_world.html')
+    # Fetch all available ontologies for the dropdown
+    ontologies = Ontology.query.all()
+    
+    # Check if we have a BFO ontology
+    bfo_exists = False
+    for ontology in ontologies:
+        if "bfo" in ontology.name.lower() or "basic formal ontology" in ontology.name.lower():
+            bfo_exists = True
+            break
+    
+    if not bfo_exists and not ontologies:
+        # Add a basic BFO ontology if none exists and no other ontologies exist
+        try:
+            bfo_ontology = Ontology(
+                name="Basic Formal Ontology (BFO)",
+                description="A small, upper level ontology that is designed for use in supporting information retrieval, analysis and integration in scientific and other domains.",
+                domain_id="bfo",
+                content="# Basic Formal Ontology placeholder content"
+            )
+            db.session.add(bfo_ontology)
+            db.session.commit()
+            ontologies = [bfo_ontology]
+        except Exception as e:
+            print(f"Error creating BFO ontology: {str(e)}")
+            
+    return render_template('create_world.html', ontologies=ontologies)
 
 @worlds_bp.route('/', methods=['POST'])
 def create_world():
@@ -57,11 +83,29 @@ def create_world():
     else:
         data = request.form
     
-    # Create world
+    # Process ontology selection
+    ontology_id = data.get('ontology_id')
+    ontology_source = data.get('ontology_source', '')
+    
+    # If ontology_id is 'new', we'll redirect to create a new ontology after world creation
+    create_new_ontology = (ontology_id == 'new')
+    
+    # If ontology_id is provided and not 'new', get the ontology source from it
+    if ontology_id and not create_new_ontology and ontology_id != '':
+        try:
+            ontology = Ontology.query.get(int(ontology_id))
+            if ontology:
+                ontology_source = ontology.domain_id
+        except (ValueError, TypeError):
+            # If conversion fails, just use the provided ontology_source
+            pass
+    
+    # Create world with the determined values
     world = World(
         name=data.get('name', ''),
         description=data.get('description', ''),
-        ontology_source=data.get('ontology_source', ''),
+        ontology_source=ontology_source,
+        ontology_id=int(ontology_id) if ontology_id and not create_new_ontology and ontology_id != '' else None,
         metadata={}
     )
     db.session.add(world)
@@ -81,6 +125,11 @@ def create_world():
 def view_world(id):
     """Display a specific world."""
     world = World.query.get_or_404(id)
+    
+    # Get ontology details if available
+    ontology = None
+    if world.ontology_id:
+        ontology = Ontology.query.get(world.ontology_id)
     
     # Get world entities from MCP client if ontology source is specified
     entities = {"entities": {}}  # Initialize with empty entities structure
@@ -125,14 +174,22 @@ def view_world(id):
     # Get all case studies for this world
     case_studies = Document.query.filter_by(world_id=world.id, document_type="case_study").all()
     
+    # Fetch all ontologies for the dropdown
+    all_ontologies = Ontology.query.all()
+    
     return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines,
-                           case_studies=case_studies, ontology_status=ontology_status)
+                           case_studies=case_studies, ontology_status=ontology_status, 
+                           ontology=ontology, all_ontologies=all_ontologies)
 
 @worlds_bp.route('/<int:id>/edit', methods=['GET'])
 def edit_world(id):
     """Display form to edit an existing world."""
     world = World.query.get_or_404(id)
-    return render_template('edit_world.html', world=world)
+    
+    # Fetch all available ontologies for the dropdown
+    ontologies = Ontology.query.all()
+    
+    return render_template('edit_world.html', world=world, ontologies=ontologies)
 
 @worlds_bp.route('/<int:id>/edit', methods=['POST'])
 def update_world_form(id):
@@ -142,7 +199,27 @@ def update_world_form(id):
     # Update world fields
     world.name = request.form.get('name', '')
     world.description = request.form.get('description', '')
-    world.ontology_source = request.form.get('ontology_source', '')
+    
+    # Process ontology selection
+    ontology_id = request.form.get('ontology_id')
+    ontology_source = request.form.get('ontology_source', '')
+    
+    # If ontology_id is 'new', we'll redirect to create a new ontology after saving
+    create_new_ontology = (ontology_id == 'new')
+    
+    # If ontology_id is provided and not 'new', get the ontology source from it
+    if ontology_id and not create_new_ontology and ontology_id != '':
+        try:
+            ontology = Ontology.query.get(int(ontology_id))
+            if ontology:
+                ontology_source = ontology.domain_id
+                world.ontology_id = int(ontology_id)
+                world.ontology_source = ontology_source
+        except (ValueError, TypeError):
+            # If conversion fails, just use the provided ontology_source
+            world.ontology_source = ontology_source
+    else:
+        world.ontology_source = ontology_source
     
     # Handle guidelines file upload
     if 'guidelines_file' in request.files:
@@ -242,8 +319,21 @@ def update_world(id):
         world.name = data['name']
     if 'description' in data:
         world.description = data['description']
-    if 'ontology_source' in data:
+    
+    # Handle ontology reference
+    if 'ontology_id' in data:
+        try:
+            ontology_id = int(data['ontology_id'])
+            ontology = Ontology.query.get(ontology_id)
+            if ontology:
+                world.ontology_id = ontology_id
+                world.ontology_source = ontology.domain_id
+        except (ValueError, TypeError):
+            # If conversion fails, just ignore
+            pass
+    elif 'ontology_source' in data:
         world.ontology_source = data['ontology_source']
+    
     if 'metadata' in data:
         world.world_metadata = data['metadata']
     

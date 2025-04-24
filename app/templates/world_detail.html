@@ -122,8 +122,11 @@
                                     </button>
                                 </p>
                                 <p>
-                                    <strong>Ontology Source:</strong> {{ world.ontology_source }}
-                                    <a href="/ontology-editor?source={{ world.ontology_source }}&view=full" class="btn btn-sm btn-primary ms-2">Edit Ontology</a>
+                                    <strong>Ontology:</strong> {{ ontology.name if ontology else world.ontology_source }}
+                                    <a href="/ontology-editor?ontology_id={{ world.ontology_id }}&view=full" class="btn btn-sm btn-primary ms-2">Edit Ontology</a>
+                                    <button type="button" class="btn btn-sm btn-outline-warning ms-2" data-bs-toggle="modal" data-bs-target="#changeOntologyModal">
+                                        Change Ontology
+                                    </button>
                                 </p>
                             </div>
                         </div>
@@ -132,7 +135,7 @@
                         <div class="card mb-4">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h3>World Entities</h3>
-                                <a href="/ontology-editor?source={{ world.ontology_source }}&view=entities" class="btn btn-primary">Edit Entities</a>
+                                <a href="/ontology-editor?ontology_id={{ world.ontology_id }}&view=entities" class="btn btn-primary">Edit Entities</a>
                             </div>
                             <div class="card-body">
                                 {% if entities and entities.entities %}
@@ -314,6 +317,45 @@
                         {% else %}
                         <div class="alert alert-info">No case studies available for this world.</div>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Change Ontology Modal -->
+            <div class="modal fade" id="changeOntologyModal" tabindex="-1" aria-labelledby="changeOntologyModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="changeOntologyModalLabel">Change World Ontology</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> Changing the ontology may affect existing scenarios. 
+                                Scenarios created with the previous ontology may no longer be compatible for simulation.
+                            </div>
+                            <form action="{{ url_for('worlds.update_world_form', id=world.id) }}" method="POST" id="changeOntologyForm">
+                                <div class="mb-3">
+                                    <label for="ontology_id" class="form-label">Select Ontology</label>
+                                    <select class="form-select" id="ontology_id" name="ontology_id" required>
+                                        <option value="">Select an ontology</option>
+                                        {% for ont in all_ontologies %}
+                                        <option value="{{ ont.id }}" {% if world.ontology_id == ont.id %}selected{% endif %}>
+                                            {{ ont.name }}
+                                        </option>
+                                        {% endfor %}
+                                        <option value="new">+ Create New Ontology</option>
+                                    </select>
+                                </div>
+                                <!-- Hidden fields to maintain other world data -->
+                                <input type="hidden" name="name" value="{{ world.name }}">
+                                <input type="hidden" name="description" value="{{ world.description }}">
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" form="changeOntologyForm" class="btn btn-warning">Change Ontology</button>
+                        </div>
                     </div>
                 </div>
             </div>

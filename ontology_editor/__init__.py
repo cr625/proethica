@@ -39,20 +39,38 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
     def index():
         """Main ontology editor landing page"""
         source = request.args.get('source')
+        ontology_id = request.args.get('ontology_id')
         view = request.args.get('view', 'full')
         highlight_entity = request.args.get('highlight_entity')
         entity_type = request.args.get('entity_type')
         
+        # Use ontology_id if provided, otherwise use source
+        # This ensures backward compatibility
+        source_param = None
+        if ontology_id:
+            from app.models.ontology import Ontology
+            ontology = Ontology.query.get(ontology_id)
+            if ontology:
+                source_param = str(ontology_id)
+        else:
+            source_param = source
+            
+        # If no source parameter is available, show message
+        if not source_param:
+            flash('No ontology ID provided. Please select an ontology from the editor.', 'warning')
+
         # If view is 'entities', this is a specialized entity view
         if view == 'entities':
-            return render_template('hierarchy.html', 
-                                 source=source,
+            return render_template('hierarchy.html',
+                                 source=source_param,
+                                 ontology_id=ontology_id,
                                  highlight_entity=highlight_entity,
                                  entity_type=entity_type)
-        
+
         # Default full editor view
-        return render_template('editor.html', 
-                             source=source,
+        return render_template('editor.html',
+                             source=source_param,
+                             ontology_id=ontology_id,
                              highlight_entity=highlight_entity,
                              entity_type=entity_type)
     

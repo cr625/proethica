@@ -31,12 +31,21 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="ontology_source" class="form-label">Ontology Source</label>
-                    <input type="text" class="form-control" id="ontology_source" name="ontology_source"
-                        value="{{ world.ontology_source }}">
-                    <div class="form-text">Reference to the ontology source (e.g., UMLS, SNOMED CT, custom ontology
-                        file).</div>
+                    <label for="ontology_id" class="form-label">Ontology</label>
+                    <select class="form-select" id="ontology_id" name="ontology_id">
+                        <option value="">Select an ontology</option>
+                        {% for ontology in ontologies %}
+                        <option value="{{ ontology.id }}" {% if world.ontology_id == ontology.id %}selected{% endif %}>
+                            {{ ontology.name }}
+                        </option>
+                        {% endfor %}
+                        <option value="new">+ Create New Ontology</option>
+                    </select>
+                    <div class="form-text">Select an existing ontology or create a new one for this world.</div>
                 </div>
+                
+                <!-- Keep original field hidden for backward compatibility -->
+                <input type="hidden" id="ontology_source" name="ontology_source" value="{{ world.ontology_source }}">
 
                 <hr class="my-4">
                 <h4>Cases and Rulesets</h4>

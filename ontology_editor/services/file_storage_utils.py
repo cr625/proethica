@@ -2,69 +2,56 @@
 File storage utilities for the ontology editor.
 
 This module provides helper functions for reading and writing ontology files.
+NOTE: This version has been modified to use the database exclusively.
 """
 import os
-import shutil
+import logging
 from typing import Optional
+from flask import current_app
 
-# Base directory for ontology storage
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Base directory for ontology storage (kept for compatibility)
 ONTOLOGIES_DIR = os.path.join(os.path.dirname(__file__), '../../ontologies')
 
 def read_ontology_file(domain: str, relative_path: str) -> Optional[str]:
     """
     Read the content of an ontology file.
     
+    This version logs a warning and returns None, as all ontologies
+    should be retrieved from the database.
+
     Args:
         domain: Domain of the ontology
         relative_path: Relative path within the domain directory
-        
+
     Returns:
-        Content of the file, or None if not found
+        None - all ontologies should come from database
     """
-    file_path = os.path.join(ONTOLOGIES_DIR, 'domains', domain, relative_path)
-    
-    # Check if the file exists
-    if not os.path.exists(file_path):
-        # Check if we should use a source file from mcp/ontology
-        mcp_path = os.path.join(os.path.dirname(__file__), '../../mcp/ontology', os.path.basename(file_path))
-        
-        if os.path.exists(mcp_path):
-            # Create the directory structure if it doesn't exist
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            
-            # Copy the file from mcp/ontology to our ontologies directory
-            shutil.copy2(mcp_path, file_path)
-        else:
-            return None
-    
-    # Read the content
-    try:
-        with open(file_path, 'r') as f:
-            return f.read()
-    except:
-        return None
+    logger.warning(
+        f"Attempted to read ontology file {domain}/{relative_path} from file system. "
+        f"Ontologies are now stored in database."
+    )
+    return None
 
 def write_ontology_file(domain: str, relative_path: str, content: str) -> bool:
     """
     Write content to an ontology file.
     
+    This version logs a warning and returns False, as all ontologies
+    should be written to the database.
+
     Args:
         domain: Domain of the ontology
         relative_path: Relative path within the domain directory
         content: Content to write to the file
-        
+
     Returns:
-        True if successful, False otherwise
+        False - all ontologies should be written to database
     """
-    file_path = os.path.join(ONTOLOGIES_DIR, 'domains', domain, relative_path)
-    
-    # Create the directory if it doesn't exist
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-    # Write the content
-    try:
-        with open(file_path, 'w') as f:
-            f.write(content)
-        return True
-    except:
-        return False
+    logger.warning(
+        f"Attempted to write ontology file {domain}/{relative_path} to file system. "
+        f"Ontologies are now stored in database."
+    )
+    return False

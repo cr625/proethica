@@ -1,9 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
 import os
-# Legacy file storage removed
-# from ..models.metadata import MetadataStorage
-# File operations disabled
-# from ..services.file_storage_utils import read_ontology_file, write_ontology_file
+from ..models.metadata import MetadataStorage
+from ..services.file_storage_utils import read_ontology_file, write_ontology_file
 from ..services.validator import validate_ontology
 from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
@@ -52,8 +50,7 @@ def create_api_routes(config):
                     'content': ontology.content
                 })
             
-            # Database-only mode: no file fallback
-            return jsonify({'error': 'Ontology not found'}), 404
+            # If not in database, try the legacy metadata storage
             metadata_storage = MetadataStorage()
             ontology_meta = metadata_storage.get_ontology(ontology_id)
             
@@ -89,8 +86,7 @@ def create_api_routes(config):
                 versions = OntologyVersion.query.filter_by(ontology_id=ontology_id).all()
                 return jsonify({'versions': [v.to_dict() for v in versions]})
             
-            # Database-only mode: no file fallback
-            return jsonify({'error': 'Ontology not found'}), 404
+            # If not in database, try the legacy metadata storage
             metadata_storage = MetadataStorage()
             ontology_meta = metadata_storage.get_ontology(ontology_id)
             if not ontology_meta:
@@ -120,8 +116,7 @@ def create_api_routes(config):
                     'content': version.content
                 })
             
-            # Database-only mode: no file fallback
-            return jsonify({'error': 'Ontology not found'}), 404
+            # If not in database, try the legacy metadata storage
             metadata_storage = MetadataStorage()
             version_meta = metadata_storage.get_version_by_id(version_id)
             if not version_meta:
@@ -332,8 +327,7 @@ def create_api_routes(config):
                     'message': 'Ontology updated successfully'
                 })
             
-            # Database-only mode: no file fallback
-            return jsonify({'error': 'Ontology not found'}), 404
+            # If not in database, try the legacy file-based approach
             metadata_storage = MetadataStorage()
             ontology_meta = metadata_storage.get_ontology(ontology_id)
             if not ontology_meta:
