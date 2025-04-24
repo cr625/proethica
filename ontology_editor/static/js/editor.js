@@ -21,16 +21,16 @@ document.addEventListener('DOMContentLoaded', function() {
     sourceParam = urlParams.get('source');
     const ontologyId = urlParams.get('ontology_id');
     
-    // If ontology_id is available, load by ID
+    // Always load the list of ontologies for the sidebar
+    loadOntologyList();
+    
+    // If ontology_id is available, load that specific ontology
     if (ontologyId) {
         loadOntology(ontologyId);
     }
     // Otherwise, if source parameter is available, load that ontology
     else if (sourceParam) {
         loadOntologyBySource(sourceParam);
-    } else {
-        // Otherwise, load the list of ontologies
-        loadOntologyList(); 
     }
     
     // Set up event listeners
@@ -114,8 +114,21 @@ function loadOntologyBySource(source) {
         : `/ontology-editor/api/ontology/${source}`;   // Source string - use /ontology endpoint
     
     // Fetch the ontology content by source
-    fetch(apiUrl)
-        .then(response => {
+    const fetchPromise = fetch(apiUrl)
+    // Set a timeout for the spinner state
+    let spinnerTimeout = setTimeout(() => {
+        loadingOverlay.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Still loading ontology... If this persists, please check your API configuration.</p>
+            </div>
+        `;
+    }, 3000);
+    
+    fetchPromise.then(response => {
+        clearTimeout(spinnerTimeout);
             if (!response.ok) {
                 throw new Error('Failed to load ontology by source');
             }
@@ -133,7 +146,7 @@ function loadOntologyBySource(source) {
             isEditorDirty = false;
             
             // Update UI
-            document.getElementById('editorTitle').innerText = `Editing: ${data.ontology.title || source}`;
+            document.getElementById('editorTitle').innerText = `Editing: ${data.ontology.name || data.ontology.title || source}`;
             document.getElementById('saveBtn').disabled = true;
             document.getElementById('validateBtn').disabled = false;
             document.getElementById('visualizeBtn').disabled = false;
@@ -205,22 +218,26 @@ function updateOntologyList(ontologies) {
         return;
     }
     
-    // Sort ontologies by title
-    ontologies.sort((a, b) => a.title.localeCompare(b.title));
+    // Sort ontologies by name/title
+    ontologies.sort((a, b) => {
+        const nameA = a.name || a.title || '';
+        const nameB = b.name || b.title || '';
+        return nameA.localeCompare(nameB);
+    });
     
     // Create list items
     const items = ontologies.map(ontology => {
+        // Handle different property naming (database uses 'name', old format uses 'title')
+        const title = ontology.name || ontology.title || 'Unnamed Ontology';
+        const domain = ontology.domain_id || ontology.domain || '';
+        
         return `
-            <li class="list-group-item d-flex justify-content-between align-items-center" 
+            <li class="list-group-item" 
                 data-ontology-id="${ontology.id}">
                 <div>
-                    <div>${ontology.title}</div>
-                    <small class="text-muted">${ontology.domain}</small>
+                    <div>${title}</div>
+                    <small class="text-muted">${domain}</small>
                 </div>
-                <button class="btn btn-sm btn-outline-danger delete-ontology" 
-                        data-ontology-id="${ontology.id}">
-                    <i class="bi bi-trash"></i>
-                </button>
             </li>
         `;
     }).join('');
@@ -229,18 +246,14 @@ function updateOntologyList(ontologies) {
     
     // Add click event listeners
     document.querySelectorAll('#ontologyList li').forEach(item => {
-        item.addEventListener('click', function(e) {
-            // Don't load if delete button was clicked
-            if (e.target.closest('.delete-ontology')) {
-                return;
-            }
-            
+        item.addEventListener('click', function() {
             const ontologyId = this.dataset.ontologyId;
             loadOntology(ontologyId);
         });
     });
     
-    // Add delete button listeners
+    // Delete functionality disabled for now
+    /* 
     document.querySelectorAll('.delete-ontology').forEach(button => {
         button.addEventListener('click', function(e) {
             e.stopPropagation(); // Prevent triggering the li click event
@@ -251,6 +264,7 @@ function updateOntologyList(ontologies) {
             }
         });
     });
+    */
 }
 
 /**
@@ -327,7 +341,7 @@ function updateUIForLoadedOntology(ontologyId) {
     // Update title
     const ontologyItem = document.querySelector(`#ontologyList li[data-ontology-id="${ontologyId}"]`);
     if (ontologyItem) {
-        const title = ontologyItem.querySelector('div').innerText;
+        const title = ontologyItem.querySelector('div > div').innerText;
         document.getElementById('editorTitle').innerText = `Editing: ${title}`;
     } else {
         document.getElementById('editorTitle').innerText = `Editing Ontology`;
@@ -399,7 +413,7 @@ function updateVersionsList(versions) {
     
     // Create list items
     const items = versions.map(version => {
-        const date = new Date(version.committed_at);
+        const date = new Date(version.created_at || version.committed_at);
         const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         
         return `
