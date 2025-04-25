@@ -565,11 +565,19 @@ class MCPClient:
                 "roles": [
                     {
                         "label": "Engineer",
-                        "description": "Professional responsible for designing, building, and maintaining systems, structures, and products."
+                        "description": "Professional responsible for designing, building, and maintaining systems, structures, and products.",
+                        "capabilities": [
+                            {"label": "Technical Design", "description": "Ability to design technical systems and solutions"},
+                            {"label": "Problem Solving", "description": "Ability to solve complex problems"}
+                        ]
                     },
                     {
                         "label": "Manager",
-                        "description": "Person responsible for overseeing projects and teams."
+                        "description": "Person responsible for overseeing projects and teams.",
+                        "capabilities": [
+                            {"label": "Leadership", "description": "Ability to lead and direct teams"},
+                            {"label": "Resource Allocation", "description": "Ability to allocate resources effectively"}
+                        ]
                     },
                     {
                         "label": "Client",
@@ -612,6 +620,30 @@ class MCPClient:
                     {
                         "label": "Request Additional Testing",
                         "description": "Ask for more verification of a system's performance or safety."
+                    }
+                ],
+                "events": [
+                    {
+                        "label": "Project Milestone",
+                        "description": "Significant point in a project's development."
+                    },
+                    {
+                        "label": "Safety Incident",
+                        "description": "Event where safety was compromised."
+                    }
+                ],
+                "capabilities": [
+                    {
+                        "label": "Technical Design",
+                        "description": "Ability to design technical systems and solutions."
+                    },
+                    {
+                        "label": "Problem Solving",
+                        "description": "Ability to solve complex technical and ethical problems."
+                    },
+                    {
+                        "label": "Leadership",
+                        "description": "Ability to lead and direct teams and projects."
                     }
                 ]
             }

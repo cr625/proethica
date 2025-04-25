@@ -11,12 +11,14 @@ from app.models.resource_type import ResourceType
 from app.models.ontology import Ontology
 from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
+from app.services.ontology_entity_service import OntologyEntityService
 
 worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 
 # Get singleton instances
 mcp_client = MCPClient.get_instance()
 task_queue = BackgroundTaskQueue.get_instance()
+ontology_entity_service = OntologyEntityService.get_instance()
 
 # API endpoints
 @worlds_bp.route('/api', methods=['GET'])
@@ -131,39 +133,33 @@ def view_world(id):
     if world.ontology_id:
         ontology = Ontology.query.get(world.ontology_id)
     
-    # Get world entities from MCP client if ontology source is specified
-    entities = {"entities": {}}  # Initialize with empty entities structure
-    ontology_status = 'current'  # Default status
-    
-    if world.ontology_source:
+        # Get world entities directly from the database
+        entities = {"entities": {}}  # Initialize with empty entities structure
+        ontology_status = 'current'  # Default status
+        
         try:
-            import traceback
-            print(f"Retrieving entities for world {world.id} with ontology source: {world.ontology_source}")
+            # Get entities using our direct service
+            entities = ontology_entity_service.get_entities_for_world(world)
             
-            # Check ontology status
-            status_result = mcp_client.get_ontology_status(world.ontology_source)
-            ontology_status = status_result.get('status', 'current')
+            # Optionally check ontology status from MCP if we have an ontology source
+            if world.ontology_source:
+                try:
+                    status_result = mcp_client.get_ontology_status(world.ontology_source)
+                    ontology_status = status_result.get('status', 'current')
+                except Exception as e:
+                    print(f"Error checking ontology status: {str(e)}")
             
-            # Get entities
-            result = mcp_client.get_world_entities(world.ontology_source)
-            
-            print(f"Retrieved entities result: {result.keys() if isinstance(result, dict) else 'not a dict'}")
-            
-            # Check if result already has an 'entities' key
-            if 'entities' in result:
-                entities = result
-            else:
-                # If not, wrap it in an 'entities' key
-                entities = {"entities": result}
-                
-            print(f"Final entities structure: {entities.keys()}")
+            # Debug logging
+            print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
             if 'entities' in entities:
                 entity_types = entities['entities'].keys() if isinstance(entities['entities'], dict) else 'not a dict'
                 print(f"Entity types: {entity_types}")
+                
         except Exception as e:
+            import traceback
             stack_trace = traceback.format_exc()
             error_message = f"Error retrieving world entities: {str(e)}"
-            entities = {"error": error_message}
+            entities = {"entities": {}, "error": error_message}
             print(error_message)
             print(stack_trace)
     
