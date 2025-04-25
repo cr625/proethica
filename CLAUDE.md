@@ -38,6 +38,13 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
 - `ontology_editor/static/js/editor.js`
 - `app/services/ontology_entity_service.py`
 
+
+4. **Made Navigation Consistent Across App**
+   - Added Ontology Editor link to world detail page navigation
+   - Ensured consistent user experience throughout the application
+   - Improved discoverability of the ontology editor functionality
+   - Streamlined workflow between world details and ontology editing
+
 ### Next Steps
 
 - Consider adding syntax highlighting for ontology errors in the editor
