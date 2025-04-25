@@ -307,6 +307,9 @@ function loadOntology(ontologyId) {
             // Load versions for this ontology
             loadVersions(ontologyId);
             
+            // Update URL to reflect the current ontology
+            updateURLWithCurrentOntology(ontologyId);
+            
             // Remove loading indicator
             editorContainer.removeChild(loadingOverlay);
         })
@@ -323,6 +326,30 @@ function loadOntology(ontologyId) {
             document.getElementById('validateBtn').disabled = true;
             document.getElementById('visualizeBtn').disabled = true;
         });
+}
+
+/**
+ * Update the URL to reflect the current ontology
+ * 
+ * @param {string} ontologyId - ID of the current ontology
+ */
+function updateURLWithCurrentOntology(ontologyId) {
+    // Get current URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Update ontology_id parameter
+    urlParams.set('ontology_id', ontologyId);
+    
+    // Preserve the current view parameter if it exists
+    const currentView = urlParams.get('view');
+    if (!currentView) {
+        // Default to "full" view if no view is specified
+        urlParams.set('view', 'full');
+    }
+    
+    // Update the URL without reloading the page
+    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+    window.history.pushState({ ontologyId: ontologyId }, '', newUrl);
 }
 
 /**

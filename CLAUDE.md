@@ -2,44 +2,30 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
-## 2025-04-25
+## 2025-04-25 - Fixed Ontology Entity Extraction and Display
 
-### Improved ontology consistency and Capability class integration
+### Changes Made:
+- Created a new service `OntologyEntityService` that directly extracts entities from ontologies stored in the database 
+- Modified the world detail view to use the new service instead of the MCP server for entity extraction
+- Implemented entity extraction functions that properly handle different namespaces and entity types
+- Added caching to improve performance when retrieving the same ontology multiple times
 
-- Enhanced ontology consistency between base, intermediate, and domain ontologies:
-  - Added Capability class to ProEthica Intermediate Ontology (properly subclassed from BFO_0000016 - disposition)
-  - Added CapabilityType to entity types recognized by the MCP server
-  - Updated EngineeringCapability in Engineering Ethics NSPE Extended to properly subclass from proeth:Capability
-  - Created verification script (verify_ontology_consistency.py) to check ontology hierarchy consistency
-- Created necessary scripts for ontology management:
-  - update_ontology_with_capability.py - Adds Capability class to intermediate ontology
-  - update_engineering_capability.py - Properly connects domain capabilities to intermediate ontology
-  - These scripts maintain correct version history in the database
+### Technical Details:
+- The new service parses the ontology content with RDFLib and extracts entities of different types
+- It handles both domain-specific namespaces and the intermediate namespace
+- It properly identifies entity instances that have both `EntityType` and specific type declarations
+- The world details page now displays all entities correctly
 
-### Protected base ontologies and consolidated documentation
-
-- Implemented protection for base ontologies (BFO):
-  - Created `scripts/protect_base_ontologies.py` to mark core ontologies as non-editable
-  - Added is_base and is_editable flags to prevent modification of foundation ontologies
-  - Preserved ability to view and import from base ontologies
-  - Laid groundwork for future admin-only base ontology uploads
-- Simplified ontology documentation structure:
-  - Created comprehensive `docs/unified_ontology_system.md` documentation
-  - Updated `ontology_editor/README.md` to reference database storage
-  - Removed redundant/outdated documentation files
-  - Maintained only essential documentation for current architecture
-- Improved UI integration:
-  - Added Ontology Editor link to main navigation
-  - Enhanced documentation of visualization features
+### Benefits:
+- More reliable entity extraction independent of MCP server issues
+- Simplified code path with direct database access instead of HTTP calls
+- Better error handling and logging for ontology parsing issues
+- Performance improvements through caching
 
 ### Next Steps:
-- Run the protect_base_ontologies.py script to secure core ontologies
-- Update Engineering NSPE Extended capabilities to utilize the proper Capability class attributes
-- Consider adding other domain-specific capability subtypes to the intermediate ontology
-- Implement enhanced ontology visualization features with hierarchy view
-- Add admin interface for base ontology management
-- Optimize performance for large ontologies
-
+- Continue testing with different ontologies to ensure all entity types are properly extracted
+- Consider adding more detailed error messages for ontology syntax validation
+- Review the ontology editor to ensure it produces valid syntax for entity definitions
 ## 2025-04-24
 
 ### Updated ontology storage to use database-only system

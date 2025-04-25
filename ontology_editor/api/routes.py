@@ -12,6 +12,7 @@ from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
 from app.models.ontology_import import OntologyImport
 from app.services.mcp_client import MCPClient
+from app.services.ontology_entity_service import OntologyEntityService
 from ontology_editor.services.validator import OntologyValidator
 
 def create_api_routes(config):
@@ -235,9 +236,16 @@ def create_api_routes(config):
         try:
             ontology = Ontology.query.get_or_404(ontology_id)
             
-            # Get entities from MCP client
-            mcp_client = MCPClient.get_instance()
-            entities = mcp_client.get_world_entities(ontology.domain_id + ".ttl")
+            # Get entities directly from the ontology entity service
+            entity_service = OntologyEntityService.get_instance()
+            
+            # Create a world-like object with the required ontology_id field
+            class DummyWorld:
+                def __init__(self, ontology_id):
+                    self.ontology_id = ontology_id
+            
+            dummy_world = DummyWorld(ontology_id)
+            entities = entity_service.get_entities_for_world(dummy_world)
             
             return jsonify(entities)
         except Exception as e:
@@ -273,9 +281,16 @@ def create_api_routes(config):
         rdflib or a similar library to parse and analyze the ontology structure.
         """
         try:
-            # Get entities from MCP client
-            mcp_client = MCPClient.get_instance()
-            entities_response = mcp_client.get_world_entities(ontology.domain_id + ".ttl")
+            # Get entities directly from the ontology entity service
+            entity_service = OntologyEntityService.get_instance()
+            
+            # Create a world-like object with the required ontology_id field
+            class DummyWorld:
+                def __init__(self, ontology_id):
+                    self.ontology_id = ontology_id
+            
+            dummy_world = DummyWorld(ontology.id)
+            entities_response = entity_service.get_entities_for_world(dummy_world)
             entities = entities_response.get('entities', {})
             
             # Create root node
