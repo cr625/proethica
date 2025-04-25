@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models.ontology import Ontology
+from app.models.ontology_version import OntologyVersion
 from app.models.ontology_import import OntologyImport
 from app.services.mcp_client import MCPClient
 from ontology_editor.services.validator import OntologyValidator
@@ -98,7 +99,8 @@ def create_api_routes(config):
                 'updated_at': ontology.updated_at.isoformat() if ontology.updated_at else None,
                 'is_base': ontology.is_base if hasattr(ontology, 'is_base') else False,
                 'is_editable': ontology.is_editable if hasattr(ontology, 'is_editable') else True,
-                'imports': imports
+                'imports': imports,
+                'content': ontology.content  # Include content directly
             }
             
             return jsonify(result)
@@ -139,15 +141,72 @@ def create_api_routes(config):
                     'validation': validation_result
                 }), 400
             
-            # Update the ontology
+            # Create a new version
+            commit_message = request.json.get('commit_message', 'Updated ontology content')
+            
+            # Get the current highest version number
+            latest_version = OntologyVersion.query.filter_by(ontology_id=ontology_id).order_by(OntologyVersion.version_number.desc()).first()
+            new_version_number = (latest_version.version_number + 1) if latest_version else 1
+            
+            # Create new version
+            new_version = OntologyVersion(
+                ontology_id=ontology_id,
+                version_number=new_version_number,
+                content=new_content,
+                commit_message=commit_message
+            )
+            
+            # Update the ontology with the new content
             ontology.content = new_content
+            
+            # Save changes
+            db.session.add(new_version)
             db.session.commit()
             
-            return jsonify({'status': 'success', 'message': 'Ontology updated successfully'})
+            return jsonify({
+                'status': 'success', 
+                'message': 'Ontology updated successfully',
+                'version': new_version_number
+            })
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error updating ontology content {ontology_id}: {str(e)}")
             return jsonify({'error': f'Failed to update ontology content {ontology_id}', 'details': str(e)}), 500
+    
+    @api_bp.route('/versions/<int:ontology_id>')
+    def get_ontology_versions(ontology_id):
+        """Get versions of a specific ontology"""
+        try:
+            # Check if ontology exists
+            ontology = Ontology.query.get_or_404(ontology_id)
+            
+            # Get all versions for this ontology
+            versions = OntologyVersion.query.filter_by(ontology_id=ontology_id).order_by(OntologyVersion.version_number.desc()).all()
+            
+            # Transform to dict for JSON serialization
+            result = [version.to_dict() for version in versions]
+            
+            return jsonify({'versions': result})
+        except Exception as e:
+            current_app.logger.error(f"Error fetching versions for ontology {ontology_id}: {str(e)}")
+            return jsonify({'error': f'Failed to fetch versions for ontology {ontology_id}', 'details': str(e)}), 500
+
+    @api_bp.route('/versions/<int:version_id>')
+    def get_version(version_id):
+        """Get a specific version by ID"""
+        try:
+            version = OntologyVersion.query.get_or_404(version_id)
+            
+            # Get the version details
+            result = version.to_dict()
+            
+            # Include the content
+            result['content'] = version.content
+            
+            return jsonify(result)
+        except Exception as e:
+            current_app.logger.error(f"Error fetching version {version_id}: {str(e)}")
+            return jsonify({'error': f'Failed to fetch version {version_id}', 'details': str(e)}), 500
     
     @api_bp.route('/ontology/<int:ontology_id>/validate', methods=['POST'])
     def validate_ontology(ontology_id):

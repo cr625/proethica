@@ -14,11 +14,11 @@ class OntologyValidator:
     """
     A class to validate ontology files.
     """
-    
+
     def __init__(self):
         """Initialize the validator."""
         pass
-        
+
     def validate(self, content: str) -> Dict[str, Any]:
         """
         Validate an ontology file.
@@ -88,20 +88,21 @@ class OntologyValidator:
 def validate_ontology(content: str) -> Dict[str, Any]:
     """
     Legacy validation function that uses the new OntologyValidator class.
-    
+
     This function is kept for backwards compatibility.
-    
+
     Args:
         content: Content of the ontology file to validate
-        
+
     Returns:
         Validation results dictionary
     """
     validator = OntologyValidator()
     results = validator.validate(content)
-    
+
     # Convert to old format
     return {
         'is_valid': results['valid'],
         'errors': results['errors'],
         'warnings': results['warnings']
+    }

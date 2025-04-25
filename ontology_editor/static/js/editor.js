@@ -46,8 +46,8 @@ function initializeEditor() {
     editor.session.setMode("ace/mode/turtle");
     editor.setShowPrintMargin(false);
     editor.setOptions({
-        enableBasicAutocompletion: true,
-        enableLiveAutocompletion: true,
+        enableBasicAutoComplete: true,
+        enableLiveAutoComplete: true,
         fontSize: "14px",
         tabSize: 2
     });
@@ -520,7 +520,7 @@ function validateOntology() {
     document.getElementById('validationCard').style.display = 'block';
     
     // First send to validate TTL syntax
-    fetch(`/ontology-editor/api/validate/${currentOntologyId}`, {
+    fetch(`/ontology-editor/api/ontology/${currentOntologyId}/validate`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -530,7 +530,7 @@ function validateOntology() {
     .then(response => response.json())
     .then(syntaxResult => {
         // If syntax is invalid, show errors
-        if (!syntaxResult.is_valid) {
+        if (!syntaxResult.valid) {
             let errorHtml = `
                 <div class="validation-error">
                     <strong>Syntax Validation Failed</strong>
@@ -627,7 +627,7 @@ function saveOntology() {
     
     // Close the modal
     const saveModal = bootstrap.Modal.getInstance(document.getElementById('saveVersionModal'));
-    saveModal.hide();
+    saveModal.show();
     
     // Show loading indicator
     const editorContainer = document.getElementById('editorContainer');
@@ -644,9 +644,12 @@ function saveOntology() {
     fetch(`/ontology-editor/api/ontology/${currentOntologyId}/content`, {
         method: 'PUT',
         headers: {
-            'Content-Type': 'text/turtle'
+            'Content-Type': 'application/json'
         },
-        body: content
+        body: JSON.stringify({
+            content,
+            commit_message: commitMessage
+        })
     })
     .then(response => {
         if (!response.ok) {
@@ -659,10 +662,8 @@ function saveOntology() {
         isEditorDirty = false;
         document.getElementById('saveBtn').disabled = true;
         
-        // Reload versions list if applicable
-        if (typeof loadVersions === 'function') {
-            loadVersions(currentOntologyId);
-        }
+        // Reload versions list
+        loadVersions(currentOntologyId);
         
         // Remove loading indicator
         editorContainer.removeChild(loadingOverlay);
