@@ -1,45 +1,31 @@
-# A-Proxy Development Log
+# ProEthica Development Log
 
-## 2025-04-25: Ontology Visualization Implementation
+This file tracks progress, decisions, and important changes to the ProEthica system.
 
-Fixed the ontology visualization system to properly display ontologies in a hierarchical view:
+## 2025-04-25
 
-1. **Fixed API Authentication**: Modified `is_authorized()` in `ontology_editor/api/routes.py` to exempt visualization-related endpoints from strict authentication requirements.
+### Updated ontology storage to use database-only system
 
-2. **API Route Standardization**: Added compatibility endpoints to support both `/api/ontology/:id` and `/api/ontologies/:id` route patterns to ensure backwards compatibility with client code.
+- Created system for migrating ontologies from files to database storage
+- Added patch to MCP server to prioritize database ontology loading with fallback to files
+- Created scripts for the migration process:
+  - `scripts/archive_ontology_files.py`: Archives original TTL files before replacement
+  - `scripts/update_ontology_mcp_server.py`: Patches MCP server to load from database
+  - `scripts/remove_ontology_files.py`: Replaces TTL files with placeholders
+  - `scripts/setup_ontology_db_only.sh`: Combined script for the complete migration process
+- Added comprehensive documentation in `docs/ontology_file_migration_guide.md`
+- Added documentation explaining repository branch management in `docs/repo_branches.md`
+- Main benefits:
+  - Eliminates inconsistencies between file and database versions
+  - Enables proper version tracking through the database
+  - Maintains compatibility with existing code through fallback mechanisms
+  - Original files archived for reference if needed
 
-3. **Fixed Client JavaScript**: Updated the editor.js to correctly use the standardized API endpoints, removing duplicated API URL resolution code that was causing conflicts.
+### Next Steps:
+- Implement visualization of ontologies in a hierarchy view
+- Update ontology editor to show relationships between ontologies
 
-4. **Added Testing Utility**: Created `scripts/check_ontology_visualization.py` to verify endpoint functionality and test the visualization rendering.
-
-5. **Added Documentation**: Created `docs/ontology_visualization_readme.md` with comprehensive documentation on the visualization system.
-
-The visualization can now be accessed at:
-```
-http://localhost:3333/ontology-editor/visualize/{ontology_id}
-```
-
-### Known Issues & Limitations
-
-- The current visualization is read-only (viewing only)
-- D3.js visualization can be enhanced with more interactive features
-- Some browser environments may have trouble with the puppeteer-based browser integration for testing
-
-### Next Steps
-
-1. Enhance the visualization with drag-and-drop editing capability
-2. Add search functionality to find specific entities
-3. Implement more sophisticated RDF parsing for detailed hierarchy extraction
-4. Optimize performance for large ontologies with pagination and lazy-loading
-
-## 2025-04-24: Admin Role Support
-
-Added support for admin roles in the user model:
-
-1. Created `scripts/admin_migration.py` to add `is_admin` column to users table
-2. Updated authentication logic to check for admin status when required
-3. First user (system admin) is automatically granted admin privileges
-
-## Previous Updates
+Previous Updates
 
 [Previous logs would be here]
+[2025-04-25] Updated ontology storage to use database-only system
