@@ -294,7 +294,7 @@ def create_api_routes(config):
                 if 'content' in data:
                     # Validate ontology content
                     validation_results = validate_ontology(data['content'])
-                    if validation_results.get('valid', False):
+                    if validation_results.get('is_valid', False):
                         # Update content
                         ontology.content = data['content']
                         
@@ -406,7 +406,19 @@ def create_api_routes(config):
         
         # Validate ontology content
         validation_results = validate_ontology(data['content'])
-        return jsonify(validation_results)
+        
+        # Log validation results for debugging
+        current_app.logger.info(f"Validation results: {validation_results}")
+        
+        # Ensure consistent response format
+        response = {
+            'is_valid': validation_results.get('is_valid', False),
+            'errors': validation_results.get('errors', []),
+            'warnings': validation_results.get('warnings', []),
+            'suggestions': []  # Add empty suggestions array for BFO validation response format
+        }
+        
+        return jsonify(response)
     
     @bp.route('/ontology/<path:source>')
     def get_ontology_by_source(source):

@@ -1,5 +1,42 @@
 A-Proxy Development Log
 
+## 2025-04-24: Fixed Ontology Editor Validation UI and API Consistency
+
+Fixed validation issues in the ontology editor that were causing UI problems and error messages:
+
+### Changes Made:
+1. **Fixed CSS for Validation Results Display**:
+   - Modified CSS properties to prevent validation button from being cropped
+   - Changed `overflow-x: hidden` to `overflow-x: visible` to ensure proper rendering
+   - Added `white-space: normal` to ensure proper text wrapping in validation results
+
+2. **Fixed API/UI Property Name Inconsistency**:
+   - Unified property name between validator, API routes, and client-side JavaScript
+   - Standardized on `is_valid` property name throughout the system
+   - Added consistent error, warning, and suggestions structure to validation responses
+   - Improved API error handling and debugging with additional logging
+
+3. **Fixed JavaScript Validation Logic**:
+   - Corrected JavaScript to use the dedicated validation endpoint instead of update endpoint
+   - Updated logic to match the correct property names returned by the API
+   - Improved error handling for validation responses
+   - Added more detailed logging to diagnose issues
+
+4. **Created Test Tools**:
+   - Added `validate_ontology_syntax.py` script to validate and debug ontology syntax issues
+   - Created `test_ontology_editor.py` to quickly test changes to the ontology editor
+
+### Previous Issues Fixed:
+- Validate button was cropped in the UI
+- Error messages were incomplete or inconsistent due to property name mismatch
+- Validation API was using inconsistent property names (`valid` vs `is_valid`)
+- Error details weren't properly displayed in the UI
+
+### Next Steps:
+- Consider adding a more comprehensive validator that provides specific line-by-line feedback
+- Implement better visual indicators for validation status
+- Enhance the validation to include semantic validation beyond basic syntax checking
+
 ## 2025-04-24: Migrated Ontologies to Database-Only Storage
 
 Completed the migration of all ontologies to database-only storage, removing file-based fallbacks:

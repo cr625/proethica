@@ -18,7 +18,10 @@ def validate_ontology(content: str) -> Dict[str, Any]:
         content: Content of the ontology file to validate
         
     Returns:
-        Validation results dictionary
+        Validation results dictionary with keys:
+        - is_valid: Boolean indicating if the ontology is valid
+        - errors: List of error messages if any
+        - warnings: List of warning messages if any
     """
     results = {
         'is_valid': False,

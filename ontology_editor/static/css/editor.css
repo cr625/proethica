@@ -103,13 +103,17 @@
 #validationCard {
     margin-top: 20px;
     width: 100%;
-    overflow-x: hidden;
+    overflow: visible;
+    height: auto;
+    min-height: 200px;
 }
 
 #validationResults {
     padding: 15px;
     max-width: 100%;
     overflow-wrap: break-word;
+    white-space: normal;
+    height: auto;
 }
 
 #validationResults ul {
