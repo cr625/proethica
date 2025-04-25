@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ontology Visualization</title>
-    <link rel="stylesheet" href="{{ url_for('ontology_editor.static', filename='css/editor.css') }}">
+    <link rel="stylesheet" href="/ontology-editor/static/css/editor.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
@@ -317,7 +317,7 @@
                 .style("opacity", 0);
             
             // Get ontology ID from URL
-            const ontologyId = '{{ ontology_id }}';
+            const ontologyId = '1';
             
             // Initialize event handlers
             initializeControls();
@@ -367,12 +367,12 @@
             
             // Back to editor button
             document.getElementById('back-to-editor-btn').addEventListener('click', () => {
-                window.location.href = `{{ url_for('ontology_editor.index') }}?ontology_id={{ ontology_id }}`;
+                window.location.href = `/ontology-editor/?ontology_id=1`;
             });
             
             // Refresh button
             document.getElementById('refresh-btn').addEventListener('click', () => {
-                loadOntologyHierarchy('{{ ontology_id }}');
+                loadOntologyHierarchy('1');
             });
         }
         
@@ -381,7 +381,7 @@
             d3.select('#visualization-svg-container').html('<div style="text-align: center; padding: 20px;">Loading ontology data...</div>');
             
             // Fetch the hierarchy data from the API
-            fetch(`{{ url_for('ontology_editor.api.get_ontology_hierarchy', ontology_id=0) }}`.replace('0', ontologyId))
+            fetch(`/ontology-editor/api/ontology/0/hierarchy`.replace('0', ontologyId))
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');

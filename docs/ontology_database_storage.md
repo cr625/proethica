@@ -1,157 +1,106 @@
-Ontology Database Storage
-=======================
+# Unified Ontology System Storage
+
+This document describes the new unified ontology system storage architecture that allows for proper integration between domain-specific ontologies and base ontologies.
 
 ## Overview
 
-The A-Proxy system now stores all ontologies exclusively in the database, rather than using a combination of file-based storage and database storage. This document covers the technical implementation of this change, how ontologies are stored, and how to manage them.
+The unified ontology system solves several key challenges:
 
-## Architecture
+1. **Consistent Entity Types**: Ensures all domain ontologies properly reference the same core entity types (Role, Event, etc.)
+2. **Hierarchy Visualization**: Properly shows domain-specific classes within their type categories
+3. **Single Source of Truth**: Uses the database as the single source of truth for all ontologies
+4. **Base Ontology Protection**: Prevents accidental modification of core ontologies (BFO, Intermediate)
+5. **Explicit Import Relationships**: Tracks which ontologies import/extend others
 
-### Database Models
+## Database Storage Model
 
-1. **Ontology Model (`app/models/ontology.py`)**:
-   ```python
-   class Ontology(db.Model):
-       __tablename__ = 'ontologies'
-       
-       id = db.Column(db.Integer, primary_key=True)
-       name = db.Column(db.String(255), nullable=False)
-       description = db.Column(db.Text, nullable=True)
-       domain_id = db.Column(db.String(255), nullable=False, unique=True)
-       content = db.Column(db.Text, nullable=False)  # The actual ontology content
-       created_at = db.Column(db.DateTime, default=datetime.utcnow)
-       updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-       
-       # Relationship to worlds
-       worlds = db.relationship('World', backref='ontology', lazy=True)
-       # Relationship to versions
-       versions = db.relationship('OntologyVersion', backref='ontology', lazy=True)
-   ```
+The system now uses a more sophisticated database storage model:
 
-2. **OntologyVersion Model (`app/models/ontology_version.py`)**:
-   ```python
-   class OntologyVersion(db.Model):
-       __tablename__ = 'ontology_versions'
-       
-       id = db.Column(db.Integer, primary_key=True)
-       ontology_id = db.Column(db.Integer, db.ForeignKey('ontologies.id'), nullable=False)
-       version_number = db.Column(db.Integer, nullable=False)
-       content = db.Column(db.Text, nullable=False)  # The version-specific content
-       commit_message = db.Column(db.String(255), nullable=True)
-       created_at = db.Column(db.DateTime, default=datetime.utcnow)
-   ```
+### Core Models:
 
-3. **World Model (Updated) (`app/models/world.py`)**:
-   ```python
-   # In World model, added:
-   ontology_id = db.Column(db.Integer, db.ForeignKey('ontologies.id'), nullable=True)
-   ```
+1. **Ontology**:
+   - Stores basic ontology information and content
+   - Added fields: `is_base`, `is_editable`, and `base_uri`
+   - See `app/models/ontology.py`
 
-### API Changes
+2. **OntologyVersion**:
+   - Tracks version history for ontologies
+   - Each version maintains a complete copy of the ontology content at that point in time
+   - See `app/models/ontology_version.py`
 
-All API routes now exclusively use database queries and no longer attempt to read from or write to the file system. The file paths are still stored for backward compatibility but contain empty placeholder files.
+3. **OntologyImport** (New):
+   - Tracks import relationships between ontologies
+   - Allows building dependency graphs between ontologies
+   - See `app/models/ontology_import.py`
 
-## Migration
+## Base Ontologies
 
-### Migration Steps Performed
+The system now recognizes two types of base ontologies:
 
-1. **Initial Database Migration**:
-   - Created and ran the script `scripts/migrate_ontologies_to_db.py` to move all ontologies from files to database
-   - Each ontology received a database record in the `ontologies` table
-   - File versions were migrated to the `ontology_versions` table
+1. **BFO (Basic Formal Ontology)**:
+   - Provides the foundational classes for all ontologies
+   - Imported into the intermediate ontology
+   - Marked as non-editable in the database
 
-2. **Complete Removal of File Fallback**:
-   - Ran `scripts/update_ontology_editor_for_db_only.py` to modify code to use database exclusively
-   - Original ontology files moved to `ontologies_removed` as a backup
-   - Empty placeholder files created in the original locations
+2. **ProEthica Intermediate Ontology**:
+   - Defines core entity types used across all domain ontologies
+   - Extends BFO with ethical-specific concepts
+   - Defines `Role`, `Condition`, `Resource`, `Event`, and `Action` classes
+   - Marked as non-editable in the database
 
-### Checking Migration Status
+## Import Relationships
 
-To verify ontologies are properly migrated and working in database-only mode:
+Domain ontologies now explicitly import base ontologies in the database:
 
-1. **Check Database Records**:
+1. **Direct Imports**:
+   - Explicitly defined with `owl:imports` statements in the TTL
+   - Stored in the database using the `OntologyImport` model
+
+2. **Implicit Imports**:
+   - Detected from prefix declarations and namespace usage
+   - Added automatically during import processing
+   - Example: Using `proeth:Role` implies importing the intermediate ontology
+
+3. **Default Imports**:
+   - When no imports are detected, the intermediate ontology is added by default
+   - Ensures all domain ontologies have access to core types
+
+## Hierarchy Visualization
+
+The visualization of ontology hierarchies has been enhanced to:
+
+1. Load and include imported ontologies when building the hierarchy
+2. Recognize and categorize entities by their type (Role, Event, etc.)
+3. Support two viewing modes:
+   - Hierarchical: Shows the inheritance tree based on `rdfs:subClassOf`
+   - Categorized: Groups entities by their type category
+
+## Setup and Migration
+
+To set up the unified ontology system:
+
+1. Create necessary database tables:
    ```bash
-   python scripts/check_ontologies_in_db.py
+   python scripts/create_ontology_import_table.py
    ```
 
-2. **Verify Application Function**:
-   - Access ontologies through the web interface
-   - All ontology operations should work without errors
-   - The application should not attempt to read or write ontology files
+2. Import base ontologies:
+   ```bash
+   python scripts/import_base_ontologies.py
+   ```
 
-## API Usage
+3. Process domain ontology imports:
+   ```bash
+   python scripts/process_domain_ontology_imports.py
+   ```
 
-### Fetching Ontology Content
-
-```python
-from app.models.ontology import Ontology
-
-def get_ontology_content(ontology_id):
-    ontology = Ontology.query.get(ontology_id)
-    if not ontology:
-        return None
-    return ontology.content
+Or run the unified setup script:
+```bash
+scripts/setup_unified_ontology_system.sh
 ```
 
-### Creating a New Version
+## Editing Restrictions
 
-```python
-from app.models.ontology import Ontology
-from app.models.ontology_version import OntologyVersion
-from app import db
-
-def create_new_version(ontology_id, content, commit_message):
-    ontology = Ontology.query.get(ontology_id)
-    if not ontology:
-        return False
-        
-    # Update ontology content
-    ontology.content = content
-    
-    # Create new version
-    versions = OntologyVersion.query.filter_by(ontology_id=ontology_id).all()
-    new_version_number = len(versions) + 1
-    
-    version = OntologyVersion(
-        ontology_id=ontology_id,
-        version_number=new_version_number,
-        content=content,
-        commit_message=commit_message
-    )
-    db.session.add(version)
-    db.session.commit()
-    
-    return True
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Ontology Not Found**:
-   - Check that the ontology ID exists in the database
-   - Ensure references in the world model point to valid ontology IDs
-
-2. **Version History Issues**:
-   - If version history seems inconsistent, check the `ontology_versions` table directly
-   - Version numbers should be sequential starting from 1
-
-3. **Database Connection Issues**:
-   - Ensure database connection parameters are correct
-   - Check database logs for any connection or query errors
-
-### Recovery Options
-
-In case of database issues, the original ontology files are preserved in the `ontologies_removed` directory. These can be used to repopulate the database if needed.
-
-## Future Enhancements
-
-- Implementation of database indexing for large ontologies
-- Optimization of queries for frequent ontology operations
-- Addition of version comparison and rollback UI
-- Enhanced backup and restore functionality for ontologies
-
-## Related Documentation
-
-- See `docs/ontology_editor_changes.md` for UI and general editor improvements
-- Refer to `CLAUDE.md` for complete history of all ontology-related changes
+- Base ontologies (`is_base=True`) are marked as non-editable (`is_editable=False`)
+- The ontology editor UI shows a warning for non-editable ontologies
+- Domain ontologies remain fully editable

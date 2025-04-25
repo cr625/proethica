@@ -115,29 +115,15 @@ function loadOntologyBySource(source) {
     `;
     editorContainer.appendChild(loadingOverlay);
     
-    // Determine if source is numeric ID or string identifier
-    const apiUrl = !isNaN(parseInt(source)) 
-        ? `/ontology-editor/api/ontologies/${source}`  // Numeric ID - use /ontologies endpoint
-        : `/ontology-editor/api/ontology/${source}`;   // Source string - use /ontology endpoint
+    // Use the /ontology endpoint for both numeric IDs and source strings
+    const apiUrl = `/ontology-editor/api/ontology/${source}`;
     
-    // Fetch the ontology content by source
-    const fetchPromise = fetch(apiUrl)
-    // Set a timeout for the spinner state
-    let spinnerTimeout = setTimeout(() => {
-        loadingOverlay.innerHTML = `
-            <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Still loading ontology... If this persists, please check your API configuration.</p>
-            </div>
-        `;
-    }, 3000);
+    console.log('Fetching from API URL:', apiUrl);
     
-    fetchPromise.then(response => {
-        clearTimeout(spinnerTimeout);
+    fetch(apiUrl)
+        .then(response => {
             if (!response.ok) {
-                throw new Error('Failed to load ontology by source');
+                throw new Error('Failed to load ontology');
             }
             return response.json();
         })
@@ -145,24 +131,24 @@ function loadOntologyBySource(source) {
             // Update editor content
             editor.setValue(data.content || '# No content available');
             editor.clearSelection();
-            
+
             // Update current ontology ID
-            currentOntologyId = data.ontology.id;
-            
+            currentOntologyId = data.id || parseInt(source);
+
             // Reset dirty flag
             isEditorDirty = false;
-            
+
             // Update UI
-            document.getElementById('editorTitle').innerText = `Editing: ${data.ontology.name || data.ontology.title || source}`;
+            document.getElementById('editorTitle').innerText = `Editing: ${data.name || source}`;
             document.getElementById('saveBtn').disabled = true;
             document.getElementById('validateBtn').disabled = false;
             document.getElementById('visualizeBtn').disabled = false;
-            
+
             // Load versions for this ontology if available
-            if (data.ontology.id) {
-                loadVersions(data.ontology.id);
+            if (currentOntologyId) {
+                loadVersions(currentOntologyId);
             }
-            
+
             // Remove loading indicator
             editorContainer.removeChild(loadingOverlay);
         })
@@ -297,7 +283,7 @@ function loadOntology(ontologyId) {
     editorContainer.appendChild(loadingOverlay);
     
     // Fetch the ontology content
-    fetch(`/ontology-editor/api/ontologies/${ontologyId}`)
+    fetch(`/ontology-editor/api/ontology/${ontologyId}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load ontology');
@@ -655,15 +641,12 @@ function saveOntology() {
     editorContainer.appendChild(loadingOverlay);
     
     // Update the ontology content
-    fetch(`/ontology-editor/api/ontologies/${currentOntologyId}`, {
+    fetch(`/ontology-editor/api/ontology/${currentOntologyId}/content`, {
         method: 'PUT',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'text/turtle'
         },
-        body: JSON.stringify({
-            content,
-            commit_message: commitMessage
-        })
+        body: content
     })
     .then(response => {
         if (!response.ok) {
@@ -676,8 +659,10 @@ function saveOntology() {
         isEditorDirty = false;
         document.getElementById('saveBtn').disabled = true;
         
-        // Reload versions list
-        loadVersions(currentOntologyId);
+        // Reload versions list if applicable
+        if (typeof loadVersions === 'function') {
+            loadVersions(currentOntologyId);
+        }
         
         // Remove loading indicator
         editorContainer.removeChild(loadingOverlay);

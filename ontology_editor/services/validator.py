@@ -10,66 +10,98 @@ from typing import Dict, Any
 from rdflib import Graph
 from rdflib.exceptions import ParserError
 
+class OntologyValidator:
+    """
+    A class to validate ontology files.
+    """
+    
+    def __init__(self):
+        """Initialize the validator."""
+        pass
+        
+    def validate(self, content: str) -> Dict[str, Any]:
+        """
+        Validate an ontology file.
+
+        Args:
+            content: Content of the ontology file to validate
+
+        Returns:
+            Validation results dictionary with keys:
+            - valid: Boolean indicating if the ontology is valid
+            - errors: List of error messages if any
+            - warnings: List of warning messages if any
+        """
+        results = {
+            'valid': False,
+            'errors': [],
+            'warnings': []
+        }
+
+        # Basic content checks
+        if not content or not content.strip():
+            results['errors'].append('Ontology content is empty')
+            return results
+
+        # Check for required namespaces
+        required_namespaces = [
+            '@prefix rdfs:',
+            '@prefix rdf:',
+            '@prefix owl:'
+        ]
+
+        for namespace in required_namespaces:
+            if namespace not in content:
+                results['warnings'].append(f'Missing recommended namespace: {namespace}')
+
+        # Check for syntax errors using RDFLib
+        g = Graph()
+        try:
+            g.parse(data=content, format='turtle')
+        except ParserError as e:
+            # Extract the error message
+            error_message = str(e)
+
+            # Try to extract line number from error message
+            line_match = re.search(r'line (\d+)', error_message)
+            if line_match:
+                line_number = line_match.group(1)
+                results['errors'].append(f'Syntax error at line {line_number}: {error_message}')
+            else:
+                results['errors'].append(f'Syntax error: {error_message}')
+
+            return results
+        except Exception as e:
+            results['errors'].append(f'Error parsing ontology: {str(e)}')
+            return results
+
+        # If we made it this far, the ontology is valid
+        results['valid'] = True
+
+        # Additional checks could be added here
+        # For example, checking for recommended classes, properties, etc.
+
+        return results
+
+
+# Legacy function for backwards compatibility
 def validate_ontology(content: str) -> Dict[str, Any]:
     """
-    Validate an ontology file.
+    Legacy validation function that uses the new OntologyValidator class.
+    
+    This function is kept for backwards compatibility.
     
     Args:
         content: Content of the ontology file to validate
         
     Returns:
-        Validation results dictionary with keys:
-        - is_valid: Boolean indicating if the ontology is valid
-        - errors: List of error messages if any
-        - warnings: List of warning messages if any
+        Validation results dictionary
     """
-    results = {
-        'is_valid': False,
-        'errors': [],
-        'warnings': []
-    }
+    validator = OntologyValidator()
+    results = validator.validate(content)
     
-    # Basic content checks
-    if not content or not content.strip():
-        results['errors'].append('Ontology content is empty')
-        return results
-    
-    # Check for required namespaces
-    required_namespaces = [
-        '@prefix rdfs:',
-        '@prefix rdf:',
-        '@prefix owl:'
-    ]
-    
-    for namespace in required_namespaces:
-        if namespace not in content:
-            results['warnings'].append(f'Missing recommended namespace: {namespace}')
-    
-    # Check for syntax errors using RDFLib
-    g = Graph()
-    try:
-        g.parse(data=content, format='turtle')
-    except ParserError as e:
-        # Extract the error message
-        error_message = str(e)
-        
-        # Try to extract line number from error message
-        line_match = re.search(r'line (\d+)', error_message)
-        if line_match:
-            line_number = line_match.group(1)
-            results['errors'].append(f'Syntax error at line {line_number}: {error_message}')
-        else:
-            results['errors'].append(f'Syntax error: {error_message}')
-        
-        return results
-    except Exception as e:
-        results['errors'].append(f'Error parsing ontology: {str(e)}')
-        return results
-    
-    # If we made it this far, the ontology is valid
-    results['is_valid'] = True
-    
-    # Additional checks could be added here
-    # For example, checking for recommended classes, properties, etc.
-    
-    return results
+    # Convert to old format
+    return {
+        'is_valid': results['valid'],
+        'errors': results['errors'],
+        'warnings': results['warnings']
