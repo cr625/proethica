@@ -4,24 +4,40 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
 
 ## 2025-04-25
 
-### Consolidated ontology documentation and completed database migration
+### Improved ontology consistency and Capability class integration
 
+- Enhanced ontology consistency between base, intermediate, and domain ontologies:
+  - Added Capability class to ProEthica Intermediate Ontology (properly subclassed from BFO_0000016 - disposition)
+  - Added CapabilityType to entity types recognized by the MCP server
+  - Updated EngineeringCapability in Engineering Ethics NSPE Extended to properly subclass from proeth:Capability
+  - Created verification script (verify_ontology_consistency.py) to check ontology hierarchy consistency
+- Created necessary scripts for ontology management:
+  - update_ontology_with_capability.py - Adds Capability class to intermediate ontology
+  - update_engineering_capability.py - Properly connects domain capabilities to intermediate ontology
+  - These scripts maintain correct version history in the database
+
+### Protected base ontologies and consolidated documentation
+
+- Implemented protection for base ontologies (BFO):
+  - Created `scripts/protect_base_ontologies.py` to mark core ontologies as non-editable
+  - Added is_base and is_editable flags to prevent modification of foundation ontologies
+  - Preserved ability to view and import from base ontologies
+  - Laid groundwork for future admin-only base ontology uploads
 - Simplified ontology documentation structure:
   - Created comprehensive `docs/unified_ontology_system.md` documentation
   - Updated `ontology_editor/README.md` to reference database storage
   - Removed redundant/outdated documentation files
   - Maintained only essential documentation for current architecture
-- Successfully tested database-only ontology system, confirming:
-  - Editor works correctly with database storage
-  - Visualization endpoints function properly
-  - MCP server correctly loads ontologies from database
 - Improved UI integration:
   - Added Ontology Editor link to main navigation
   - Enhanced documentation of visualization features
 
 ### Next Steps:
-- Implement enhanced ontology visualization features
-- Add real-time collaborative editing capabilities
+- Run the protect_base_ontologies.py script to secure core ontologies
+- Update Engineering NSPE Extended capabilities to utilize the proper Capability class attributes
+- Consider adding other domain-specific capability subtypes to the intermediate ontology
+- Implement enhanced ontology visualization features with hierarchy view
+- Add admin interface for base ontology management
 - Optimize performance for large ontologies
 
 ## 2025-04-24
