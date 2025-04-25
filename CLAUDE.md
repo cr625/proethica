@@ -2,30 +2,47 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
-## 2025-04-25 - Fixed Ontology Entity Extraction and Display
 
-### Changes Made:
-- Created a new service `OntologyEntityService` that directly extracts entities from ontologies stored in the database 
-- Modified the world detail view to use the new service instead of the MCP server for entity extraction
-- Implemented entity extraction functions that properly handle different namespaces and entity types
-- Added caching to improve performance when retrieving the same ontology multiple times
+## 2025-04-25 - Ontology Editor Improvements
 
-### Technical Details:
-- The new service parses the ontology content with RDFLib and extracts entities of different types
-- It handles both domain-specific namespaces and the intermediate namespace
-- It properly identifies entity instances that have both `EntityType` and specific type declarations
-- The world details page now displays all entities correctly
+### Fixes Implemented
 
-### Benefits:
-- More reliable entity extraction independent of MCP server issues
-- Simplified code path with direct database access instead of HTTP calls
-- Better error handling and logging for ontology parsing issues
-- Performance improvements through caching
+1. **Fixed Entity Extraction in Ontology Editor**
+   - Created a direct database-based entity extraction approach
+   - Modified the ontology editor API to use the same entity extraction service as the world detail page
+   - Eliminated dependency on the MCP server for entity extraction
+   - Ensured consistent entity display between world detail page and ontology editor
 
-### Next Steps:
-- Continue testing with different ontologies to ensure all entity types are properly extracted
-- Consider adding more detailed error messages for ontology syntax validation
-- Review the ontology editor to ensure it produces valid syntax for entity definitions
+2. **Improved URL Management in Ontology Editor**
+   - Updated the ontology editor to properly update the URL when switching between ontologies
+   - Added browser history support for better navigation
+   - Preserved view parameters for consistent user experience
+   - Enabled proper sharing of links to specific ontologies
+
+3. **Fixed Ontology Validation**
+   - Modified how ontology content is sent for validation to prevent parsing errors
+   - Updated backend validation route to properly handle JSON data
+   - Improved error handling and debugging for validation issues
+   - Enhanced error messages to better identify syntax errors in ontologies
+
+### Benefits
+
+- More reliable entity extraction without HTTP call dependency
+- Consistent experience between different parts of the application
+- Better navigation through proper URL management
+- Improved validation process for ontology development
+
+### Files Modified
+
+- `ontology_editor/api/routes.py`
+- `ontology_editor/static/js/editor.js`
+- `app/services/ontology_entity_service.py`
+
+### Next Steps
+
+- Consider adding syntax highlighting for ontology errors in the editor
+- Implement more detailed validation feedback with line numbers and error locations
+- Explore automatic syntax fixing options for common ontology errors
 ## 2025-04-24
 
 ### Updated ontology storage to use database-only system

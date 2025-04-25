@@ -546,13 +546,13 @@ function validateOntology() {
     `;
     document.getElementById('validationCard').style.display = 'block';
     
-    // First send to validate TTL syntax with properly formatted JSON
+    // First send to validate TTL syntax
     fetch(`/ontology-editor/api/ontology/${currentOntologyId}/validate`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content: content })
+        body: JSON.stringify({ content })
     })
     .then(response => response.json())
     .then(syntaxResult => {

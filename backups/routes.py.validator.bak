@@ -213,28 +213,13 @@ def create_api_routes(config):
     def validate_ontology(ontology_id):
         """Validate the content of an ontology"""
         try:
-            # Get JSON data if available
-            data = request.json
+            # Get the content to validate
+            content = request.data.decode('utf-8')
             
-            # Extract content from the JSON data if provided
-            content = None
-            if data and 'content' in data:
-                content = data['content']
-            else:
-                # Fallback to raw data if JSON is not used
-                try:
-                    content = request.data.decode('utf-8')
-                except Exception as decode_error:
-                    current_app.logger.error(f"Error decoding request data: {str(decode_error)}")
-                    pass
-            
-            # If content is still empty, get it from the database
+            # If content is empty, get it from the database
             if not content and ontology_id:
                 ontology = Ontology.query.get_or_404(ontology_id)
                 content = ontology.content
-            
-            # Log what we're validating for debugging purposes
-            current_app.logger.debug(f"Validating ontology content (first 100 chars): {content[:100] if content else 'None'}")
             
             # Validate the content
             validator = OntologyValidator()

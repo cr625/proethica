@@ -1,74 +1,98 @@
 #!/usr/bin/env python3
 """
-Script to update the CLAUDE.md file with details of the ontology entity extraction fix.
+Script to update the CLAUDE.md file with information about the
+ontology editor improvements implemented today.
 """
-from datetime import datetime
+
 import os
+from datetime import datetime
 import re
 
 def update_claude_md():
-    """Update the CLAUDE.md file with information about the ontology entity display fix."""
+    """Update the CLAUDE.md file with today's improvements"""
+    claude_md_path = "CLAUDE.md"
     
-    # Path to CLAUDE.md
-    claude_md_path = os.path.join(os.getcwd(), "CLAUDE.md")
+    # Check if file exists
+    if not os.path.exists(claude_md_path):
+        print(f"Error: {claude_md_path} does not exist")
+        return False
     
-    # Today's date
+    # Read the current file content
+    with open(claude_md_path, 'r') as f:
+        content = f.read()
+    
+    # Get today's date in YYYY-MM-DD format
     today = datetime.now().strftime("%Y-%m-%d")
     
-    # Read the existing content
-    try:
-        with open(claude_md_path, 'r') as f:
-            content = f.read()
-    except FileNotFoundError:
-        content = "# CLAUDE.md - Project Work Log\n\n"
-    
-    # Create the new entry
-    new_entry = f"""## {today} - Fixed Ontology Entity Extraction and Display
+    # Create new entry with today's date
+    new_entry = f"""
+## {today} - Ontology Editor Improvements
 
-### Changes Made:
-- Created a new service `OntologyEntityService` that directly extracts entities from ontologies stored in the database 
-- Modified the world detail view to use the new service instead of the MCP server for entity extraction
-- Implemented entity extraction functions that properly handle different namespaces and entity types
-- Added caching to improve performance when retrieving the same ontology multiple times
+### Fixes Implemented
 
-### Technical Details:
-- The new service parses the ontology content with RDFLib and extracts entities of different types
-- It handles both domain-specific namespaces and the intermediate namespace
-- It properly identifies entity instances that have both `EntityType` and specific type declarations
-- The world details page now displays all entities correctly
+1. **Fixed Entity Extraction in Ontology Editor**
+   - Created a direct database-based entity extraction approach
+   - Modified the ontology editor API to use the same entity extraction service as the world detail page
+   - Eliminated dependency on the MCP server for entity extraction
+   - Ensured consistent entity display between world detail page and ontology editor
 
-### Benefits:
-- More reliable entity extraction independent of MCP server issues
-- Simplified code path with direct database access instead of HTTP calls
-- Better error handling and logging for ontology parsing issues
-- Performance improvements through caching
+2. **Improved URL Management in Ontology Editor**
+   - Updated the ontology editor to properly update the URL when switching between ontologies
+   - Added browser history support for better navigation
+   - Preserved view parameters for consistent user experience
+   - Enabled proper sharing of links to specific ontologies
 
-### Next Steps:
-- Continue testing with different ontologies to ensure all entity types are properly extracted
-- Consider adding more detailed error messages for ontology syntax validation
-- Review the ontology editor to ensure it produces valid syntax for entity definitions
+3. **Fixed Ontology Validation**
+   - Modified how ontology content is sent for validation to prevent parsing errors
+   - Updated backend validation route to properly handle JSON data
+   - Improved error handling and debugging for validation issues
+   - Enhanced error messages to better identify syntax errors in ontologies
+
+### Benefits
+
+- More reliable entity extraction without HTTP call dependency
+- Consistent experience between different parts of the application
+- Better navigation through proper URL management
+- Improved validation process for ontology development
+
+### Files Modified
+
+- `ontology_editor/api/routes.py`
+- `ontology_editor/static/js/editor.js`
+- `app/services/ontology_entity_service.py`
+
+### Next Steps
+
+- Consider adding syntax highlighting for ontology errors in the editor
+- Implement more detailed validation feedback with line numbers and error locations
+- Explore automatic syntax fixing options for common ontology errors
 """
     
-    # Check if today's date is already in the file
-    if f"## {today}" in content:
-        # Replace the existing entry for today
-        pattern = f"## {today}.*?(?=^## |\Z)"
-        new_content = re.sub(pattern, new_entry, content, flags=re.DOTALL | re.MULTILINE)
+    # Check if today's date already exists in the file
+    date_pattern = re.compile(rf"## {today} - ")
+    if date_pattern.search(content):
+        # If today's date exists, append to that entry
+        sections = re.split(r'(?=## \d{4}-\d{2}-\d{2})', content)
+        
+        updated_content = ""
+        for section in sections:
+            if section.startswith(f"## {today}"):
+                # Replace this section with new entry
+                updated_content += new_entry
+            else:
+                updated_content += section
     else:
-        # Add the new entry at the top, after any headers
-        header_end = content.find("\n\n")
-        if header_end == -1:
-            # No clear header, just add at the top
-            new_content = content + "\n\n" + new_entry
-        else:
-            # Add after the header
-            new_content = content[:header_end+2] + new_entry + "\n\n" + content[header_end+2:]
+        # Otherwise, add new entry at the top
+        updated_content = new_entry + content
     
     # Write the updated content back to the file
     with open(claude_md_path, 'w') as f:
-        f.write(new_content)
+        f.write(updated_content)
     
-    print(f"Updated {claude_md_path} with information about the ontology entity extraction fix.")
+    print(f"Updated {claude_md_path} with today's improvements")
+    return True
 
 if __name__ == "__main__":
+    print("Updating CLAUDE.md with ontology editor improvements...")
     update_claude_md()
+    print("Done!")
