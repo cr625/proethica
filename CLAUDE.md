@@ -4,6 +4,25 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
 
 ## 2025-04-25
 
+### Consolidated ontology documentation and completed database migration
+
+- Simplified ontology documentation structure:
+  - Created comprehensive `docs/unified_ontology_system.md` documentation
+  - Updated `ontology_editor/README.md` to reference database storage
+  - Removed redundant/outdated documentation files
+  - Maintained only essential documentation for current architecture
+- Successfully tested database-only ontology system, confirming:
+  - Editor works correctly with database storage
+  - Visualization endpoints function properly
+  - MCP server correctly loads ontologies from database
+
+### Next Steps:
+- Implement enhanced ontology visualization features
+- Add real-time collaborative editing capabilities
+- Optimize performance for large ontologies
+
+## 2025-04-24
+
 ### Updated ontology storage to use database-only system
 
 - Created system for migrating ontologies from files to database storage
@@ -13,19 +32,12 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
   - `scripts/update_ontology_mcp_server.py`: Patches MCP server to load from database
   - `scripts/remove_ontology_files.py`: Replaces TTL files with placeholders
   - `scripts/setup_ontology_db_only.sh`: Combined script for the complete migration process
-- Added comprehensive documentation in `docs/ontology_file_migration_guide.md`
-- Added documentation explaining repository branch management in `docs/repo_branches.md`
 - Main benefits:
   - Eliminates inconsistencies between file and database versions
   - Enables proper version tracking through the database
   - Maintains compatibility with existing code through fallback mechanisms
   - Original files archived for reference if needed
 
-### Next Steps:
-- Implement visualization of ontologies in a hierarchy view
-- Update ontology editor to show relationships between ontologies
-
-Previous Updates
+### Previous Updates
 
 [Previous logs would be here]
-[2025-04-25] Updated ontology storage to use database-only system

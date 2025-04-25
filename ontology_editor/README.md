@@ -1,6 +1,6 @@
 # Ontology Editor
 
-A modular BFO-based ontology editor for the ProEthica system.
+A modular BFO-based ontology editor for the ProEthica system with database-driven storage.
 
 ## Overview
 
@@ -11,6 +11,7 @@ The Ontology Editor is a web-based tool for creating, editing, and visualizing o
 - Hierarchical visualization of ontology classes and relationships
 - Version control with commit history
 - Integration with ProEthica's authentication system
+- Database-driven storage for all ontology content
 
 ## Installation
 
@@ -42,12 +43,9 @@ To use the Ontology Editor as a standalone module:
 1. Copy the `ontology_editor` directory to your project
 2. Install required dependencies:
    ```
-   pip install rdflib flask flask-login
+   pip install rdflib flask flask-login sqlalchemy
    ```
-3. Create a directory for ontologies:
-   ```
-   mkdir -p ontologies/domains ontologies/imports
-   ```
+3. Set up the database for ontology storage
 4. Register the blueprint with your Flask application as shown above
 
 ## Usage
@@ -64,7 +62,7 @@ Once integrated, the editor can be accessed at:
 1. Click the "New" button in the sidebar
 2. Enter basic information:
    - **Title**: Display name for the ontology
-   - **Filename**: The filename (e.g., engineering_ethics.ttl)
+   - **Filename**: The filename identifier (e.g., engineering_ethics)
    - **Domain**: Domain identifier (e.g., engineering_ethics)
    - **Description**: Optional description of the ontology
 3. Click "Create" to create the ontology with a basic template
@@ -83,7 +81,7 @@ Once integrated, the editor can be accessed at:
 3. Explore the hierarchical visualization:
    - Click nodes to expand/collapse them
    - Use filters to focus on specific entity types
-   - View entity details by clicking on nodes
+   - View entity details by hovering on nodes
 
 ### Version Control
 
@@ -99,27 +97,25 @@ The Ontology Editor follows a modular architecture:
 
 - **API**: RESTful endpoints for CRUD operations on ontologies
 - **Models**: Data structures for ontologies and versions
-- **Services**: Core functionality such as file storage and validation
+- **Services**: Core functionality such as database access and validation
 - **Templates**: HTML templates for the UI
 - **Static**: CSS, JavaScript, and other assets
 
-## Extending
+### Database Models
 
-### Adding Custom Validators
+The editor uses the following database models:
 
-To add custom validators, extend the `validator.py` service:
+1. **Ontology**: Stores ontology metadata and content
+2. **OntologyVersion**: Tracks version history for ontologies
+3. **OntologyImport**: Manages import relationships between ontologies
 
-1. Create a new validation function in `services/validator.py`
-2. Add the validator to the API routes in `api/routes.py`
-3. Update the UI to display the validation results
+## Documentation
 
-### Supporting Additional Formats
+For comprehensive documentation, see:
 
-To support additional ontology formats:
-
-1. Add format conversion in `services/formatter.py` (create this file)
-2. Extend the API routes to support the new format
-3. Update the UI to allow selecting the format
+- `docs/unified_ontology_system.md`: Main documentation of the ontology system
+- `docs/ontology_database_storage.md`: Details on the database storage architecture
+- `docs/ontology_visualization.md`: Information about the visualization feature
 
 ## License
 
