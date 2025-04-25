@@ -82,6 +82,8 @@ function setupEventListeners() {
     document.getElementById('visualizeBtn').addEventListener('click', function() {
         if (currentOntologyId) {
             window.location.href = `/ontology-editor/visualize/${currentOntologyId}`;
+        } else {
+            alert('Please open an ontology before visualizing');
         }
     });
     

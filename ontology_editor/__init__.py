@@ -73,6 +73,21 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
                              ontology_id=ontology_id,
                              highlight_entity=highlight_entity,
                              entity_type=entity_type)
+                             
+    @blueprint.route('/visualize/<ontology_id>')
+    def visualize_ontology(ontology_id):
+        """Ontology visualization view"""
+        # Get the ontology to ensure it exists
+        from app.models.ontology import Ontology
+        ontology = Ontology.query.get(ontology_id)
+        
+        if not ontology:
+            flash('Ontology not found.', 'error')
+            return redirect(url_for('ontology_editor.index'))
+            
+        return render_template('visualize.html', 
+                              ontology_id=ontology_id,
+                              source=ontology_id)
     
     @blueprint.route('/entity')
     def edit_entity():

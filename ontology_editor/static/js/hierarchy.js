@@ -52,10 +52,13 @@ function loadOntologyData() {
     // Get parameters from URL
     const urlParams = new URLSearchParams(window.location.search);
     const source = urlParams.get('source');
-    const ontologyId = urlParams.get('ontology_id');
+    const urlOntologyId = urlParams.get('ontology_id');
+    
+    // Use the global ontologyId variable if available (from template), otherwise use URL parameter
+    const idToUse = window.ontologyId || urlOntologyId || source;
     
     // Check if we have an ontology ID
-    if (!ontologyId && !source) {
+    if (!idToUse) {
         document.getElementById('loadingIndicator').innerHTML = `
             <div class="alert alert-danger">
                 No ontology ID provided. Please select an ontology from the editor.
@@ -64,43 +67,67 @@ function loadOntologyData() {
         return;
     }
     
-    // Get the ID to use for API calls
-    const idToUse = ontologyId || source;
-    
     // Show loading indicator
     document.getElementById('loadingIndicator').style.display = 'block';
     document.getElementById('hierarchyTree').style.display = 'none';
     
-    // Fetch the ontology content
-    // Use different API endpoints depending on whether we have a numeric ID or a source string
-    const apiUrl = !isNaN(parseInt(idToUse)) 
-        ? `/ontology-editor/api/ontologies/${idToUse}`  // Numeric ID - use /ontologies endpoint
-        : `/ontology-editor/api/ontology/${idToUse}`;   // Source string - use /ontology endpoint
-    
-    fetch(apiUrl)
+    // Fetch the ontology hierarchy directly from the new API endpoint
+    fetch(`/ontology-editor/api/hierarchy/${idToUse}`)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Failed to load ontology');
+                throw new Error('Failed to load ontology hierarchy');
             }
             return response.json();
         })
         .then(data => {
-            // Parse the TTL content into a hierarchy
-            parseTTLToHierarchy(data.content);
+            // Use the pre-parsed hierarchy data
+            hierarchyData = data.hierarchy;
+            
+            // Visualize the hierarchy
+            visualizeHierarchy(hierarchyData);
+            
+            // Update the visualization title
+            const ontologyName = data.ontology.name || hierarchyData.name;
+            document.getElementById('visualizationTitle').innerText = `Ontology Hierarchy: ${ontologyName}`;
             
             // Hide loading indicator
             document.getElementById('loadingIndicator').style.display = 'none';
             document.getElementById('hierarchyTree').style.display = 'block';
         })
         .catch(error => {
-            console.error('Error loading ontology:', error);
+            console.error('Error loading ontology hierarchy:', error);
             
             // Display error
             document.getElementById('loadingIndicator').innerHTML = `
                 <div class="alert alert-danger">
-                    Error loading ontology: ${error.message}
+                    Error loading ontology hierarchy: ${error.message}
                 </div>
             `;
+            
+            // Try to fall back to the old method as a backup
+            try {
+                // Use the original API endpoint to get the raw content
+                const fallbackApiUrl = !isNaN(parseInt(idToUse)) 
+                    ? `/ontology-editor/api/ontologies/${idToUse}`
+                    : `/ontology-editor/api/ontology/${idToUse}`;
+                    
+                fetch(fallbackApiUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to load ontology with fallback method');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Fall back to the mock hierarchy
+                        parseTTLToHierarchy(data.content);
+                    })
+                    .catch(fallbackError => {
+                        console.error('Fallback loading also failed:', fallbackError);
+                    });
+            } catch (fallbackError) {
+                console.error('Error in fallback loading:', fallbackError);
+            }
         });
 }
 

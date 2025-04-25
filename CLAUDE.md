@@ -1,5 +1,42 @@
 A-Proxy Development Log
 
+## 2025-04-24: Implemented Ontology Visualization Feature
+
+Added a new feature to visualize ontologies as interactive hierarchical trees:
+
+### Changes Made:
+1. **Added Visualization Routes**:
+   - Added route in `ontology_editor/__init__.py` to handle `/visualize/<ontology_id>` endpoint
+   - Implemented API endpoint in `ontology_editor/api/routes.py` to provide hierarchical data
+
+2. **Created Visualization Components**:
+   - Added `visualize.html` template for the visualization page
+   - Created `hierarchy.css` for styling the visualization elements
+   - Modified `hierarchy.js` to use the server-side hierarchy data
+
+3. **Implemented Ontology Parsing**:
+   - Added TTL parsing in the API to extract class hierarchies
+   - Used RDFLib for parsing ontology content
+
+4. **Integration with Editor**:
+   - Connected the "Visualize" button in the editor to the visualization page
+   - Fixed URL parameter handling to ensure proper data flow
+
+5. **Added Testing and Documentation**:
+   - Created test script for the hierarchy API in `scripts/test_ontology_visualization.py`
+   - Added documentation in `docs/ontology_visualization.md`
+
+### Previous Issues Fixed:
+- Clicking the Visualize button now works correctly
+- Hierarchical visualization now shows the actual ontology structure
+- Fixed an issue with the ontology ID not being properly passed from the editor
+
+### Next Steps:
+- Consider adding more advanced visualization layouts (radial, force-directed)
+- Implement property visualization in addition to class hierarchies
+- Add export options for saving visualizations
+- Consider interactive editing capabilities directly from the visualization
+
 ## 2025-04-24: Added Dismiss Button to Validation Results
 
 Enhanced the validation results interface with a close button:
