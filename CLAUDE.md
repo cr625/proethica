@@ -15,6 +15,9 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
   - Editor works correctly with database storage
   - Visualization endpoints function properly
   - MCP server correctly loads ontologies from database
+- Improved UI integration:
+  - Added Ontology Editor link to main navigation
+  - Enhanced documentation of visualization features
 
 ### Next Steps:
 - Implement enhanced ontology visualization features
