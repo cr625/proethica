@@ -87,6 +87,11 @@ function setupEventListeners() {
     
     // Create ontology button
     document.getElementById('createOntologyBtn').addEventListener('click', createNewOntology);
+    
+    // Close validation results button
+    document.getElementById('closeValidationBtn').addEventListener('click', function() {
+        document.getElementById('validationCard').style.display = 'none';
+    });
 }
 
 /**

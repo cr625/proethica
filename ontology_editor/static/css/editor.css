@@ -106,14 +106,20 @@
     overflow: visible;
     height: auto;
     min-height: 200px;
+    position: relative;
+    z-index: 10;
 }
 
 #validationResults {
-    padding: 15px;
+    padding: 15px 15px 15px 60px; /* Increased left padding to avoid overlap with line numbers */
     max-width: 100%;
     overflow-wrap: break-word;
     white-space: normal;
     height: auto;
+    background-color: #fff; /* Ensure background is solid */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    border-radius: 4px;
+    position: relative;
 }
 
 #validationResults ul {
