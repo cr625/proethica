@@ -1,0 +1,722 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix njle: <http://proethica.org/ontology/nj-legal-ethics#> .
+@prefix rpc: <http://proethica.org/ontology/nj-rpc#> .
+@prefix aba: <http://proethica.org/ontology/aba-model-rules#> .
+
+# Ontology Declaration
+<http://proethica.org/ontology/nj-legal-ethics> rdf:type owl:Ontology ;
+    rdfs:label "New Jersey Legal Ethics Ontology"@en ;
+    rdfs:comment "An ontology for modeling ethical dilemmas in New Jersey legal practice"@en .
+
+# Category Classes
+njle:CharacterType rdf:type owl:Class ;
+    rdfs:label "Character Type"@en ;
+    rdfs:comment "A type of character in the legal ethics domain"@en .
+
+njle:ConditionType rdf:type owl:Class ;
+    rdfs:label "Condition Type"@en ;
+    rdfs:comment "A type of ethical condition or dilemma in the legal domain"@en .
+
+njle:ResourceType rdf:type owl:Class ;
+    rdfs:label "Resource Type"@en ;
+    rdfs:comment "A type of resource in the legal domain"@en .
+
+njle:EventType rdf:type owl:Class ;
+    rdfs:label "Event Type"@en ;
+    rdfs:comment "A type of event in the legal ethics domain"@en .
+
+njle:ActionType rdf:type owl:Class ;
+    rdfs:label "Action Type"@en ;
+    rdfs:comment "A type of action in the legal ethics domain"@en .
+
+njle:DecisionType rdf:type owl:Class ;
+    rdfs:label "Decision Type"@en ;
+    rdfs:comment "A type of decision in the legal ethics domain"@en .
+
+# World definition
+njle:NJLegalEthicsWorld a owl:Class ;
+    rdfs:label "New Jersey Legal Ethics World"@en ;
+    rdfs:comment "A world representing New Jersey legal ethics scenarios"@en .
+
+# Character Types
+njle:Character a owl:Class ;
+    rdfs:label "Character"@en ;
+    rdfs:comment "A person in the legal ethics domain"@en .
+
+njle:LegalProfessional a owl:Class ;
+    rdf:type njle:CharacterType ;
+    rdfs:subClassOf njle:Character ;
+    rdfs:label "Legal Professional"@en ;
+    rdfs:comment "A professional in the legal field"@en .
+
+njle:Client a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:Character ;
+    rdfs:label "Client"@en ;
+    rdfs:comment "A person or entity receiving legal services"@en .
+
+# Role Integration
+njle:Role rdfs:subClassOf njle:CharacterType ;
+    rdfs:label "Role"@en ;
+    rdfs:comment "A legal role with specific responsibilities and ethical obligations"@en .
+
+# Client Types
+njle:IndividualClient a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:Client ;
+    rdfs:label "Individual Client"@en ;
+    rdfs:comment "An individual person receiving legal services"@en .
+
+njle:CorporateClient a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:Client ;
+    rdfs:label "Corporate Client"@en ;
+    rdfs:comment "A corporate entity receiving legal services"@en .
+
+njle:GovernmentClient a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:Client ;
+    rdfs:label "Government Client"@en ;
+    rdfs:comment "A government entity receiving legal services"@en .
+
+# Tier Definition
+njle:Tier rdf:type owl:Class ;
+    rdfs:label "Tier"@en ;
+    rdfs:comment "A level of professional responsibility and ethical obligation"@en .
+
+njle:JuniorLevel rdf:type njle:Tier ;
+    rdfs:label "Junior Level"@en ;
+    rdfs:comment "Junior attorneys with limited decision-making authority"@en .
+
+njle:MidLevel rdf:type njle:Tier ;
+    rdfs:label "Mid Level"@en ;
+    rdfs:comment "Experienced attorneys with moderate decision-making authority"@en .
+
+njle:SeniorLevel rdf:type njle:Tier ;
+    rdfs:label "Senior Level"@en ;
+    rdfs:comment "Senior attorneys with significant decision-making authority"@en .
+
+njle:ExecutiveLevel rdf:type njle:Tier ;
+    rdfs:label "Executive Level"@en ;
+    rdfs:comment "Legal executives with ultimate decision-making authority"@en .
+
+# Specific Professional Roles
+njle:Attorney a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:LegalProfessional ;
+    rdfs:label "Attorney"@en ;
+    rdfs:comment "A licensed attorney"@en .
+
+njle:Judge a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:LegalProfessional ;
+    rdfs:label "Judge"@en ;
+    rdfs:comment "A judicial officer presiding over legal proceedings"@en .
+
+njle:Paralegal a owl:Class ;
+    rdf:type njle:Role ;
+    rdfs:subClassOf njle:LegalProfessional ;
+    rdfs:label "Paralegal"@en ;
+    rdfs:comment "A legal assistant supporting attorneys"@en .
+
+# Attorney Roles
+njle:AssociateAttorney rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Associate Attorney"@en ;
+    rdfs:comment "Junior attorney working under supervision"@en ;
+    njle:hasTier njle:JuniorLevel .
+
+njle:SeniorAssociate rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Senior Associate"@en ;
+    rdfs:comment "Experienced attorney with significant case responsibility"@en ;
+    njle:hasTier njle:MidLevel .
+
+njle:Partner rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Partner"@en ;
+    rdfs:comment "Attorney with ownership stake in a law firm"@en ;
+    njle:hasTier njle:SeniorLevel .
+
+njle:ManagingPartner rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Managing Partner"@en ;
+    rdfs:comment "Partner responsible for firm management"@en ;
+    njle:hasTier njle:ExecutiveLevel .
+
+njle:SoloAttorney rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Solo Attorney"@en ;
+    rdfs:comment "Attorney practicing independently"@en ;
+    njle:hasTier njle:MidLevel .
+
+njle:PublicDefender rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Public Defender"@en ;
+    rdfs:comment "Attorney representing indigent defendants"@en ;
+    njle:hasTier njle:MidLevel .
+
+njle:Prosecutor rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Prosecutor"@en ;
+    rdfs:comment "Attorney representing the state in criminal cases"@en ;
+    njle:hasTier njle:MidLevel .
+
+njle:CorporateCounsel rdf:type njle:Role ;
+    rdfs:subClassOf njle:Attorney ;
+    rdfs:label "Corporate Counsel"@en ;
+    rdfs:comment "Attorney working for a corporation"@en ;
+    njle:hasTier njle:MidLevel .
+
+# Practice Areas
+njle:PracticeArea rdf:type owl:Class ;
+    rdfs:label "Practice Area"@en ;
+    rdfs:comment "A specific field of legal practice"@en .
+
+njle:CriminalLaw rdf:type njle:PracticeArea ;
+    rdfs:label "Criminal Law"@en ;
+    rdfs:comment "Legal practice focused on criminal defense or prosecution"@en .
+
+njle:CivilLitigation rdf:type njle:PracticeArea ;
+    rdfs:label "Civil Litigation"@en ;
+    rdfs:comment "Legal practice focused on civil disputes"@en .
+
+njle:FamilyLaw rdf:type njle:PracticeArea ;
+    rdfs:label "Family Law"@en ;
+    rdfs:comment "Legal practice focused on family matters"@en .
+
+njle:CorporateLaw rdf:type njle:PracticeArea ;
+    rdfs:label "Corporate Law"@en ;
+    rdfs:comment "Legal practice focused on business and corporate matters"@en .
+
+njle:RealEstateLaw rdf:type njle:PracticeArea ;
+    rdfs:label "Real Estate Law"@en ;
+    rdfs:comment "Legal practice focused on property transactions"@en .
+
+# Ethical conditions
+njle:EthicalCondition a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:label "Ethical Condition"@en ;
+    rdfs:comment "An ethical condition or dilemma in legal practice"@en .
+
+njle:ConfidentialityIssue a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Confidentiality Issue"@en ;
+    rdfs:comment "A condition related to client confidentiality"@en ;
+    owl:equivalentClass rpc:RPC1.6 .
+
+njle:ConflictOfInterest a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Conflict of Interest"@en ;
+    rdfs:comment "A condition where an attorney's interests conflict with client interests"@en ;
+    owl:equivalentClass rpc:RPC1.7 .
+
+njle:ClientPerjury a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Client Perjury"@en ;
+    rdfs:comment "A condition where a client intends to commit perjury"@en ;
+    owl:equivalentClass rpc:RPC3.3 .
+
+njle:WithholdingEvidence a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Withholding Evidence"@en ;
+    rdfs:comment "A condition where evidence may be improperly withheld"@en ;
+    owl:equivalentClass rpc:RPC3.4 .
+
+njle:InadequatePreparation a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Inadequate Preparation"@en ;
+    rdfs:comment "A condition where an attorney is not adequately prepared"@en ;
+    owl:equivalentClass rpc:RPC1.1 .
+
+njle:ExcessiveFees a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Excessive Fees"@en ;
+    rdfs:comment "A condition where fees charged may be unreasonable"@en ;
+    owl:equivalentClass rpc:RPC1.5 .
+
+njle:UnauthorizedPractice a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Unauthorized Practice"@en ;
+    rdfs:comment "A condition involving unauthorized practice of law"@en ;
+    owl:equivalentClass rpc:RPC5.5 .
+
+njle:ImproperCommunication a owl:Class ;
+    rdf:type njle:ConditionType ;
+    rdfs:subClassOf njle:EthicalCondition ;
+    rdfs:label "Improper Communication"@en ;
+    rdfs:comment "A condition involving improper communication with represented parties"@en ;
+    owl:equivalentClass rpc:RPC4.2 .
+
+# Ethical categories
+njle:EthicalCategory a owl:Class ;
+    rdfs:label "Ethical Category"@en ;
+    rdfs:comment "A category used to classify ethical dilemmas"@en .
+
+njle:HighRisk a owl:Class ;
+    rdfs:subClassOf njle:EthicalCategory ;
+    rdfs:label "High Risk (Red)"@en ;
+    rdfs:comment "Ethical issues requiring immediate attention due to severe consequences"@en .
+
+njle:ModerateRisk a owl:Class ;
+    rdfs:subClassOf njle:EthicalCategory ;
+    rdfs:label "Moderate Risk (Yellow)"@en ;
+    rdfs:comment "Ethical issues requiring attention but not posing immediate severe risk"@en .
+
+njle:LowRisk a owl:Class ;
+    rdfs:subClassOf njle:EthicalCategory ;
+    rdfs:label "Low Risk (Green)"@en ;
+    rdfs:comment "Ethical issues with minimal risk that can be addressed in normal course of business"@en .
+
+njle:PotentialRisk a owl:Class ;
+    rdfs:subClassOf njle:EthicalCategory ;
+    rdfs:label "Potential Risk (Blue)"@en ;
+    rdfs:comment "Situations that may develop into ethical issues if not monitored"@en .
+
+# Resources
+njle:LegalResource a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:label "Legal Resource"@en ;
+    rdfs:comment "A resource used in legal practice"@en .
+
+njle:LegalDocument a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:LegalResource ;
+    rdfs:label "Legal Document"@en ;
+    rdfs:comment "A document used in legal practice"@en .
+
+njle:CaseFile a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:LegalDocument ;
+    rdfs:label "Case File"@en ;
+    rdfs:comment "A file containing case information"@en .
+
+njle:LegalBrief a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:LegalDocument ;
+    rdfs:label "Legal Brief"@en ;
+    rdfs:comment "A written legal argument"@en .
+
+njle:Evidence a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:LegalResource ;
+    rdfs:label "Evidence"@en ;
+    rdfs:comment "Material that may be presented in court"@en .
+
+njle:Testimony a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:Evidence ;
+    rdfs:label "Testimony"@en ;
+    rdfs:comment "Witness statements under oath"@en .
+
+njle:PhysicalEvidence a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:Evidence ;
+    rdfs:label "Physical Evidence"@en ;
+    rdfs:comment "Tangible objects presented as evidence"@en .
+
+njle:DocumentaryEvidence a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:Evidence ;
+    rdfs:label "Documentary Evidence"@en ;
+    rdfs:comment "Documents presented as evidence"@en .
+
+njle:LegalResearch a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:LegalResource ;
+    rdfs:label "Legal Research"@en ;
+    rdfs:comment "Research on legal precedents and statutes"@en .
+
+njle:CourtTime a owl:Class ;
+    rdf:type njle:ResourceType ;
+    rdfs:subClassOf njle:LegalResource ;
+    rdfs:label "Court Time"@en ;
+    rdfs:comment "Scheduled time in court"@en .
+
+# Capabilities
+njle:Capability rdf:type owl:Class ;
+    rdfs:label "Capability"@en ;
+    rdfs:comment "A professional capability or skill in legal practice"@en .
+
+njle:LegalResearchSkill rdf:type njle:Capability ;
+    rdfs:label "Legal Research"@en ;
+    rdfs:comment "Ability to conduct effective legal research"@en .
+
+njle:LegalWriting rdf:type njle:Capability ;
+    rdfs:label "Legal Writing"@en ;
+    rdfs:comment "Ability to draft effective legal documents"@en .
+
+njle:OralAdvocacy rdf:type njle:Capability ;
+    rdfs:label "Oral Advocacy"@en ;
+    rdfs:comment "Ability to present effective oral arguments"@en .
+
+njle:ClientCounseling rdf:type njle:Capability ;
+    rdfs:label "Client Counseling"@en ;
+    rdfs:comment "Ability to effectively counsel clients"@en .
+
+njle:NegotiationSkill rdf:type njle:Capability ;
+    rdfs:label "Negotiation"@en ;
+    rdfs:comment "Ability to negotiate effectively"@en .
+
+njle:EthicalJudgment rdf:type njle:Capability ;
+    rdfs:label "Ethical Judgment"@en ;
+    rdfs:comment "Ability to make sound ethical judgments"@en .
+
+njle:FactInvestigation rdf:type njle:Capability ;
+    rdfs:label "Fact Investigation"@en ;
+    rdfs:comment "Ability to investigate facts effectively"@en .
+
+njle:CaseManagement rdf:type njle:Capability ;
+    rdfs:label "Case Management"@en ;
+    rdfs:comment "Ability to manage cases effectively"@en .
+
+njle:TrialPreparation rdf:type njle:Capability ;
+    rdfs:label "Trial Preparation"@en ;
+    rdfs:comment "Ability to prepare effectively for trial"@en .
+
+njle:WitnessExamination rdf:type njle:Capability ;
+    rdfs:label "Witness Examination"@en ;
+    rdfs:comment "Ability to examine witnesses effectively"@en .
+
+njle:EvidenceHandling rdf:type njle:Capability ;
+    rdfs:label "Evidence Handling"@en ;
+    rdfs:comment "Ability to handle evidence properly"@en .
+
+njle:ConflictResolution rdf:type njle:Capability ;
+    rdfs:label "Conflict Resolution"@en ;
+    rdfs:comment "Ability to resolve conflicts effectively"@en .
+
+# Events
+njle:CourtEvent a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:label "Court Event"@en ;
+    rdfs:comment "An event that occurs in court"@en .
+
+njle:ClientEvent a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:label "Client Event"@en ;
+    rdfs:comment "An event involving client interaction"@en .
+
+njle:EthicalEvent a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:label "Ethical Event"@en ;
+    rdfs:comment "An event involving ethical considerations"@en .
+
+# Specific Court Events
+njle:Hearing a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:CourtEvent ;
+    rdfs:label "Hearing"@en ;
+    rdfs:comment "A court proceeding before a judge"@en .
+
+njle:Trial a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:CourtEvent ;
+    rdfs:label "Trial"@en ;
+    rdfs:comment "A formal court proceeding to determine facts and apply law"@en .
+
+njle:Deposition a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:CourtEvent ;
+    rdfs:label "Deposition"@en ;
+    rdfs:comment "Out-of-court testimony under oath"@en .
+
+njle:Settlement a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:CourtEvent ;
+    rdfs:label "Settlement"@en ;
+    rdfs:comment "Resolution of a case without trial"@en .
+
+# Specific Client Events
+njle:ClientMeeting a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:ClientEvent ;
+    rdfs:label "Client Meeting"@en ;
+    rdfs:comment "A meeting with a client"@en .
+
+njle:ClientInterview a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:ClientEvent ;
+    rdfs:label "Client Interview"@en ;
+    rdfs:comment "Initial interview with a client"@en .
+
+njle:ClientDisclosure a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:ClientEvent ;
+    rdfs:label "Client Disclosure"@en ;
+    rdfs:comment "Event where a client discloses information"@en .
+
+# Specific Ethical Events
+njle:EthicalDilemma a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:EthicalEvent ;
+    rdfs:label "Ethical Dilemma"@en ;
+    rdfs:comment "An event presenting an ethical dilemma"@en .
+
+njle:EthicsComplaint a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:EthicalEvent ;
+    rdfs:label "Ethics Complaint"@en ;
+    rdfs:comment "A formal complaint about ethical conduct"@en .
+
+njle:DisciplinaryReview a owl:Class ;
+    rdf:type njle:EventType ;
+    rdfs:subClassOf njle:EthicalEvent ;
+    rdfs:label "Disciplinary Review"@en ;
+    rdfs:comment "Review of conduct by disciplinary authorities"@en .
+
+# Event Properties
+njle:eventSeverity rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:EventType ;
+    rdfs:range xsd:string ;
+    rdfs:label "event severity"@en ;
+    rdfs:comment "The severity of an event"@en .
+
+njle:eventLocation rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:EventType ;
+    rdfs:range xsd:string ;
+    rdfs:label "event location"@en ;
+    rdfs:comment "The location where an event occurred"@en .
+
+# Actions
+njle:RepresentationAction a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:label "Representation Action"@en ;
+    rdfs:comment "An action related to client representation"@en .
+
+njle:EthicalAction a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:label "Ethical Action"@en ;
+    rdfs:comment "An action related to ethical considerations"@en .
+
+njle:CourtAction a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:label "Court Action"@en ;
+    rdfs:comment "An action taken in court"@en .
+
+# Specific Representation Actions
+njle:FileMotion a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:RepresentationAction ;
+    rdfs:label "File Motion"@en ;
+    rdfs:comment "File a motion with the court"@en .
+
+njle:ProvideAdvice a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:RepresentationAction ;
+    rdfs:label "Provide Advice"@en ;
+    rdfs:comment "Provide legal advice to a client"@en .
+
+njle:DraftDocument a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:RepresentationAction ;
+    rdfs:label "Draft Document"@en ;
+    rdfs:comment "Draft a legal document"@en .
+
+njle:NegotiateSettlement a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:RepresentationAction ;
+    rdfs:label "Negotiate Settlement"@en ;
+    rdfs:comment "Negotiate a settlement on behalf of a client"@en .
+
+# Specific Ethical Actions
+njle:DiscloseConflict a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:EthicalAction ;
+    rdfs:label "Disclose Conflict"@en ;
+    rdfs:comment "Disclose a conflict of interest"@en .
+
+njle:WithdrawFromCase a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:EthicalAction ;
+    rdfs:label "Withdraw From Case"@en ;
+    rdfs:comment "Withdraw from representation due to ethical concerns"@en .
+
+njle:ReportMisconduct a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:EthicalAction ;
+    rdfs:label "Report Misconduct"@en ;
+    rdfs:comment "Report professional misconduct"@en .
+
+njle:SeekEthicsOpinion a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:EthicalAction ;
+    rdfs:label "Seek Ethics Opinion"@en ;
+    rdfs:comment "Seek an ethics opinion from appropriate authorities"@en .
+
+# Specific Court Actions
+njle:PresentEvidence a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:CourtAction ;
+    rdfs:label "Present Evidence"@en ;
+    rdfs:comment "Present evidence in court"@en .
+
+njle:ExamineWitness a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:CourtAction ;
+    rdfs:label "Examine Witness"@en ;
+    rdfs:comment "Examine a witness in court"@en .
+
+njle:MakeObjection a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:CourtAction ;
+    rdfs:label "Make Objection"@en ;
+    rdfs:comment "Make an objection in court"@en .
+
+njle:DeliverArgument a owl:Class ;
+    rdf:type njle:ActionType ;
+    rdfs:subClassOf njle:CourtAction ;
+    rdfs:label "Deliver Argument"@en ;
+    rdfs:comment "Deliver an oral argument in court"@en .
+
+# Action Properties
+njle:actionPriority rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:ActionType ;
+    rdfs:range xsd:string ;
+    rdfs:label "action priority"@en ;
+    rdfs:comment "The priority of an action (high, medium, low)"@en .
+
+njle:actionDuration rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:ActionType ;
+    rdfs:range xsd:integer ;
+    rdfs:label "action duration"@en ;
+    rdfs:comment "The estimated duration of an action in hours"@en .
+
+njle:ethicalImpact rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:ActionType ;
+    rdfs:range xsd:string ;
+    rdfs:label "ethical impact"@en ;
+    rdfs:comment "The ethical impact of an action"@en .
+
+# Decision points
+njle:RepresentationDecision a owl:Class ;
+    rdf:type njle:DecisionType ;
+    rdfs:label "Representation Decision"@en ;
+    rdfs:comment "A decision about client representation"@en .
+
+njle:EthicalDecision a owl:Class ;
+    rdf:type njle:DecisionType ;
+    rdfs:label "Ethical Decision"@en ;
+    rdfs:comment "A decision about ethical issues"@en .
+
+njle:StrategicDecision a owl:Class ;
+    rdf:type njle:DecisionType ;
+    rdfs:label "Strategic Decision"@en ;
+    rdfs:comment "A decision about case strategy"@en .
+
+njle:DisclosureDecision a owl:Class ;
+    rdf:type njle:DecisionType ;
+    rdfs:label "Disclosure Decision"@en ;
+    rdfs:comment "A decision about what information to disclose"@en .
+
+# Properties
+njle:hasTier rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:Role ;
+    rdfs:range njle:Tier ;
+    rdfs:label "has tier"@en ;
+    rdfs:comment "Relates a role to its tier level"@en .
+
+njle:hasCapability rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:Role ;
+    rdfs:range njle:Capability ;
+    rdfs:label "has capability"@en ;
+    rdfs:comment "Relates a role to its capabilities"@en .
+
+njle:hasCondition rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:Character ;
+    rdfs:range njle:EthicalCondition ;
+    rdfs:label "has condition"@en ;
+    rdfs:comment "Relates a character to ethical conditions they face"@en .
+
+njle:hasEthicalCategory rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:EthicalCondition ;
+    rdfs:range njle:EthicalCategory ;
+    rdfs:label "has ethical category"@en ;
+    rdfs:comment "Relates an ethical condition to its category"@en .
+
+njle:hasResource rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:Character ;
+    rdfs:range njle:LegalResource ;
+    rdfs:label "has resource"@en ;
+    rdfs:comment "Relates a character to resources they possess"@en .
+
+njle:hasPracticeArea rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:Attorney ;
+    rdfs:range njle:PracticeArea ;
+    rdfs:label "has practice area"@en ;
+    rdfs:comment "Relates an attorney to their practice area"@en .
+
+njle:actionForClient rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:ActionType ;
+    rdfs:range njle:Client ;
+    rdfs:label "action for client"@en ;
+    rdfs:comment "Relates a legal action to the client it is performed for"@en .
+
+njle:receivesAction rdf:type owl:ObjectProperty ;
+    rdfs:domain njle:Client ;
+    rdfs:range njle:ActionType ;
+    rdfs:label "receives action"@en ;
+    rdfs:comment "Relates a client to legal actions performed for them"@en .
+
+njle:severity rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:EthicalCondition ;
+    rdfs:range xsd:string ;
+    rdfs:label "severity"@en ;
+    rdfs:comment "The severity of an ethical condition"@en .
+
+njle:impact rdf:type owl:DatatypeProperty ;
+    rdfs:domain njle:EthicalCondition ;
+    rdfs:range xsd:string ;
+    rdfs:label "impact"@en ;
+    rdfs:comment "The impact of an ethical condition"@en .
+
+# Role-Capability Relationships
+njle:AssociateAttorney njle:hasCapability njle:LegalResearchSkill, njle:LegalWriting, njle:FactInvestigation .
+
+njle:SeniorAssociate njle:hasCapability njle:LegalResearchSkill, njle:LegalWriting, njle:OralAdvocacy, njle:ClientCounseling, njle:FactInvestigation, njle:CaseManagement, njle:TrialPreparation .
+
+njle:Partner njle:hasCapability njle:OralAdvocacy, njle:ClientCounseling, njle:NegotiationSkill, njle:EthicalJudgment, njle:CaseManagement, njle:TrialPreparation, njle:WitnessExamination, njle:EvidenceHandling, njle:ConflictResolution .
+
+njle:PublicDefender njle:hasCapability njle:LegalResearchSkill, njle:LegalWriting, njle:OralAdvocacy, njle:ClientCounseling, njle:TrialPreparation, njle:WitnessExamination, njle:EvidenceHandling .
+
+njle:Prosecutor njle:hasCapability njle:LegalResearchSkill, njle:LegalWriting, njle:OralAdvocacy, njle:TrialPreparation, njle:WitnessExamination, njle:EvidenceHandling .
+
+# Sample individuals
+njle:Attorney1 a njle:SeniorAssociate ;
+    rdfs:label "Senior Associate Attorney"@en ;
+    njle:hasPracticeArea njle:CriminalLaw ;
+    njle:hasCondition njle:ClientPerjury1 .
+
+njle:Client1 a njle:IndividualClient ;
+    rdfs:label "Criminal Defense Client"@en ;
+    rdfs:comment "A client facing criminal charges"@en ;
+    njle:hasCondition njle:ClientPerjury1 ;
+    njle:receivesAction njle:LegalAdvice1 .
+
+njle:ClientPerjury1 a njle:ClientPerjury ;
+    rdfs:label "Client Intent to Commit Perjury"@en ;
+    njle:severity "High"^^xsd:string ;
+    njle:impact "Court Integrity"^^xsd:string ;
+    njle:hasEthicalCategory njle:HighRisk .
+
+njle:LegalAdvice1 a njle:ProvideAdvice ;
+    rdfs:label "Legal Advice on Testimony"@en ;
+    rdfs:comment "Advice to client regarding truthful testimony"@en ;
+    njle:actionPriority "High"^^xsd:string ;
+    njle:actionDuration "2"^^xsd:integer ;
+    njle:ethicalImpact "Court Integrity"^^xsd:string ;
+    njle:actionForClient njle:Client1 .
+
+njle:CaseFile1 a njle:CaseFile ;
+    rdfs:label "Criminal Defense Case File"@en ;
+    rdfs:comment "File containing case information for a criminal defense"@en .
