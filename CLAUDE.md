@@ -1,5 +1,50 @@
 # ProEthica Development Log
 
+## 2025-04-26 - Ontology Version Loading Fix
+
+### Implemented Changes
+
+1. **Fixed Ontology Version Loading in Editor**
+   - Fixed issue where clicking on version numbers resulted in "Error loading version: Failed to load version"
+   - Updated editor.js to use the correct version API endpoint format
+   - Modified version request to include both ontology ID and version number
+   - Resolved 500 errors when trying to load previous versions
+
+2. **Updated Version List Generation**
+   - Modified updateVersionsList function to include version_number as a data attribute
+   - Updated version click handler to pass version number instead of version ID
+   - Maintained backward compatibility with existing version handling
+
+3. **Enhanced API Endpoint Utilization**
+   - Switched from `/ontology-editor/api/versions/${versionId}` endpoint to:
+   - `/ontology-editor/api/versions/${currentOntologyId}/${versionNumber}` endpoint
+   - Properly utilized the existing API endpoint that was already implemented
+   - Fixed parameter alignment between frontend and backend
+
+### Implementation Details
+- Created `scripts/fix_ontology_version_loading.py` for automated JavaScript fixes
+- Used precise regex pattern matching to locate and modify only affected code sections
+- Created backup at `editor.js.version_loading.bak` before applying changes
+- Fixed three distinct areas of the code to ensure complete functionality:
+  1. Version list generation to include version numbers
+  2. Click handler logic to use version numbers
+  3. Fetch URL format in the loadVersion function
+
+### Benefits
+- Restored ability to view previous versions of ontologies
+- Eliminated error messages when clicking on version numbers
+- Removed 500 errors in the browser console
+- Improved user experience by enabling full version history browsing
+- Better aligned frontend code with backend API implementation
+
+### Verification Steps
+1. Loaded the ontology editor and confirmed all versions were visible
+2. Clicked on various version numbers and verified they loaded successfully
+3. Checked browser console to confirm no error messages
+4. Ensured version highlighting worked correctly in the Version list
+
+
+
 ## 2025-04-26 - Ontology Name and Domain ID Update
 
 ### Implemented Changes

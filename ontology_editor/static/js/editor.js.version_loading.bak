@@ -440,7 +440,7 @@ function updateVersionsList(versions) {
         const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         
         return `
-            <li class="list-group-item" data-version-id="${version.id}" data-version-number="${version.version_number}">
+            <li class="list-group-item" data-version-id="${version.id}">
                 <div class="version-info">
                     <span class="version-number">v${version.version_number}</span>
                     <span class="version-date">${formattedDate}</span>
@@ -461,8 +461,7 @@ function updateVersionsList(versions) {
             }
             
             const versionId = this.dataset.versionId;
-            const versionNumber = this.dataset.versionNumber;
-            loadVersion(versionNumber);
+            loadVersion(versionId);
         });
     });
 }
@@ -472,7 +471,7 @@ function updateVersionsList(versions) {
  * 
  * @param {string} versionId - ID of the version to load
  */
-function loadVersion(versionNumber) {
+function loadVersion(versionId) {
     // Show loading indicator
     const editorContainer = document.getElementById('editorContainer');
     const loadingOverlay = document.createElement('div');
