@@ -6,7 +6,8 @@ designed to be integrated with the ProEthica application.
 """
 
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+import json
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 
 def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor'):
     """
@@ -20,6 +21,8 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
         Blueprint: Flask blueprint for the ontology editor
     """
     from ontology_editor.api.routes import create_api_routes
+    from ontology_editor.api.entity_routes import create_entity_routes
+    from ontology_editor.services.entity_service import EntityService
     
     # Create blueprint
     blueprint = Blueprint(
@@ -30,9 +33,11 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
         url_prefix=url_prefix
     )
     
-    # Register routes
+    # Register API routes
     api_routes = create_api_routes(config or {})
+    entity_routes = create_entity_routes(config or {})
     blueprint.register_blueprint(api_routes)
+    blueprint.register_blueprint(entity_routes, url_prefix='/api')
     
     # Add main routes
     @blueprint.route('/')
@@ -43,6 +48,7 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
         view = request.args.get('view', 'full')
         highlight_entity = request.args.get('highlight_entity')
         entity_type = request.args.get('entity_type')
+        world_id = request.args.get('world_id')
         
         # Use ontology_id if provided, otherwise use source
         # This ensures backward compatibility
@@ -61,11 +67,7 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
 
         # If view is 'entities', this is a specialized entity view
         if view == 'entities':
-            return render_template('hierarchy.html',
-                                 source=source_param,
-                                 ontology_id=ontology_id,
-                                 highlight_entity=highlight_entity,
-                                 entity_type=entity_type)
+            return entity_editor(ontology_id, world_id)
 
         # Default full editor view
         return render_template('editor.html',
@@ -73,6 +75,94 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
                              ontology_id=ontology_id,
                              highlight_entity=highlight_entity,
                              entity_type=entity_type)
+    
+    def entity_editor(ontology_id, world_id=None):
+        """Entity editor view"""
+        from app.models.ontology import Ontology
+        from app.models.ontology_version import OntologyVersion
+        
+        # Get the ontology
+        ontology = Ontology.query.get_or_404(ontology_id)
+        
+        # Get the latest version
+        latest_version = OntologyVersion.query.filter_by(
+            ontology_id=ontology_id
+        ).order_by(
+            OntologyVersion.version_number.desc()
+        ).first()
+        
+        # Get entities
+        from app.services.ontology_entity_service import OntologyEntityService
+        entity_service = OntologyEntityService.get_instance()
+        
+        # Create a world-like object with the required ontology_id field
+        class DummyWorld:
+            def __init__(self, ontology_id):
+                self.ontology_id = ontology_id
+                
+        dummy_world = DummyWorld(ontology_id)
+        entities = entity_service.get_entities_for_world(dummy_world)
+        
+        # Get parent classes for each entity type
+        parent_classes = {}
+        for entity_type in ['role', 'condition', 'resource', 'action', 'event', 'capability']:
+            parent_classes[entity_type] = EntityService.get_valid_parents(ontology_id, entity_type)
+            
+        # Get all capabilities for roles
+        capabilities = []
+        if 'entities' in entities and 'capabilities' in entities['entities']:
+            capabilities = entities['entities']['capabilities']
+        
+        # Serialize parent classes and capabilities for JavaScript
+        serialized_parents = {}
+        for entity_type, parents in parent_classes.items():
+            serialized_parents[entity_type] = parents
+            
+        serialized_capabilities = capabilities
+        
+        # Template helper functions
+        def is_editable(entity):
+            return EntityService.is_editable(entity)
+            
+        def get_entity_origin(entity):
+            return EntityService.get_entity_origin(entity)
+            
+        def is_parent_of(parent, entity):
+            if not entity or not parent:
+                return False
+                
+            # Check if parent.id is in entity's parents
+            if 'parent_class' in entity:
+                return parent.get('id') == entity.get('parent_class')
+            
+            return False
+            
+        def get_valid_parents(entity_type):
+            return parent_classes.get(entity_type, [])
+            
+        def has_capability(role, capability):
+            if not role or not capability or not role.get('capabilities'):
+                return False
+                
+            return any(cap.get('id') == capability.get('id') for cap in role.get('capabilities', []))
+            
+        def get_all_capabilities():
+            return capabilities
+        
+        # Render template
+        return render_template('entity_editor.html',
+                               ontology=ontology,
+                               entities=entities,
+                               latest_version=latest_version,
+                               world_id=world_id,
+                               is_editable=is_editable,
+                               get_entity_origin=get_entity_origin,
+                               is_parent_of=is_parent_of,
+                               get_valid_parents=get_valid_parents,
+                               has_capability=has_capability,
+                               get_all_capabilities=get_all_capabilities,
+                               serialized_parents=serialized_parents,
+                               serialized_capabilities=serialized_capabilities)
                              
     @blueprint.route('/visualize/<ontology_id>')
     def visualize_ontology(ontology_id):

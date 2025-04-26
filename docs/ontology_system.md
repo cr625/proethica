@@ -1,158 +1,140 @@
-# Unified Ontology System
+# ProEthica Ontology System
 
-This document provides a comprehensive overview of the ontology system in the ProEthica project, focusing on the database-driven storage approach and integration with other components.
+This document provides a comprehensive overview of the ontology system in the ProEthica platform, explaining how ontologies are stored, managed, and accessed throughout the application.
 
 ## Overview
 
-The ProEthica ontology system provides structured knowledge representation for different ethical domains through:
+ProEthica uses ontologies to define the entity types (roles, conditions, resources, etc.) available within worlds. The ontology system consists of several components:
 
-1. **Database-driven storage** for all ontologies and their versions
-2. **Entity extraction services** for world building and visualization
-3. **MCP server integration** to make ontologies available to LLMs
-4. **Ontology editor** for creating and modifying ontologies
+1. **Database Storage**: Primary storage for ontologies and their versions
+2. **Ontology Editor**: UI for editing ontologies and their entities
+3. **Entity Editor**: Card-based interface for managing specific entities
+4. **MCP Server Integration**: Makes ontologies accessible to LLMs via the Model Context Protocol
+5. **Ontology Entity Service**: Extracts entities from ontologies for use in the application
 
-## Database Storage Architecture
+## Database-Driven Architecture
 
-The system uses a sophisticated database storage model for all ontology data:
+As of April 2025, ProEthica uses a database-first approach for ontology management:
 
-### Core Models
+### Ontology Tables
 
-1. **Ontology**:
-   - Stores basic ontology information and content
-   - Fields include: `id`, `name`, `domain_id`, `description`, `content`, `is_base`, `is_editable`, `base_uri`
-   - See `app/models/ontology.py`
+- `ontologies`: Stores metadata about each ontology (name, description, domain ID)
+- `ontology_versions`: Stores version history and actual TTL content
+- `ontology_imports`: Tracks import relationships between ontologies
 
-2. **OntologyVersion**:
-   - Tracks version history for ontologies
-   - Each version maintains a complete copy of the ontology content at that point in time
-   - See `app/models/ontology_version.py`
+### Benefits of Database Storage
 
-3. **OntologyImport**:
-   - Maps relationships between ontologies
-   - Tracks which ontologies import/extend others
-   - See `app/models/ontology_import.py`
+1. **Single Source of Truth**: Eliminates inconsistencies between different parts of the system
+2. **Version Control**: Proper tracking of ontology changes over time
+3. **Improved Performance**: Faster access to ontology data
+4. **Better Integration**: Easier integration with other parts of the application
 
-### Entity Types and Hierarchy
+## Ontology Structure
 
-Ontologies define several entity types that can be used in world building:
+ProEthica ontologies follow a layered approach:
 
-1. **Roles**: Positions or responsibilities that characters can assume
-2. **Conditions**: States or situations that can be applied to characters
-3. **Resources**: Objects or assets available in the world
-4. **Events**: Occurrences that take place in the timeline
-5. **Actions**: Activities that characters can perform
-6. **Capabilities**: Skills or abilities possessed by roles
+1. **Base Ontology (BFO)**: Fundamental upper-level categories like Entity, Continuant, Occurrent
+2. **Intermediate Ontology**: Domain-independent but application-specific concepts
+3. **Domain Ontologies**: Specialized ontology for specific domains (e.g., engineering ethics)
 
-## Entity Extraction
+## Editing Entities
 
-The system provides two complementary mechanisms for entity extraction:
+The Entity Editor provides an intuitive interface for managing entities within ontologies:
 
-### Direct Database Extraction
+### Entity Types
 
-The `OntologyEntityService` (in `app/services/ontology_entity_service.py`) provides direct extraction from database-stored ontologies:
+- **Roles**: Positions or functions that entities can have (e.g., Engineer, Client)
+- **Conditions**: States or situations (e.g., Licensed, Under Construction)
+- **Resources**: Physical or virtual items (e.g., Bridge, Building Plans)
+- **Actions**: Activities that can be performed (e.g., Inspect, Design)
+- **Events**: Occurrences in time (e.g., Failure, Completion)
+- **Capabilities**: Abilities associated with roles (e.g., Structural Analysis, Project Management)
 
-- Loads ontology content from the database
-- Parses TTL content using RDFLib
-- Extracts entities of different types
-- Provides caching for performance optimization
+### Protection System
 
-This is used primarily by:
-- The world detail page
-- The ontology editor entity viewer
+The Entity Editor implements protection for core ontology elements:
 
-### MCP Server Integration
+1. **Base BFO Entities**: Cannot be modified (read-only)
+2. **Intermediate Ontology Entities**: Cannot be modified in the entity editor (use full ontology editor)
+3. **Domain-specific Entities**: Fully editable
 
-The Model Context Protocol (MCP) server makes ontology data available to LLMs:
+### Entity Management Features
 
-- Loads ontologies from the database (with filesystem fallback)
-- Provides entity extraction via the `get_world_entities` tool
-- Supports both development and production modes
+- **Inline Editing**: Click "Edit" to transform entity cards into edit forms
+- **Add New Entities**: "Add [Entity Type]" buttons for each category
+- **Delete Entities**: Remove domain-specific entities when no longer needed
+- **Parent Selection**: Choose appropriate parent classes for proper inheritance
+- **Capability Assignment**: Link capabilities to roles for richer semantic relationships
 
-## Ontology Editor
+## Accessing Ontologies in Code
 
-The web-based ontology editor provides:
+### From Web UI
 
-- TTL editing with syntax highlighting
-- Ontology validation
-- Entity visualization
-- Version control
+```python
+# Example of accessing entities for a world
+from app.services.ontology_entity_service import OntologyEntityService
 
-The editor works directly with database-stored ontologies through:
+entity_service = OntologyEntityService.get_instance()
+entities = entity_service.get_entities_for_world(world)
+```
 
-- API routes for CRUD operations
-- Entity extraction for visualization
-- Import/export capabilities
+### From MCP Server
 
-## User Workflows
+```python
+# MCP server loading ontology from database
+from app.models.ontology import Ontology
+from rdflib import Graph
 
-### Viewing World Entities
+ontology = Ontology.query.filter_by(domain_id=domain_id).first()
+if ontology:
+    g = Graph()
+    g.parse(data=ontology.content, format="turtle")
+    # Process graph...
+```
 
-1. User navigates to a world detail page
-2. `OntologyEntityService` extracts entities from the database
-3. Entities are displayed in the world view
+## MCP Server Integration
 
-### Editing Ontologies
+The Model Context Protocol (MCP) server provides ontology access to LLMs:
 
-1. User opens the ontology editor
-2. Editor loads ontology content from database
-3. User makes changes and validates
-4. Changes are saved to database with version tracking
+1. **Loading**: Ontologies are loaded from the database
+2. **Enhancing**: Additional context may be added for LLM consumption
+3. **Resources**: Ontologies are exposed as MCP resources
+4. **Tools**: Specialized tools may use ontology data for operations
 
-### LLM Access to Ontologies
+## Versioning System
 
-1. LLM makes a request through the MCP server
-2. MCP server loads ontology from database
-3. Entities are extracted and returned to the LLM
+When entities are modified through the Entity Editor:
 
-## Technical Implementation Details
-
-### Entity Extraction Logic
-
-Entity extraction follows these steps:
-
-1. Parse ontology content using RDFLib
-2. Detect appropriate namespace for the ontology
-3. Extract entities of each type using SPARQL-like queries
-4. Format entity data into consistent structures
-
-### MCP Server Database Access
-
-The MCP server's database access is implemented through:
-
-1. A patched `_load_ontology_from_db` method in `mcp/load_from_db.py`
-2. The patch overrides the original file-loading method
-3. It first attempts to load from database by domain ID
-4. Falls back to file system loading if not found in database
-
-### Security and Access Control
-
-The system implements access controls:
-
-1. Base ontologies are marked as non-editable (`is_editable=False`)
-2. The ontology editor checks this flag before allowing modifications
-3. API endpoints enforce authentication based on configuration
-
-## Common Troubleshooting
-
-1. **Entity extraction issues**:
-   - Check that ontologies are properly loaded in the database
-   - Verify entity class definitions follow the correct pattern
-   - Inspect the ontology for syntax errors
-
-2. **MCP server issues**:
-   - Ensure the server is running (`ps aux | grep ontology_mcp_server`)
-   - Check logs at `mcp/server.log`
-   - Verify database connectivity
-
-3. **Ontology editor issues**:
-   - Check browser console for JavaScript errors
-   - Validate ontology content syntax
-   - Inspect server logs for API errors
+1. A new version of the ontology is created
+2. The version is stored in the `ontology_versions` table
+3. The parent ontology record is updated to reference the latest version
+4. Entity URIs remain consistent across versions
 
 ## Best Practices
 
-1. Always use the ontology editor for making changes to ensure proper versioning
-2. Back up the database regularly to avoid data loss
-3. Use the validation feature before saving ontologies
-4. Maintain proper import relationships between ontologies
-5. Document new entity types and their purpose
+1. **Entity Naming**: Use CamelCase for class names, following BFO conventions
+2. **Description Quality**: Provide detailed descriptions for all entities
+3. **Proper Hierarchy**: Ensure entities have appropriate parent classes
+4. **Capabilities**: Use capabilities to enrich role definitions
+5. **Consistency**: Maintain consistent terminology across entity types
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Entity Not Showing**: May need to clear browser cache or reload page
+2. **Entity Relationships Missing**: Check parent class assignments
+3. **Protected Entity Editing**: Use full ontology editor for intermediate entities
+4. **Validation Errors**: Check for syntax issues in TTL content
+
+## Future Enhancements
+
+1. **Relationship Editing**: Direct editing of relationships between entities
+2. **Visual Graph**: Interactive graph visualization of entity relationships
+3. **Entity Search**: Advanced search and filtering capabilities
+4. **Bulk Operations**: Batch import/export of entities
+5. **Validation Rules**: Advanced validation for entity properties
+
+---
+
+*Last Updated: April 25, 2025*

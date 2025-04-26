@@ -39,6 +39,49 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
 - `ontology_editor/README.md`
 - Created new `docs/ontology_system.md`
 
+## 2025-04-25 - Dedicated Entity Editor Implementation
+
+### New Features Implemented
+
+1. **Created Dedicated Entity Editor**
+   - Developed a card-based entity editor interface for intuitive entity management
+   - Implemented inline editing capabilities for all entity types
+   - Protected base and intermediate ontology entities from modification
+   - Added capability selection for roles
+   - Ensured proper parent class selection for all entity types
+
+2. **Entity Versioning System**
+   - Created system to automatically version ontologies when entities are modified
+   - Implemented TTL-preserving entity update methods
+   - Maintained URI consistency for entities across versions
+   - Added validation to prevent malformed TTL
+
+3. **Backend Services for Entity Management**
+   - Created `EntityService` class for managing entities
+   - Implemented origin detection to protect core ontology entities
+   - Added validation methods for entity relationships
+   - Built API endpoints for entity CRUD operations
+
+4. **UI Improvements**
+   - Added entity origin labeling to identify protected entities
+   - Implemented intuitive modal interface for adding new entities
+   - Created toast notifications for user feedback
+   - Improved navigation between world detail and entity editor
+
+### Benefits
+
+- More intuitive editing of entities without requiring TTL knowledge
+- Improved protection of core ontology concepts
+- Better versioning for tracking ontology changes
+- Streamlined workflow for world builders
+
+### Next Steps
+
+- Add bulk entity operations for more efficient ontology development
+- Implement additional validation rules for entity properties
+- Add hierarchy visualization option within the entity editor
+- Consider implementing relationship editing between entities
+
 ## 2025-04-25 - Ontology Editor Improvements
 
 ### Fixes Implemented
