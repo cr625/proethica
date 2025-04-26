@@ -4,27 +4,49 @@ This directory contains the Model Context Protocol (MCP) server implementation f
 
 ## Ontology MCP Server
 
-The `ontology_mcp_server.py` script provides access to ontology data through the Model Context Protocol. It allows the application to query information about ethical domains, guidelines, cases, and world entities.
+The MCP server provides access to ontology data through the Model Context Protocol, allowing LLMs and the application to query information about ethical domains, guidelines, and world entities.
+
+### Database-Driven Ontology Access
+
+The MCP server now primarily works with database-stored ontologies:
+
+1. **Direct Database Loading**: The server first attempts to load ontologies from the database
+2. **File Fallback**: Falls back to file loading only if the ontology is not found in the database
+3. **Consistent Entity Extraction**: Uses the same entity extraction logic as the main application
+
+This approach ensures consistency and allows for proper version control of ontologies.
+
+## Implementation Types
+
+The MCP server is implemented in two versions:
+
+1. **Standard MCP Server** (`ontology_mcp_server.py`): 
+   - Uses stdio for communication
+   - Primarily used with the development server
+
+2. **HTTP MCP Server** (`http_ontology_mcp_server.py`): 
+   - Runs as a web server on a specific port
+   - Used with Gunicorn for production
 
 ## Singleton Pattern Implementation
 
-To prevent multiple instances of the MCP server from running simultaneously and causing system resource strain, we've implemented a singleton pattern in the `MCPClient` class. This ensures that only one instance of the client is created, which in turn manages a single instance of the server process.
+To prevent multiple instances of the MCP server from running simultaneously and causing system resource strain, we've implemented a singleton pattern in the `MCPClient` class.
 
 ### Key Features
 
-1. **Singleton MCPClient**: The `MCPClient` class now uses a singleton pattern to ensure only one instance exists throughout the application.
-   - All calls to `MCPClient()` or `MCPClient.get_instance()` return the same instance.
-   - This prevents multiple server processes from being spawned by different parts of the application.
+1. **Singleton MCPClient**: The `MCPClient` class uses a singleton pattern to ensure only one instance exists.
+   - All calls to `MCPClient()` or `MCPClient.get_instance()` return the same instance
+   - Prevents multiple server processes from being spawned
 
-2. **Process Management**: The client keeps track of the server process and ensures it's properly terminated when the application exits.
-   - Uses lock files to track running server processes.
-   - Handles cleanup of stale lock files.
+2. **Process Management**: The client keeps track of the server process and ensures proper termination.
+   - Uses lock files to track running server processes
+   - Handles cleanup of stale lock files
 
-3. **Restart Script**: The `scripts/restart_mcp_server.sh` script has been improved to:
-   - Check for and clean up stale lock files.
-   - Stop all running instances of the server.
-   - Start a new server instance with proper logging.
-   - Create a lock file with the new process ID.
+3. **Restart Script**: The `scripts/restart_mcp_server.sh` script manages server instances:
+   - Cleans up stale lock files
+   - Stops all running instances of the server
+   - Starts a new server instance with proper logging
+   - Creates a lock file with the new process ID
 
 ## Usage
 
@@ -37,12 +59,13 @@ from app.services.mcp_client import MCPClient
 client = MCPClient.get_instance()
 
 # Use the client to interact with the MCP server
-entities = client.get_world_entities("engineering_ethics.ttl", entity_type="roles")
+# Note: No need to include .ttl extension
+entities = client.get_world_entities("engineering-ethics", entity_type="roles")
 ```
 
 ### Restarting the Server
 
-If you need to restart the MCP server (e.g., after updating the ontology files), use the restart script:
+If you need to restart the MCP server, use the restart script:
 
 ```bash
 bash scripts/restart_mcp_server.sh
@@ -72,7 +95,23 @@ If you encounter issues with the MCP server:
    cat /tmp/ontology_mcp_server.lock
    ```
 
-4. Restart the server:
+4. Check database connectivity:
+   ```bash
+   python scripts/check_ontologies_in_db.py
+   ```
+
+5. Restart the server:
    ```bash
    bash scripts/restart_mcp_server.sh
    ```
+
+## Entity Types Supported
+
+The MCP server extracts the following entity types from ontologies:
+
+1. **Roles**: Characters or positions (e.g., Engineer, Manager)
+2. **Conditions**: States or situations (e.g., ConflictOfInterest)
+3. **Resources**: Assets or objects (e.g., Blueprint, Contract)
+4. **Events**: Occurrences in the timeline (e.g., Meeting, Accident)
+5. **Actions**: Activities that can be performed (e.g., Approve, Review)
+6. **Capabilities**: Skills or abilities (e.g., StructuralAnalysis)

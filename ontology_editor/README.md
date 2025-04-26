@@ -6,12 +6,28 @@ A modular BFO-based ontology editor for the ProEthica system with database-drive
 
 The Ontology Editor is a web-based tool for creating, editing, and visualizing ontologies built on the Basic Formal Ontology (BFO) framework. It provides:
 
-- A form-based editor for TTL (Turtle) ontology files
+- A form-based editor for TTL (Turtle) ontology content
 - BFO compliance validation with warnings
 - Hierarchical visualization of ontology classes and relationships
 - Version control with commit history
 - Integration with ProEthica's authentication system
 - Database-driven storage for all ontology content
+
+## Database Integration
+
+The editor works exclusively with database-stored ontologies:
+
+- All ontology content is stored in the database
+- Version history is tracked with full content snapshots
+- Import relationships between ontologies are explicitly modeled
+- Entity extraction is performed directly from database content
+
+This database-driven approach provides several benefits:
+
+- Single source of truth for ontology data
+- Proper version control and history tracking
+- Consistent entity extraction across the application
+- Protection for base ontologies (BFO, Intermediate)
 
 ## Installation
 
@@ -62,8 +78,7 @@ Once integrated, the editor can be accessed at:
 1. Click the "New" button in the sidebar
 2. Enter basic information:
    - **Title**: Display name for the ontology
-   - **Filename**: The filename identifier (e.g., engineering_ethics)
-   - **Domain**: Domain identifier (e.g., engineering_ethics)
+   - **Domain ID**: The unique identifier (e.g., engineering-ethics)
    - **Description**: Optional description of the ontology
 3. Click "Create" to create the ontology with a basic template
 
@@ -91,6 +106,15 @@ The editor maintains a version history for each ontology:
 2. Click a version to load it in the editor
 3. Add commit messages when saving changes to document the changes made
 
+## Entity Extraction
+
+The editor uses the `OntologyEntityService` to extract entities directly from database-stored ontologies. This service:
+
+- Parses TTL content using RDFLib
+- Extracts entities of different types (Roles, Conditions, Resources, etc.)
+- Provides caching for performance optimization
+- Offers consistent extraction logic across the application
+
 ## Architecture
 
 The Ontology Editor follows a modular architecture:
@@ -113,8 +137,8 @@ The editor uses the following database models:
 
 For comprehensive documentation, see:
 
-- `docs/unified_ontology_system.md`: Main documentation of the ontology system
-- `docs/ontology_database_storage.md`: Details on the database storage architecture
+- `docs/ontology_system.md`: Main documentation of the ontology system
+- `docs/unified_ontology_system.md`: Overview of the unified system
 - `docs/ontology_visualization.md`: Information about the visualization feature
 
 ## License

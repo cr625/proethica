@@ -46,18 +46,63 @@ class OntologyMCPServer:
         self.namespaces[key] = namespace
         return namespace
 
-    def _load_graph_from_file(self, ontology_file):
+    def _load_graph_from_file(self, ontology_source):
+        """
+        Load ontology content primarily from database with file fallback.
+        
+        Args:
+            ontology_source: Source identifier for ontology (domain_id or filename)
+            
+        Returns:
+            RDFLib Graph object with loaded ontology
+        """
         g = Graph()
-        if not ontology_file:
-            print(f"Error: No ontology file specified", file=sys.stderr)
+        if not ontology_source:
+            print(f"Error: No ontology source specified", file=sys.stderr)
             return g
             
-        ontology_path = os.path.join(ONTOLOGY_DIR, ontology_file)
+        # Handle cleanup of file extension if present
+        if ontology_source.endswith('.ttl'):
+            domain_id = ontology_source[:-4]  # Remove .ttl extension
+        else:
+            domain_id = ontology_source
+            
         try:
+            # First try to load from database
+            # We need to import these here to avoid circular imports
+            try:
+                # Create a Flask app context for database access
+                import os
+                from app import create_app, db
+                from app.models.ontology import Ontology
+                
+                app = create_app()
+                with app.app_context():
+                    # Try to fetch from database
+                    print(f"Attempting to load ontology '{domain_id}' from database", file=sys.stderr)
+                    ontology = Ontology.query.filter_by(domain_id=domain_id).first()
+                    
+                    if ontology:
+                        print(f"Found ontology '{domain_id}' (ID: {ontology.id}) in database", file=sys.stderr)
+                        print(f"Content length: {len(ontology.content)} bytes", file=sys.stderr)
+                        
+                        g.parse(data=ontology.content, format="turtle")
+                        print(f"Successfully parsed ontology content with {len(g)} triples", file=sys.stderr)
+                        return g
+                    else:
+                        print(f"Ontology '{domain_id}' not found in database", file=sys.stderr)
+            except Exception as db_error:
+                print(f"Error loading from database: {str(db_error)}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                
+            # Fall back to file (for backward compatibility)
+            print(f"Falling back to filesystem for ontology '{domain_id}'", file=sys.stderr)
+            ontology_path = os.path.join(ONTOLOGY_DIR, ontology_source)
             if not os.path.exists(ontology_path):
                 print(f"Error: Ontology file not found: {ontology_path}", file=sys.stderr)
                 return g
-                
+
             g.parse(ontology_path, format="turtle")
             print(f"Successfully loaded ontology from {ontology_path}", file=sys.stderr)
         except Exception as e:
@@ -333,113 +378,9 @@ class OntologyMCPServer:
                 for s in capability_subjects
             ]
             
-        return out
-
-        out = {}
-        if entity_type in ("all", "roles"):
-            # Look for both namespace.Role and proeth:Role
-            role_subjects = set()
-            role_subjects.update(graph.subjects(RDF.type, namespace.Role))
-            role_subjects.update(graph.subjects(RDF.type, proeth_namespace.Role))
-            
-            out["roles"] = [
-                {
-                    "id": str(s), 
-                    "label": label_or_id(s),
-                    "description": get_description(s),
-                    "tier": safe_get_property(s, namespace.hasTier),
-                    "capabilities": [
-                        {
-                            "id": str(o),
-                            "label": label_or_id(o),
-                            "description": get_description(o)
-                        } 
-                        for o in graph.objects(s, proeth_namespace.hasCapability)
-                    ]
-                }
-                for s in role_subjects
-            ]
-        
-        if entity_type in ("all", "conditions"):
-            # Look for both namespace.ConditionType and proeth:ConditionType
-            condition_subjects = set()
-            condition_subjects.update(graph.subjects(RDF.type, namespace.ConditionType))
-            condition_subjects.update(graph.subjects(RDF.type, proeth_namespace.ConditionType))
-            
-            out["conditions"] = [
-                {
-                    "id": str(s), 
-                    "label": label_or_id(s),
-                    "description": get_description(s)
-                }
-                for s in condition_subjects
-            ]
-        
-        if entity_type in ("all", "resources"):
-            # Look for both namespace.ResourceType and proeth:ResourceType
-            resource_subjects = set()
-            resource_subjects.update(graph.subjects(RDF.type, namespace.ResourceType))
-            resource_subjects.update(graph.subjects(RDF.type, proeth_namespace.ResourceType))
-            
-            out["resources"] = [
-                {
-                    "id": str(s), 
-                    "label": label_or_id(s),
-                    "description": get_description(s)
-                }
-                for s in resource_subjects
-            ]
-        
-        if entity_type in ("all", "events"):
-            # Look for both namespace.EventType and proeth:EventType
-            event_subjects = set()
-            event_subjects.update(graph.subjects(RDF.type, namespace.EventType))
-            event_subjects.update(graph.subjects(RDF.type, proeth_namespace.EventType))
-            
-            out["events"] = [
-                {
-                    "id": str(s), 
-                    "label": label_or_id(s),
-                    "description": get_description(s)
-                }
-                for s in event_subjects
-            ]
-        
-        if entity_type in ("all", "actions"):
-            # Look for both namespace.ActionType and proeth:ActionType
-            action_subjects = set()
-            action_subjects.update(graph.subjects(RDF.type, namespace.ActionType))
-            action_subjects.update(graph.subjects(RDF.type, proeth_namespace.ActionType))
-            
-            out["actions"] = [
-                {
-                    "id": str(s), 
-                    "label": label_or_id(s),
-                    "description": get_description(s)
-                }
-                for s in action_subjects
-            ]
-            
-        if entity_type in ("all", "capabilities"):
-            # Look for capability types
-            capability_subjects = set()
-            capability_subjects.update(graph.subjects(RDF.type, namespace.Capability))
-            capability_subjects.update(graph.subjects(RDF.type, proeth_namespace.Capability))
-            
-            # Also get capabilities that are associated with roles
-            for role in graph.subjects(RDF.type, namespace.Role):
-                capability_subjects.update(graph.objects(role, proeth_namespace.hasCapability))
-            for role in graph.subjects(RDF.type, proeth_namespace.Role):
-                capability_subjects.update(graph.objects(role, proeth_namespace.hasCapability))
-                
-            out["capabilities"] = [
-                {
-                    "id": str(s), 
-                    "label": label_or_id(s),
-                    "description": get_description(s)
-                }
-                for s in capability_subjects
-            ]
+        # Log what was found for debugging
+        for entity_type, entity_list in out.items():
+            print(f"Found {len(entity_list)} {entity_type} in ontology", file=sys.stderr)
             
         return out
 

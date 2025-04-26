@@ -2,6 +2,42 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
+## 2025-04-25 - Ontology System Standardization
+
+### Implemented Changes
+
+1. **Standardized Database-Driven Ontology Access**
+   - Refactored MCP server to natively work with database-stored ontologies
+   - Removed dependency on the file-based patch approach
+   - Updated MCP server documentation to reflect database-first approach
+   - Created consolidated documentation in `docs/ontology_system.md`
+
+2. **Unified Ontology Documentation**
+   - Created a comprehensive ontology system document
+   - Consolidated information from multiple ontology-related documents
+   - Removed references to file-based ontology handling
+   - Updated READMEs to reflect current database-driven architecture
+
+3. **MCP Server Improvements**
+   - Enhanced database loading with better error handling
+   - Maintained backward compatibility with file-based fallback
+   - Improved documentation for troubleshooting
+   - Added context for entity types and their relationships
+
+### Benefits
+
+- Consistent ontology handling across all system components
+- Single source of truth for all ontology data
+- More reliable integration between MCP server and database
+- Clearer documentation for developers and maintainers
+- Improved maintainability and easier debugging
+
+### Files Modified
+
+- `mcp/http_ontology_mcp_server.py`
+- `mcp/README.md`
+- `ontology_editor/README.md`
+- Created new `docs/ontology_system.md`
 
 ## 2025-04-25 - Ontology Editor Improvements
 
@@ -25,25 +61,18 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
    - Improved error handling and debugging for validation issues
    - Enhanced error messages to better identify syntax errors in ontologies
 
+4. **Made Navigation Consistent Across App**
+   - Added Ontology Editor link to world detail page navigation
+   - Ensured consistent user experience throughout the application
+   - Improved discoverability of the ontology editor functionality
+   - Streamlined workflow between world details and ontology editing
+
 ### Benefits
 
 - More reliable entity extraction without HTTP call dependency
 - Consistent experience between different parts of the application
 - Better navigation through proper URL management
 - Improved validation process for ontology development
-
-### Files Modified
-
-- `ontology_editor/api/routes.py`
-- `ontology_editor/static/js/editor.js`
-- `app/services/ontology_entity_service.py`
-
-
-4. **Made Navigation Consistent Across App**
-   - Added Ontology Editor link to world detail page navigation
-   - Ensured consistent user experience throughout the application
-   - Improved discoverability of the ontology editor functionality
-   - Streamlined workflow between world details and ontology editing
 
 ### Next Steps
 
