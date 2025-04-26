@@ -204,6 +204,66 @@ class EntityService:
         # Sort results by label for consistent order
         results.sort(key=lambda x: x['label'])
         
+                # Add special base classes if they're missing
+        if entity_type == 'role':
+            # Check if EngineeringRole is already in results
+            eng_role_id = "http://proethica.org/ontology/engineering-ethics#EngineeringRole"
+            eng_role_in_results = any(r['id'] == eng_role_id for r in results)
+            
+            if not eng_role_in_results:
+                # Add EngineeringRole explicitly
+                print("Adding EngineeringRole explicitly to parent options")
+                results.append({
+                    'id': eng_role_id,
+                    'label': "Engineering Role"
+                })
+                
+            # Also add intermediate Role if needed
+            int_role_id = "http://proethica.org/ontology/intermediate#Role"
+            int_role_in_results = any(r['id'] == int_role_id for r in results)
+            
+            if not int_role_in_results:
+                # Add intermediate Role explicitly
+                print("Adding intermediate Role explicitly to parent options")
+                results.append({
+                    'id': int_role_id,
+                    'label': "Role (Base)"
+                })
+        
+        elif entity_type == 'condition':
+            # Add special condition base classes if missing
+            condition_base_classes = [
+                {
+                    'id': "http://proethica.org/ontology/intermediate#ConditionType",
+                    'label': "Condition Type"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EthicalDilemma",
+                    'label': "Ethical Dilemma"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#Principle",
+                    'label': "Principle"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#SafetyPrinciple",
+                    'label': "Safety Principle"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ConflictOfInterestCondition",
+                    'label': "Conflict of Interest Condition"
+                }
+            ]
+            
+            # Add any missing base classes
+            for base_class in condition_base_classes:
+                if not any(r['id'] == base_class['id'] for r in results):
+                    print(f"Adding {base_class['label']} explicitly to condition parent options")
+                    results.append(base_class)
+        
+        # Sort results by label for consistent order
+        results.sort(key=lambda x: x['label'])
+        
         return results
     
     @classmethod
