@@ -361,6 +361,80 @@ class EntityService:
                     print(f"Adding {base_class['label']} explicitly to event parent options")
                     results.append(base_class)
         
+        elif entity_type == 'capability':
+            # Add special capability base classes if missing
+            capability_base_classes = [
+                {
+                    'id': "http://proethica.org/ontology/intermediate#Capability",
+                    'label': "Capability (Base)"
+                },
+                # Main Engineering Capability class
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringCapability",
+                    'label': "Engineering Capability"
+                },
+                # Intermediate capability categories
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#DesignCapability",
+                    'label': "Design Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#AssessmentCapability",
+                    'label': "Assessment Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ManagementCapability",
+                    'label': "Management Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ReportingCapability",
+                    'label': "Reporting Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ComplianceCapability",
+                    'label': "Compliance Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ConsultationCapability",
+                    'label': "Consultation Capability"
+                },
+                # Specific capabilities
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#StructuralAnalysisCapability",
+                    'label': "Structural Analysis Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#StructuralDesignCapability",
+                    'label': "Structural Design Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ProjectManagementCapability",
+                    'label': "Project Management Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#TechnicalReportingCapability",
+                    'label': "Technical Reporting Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#RegulatoryComplianceCapability",
+                    'label': "Regulatory Compliance Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#SafetyAssessmentCapability",
+                    'label': "Safety Assessment Capability"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringConsultationCapability",
+                    'label': "Engineering Consultation Capability"
+                }
+            ]
+            
+            # Add any missing base classes
+            for base_class in capability_base_classes:
+                if not any(r['id'] == base_class['id'] for r in results):
+                    print(f"Adding {base_class['label']} explicitly to capability parent options")
+                    results.append(base_class)
+        
         # Sort results by label for consistent order
         results.sort(key=lambda x: x['label'])
         

@@ -2,6 +2,52 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
+## 2025-04-26 - Advanced Capability Hierarchy Implementation
+
+### Implemented Changes
+
+1. **Created Refined Capability Hierarchy with Intermediate Classes**
+   - Added six new intermediate capability categories:
+     - DesignCapability - Parent for design-related capabilities
+     - AssessmentCapability - Parent for analysis and assessment capabilities  
+     - ManagementCapability - Parent for project management capabilities
+     - ReportingCapability - Parent for documentation capabilities
+     - ComplianceCapability - Parent for regulatory compliance capabilities
+     - ConsultationCapability - Parent for consultation capabilities
+   - Reorganized all specific capabilities under appropriate intermediate classes
+   - Created clear three-level hierarchy: Capability → Category → Specific Capability
+   - Implemented organization-based hierarchy to mirror real-world capability domains
+
+2. **Enhanced Capability Parent Class Handling**
+   - Updated EntityService to include all intermediate capability classes in dropdowns
+   - Fixed Technical Reporting Capability to use correct intermediate parent (ReportingCapability)
+   - Added base, intermediate and specialized capability classes to entity service options
+   - Organized capability parent classes by hierarchy level in the entity service
+
+3. **Added Capability Hierarchy to Entity Validation System**
+   - Extended hierarchy validation script to include capabilities
+   - Created tree-based visualization of the capability hierarchy
+   - Added parent class verification for capabilities
+   - Implemented capability specialization detection
+
+4. **Verified Improved Capability Relationships**
+   - Ensured all 9 capabilities now use appropriate parent classes
+   - Created clear three-level hierarchy from Capability (base) → Category → Specific Capability
+   - Eliminated direct EngineeringCapability → Specific Capability relationships
+   - Validated improved capability class relationships with check script
+
+### Benefits
+- Complete consistency across all entity types (roles, conditions, resources, actions, events, and capabilities)
+- More refined and domain-appropriate inheritance hierarchies for capabilities
+- Improved entity editor with structured capability parent options
+- Enhanced visualization showing the full capability hierarchy
+- Better organization of capabilities for ontology developers
+
+### Scripts Created
+- `scripts/improve_capability_hierarchy.py` - Implemented intermediate capability classes
+- `scripts/fix_capability_parent.py` - Fixed Technical Reporting Capability parent class
+- Enhanced `scripts/check_entity_hierarchies.py` with capability hierarchy visualization
+
 ## 2025-04-26 - Entity Hierarchy Validation and Visualization
 
 ### Implemented Changes
