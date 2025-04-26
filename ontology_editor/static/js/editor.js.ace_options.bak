@@ -437,7 +437,7 @@ function updateVersionsList(versions) {
         const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         
         return `
-            <li class="list-group-item" data-version-id="${version.id}">
+            <li class="list-group-item" data-version-number="${version.version_number}">
                 <div class="version-info">
                     <span class="version-number">v${version.version_number}</span>
                     <span class="version-date">${formattedDate}</span>
@@ -449,6 +449,7 @@ function updateVersionsList(versions) {
     
     listElement.innerHTML = items;
     
+
     // Add click event listeners
     document.querySelectorAll('#versionList li').forEach(item => {
         item.addEventListener('click', function() {
@@ -457,18 +458,19 @@ function updateVersionsList(versions) {
                 return;
             }
             
-            const versionId = this.dataset.versionId;
-            loadVersion(versionId);
+            const versionNumber = this.dataset.versionNumber;
+            loadVersion(versionNumber);
         });
     });
 }
 
+
 /**
  * Load a specific version into the editor
  * 
- * @param {string} versionId - ID of the version to load
+ * @param {string} versionNumber - Number of the version to load
  */
-function loadVersion(versionId) {
+function loadVersion(versionNumber) {
     // Show loading indicator
     const editorContainer = document.getElementById('editorContainer');
     const loadingOverlay = document.createElement('div');
@@ -481,7 +483,7 @@ function loadVersion(versionId) {
     editorContainer.appendChild(loadingOverlay);
     
     // Fetch the version content
-    fetch(`/ontology-editor/api/versions/${versionId}`)
+    fetch(`/ontology-editor/api/versions/${currentOntologyId}/${versionNumber}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load version');
@@ -502,7 +504,7 @@ function loadVersion(versionId) {
                 item.classList.remove('active');
             });
             
-            const versionItem = document.querySelector(`#versionList li[data-version-id="${versionId}"]`);
+            const versionItem = document.querySelector(`#versionList li[data-version-number="${versionNumber}"]`);
             if (versionItem) {
                 versionItem.classList.add('active');
             }
@@ -517,6 +519,7 @@ function loadVersion(versionId) {
             editorContainer.removeChild(loadingOverlay);
             alert(`Error loading version: ${error.message}`);
         });
+}
 }
 
 /**
