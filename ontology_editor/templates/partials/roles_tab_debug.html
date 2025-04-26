@@ -1,4 +1,12 @@
-<!-- Roles Tab Content -->
+
+<!-- DEBUG VERSION OF ROLES TAB -->
+<!-- 
+This template includes detailed debugging output to help diagnose 
+parent class selection issues. It shows the parent.id and entity.parent_class
+values for each option in each parent dropdown.
+-->
+
+    <!-- Roles Tab Content -->
 {% if ontology.is_editable %}
 <button class="btn btn-primary add-entity-btn" data-entity-type="role">
     <i class="bi bi-plus"></i> Add Role
@@ -69,15 +77,28 @@
                      Parent Class: {{ entity.parent_class }}
                 -->
                 <select class="form-control" id="parent-{{ entity.id }}" name="parent_class" required>
-                                <!-- Debug info - will show in HTML source -->
-                                <!-- Entity Parent Class: {{ entity.parent_class }} -->
+                                <!-- ENHANCED DEBUG INFO -->
+                                <option value="" disabled>DEBUGGING INFO - ENTITY: {{ entity.label }}</option>
+                                <option value="" disabled>Entity parent_class: "{{ entity.parent_class }}"</option>
+                                <option value="" disabled>-----------------------------------</option>
                                 
                                 {% for parent in get_valid_parents('role') %}
-                                <option value="{{ parent.id }}" {% if entity.parent_class == parent.id|string %}selected{% endif %}>
-                                    {{ parent.label }}
+                                {% set match = entity.parent_class == parent.id %}
+                                <option value="{{ parent.id }}" {% if match %}selected{% endif %}>
+                                    {{ parent.label }} {% if match %}✓MATCH{% endif %}
+                                    {% if not match %}(NO MATCH){% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
+                            
+                            <!-- String comparison debugging -->
+                            <div class="text-muted small mt-1" style="background: #f8f9fa; padding: 5px; border-radius: 3px;">
+                                <strong>Debug comparison:</strong><br>
+                                {% for parent in get_valid_parents('role') %}
+                                <pre>{{ parent.id|tojson }} == {{ entity.parent_class|tojson }} : {{ (parent.id == entity.parent_class)|tojson }}</pre>
+                                {% if loop.index > 5 %}{% break %}{% endif %}
+                                {% endfor %}
+                            </div>
                 
                             <div class="validation-error"></div>
                         </div>

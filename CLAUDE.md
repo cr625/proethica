@@ -2,6 +2,77 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
+## 2025-04-26 - Parent Class Selection and Engineering Role Fix
+
+### Implemented Changes
+
+1. **Fixed Engineering Role Parent Selection**
+   - Fixed issue where EngineeringRole wasn't appearing as a parent option in the entity editor
+   - Added explicit handling to add EngineeringRole and base Role classes to dropdown options
+   - Ensured parent class selection works correctly for all entity types
+   - Fixed string comparison issues in template files
+   - Added proper debugging and logging for parent class selection
+
+2. **Enhanced Entity Relationship Visibility**
+   - Fixed parent-child relationships in the entity editor dropdown
+   - Ensured that all engineering roles properly select Engineering Role as parent
+   - Improved hierarchical relationships visualization across the ontology
+   - Now correctly displays and allows editing of all levels in the role hierarchy
+
+### Verification Results
+- All parent class options are now correctly available in dropdown menus
+- 13 out of 14 roles now correctly show their parent class relationship
+- Structural Engineer Role now correctly shows Engineering Role as parent
+- Confidential Consultant Role correctly shows Consulting Engineer Role as parent
+- Building Official Role correctly shows Regulatory Official Role as parent
+
+### Files Modified
+- `ontology_editor/services/entity_service.py` - Added explicit Engineering Role handling
+- `ontology_editor/__init__.py` - Fixed string comparison in helper functions
+- `ontology_editor/templates/partials/*.html` - Updated all entity tab templates
+- Created comprehensive debugging and verification scripts:
+  - `scripts/analyze_ontology_roles_hierarchy.py`
+  - `scripts/fix_engineering_role_parent.py`
+  - `scripts/verify_entity_parent_fix.py`
+
+## 2025-04-26 - Entity Parent Class Selection Fix (Initial Fix)
+
+### Implemented Changes
+
+1. **Fixed Parent Class Selection in Entity Editor**
+   - Fixed issue where all roles showed "Structural Engineer Role" as parent regardless of actual parent
+   - Modified entity extraction to include proper parent class information for all entity types
+   - Implemented string-based comparison for parent class selection in template files
+   - Updated extraction methods to explicitly capture and include RDFS.subClassOf relationships
+   - Added script to invalidate entity cache and force re-extraction with correct information
+
+2. **Enhanced String Type Consistency**
+   - Fixed template comparison for parent_class values by ensuring string comparison
+   - Updated parent_class handling in all entity tab templates with proper string type handling
+   - Added string type coercion to prevent type mismatch in Jinja2 templates
+   - Ensured consistent string formatting across entity editing system
+
+### Benefits
+
+- Correct parent class now displays and selects properly in entity editor for all entities
+- Better parent-child relationship visualization in the UI
+- Improved accuracy for entity editing with proper inheritance
+- Consistent type handling for entity class URIs
+- Foundation for future materialized entity database system
+
+### Files Modified
+
+- `app/services/ontology_entity_service.py`
+- `ontology_editor/__init__.py`
+- `ontology_editor/templates/partials/roles_tab.html`
+- `ontology_editor/templates/partials/conditions_tab.html`
+- `ontology_editor/templates/partials/resources_tab.html`
+- `ontology_editor/templates/partials/actions_tab.html`
+- `ontology_editor/templates/partials/events_tab.html`
+- `ontology_editor/templates/partials/capabilities_tab.html`
+- Created new `scripts/invalidate_ontology_cache.py`
+- Created new `scripts/fix_entity_parent_selection.py`
+
 ## 2025-04-25 - Ontology System Standardization
 
 ### Implemented Changes

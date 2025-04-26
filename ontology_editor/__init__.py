@@ -131,9 +131,45 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
             if not entity or not parent:
                 return False
                 
-            # Check if parent.id is in entity's parents
+            # Ensure consistent string comparison
+            parent_id = str(parent.get('id')).strip() if parent.get('id') else None
+            entity_parent = str(entity.get('parent_class')).strip() if entity.get('parent_class') else None
+            
+            # Debug output to help troubleshoot
+            print(f"Partial template comparing parent: {parent_id}")
+            print(f"With entity parent: {entity_parent}")
+            print(f"Match: {parent_id == entity_parent}")
+            
+            if parent_id and entity_parent:
+                return parent_id == entity_parent
+                
+            return False
+            if not entity or not parent:
+                return False
+                
+            # Ensure consistent string comparison
+            parent_id = str(parent.get('id')).strip() if parent.get('id') else None
+            entity_parent = str(entity.get('parent_class')).strip() if entity.get('parent_class') else None
+            
+            # Debug output to help troubleshoot
+            print(f"Comparing parent: {parent_id}")
+            print(f"With entity parent: {entity_parent}")
+            print(f"Match: {parent_id == entity_parent}")
+            
+            if parent_id and entity_parent:
+                return parent_id == entity_parent
+                
+            return False
+
+            # DEBUG - print to console
+            print(f"is_parent_of check:")
+            print(f"  - parent id: {parent.get('id')}")
+            print(f"  - entity parent_class: {entity.get('parent_class')}")
+            print(f"  - match: {parent.get('id') == entity.get('parent_class')}")
+                
+            # Check if parent.id matches entity's parent_class
             if 'parent_class' in entity:
-                return parent.get('id') == entity.get('parent_class')
+                return str(parent.get('id')) == str(entity.get('parent_class'))
             
             return False
             
@@ -213,9 +249,29 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
             if not entity or not parent:
                 return False
                 
-            # Check if parent.id is in entity's parents
+            # Ensure consistent string comparison
+            parent_id = str(parent.get('id')).strip() if parent.get('id') else None
+            entity_parent = str(entity.get('parent_class')).strip() if entity.get('parent_class') else None
+            
+            # Debug output to help troubleshoot
+            print(f"Comparing parent: {parent_id}")
+            print(f"With entity parent: {entity_parent}")
+            print(f"Match: {parent_id == entity_parent}")
+            
+            if parent_id and entity_parent:
+                return parent_id == entity_parent
+                
+            return False
+                
+            # DEBUG - print to console
+            print(f"Partial template is_parent_of check:")
+            print(f"  - parent id: {parent.get('id')}")
+            print(f"  - entity parent_class: {entity.get('parent_class')}")
+            print(f"  - match: {parent.get('id') == entity.get('parent_class')}")
+                
+            # Check if parent.id matches entity's parent_class
             if 'parent_class' in entity:
-                return parent.get('id') == entity.get('parent_class')
+                return str(parent.get('id')) == str(entity.get('parent_class'))
             
             return False
             

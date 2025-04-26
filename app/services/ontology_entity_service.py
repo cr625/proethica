@@ -173,11 +173,16 @@ class OntologyEntityService:
         
         # Create role objects
         for s in role_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
             roles.append({
                 "id": str(s),
                 "label": label_or_id(s),
                 "description": get_description(s),
                 "tier": safe_get_property(s, namespace.hasTier),
+                "parent_class": parent_class_uri,
                 "capabilities": [
                     {
                         "id": str(o),
@@ -216,10 +221,15 @@ class OntologyEntityService:
         
         # Create condition objects
         for s in condition_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
             conditions.append({
                 "id": str(s),
                 "label": label_or_id(s),
-                "description": get_description(s)
+                "description": get_description(s),
+                "parent_class": parent_class_uri
             })
         
         return conditions
@@ -250,10 +260,15 @@ class OntologyEntityService:
         
         # Create resource objects
         for s in resource_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
             resources.append({
                 "id": str(s),
                 "label": label_or_id(s),
-                "description": get_description(s)
+                "description": get_description(s),
+                "parent_class": parent_class_uri
             })
         
         return resources
@@ -284,10 +299,15 @@ class OntologyEntityService:
         
         # Create event objects
         for s in event_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
             events.append({
                 "id": str(s),
                 "label": label_or_id(s),
-                "description": get_description(s)
+                "description": get_description(s),
+                "parent_class": parent_class_uri
             })
         
         return events
@@ -318,10 +338,15 @@ class OntologyEntityService:
         
         # Create action objects
         for s in action_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
             actions.append({
                 "id": str(s),
                 "label": label_or_id(s),
-                "description": get_description(s)
+                "description": get_description(s),
+                "parent_class": parent_class_uri
             })
         
         return actions
@@ -358,10 +383,15 @@ class OntologyEntityService:
         
         # Create capability objects
         for s in capability_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
             capabilities.append({
                 "id": str(s),
                 "label": label_or_id(s),
-                "description": get_description(s)
+                "description": get_description(s),
+                "parent_class": parent_class_uri
             })
         
         return capabilities

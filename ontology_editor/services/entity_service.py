@@ -18,6 +18,35 @@ from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
 
 class EntityService:
+    @classmethod
+    def is_parent_of(cls, parent, entity):
+        """
+        Check if parent is the parent of an entity.
+        Used for selecting the correct parent in the dropdown.
+        
+        Args:
+            parent (dict): Parent entity data
+            entity (dict): Entity data
+            
+        Returns:
+            bool: True if parent is the parent of entity
+        """
+        if not parent or not entity:
+            return False
+            
+        # Debug output
+        print(f"Comparing parent ID: {parent.get('id')}")
+        print(f"With entity parent_class: {entity.get('parent_class')}")
+        
+        # Ensure consistent string comparison
+        parent_id = str(parent.get('id')).strip() if parent.get('id') else None
+        entity_parent = str(entity.get('parent_class')).strip() if entity.get('parent_class') else None
+        
+        print(f"Cleaned comparison: '{parent_id}' == '{entity_parent}'")
+        print(f"Result: {parent_id == entity_parent}")
+        
+        return parent_id == entity_parent
+
     """Service for ontology entity management"""
     
     # Entity types mapping to their classes in the ontology
@@ -145,6 +174,35 @@ class EntityService:
                 'id': str(instance),
                 'label': label
             })
+        
+                # Add special base classes if they're missing
+        if entity_type == 'role':
+            # Check if EngineeringRole is already in results
+            eng_role_id = "http://proethica.org/ontology/engineering-ethics#EngineeringRole"
+            eng_role_in_results = any(r['id'] == eng_role_id for r in results)
+            
+            if not eng_role_in_results:
+                # Add EngineeringRole explicitly
+                print("Adding EngineeringRole explicitly to parent options")
+                results.append({
+                    'id': eng_role_id,
+                    'label': "Engineering Role"
+                })
+                
+            # Also add intermediate Role if needed
+            int_role_id = "http://proethica.org/ontology/intermediate#Role"
+            int_role_in_results = any(r['id'] == int_role_id for r in results)
+            
+            if not int_role_in_results:
+                # Add intermediate Role explicitly
+                print("Adding intermediate Role explicitly to parent options")
+                results.append({
+                    'id': int_role_id,
+                    'label': "Role (Base)"
+                })
+        
+        # Sort results by label for consistent order
+        results.sort(key=lambda x: x['label'])
         
         return results
     

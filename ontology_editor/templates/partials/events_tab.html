@@ -53,13 +53,21 @@
                         </div>
                         <div class="mb-3">
                             <label for="parent-{{ entity.id }}">Parent Class</label>
-                            <select class="form-control" id="parent-{{ entity.id }}" name="parent_class" required>
+                            
+                <!-- Parent class debug:
+                     Entity: {{ entity.label }}
+                     Parent Class: {{ entity.parent_class }}
+                -->
+                <select class="form-control" id="parent-{{ entity.id }}" name="parent_class" required>
                                 {% for parent in get_valid_parents('event') %}
-                                <option value="{{ parent.id }}" {% if is_parent_of(parent, entity) %}selected{% endif %}>
+                                <option value="{{ parent.id }}" {% if entity.parent_class == parent.id|string %}selected{% endif %}>
+                        
                                     {{ parent.label }}
-                                </option>
+                                
+                    </option>
                                 {% endfor %}
                             </select>
+                
                             <div class="validation-error"></div>
                         </div>
                         <div class="d-flex justify-content-between">
