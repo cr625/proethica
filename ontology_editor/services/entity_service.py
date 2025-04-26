@@ -175,36 +175,7 @@ class EntityService:
                 'label': label
             })
         
-                # Add special base classes if they're missing
-        if entity_type == 'role':
-            # Check if EngineeringRole is already in results
-            eng_role_id = "http://proethica.org/ontology/engineering-ethics#EngineeringRole"
-            eng_role_in_results = any(r['id'] == eng_role_id for r in results)
-            
-            if not eng_role_in_results:
-                # Add EngineeringRole explicitly
-                print("Adding EngineeringRole explicitly to parent options")
-                results.append({
-                    'id': eng_role_id,
-                    'label': "Engineering Role"
-                })
-                
-            # Also add intermediate Role if needed
-            int_role_id = "http://proethica.org/ontology/intermediate#Role"
-            int_role_in_results = any(r['id'] == int_role_id for r in results)
-            
-            if not int_role_in_results:
-                # Add intermediate Role explicitly
-                print("Adding intermediate Role explicitly to parent options")
-                results.append({
-                    'id': int_role_id,
-                    'label': "Role (Base)"
-                })
-        
-        # Sort results by label for consistent order
-        results.sort(key=lambda x: x['label'])
-        
-                # Add special base classes if they're missing
+        # Add special base classes if they're missing
         if entity_type == 'role':
             # Check if EngineeringRole is already in results
             eng_role_id = "http://proethica.org/ontology/engineering-ethics#EngineeringRole"
@@ -259,6 +230,41 @@ class EntityService:
             for base_class in condition_base_classes:
                 if not any(r['id'] == base_class['id'] for r in results):
                     print(f"Adding {base_class['label']} explicitly to condition parent options")
+                    results.append(base_class)
+        
+        elif entity_type == 'resource':
+            # Add special resource base classes if missing
+            resource_base_classes = [
+                {
+                    'id': "http://proethica.org/ontology/intermediate#ResourceType",
+                    'label': "Resource Type"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringDocument",
+                    'label': "Engineering Document"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringDrawing",
+                    'label': "Engineering Drawing"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringSpecification",
+                    'label': "Engineering Specification"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringReport",
+                    'label': "Engineering Report"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#BuildingCode",
+                    'label': "Building Code"
+                }
+            ]
+            
+            # Add any missing base classes
+            for base_class in resource_base_classes:
+                if not any(r['id'] == base_class['id'] for r in results):
+                    print(f"Adding {base_class['label']} explicitly to resource parent options")
                     results.append(base_class)
         
         # Sort results by label for consistent order

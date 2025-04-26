@@ -1,89 +1,119 @@
-# Unified Ontology System
+# Unified Ontology System Documentation
 
-This document provides a consolidated overview of the ontology system in the ProEthica project, including the database storage architecture, visualization features, and management tools.
+## Overview
 
-## System Architecture
+The ProEthica system uses a comprehensive ontology system to define the structure of engineering ethics principles, roles, resources, conditions, actions, and events. This document describes the database-backed ontology storage and access system that has replaced the previous file-based approach.
 
-The ontology system uses a database-driven storage approach for all ontology data with the following key components:
+## Database-Backed Ontologies
 
-### Core Database Models
+### Storage Structure
 
-1. **Ontology**: Main model for ontology metadata and content
-   - Stores full ontology content, name, description, domain ID
-   - Tracks base/editable status for special ontologies
+All ontologies are stored in the PostgreSQL database with the following structure:
 
-2. **OntologyVersion**: Tracks version history
-   - Maintains historical snapshots of ontologies
-   - Includes commit messages and timestamps
+1. **Ontology** - Main table storing ontology metadata and content
+   - Content stored as Turtle (TTL) format RDF
+   - Metadata includes name, description, domain, editability flags
+   
+2. **OntologyVersion** - Table storing version history
+   - Each change creates a new numbered version
+   - Complete audit trail of ontology modifications
+   
+3. **OntologyImport** - Table tracking imported ontologies
+   - Establishes relationships between ontologies
+   - Enables inheritance of concepts across domain ontologies
 
-3. **OntologyImport**: Maps relationships between ontologies
-   - Tracks which ontologies import others
-   - Enables dependency management
+### Ontology Entities
 
-### User Interface Components
+The system defines several entity types:
 
-1. **Ontology Editor**: Web-based editor for ontology content 
-   - Full ACE editor with Turtle syntax highlighting
-   - Validation for syntax and BFO compliance
-   - Version history and comparison
+- **Roles**: Persons or organizations involved in ethical scenarios (e.g., Engineer, Client)
+- **Resources**: Documents, drawings, codes that are referenced (e.g., Engineering Report, Building Code)
+- **Conditions**: States, principles or dilemmas that exist (e.g., Safety Principle, Conflict of Interest)
+- **Actions**: Activities that can be performed (e.g., Report Preparation, Approval)
+- **Events**: Occurrences that happen (e.g., Safety Reporting Event)
+- **Capabilities**: Abilities that roles can possess (e.g., Technical Reporting Capability)
 
-2. **Visualization Interface**: Interactive ontology explorer
-   - Hierarchical view of classes
-   - Entity type view with categorization
-   - Color-coding for different entity types
+Each entity type has a hierarchy with base classes and specific instances:
 
-## Management Tools
+```
+ResourceType (base)
+├── EngineeringDocument
+│   ├── EngineeringDrawing
+│   │   └── Design Drawings
+│   ├── EngineeringSpecification
+│   └── EngineeringReport
+│       ├── Structural Report
+│       └── Inspection Report
+└── BuildingCode
+    ├── NSPE Code of Ethics
+    └── NSPE Code Section
+```
 
-The system includes several scripts for managing ontologies:
+## API for Accessing Ontologies
 
-### Core Management Scripts
+The system provides RESTful API endpoints to access ontologies and their entities:
 
-- **scripts/setup_ontology_db_only.sh**: Master script for database migration
-- **scripts/check_ontologies_in_db.py**: Verify ontologies in database
-- **scripts/update_ontology_mcp_server.py**: Update MCP server for database loading
+- **GET /api/ontologies** - List all available ontologies
+- **GET /api/ontologies/{id}** - Get a specific ontology
+- **GET /api/ontologies/{id}/versions** - List versions of an ontology
+- **GET /api/ontologies/{id}/entities** - List all entities in an ontology
+- **GET /api/ontologies/{id}/entities/{type}** - List entities of a specific type
 
-### Maintenance Scripts
+These API endpoints support filtering, pagination, and search operations.
 
-- **scripts/archive_ontology_files.py**: Safely archive original TTL files
-- **scripts/remove_ontology_files.py**: Replace TTL files with placeholders
+## Ontology Editor
 
-## API Routes
+The system includes a web-based ontology editor that provides:
 
-The system provides a comprehensive API:
+- Visual editing of ontology entities
+- Parent-child relationship management
+- Version control with commits and rollback
+- Entity validation
 
-- `/ontology-editor/api/ontologies` - List all ontologies
-- `/ontology-editor/api/ontology/<id>` - Get ontology by ID
-- `/ontology-editor/api/versions/<id>` - List/get versions
-- `/ontology-editor/api/ontology/<id>/hierarchy` - Get class hierarchy for visualization
+## MCP Server Integration
+
+The Model Context Protocol (MCP) server has been updated to load ontologies from the database instead of files. This maintains backward compatibility with LLM services while providing the benefits of database storage:
+
+1. **Database Loading**: The MCP server loads ontology data from the database on startup
+2. **Caching**: Implemented for performance optimization
+3. **Real-time Updates**: Changes to ontologies are immediately available to connected LLMs
+
+### MCP API Endpoints
+
+- **/api/guidelines/{ontology-name}** - Access ontology as guidance for LLMs
+- **/api/entities/{entity-type}** - Get entities of a specific type across ontologies
+- **/api/temporal/{version}** - Access temporal aspects of entities (for simulation)
+
+## Database to File System Synchronization (Optional)
+
+While the primary storage is now database-based, the system maintains an optional synchronization mechanism to export ontologies to the file system for:
+
+1. External tool compatibility
+2. Version control system integration
+3. Backup purposes
 
 ## Best Practices
 
-1. **Database Operations**
-   - Always use transactions for updates to maintain consistency
-   - Create new version entries when modifying ontologies
+1. **Entity Creation**: 
+   - Always specify appropriate parent classes
+   - Provide clear labels and descriptions
+   - Avoid circular references
 
-2. **Visualization**
-   - Use filtering options for large ontologies
-   - Consider caching for frequently accessed hierarchies
+2. **Relationship Management**:
+   - Maintain proper hierarchy relationships
+   - Use appropriate entity types for concepts
 
-3. **Development**
-   - Update visualization when making significant ontology changes
-   - Test with both small and large ontologies
+3. **Version Control**:
+   - Provide meaningful commit messages
+   - Create logical, discrete changes
+   - Test changes before committing
 
-## Migration from File-Based Storage
+## Common Issues and Solutions
 
-The system has been migrated from file-based storage to database storage. Key aspects of this migration:
+- **Parent Selection Errors**: If parent class selection fails, check that the entity service is recognizing the appropriate base classes
+- **MCP Server Connection Issues**: Restart the MCP server to reload ontology data
+- **Entity Type Confusion**: Review the entity type definitions to ensure proper classification
 
-1. **Database as Single Source of Truth**: All ontology data now stored in database
-2. **Compatibility Layer**: MCP server patch to prioritize database loading
-3. **Safe Migration Process**: Archived original files before replacement
-4. **Fallback Mechanism**: Database-first with file fallback for backward compatibility
+## Migration Path
 
-## Future Development
-
-Planned enhancements to the ontology system:
-
-1. **Improved Visualization**: Enhanced relationship visualization
-2. **Collaborative Editing**: Multi-user editing capabilities
-3. **Advanced Querying**: Better search and filtering of ontology entities
-4. **Performance Optimization**: Better handling of large ontologies
+Previous file-based ontologies have been imported into the database. The archived files are maintained in the `ontologies_archive_YYYYMMDD_HHMMSS` directory for reference, but all active development should use the database-backed editor.

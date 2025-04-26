@@ -2,6 +2,51 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
+## 2025-04-26 - Resource Hierarchy Fixes and Ontology Documentation Update
+
+### Implemented Changes
+
+1. **Fixed Resource Hierarchy in Ontology**
+   - Fixed incorrect parent-child relationships in resources (Design Drawings, Engineering Specification)
+   - Created proper resource hierarchy with appropriate parent classes
+   - Fixed self-referencing issues with resource base classes
+   - Established clean hierarchy from ResourceType → EngineeringDocument → specific document types
+   - Created comprehensive analysis and repair scripts for resource hierarchy
+
+2. **Updated Resource Parent Dropdown Selection**
+   - Modified entity service to explicitly include key resource parent classes
+   - Updated resource tab template to use proper parent selection method
+   - Fixed parent class display and selection for all resource types
+   - Used consistent approach across all entity types for parent selection
+
+3. **Consolidated Ontology Documentation**
+   - Created unified ontology system documentation
+   - Documented database-backed ontology storage approach
+   - Provided clear hierarchy diagrams for resource types
+   - Documented MCP server integration with database ontologies
+   - Added best practices for entity creation and hierarchy management
+
+### Verification Results
+- All resource entities now have appropriate parent classes
+- No more self-referencing resources in the ontology
+- Clean resource hierarchy with proper inheritance:
+  - ResourceType (base)
+  - EngineeringDocument (inherits from ResourceType)
+  - Specialized document types (inherit from EngineeringDocument)
+  - BuildingCode (inherits from ResourceType)
+- Resource parent dropdowns now show appropriate options
+
+### Scripts Created
+- `scripts/analyze_ontology_resources_hierarchy.py` - Analyzes resource hierarchy for issues
+- `scripts/fix_resource_hierarchy.py` - Fixes basic parent-child relationships
+- `scripts/fix_resource_self_references.py` - Fixes circular reference issues
+- `scripts/update_resource_dropdown.py` - Updates entity service and templates for resources
+
+### Files Modified
+- `ontology_editor/services/entity_service.py` - Added resource base class handling
+- `ontology_editor/templates/partials/resources_tab.html` - Updated parent selection
+- Created new `docs/unified_ontology_system.md` - Comprehensive ontology documentation
+
 ## 2025-04-26 - Parent Class Selection and Engineering Role Fix
 
 ### Implemented Changes
@@ -193,7 +238,8 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
 - Consider adding syntax highlighting for ontology errors in the editor
 - Implement more detailed validation feedback with line numbers and error locations
 - Explore automatic syntax fixing options for common ontology errors
-## 2025-04-24
+
+## 2025-04-24 - Database-Only Ontology Storage System
 
 ### Updated ontology storage to use database-only system
 
@@ -209,7 +255,3 @@ This file tracks progress, decisions, and important changes to the ProEthica sys
   - Enables proper version tracking through the database
   - Maintains compatibility with existing code through fallback mechanisms
   - Original files archived for reference if needed
-
-### Previous Updates
-
-[Previous logs would be here]
