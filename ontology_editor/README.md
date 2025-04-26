@@ -1,15 +1,17 @@
-# Ontology Editor
+# Ontology Editor System
 
-A modular BFO-based ontology editor for the ProEthica system with database-driven storage.
+A modular BFO-based ontology editor with comprehensive entity management for the ProEthica system.
 
 ## Overview
 
 The Ontology Editor is a web-based tool for creating, editing, and visualizing ontologies built on the Basic Formal Ontology (BFO) framework. It provides:
 
 - A form-based editor for TTL (Turtle) ontology content
+- Card-based entity editor for roles, conditions, resources, actions, events, and capabilities
 - BFO compliance validation with warnings
 - Hierarchical visualization of ontology classes and relationships
 - Version control with commit history
+- Protection for base/intermediate ontology entities
 - Integration with ProEthica's authentication system
 - Database-driven storage for all ontology content
 
@@ -137,8 +139,9 @@ The editor uses the following database models:
 
 For comprehensive documentation, see:
 
-- `docs/ontology_system.md`: Main documentation of the ontology system
-- `docs/unified_ontology_system.md`: Overview of the unified system
+- `docs/ontology_comprehensive_guide.md`: Complete guide to the ontology system
+- `docs/unified_ontology_system.md`: Technical details of the unified system
+- `docs/ontology_system.md`: Core ontology system documentation
 - `docs/ontology_visualization.md`: Information about the visualization feature
 
 ## License

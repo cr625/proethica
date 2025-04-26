@@ -1,4 +1,6 @@
-# Ontology File Migration Guide
+# [DEPRECATED] Ontology File Migration Guide
+
+> **NOTE**: This document is now deprecated. The system has been fully migrated to database-driven ontology storage, and this guide is maintained for historical reference only. See `docs/ontology_comprehensive_guide.md` for current documentation.
 
 This document explains the process of migrating ontology files from the filesystem to the database, and how to safely remove the original TTL files after migration.
 

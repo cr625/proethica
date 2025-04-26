@@ -267,6 +267,100 @@ class EntityService:
                     print(f"Adding {base_class['label']} explicitly to resource parent options")
                     results.append(base_class)
         
+        elif entity_type == 'action':
+            # Add special action base classes if missing
+            action_base_classes = [
+                {
+                    'id': "http://proethica.org/ontology/intermediate#ActionType",
+                    'label': "Action Type"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringAction",
+                    'label': "Engineering Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ReportAction",
+                    'label': "Report Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#DesignAction",
+                    'label': "Design Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ReviewAction",
+                    'label': "Review Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ApprovalAction",
+                    'label': "Approval Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#DecisionAction",
+                    'label': "Decision Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#SafetyAction",
+                    'label': "Safety Action"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ConsultationAction",
+                    'label': "Consultation Action"
+                }
+            ]
+            
+            # Add any missing base classes
+            for base_class in action_base_classes:
+                if not any(r['id'] == base_class['id'] for r in results):
+                    print(f"Adding {base_class['label']} explicitly to action parent options")
+                    results.append(base_class)
+                    
+        elif entity_type == 'event':
+            # Add special event base classes if missing
+            event_base_classes = [
+                {
+                    'id': "http://proethica.org/ontology/intermediate#EventType",
+                    'label': "Event Type"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#EngineeringEvent",
+                    'label': "Engineering Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#MeetingEvent",
+                    'label': "Meeting Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#ReportingEvent",
+                    'label': "Reporting Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#InspectionEvent",
+                    'label': "Inspection Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#DisclosureEvent",
+                    'label': "Disclosure Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#SafetyEvent",
+                    'label': "Safety Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#DeliveryEvent",
+                    'label': "Delivery Event"
+                },
+                {
+                    'id': "http://proethica.org/ontology/engineering-ethics#DiscoveryEvent",
+                    'label': "Discovery Event"
+                }
+            ]
+            
+            # Add any missing base classes
+            for base_class in event_base_classes:
+                if not any(r['id'] == base_class['id'] for r in results):
+                    print(f"Adding {base_class['label']} explicitly to event parent options")
+                    results.append(base_class)
+        
         # Sort results by label for consistent order
         results.sort(key=lambda x: x['label'])
         

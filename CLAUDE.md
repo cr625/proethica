@@ -2,6 +2,83 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
+## 2025-04-26 - Entity Hierarchy Validation and Visualization
+
+### Implemented Changes
+
+1. **Created Entity Hierarchy Validation Script**
+   - Implemented comprehensive `check_entity_hierarchies.py` script to validate ontology entity relationships
+   - Added detailed hierarchy visualization with proper parent-child tree display
+   - Confirmed all entities use appropriate parent classes from database-stored ontologies
+   - Verified no entities use incorrect parent types (like resources as parents)
+   - Added debug capabilities for troubleshooting entity relationship issues
+
+2. **Enhanced Entity Hierarchy Visualization**
+   - Created tree-based visualization of entity hierarchies for both actions and events
+   - Implemented proper indentation and tree branch symbols (├── and └──) for clear hierarchy display
+   - Added detection of specialized parent classes from actual entity relationships
+   - Provided complete hierarchy picture from base types through all specialization levels
+   - Ensured visualization works correctly with database-stored ontologies
+
+3. **Improved Ontology Hierarchy Analysis**
+   - Created detailed debugging output for entity structures and relationships
+   - Added specialized class detection to ensure proper parent-child relationships
+   - Fixed parent detection and counting for both action and event hierarchies
+   - Added explicit validation to ensure entities don't use resources as parents
+   - Created comprehensive analysis of all entity hierarchies
+
+### Benefits
+- Clear visualization of the complete ontology hierarchy
+- Simplified debugging for entity relationship issues
+- Confirmation that database-stored ontologies maintain proper relationships
+- Validation that MCP server can correctly access ontology data
+- Foundation for future hierarchy consistency checks
+
+### Scripts Created
+- `scripts/check_entity_hierarchies.py` - Validates and visualizes entity hierarchies
+
+## 2025-04-26 - Action and Event Hierarchy Improvements
+
+### Implemented Changes
+
+1. **Fixed Action Hierarchy in Ontology**
+   - Restructured action hierarchy to use proper inheritance
+   - Created specialized action classes (ReportAction, DesignAction, DecisionAction, etc.)
+   - Fixed actions with incorrect parent classes (e.g., actions using Report as parent)
+   - Established clean hierarchy from ActionType → EngineeringAction → specialized actions
+   - Created comprehensive analysis and repair scripts for action hierarchy
+
+2. **Fixed Event Hierarchy in Ontology**
+   - Restructured event hierarchy to use proper inheritance
+   - Created specialized event classes (MeetingEvent, ReportingEvent, SafetyEvent, etc.)
+   - Fixed events with incorrect parent classes (e.g., events using Report as parent)
+   - Established clean hierarchy from EventType → EngineeringEvent → specialized events
+   - Created comprehensive analysis and repair scripts for event hierarchy
+
+3. **Updated EntityService for Actions and Events**
+   - Modified entity service to explicitly include key parent classes for actions and events
+   - Ensured proper parent selection for all entity types
+   - Created cache invalidation utility to refresh ontology data after hierarchy changes
+
+### Verification Results
+- All action entities now have appropriate parent classes
+- All event entities now have appropriate parent classes
+- Clean hierarchy with proper inheritance for both actions and events
+- Action and event parent dropdowns now show appropriate options in UI
+- Multi-inheritance properly implemented for special cases (e.g., hazard reporting)
+
+### Scripts Created
+- `scripts/analyze_ontology_actions_hierarchy.py` - Analyzes action hierarchy for issues
+- `scripts/fix_action_hierarchy.py` - Fixes action parent-child relationships
+- `scripts/analyze_ontology_events_hierarchy.py` - Analyzes event hierarchy for issues
+- `scripts/fix_event_hierarchy.py` - Fixes event parent-child relationships
+- `scripts/invalidate_ontology_cache.py` - Utility to refresh ontology data in the UI
+
+### Files Modified
+- `ontology_editor/services/entity_service.py` - Added action and event base class handling
+- `ontology_editor/templates/partials/actions_tab.html` - Parent selection improvements
+- `ontology_editor/templates/partials/events_tab.html` - Parent selection improvements
+
 ## 2025-04-26 - Resource Hierarchy Fixes and Ontology Documentation Update
 
 ### Implemented Changes

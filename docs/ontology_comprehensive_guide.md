@@ -1,10 +1,20 @@
-# Unified Ontology System Documentation
+# Comprehensive Ontology System Guide
+
+This document provides a unified and comprehensive guide for the ProEthica ontology system, explaining how ontologies are stored, managed, and accessed throughout the application.
 
 ## Overview
 
-The ProEthica system uses a comprehensive ontology system to define the structure of engineering ethics principles, roles, resources, conditions, actions, and events. This document describes the database-backed ontology storage and access system that has replaced the previous file-based approach.
+ProEthica uses ontologies to define the entity types (roles, conditions, resources, actions, events, capabilities) available within worlds. The ontology system consists of several integrated components:
 
-## Database-Backed Ontologies
+1. **Database Storage**: Primary storage for all ontologies and their versions
+2. **Ontology Editor**: TTL-based editor for modifying ontology content
+3. **Entity Editor**: Card-based interface for managing specific entities
+4. **MCP Server Integration**: Makes ontologies accessible to LLMs via the Model Context Protocol
+5. **Ontology Entity Service**: Extracts entities from ontologies for use in the application
+
+## Database-Driven Architecture
+
+ProEthica uses a database-first approach for ontology management:
 
 ### Storage Structure
 
@@ -22,7 +32,54 @@ All ontologies are stored in the PostgreSQL database with the following structur
    - Establishes relationships between ontologies
    - Enables inheritance of concepts across domain ontologies
 
-### Ontology Entities
+### Benefits of Database Storage
+
+1. **Single Source of Truth**: Eliminates inconsistencies between different parts of the system
+2. **Version Control**: Proper tracking of ontology changes over time
+3. **Improved Performance**: Faster access to ontology data
+4. **Better Integration**: Easier integration with other parts of the application
+5. **Protection**: Better control over which ontologies can be modified
+
+## Ontology Structure and Hierarchy
+
+ProEthica ontologies follow a layered approach:
+
+1. **Base Ontology (BFO)**: Fundamental upper-level categories like Entity, Continuant, Occurrent
+2. **Intermediate Ontology**: Domain-independent but application-specific concepts
+3. **Domain Ontologies**: Specialized ontology for specific domains (e.g., engineering ethics)
+
+### Base Ontologies
+
+The system recognizes two types of base ontologies:
+
+1. **BFO (Basic Formal Ontology)**:
+   - Provides the foundational classes for all ontologies
+   - Imported into the intermediate ontology
+   - Marked as non-editable in the database
+
+2. **ProEthica Intermediate Ontology**:
+   - Defines core entity types used across all domain ontologies
+   - Extends BFO with ethical-specific concepts
+   - Defines `Role`, `Condition`, `Resource`, `Event`, and `Action` classes
+   - Marked as non-editable in the database
+
+### Import Relationships
+
+Domain ontologies explicitly import base ontologies in the database:
+
+1. **Direct Imports**:
+   - Explicitly defined with `owl:imports` statements in the TTL
+   - Stored in the database using the `OntologyImport` model
+
+2. **Implicit Imports**:
+   - Detected from prefix declarations and namespace usage
+   - Added automatically during import processing
+
+3. **Default Imports**:
+   - When no imports are detected, the intermediate ontology is added by default
+   - Ensures all domain ontologies have access to core types
+
+## Entity Types and Hierarchies
 
 The system defines several entity types:
 
@@ -86,6 +143,26 @@ EventType (base)
         └── Structural Inspection Event
 ```
 
+## Entity Editor
+
+The Entity Editor provides an intuitive interface for managing entities within ontologies:
+
+### Protection System
+
+The Entity Editor implements protection for core ontology elements:
+
+1. **Base BFO Entities**: Cannot be modified (read-only)
+2. **Intermediate Ontology Entities**: Cannot be modified in the entity editor (use full ontology editor)
+3. **Domain-specific Entities**: Fully editable
+
+### Entity Management Features
+
+- **Inline Editing**: Click "Edit" to transform entity cards into edit forms
+- **Add New Entities**: "Add [Entity Type]" buttons for each category
+- **Delete Entities**: Remove domain-specific entities when no longer needed
+- **Parent Selection**: Choose appropriate parent classes for proper inheritance
+- **Capability Assignment**: Link capabilities to roles for richer semantic relationships
+
 ## API for Accessing Ontologies
 
 The system provides RESTful API endpoints to access ontologies and their entities:
@@ -98,14 +175,31 @@ The system provides RESTful API endpoints to access ontologies and their entitie
 
 These API endpoints support filtering, pagination, and search operations.
 
-## Ontology Editor
+## Accessing Ontologies in Code
 
-The system includes a web-based ontology editor that provides:
+### From Web UI
 
-- Visual editing of ontology entities
-- Parent-child relationship management
-- Version control with commits and rollback
-- Entity validation
+```python
+# Example of accessing entities for a world
+from app.services.ontology_entity_service import OntologyEntityService
+
+entity_service = OntologyEntityService.get_instance()
+entities = entity_service.get_entities_for_world(world)
+```
+
+### From MCP Server
+
+```python
+# MCP server loading ontology from database
+from app.models.ontology import Ontology
+from rdflib import Graph
+
+ontology = Ontology.query.filter_by(domain_id=domain_id).first()
+if ontology:
+    g = Graph()
+    g.parse(data=ontology.content, format="turtle")
+    # Process graph...
+```
 
 ## MCP Server Integration
 
@@ -121,13 +215,31 @@ The Model Context Protocol (MCP) server has been updated to load ontologies from
 - **/api/entities/{entity-type}** - Get entities of a specific type across ontologies
 - **/api/temporal/{version}** - Access temporal aspects of entities (for simulation)
 
-## Database to File System Synchronization (Optional)
+## Entity Extraction and Caching
 
-While the primary storage is now database-based, the system maintains an optional synchronization mechanism to export ontologies to the file system for:
+The system uses the `OntologyEntityService` to extract entities from database-stored ontologies:
 
-1. External tool compatibility
-2. Version control system integration
-3. Backup purposes
+- **Parsing**: Uses RDFLib to parse TTL content from database
+- **Extraction**: Identifies entity types based on RDF structure
+- **Caching**: Maintains a cache of extracted entities for performance
+- **Invalidation**: Provides utilities to invalidate the cache when needed
+
+### Cache Invalidation
+
+When making changes to ontologies or entities, the cache may need to be invalidated:
+
+```bash
+python scripts/invalidate_ontology_cache.py [ontology_id]
+```
+
+## Versioning System
+
+When entities are modified through the Entity Editor:
+
+1. A new version of the ontology is created
+2. The version is stored in the `ontology_versions` table
+3. The parent ontology record is updated to reference the latest version
+4. Entity URIs remain consistent across versions
 
 ## Best Practices
 
@@ -161,6 +273,14 @@ While the primary storage is now database-based, the system maintains an optiona
 - **Event-Resource Confusion**: Ensure events aren't incorrectly inheriting from resources (e.g., a ReportingEvent should inherit from EventType hierarchy, not from EngineeringReport)
 - **Multi-Inheritance Issues**: For entities with multiple parent classes, ensure all parent classes are properly defined in the ontology before assigning them
 
-## Migration Path
+## Future Enhancements
 
-Previous file-based ontologies have been imported into the database. The archived files are maintained in the `ontologies_archive_YYYYMMDD_HHMMSS` directory for reference, but all active development should use the database-backed editor.
+1. **Relationship Editing**: Direct editing of relationships between entities
+2. **Visual Graph**: Interactive graph visualization of entity relationships
+3. **Entity Search**: Advanced search and filtering capabilities
+4. **Bulk Operations**: Batch import/export of entities
+5. **Validation Rules**: Advanced validation for entity properties
+
+---
+
+*Last Updated: April 26, 2025*

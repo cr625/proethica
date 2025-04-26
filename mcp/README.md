@@ -1,4 +1,4 @@
-# MCP Server Management
+# MCP Server for Ontology Access
 
 This directory contains the Model Context Protocol (MCP) server implementation for the AI Ethical Decision Making application.
 
@@ -8,13 +8,14 @@ The MCP server provides access to ontology data through the Model Context Protoc
 
 ### Database-Driven Ontology Access
 
-The MCP server now primarily works with database-stored ontologies:
+The MCP server exclusively works with database-stored ontologies:
 
-1. **Direct Database Loading**: The server first attempts to load ontologies from the database
-2. **File Fallback**: Falls back to file loading only if the ontology is not found in the database
-3. **Consistent Entity Extraction**: Uses the same entity extraction logic as the main application
+1. **Direct Database Loading**: The server loads ontologies directly from the PostgreSQL database
+2. **Consistent Entity Extraction**: Uses the same entity extraction logic as the main application
+3. **Caching**: Implements efficient caching for better performance with frequent requests
+4. **Entity Hierarchies**: Maintains proper parent-child relationships for all entity types
 
-This approach ensures consistency and allows for proper version control of ontologies.
+This database-first approach ensures consistency and allows for proper version control of ontologies.
 
 ## Implementation Types
 
