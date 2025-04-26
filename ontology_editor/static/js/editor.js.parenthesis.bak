@@ -41,9 +41,6 @@ document.addEventListener('DOMContentLoaded', function() {
  * Initialize the ACE editor
  */
 function initializeEditor() {
-    // Load language tools extension before setting autocompletion options
-    ace.require("ace/ext/language_tools");
-    
     editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
     editor.session.setMode("ace/mode/turtle");
@@ -61,6 +58,8 @@ function initializeEditor() {
             isEditorDirty = true;
             document.getElementById('saveBtn').disabled = false;
         }
+}
+
     });
 }
 

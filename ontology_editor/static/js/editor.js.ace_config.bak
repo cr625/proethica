@@ -41,19 +41,16 @@ document.addEventListener('DOMContentLoaded', function() {
  * Initialize the ACE editor
  */
 function initializeEditor() {
-    // Load language tools extension before setting autocompletion options
-    ace.require("ace/ext/language_tools");
-    
     editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
     editor.session.setMode("ace/mode/turtle");
     editor.setShowPrintMargin(false);
-    
-    // Set options individually to avoid naming issues
-    editor.setOption("enableBasicAutocompletion", true);
-    editor.setOption("enableLiveAutocompletion", true);
-    editor.setOption("fontSize", "14px");
-    editor.setOption("tabSize", 2);
+    editor.setOptions({
+        enableBasicAutocompletion: true,
+        enableLiveAutocompletion: true,
+        fontSize: "14px",
+        tabSize: 2
+    });
     
     // Track changes to enable/disable save button
     editor.getSession().on('change', function() {
