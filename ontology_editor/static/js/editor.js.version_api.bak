@@ -481,7 +481,7 @@ function loadVersion(versionId) {
     editorContainer.appendChild(loadingOverlay);
     
     // Fetch the version content
-    fetch(`/ontology-editor/api/versions/${currentOntologyId}/${versionId}`)
+    fetch(`/ontology-editor/api/versions/${versionId}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load version');

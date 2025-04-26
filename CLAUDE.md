@@ -2,6 +2,33 @@
 
 This file tracks progress, decisions, and important changes to the ProEthica system.
 
+## 2025-04-26 - Ontology Version API and Editor Fixes
+
+### Implemented Changes
+
+1. **Fixed Ontology Version Endpoint Issues**
+   - Created new endpoint to get versions by both ontology ID and version number
+   - Fixed JavaScript to properly use the new version endpoint pattern
+   - Resolved 500 errors when trying to load ontology versions
+   - Added proper error handling for version loading
+
+2. **Fixed ACE Editor Configuration**
+   - Corrected ACE editor option names from misspelled `enableBasicAutoComplete` to `enableBasicAutocompletion`
+   - Fixed `enableLiveAutoComplete` to `enableLiveAutocompletion`
+   - Eliminated console errors related to ACE editor configuration
+
+### Implementation Details
+- Created `scripts/fix_ontology_version_api.py` to automatically implement the fixes
+- Modified `ontology_editor/api/routes.py` to add the new version endpoint
+- Updated `ontology_editor/static/js/editor.js` to use the correct endpoint pattern and option names
+- Created backup files to maintain the ability to roll back changes if needed
+
+### Benefits
+- Improved editor user experience by enabling full version history browsing
+- Eliminated error messages when loading previous versions
+- Fixed console error messages for a cleaner developer experience
+- Maintained backward compatibility with existing code
+
 ## 2025-04-26 - Advanced Capability Hierarchy Implementation
 
 ### Implemented Changes

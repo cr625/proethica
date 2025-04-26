@@ -209,26 +209,6 @@ def create_api_routes(config):
             current_app.logger.error(f"Error fetching version {version_id}: {str(e)}")
             return jsonify({'error': f'Failed to fetch version {version_id}', 'details': str(e)}), 500
     
-    
-    @api_bp.route('/versions/<int:ontology_id>/<int:version_number>')
-    def get_version_by_number(ontology_id, version_number):
-        """Get a specific version by ontology ID and version number"""
-        try:
-            version = OntologyVersion.query.filter_by(
-                ontology_id=ontology_id,
-                version_number=version_number
-            ).first_or_404()
-            
-            # Get the version details
-            result = version.to_dict()
-            
-            # Include the content
-            result['content'] = version.content
-            
-            return jsonify(result)
-        except Exception as e:
-            current_app.logger.error(f"Error fetching version {ontology_id}/{version_number}: {str(e)}")
-            return jsonify({'error': f'Failed to fetch version {ontology_id}/{version_number}', 'details': str(e)}), 500
     @api_bp.route('/ontology/<int:ontology_id>/validate', methods=['POST'])
     def validate_ontology(ontology_id):
         """Validate the content of an ontology"""
