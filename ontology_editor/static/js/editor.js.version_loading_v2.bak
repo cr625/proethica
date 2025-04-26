@@ -470,7 +470,7 @@ function updateVersionsList(versions) {
 /**
  * Load a specific version into the editor
  * 
- * @param {string} versionNumber - Number of the version to load
+ * @param {string} versionId - ID of the version to load
  */
 function loadVersion(versionNumber) {
     // Show loading indicator
@@ -485,7 +485,7 @@ function loadVersion(versionNumber) {
     editorContainer.appendChild(loadingOverlay);
     
     // Fetch the version content
-    fetch(`/ontology-editor/api/versions/${currentOntologyId}/${versionNumber}`)
+    fetch(`/ontology-editor/api/versions/${versionId}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load version');
@@ -506,7 +506,7 @@ function loadVersion(versionNumber) {
                 item.classList.remove('active');
             });
             
-    const versionItem = document.querySelector(`#versionList li[data-version-number="${versionNumber}"]`);
+            const versionItem = document.querySelector(`#versionList li[data-version-id="${versionId}"]`);
             if (versionItem) {
                 versionItem.classList.add('active');
             }
