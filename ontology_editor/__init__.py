@@ -164,6 +164,88 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
                                serialized_parents=serialized_parents,
                                serialized_capabilities=serialized_capabilities)
                              
+    @blueprint.route('/api/partial/<entity_type>/<int:ontology_id>')
+    def get_partial_template(entity_type, ontology_id):
+        """Serve a partial template directly"""
+        from app.models.ontology import Ontology
+        from app.models.ontology_version import OntologyVersion
+        
+        # Create a mapping for template names
+        template_map = {
+            'resource': 'resources_tab.html',
+            'action': 'actions_tab.html',
+            'event': 'events_tab.html',
+            'capability': 'capabilities_tab.html',
+            'resources': 'resources_tab.html',
+            'actions': 'actions_tab.html',
+            'events': 'events_tab.html',
+            'capabilities': 'capabilities_tab.html'
+        }
+        
+        if entity_type not in template_map:
+            return jsonify({'error': f'Invalid entity type: {entity_type}'}), 400
+            
+        template_name = template_map[entity_type]
+        
+        # Get the ontology
+        ontology = Ontology.query.get_or_404(ontology_id)
+        
+        # Get entities
+        from app.services.ontology_entity_service import OntologyEntityService
+        entity_service = OntologyEntityService.get_instance()
+        
+        # Create a world-like object with the required ontology_id field
+        class DummyWorld:
+            def __init__(self, ontology_id):
+                self.ontology_id = ontology_id
+                
+        dummy_world = DummyWorld(ontology_id)
+        entities = entity_service.get_entities_for_world(dummy_world)
+        
+        # Helper functions (same as in entity_editor)
+        def is_editable(entity):
+            return EntityService.is_editable(entity)
+            
+        def get_entity_origin(entity):
+            return EntityService.get_entity_origin(entity)
+            
+        def is_parent_of(parent, entity):
+            if not entity or not parent:
+                return False
+                
+            # Check if parent.id is in entity's parents
+            if 'parent_class' in entity:
+                return parent.get('id') == entity.get('parent_class')
+            
+            return False
+            
+        def get_valid_parents(entity_type):
+            return EntityService.get_valid_parents(ontology_id, entity_type)
+            
+        def has_capability(role, capability):
+            if not role or not capability or not role.get('capabilities'):
+                return False
+                
+            return any(cap.get('id') == capability.get('id') for cap in role.get('capabilities', []))
+            
+        def get_all_capabilities():
+            if 'entities' in entities and 'capabilities' in entities['entities']:
+                return entities['entities']['capabilities']
+            return []
+        
+        # Render the partial template
+        html = render_template(f'partials/{template_name}',
+                              ontology=ontology,
+                              entities=entities,
+                              is_editable=is_editable,
+                              get_entity_origin=get_entity_origin,
+                              is_parent_of=is_parent_of,
+                              get_valid_parents=get_valid_parents,
+                              has_capability=has_capability,
+                              get_all_capabilities=get_all_capabilities)
+        
+        return jsonify({'html': html})
+                             
     @blueprint.route('/visualize/<ontology_id>')
     def visualize_ontology(ontology_id):
         """Ontology visualization view"""

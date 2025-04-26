@@ -17,8 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Tab loading management
     const loadedTabs = new Set(['roles', 'conditions']); // Preloaded tabs
     
-    // Function to load tab content
-    function loadTabContent(tabId) {
+    // Function to load tab content (make it globally available)
+    window.loadTabContent = function(tabId) {
         // Skip if already loaded
         if (loadedTabs.has(tabId)) {
             return;
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // Fetch tab content via AJAX
-        fetch(`/ontology-editor/api/entities/${ontologyId}/partial/${tabId}`)
+        fetch(`/ontology-editor/api/partial/${tabId}/${ontologyId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -62,10 +62,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error loading tab content:', error);
                 tabContent.innerHTML = `
                     <div class="alert alert-danger" role="alert">
-                        <i class="bi bi-exclamation-circle"></i> Failed to load content. Please try again.
-                        <button class="btn btn-outline-danger btn-sm ms-3" onclick="loadTabContent('${tabId}')">
-                            <i class="bi bi-arrow-clockwise"></i> Retry
-                        </button>
+                        <i class="bi bi-exclamation-circle"></i> Failed to load content: ${error.message}
+                        <br>
+                        <small class="text-muted">URL: /ontology-editor/api/partial/${tabId}/${ontologyId}</small>
+                        <div class="mt-2">
+                            <button class="btn btn-outline-danger btn-sm" onclick="loadTabContent('${tabId}')">
+                                <i class="bi bi-arrow-clockwise"></i> Retry
+                            </button>
+                            <button class="btn btn-outline-info btn-sm ms-2" onclick="window.location.reload()">
+                                <i class="bi bi-arrow-repeat"></i> Reload Page
+                            </button>
+                        </div>
                     </div>
                 `;
             });

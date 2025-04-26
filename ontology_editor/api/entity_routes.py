@@ -124,8 +124,20 @@ def create_entity_routes(config):
         """Serve a partial template for entity types"""
         from flask import render_template
         try:
-            if entity_type not in ['resources', 'actions', 'events', 'capabilities']:
-                return jsonify({'error': 'Invalid entity type'}), 400
+            # Map singular tab IDs to template names
+            template_map = {
+                'resource': 'resources_tab.html',
+                'action': 'actions_tab.html',
+                'event': 'events_tab.html',
+                'capability': 'capabilities_tab.html',
+                'resources': 'resources_tab.html',
+                'actions': 'actions_tab.html',
+                'events': 'events_tab.html',
+                'capabilities': 'capabilities_tab.html'
+            }
+            
+            if entity_type not in template_map:
+                return jsonify({'error': f'Invalid entity type: {entity_type}'}), 400
                 
             # Render the partial template
             from app.models.ontology import Ontology
@@ -174,7 +186,8 @@ def create_entity_routes(config):
                 return []
             
             # Render the appropriate partial template
-            partial_html = render_template(f'partials/{entity_type}_tab.html',
+            template_name = template_map[entity_type]
+            partial_html = render_template(f'partials/{template_name}',
                                          ontology=ontology,
                                          entities=entities,
                                          is_editable=is_editable,
