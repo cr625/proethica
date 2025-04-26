@@ -234,7 +234,14 @@ function loadDiff(fromVersion, toVersion) {
     
     const url = `/ontology-editor/api/versions/${currentOntologyId}/diff?from=${fromVersion}&to=${toVersion}&format=${format}`;
     
-    fetch(url).then(data => {
+    fetch(url).then(response => {            if (!response.ok) {                throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");            }            return response.json();        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load diff');
+            }
+            return response.json();
+        })
+        .then(data => {
             // Display the diff
             if (format === 'unified') {
                 // For unified diff, we need to format it as code

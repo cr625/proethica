@@ -23,35 +23,38 @@ function setupDiffModal() {
         document.getElementById('diffModal').classList.remove('show');
         document.getElementById('diffModalBackdrop').style.display = 'none';
     });
-
-    // Footer close button event
-    document.getElementById('closeDiffBtnFooter').addEventListener('click', function() {
-        document.getElementById('diffModal').classList.remove('show');
-        document.getElementById('diffModalBackdrop').style.display = 'none';
-    });
-
+    
     // Format toggle
     document.getElementById('diffFormatToggle').addEventListener('change', function() {
         // If we already have versions selected, reload the diff with the new format
         const fromVersion = document.getElementById('diffFromVersion').value;
         const toVersion = document.getElementById('diffToVersion').value;
+        
         if (fromVersion && toVersion) {
             loadDiff(fromVersion, toVersion);
-        }
+        
+    // Footer close button event
+    document.getElementById('closeDiffBtnFooter').addEventListener('click', function() {
+        document.getElementById('diffModal').classList.remove('show');
+        document.getElementById('diffModalBackdrop').style.display = 'none';
     });
-
+}
+    });
+    
     // Version selection changes
     document.getElementById('diffFromVersion').addEventListener('change', function() {
         const fromVersion = this.value;
         const toVersion = document.getElementById('diffToVersion').value;
+        
         if (fromVersion && toVersion) {
             loadDiff(fromVersion, toVersion);
         }
     });
-
+    
     document.getElementById('diffToVersion').addEventListener('change', function() {
         const fromVersion = document.getElementById('diffFromVersion').value;
         const toVersion = this.value;
+        
         if (fromVersion && toVersion) {
             loadDiff(fromVersion, toVersion);
         }
@@ -86,41 +89,42 @@ function setupCompareButtons() {
 function addCompareButtonsToVersions() {
     // Get all version items
     const versionItems = document.querySelectorAll('#versionList li');
-
+    
     // Remove any existing compare buttons first
     document.querySelectorAll('.compare-version-btn').forEach(btn => {
         btn.remove();
     });
-
-    // Add new compare buttons to each item
-    versionItems.forEach((item) => {
-        const versionNumber = item.dataset.versionNumber;
-        if (!versionNumber) return;
+    
+    // Add a compare button to each item
+    versionItems.forEach(item => {
+        // Skip items without version data
+        if (!item.dataset.versionNumber) {
+            return;
+        }
         
         // Create the compare button
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-sm btn-outline-primary compare-version-btn ms-2';
-        btn.textContent = 'Compare';
-        btn.title = 'Compare with another version';
+        const compareBtn = document.createElement('button');
+        compareBtn.className = 'btn btn-sm btn-outline-secondary compare-version-btn';
+        compareBtn.innerHTML = 'Compare';
+        compareBtn.setAttribute('title', 'Compare this version with another');
         
-        // Add click event handler
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        // Add click handler
+        compareBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Don't trigger the version loading
+            
+            const versionNumber = item.dataset.versionNumber;
             showDiffModal(versionNumber);
         });
-
-        // Find where to insert the button (after version info)
+        
+        // Add the button to the item
         const versionInfo = item.querySelector('.version-info');
         if (versionInfo) {
-            versionInfo.appendChild(btn);
+            versionInfo.appendChild(compareBtn);
         } else {
-            // Fallback to append to the item itself
-            item.appendChild(btn);
+            // No .version-info div, just append to the item
+            item.appendChild(compareBtn);
         }
     });
-
-    console.log(`Added compare buttons to ${versionItems.length} version items`);
 }
 
 /**
@@ -221,20 +225,31 @@ function loadDiff(fromVersion, toVersion) {
                 <p>You have selected the same version for comparison. There are no differences to display.</p>
             </div>
         `;
+        
         // Update metadata
-        document.getElementById('diffFromInfo').innerText = 
+        document.getElementById(\'diffFromInfo\').innerText = 
             `Version ${fromVersion}`;
-        document.getElementById('diffToInfo').innerText = 
+            
+        document.getElementById(\'diffToInfo\').innerText = 
             `Version ${toVersion} (Same)`;
+            
         // Hide commit message sections
-        document.getElementById('diffFromCommitSection').style.display = 'none';
-        document.getElementById('diffToCommitSection').style.display = 'none';
+        document.getElementById(\'diffFromCommitSection\').style.display = \'none\';
+        document.getElementById(\'diffToCommitSection\').style.display = \'none\';
+        
         return; // Exit early
     }
     
     const url = `/ontology-editor/api/versions/${currentOntologyId}/diff?from=${fromVersion}&to=${toVersion}&format=${format}`;
     
-    fetch(url).then(data => {
+    fetch(url).then(response => {            if (!response.ok) {                throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");            }            return response.json();        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load diff');
+            }
+            return response.json();
+        })
+        .then(data => {
             // Display the diff
             if (format === 'unified') {
                 // For unified diff, we need to format it as code

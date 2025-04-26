@@ -1,5 +1,191 @@
 # ProEthica Development Log
 
+## 2025-04-26 - Fixed JavaScript Fetch Chain Bug in Diff Viewer
+
+### Issue Fixed
+
+Fixed a critical bug in the diff viewer's fetch chain that was causing HTTP requests to fail when comparing versions. The error was:
+
+```
+Error loading diff: Error: Failed to load diff
+```
+
+### Root Cause Analysis
+
+The bug was in the `loadDiff` function of `diff.js` where `response.json()` was being called twice in the Promise chain:
+
+```javascript
+fetch(url).then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");
+    }
+    return response.json();  // First call to response.json()
+})
+.then(response => {
+    if (!response.ok) {
+        throw new Error('Failed to load diff');
+    }
+    return response.json();  // Second call to response.json() - ERROR!
+})
+```
+
+This caused the second `then()` handler to receive the already parsed JSON result from the first handler, not a Response object. Since the result doesn't have an `ok` property or a `json()` method, this caused the error.
+
+### Solution
+
+Removed the redundant second `then()` handler that was trying to process the Response object a second time:
+
+```javascript
+fetch(url).then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");
+    }
+    return response.json();  // Parse JSON only once
+})
+.then(data => {
+    // Use the data directly
+    // ...
+})
+```
+
+### Implementation Details
+
+1. Created a backup of the original JavaScript file
+2. Identified the problematic fetch chain
+3. Removed the redundant `then()` handler
+4. Fixed the Promise chain to properly handle the parsed JSON response
+
+### Verification
+
+The fix was verified by:
+1. Comparing different versions of the ontology
+2. Checking the JavaScript console for errors
+3. Verifying the diff content loads correctly
+
+This fix resolves the final issue with the diff viewer, allowing users to properly compare any two versions of an ontology.
+
+
+## 2025-04-26 - Comprehensive Fix for Ontology Version Diff Viewer System
+
+### Complete List of Issues Fixed
+
+1. **Python Syntax Errors in API Routes**
+   - Fixed docstring syntax error in the diff API endpoint that prevented server startup
+   - Fixed indentation mismatches between function definition and code blocks
+   - Corrected nested try-except blocks in the API endpoint
+   - Fixed missing `return api_bp` statement causing blueprint registration failure
+
+2. **JavaScript Errors in Diff Viewer**
+   - Fixed escaped single quotes in template literals causing syntax errors
+   - Added missing document ready event listener to initialize compare buttons
+   - Fixed implementation of version comparison buttons
+   - Improved error handling for HTTP responses and edge cases
+
+3. **Missing UI Components**
+   - Restored "Compare" buttons on version items
+   - Fixed button styling and event handlers
+   - Added proper error display in the diff view
+
+### Root Causes and Solutions
+
+1. **API Blueprint Not Being Returned**
+   Problem: The `create_api_routes` function was creating a Flask blueprint but not returning it, causing:
+   ```
+   AttributeError: 'NoneType' object has no attribute 'subdomain'
+   ```
+   Solution: Added proper `return api_bp` statement to ensure the blueprint object is returned to the main application.
+
+2. **Syntax Error in Docstring**
+   Problem: The docstring in the diff endpoint had improperly escaped triple quotes causing syntax errors.
+   Solution: Rewrote the function with proper docstring formatting and consistent indentation.
+
+3. **JavaScript Syntax Errors**
+   Problem: Escaped single quotes in template literals were causing JavaScript execution to fail:
+   ```
+   diff.js:230 Uncaught SyntaxError: Invalid or unexpected token
+   ```
+   Solution: Corrected the quote escaping in JavaScript string literals.
+
+4. **Missing Compare Buttons**
+   Problem: The addCompareButtonsToVersions function had implementation issues.
+   Solution: Completely rewrote the function with proper button creation and event handling.
+
+### Implementation Strategy
+
+1. **Systematic Python Fixes**
+   - Started with fixing the docstring syntax error
+   - Fixed indentation issues in try-except blocks
+   - Corrected function body structure
+   - Added missing return statement for the blueprint
+
+2. **JavaScript Error Handling**
+   - Fixed escaped quotes in string literals
+   - Improved HTTP response handling
+   - Added proper error display
+   - Implemented comprehensive button functioning
+
+### Verification Steps
+
+All fixes have been verified with:
+1. Server startup without syntax errors
+2. Proper blueprint registration
+3. UI component rendering and functionality
+4. Error handling for various edge cases
+
+### Key Lessons
+
+1. **Python-specific:**
+   - Properly structure docstrings with triple quotes
+   - Maintain consistent indentation in Python functions
+   - Always return objects from factory functions in Flask
+   - Close all try-except blocks properly
+
+2. **JavaScript-specific:**
+   - Properly handle quotes in template literals
+   - Initialize UI components on document ready
+   - Implement proper error handling for fetch operations
+   - Add clear error messages for API failures
+
+The ontology diff viewer is now fully functional with proper error handling and a complete user interface.
+
+
+## 2025-04-26 - Fixed Missing Blueprint Return in API Routes
+
+### Issue Fixed
+
+Fixed a critical error in the ontology editor API routes where the `create_api_routes` function was not returning the blueprint object, causing:
+
+```python
+AttributeError: 'NoneType' object has no attribute 'subdomain'
+```
+
+### Root Cause
+
+The `create_api_routes` function in `ontology_editor/api/routes.py` was creating and configuring a Flask blueprint object (`api_bp`), but was missing the crucial `return api_bp` statement at the end of the function. 
+
+When the main application tried to register the blueprint with `app.register_blueprint(ontology_editor_bp)`, it was actually receiving `None` instead of a valid Flask blueprint object, resulting in the attribute error.
+
+### Solution Implementation
+
+1. Added a proper `return api_bp` statement at the end of the `create_api_routes` function
+2. Created the fix with a dedicated script that:
+   - Identified the function boundary
+   - Preserved existing code and indentation
+   - Inserted the return statement with appropriate spacing
+   - Made a backup of the original file before modification
+
+### Verification
+
+- Confirmed the server now starts without the blueprint registration error
+- Verified the proper blueprint creation and return process
+- Ran test script to ensure server startup success
+
+### Key Lesson
+
+This fix reinforces the importance of properly returning objects from factory functions when using a modular Flask application architecture. All blueprint factory functions must explicitly return the created blueprint object for successful registration with the main application.
+
+
+
 ## 2025-04-26 - Complete Fix for Ontology Version Diff Viewer
 
 ### Fixed Syntax Issues and Implementation

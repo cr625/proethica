@@ -405,5 +405,3 @@ def create_api_routes(config):
         except Exception as e:
             current_app.logger.error(f"Error generating diff: {str(e)}")
             return jsonify({'error': f'Failed to generate diff: {str(e)}', 'details': str(e)}), 500
-
-    return api_bp
