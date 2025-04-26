@@ -1,5 +1,57 @@
 # ProEthica Development Log
 
+## 2025-04-26 - Ontology Version Diff Viewer Implementation
+
+### Implemented Changes
+
+1. **Added Version Comparison Functionality**
+   - Implemented a new API endpoint for comparing ontology versions
+   - Created a diff viewer UI for visualizing changes between versions
+   - Added "Compare" buttons to version list items for easy access
+   - Supported both unified and side-by-side diff views
+
+2. **Backend Implementation**
+   - Created `/versions/<int:ontology_id>/diff` API endpoint
+   - Utilized Python's difflib for generating diffs
+   - Supported two output formats: unified (text-based) and split (HTML table)
+   - Added proper error handling and version metadata
+
+3. **Frontend Implementation**
+   - Developed a responsive modal interface for the diff viewer
+   - Added version selection dropdowns for comparing any two versions
+   - Implemented a toggle switch for switching between diff formats
+   - Added version metadata display with commit messages
+
+### Implementation Details
+- Created `scripts/create_ontology_diff_endpoint.py` to add the backend API
+- Created `ontology_editor/static/js/diff.js` for frontend functionality
+- Created `ontology_editor/static/css/diff.css` for styling the diff viewer
+- Created `scripts/update_editor_template.py` to update the editor template
+- Used MutationObserver to dynamically add compare buttons to version list items
+- Utilized difflib.unified_diff and difflib.HtmlDiff for generating diffs
+
+### Benefits
+- Improved ontology development workflow with version comparison
+- Enabled easy identification of changes between versions
+- Enhanced collaboration by making version differences clearly visible
+- Made ontology evolution more transparent and trackable
+- Improved debugging of ontology changes with visual diff
+
+### How to Use
+1. Open the ontology editor and load an ontology with multiple versions
+2. Click the "Compare" button on any version in the version list
+3. Select the versions to compare in the diff viewer modal
+4. Toggle between unified and side-by-side views as needed
+5. View detailed changes with highlighted additions, removals, and modifications
+
+### Future Enhancements
+- Add semantic diff option that understands RDF/Turtle syntax
+- Implement highlighting for specific entity changes
+- Add ability to export/save diff results
+- Add filtering options to focus on specific types of changes
+
+
+
 ## 2025-04-26 - Ontology Version Loading Fix
 
 ### Implemented Changes
