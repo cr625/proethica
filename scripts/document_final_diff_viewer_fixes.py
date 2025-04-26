@@ -1,4 +1,4 @@
-!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Script to document the completed diff viewer fixes in CLAUDE.md.
 """
