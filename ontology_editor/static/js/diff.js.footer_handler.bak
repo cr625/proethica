@@ -32,13 +32,7 @@ function setupDiffModal() {
         
         if (fromVersion && toVersion) {
             loadDiff(fromVersion, toVersion);
-        
-    // Footer close button event
-    document.getElementById('closeDiffBtnFooter').addEventListener('click', function() {
-        document.getElementById('diffModal').classList.remove('show');
-        document.getElementById('diffModalBackdrop').style.display = 'none';
-    });
-}
+        }
     });
     
     // Version selection changes

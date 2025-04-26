@@ -293,8 +293,6 @@ def create_api_routes(config):
 
     @api_bp.route('/ontology/<int:ontology_id>/hierarchy')
 
-    
-
     @api_bp.route('/versions/<int:ontology_id>/diff')
     def get_versions_diff(ontology_id):
         """Generate a diff between two versions of an ontology"""
@@ -319,89 +317,210 @@ def create_api_routes(config):
                 
                 to_version = str(latest_version.version_number)
             
-            # Check if versions are the same
-            if from_version == to_version:
-                return jsonify({
-                    'diff': 'No differences (same version)',
-                    'format': format_type,
-                    'from_version': {
-                        'number': int(from_version),
-                        'created_at': None,
-                        'commit_message': None
-                    },
-                    'to_version': {
-                        'number': int(to_version),
-                        'created_at': None,
-                        'commit_message': None
-                    }
-                })
-            
+            # Get the content of both versions
             try:
-                # Get the content of both versions
                 from_version_obj = OntologyVersion.query.filter_by(
                     ontology_id=ontology_id,
                     version_number=int(from_version)
-                ).first()
+                ).first_or_404()
                 
                 to_version_obj = OntologyVersion.query.filter_by(
                     ontology_id=ontology_id,
                     version_number=int(to_version)
-                ).first()
-                
-                if not from_version_obj:
-                    return jsonify({'error': f'Version {from_version} not found for ontology {ontology_id}'}), 404
-                
-                if not to_version_obj:
-                    return jsonify({'error': f'Version {to_version} not found for ontology {ontology_id}'}), 404
-                
-                # Get the content of both versions
-                from_content = from_version_obj.content
-                to_content = to_version_obj.content
-                
-                # Generate the diff
-                import difflib
-                from_lines = from_content.splitlines(keepends=True)
-                to_lines = to_content.splitlines(keepends=True)
-                
-                if format_type == 'unified':
-                    diff = difflib.unified_diff(
-                        from_lines, 
-                        to_lines,
-                        fromfile=f'Version {from_version}',
-                        tofile=f'Version {to_version}',
-                        lineterm=''
-                    )
-                    diff_text = ''.join(list(diff))
-                else:  # HTML diff with side-by-side option for frontend
-                    diff = difflib.HtmlDiff()
-                    diff_text = diff.make_table(
-                        from_lines,
-                        to_lines,
-                        fromdesc=f'Version {from_version}',
-                        todesc=f'Version {to_version}',
-                        context=True,
-                        numlines=3
-                    )
-                
-                # Return the diff and metadata
-                result = {
-                    'diff': diff_text,
-                    'format': format_type,
-                    'from_version': {
-                        'number': from_version_obj.version_number,
-                        'created_at': from_version_obj.created_at.isoformat() if from_version_obj.created_at else None,
-                        'commit_message': from_version_obj.commit_message
-                    },
-                    'to_version': {
-                        'number': to_version_obj.version_number,
-                        'created_at': to_version_obj.created_at.isoformat() if to_version_obj.created_at else None,
-                        'commit_message': to_version_obj.commit_message
-                    }
-                }
-                
-                return jsonify(result)
+                ).first_or_404()
             except ValueError:
                 return jsonify({'error': 'Version numbers must be integers'}), 400
+            
+            # Get the content of both versions
+            from_content = from_version_obj.content
+            to_content = to_version_obj.content
+            
+            # Generate the diff
+            from_lines = from_content.splitlines(keepends=True)
+            to_lines = to_content.splitlines(keepends=True)
+            
+            if format_type == 'unified':
+                diff = difflib.unified_diff(
+                    from_lines, 
+                    to_lines,
+                    fromfile=f'Version {from_version}',
+                    tofile=f'Version {to_version}',
+                    lineterm=''
+                )
+                diff_text = ''.join(diff)
+            else:  # HTML diff with side-by-side option for frontend
+                diff = difflib.HtmlDiff()
+                diff_text = diff.make_table(
+                    from_lines,
+                    to_lines,
+                    fromdesc=f'Version {from_version}',
+                    todesc=f'Version {to_version}',
+                    context=True,
+                    numlines=3
+                )
+            
+            # Return the diff and metadata
+            result = {
+                'diff': diff_text,
+                'format': format_type,
+                'from_version': {
+                    'number': from_version_obj.version_number,
+                    'created_at': from_version_obj.created_at.isoformat() if from_version_obj.created_at else None,
+                    'commit_message': from_version_obj.commit_message
+                },
+                'to_version': {
+                    'number': to_version_obj.version_number,
+                    'created_at': to_version_obj.created_at.isoformat() if to_version_obj.created_at else None,
+                    'commit_message': to_version_obj.commit_message
+                }
+            }
+            
+            return jsonify(result)
         except Exception as e:
             current_app.logger.error(f"Error generating diff: {str(e)}")
-            return jsonify({'error': f'Failed to generate diff: {str(e)}', 'details': str(e)}), 500
+            return jsonify({'error': f'Failed to generate diff', 'details': str(e)}), 500
+    
+    def get_ontology_hierarchy(ontology_id):
+        """Get hierarchy view of an ontology, especially for visualization"""
+        try:
+            ontology = Ontology.query.get_or_404(ontology_id)
+            
+            # Get hierarchy from file or generate it
+            hierarchy = generate_ontology_hierarchy(ontology)
+            
+            return jsonify({'hierarchy': hierarchy})
+        except Exception as e:
+            current_app.logger.error(f"Error generating hierarchy for ontology {ontology_id}: {str(e)}")
+            return jsonify({
+                'error': f'Failed to generate hierarchy for ontology {ontology_id}',
+                'details': str(e),
+                'hierarchy': {'name': 'Error', 'children': []}  # Return minimal hierarchy to prevent UI errors
+            }), 500
+
+    def generate_ontology_hierarchy(ontology):
+        """
+        Generate a hierarchical representation of an ontology.
+        This is a simplified mock implementation - in a real system, you'd use
+        rdflib or a similar library to parse and analyze the ontology structure.
+        """
+        try:
+            # Get entities directly from the ontology entity service
+            entity_service = OntologyEntityService.get_instance()
+            
+            # Create a world-like object with the required ontology_id field
+            class DummyWorld:
+                def __init__(self, ontology_id):
+                    self.ontology_id = ontology_id
+            
+            dummy_world = DummyWorld(ontology.id)
+            entities_response = entity_service.get_entities_for_world(dummy_world)
+            entities = entities_response.get('entities', {})
+            
+            # Create root node
+            root = {
+                'name': ontology.name,
+                'type': 'root',
+                'uri': f"http://proethica.org/ontology/{ontology.domain_id}",
+                'description': ontology.description,
+                'children': []
+            }
+            
+            # BFO root classes (simplified)
+            bfo_root = {
+                'name': 'Entity',
+                'type': 'bfo',
+                'uri': 'http://purl.obolibrary.org/obo/BFO_0000001',
+                'description': 'An entity is anything that exists or has existed',
+                'children': []
+            }
+            
+            # Add BFO continuant and occurrent
+            continuant = {
+                'name': 'Continuant',
+                'type': 'bfo',
+                'uri': 'http://purl.obolibrary.org/obo/BFO_0000002',
+                'description': 'An entity that persists through time',
+                'children': []
+            }
+            
+            occurrent = {
+                'name': 'Occurrent',
+                'type': 'bfo',
+                'uri': 'http://purl.obolibrary.org/obo/BFO_0000003',
+                'description': 'An entity that unfolds itself in time',
+                'children': []
+            }
+            
+            # Intermediate classes
+            role_bearer = {
+                'name': 'RoleBearer',
+                'type': 'bfo-aligned',
+                'uri': 'http://proethica.org/ontology/intermediate#RoleBearer',
+                'description': 'An entity that can bear roles',
+                'children': []
+            }
+            
+            condition_bearer = {
+                'name': 'ConditionBearer',
+                'type': 'bfo-aligned',
+                'uri': 'http://proethica.org/ontology/intermediate#ConditionBearer',
+                'description': 'An entity that can bear conditions',
+                'children': []
+            }
+            
+            # Add intermediate role and condition classes
+            continuant['children'].append(role_bearer)
+            continuant['children'].append(condition_bearer)
+            
+            # Add process classes
+            process = {
+                'name': 'Process',
+                'type': 'bfo',
+                'uri': 'http://purl.obolibrary.org/obo/BFO_0000015',
+                'description': 'An occurrent that unfolds itself in time',
+                'children': []
+            }
+            occurrent['children'].append(process)
+            
+            # Add domain-specific entities
+            for entity_type, entity_list in entities.items():
+                for entity in entity_list:
+                    entity_node = {
+                        'name': entity.get('label', 'Unknown'),
+                        'description': entity.get('description', ''),
+                        'type': 'non-bfo',
+                        'entity_type': entity_type.rstrip('s'),  # remove plural form
+                        'children': []
+                    }
+                    
+                    # Place entity in the right category
+                    if entity_type == 'roles':
+                        role_bearer['children'].append(entity_node)
+                    elif entity_type == 'conditions':
+                        condition_bearer['children'].append(entity_node)
+                    elif entity_type in ['events', 'actions']:
+                        process['children'].append(entity_node)
+                    elif entity_type == 'resources':
+                        continuant['children'].append(entity_node)
+                    else:
+                        # Default - append directly to root
+                        bfo_root['children'].append(entity_node)
+            
+            # Add BFO structure to root
+            bfo_root['children'].append(continuant)  
+            bfo_root['children'].append(occurrent)
+            root['children'].append(bfo_root)
+            
+            return root
+        except Exception as e:
+            current_app.logger.error(f"Error in generate_ontology_hierarchy: {str(e)}")
+            # Return a minimal hierarchy in case of error
+            return {
+                'name': ontology.name,
+                'type': 'root',
+                'description': f"Error generating hierarchy: {str(e)}",
+                'children': []
+            }
+
+    # Return the Blueprint
+    return api_bp

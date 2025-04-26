@@ -294,10 +294,9 @@ def create_api_routes(config):
     @api_bp.route('/ontology/<int:ontology_id>/hierarchy')
 
     
-
     @api_bp.route('/versions/<int:ontology_id>/diff')
     def get_versions_diff(ontology_id):
-        """Generate a diff between two versions of an ontology"""
+        \"\"\"Generate a diff between two versions of an ontology\"\"\"
         try:
             # Get query parameters
             from_version = request.args.get('from')
@@ -359,7 +358,6 @@ def create_api_routes(config):
                 to_content = to_version_obj.content
                 
                 # Generate the diff
-                import difflib
                 from_lines = from_content.splitlines(keepends=True)
                 to_lines = to_content.splitlines(keepends=True)
                 
@@ -405,3 +403,4 @@ def create_api_routes(config):
         except Exception as e:
             current_app.logger.error(f"Error generating diff: {str(e)}")
             return jsonify({'error': f'Failed to generate diff: {str(e)}', 'details': str(e)}), 500
+    

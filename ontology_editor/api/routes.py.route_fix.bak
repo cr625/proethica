@@ -294,114 +294,113 @@ def create_api_routes(config):
     @api_bp.route('/ontology/<int:ontology_id>/hierarchy')
 
     
-
     @api_bp.route('/versions/<int:ontology_id>/diff')
     def get_versions_diff(ontology_id):
-        """Generate a diff between two versions of an ontology"""
-        try:
-            # Get query parameters
-            from_version = request.args.get('from')
-            to_version = request.args.get('to')
-            format_type = request.args.get('format', 'unified')  # unified or split
+    """Generate a diff between two versions of an ontology"""
+    try:
+        # Get query parameters
+        from_version = request.args.get('from')
+        to_version = request.args.get('to')
+        format_type = request.args.get('format', 'unified')  # unified or split
+        
+        if not from_version:
+            return jsonify({'error': 'Missing "from" parameter'}), 400
+        
+        # If to_version is not specified, compare with the current version
+        if not to_version:
+            # Get the current (latest) version
+            latest_version = OntologyVersion.query.filter_by(
+                ontology_id=ontology_id
+            ).order_by(OntologyVersion.version_number.desc()).first()
             
-            if not from_version:
-                return jsonify({'error': 'Missing "from" parameter'}), 400
+            if not latest_version:
+                return jsonify({'error': f'No versions found for ontology {ontology_id}'}), 404
             
-            # If to_version is not specified, compare with the current version
-            if not to_version:
-                # Get the current (latest) version
-                latest_version = OntologyVersion.query.filter_by(
-                    ontology_id=ontology_id
-                ).order_by(OntologyVersion.version_number.desc()).first()
-                
-                if not latest_version:
-                    return jsonify({'error': f'No versions found for ontology {ontology_id}'}), 404
-                
-                to_version = str(latest_version.version_number)
-            
-            # Check if versions are the same
-            if from_version == to_version:
-                return jsonify({
-                    'diff': 'No differences (same version)',
-                    'format': format_type,
-                    'from_version': {
-                        'number': int(from_version),
-                        'created_at': None,
-                        'commit_message': None
-                    },
-                    'to_version': {
-                        'number': int(to_version),
-                        'created_at': None,
-                        'commit_message': None
-                    }
-                })
-            
-            try:
-                # Get the content of both versions
-                from_version_obj = OntologyVersion.query.filter_by(
-                    ontology_id=ontology_id,
-                    version_number=int(from_version)
-                ).first()
-                
-                to_version_obj = OntologyVersion.query.filter_by(
-                    ontology_id=ontology_id,
-                    version_number=int(to_version)
-                ).first()
-                
-                if not from_version_obj:
-                    return jsonify({'error': f'Version {from_version} not found for ontology {ontology_id}'}), 404
-                
-                if not to_version_obj:
-                    return jsonify({'error': f'Version {to_version} not found for ontology {ontology_id}'}), 404
-                
-                # Get the content of both versions
-                from_content = from_version_obj.content
-                to_content = to_version_obj.content
-                
-                # Generate the diff
-                import difflib
-                from_lines = from_content.splitlines(keepends=True)
-                to_lines = to_content.splitlines(keepends=True)
-                
-                if format_type == 'unified':
-                    diff = difflib.unified_diff(
-                        from_lines, 
-                        to_lines,
-                        fromfile=f'Version {from_version}',
-                        tofile=f'Version {to_version}',
-                        lineterm=''
-                    )
-                    diff_text = ''.join(list(diff))
-                else:  # HTML diff with side-by-side option for frontend
-                    diff = difflib.HtmlDiff()
-                    diff_text = diff.make_table(
-                        from_lines,
-                        to_lines,
-                        fromdesc=f'Version {from_version}',
-                        todesc=f'Version {to_version}',
-                        context=True,
-                        numlines=3
-                    )
-                
-                # Return the diff and metadata
-                result = {
-                    'diff': diff_text,
-                    'format': format_type,
-                    'from_version': {
-                        'number': from_version_obj.version_number,
-                        'created_at': from_version_obj.created_at.isoformat() if from_version_obj.created_at else None,
-                        'commit_message': from_version_obj.commit_message
-                    },
-                    'to_version': {
-                        'number': to_version_obj.version_number,
-                        'created_at': to_version_obj.created_at.isoformat() if to_version_obj.created_at else None,
-                        'commit_message': to_version_obj.commit_message
-                    }
+            to_version = str(latest_version.version_number)
+        
+        # Check if versions are the same
+        if from_version == to_version:
+            return jsonify({
+                'diff': 'No differences (same version)',
+                'format': format_type,
+                'from_version': {
+                    'number': int(from_version),
+                    'created_at': None,
+                    'commit_message': None
+                },
+                'to_version': {
+                    'number': int(to_version),
+                    'created_at': None,
+                    'commit_message': None
                 }
-                
-                return jsonify(result)
-            except ValueError:
-                return jsonify({'error': 'Version numbers must be integers'}), 400
-        except Exception as e:
-            current_app.logger.error(f"Error generating diff: {str(e)}")
-            return jsonify({'error': f'Failed to generate diff: {str(e)}', 'details': str(e)}), 500
+            })
+        
+        try:
+            # Get the content of both versions
+            from_version_obj = OntologyVersion.query.filter_by(
+                ontology_id=ontology_id,
+                version_number=int(from_version)
+            ).first()
+            
+            to_version_obj = OntologyVersion.query.filter_by(
+                ontology_id=ontology_id,
+                version_number=int(to_version)
+            ).first()
+            
+            if not from_version_obj:
+                return jsonify({'error': f'Version {from_version} not found for ontology {ontology_id}'}), 404
+            
+            if not to_version_obj:
+                return jsonify({'error': f'Version {to_version} not found for ontology {ontology_id}'}), 404
+            
+            # Get the content of both versions
+            from_content = from_version_obj.content
+            to_content = to_version_obj.content
+            
+            # Generate the diff
+            from_lines = from_content.splitlines(keepends=True)
+            to_lines = to_content.splitlines(keepends=True)
+            
+            if format_type == 'unified':
+                diff = difflib.unified_diff(
+                    from_lines, 
+                    to_lines,
+                    fromfile=f'Version {from_version}',
+                    tofile=f'Version {to_version}',
+                    lineterm=''
+                )
+                diff_text = ''.join(list(diff))
+            else:  # HTML diff with side-by-side option for frontend
+                diff = difflib.HtmlDiff()
+                diff_text = diff.make_table(
+                    from_lines,
+                    to_lines,
+                    fromdesc=f'Version {from_version}',
+                    todesc=f'Version {to_version}',
+                    context=True,
+                    numlines=3
+                )
+            
+            # Return the diff and metadata
+            result = {
+                'diff': diff_text,
+                'format': format_type,
+                'from_version': {
+                    'number': from_version_obj.version_number,
+                    'created_at': from_version_obj.created_at.isoformat() if from_version_obj.created_at else None,
+                    'commit_message': from_version_obj.commit_message
+                },
+                'to_version': {
+                    'number': to_version_obj.version_number,
+                    'created_at': to_version_obj.created_at.isoformat() if to_version_obj.created_at else None,
+                    'commit_message': to_version_obj.commit_message
+                }
+            }
+            
+            return jsonify(result)
+        except ValueError:
+            return jsonify({'error': 'Version numbers must be integers'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error generating diff: {str(e)}")
+        return jsonify({'error': f'Failed to generate diff: {str(e)}', 'details': str(e)}), 500
+    

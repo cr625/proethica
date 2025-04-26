@@ -32,13 +32,7 @@ function setupDiffModal() {
         
         if (fromVersion && toVersion) {
             loadDiff(fromVersion, toVersion);
-        
-    // Footer close button event
-    document.getElementById('closeDiffBtnFooter').addEventListener('click', function() {
-        document.getElementById('diffModal').classList.remove('show');
-        document.getElementById('diffModalBackdrop').style.display = 'none';
-    });
-}
+        }
     });
     
     // Version selection changes
@@ -216,33 +210,9 @@ function loadDiff(fromVersion, toVersion) {
     const format = document.getElementById('diffFormatToggle').checked ? 'split' : 'unified';
     
     // Make request to the API
-    // Check if comparing the same version
-    if (fromVersion === toVersion) {
-        // Display a message about same version comparison
-        diffContent.innerHTML = `
-            <div class="alert alert-info">
-                <h5>Same Version Selected</h5>
-                <p>You have selected the same version for comparison. There are no differences to display.</p>
-            </div>
-        `;
-        
-        // Update metadata
-        document.getElementById(\'diffFromInfo\').innerText = 
-            `Version ${fromVersion}`;
-            
-        document.getElementById(\'diffToInfo\').innerText = 
-            `Version ${toVersion} (Same)`;
-            
-        // Hide commit message sections
-        document.getElementById(\'diffFromCommitSection\').style.display = \'none\';
-        document.getElementById(\'diffToCommitSection\').style.display = \'none\';
-        
-        return; // Exit early
-    }
-    
     const url = `/ontology-editor/api/versions/${currentOntologyId}/diff?from=${fromVersion}&to=${toVersion}&format=${format}`;
     
-    fetch(url).then(response => {            if (!response.ok) {                throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");            }            return response.json();        })
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Failed to load diff');
@@ -287,17 +257,7 @@ function loadDiff(fromVersion, toVersion) {
             console.error('Error loading diff:', error);
             diffContent.innerHTML = `
                 <div class="alert alert-danger">
-                    <h5>Error Loading Diff</h5>
-                    <p>${error.message}</p>
-                    ${error.stack ? `<details><summary>Technical Details</summary><pre>${error.stack}</pre></details>` : ""}
-                </div>
-                <div class="mt-3">
-                    <p><strong>Troubleshooting Suggestions:</strong></p>
-                    <ul>
-                        <li>Check that the server is running</li>
-                        <li>Make sure both versions exist in the database</li>
-                        <li>Try refreshing the page and trying again</li>
-                    </ul>
+                    Error loading diff: ${error.message}
                 </div>
             `;
         });
