@@ -1,0 +1,32 @@
+Starting ontology documentation cleanup at 2025-04-27 07:33:48
+================================================================================
+
+== Removing redundant and outdated files ==
+✓ Removed docs/ontology_file_migration_guide.md (backup: docs/archive/ontology_file_migration_guide.md.20250427_073348.bak)
+✓ Removed docs/ontology_database_storage.md (backup: docs/archive/ontology_database_storage.md.20250427_073348.bak)
+✓ Removed docs/ontology_system.md (backup: docs/archive/ontology_system.md.20250427_073348.bak)
+✓ Removed ontology_editor_improvements.md (backup: docs/archive/ontology_editor_improvements.md.20250427_073348.bak)
+✓ Removed ontology_fix_instructions.md (backup: docs/archive/ontology_fix_instructions.md.20250427_073348.bak)
+✓ Removed ontology_update_report.md (backup: docs/archive/ontology_update_report.md.20250427_073348.bak)
+
+== Updating CLAUDE.md with ontology documentation index ==
+Updated CLAUDE.md with ontology documentation index
+
+== Summary ==
+Files removed: 6
+  - docs/ontology_file_migration_guide.md
+  - docs/ontology_database_storage.md
+  - docs/ontology_system.md
+  - ontology_editor_improvements.md
+  - ontology_fix_instructions.md
+  - ontology_update_report.md
+
+Files skipped: 0
+
+CLAUDE.md updated: True
+
+Notes:
+1. Removed files have been backed up to docs/archive/ directory
+2. The primary ontology documentation is now docs/ontology_comprehensive_guide.md
+3. CLAUDE.md has been updated with an index pointing to the ontology documentation
+4. A log of all actions has been saved to: ontology_docs_cleanup_log_20250427_073348.txt

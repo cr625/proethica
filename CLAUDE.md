@@ -49,7 +49,38 @@ have already been implemented.
 - Consider implementing a script review policy to prevent accumulation of one-time fix scripts
 # ProEthica Development Log
 
-## 2025-04-26 - Fixed JavaScript Constant Variable Reassignment
+
+## Ontology Documentation
+
+The ProEthica system uses a database-driven ontology system to define entity types
+(roles, conditions, resources, actions, events, and capabilities) available in worlds.
+
+### Primary Documentation
+
+- [Comprehensive Ontology Guide](docs/ontology_comprehensive_guide.md): Complete documentation of the ontology system, including database storage, entity management, and best practices.
+
+### Key Features
+
+1. **Database-Driven Storage**: All ontologies are stored in the database with proper versioning
+2. **Entity Editor**: Intuitive interface for managing ontology entities
+3. **MCP Integration**: Ontologies are accessible to LLMs via the Model Context Protocol
+4. **Hierarchy System**: Well-defined entity hierarchies with specialized parent classes
+5. **Protection**: Base ontologies are protected from unauthorized modifications
+
+For technical details, refer to the comprehensive guide above.
+
+
+
+### Ontology Documentation Consolidation
+
+Streamlined ontology documentation:
+
+1. **Consolidated Documentation**
+   - Unified all ontology documentation into a single comprehensive guide
+2. **Removed Redundant Files**
+   - Archived outdated ontology documentation files
+3. **Added Documentation Index**
+   - Created clear reference to primary documentation in CLAUDE.md## 2025-04-26 - Fixed JavaScript Constant Variable Reassignment
 
 ### Issue Fixed
 
