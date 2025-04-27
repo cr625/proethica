@@ -129,6 +129,29 @@ This document provides an overview of the utility scripts available in the `scri
 
 ## System Maintenance
 
+- **cleanup_repository.py**: Cleans up the root directory by moving utility scripts to scripts/ and removing one-time fixes.
+- **document_repository_cleanup.py**: Updates CLAUDE.md with information about repository cleanup.
+- **update_scripts_guide.py**: Updates the scripts guide with new script entries.
+
+- **fix_ontology_automatically.py**: Automatically fixes syntax errors in ontology content stored in the database.
+- **fix_ontology_syntax.py**: Fixes Turtle syntax issues in ontologies with targeted repairs.
+- **fix_ontology_validation.py**: Fixes validation-related issues in the ontology editor.
+
+- **bfo_ethics_demo.py**: Demonstrates BFO ethics integration.
+- **check_mcp_roles.py**: Checks MCP roles in the ontology.
+- **fix_ontology_syntax.py**: Fixes syntax issues in ontology files.
+- **revised_engineering_ethics_world.py**: Revises the Engineering Ethics world ontology.
+- **revised_nj_legal_ethics_world.py**: Revises the NJ Legal Ethics world ontology.
+- **revised_tccc_world.py**: Revises the TCCC world ontology.
+- **update_engineering_ontology.py**: Updates the engineering ontology.
+
+## Embedding and Search
+
+- **simple_pgvector_test.py**: Tests pgvector functionality.
+- **setup_embedding_environment.sh**: Sets up the embedding environment.
+
+## System Maintenance
+
 - **create_admin_user.py**: Creates an admin user in the system.
 - **create_condition_types_table.py**: Creates the condition_types table.
 - **create_specific_revision.py**: Creates a specific revision for testing.
