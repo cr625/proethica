@@ -80,7 +80,18 @@ Streamlined ontology documentation:
 2. **Removed Redundant Files**
    - Archived outdated ontology documentation files
 3. **Added Documentation Index**
-   - Created clear reference to primary documentation in CLAUDE.md## 2025-04-26 - Fixed JavaScript Constant Variable Reassignment
+   - Created clear reference to primary documentation in CLAUDE.md
+
+### MCP and Ontology Scripts Organization
+
+Organized diagnostic and utility tools:
+
+1. **Moved Diagnostic Tools**
+   - Relocated all MCP and ontology debugging scripts to scripts directory
+2. **Preserved Functionality**
+   - All diagnostic and maintenance capabilities remain available
+3. **Simplified Structure**
+   - Cleaner root directory with improved organization## 2025-04-26 - Fixed JavaScript Constant Variable Reassignment
 
 ### Issue Fixed
 
