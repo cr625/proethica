@@ -184,9 +184,7 @@
         <div class="diff-modal-dialog">
             <div class="diff-modal-content">
                 <div class="diff-modal-header">
-                <h5 class="diff-modal-title">Compare Versions</h5>
-                <!-- Hidden input to store current ontology ID -->
-                <input type="hidden" id="currentOntologyId" value="{{ ontology_id }}">
+                    <h5 class="diff-modal-title">Compare Versions</h5>
                     <button type="button" class="close" id="closeDiffBtn" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>

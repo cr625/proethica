@@ -110,3 +110,4 @@ This fix resolves the final issue with the diff viewer, allowing users to proper
         return False
 
 if __name__ == "__main__":
+    update_claude_md()

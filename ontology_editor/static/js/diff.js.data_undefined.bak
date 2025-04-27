@@ -33,73 +33,28 @@ function setupDiffModal() {
     // Format toggle
     document.getElementById('diffFormatToggle').addEventListener('change', function() {
         // If we already have versions selected, reload the diff with the new format
-        let fromVersion = document.getElementById('diffFromVersion').value;
-        let toVersion = document.getElementById('diffToVersion').value;
-        
-    if (fromVersion && toVersion) {
-        // Log the versions being compared
-        console.log(`Comparing versions: ${fromVersion} → ${toVersion}`);
-        
-        // Validate versions
-        fromVersion = fromVersion.toString().trim();
-        toVersion = toVersion.toString().trim();
-        
-        // Reload versions if needed
-        if (!fromVersion || !toVersion) {
-            console.error('Invalid version selection');
-            return;
+        const fromVersion = document.getElementById('diffFromVersion').value;
+        const toVersion = document.getElementById('diffToVersion').value;
+        if (fromVersion && toVersion) {
+            loadDiff(fromVersion, toVersion);
         }
-        
-        loadDiff(fromVersion, toVersion);
-    }
-
     });
 
     // Version selection changes
     document.getElementById('diffFromVersion').addEventListener('change', function() {
-        let fromVersion = this.value;
-        let toVersion = document.getElementById('diffToVersion').value;
-        
-    if (fromVersion && toVersion) {
-        // Log the versions being compared
-        console.log(`Comparing versions: ${fromVersion} → ${toVersion}`);
-        
-        // Validate versions
-        fromVersion = fromVersion.toString().trim();
-        toVersion = toVersion.toString().trim();
-        
-        // Reload versions if needed
-        if (!fromVersion || !toVersion) {
-            console.error('Invalid version selection');
-            return;
+        const fromVersion = this.value;
+        const toVersion = document.getElementById('diffToVersion').value;
+        if (fromVersion && toVersion) {
+            loadDiff(fromVersion, toVersion);
         }
-        
-        loadDiff(fromVersion, toVersion);
-    }
-
     });
 
     document.getElementById('diffToVersion').addEventListener('change', function() {
-        let fromVersion = document.getElementById('diffFromVersion').value;
-        let toVersion = this.value;
-        
-    if (fromVersion && toVersion) {
-        // Log the versions being compared
-        console.log(`Comparing versions: ${fromVersion} → ${toVersion}`);
-        
-        // Validate versions
-        fromVersion = fromVersion.toString().trim();
-        toVersion = toVersion.toString().trim();
-        
-        // Reload versions if needed
-        if (!fromVersion || !toVersion) {
-            console.error('Invalid version selection');
-            return;
+        const fromVersion = document.getElementById('diffFromVersion').value;
+        const toVersion = this.value;
+        if (fromVersion && toVersion) {
+            loadDiff(fromVersion, toVersion);
         }
-        
-        loadDiff(fromVersion, toVersion);
-    }
-
     });
 }
 
@@ -277,34 +232,10 @@ function loadDiff(fromVersion, toVersion) {
         return; // Exit early
     }
     
-    
-    // Debug URL parameters
-    console.log('Loading diff with parameters:', { fromVersion, toVersion, format });
-    const currentOntologyId = document.getElementById('currentOntologyId').value || document.body.dataset.ontologyId || '1';
     const url = `/ontology-editor/api/versions/${currentOntologyId}/diff?from=${fromVersion}&to=${toVersion}&format=${format}`;
     
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");
-            }
-            return response.json();
-        })
-        .then(data => {
-            
-            // Validate data structure
-            if (!data || !data.diff) {
-                diffContent.innerHTML = `
-                    <div class="alert alert-danger">
-                        <h5>Invalid Response Format</h5>
-                        <p>The server response did not contain the expected data format.</p>
-                        <pre>${JSON.stringify(data, null, 2)}</pre>
-                    </div>
-                `;
-                return;
-            }
-            
-        // Display the diff
+    fetch(url).then(data => {
+            // Display the diff
             if (format === 'unified') {
                 // For unified diff, we need to format it as code
                 diffContent.innerHTML = `
@@ -317,24 +248,20 @@ function loadDiff(fromVersion, toVersion) {
             
             // Update metadata
             document.getElementById('diffFromInfo').innerText = 
-                data && data.from_version ? 
-                `Version ${data.from_version.number || 'N/A'} - ${formatDate(data.from_version.created_at || null)}` : 
-                'Version information unavailable';
+                `Version ${data.from_version.number} - ${formatDate(data.from_version.created_at)}`;
                 
             document.getElementById('diffToInfo').innerText = 
-                data && data.to_version ? 
-                `Version ${data.to_version.number || 'N/A'} - ${formatDate(data.to_version.created_at || null)}` : 
-                'Version information unavailable';
+                `Version ${data.to_version.number} - ${formatDate(data.to_version.created_at)}`;
                 
             // Add commit messages if available
-            if (data && data.from_version && data.from_version.commit_message) {
+            if (data.from_version.commit_message) {
                 document.getElementById('diffFromCommit').innerText = data.from_version.commit_message;
                 document.getElementById('diffFromCommitSection').style.display = 'block';
             } else {
                 document.getElementById('diffFromCommitSection').style.display = 'none';
             }
             
-            if (data && data.to_version && data.to_version.commit_message) {
+            if (data.to_version.commit_message) {
                 document.getElementById('diffToCommit').innerText = data.to_version.commit_message;
                 document.getElementById('diffToCommitSection').style.display = 'block';
             } else {

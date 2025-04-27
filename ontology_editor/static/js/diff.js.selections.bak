@@ -33,73 +33,28 @@ function setupDiffModal() {
     // Format toggle
     document.getElementById('diffFormatToggle').addEventListener('change', function() {
         // If we already have versions selected, reload the diff with the new format
-        let fromVersion = document.getElementById('diffFromVersion').value;
-        let toVersion = document.getElementById('diffToVersion').value;
-        
-    if (fromVersion && toVersion) {
-        // Log the versions being compared
-        console.log(`Comparing versions: ${fromVersion} → ${toVersion}`);
-        
-        // Validate versions
-        fromVersion = fromVersion.toString().trim();
-        toVersion = toVersion.toString().trim();
-        
-        // Reload versions if needed
-        if (!fromVersion || !toVersion) {
-            console.error('Invalid version selection');
-            return;
+        const fromVersion = document.getElementById('diffFromVersion').value;
+        const toVersion = document.getElementById('diffToVersion').value;
+        if (fromVersion && toVersion) {
+            loadDiff(fromVersion, toVersion);
         }
-        
-        loadDiff(fromVersion, toVersion);
-    }
-
     });
 
     // Version selection changes
     document.getElementById('diffFromVersion').addEventListener('change', function() {
-        let fromVersion = this.value;
-        let toVersion = document.getElementById('diffToVersion').value;
-        
-    if (fromVersion && toVersion) {
-        // Log the versions being compared
-        console.log(`Comparing versions: ${fromVersion} → ${toVersion}`);
-        
-        // Validate versions
-        fromVersion = fromVersion.toString().trim();
-        toVersion = toVersion.toString().trim();
-        
-        // Reload versions if needed
-        if (!fromVersion || !toVersion) {
-            console.error('Invalid version selection');
-            return;
+        const fromVersion = this.value;
+        const toVersion = document.getElementById('diffToVersion').value;
+        if (fromVersion && toVersion) {
+            loadDiff(fromVersion, toVersion);
         }
-        
-        loadDiff(fromVersion, toVersion);
-    }
-
     });
 
     document.getElementById('diffToVersion').addEventListener('change', function() {
-        let fromVersion = document.getElementById('diffFromVersion').value;
-        let toVersion = this.value;
-        
-    if (fromVersion && toVersion) {
-        // Log the versions being compared
-        console.log(`Comparing versions: ${fromVersion} → ${toVersion}`);
-        
-        // Validate versions
-        fromVersion = fromVersion.toString().trim();
-        toVersion = toVersion.toString().trim();
-        
-        // Reload versions if needed
-        if (!fromVersion || !toVersion) {
-            console.error('Invalid version selection');
-            return;
+        const fromVersion = document.getElementById('diffFromVersion').value;
+        const toVersion = this.value;
+        if (fromVersion && toVersion) {
+            loadDiff(fromVersion, toVersion);
         }
-        
-        loadDiff(fromVersion, toVersion);
-    }
-
     });
 }
 
@@ -277,20 +232,9 @@ function loadDiff(fromVersion, toVersion) {
         return; // Exit early
     }
     
-    
-    // Debug URL parameters
-    console.log('Loading diff with parameters:', { fromVersion, toVersion, format });
-    const currentOntologyId = document.getElementById('currentOntologyId').value || document.body.dataset.ontologyId || '1';
     const url = `/ontology-editor/api/versions/${currentOntologyId}/diff?from=${fromVersion}&to=${toVersion}&format=${format}`;
     
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error ${response.status}: ${response.statusText}` || "Failed to load diff");
-            }
-            return response.json();
-        })
-        .then(data => {
+    fetch(url).then(data => {
             
             // Validate data structure
             if (!data || !data.diff) {
