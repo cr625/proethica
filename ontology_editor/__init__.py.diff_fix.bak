@@ -61,12 +61,9 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
         else:
             source_param = source
             
-        # If no source parameter is available, default to ontology ID 1
-        default_ontology_id = "1"  # Default to ontology ID 1 when not specified
+        # If no source parameter is available, show message
         if not source_param:
-            ontology_id = default_ontology_id  # Use default ontology ID
-            source_param = default_ontology_id
-            flash('Using default engineering ethics ontology. You can select a different ontology from the list.', 'info')
+            flash('No ontology ID provided. Please select an ontology from the editor.', 'warning')
 
         # If view is 'entities', this is a specialized entity view
         if view == 'entities':

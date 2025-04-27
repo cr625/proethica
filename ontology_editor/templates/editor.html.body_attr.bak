@@ -23,7 +23,7 @@
     </style>
 </head>
 
-<body data-ontology-id="{{ ontology_id or '1' }}">
+<body>
     <div class="header">
         <nav class="navbar navbar-expand-lg navbar-light">
             <div class="container-fluid">

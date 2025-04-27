@@ -1,4 +1,65 @@
 
+
+## 2025-04-27 - Fixed Diff Viewer 404 Error on Direct Access
+
+### Issue Fixed
+
+Fixed a bug where accessing the ontology editor directly via http://localhost:3333/ontology-editor/ 
+and then comparing versions would result in a 404 error:
+
+```
+Error Loading Diff
+HTTP error 404: NOT FOUND
+```
+
+### Root Cause Analysis
+
+The issue occurred because the diff viewer JavaScript needed to know which ontology ID to use 
+for the API requests, but this information wasn't available when accessing the editor directly 
+(as opposed to through a specific world page that passes the ontology_id parameter).
+
+Specifically:
+
+1. When accessing via http://localhost:3333/worlds/1 and clicking "Edit Ontology", the ontology_id (1) 
+   was properly passed to the editor
+2. When accessing directly via http://localhost:3333/ontology-editor/, no ontology_id was provided
+3. The diff.js script had no reliable way to determine which ontology to use for API calls
+
+### Solution Implemented
+
+The fix was implemented with a comprehensive three-part approach:
+
+1. **Default Ontology Selection**: Updated the ontology editor route handler to default to ontology ID 1 
+   (engineering ethics) when no specific ontology is requested
+
+2. **Enhanced Fallback Mechanism**: Improved the diff.js script with a robust fallback chain that tries:
+   - The hidden input field first
+   - The body data attribute second
+   - URL parameters third
+   - A default value of '1' as the final fallback
+
+3. **Added Data Attribute**: Updated the editor.html template to include the ontology ID as a 
+   data attribute on the body tag, ensuring it's always available to the JavaScript
+
+### Implementation Details
+
+- Created `scripts/fix_diff_direct_access.py` to implement all three parts of the solution
+- Made backups of all modified files with appropriate timestamps
+- Added better debugging information in the JavaScript console
+- Improved the user experience with a helpful flash message
+- Added a comprehensive fallback chain for ontology ID detection
+
+### Verification
+
+The fix was verified by:
+
+1. Accessing the ontology editor directly at http://localhost:3333/ontology-editor/
+2. Loading an ontology and selecting "Compare" from a version's dropdown
+3. Confirming that the diff viewer loads properly with no 404 errors
+4. Checking that the right diff content is displayed for the selected versions
+
+This fix ensures that the diff viewer works correctly regardless of how users access the ontology editor.
+
 ## 2025-04-27 - Root Directory Cleanup
 
 ### Actions Taken

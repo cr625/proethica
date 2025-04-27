@@ -280,33 +280,7 @@ function loadDiff(fromVersion, toVersion) {
     
     // Debug URL parameters
     console.log('Loading diff with parameters:', { fromVersion, toVersion, format });
-    // Get ontology ID with comprehensive fallbacks
-    const currentOntologyId = (() => {
-        // First try the hidden input field
-        const hiddenInput = document.getElementById('currentOntologyId');
-        if (hiddenInput && hiddenInput.value) {
-            console.log('Using ontology ID from hidden input:', hiddenInput.value);
-            return hiddenInput.value;
-        }
-        
-        // Next try the data attribute on body
-        if (document.body.dataset.ontologyId) {
-            console.log('Using ontology ID from body dataset:', document.body.dataset.ontologyId);
-            return document.body.dataset.ontologyId;
-        }
-        
-        // Next try to extract from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlOntologyId = urlParams.get('ontology_id');
-        if (urlOntologyId) {
-            console.log('Using ontology ID from URL parameters:', urlOntologyId);
-            return urlOntologyId;
-        }
-        
-        // Default to ID 1 (engineering ethics ontology)
-        console.log('No ontology ID found, defaulting to 1');
-        return '1';
-    })();
+    const currentOntologyId = document.getElementById('currentOntologyId').value || document.body.dataset.ontologyId || '1';
     const url = `/ontology-editor/api/versions/${currentOntologyId}/diff?from=${fromVersion}&to=${toVersion}&format=${format}`;
     
     fetch(url)
