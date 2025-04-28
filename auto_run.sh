@@ -119,9 +119,15 @@ else
     # Export environment variables from .env file
     export $(grep -v '^#' .env | xargs)
     
-    # Start the Flask development server
+    # Start the Flask development server with proper environment variable handling
     echo -e "${BLUE}Starting Flask development server...${NC}"
-    python run.py
+    if [ -f "./scripts/run_with_env.sh" ] && [ -x "./scripts/run_with_env.sh" ]; then
+        # Use run_with_env.sh to ensure proper environment variable handling (especially for Anthropic SDK)
+        ./scripts/run_with_env.sh python run.py
+    else
+        # Fallback to direct execution if run_with_env.sh is not available
+        python run.py
+    fi
 fi
 
 echo -e "${GREEN}Setup complete!${NC}"

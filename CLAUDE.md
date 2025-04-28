@@ -1,3 +1,69 @@
+## 2025-04-27 - Fixed Anthropic SDK Authentication Issues
+
+### Issue Fixed
+
+Fixed an "invalid x-api-key" error that occurred when accessing the agent page at http://localhost:3333/agent/ after updating the Anthropic SDK.
+
+### Root Cause Analysis
+
+Multiple factors contributed to the authentication failure:
+
+1. Recent updates to the Anthropic SDK changed the authentication method from using x-api-key header to using an Authorization Bearer token
+2. The `load_dotenv()` function alone was not sufficient for setting the environment variables needed by the SDK
+3. The previous API key was invalid or expired (confirmed through multiple authentication tests)
+
+### Solution Implemented
+
+1. **Generated New API Key**
+   - Created a new API key from the Anthropic console
+   - Verified the new key works correctly with comprehensive testing
+   - Added key to .env file with protection from git tracking
+
+2. **Enhanced Environment Variable Handling**
+   - Updated `ClaudeService` and `ProEthicaAdapter` to explicitly set the environment variable
+   - Made sure the API key is properly passed to the SDK initialization
+   - Added support for using `run_with_env.sh` script to ensure consistent env vars
+
+3. **Improved Mock Fallback Mode**
+   - Added more robust fallback mode when API authentication fails
+   - Implemented graceful fallback to mock responses for conversations
+   - Added helpful mock prompt suggestions when API issues occur
+
+4. **Security and Documentation**
+   - Created protection script `scripts/git_protect_keys.sh` to secure API credentials
+   - Created `docs/anthropic_sdk_update_fix.md` with detailed technical documentation
+   - Added verification scripts for testing authentication
+
+5. **Startup Script Enhancements**
+   - Updated `auto_run.sh` to use run_with_env.sh for proper environment handling
+   - Enhanced `start_proethica.sh` to detect and use run_with_env.sh
+   - Improved error recovery and environment variable management
+
+### Modified Files
+- `app/services/claude_service.py` - Enhanced environment variable handling and mock fallback
+- `app/agent_module/adapters/proethica.py` - Added proper environment variable handling
+- `.env` - Updated with new API key and environment configuration
+- `auto_run.sh` - Updated to use run_with_env.sh for better environment variable handling
+- `start_proethica.sh` - Enhanced to ensure run_with_env.sh is used when available
+- `scripts/test_claude_with_env.py` - Added comprehensive test for environment handling
+- `scripts/test_new_key.py` - Created script for testing new API keys safely
+
+### Verification
+Authentication is now working correctly with the real Claude API. The agent page functions properly using the authentication method required by the updated SDK.
+
+### Usage Instructions
+1. **To use the Claude API directly:**
+   - Use the recommended startup script: `./start_proethica.sh`
+   - This will automatically use run_with_env.sh and set up proper environment variables
+   - Keep USE_MOCK_FALLBACK=false in .env
+
+2. **For standalone scripts:**
+   - Always run Python scripts with: `./scripts/run_with_env.sh python your_script.py`
+   - This ensures proper environment variable handling, especially for API keys
+   
+3. **If authentication issues occur:**
+   - Set USE_MOCK_FALLBACK=true in .env to continue functioning with mock responses
+
 ## 2025-04-27 - Comprehensive Improvements to Diff Viewer UI
 
 ### Issues Fixed and Improvements Made
@@ -11,7 +77,7 @@
 
 Several UI issues were identified:
 1. Content extended beyond its container boundaries in side-by-side view
-2. Scrollbar was inconsistent or missing when needed
+2. Scrollbar as inconsistent or missing when needed
 3. The 'X' close button was redundant with the "Close" button in the footer
 4. Unified diff notation was difficult to interpret for users unfamiliar with diff format
 

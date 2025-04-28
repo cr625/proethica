@@ -110,6 +110,18 @@ else
     fi
 fi
 
-# Launch the application
+# Ensure run_with_env.sh is executable
+if [ -f "./scripts/run_with_env.sh" ] && [ ! -x "./scripts/run_with_env.sh" ]; then
+    echo -e "${YELLOW}Making run_with_env.sh executable...${NC}"
+    chmod +x ./scripts/run_with_env.sh
+fi
+
+# Check run_with_env.sh existence and inform about it
+if [ -f "./scripts/run_with_env.sh" ] && [ -x "./scripts/run_with_env.sh" ]; then
+    echo -e "${GREEN}Found run_with_env.sh utility for proper environment variable handling.${NC}"
+    echo -e "${BLUE}This ensures Anthropic SDK and other APIs work correctly.${NC}"
+fi
+
+# Launch the application with auto_run.sh
 echo -e "${GREEN}Launching ProEthica with auto-detected environment...${NC}"
 ./auto_run.sh

@@ -19,12 +19,38 @@ class ClaudeService:
             api_key: Anthropic API key (optional, will use env var if not provided)
             model: Claude model to use (default: claude-3-opus-20240229)
         """
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if not self.api_key:
-            raise ValueError("Anthropic API key is required")
+        # Check if mock mode is enabled first - might not need API key at all
+        self.use_mock = os.environ.get("USE_MOCK_FALLBACK", "").lower() == "true"
+        self.api_key = None
+        
+        # Only require API key in non-mock mode
+        if not self.use_mock:
+            # Directly set the environment variable to ensure the SDK can access it
+            # This addresses the issue where load_dotenv() is not sufficient for the Anthropic SDK
+            if api_key:
+                os.environ["ANTHROPIC_API_KEY"] = api_key
             
+            # Check if the environment variable exists
+            self.api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if not self.api_key:
+                print("WARNING: No ANTHROPIC_API_KEY found, falling back to mock mode")
+                self.use_mock = True
+        
+        # Initialize standard configuration
         self.model = model
-        self.client = Anthropic(api_key=self.api_key)
+        self.client = None
+        
+        # Only initialize client in non-mock mode
+        if not self.use_mock and self.api_key:
+            try:
+                # Initialize the client with the API key, but don't fail if it doesn't work
+                self.client = Anthropic(api_key=self.api_key)
+                print(f"Claude service initialized with model {self.model}" +
+                      (", using mock mode" if self.use_mock else ""))
+            except Exception as e:
+                print(f"Failed to initialize Anthropic client: {str(e)}")
+                print("Falling back to mock mode")
+                self.use_mock = True
         
         # Get MCP client for accessing guidelines (same as LLMService)
         self.mcp_client = MCPClient.get_instance()
@@ -212,33 +238,55 @@ class ClaudeService:
         # Add user message to conversation
         conversation.add_message(message, role="user")
         
-        # Always attempt to use the Claude API since this service was explicitly selected
+        # Check if mock fallback is enabled
+        use_mock = os.environ.get("USE_MOCK_FALLBACK", "").lower() == "true"
+        
+        # Try to use the Claude API first, but fall back to mock if needed
         try:
-            # Format messages for Claude
-            claude_messages = self._format_messages_for_claude(conversation)
-            
-            # Build appropriate system prompt based on world context
-            system_prompt = self.build_system_prompt(world_id)
-            
-            # Add application context to system prompt if provided
-            if application_context:
-                system_prompt += "\n\nAPPLICATION INFORMATION:\n" + application_context
-            
-            # Call Claude API with system parameter
-            response = self.client.messages.create(
-                model=self.model,
-                system=system_prompt,
-                messages=claude_messages,
-                max_tokens=1024
-            )
-            
-            # Extract response content
-            content = response.content[0].text
-            
+            # Only try the API if mock fallback is disabled or we want to try API first
+            if not use_mock:
+                # Format messages for Claude
+                claude_messages = self._format_messages_for_claude(conversation)
+                
+                # Build appropriate system prompt based on world context
+                system_prompt = self.build_system_prompt(world_id)
+                
+                # Add application context to system prompt if provided
+                if application_context:
+                    system_prompt += "\n\nAPPLICATION INFORMATION:\n" + application_context
+                
+                # Call Claude API with system parameter
+                response = self.client.messages.create(
+                    model=self.model,
+                    system=system_prompt,
+                    messages=claude_messages,
+                    max_tokens=1024
+                )
+                
+                # Extract response content
+                content = response.content[0].text
+            else:
+                # Mock response when fallback is explicitly enabled
+                raise Exception("Mock fallback mode is enabled, using mock response")
+                
         except Exception as e:
             print(f"Error generating response from Claude: {str(e)}")
-            # Use a default response in case of error
-            content = "I'm sorry, I encountered an error processing your request. Please try again or ask a different question."
+            print(f"Falling back to mock response (USE_MOCK_FALLBACK={use_mock})")
+            
+            # Create a realistic mock response based on the last message
+            last_message = ""
+            if conversation and conversation.messages:
+                last_message = conversation.messages[-1].content if conversation.messages else ""
+            
+            # Generate a mock response
+            content = f"This is a mock response because the Claude API is unavailable. You asked: '{last_message[:50]}...'"
+            
+            # Add world context if available
+            if world_id:
+                content += f"\n\nI'm responding in the context of world #{world_id}."
+                
+            # Add a note about mock mode
+            content += "\n\n[Note: System is running in mock fallback mode. Enable API access to get real responses.]"
         
         # Add assistant response to conversation
         return conversation.add_message(content, role="assistant")
@@ -261,70 +309,105 @@ class ClaudeService:
             else:
                 return self._general_options  # General default options for no world
         
-        # Always attempt to use the Claude API since this service was explicitly selected
+        # Check if mock fallback is enabled
+        use_mock = os.environ.get("USE_MOCK_FALLBACK", "").lower() == "true"
+        
+        # Try to use the Claude API first, but fall back to mock if needed
         try:
-            # Format messages for Claude
-            claude_messages = self._format_messages_for_claude(conversation)
-            
-            # Add world context to the prompt option generation
-            instruction = "Generate 3-5 suggested prompt options that would be helpful for the user to select based on our conversation."
-            
-            if world_id:
-                # Get world info to enhance the instruction
-                from app.models.world import World
-                world = World.query.get(world_id)
-                if world and world.name:
-                    instruction = f"Generate 3-5 suggested prompt options related to the '{world.name}' world that would be helpful for the user based on our conversation."
-            
-            # Add the instruction for format
-            instruction += " Format your response as a JSON array of objects with 'id' and 'text' fields. Example: [{\"id\": 1, \"text\": \"Tell me more about this scenario\"}, {\"id\": 2, \"text\": \"What ethical principles apply here?\"}]"
-            
-            # Add the instruction to the messages
-            claude_messages.append({
-                "role": "user",
-                "content": instruction
-            })
-            
-            # Build appropriate system prompt based on world context
-            system_prompt = self.build_system_prompt(world_id)
-            
-            # Call Claude API with system parameter
-            response = self.client.messages.create(
-                model=self.model,
-                system=system_prompt,
-                messages=claude_messages,
-                max_tokens=512
-            )
-            
-            # Extract response content and parse JSON
-            content = response.content[0].text
-            
-            # Try to extract JSON from the response
-            # First, look for JSON array pattern
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', content, re.DOTALL)
-            if json_match:
-                options_json = json_match.group(0)
-                options = json.loads(options_json)
-                return options
+            # Only try the API if mock fallback is disabled or we want to try API first
+            if not use_mock:
+                # Format messages for Claude
+                claude_messages = self._format_messages_for_claude(conversation)
                 
-            # If that fails, try to parse the entire response as JSON
-            try:
-                options = json.loads(content)
-                if isinstance(options, list) and all('id' in opt and 'text' in opt for opt in options):
+                # Add world context to the prompt option generation
+                instruction = "Generate 3-5 suggested prompt options that would be helpful for the user to select based on our conversation."
+                
+                if world_id:
+                    # Get world info to enhance the instruction
+                    from app.models.world import World
+                    world = World.query.get(world_id)
+                    if world and world.name:
+                        instruction = f"Generate 3-5 suggested prompt options related to the '{world.name}' world that would be helpful for the user based on our conversation."
+                
+                # Add the instruction for format
+                instruction += " Format your response as a JSON array of objects with 'id' and 'text' fields. Example: [{\"id\": 1, \"text\": \"Tell me more about this scenario\"}, {\"id\": 2, \"text\": \"What ethical principles apply here?\"}]"
+                
+                # Add the instruction to the messages
+                claude_messages.append({
+                    "role": "user",
+                    "content": instruction
+                })
+                
+                # Build appropriate system prompt based on world context
+                system_prompt = self.build_system_prompt(world_id)
+                
+                # Call Claude API with system parameter
+                response = self.client.messages.create(
+                    model=self.model,
+                    system=system_prompt,
+                    messages=claude_messages,
+                    max_tokens=512
+                )
+                
+                # Extract response content and parse JSON
+                content = response.content[0].text
+                
+                # Try to extract JSON from the response
+                # First, look for JSON array pattern
+                json_match = re.search(r'\[\s*\{.*\}\s*\]', content, re.DOTALL)
+                if json_match:
+                    options_json = json_match.group(0)
+                    options = json.loads(options_json)
                     return options
-            except:
-                pass
-                
-            # If all parsing fails, return appropriate default options
-            if world_id:
-                return self._default_world_options
+                    
+                # If that fails, try to parse the entire response as JSON
+                try:
+                    options = json.loads(content)
+                    if isinstance(options, list) and all('id' in opt and 'text' in opt for opt in options):
+                        return options
+                except:
+                    pass
+                    
+                # If all parsing fails, return appropriate default options
+                if world_id:
+                    return self._default_world_options
+                else:
+                    return self._general_options
             else:
-                return self._general_options
-            
+                # Mock response when fallback is explicitly enabled
+                raise Exception("Mock fallback mode is enabled, using mock options")
+                
         except Exception as e:
             print(f"Error generating prompt options from Claude: {str(e)}")
-            # Return appropriate default options based on world context
+            print(f"Falling back to mock options (USE_MOCK_FALLBACK={use_mock})")
+            
+            # Create context-aware mock options
+            mock_options = []
+            
             if world_id:
-                return self._default_world_options
+                # World-specific mock options
+                try:
+                    from app.models.world import World
+                    world = World.query.get(world_id)
+                    if world and world.name:
+                        mock_options = [
+                            {"id": 1, "text": f"Tell me more about the {world.name} world"},
+                            {"id": 2, "text": f"What ethical principles apply in {world.name}?"},
+                            {"id": 3, "text": f"How should I make decisions in {world.name}?"},
+                            {"id": 4, "text": f"What are the key challenges in {world.name}?"},
+                            {"id": 5, "text": f"[Using mock options due to API unavailability]"}
+                        ]
+                except:
+                    # Fall back to default world options if we can't get the world name
+                    mock_options = self._default_world_options
             else:
-                return self._general_options
+                # General mock options with note about mock mode
+                mock_options = [
+                    {"id": 1, "text": "Tell me about ethical decision-making"},
+                    {"id": 2, "text": "How do I apply ethical principles in practice?"},
+                    {"id": 3, "text": "What are some common ethical dilemmas?"},
+                    {"id": 4, "text": "How do different frameworks approach ethics?"},
+                    {"id": 5, "text": "[Using mock options due to API unavailability]"}
+                ]
+                
+            return mock_options
