@@ -92,9 +92,47 @@
     margin: 0;
 }
 
-/* Diff content */
+/* Diff content container with enhanced scrollbar visibility */
 #diffContent {
-    overflow-x: auto;  /* Add horizontal scrolling for content that exceeds container width */
+    overflow-x: scroll;  /* Force horizontal scrolling even if not needed */
+    overflow-y: visible;  /* Ensure vertical content is visible */
+    max-width: 100%;  /* Ensure content respects container width */
+    display: block;  /* Force block display to ensure scrollbar shows */
+    margin-bottom: 15px;  /* Add space for horizontal scrollbar */
+    padding-bottom: 15px;  /* Extra padding to ensure scrollbar is visible */
+    -webkit-overflow-scrolling: touch;  /* Smooth scrolling on iOS */
+}
+
+/* Force scrollbar display for all browsers */
+#diffContent::-webkit-scrollbar {
+    height: 8px;  /* Height of the scrollbar */
+    display: block;  /* Ensure scrollbar is always displayed */
+}
+
+#diffContent::-webkit-scrollbar-track {
+    background: #f1f1f1;  /* Scrollbar track color */
+}
+
+#diffContent::-webkit-scrollbar-thumb {
+    background: #888;  /* Scrollbar handle color */
+    border-radius: 4px;  /* Rounded scrollbar handle */
+}
+
+#diffContent::-webkit-scrollbar-thumb:hover {
+    background: #555;  /* Handle color on hover */
+}
+
+/* Firefox scrollbar */
+#diffContent {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+/* Force table to be wider than its container to ensure scrollbar appears */
+#diffContent table.diff {
+    min-width: 110%;  /* Make table wider than container to force scrollbar */
+    width: max-content;  /* Allow table to be its natural width if wider */
+    table-layout: auto;  /* Use automatic table layout for natural column widths */
 }
 
 .diff-unified {

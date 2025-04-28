@@ -18,12 +18,6 @@ document.addEventListener('DOMContentLoaded', function() {
  * Set up the diff modal
  */
 function setupDiffModal() {
-    // Close button event
-    document.getElementById('closeDiffBtn').addEventListener('click', function() {
-        document.getElementById('diffModal').classList.remove('show');
-        document.getElementById('diffModalBackdrop').style.display = 'none';
-    });
-
     // Footer close button event
     document.getElementById('closeDiffBtnFooter').addEventListener('click', function() {
         document.getElementById('diffModal').classList.remove('show');

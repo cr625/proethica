@@ -1,46 +1,74 @@
-## 2025-04-27 - Fixed Side-by-Side Diff View Container Overflow
+## 2025-04-27 - Fixed Side-by-Side Diff View Container Overflow with Enhanced Scrollbar
 
 ### Issue Fixed
 
-Fixed a UI issue with the side-by-side diff comparison view:
+Fixed two UI issues with the side-by-side diff comparison view:
 - Content would overflow the container boundaries, extending beyond the grey background
+- Horizontal scrollbar was not consistently visible or usable when needed
 
 ### Root Cause Analysis
 
 The issue occurred because:
 1. The diff content could extend beyond its container width
 2. No horizontal overflow handling was in place for the container
+3. The browser's default scrollbar behavior was inconsistent across different views and data sets
+4. The scrollbar would sometimes not appear even when content was wider than the container
 
 ### Solution Implemented
 
-Implemented the simplest possible fix by adding just one CSS property:
+Implemented a comprehensive scrollbar solution with these features:
 
-```css
-#diffContent {
-    overflow-x: auto;  /* Add horizontal scrolling for content that exceeds container width */
-}
-```
+1. **Force Scrollbar Display**: Made the horizontal scrollbar always visible
+   ```css
+   #diffContent {
+       overflow-x: scroll;  /* Force horizontal scrolling even if not needed */
+       margin-bottom: 15px;  /* Add space for horizontal scrollbar */
+       padding-bottom: 15px;  /* Extra padding to ensure scrollbar is visible */
+   }
+   ```
 
-This one-line change allows the container to scroll horizontally when content is wider than the container, keeping everything within the gray background.
+2. **Cross-Browser Scrollbar Styling**: Ensured consistent appearance across browsers
+   ```css
+   /* Webkit browsers */
+   #diffContent::-webkit-scrollbar {
+       height: 8px;
+       display: block;
+   }
+   
+   /* Firefox */
+   #diffContent {
+       scrollbar-width: thin;
+       scrollbar-color: #888 #f1f1f1;
+   }
+   ```
 
-### Why This Minimal Approach Works
+3. **Force Table Width**: Ensured table is always wide enough to trigger scrollbar
+   ```css
+   #diffContent table.diff {
+       min-width: 110%;  /* Make table wider than container to force scrollbar */
+       width: max-content;  /* Allow table to be its natural width if wider */
+       table-layout: auto;  /* Use automatic table layout for natural column widths */
+   }
+   ```
 
-We found that attempting to control column widths with complex CSS disrupted the natural column distribution that was already working well. The browser's table layout algorithm works best when we don't interfere with it.
+### Why This Approach Works
 
-By reverting to the original styling and adding only the overflow property:
-1. The browser's natural column width distribution is maintained
-2. Content is prevented from overflowing beyond the container boundaries
-3. No side effects are introduced to the existing table layout
+Our earlier attempts focused on controlling column widths with complex CSS, which disrupted the browser's natural column distribution. The new approach:
+
+1. Leverages the browser's natural table layout algorithm for proper column proportions
+2. Forces a horizontal scrollbar to always be visible and usable
+3. Ensures the diff content stays within its container boundaries
+4. Maintains consistent behavior across different browsers and content
 
 ### Benefits
 
 - Content now stays properly within the gray background container
-- Original column proportions are preserved exactly as they were before
-- Horizontal scrolling is available when needed for wide content
+- Natural column proportions are preserved (no forced equal distribution)
+- Horizontal scrollbar is always visible and usable, providing clear indication that content can be scrolled
+- Custom scrollbar styling improves visibility and usability
 - The toggle between unified and side-by-side views continues to function correctly
-- Maximum compatibility with existing code and browser rendering behavior
 
-This minimal one-property approach solves the specific issue while maintaining all the existing functionality and appearance.
+This solution provides the best of both worlds: natural column distribution with reliable container boundaries and consistent scrolling behavior.
 
 ## 2025-04-27 - Fixed Diff Viewer 404 Error on Direct Access
 
