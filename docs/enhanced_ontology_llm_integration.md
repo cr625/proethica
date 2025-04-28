@@ -1,257 +1,167 @@
-# Enhanced Ontology-LLM Integration Guide
-
-This guide provides comprehensive information about the enhanced integration between ontologies and Language Learning Models (LLMs) using the Model Context Protocol (MCP). This integration enables LLMs to access, understand, and reason with ontological knowledge in a more sophisticated way.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Components](#components)
-- [Setup and Configuration](#setup-and-configuration)
-- [Usage Examples](#usage-examples)
-- [Troubleshooting](#troubleshooting)
-- [Advanced Features](#advanced-features)
+# Enhanced Ontology LLM Integration via MCP
 
 ## Overview
 
-The Enhanced Ontology-LLM Integration provides a bridge between structured ontological knowledge and LLMs like Claude. By leveraging the Model Context Protocol (MCP), this integration allows LLMs to:
-
-1. **Query and navigate ontology structures**: Explore entity relationships and hierarchies
-2. **Validate against constraints**: Check if relationships satisfy ontological constraints
-3. **Extract guidelines and principles**: Access structured ethical guidelines from ontologies
-4. **Perform semantic searches**: Find entities based on keywords or patterns
-5. **Access comprehensive entity information**: Get rich details about ontology entities
+This document outlines how the ProEthica system integrates ontologies with Language Learning Models (LLMs) using the Model Context Protocol (MCP). This integration allows LLMs to access structured knowledge from ontologies, reason with ontological constraints, and provide contextually accurate responses.
 
 ## Architecture
 
-The integration is built on a layered architecture:
+The integration follows a three-layer architecture:
+
+1. **Ontology Layer**: Stores and manages structured domain knowledge
+2. **MCP Communication Layer**: Provides protocol-based access to ontology data
+3. **LLM Integration Layer**: Connects LLMs with ontology data through context injection
 
 ```
-+-------------------+
-|      LLM Agent    |
-+-------------------+
-         ↑
-         | Enhanced Context
-         ↓
-+-------------------+
-| Ontology Context  |
-|    Provider       |
-+-------------------+
-         ↑
-         | Rich Ontology Data
-         ↓
-+-------------------+
-| Enhanced MCP      |
-|    Client         |
-+-------------------+
-         ↑
-         | JSON-RPC / HTTP
-         ↓
-+-------------------+
-| Enhanced Ontology |
-|   MCP Server      |
-+-------------------+
-         ↑
-         | Query & Access
-         ↓
-+-------------------+
-| Ontology Database |
-| & File Storage    |
-+-------------------+
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │      │                 │
+│  Ontology Layer │◄────►│ MCP Layer       │◄────►│ LLM Layer       │
+│                 │      │                 │      │                 │
+└─────────────────┘      └─────────────────┘      └─────────────────┘
 ```
 
-## Components
+## Key Components
 
-### 1. Enhanced Ontology MCP Server
+### 1. Enhanced MCP Client
 
-Located in `mcp/enhanced_ontology_mcp_server.py`, this component extends the basic HTTP MCP server with advanced ontology capabilities:
+The `EnhancedMCPClient` class provides a high-level interface for LLMs to interact with ontologies:
 
-- **SPARQL Query Support**: Run queries against ontologies
-- **Relationship Navigation**: Explore entity connections
-- **Hierarchy Traversal**: Navigate parent-child relationships
-- **Constraint Checking**: Validate against ontological constraints
-- **Semantic Search**: Find entities based on patterns and keywords
+- **Entity Access**: Retrieve entities of different types (roles, capabilities, conditions, etc.)
+- **Relationship Navigation**: Traverse relationships between entities
+- **Constraint Checking**: Validate logical constraints defined in the ontology
+- **Guideline Access**: Retrieve guidelines associated with the ontology
+- **Fallback Mechanism**: Provides mock data when ontology access fails
 
-### 2. Enhanced MCP Client
+### 2. Context Providers
 
-Located in `app/services/enhanced_mcp_client.py`, this client provides high-level methods for interacting with the enhanced MCP server:
+The ontology context provider extracts relevant information from ontologies and formats it for LLM consumption:
 
-- **Simplified Tool Access**: Easy-to-use methods for each tool
-- **Error Handling**: Robust error handling and fallback mechanisms
-- **Formatting Helpers**: Methods to format ontology data for LLM consumption
-- **Singleton Pattern**: Consistent access across the application
+- **Entity Context**: Information about entities related to a query
+- **Guideline Context**: Guidelines that may apply to the current scenario
+- **Relationship Context**: How entities relate to each other
+- **Structural Context**: The hierarchy and organization of the ontology
 
-### 3. Ontology Context Provider
+### 3. MCP Protocol Handlers
 
-Located in `app/services/context_providers/ontology_context_provider.py`, this provider enriches LLM context with ontology information:
+These components handle the JSON-RPC 2.0 communication between the application and MCP servers:
 
-- **Query-Based Entity Extraction**: Finds relevant entities based on user queries
-- **Relationship Context**: Provides relationship information for better understanding
-- **Guideline Extraction**: Includes applicable ethical guidelines and principles
-- **Seamless Integration**: Works with existing application context system
+- **HTTP Ontology MCP Server**: Exposes ontology data via HTTP endpoints
+- **Load From DB**: Retrieves ontology data from the database
+- **Tool Definitions**: Defines the available tools for LLMs to access ontology data
 
-## Setup and Configuration
+## Integration Methods
 
-### 1. Start the Enhanced MCP Server
+### Method 1: Context Injection
 
-```bash
-# Option 1: Direct start
-python3 mcp/run_enhanced_mcp_server.py
+This method injects ontology data into the LLM's context window before generating a response:
 
-# Option 2: Using the restart script
-./scripts/restart_mcp_server.sh
+1. The user submits a query about an ontology
+2. The system retrieves relevant entities, relationships, and guidelines
+3. This data is formatted and added to the LLM's context
+4. The LLM generates a response using this enriched context
+
+```
+User Query -> Retrieve Ontology Data -> Format Context -> LLM Generation -> Response
 ```
 
-### 2. Enable the Enhanced Integration
+### Method 2: Tool-Based Access
 
-```bash
-python3 scripts/enable_enhanced_ontology_integration.py
+This method allows the LLM to make direct calls to ontology-related tools:
+
+1. The LLM is configured with access to ontology tools via MCP
+2. When the LLM needs ontology information, it calls the appropriate tool
+3. The tool returns structured data about the ontology
+4. The LLM incorporates this data into its reasoning
+
+```
+LLM -> Tool Call -> MCP Server -> Ontology Query -> Structured Data -> LLM
 ```
 
-This script:
-- Registers the OntologyContextProvider
-- Updates the application configuration
-- Sets appropriate token allocation for ontology context
+## Implementation Details
 
-### 3. Test the Integration
+### EnhancedMCPClient Methods
 
-```bash
-python3 scripts/test_enhanced_ontology_integration.py
+| Method | Description |
+|--------|-------------|
+| `get_entities()` | Retrieves entities of a specific type from an ontology |
+| `get_entity_relationships()` | Retrieves relationships for a specific entity |
+| `navigate_entity_hierarchy()` | Navigates up/down the class hierarchy |
+| `query_ontology()` | Executes a SPARQL query against the ontology |
+| `check_constraint()` | Checks if an entity satisfies specified constraints |
+| `search_entities()` | Searches for entities by keywords or patterns |
+| `get_ontology_guidelines()` | Retrieves guidelines from an ontology |
+
+### Data Formatting
+
+Ontology data is formatted for LLMs using structured templates:
+
+```
+# [Entity Name]
+[Entity Description]
+
+Types: [Entity Types]
+Parent Classes: [Parent Classes]
+
+Properties:
+- [Property Name]: [Property Value]
+- ...
+
+Capabilities:
+- [Capability Name]: [Capability Description]
+- ...
 ```
 
-## Usage Examples
+### Fallback Mechanisms
 
-### Accessing Ontology Data in LLM Prompts
+The system includes robust fallback mechanisms to handle failures:
 
-The enhanced integration automatically injects relevant ontology information into LLM prompts based on the user's query. For example, if a user asks about "engineering ethics," the system will:
+1. **Mock Data Fallback**: Returns predefined mock data when ontology access fails
+2. **Error Reporting**: Clear error messages are included in the context
+3. **Graceful Degradation**: System continues to function with limited ontology data
 
-1. Find entities related to "engineering ethics" in the ontology
-2. Extract details about the most relevant entity
-3. Include relationship information for better context
-4. Add applicable guidelines and principles
-5. Format everything for easy LLM consumption
+## Example Workflow
 
-### Manually Accessing Enhanced MCP Capabilities
+1. A user asks: "What roles are defined in the engineering ontology?"
+2. The system:
+   - Identifies the query is about roles in the engineering ontology
+   - Retrieves role entities using `get_entities(ontology_source, 'roles')`
+   - Formats the role data as structured context
+   - Passes the context to the LLM
+3. The LLM responses with a description of engineering roles based on the ontology data
 
-You can also use the Enhanced MCP Client directly in your code:
+## Benefits of MCP-Based Integration
 
-```python
-from app.services.enhanced_mcp_client import get_enhanced_mcp_client
+1. **Structured Knowledge Access**: LLMs can access precise, structured ontology data
+2. **Consistency Enforcement**: Ontology constraints guide LLM responses
+3. **Domain Grounding**: Responses are grounded in domain-specific knowledge
+4. **Reasoning Transparency**: The source of information in responses is traceable
+5. **Extensibility**: New ontologies can be added without changing the LLM interface
 
-# Get the client instance
-client = get_enhanced_mcp_client()
+## Limitations and Considerations
 
-# Search for entities
-results = client.search_entities(
-    ontology_source="engineering-ethics",
-    query="responsibility"
-)
+1. **Context Window Limits**: Large ontologies may exceed LLM context windows
+2. **Performance Overhead**: Multiple ontology queries can increase response time
+3. **Error Handling**: LLMs may not handle ontology access errors gracefully
+4. **Query Interpretation**: Mapping natural language to ontology queries requires optimization
 
-# Get entity details
-entity = client.get_entity_details(
-    ontology_source="engineering-ethics",
-    entity_uri="http://proethica.org/ontology/engineering-ethics#Engineer"
-)
+## Future Enhancements
 
-# Get entity relationships
-relationships = client.get_entity_relationships(
-    ontology_source="engineering-ethics",
-    entity_uri="http://proethica.org/ontology/engineering-ethics#Engineer"
-)
+1. **Semantic Reasoning**: Integrate a semantic reasoner for complex constraint checking
+2. **Query Optimization**: Improve retrieval to minimize context window usage
+3. **Fine-tuning Integration**: Use ontology data to fine-tune LLMs for specific domains
+4. **Cross-Ontology Mapping**: Enable reasoning across multiple ontologies
+5. **User-Specific Context**: Tailor ontology access based on user roles and permissions
 
-# Format for human-readable output
-formatted_entity = client.format_entity_for_context(entity)
-print(formatted_entity)
-```
+## Implementation Status
 
-## Troubleshooting
+The current implementation includes:
+- ✅ Enhanced MCP client with ontology access methods
+- ✅ Fallback mechanisms for error handling
+- ✅ Context formatting for LLM consumption
+- ✅ Integration with Claude and other LLM services
+- ✅ Mock data generation for testing
 
-### Common Issues
-
-#### 1. Application Context Errors
-
-If you see errors like:
-```
-Working outside of application context
-```
-
-This typically means the MCP server is trying to access the database without a proper Flask application context. To resolve:
-
-- Ensure the MCP server is running within the application context
-- Use `with app.app_context():` when accessing database models
-
-#### 2. Connection Issues
-
-If the enhanced MCP client cannot connect to the server:
-
-- Ensure the server is running (`ps aux | grep enhanced`)
-- Check the default port is available (5001)
-- Verify network access is not blocked by firewall
-
-#### 3. Missing Ontology Data
-
-If entity queries return empty results:
-
-- Verify the ontology exists in the database
-- Check the ontology source name is correct
-- Ensure the database connection is working properly
-
-## Advanced Features
-
-### 1. Constraint-Based Reasoning
-
-The enhanced integration supports constraint checking:
-
-```python
-constraint_check = client.check_constraint(
-    ontology_source="engineering-ethics",
-    entity_uri="http://proethica.org/ontology/engineering-ethics#Engineer",
-    constraint_type="custom",
-    constraint_data={
-        "validation_type": "role_capability",
-        "required_capabilities": [
-            "http://proethica.org/ontology/engineering-ethics#Technical_Design"
-        ]
-    }
-)
-```
-
-### 2. Ontology Querying
-
-Run SPARQL queries against ontologies:
-
-```python
-query_results = client.query_ontology(
-    ontology_source="engineering-ethics",
-    query="""
-    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-    PREFIX proeth: <http://proethica.org/ontology/intermediate#>
-    
-    SELECT ?role ?label
-    WHERE {
-        ?role rdf:type proeth:Role .
-        OPTIONAL { ?role rdfs:label ?label }
-    }
-    LIMIT 5
-    """
-)
-```
-
-### 3. Ontology Guidelines
-
-Extract guidelines and principles:
-
-```python
-guidelines = client.get_ontology_guidelines("engineering-ethics")
-formatted_guidelines = client.format_guidelines_for_context(guidelines)
-```
-
----
-
-## Further Reading
-
-- [Model Context Protocol Documentation](docs/mcp_docs/mcp_server_guide.md)
-- [Ontology MCP Integration Guide](docs/mcp_docs/ontology_mcp_integration_guide.md)
-- [MCP Project Reference](docs/mcp_docs/mcp_project_reference.md)
-- [Comprehensive Ontology Guide](docs/ontology_comprehensive_guide.md)
+In progress:
+- 🔄 Advanced constraint checking mechanisms
+- 🔄 Performance optimization for large ontologies
+- 🔄 Cross-ontology relationship navigation
