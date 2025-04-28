@@ -1,74 +1,110 @@
-## 2025-04-27 - Fixed Side-by-Side Diff View Container Overflow with Enhanced Scrollbar
+## 2025-04-27 - Comprehensive Improvements to Diff Viewer UI
 
-### Issue Fixed
+### Issues Fixed and Improvements Made
 
-Fixed two UI issues with the side-by-side diff comparison view:
-- Content would overflow the container boundaries, extending beyond the grey background
-- Horizontal scrollbar was not consistently visible or usable when needed
+1. **Fixed Container Overflow**: Content now stays within the grey background container
+2. **Enhanced Horizontal Scrolling**: Added reliable, consistently visible scrollbar
+3. **Removed 'X' Close Button**: Eliminated redundant 'X' in the modal header for cleaner appearance
+4. **Added Diff Notation Legend**: Included an expandable legend to explain diff notation in unified view
 
 ### Root Cause Analysis
 
-The issue occurred because:
-1. The diff content could extend beyond its container width
-2. No horizontal overflow handling was in place for the container
-3. The browser's default scrollbar behavior was inconsistent across different views and data sets
-4. The scrollbar would sometimes not appear even when content was wider than the container
+Several UI issues were identified:
+1. Content extended beyond its container boundaries in side-by-side view
+2. Scrollbar was inconsistent or missing when needed
+3. The 'X' close button was redundant with the "Close" button in the footer
+4. Unified diff notation was difficult to interpret for users unfamiliar with diff format
 
 ### Solution Implemented
 
-Implemented a comprehensive scrollbar solution with these features:
+#### 1. Container Overflow and Scrolling
 
-1. **Force Scrollbar Display**: Made the horizontal scrollbar always visible
-   ```css
-   #diffContent {
-       overflow-x: scroll;  /* Force horizontal scrolling even if not needed */
-       margin-bottom: 15px;  /* Add space for horizontal scrollbar */
-       padding-bottom: 15px;  /* Extra padding to ensure scrollbar is visible */
-   }
-   ```
+Implemented a comprehensive scrollbar solution:
 
-2. **Cross-Browser Scrollbar Styling**: Ensured consistent appearance across browsers
-   ```css
-   /* Webkit browsers */
-   #diffContent::-webkit-scrollbar {
-       height: 8px;
-       display: block;
-   }
-   
-   /* Firefox */
-   #diffContent {
-       scrollbar-width: thin;
-       scrollbar-color: #888 #f1f1f1;
-   }
-   ```
+```css
+#diffContent {
+    overflow-x: scroll;  /* Force horizontal scrolling */
+    margin-bottom: 15px;  /* Space for scrollbar */
+    padding-bottom: 15px;  /* Ensure scrollbar visibility */
+}
 
-3. **Force Table Width**: Ensured table is always wide enough to trigger scrollbar
-   ```css
-   #diffContent table.diff {
-       min-width: 110%;  /* Make table wider than container to force scrollbar */
-       width: max-content;  /* Allow table to be its natural width if wider */
-       table-layout: auto;  /* Use automatic table layout for natural column widths */
-   }
-   ```
+/* Cross-browser styling */
+#diffContent::-webkit-scrollbar { height: 8px; display: block; }
+#diffContent { scrollbar-width: thin; scrollbar-color: #888 #f1f1f1; }
 
-### Why This Approach Works
+/* Force table width to trigger scrollbar */
+#diffContent table.diff {
+    min-width: 110%;  /* Wider than container to force scrollbar */
+    width: max-content;  /* Natural width if wider */
+    table-layout: auto;  /* Natural column widths */
+}
+```
 
-Our earlier attempts focused on controlling column widths with complex CSS, which disrupted the browser's natural column distribution. The new approach:
+#### 2. Modal Header Cleanup
 
-1. Leverages the browser's natural table layout algorithm for proper column proportions
-2. Forces a horizontal scrollbar to always be visible and usable
-3. Ensures the diff content stays within its container boundaries
-4. Maintains consistent behavior across different browsers and content
+Removed the redundant 'X' close button from the modal header:
+
+```html
+<div class="diff-modal-header">
+    <h5 class="diff-modal-title">Compare Versions</h5>
+    <input type="hidden" id="currentOntologyId" value="{{ ontology_id }}">
+</div>
+```
+
+And updated the JavaScript to remove the corresponding event listener.
+
+#### 3. Added Diff Notation Legend
+
+Created an expandable legend for unified diff mode:
+
+```html
+<div class="diff-legend">
+    <details>
+        <summary>Diff notation legend</summary>
+        <ul class="diff-legend-items">
+            <li><code>--- Version X</code>: Source version</li>
+            <li><code>+++ Version Y</code>: Target version</li>
+            <li><code>@@ -X,Y +A,B @@</code>: Line ranges</li>
+            <li><code>-</code>Line removed</li>
+            <li><code>+</code>Line added</li>
+            <li>No prefix: Context line (unchanged)</li>
+        </ul>
+    </details>
+</div>
+```
+
+With appropriate styling:
+
+```css
+.diff-legend {
+    margin-top: 10px;
+    border-top: 1px solid #dee2e6;
+    padding-top: 5px;
+    font-size: 0.85rem;
+}
+
+.diff-legend summary {
+    cursor: pointer;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.diff-legend-items code {
+    background-color: #f8f9fa;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+```
 
 ### Benefits
 
-- Content now stays properly within the gray background container
-- Natural column proportions are preserved (no forced equal distribution)
-- Horizontal scrollbar is always visible and usable, providing clear indication that content can be scrolled
-- Custom scrollbar styling improves visibility and usability
-- The toggle between unified and side-by-side views continues to function correctly
+- **Enhanced Usability**: Content stays properly contained with reliable scrolling
+- **Cleaner Interface**: Removed redundant close button for cleaner appearance
+- **Improved Understanding**: Legend helps users interpret unified diff notation
+- **Consistent Cross-Browser Experience**: Reliable behavior in all browsers
+- **Space Efficiency**: Collapsible legend provides help without taking up permanent space
 
-This solution provides the best of both worlds: natural column distribution with reliable container boundaries and consistent scrolling behavior.
+These enhancements improve both the functionality and usability of the diff viewer while maintaining a clean, professional appearance.
 
 ## 2025-04-27 - Fixed Diff Viewer 404 Error on Direct Access
 

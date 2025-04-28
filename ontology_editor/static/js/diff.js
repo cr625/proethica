@@ -326,9 +326,22 @@ function loadDiff(fromVersion, toVersion) {
             
         // Display the diff
             if (format === 'unified') {
-                // For unified diff, we need to format it as code
+                // For unified diff, we need to format it as code with a legend
                 diffContent.innerHTML = `
                     <pre class="diff-unified">${escapeHtml(data.diff)}</pre>
+                    <div class="diff-legend">
+                        <details>
+                            <summary>Diff notation legend</summary>
+                            <ul class="diff-legend-items">
+                                <li><code>--- Version X</code>: Source version</li>
+                                <li><code>+++ Version Y</code>: Target version</li>
+                                <li><code>@@ -X,Y +A,B @@</code>: Line ranges (X starting line, Y lines in source; A starting line, B lines in target)</li>
+                                <li><code>-</code> Line removed</li>
+                                <li><code>+</code> Line added</li>
+                                <li>No prefix: Context line (unchanged)</li>
+                            </ul>
+                        </details>
+                    </div>
                 `;
             } else {
                 // For split diff, it's already HTML

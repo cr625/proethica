@@ -135,6 +135,37 @@
     table-layout: auto;  /* Use automatic table layout for natural column widths */
 }
 
+/* Diff legend styling */
+.diff-legend {
+    margin-top: 10px;
+    border-top: 1px solid #dee2e6;
+    padding-top: 5px;
+    font-size: 0.85rem;
+}
+
+.diff-legend summary {
+    cursor: pointer;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.diff-legend-items {
+    padding-left: 20px;
+    margin-bottom: 0;
+}
+
+.diff-legend-items li {
+    margin-bottom: 2px;
+}
+
+.diff-legend-items code {
+    background-color: #f8f9fa;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.85em;
+}
+
 .diff-unified {
     font-family: monospace;
     white-space: pre;
