@@ -28,15 +28,16 @@ if [ ! -x "./auto_run.sh" ]; then
     chmod +x ./auto_run.sh
 fi
 
-# Optional: Check if .env exists and contains MCP_SERVER_URL
+# Check if .env exists and ensure it has necessary settings
 if [ ! -f ".env" ]; then
     echo -e "${YELLOW}No .env file found. Creating one from .env.example...${NC}"
     cp .env.example .env
     echo -e "${YELLOW}Adding MCP_SERVER_URL to .env file...${NC}"
     echo "MCP_SERVER_URL=http://localhost:5001" >> .env
     echo "USE_MOCK_FALLBACK=false" >> .env
+    echo "SKIP_MCP_SERVER=true" >> .env  # Add this to prevent duplicate MCP server startup
 else
-    # Update existing .env file with correct MCP_SERVER_URL and USE_MOCK_FALLBACK
+    # Update existing .env file with correct settings
     if ! grep -q "MCP_SERVER_URL=" .env; then
         echo -e "${YELLOW}Adding MCP_SERVER_URL to .env file...${NC}"
         echo "MCP_SERVER_URL=http://localhost:5001" >> .env
@@ -52,12 +53,24 @@ else
         # Do not override existing value
         echo -e "${BLUE}Using existing USE_MOCK_FALLBACK setting from .env file${NC}" 
     fi
+    
+    # We no longer need to set SKIP_MCP_SERVER as we only have one MCP server implementation now
 fi
 
-# Ensure HTTP MCP server script is executable
-if [ ! -x "./scripts/restart_http_mcp_server.sh" ]; then
-    echo -e "${YELLOW}Making restart_http_mcp_server.sh executable...${NC}"
-    chmod +x ./scripts/restart_http_mcp_server.sh
+# Ensure enhanced MCP server script is executable
+if [ ! -x "./scripts/restart_mcp_server.sh" ]; then
+    echo -e "${YELLOW}Making restart_mcp_server.sh executable...${NC}"
+    chmod +x ./scripts/restart_mcp_server.sh
+fi
+
+# Clean up any existing MCP server processes
+echo -e "${BLUE}Checking for running MCP server processes...${NC}"
+if pgrep -f "run_enhanced_mcp_server.py" > /dev/null || pgrep -f "http_ontology_mcp_server.py" > /dev/null; then
+    echo -e "${YELLOW}Stopping existing MCP server processes...${NC}"
+    pkill -f "run_enhanced_mcp_server.py" 2>/dev/null || true
+    pkill -f "http_ontology_mcp_server.py" 2>/dev/null || true
+    pkill -f "ontology_mcp_server.py" 2>/dev/null || true
+    sleep 2
 fi
 
 # Check for WSL environment

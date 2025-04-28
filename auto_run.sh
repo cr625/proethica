@@ -111,11 +111,13 @@ else
     # Ensure scripts are executable
     chmod +x scripts/restart_mcp_server.sh
     
-    # Start HTTP MCP server and wait for it to initialize
-    echo -e "${BLUE}Starting HTTP MCP server on port 5001...${NC}"
+    # Start the enhanced MCP server and wait for it to initialize
+    echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
     ./scripts/restart_mcp_server.sh
     echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
     sleep 5  # Wait for server to initialize
+    
+    # We no longer need to set SKIP_MCP_SERVER as we only have one MCP server implementation now
     
     # Export environment variables from .env file
     export $(grep -v '^#' .env | xargs)

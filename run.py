@@ -47,7 +47,7 @@ print(f"Running in {environment.upper()} mode")
 # Set environment variable
 os.environ['ENVIRONMENT'] = environment
 
-# Determine MCP server port - default to 5001 to match http_ontology_mcp_server.py
+# Determine MCP server port - default to 5001 to match expected MCP server port
 mcp_port = args.mcp_port
 os.environ['MCP_SERVER_PORT'] = str(mcp_port)
 
@@ -59,62 +59,22 @@ print(f"Set MCP_SERVER_URL to {mcp_url}")
 # Log a clear message about MCP server port configuration
 print(f"MCP server will be available at {mcp_url}")
 
-# Check if we should skip starting the MCP server
-if os.environ.get('SKIP_MCP_SERVER', '').lower() in ('true', '1', 'yes'):
-    print("Skipping MCP server startup, using existing MCP server...")
-    # Verify that the MCP server is already running
-    mcp_running = False
-    try:
-        response = requests.get(f"{mcp_url}/api/guidelines/engineering-ethics", timeout=2)
-        if response.status_code == 200:
-            mcp_running = True
-            print("Successfully connected to existing MCP server!")
-        else:
-            print(f"Warning: Existing MCP server returned status code {response.status_code}")
-    except requests.exceptions.RequestException as e:
-        print(f"Warning: Could not connect to existing MCP server: {e}")
-        
-    if not mcp_running:
-        print("WARNING: Existing MCP server may not be running properly. Continuing anyway...")
-else:
-    # Restart the HTTP MCP server
-    print("Starting the HTTP MCP server...")
-    subprocess.run(["./scripts/restart_http_mcp_server.sh"], shell=True)
-
-    # Wait for the MCP server to start with verification
-    print("Waiting for the MCP server to start...")
-    max_retries = 12  # 60 seconds total waiting time
-    retry_interval = 5  # seconds
-    mcp_running = False
-
-    for i in range(max_retries):
-        try:
-            # Try to connect to the MCP server
-            print(f"Attempt {i+1}/{max_retries} to connect to MCP server at {mcp_url}...")
-            
-            # Check if process is running
-            ps_check = subprocess.run(["ps", "aux"], capture_output=True, text=True)
-            if "ontology_mcp_server.py" in ps_check.stdout:
-                print("Found ontology_mcp_server.py process running")
-                
-                # Try to connect to the server API
-                try:
-                    requests.get(f"{mcp_url}/api/ping", timeout=2)
-                    mcp_running = True
-                    print("Successfully connected to MCP server API!")
-                    break
-                except requests.exceptions.ConnectionError:
-                    print(f"MCP server process is running but API not responding yet")
-            else:
-                print("No ontology_mcp_server.py process found running")
-                
-            time.sleep(retry_interval)
-        except Exception as e:
-            print(f"Error checking MCP server: {str(e)}")
-            time.sleep(retry_interval)
-
-    if not mcp_running:
-        print("WARNING: MCP server may not be running properly. Continuing anyway...")
+# The enhanced MCP server is started by auto_run.sh before we run this script
+print("Checking enhanced MCP server status...")
+# Verify that the MCP server is already running
+mcp_running = False
+try:
+    response = requests.get(f"{mcp_url}/api/guidelines/engineering-ethics", timeout=2)
+    if response.status_code == 200:
+        mcp_running = True
+        print("Successfully connected to existing MCP server!")
+    else:
+        print(f"Warning: MCP server returned status code {response.status_code}")
+except requests.exceptions.RequestException as e:
+    print(f"Warning: Could not connect to MCP server: {e}")
+    
+if not mcp_running:
+    print("WARNING: MCP server may not be running properly. Continuing anyway...")
 
 # Create app instance with the detected environment
 app = create_app(environment)
