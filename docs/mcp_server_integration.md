@@ -1,94 +1,120 @@
-# MCP Server Integration
+# MCP Server Integration Guide
 
-This document describes the integration of the Model Context Protocol (MCP) server with the AI Ethical DM application.
+This document provides guidance on integrating the Model Context Protocol (MCP) server with the Proethica application, including setup, configuration, and best practices.
 
 ## Overview
 
-The application uses a Model Context Protocol (MCP) server to retrieve entities from ontologies. The MCP server is a separate process that runs alongside the application and provides access to ontology data through a JSON-RPC API.
+The Proethica project uses Model Context Protocol (MCP) to provide LLMs with access to ontological knowledge and domain-specific information. This integration enhances the capabilities of models like Claude by giving them access to structured ethical knowledge.
 
-## MCP Server
+## Current Implementation
 
-The MCP server is implemented in two versions:
+The current MCP server implementation is an HTTP-based server located in `mcp/http_ontology_mcp_server.py`. This server:
 
-1. **Standard MCP Server** (`mcp/ontology_mcp_server.py`): Uses stdio for communication, primarily used with the development server.
-2. **HTTP MCP Server** (`mcp/http_ontology_mcp_server.py`): Runs as a web server on a specific port, used with Gunicorn for production.
+1. Loads ontologies from the database with file-based fallback
+2. Exposes entity data through both JSON-RPC and REST endpoints
+3. Supports multiple entity types (roles, conditions, resources, events, actions)
+4. Integrates with the main application through a singleton client pattern
 
-Both servers load ontology files from the `mcp/ontology/` directory and provide an API to retrieve entities from these ontologies.
+## Setup and Configuration
 
-The servers support the following ontologies:
-- `engineering_ethics.ttl`: Engineering ethics ontology
-- `nj_legal_ethics.ttl`: New Jersey legal ethics ontology
-- `tccc.ttl`: Tactical Combat Casualty Care ontology
+### Environment Variables
 
-## Starting the MCP Server
+The MCP server uses the following environment variables:
 
-The MCP server is started automatically when the application is run:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| ONTOLOGY_DIR | `mcp/ontology` | Directory for ontology files (fallback) |
+| DEFAULT_DOMAIN | `military-medical-triage` | Default domain when none specified |
+| MCP_SERVER_PORT | `5001` | HTTP server port |
 
-- When using `python run.py` (development mode), the standard MCP server is started via `scripts/restart_mcp_server.sh` and runs on port 5000.
-- When using `./run_with_gunicorn.sh` (production mode), the HTTP MCP server is started via `scripts/restart_mcp_server_gunicorn.sh` and runs on port 5001.
+### Starting the Server
 
-You can also start the MCP servers manually:
+The server can be started using the provided scripts:
 
 ```bash
-# For development (standard MCP server)
+# Start the MCP server
 ./scripts/restart_mcp_server.sh
 
-# For production (HTTP MCP server)
-./scripts/restart_mcp_server_gunicorn.sh
+# Start the HTTP MCP server
+./scripts/restart_http_mcp_server.sh
 ```
 
-The HTTP MCP server requires the `aiohttp` package, which is included in the `requirements.txt` file.
+## Integration with Claude
 
-## MCP Client
+The Proethica application integrates with Claude through the MCP server using:
 
-The application communicates with the MCP server through the `MCPClient` class implemented in `app/services/mcp_client.py`. The client provides methods to retrieve entities from ontologies, as well as other functionality like retrieving references from Zotero.
+1. The `ClaudeService` class (`app/services/claude_service.py`)
+2. The `ProethicaAdapter` class (`app/agent_module/adapters/proethica.py`)
+3. Environment variables for API configuration
 
-The `MCPClient` is implemented as a singleton, so there is only one instance of the client throughout the application. The client is initialized in `app/__init__.py` when the application starts.
+### API Configuration
 
-## Entity Retrieval
+Proper API configuration in `.env` is essential:
 
-The application retrieves entities from ontologies through the `get_world_entities` method of the `MCPClient`. This method takes an ontology source (e.g., `engineering_ethics.ttl`) and returns a dictionary of entities organized by type (roles, conditions, resources, actions).
+```
+ANTHROPIC_API_KEY=your_api_key_here
+USE_MOCK_FALLBACK=false  # Set to true to use mock responses instead of Claude API
+```
 
-If the MCP server is not running or cannot be reached, the client falls back to mock data defined in the `get_mock_entities` method.
+## Security Considerations
+
+When working with the MCP server:
+
+1. **API Key Protection**: Never commit API keys to version control
+2. **Environment Separation**: Use different API keys for development and production
+3. **Access Control**: The MCP server should only be accessible locally, not exposed publicly
+4. **Logging**: Implement proper logging but avoid logging sensitive information
+
+## Testing
+
+### API Endpoint Testing
+
+Test the MCP server endpoints using:
+
+```bash
+# Test REST endpoint
+curl http://localhost:5001/api/ontology/engineering-ethics/entities
+
+# Test JSON-RPC endpoint
+curl -X POST http://localhost:5001/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "call_tool", "params": {"name": "get_world_entities", "arguments": {"ontology_source": "engineering-ethics", "entity_type": "roles"}}, "id": 1}'
+```
+
+### Claude Integration Testing
+
+To test Claude integration with MCP:
+
+```bash
+# Using the verification script
+./scripts/run_with_env.sh python scripts/verify_anthropic_fix.py
+```
 
 ## Troubleshooting
 
-If entities are not being retrieved from ontologies, check the following:
+Common issues and solutions:
 
-1. Make sure the MCP server is running. You can check this by running:
-   ```bash
-   ps aux | grep ontology_mcp_server.py
-   ```
+1. **Connection Errors**: Ensure the MCP server is running on the correct port
+2. **Authentication Errors**: Verify environment variables are properly loaded
+3. **Missing Ontologies**: Check both database storage and file fallbacks
+4. **Performance Issues**: Consider implementing caching for frequently requested data
 
-2. Check the MCP server logs for errors:
-   ```bash
-   cat mcp/server.log
-   ```
+## Client Applications
 
-3. Make sure the ontology files exist in the `mcp/ontology/` directory:
-   ```bash
-   ls -l mcp/ontology/
-   ```
+The following applications support MCP integration with Proethica:
 
-4. Try restarting the MCP server:
-   ```bash
-   ./scripts/restart_mcp_server.sh
-   ```
+| Client | Support Level | Notes |
+|--------|--------------|-------|
+| Claude Desktop App | Full | Supports tools, prompts, and resources |
+| Cline | Partial | Supports tools and resources |
+| Continue | Full | VS Code extension with full MCP support |
+| Cursor | Limited | Supports tools only |
 
-5. If the MCP server is running but the application is still not retrieving entities, check the application logs for errors related to the MCP client.
+## Further Documentation
 
-## Improving Robustness
+For more detailed information, refer to:
 
-To improve the robustness of the MCP server integration, the following changes have been made:
-
-1. The `run_with_gunicorn.sh` script now starts the MCP server before starting Gunicorn, ensuring that the MCP server is running when the application starts.
-
-2. The script waits for 5 seconds after starting the MCP server to give it time to initialize before the application tries to connect to it.
-
-3. The script sets the `MCP_SERVER_URL` environment variable to ensure the application knows where to find the MCP server.
-
-4. The `MCPClient` includes enhanced error handling and logging to gracefully handle cases where the MCP server is not running or cannot be reached.
-
-5. The API routes in `app/routes/mcp_api.py` have been updated to use absolute paths when loading ontology files, ensuring they can be found regardless of the current working directory.
-
-6. Detailed logging has been added throughout the entity retrieval process to help diagnose any issues.
+- [MCP Server Guide](docs/mcp_docs/mcp_server_guide.md)
+- [Ontology Integration Guide](docs/mcp_docs/ontology_mcp_integration_guide.md)
+- [MCP Project Reference](docs/mcp_docs/mcp_project_reference.md)
+- [MCP Clients and Advanced Features](docs/mcp_docs/mcp_clients_and_advanced_features.md)

@@ -7,6 +7,8 @@ This directory contains comprehensive documentation for implementing and working
 1. [**MCP Server Guide**](mcp_server_guide.md) - Comprehensive guide on creating and configuring MCP servers
 2. [**Ontology Integration Guide**](ontology_mcp_integration_guide.md) - Detailed instructions for integrating ontologies with MCP
 3. [**Project Reference**](mcp_project_reference.md) - Proethica-specific MCP implementation details and best practices
+4. [**MCP Clients and Advanced Features**](mcp_clients_and_advanced_features.md) - Information about MCP clients and advanced MCP features
+5. [**Development Prompt**](mcp_development_prompt.md) - Reference prompt for working with MCP in the Proethica project
 
 ## Quick Start
 
