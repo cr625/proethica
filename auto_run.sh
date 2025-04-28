@@ -99,12 +99,13 @@ else
         sed -i "s/MCP_SERVER_PORT=.*/MCP_SERVER_PORT=5001/" .env
     fi
     
-    # Set USE_MOCK_FALLBACK to true to ensure roles are always populated
+    # Handle USE_MOCK_FALLBACK setting in .env
     if ! grep -q "USE_MOCK_FALLBACK" .env; then
         echo -e "${YELLOW}Adding USE_MOCK_FALLBACK to .env file...${NC}"
-        echo "USE_MOCK_FALLBACK=true" >> .env
+        echo "USE_MOCK_FALLBACK=false" >> .env
     else
-        sed -i "s/USE_MOCK_FALLBACK=.*/USE_MOCK_FALLBACK=true/" .env
+        # Do not override existing value
+        echo -e "${BLUE}Using existing USE_MOCK_FALLBACK setting from .env file${NC}"
     fi
     
     # Ensure scripts are executable

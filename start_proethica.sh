@@ -34,7 +34,7 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
     echo -e "${YELLOW}Adding MCP_SERVER_URL to .env file...${NC}"
     echo "MCP_SERVER_URL=http://localhost:5001" >> .env
-    echo "USE_MOCK_FALLBACK=true" >> .env
+    echo "USE_MOCK_FALLBACK=false" >> .env
 else
     # Update existing .env file with correct MCP_SERVER_URL and USE_MOCK_FALLBACK
     if ! grep -q "MCP_SERVER_URL=" .env; then
@@ -47,9 +47,10 @@ else
     
     if ! grep -q "USE_MOCK_FALLBACK=" .env; then
         echo -e "${YELLOW}Adding USE_MOCK_FALLBACK to .env file...${NC}"
-        echo "USE_MOCK_FALLBACK=true" >> .env
+        echo "USE_MOCK_FALLBACK=false" >> .env
     else
-        sed -i "s/USE_MOCK_FALLBACK=.*/USE_MOCK_FALLBACK=true/" .env
+        # Do not override existing value
+        echo -e "${BLUE}Using existing USE_MOCK_FALLBACK setting from .env file${NC}" 
     fi
 fi
 
