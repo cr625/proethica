@@ -1,0 +1,521 @@
+Starting scripts cleanup at 20250427_235856
+Created backup directory: scripts_backup_20250427_235856
+Removing archive directory: scripts/archive
+Successfully removed scripts/archive
+Backed up: check_ontology_visualization.py
+Removed: check_ontology_visualization.py
+Keeping: create_uploads_directory.py
+Backed up: fix_ace_options_directly.js
+Removed: fix_ace_options_directly.js
+Backed up: update_scripts_guide.py
+Removed: update_scripts_guide.py
+Backed up: add_resources_to_scenario6.py
+Removed: add_resources_to_scenario6.py
+Backed up: check_ontology_id_1.py
+Removed: check_ontology_id_1.py
+Backed up: test_embedding_service.py
+Removed: test_embedding_service.py
+Backed up: fix_missing_parenthesis.py
+Removed: fix_missing_parenthesis.py
+Backed up: cleanup_repository.py
+Removed: cleanup_repository.py
+Backed up: debug_ontology_editor_routes.py
+Removed: debug_ontology_editor_routes.py
+Backed up: fix_diff_data_undefined.py
+Removed: fix_diff_data_undefined.py
+Backed up: fix_capability_parent.py
+Removed: fix_capability_parent.py
+Backed up: setup_embedding_environment.sh
+Removed: setup_embedding_environment.sh
+Backed up: verify_entity_parent_fix.py
+Removed: verify_entity_parent_fix.py
+Backed up: direct_stamp.py
+Removed: direct_stamp.py
+Backed up: verify_world_ontology_access.py
+Removed: verify_world_ontology_access.py
+Backed up: setup_document_status_cron.sh
+Removed: setup_document_status_cron.sh
+Backed up: direct_update_world.py
+Removed: direct_update_world.py
+Backed up: fix_namespaces_and_triples_for_case_123.py
+Removed: fix_namespaces_and_triples_for_case_123.py
+Backed up: test_server_startup.py
+Removed: test_server_startup.py
+Backed up: get_scenario_info.py
+Removed: get_scenario_info.py
+Backed up: update_ontology_id_1.py
+Removed: update_ontology_id_1.py
+Backed up: protect_base_ontologies.py
+Removed: protect_base_ontologies.py
+Backed up: update_visualize_template.py
+Removed: update_visualize_template.py
+Backed up: setup_character_triples.py
+Removed: setup_character_triples.py
+Backed up: update_ontology_editor_for_db_only.py
+Removed: update_ontology_editor_for_db_only.py
+Backed up: check_ontologies_in_db.py
+Removed: check_ontologies_in_db.py
+Backed up: debug_entity_parent_selection.py
+Removed: debug_entity_parent_selection.py
+Backed up: integrate_character_rdf.py
+Removed: integrate_character_rdf.py
+Backed up: get_scenario_timeline.py
+Removed: get_scenario_timeline.py
+Backed up: update_world_ontology.py
+Removed: update_world_ontology.py
+Backed up: test_ontology_editor.py
+Removed: test_ontology_editor.py
+Backed up: check_case_123.py
+Removed: check_case_123.py
+Backed up: fix_diff_direct_access.py
+Removed: fix_diff_direct_access.py
+Backed up: setup_agent_architecture.sh
+Removed: setup_agent_architecture.sh
+Backed up: update_editor_template.py
+Removed: update_editor_template.py
+Backed up: export_fix_import_ontology.py
+Removed: export_fix_import_ontology.py
+Backed up: final_fix_ontology.py
+Removed: final_fix_ontology.py
+Backed up: install_pgvector.sh
+Removed: install_pgvector.sh
+Backed up: remove_ontology_files.py
+Removed: remove_ontology_files.py
+Backed up: delete_world.py
+Removed: delete_world.py
+Backed up: manage_dependencies.py
+Removed: manage_dependencies.py
+Backed up: restart_mcp_server.py
+Removed: restart_mcp_server.py
+Backed up: manual_docstring_fix.py
+Removed: manual_docstring_fix.py
+Backed up: test_rdf_serialization.py
+Removed: test_rdf_serialization.py
+Backed up: verify_mcp_ontology.py
+Removed: verify_mcp_ontology.py
+Backed up: fix_indentation.py
+Removed: fix_indentation.py
+Backed up: manual_fix_version_diff_function.py
+Removed: manual_fix_version_diff_function.py
+Backed up: test_ontology_visualization.py
+Removed: test_ontology_visualization.py
+Backed up: update_condition_dropdown.py
+Removed: update_condition_dropdown.py
+Backed up: update_proethica_service.sh
+Removed: update_proethica_service.sh
+Backed up: update_claude_md_diff_viewer.py
+Removed: update_claude_md_diff_viewer.py
+Backed up: fix_triples_in_metadata_and_entity_type.py
+Removed: fix_triples_in_metadata_and_entity_type.py
+Backed up: document_data_undefined_fix.py
+Removed: document_data_undefined_fix.py
+Backed up: document_mcp_ontology_scripts_organization.py
+Removed: document_mcp_ontology_scripts_organization.py
+Backed up: verify_ontology_consistency.py
+Removed: verify_ontology_consistency.py
+Backed up: document_fetch_bug_fix.py
+Removed: document_fetch_bug_fix.py
+Backed up: update_claude_md_ontology_editor.py
+Removed: update_claude_md_ontology_editor.py
+Keeping: check_ontology.py
+Backed up: fix_all_json_fields.py
+Removed: fix_all_json_fields.py
+Backed up: update_final_fixes.py
+Removed: update_final_fixes.py
+Backed up: update_ontology_editor_header.py
+Removed: update_ontology_editor_header.py
+Backed up: analyze_ontology_events_hierarchy.py
+Removed: analyze_ontology_events_hierarchy.py
+Backed up: fix_add_compare_buttons.py
+Removed: fix_add_compare_buttons.py
+Backed up: debug_ontology_id_type.py
+Removed: debug_ontology_id_type.py
+Backed up: fix_ace_editor_options.py
+Removed: fix_ace_editor_options.py
+Backed up: list_scenarios.py
+Removed: list_scenarios.py
+Backed up: analyze_ontology_roles_hierarchy.py
+Removed: analyze_ontology_roles_hierarchy.py
+Backed up: setup_ontology_db_only.sh
+Removed: setup_ontology_db_only.sh
+Backed up: enhance_triple_templates.py
+Removed: enhance_triple_templates.py
+Backed up: manage_test_db.py
+Removed: manage_test_db.py
+Backed up: ontology_update_report.py
+Removed: ontology_update_report.py
+Backed up: fix_diff_js_quotes.py
+Removed: fix_diff_js_quotes.py
+Backed up: verify_editor_js_syntax.js
+Removed: verify_editor_js_syntax.js
+Backed up: view_case_triples.py
+Removed: view_case_triples.py
+Backed up: debug_ontology_routes.py
+Removed: debug_ontology_routes.py
+Backed up: fix_role_parent_selection.py
+Removed: fix_role_parent_selection.py
+Keeping: try_anthropic_bearer.py
+Backed up: analyze_ontology_actions_hierarchy.py
+Removed: analyze_ontology_actions_hierarchy.py
+Backed up: test_character_role_api.py
+Removed: test_character_role_api.py
+Backed up: consolidate_ontology_docs.py
+Removed: consolidate_ontology_docs.py
+Backed up: run_action_migration.py
+Removed: run_action_migration.py
+Keeping: claude_api_info.md
+Backed up: test_application_context.py
+Removed: test_application_context.py
+Backed up: restart_mcp_server_gunicorn.sh
+Removed: restart_mcp_server_gunicorn.sh
+Keeping: verify_anthropic_fix.py
+Backed up: migrate_to_pgvector.py
+Removed: migrate_to_pgvector.py
+Backed up: revised_engineering_ethics_world.py
+Removed: revised_engineering_ethics_world.py
+Backed up: fix_function_block.py
+Removed: fix_function_block.py
+Backed up: analyze_ontology.py
+Removed: analyze_ontology.py
+Backed up: document_blueprint_return_fix.py
+Removed: document_blueprint_return_fix.py
+Backed up: validate_ontology_syntax.py
+Removed: validate_ontology_syntax.py
+Backed up: invalidate_ontology_cache.py
+Removed: invalidate_ontology_cache.py
+Backed up: document_scripts_cleanup.py
+Removed: document_scripts_cleanup.py
+Backed up: import_base_ontologies.py
+Removed: import_base_ontologies.py
+Backed up: document_ontology_entity_update.py
+Removed: document_ontology_entity_update.py
+Backed up: check_entity_details.py
+Removed: check_entity_details.py
+Backed up: create_ontology_diff_endpoint.py
+Removed: create_ontology_diff_endpoint.py
+Backed up: test_simulation.py
+Removed: test_simulation.py
+Backed up: debug_anthropic.py
+Removed: debug_anthropic.py
+Backed up: update_ontology_mcp_server.py
+Removed: update_ontology_mcp_server.py
+Backed up: fix_parent_class_selection.py
+Removed: fix_parent_class_selection.py
+Backed up: clear_url_cache.py
+Removed: clear_url_cache.py
+Backed up: bfo_ethics_demo.py
+Removed: bfo_ethics_demo.py
+Backed up: debug_entity_extraction.py
+Removed: debug_entity_extraction.py
+Backed up: debug_parent_selection.py
+Removed: debug_parent_selection.py
+Backed up: add_triples_to_cases.py
+Removed: add_triples_to_cases.py
+Backed up: list_worlds.py
+Removed: list_worlds.py
+Backed up: test_embedding_providers.py
+Removed: test_embedding_providers.py
+Backed up: simple_pgvector_test.py
+Removed: simple_pgvector_test.py
+Backed up: add_temporal_fields_to_triples.py
+Removed: add_temporal_fields_to_triples.py
+Backed up: fix_version_loading_direct.py
+Removed: fix_version_loading_direct.py
+Backed up: test_temporal_functionality.py
+Removed: test_temporal_functionality.py
+Backed up: populate_entities.py
+Removed: populate_entities.py
+Backed up: add_debug_route.py
+Removed: add_debug_route.py
+Keeping: git_protect_keys.sh
+Backed up: git_workflow.sh
+Removed: git_workflow.sh
+Backed up: fix_ontology_version_loading_v2.py
+Removed: fix_ontology_version_loading_v2.py
+Backed up: fix_try_except_block.py
+Removed: fix_try_except_block.py
+Backed up: fix_docstring_syntax.py
+Removed: fix_docstring_syntax.py
+Backed up: create_engineering_world.py
+Removed: create_engineering_world.py
+Backed up: verify_mcp_entities.py
+Removed: verify_mcp_entities.py
+Backed up: test_guidelines_agent.py
+Removed: test_guidelines_agent.py
+Backed up: fix_event_hierarchy.py
+Removed: fix_event_hierarchy.py
+Backed up: test_character_role_update.py
+Removed: test_character_role_update.py
+Backed up: check_case_triples_namespaces.py
+Removed: check_case_triples_namespaces.py
+Backed up: add_ontology_id_column.py
+Removed: add_ontology_id_column.py
+Backed up: fix_diff_selections.py
+Removed: fix_diff_selections.py
+Backed up: revised_nj_legal_ethics_world.py
+Removed: revised_nj_legal_ethics_world.py
+Backed up: standalone_create_tables.py
+Removed: standalone_create_tables.py
+Backed up: test_postgres.py
+Removed: test_postgres.py
+Backed up: integrate_ontology_editor.py
+Removed: integrate_ontology_editor.py
+Backed up: view_mclaren_cases.py
+Removed: view_mclaren_cases.py
+Backed up: fix_ontology_editor_issues.py
+Removed: fix_ontology_editor_issues.py
+Keeping: check_db.py
+Backed up: check_fix_results.py
+Removed: check_fix_results.py
+Backed up: restart_mcp_server_gunicorn.fixed.sh
+Removed: restart_mcp_server_gunicorn.fixed.sh
+Backed up: migrate_ontologies_to_db.py
+Removed: migrate_ontologies_to_db.py
+Backed up: test_ontology.py
+Removed: test_ontology.py
+Backed up: force_delete_world.py
+Removed: force_delete_world.py
+Backed up: fix_ontology_version_loading.py
+Removed: fix_ontology_version_loading.py
+Backed up: check_ontology.py.20250427_073938.bak
+Removed: check_ontology.py.20250427_073938.bak
+Backed up: demo_entity_triple_queries.py
+Removed: demo_entity_triple_queries.py
+Keeping: __pycache__
+Backed up: direct_delete_world.py
+Removed: direct_delete_world.py
+Backed up: test_ontology_protection.py
+Removed: test_ontology_protection.py
+Keeping: fix_ontology_validation.py
+Keeping: restart_mcp_server.sh
+Backed up: setup_condition_types.py
+Removed: setup_condition_types.py
+Backed up: fix_api_blueprint_return.py
+Removed: fix_api_blueprint_return.py
+Backed up: check_and_create_worlds.py
+Removed: check_and_create_worlds.py
+Backed up: fix_resource_self_references.py
+Removed: fix_resource_self_references.py
+Backed up: setup_unified_ontology_system.sh
+Removed: setup_unified_ontology_system.sh
+Backed up: test_entity_triple_service.py
+Removed: test_entity_triple_service.py
+Backed up: test_mcp_singleton.py
+Removed: test_mcp_singleton.py
+Keeping: fix_ontology_syntax.py
+Backed up: fix_docstring_indentation.py
+Removed: fix_docstring_indentation.py
+Backed up: test_ontology_mcp.py
+Removed: test_ontology_mcp.py
+Backed up: fix_const_reassignment.py
+Removed: fix_const_reassignment.py
+Backed up: check_ontology_version.py
+Removed: check_ontology_version.py
+Backed up: test_url_processor.py
+Removed: test_url_processor.py
+Backed up: update_resource_dropdown.py
+Removed: update_resource_dropdown.py
+Backed up: initialize_migrations.py
+Removed: initialize_migrations.py
+Backed up: update_footer_close_handler.py
+Removed: update_footer_close_handler.py
+Backed up: test_character_role_direct.py
+Removed: test_character_role_direct.py
+Backed up: mcp_client_debug.py
+Removed: mcp_client_debug.py
+Backed up: fix_action_hierarchy.py
+Removed: fix_action_hierarchy.py
+Backed up: run_with_agents.py
+Removed: run_with_agents.py
+Backed up: fix_stray_closing.py
+Removed: fix_stray_closing.py
+Backed up: update_claude_md.py
+Removed: update_claude_md.py
+Backed up: sync_from_production.sh
+Removed: sync_from_production.sh
+Backed up: document_header_updates.py
+Removed: document_header_updates.py
+Keeping: database_migrations
+Backed up: fix_diff_api.py
+Removed: fix_diff_api.py
+Keeping: test_anthropic_auth.py
+Backed up: implement_entity_triples.py
+Removed: implement_entity_triples.py
+Backed up: test_new_key.py
+Removed: test_new_key.py
+Backed up: test_rdf_character_sync.py
+Removed: test_rdf_character_sync.py
+Backed up: fix_route_indentation.py
+Removed: fix_route_indentation.py
+Backed up: check_world.py
+Removed: check_world.py
+Backed up: run_entity_triples_migration.py
+Removed: run_entity_triples_migration.py
+Backed up: get_scenario_with_resources.py
+Removed: get_scenario_with_resources.py
+Keeping: run_with_env.sh
+Backed up: fix_entity_parent_selection.py
+Removed: fix_entity_parent_selection.py
+Backed up: check_entity_hierarchies.py
+Removed: check_entity_hierarchies.py
+Keeping: cleanup_scripts.py
+Backed up: create_specific_revision.py
+Removed: create_specific_revision.py
+Backed up: document_diff_selection_fixes.py
+Removed: document_diff_selection_fixes.py
+Backed up: archive_ontology_files.py
+Removed: archive_ontology_files.py
+Backed up: fix_resource_hierarchy.py
+Removed: fix_resource_hierarchy.py
+Backed up: check_entity_parents.py
+Removed: check_entity_parents.py
+Backed up: revised_tccc_world.py
+Removed: revised_tccc_world.py
+Backed up: test_rdf_embeddings.py
+Removed: test_rdf_embeddings.py
+Backed up: verify_version_loading_fix.py
+Removed: verify_version_loading_fix.py
+Backed up: delete_all_scenarios.py
+Removed: delete_all_scenarios.py
+Backed up: improve_capability_hierarchy.py
+Removed: improve_capability_hierarchy.py
+Keeping: test_claude_with_env.py
+Backed up: update_diff_viewer_fix.py
+Removed: update_diff_viewer_fix.py
+Backed up: check_world_ontology.py
+Removed: check_world_ontology.py
+Backed up: fix_engineering_role_parent.py
+Removed: fix_engineering_role_parent.py
+Backed up: test_intermediate_ontology.py
+Removed: test_intermediate_ontology.py
+Backed up: process_domain_ontology_imports.py
+Removed: process_domain_ontology_imports.py
+Backed up: init_character_rdf.py
+Removed: init_character_rdf.py
+Backed up: fix_ontology_syntax.py.20250427_072438.bak
+Removed: fix_ontology_syntax.py.20250427_072438.bak
+Backed up: check_namespaces.py
+Removed: check_namespaces.py
+Keeping: simple_claude_test.py
+Backed up: test_db.py
+Removed: test_db.py
+Backed up: add_timeline_to_scenario6.py
+Removed: add_timeline_to_scenario6.py
+Backed up: fix_all_cases_namespaces_and_triples.py
+Removed: fix_all_cases_namespaces_and_triples.py
+Backed up: organize_mcp_ontology_scripts.py
+Removed: organize_mcp_ontology_scripts.py
+Backed up: extract_mclaren_cases.py
+Removed: extract_mclaren_cases.py
+Backed up: test_zotero_client.py
+Removed: test_zotero_client.py
+Backed up: update_hierarchy_template.py
+Removed: update_hierarchy_template.py
+Backed up: analyze_ontology_resources_hierarchy.py
+Removed: analyze_ontology_resources_hierarchy.py
+Backed up: document_const_fix.py
+Removed: document_const_fix.py
+Backed up: enable_pgvector.sql
+Removed: enable_pgvector.sql
+Backed up: check_mcp_roles.py
+Removed: check_mcp_roles.py
+Backed up: setup_temporal_enhancements.sh
+Removed: setup_temporal_enhancements.sh
+Backed up: fix_extra_closing_brace.py
+Removed: fix_extra_closing_brace.py
+Backed up: admin_migration.py
+Removed: admin_migration.py
+Backed up: update_namespace_detection.py
+Removed: update_namespace_detection.py
+Backed up: direct_fix_mcp_server.py
+Removed: direct_fix_mcp_server.py
+Backed up: test_character_rdf_triples.py
+Removed: test_character_rdf_triples.py
+Backed up: fix_condition_hierarchy.py
+Removed: fix_condition_hierarchy.py
+Backed up: update_world_ontology_postgres.py
+Removed: update_world_ontology_postgres.py
+Backed up: check_worlds.py
+Removed: check_worlds.py
+Backed up: fix_editor_syntax_simple.py
+Removed: fix_editor_syntax_simple.py
+Backed up: enhance_entity_triples_temporal.sql
+Removed: enhance_entity_triples_temporal.sql
+Backed up: analyze_ontology_conditions_hierarchy.py
+Removed: analyze_ontology_conditions_hierarchy.py
+Keeping: restart_http_mcp_server.sh
+Backed up: debug_mcp_server.py
+Removed: debug_mcp_server.py
+Backed up: verify_diff_fix.py
+Removed: verify_diff_fix.py
+Backed up: fix_ace_editor_config.py
+Removed: fix_ace_editor_config.py
+Backed up: create_condition_types_table.py
+Removed: create_condition_types_table.py
+Backed up: standalone_import_base_ontologies.py
+Removed: standalone_import_base_ontologies.py
+Backed up: restore_from_backup.py
+Removed: restore_from_backup.py
+Backed up: test_mcp_server.py
+Removed: test_mcp_server.py
+Keeping: fix_ontology_automatically.py
+Backed up: add_characters_to_scenario6.py
+Removed: add_characters_to_scenario6.py
+Backed up: standalone_process_domain_imports.py
+Removed: standalone_process_domain_imports.py
+Backed up: update_claude_md_with_all_fixes.py
+Removed: update_claude_md_with_all_fixes.py
+Backed up: test_diff_endpoint.py
+Removed: test_diff_endpoint.py
+Backed up: test_ontology_extraction.py
+Removed: test_ontology_extraction.py
+Backed up: fix_triples_in_metadata.py
+Removed: fix_triples_in_metadata.py
+Backed up: fix_editor_syntax_error.py
+Removed: fix_editor_syntax_error.py
+Backed up: document_final_diff_viewer_fixes.py
+Removed: document_final_diff_viewer_fixes.py
+Backed up: test_db_ontology_mcp.py
+Removed: test_db_ontology_mcp.py
+Backed up: create_entity_triples_table.sql
+Removed: create_entity_triples_table.sql
+Backed up: fix_ontology_version_api.py
+Removed: fix_ontology_version_api.py
+Backed up: write_diff_currentOntologyId.py
+Removed: write_diff_currentOntologyId.py
+Backed up: restart_mcp_server_with_db.sh
+Removed: restart_mcp_server_with_db.sh
+Backed up: run_tests_with_pg.py
+Removed: run_tests_with_pg.py
+Backed up: verify_temporal_fields.py
+Removed: verify_temporal_fields.py
+Backed up: document_ontology_docs_consolidation.py
+Removed: document_ontology_docs_consolidation.py
+Backed up: fetch_modern_nspe_cases.py
+Removed: fetch_modern_nspe_cases.py
+Backed up: document_repository_cleanup.py
+Removed: document_repository_cleanup.py
+Backed up: fix_diff_fetch_bug.py
+Removed: fix_diff_fetch_bug.py
+Backed up: update_mcp_api.py
+Removed: update_mcp_api.py
+Backed up: verify_diff_function.py
+Removed: verify_diff_function.py
+Backed up: update_fixed_diff_viewer.py
+Removed: update_fixed_diff_viewer.py
+Backed up: create_ontology_import_table.py
+Removed: create_ontology_import_table.py
+Keeping: check_claude_api.py
+Keeping: create_admin_user.py
+Backed up: test_document_search.py
+Removed: test_document_search.py
+Backed up: test_entity_triples_creation.py
+Removed: test_entity_triples_creation.py
+Backed up: simple_check.py
+Removed: simple_check.py
+
+Cleanup complete!
+Removed files/directories: 245
+Backup created at: scripts_backup_20250427_235856
+All removed files were backed up before deletion.
+See scripts_cleanup_log_20250427_235856.txt for details of all operations.
