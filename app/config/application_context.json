@@ -1,17 +1,47 @@
 {
-  "max_tokens": 2000,
+  "max_tokens": 3000,
   "sections": {
-    "world_context": {"priority": 1, "max_percent": 40},
-    "scenario_context": {"priority": 2, "max_percent": 30},
-    "navigation": {"priority": 3, "max_percent": 10},
-    "entities": {"priority": 4, "max_percent": 20}
+    "world_context": {
+      "priority": 1,
+      "max_percent": 40
+    },
+    "scenario_context": {
+      "priority": 3,
+      "max_percent": 30
+    },
+    "navigation": {
+      "priority": 3,
+      "max_percent": 10
+    },
+    "entities": {
+      "priority": 4,
+      "max_percent": 20
+    },
+    "ontology": {
+      "priority": 2,
+      "max_percent": 30
+    }
   },
   "context_providers": {
-    "default": {"enabled": true},
-    "navigation": {"enabled": true},
-    "entity": {"enabled": true},
-    "temporal": {"enabled": true},
-    "analytics": {"enabled": false}
+    "default": {
+      "enabled": true
+    },
+    "navigation": {
+      "enabled": true
+    },
+    "entity": {
+      "enabled": true
+    },
+    "temporal": {
+      "enabled": true
+    },
+    "analytics": {
+      "enabled": false
+    },
+    "ontology": {
+      "enabled": true,
+      "description": "Enhanced ontology context with relationships and constraints"
+    }
   },
   "caching": {
     "enabled": true,

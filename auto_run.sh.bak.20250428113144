@@ -113,7 +113,7 @@ else
     
     # Start HTTP MCP server and wait for it to initialize
     echo -e "${BLUE}Starting HTTP MCP server on port 5001...${NC}"
-    ./scripts/restart_mcp_server.sh
+    ./scripts/restart_http_mcp_server.sh
     echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
     sleep 5  # Wait for server to initialize
     

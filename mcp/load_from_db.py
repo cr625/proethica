@@ -3,6 +3,10 @@ import os
 import sys
 from app import db
 from app.models.ontology import Ontology
+from mcp.http_ontology_mcp_server import OntologyMCPServer
+
+# Default ontology directory path
+ONTOLOGY_DIR = os.environ.get('ONTOLOGY_DIR', os.path.join(os.path.dirname(__file__), 'ontology'))
 
 # Patch for OntologyMCPServer class
 def _load_ontology_from_db(self, ontology_source):
