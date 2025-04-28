@@ -1,91 +1,77 @@
-# Anthropic SDK Authentication Fix
+# Anthropic SDK Update Fix
 
-## Issue
-After updating the Anthropic SDK, the agent page at http://localhost:3333/agent/ was returning an "invalid x-api-key" error. This occurred because:
+## Overview
 
-1. The newer versions of the Anthropic SDK require a different authentication method using the Authorization header with Bearer token
-2. The `load_dotenv()` function alone wasn't sufficient for properly setting the environment variables that the SDK needs
-3. The previous API key was invalid or expired - this was confirmed by testing various authentication methods
-4. A new API key has been generated and verified to work
+This document describes the fixes implemented for the Anthropic SDK authentication issues that occurred after updating the SDK.
 
-## Authentication Status
+## Problem Description
 
-✅ **Working API Key**: The system now has a valid API key that has been verified to work with the updated Anthropic SDK.
+After updating the Anthropic SDK, the application was encountering authentication errors (specifically "invalid x-api-key" errors) when trying to access the agent page at http://localhost:3333/agent/.
 
-⚠️ **Security Note**: The API key has been updated in the .env file, which is protected from being committed to git.
+## Root Causes
 
-## Solution Implemented
+1. **Authentication Method Change**: The Anthropic SDK updated from using the `x-api-key` header to using an `Authorization: Bearer {api_key}` header.
+   
+2. **Environment Variable Handling**: The `load_dotenv()` function alone was not sufficient for properly setting the environment variables needed by the SDK.
 
-### 1. Enhanced Environment Variable Handling
+3. **USE_MOCK_FALLBACK Overrides**: The startup scripts (`start_proethica.sh` and `auto_run.sh`) were automatically setting `USE_MOCK_FALLBACK=true` in the .env file, overriding any manual changes.
 
-Updated the `ClaudeService` initialization to explicitly set the environment variable:
+4. **Submodule Management**: The app/agent_module directory was not properly set up as a git submodule, causing git conflicts.
 
-```python
-# Directly set the environment variable to ensure the SDK can access it
-if api_key:
-    os.environ["ANTHROPIC_API_KEY"] = api_key
+## Implemented Fixes
+
+### 1. API Authentication Fixes
+
+- Updated the environment variables in .env to use a valid API key
+- Set `USE_MOCK_FALLBACK=false` to ensure real API responses
+- Fixed all scripts to preserve the `USE_MOCK_FALLBACK` setting in .env instead of overriding it
+
+### 2. Environment Variable Handling
+
+- Modified `start_proethica.sh` and `auto_run.sh` to use `run_with_env.sh`
+- Ensured proper environment variable loading for the Anthropic SDK
+- Added verification scripts to test proper environment variable handling
+
+### 3. Git Submodule Configuration
+
+- Properly set up app/agent_module as a git submodule
+- Created a .gitmodules file pointing to the correct repository
+- Created a dedicated `proethica-integration` branch for ProEthica-specific modifications
+- Added documentation and customization to make the branch purpose clear
+
+## Test Scripts
+
+Several test scripts were created to verify the API authentication:
+
+1. **verify_anthropic_fix.py**: Verifies that the Anthropic API authentication is working properly
+2. **test_claude_with_env.py**: Tests the Claude API with proper environment variable handling
+3. **try_anthropic_bearer.py**: Tests different authentication methods
+4. **git_protect_keys.sh**: Protects API keys from git commits
+
+## How to Run the Application
+
+Use the standard startup script:
+
+```bash
+./start_proethica.sh
 ```
 
-### 2. Explicit SDK API Key Setting
+This will:
+1. Keep your `USE_MOCK_FALLBACK=false` setting in .env
+2. Properly load environment variables with run_with_env.sh
+3. Connect to the real Claude API instead of using mock responses
 
-Made sure the API key is explicitly passed to the Anthropic client initialization:
+If you want to manually test the API authentication:
 
-```python
-self.client = Anthropic(api_key=self.api_key)
+```bash
+./scripts/run_with_env.sh python scripts/verify_anthropic_fix.py
 ```
 
-### 3. Added Mock Fallback Mode Support
+## Troubleshooting
 
-Enhanced the service to gracefully handle API authentication errors by providing mock responses:
+If you encounter any issues with the Claude API:
 
-```python
-# Check if mock fallback is enabled
-use_mock = os.environ.get("USE_MOCK_FALLBACK", "").lower() == "true"
-
-# Try to use the Claude API first, but fall back to mock if needed
-try:
-    # Only try the API if mock fallback is disabled
-    if not use_mock:
-        # Claude API call logic...
-    else:
-        # Mock response when fallback is explicitly enabled
-        raise Exception("Mock fallback mode is enabled, using mock response")
-        
-except Exception as e:
-    print(f"Error generating response from Claude: {str(e)}")
-    print(f"Falling back to mock response (USE_MOCK_FALLBACK={use_mock})")
-    
-    # Create a realistic mock response
-    # ...
-```
-
-### 4. Ensured Consistent Environment Configuration
-
-Updated the .env file to ensure the mock fallback mode is properly enabled:
-
-```
-# Ensure mock fallback is enabled to handle API authentication issues
-USE_MOCK_FALLBACK=true
-```
-
-## Files Modified
-
-1. `app/services/claude_service.py` - Added proper environment variable handling, improved initialization, and enhanced mock fallback support
-2. `app/agent_module/adapters/proethica.py` - Added the same environment variable handling in the adapter
-3. `.env` - Cleaned up configuration and ensured mock fallback is enabled
-
-## Verification
-
-Created verification scripts to test the authentication:
-- `scripts/verify_anthropic_fix.py` - Tests the Anthropic SDK directly
-
-## Explanation
-
-The Anthropic SDK has specific requirements for how API keys are provided. By explicitly setting the environment variable and passing the API key directly to the Anthropic client, we ensure proper authentication. Additionally, the mock fallback mode allows the application to continue functioning even when API authentication fails.
-
-## Future Considerations
-
-If API authentication issues persist, consider:
-1. Regenerating the API key in the Anthropic console
-2. Checking for any Anthropic account usage limits
-3. Reviewing the most recent Anthropic SDK documentation for updated authentication methods
+1. Check that `USE_MOCK_FALLBACK=false` in your .env file
+2. Verify that your API key is valid with `./scripts/run_with_env.sh python scripts/verify_anthropic_fix.py`
+3. Ensure you're running the application with `./start_proethica.sh` or `./scripts/run_with_env.sh`
+4. Check that you have the correct app/agent_module branch (should be `proethica-integration`)
