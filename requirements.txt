@@ -1,47 +1,51 @@
-# Core dependencies
-flask
-sqlalchemy
-flask-sqlalchemy
-flask-migrate
-flask-login
-flask-wtf
-python-dotenv
-rdflib
-werkzeug
-psycopg2-binary  # PostgreSQL driver
-anthropic>=0.18.0  # Anthropic Python SDK for Claude API
+# CORE DEPENDENCIES - Essential for the application to run
+flask                 # Core web framework
+sqlalchemy            # Database ORM
+flask-sqlalchemy      # Flask integration for SQLAlchemy
+flask-migrate         # Database migrations
+flask-login           # User authentication
+flask-wtf             # Form handling
+python-dotenv         # Environment variable loading
+werkzeug              # WSGI utilities
+psycopg2-binary       # PostgreSQL driver
 
-# LangChain and LangGraph
-langchain
-langchain-core
-langchain-community
-langchain-anthropic  # For Claude integration with LangChain
-langgraph
+# MCP SERVER DEPENDENCIES
+rdflib                # RDF graph processing for ontology support
+aiohttp               # Async HTTP server for MCP server
+mcp[cli]              # Model Context Protocol
 
-# Model Context Protocol
-mcp[cli]
+# API COMMUNICATION
+requests              # HTTP client for API requests
 
-# Vector database and embeddings
-chromadb
-pgvector  # PostgreSQL vector extension
-sentence-transformers  # For generating embeddings
-PyPDF2  # For PDF text extraction
-python-docx  # For DOCX text extraction
-beautifulsoup4  # For HTML text extraction
-requests  # For URL fetching
+# PRODUCTION
+gunicorn              # WSGI HTTP Server
 
-# Zotero integration
-pyzotero
-
-# Testing
+# TESTING & DEVELOPMENT
 pytest
 pytest-flask
 email_validator
-
-# Development
 black
 flake8
 
-# Production
-gunicorn  # WSGI HTTP Server
-aiohttp   # Async HTTP server for MCP
+# CLAUDE API INTEGRATION
+anthropic>=0.50.0     # Anthropic Python SDK (updated to latest version)
+
+# LANGCHAIN/LANGGRAPH INTEGRATION
+langchain
+langchain-core
+langchain-anthropic
+langchain-community
+langgraph
+
+# DOCUMENT PROCESSING
+PyPDF2                # PDF text extraction
+python-docx           # DOCX text extraction
+beautifulsoup4        # HTML text extraction
+
+# VECTOR EMBEDDINGS
+pgvector              # PostgreSQL vector extension
+sentence-transformers # For generating embeddings
+chromadb              # Vector database
+
+# ZOTERO INTEGRATION
+pyzotero              # Zotero API client
