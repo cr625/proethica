@@ -93,6 +93,10 @@
 }
 
 /* Diff content */
+#diffContent {
+    overflow-x: auto;  /* Add horizontal scrolling for content that exceeds container width */
+}
+
 .diff-unified {
     font-family: monospace;
     white-space: pre;
@@ -109,11 +113,11 @@ table.diff {
     font-size: 0.9rem;
 }
 
+/* Table cells */
 table.diff td {
     padding: 0.25rem 0.5rem;
     border: 1px solid #dee2e6;
     vertical-align: top;
-    white-space: pre-wrap;
 }
 
 /* Line numbers */
