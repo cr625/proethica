@@ -8,6 +8,7 @@ import os
 import sys
 import subprocess
 import logging
+import time
 
 # Add the project root directory to the path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -92,7 +93,6 @@ def stop_mcp_servers():
     run_command("pkill -f 'ontology_mcp_server.py'")
     
     # Give processes time to shut down
-    import time
     time.sleep(2)
     
     # Check if the port is still in use
