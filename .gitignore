@@ -69,5 +69,9 @@ run_with_agents_gunicorn.sh
 *.lock
 tmp/
 
+# Node.js
+node_modules/
+package-lock.json
+
 # External Repositories
 _src/
