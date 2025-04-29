@@ -7,7 +7,7 @@ This document outlines the branch strategy for the ProEthica repository after im
 ### Main Branches
 
 - **`main`**: The primary branch containing stable, production-ready code.
-- **`dev`**: The main development branch where all feature branches are merged before going to `main`.
+- **`dev`**: The main development branch where all feature branches are merged before going to `main`. This branch now includes the unified environment detection system.
 
 ### Feature Branches
 
@@ -26,28 +26,13 @@ With the implementation of the unified environment detection system, separate en
 - Regular development environments
 - Production environments
 
-## Legacy Branches
+## Branch Cleanup Actions
 
-The following branches were previously used for environment-specific code but are now deprecated:
+The following actions have been taken to streamline the repository:
 
-- **`codespace-environment`**: Previously contained GitHub Codespaces specific configuration
-- **`agent-ontology-dev`**: Previously contained WSL-specific development configuration
-
-These branches have been consolidated into the unified environment system. All functionality from these branches has been preserved in the main codebase with automatic environment detection.
-
-## Branch Cleanup
-
-After confirming that all necessary changes have been incorporated into the unified environment system, the deprecated environment-specific branches should be deleted to maintain a clean repository.
-
-Local cleanup:
-```bash
-git branch -d codespace-environment
-```
-
-Remote cleanup (requires appropriate permissions):
-```bash
-git push origin --delete codespace-environment
-```
+1. The former `agent-ontology-dev` branch, which contained the unified environment system implementation, has been renamed to `dev`.
+2. The deprecated `codespace-environment` branch has been deleted as its functionality is now part of the unified system.
+3. The remote `dev` branch has been updated to match the current branch structure.
 
 ## Working with the Unified Environment System
 
