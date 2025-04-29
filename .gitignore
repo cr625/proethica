@@ -65,5 +65,9 @@ run_with_agents_gunicorn.sh
 .secrets
 .env.backup
 
+# Lock files
+*.lock
+tmp/
+
 # External Repositories
 _src/
