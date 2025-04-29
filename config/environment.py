@@ -6,14 +6,27 @@ This module detects the current environment and loads the appropriate configurat
 import os
 import importlib
 import logging
+import sys
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Environment detection
-ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development').lower()
-VALID_ENVIRONMENTS = ['development', 'production']
+# Check if we're in GitHub Codespaces
+if os.environ.get('CODESPACES', '').lower() == 'true':
+    ENVIRONMENT = 'codespace'
+    logger.info("Detected GitHub Codespaces environment")
+# Check if we're in WSL
+elif sys.platform == 'linux' and os.path.exists('/proc/version') and 'microsoft' in open('/proc/version').read().lower():
+    ENVIRONMENT = 'wsl'
+    logger.info("Detected WSL environment")
+else:
+    # Default to environment variable if set, otherwise development
+    ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development').lower()
+    logger.info(f"Using environment from configuration: {ENVIRONMENT}")
+
+VALID_ENVIRONMENTS = ['development', 'production', 'wsl', 'codespace']
 
 if ENVIRONMENT not in VALID_ENVIRONMENTS:
     logger.warning(f"Unknown environment: {ENVIRONMENT}, defaulting to development")
@@ -24,25 +37,25 @@ logger.info(f"Loading configuration for environment: {ENVIRONMENT}")
 # Load environment-specific configuration
 try:
     config_module = importlib.import_module(f"config.environments.{ENVIRONMENT}")
-    
+
     # Export all settings from the environment module
     for setting in dir(config_module):
         if not setting.startswith('_'):  # Skip private attributes
             globals()[setting] = getattr(config_module, setting)
-    
+
     # Mark with a constant that configuration was loaded successfully
     CONFIG_LOADED = True
-    
+
 except ImportError as e:
     logger.error(f"Failed to load configuration for {ENVIRONMENT}: {str(e)}")
     CONFIG_LOADED = False
 
 # Export the detected environment
 __all__ = ['ENVIRONMENT', 'CONFIG_LOADED'] + [
-    setting for setting in dir() 
-    if not setting.startswith('_') and 
-       setting not in ['ENVIRONMENT', 'CONFIG_LOADED', 'VALID_ENVIRONMENTS', 
-                      'config_module', 'importlib', 'logging', 'logger', 'os', 'setting']
+    setting for setting in dir()
+    if not setting.startswith('_') and
+       setting not in ['ENVIRONMENT', 'CONFIG_LOADED', 'VALID_ENVIRONMENTS',
+                      'config_module', 'importlib', 'logging', 'logger', 'os', 'setting', 'sys']
 ]
 
 # Create required directories
