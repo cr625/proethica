@@ -185,6 +185,19 @@
         background-color: #f0f7ff;
     }
 
+    .entity-uri-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+        border-bottom: 1px dotted #007bff;
+    }
+    
+    .entity-uri-link:hover {
+        color: #0056b3;
+        text-decoration: none;
+        border-bottom: 1px solid #0056b3;
+    }
+
     .ontology-filter {
         margin-bottom: 15px;
     }
@@ -327,9 +340,13 @@
                                                     <div class="entity-property-label">Description:</div>
                                                     <div class="entity-property-value">{% raw %}{{ selectedEntity.description }}{% endraw %}</div>
                                                 </div>
-                                                <div class="entity-property">
-                                                    <div class="entity-property-label">URI:</div>
-                                                    <div class="entity-property-value text-truncate">{% raw %}{{ selectedEntity.uri }}{% endraw %}</div>
+                                                <div class="entity-property" v-if="!selectedEntity.uri.startsWith('unknown:')">
+                                                    <div class="entity-property-label">IRI:</div>
+                                                    <div class="entity-property-value">
+                                                        <a :href="selectedEntity.uri" target="_blank" class="entity-uri-link">
+                                                            {% raw %}{{ selectedEntity.label }}{% endraw %}
+                                                        </a>
+                                                    </div>
                                                 </div>
                                                 <div class="mt-2">
                                                     <button class="btn btn-sm btn-primary" @click="askAboutEntity(selectedEntity)">
