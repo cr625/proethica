@@ -270,3 +270,110 @@ These changes ensure that when a user selects an Engineering World, the engineer
 
 - Agent Module Commit: 5a320c96c079f626bab84f8dab0f12e6de7f6ae2
 - Branch: remotes/origin/proethica-integration
+
+## 2025-04-28 - MCP Server Architecture and Temporal Functionality
+
+### Current MCP Server Implementation
+
+1. **Enhanced Ontology MCP Server**
+   - Primary MCP server implementation is now `EnhancedOntologyMCPServer` in `mcp/enhanced_ontology_mcp_server.py`
+   - Provides advanced ontology interaction capabilities via HTTP endpoints
+   - Extends the base `OntologyMCPServer` class with additional functionality
+   - Runs on port 5001 by default (configurable via MCP_SERVER_URL environment variable)
+   - Implemented as a singleton with lock file mechanism to prevent multiple instances
+
+2. **MCP Tools for Ontology Access**
+   - `get_world_entities`: Retrieves entities from ontologies (roles, capabilities, conditions, etc.)
+   - `query_ontology`: Executes SPARQL queries against ontologies
+   - `get_entity_relationships`: Provides relationship data for specific entities
+   - `navigate_entity_hierarchy`: Traverses class/subclass hierarchies
+   - `check_constraint`: Validates entities against ontology constraints
+   - `search_entities`: Finds entities by keywords or patterns
+   - `get_entity_details`: Provides comprehensive information about an entity
+   - `get_ontology_guidelines`: Extracts guidelines from ontologies
+
+3. **Client Implementation**
+   - The `EnhancedMCPClient` provides a high-level interface for ontology access
+   - Uses the JSON-RPC 2.0 protocol to communicate with the MCP server
+   - Includes robust error handling and mock data fallbacks
+   - Implements standardized data formatting for LLM consumption
+   - Available through the `get_enhanced_mcp_client()` function (singleton pattern)
+
+### Temporal Functionality Enhancement
+
+The `add_temporal_functionality.py` module enhances the MCP server with temporal reasoning capabilities:
+
+1. **Purpose**
+   - Extends the HTTP ontology MCP server with endpoints for temporal queries and timeline generation
+   - Enables time-based reasoning about scenario events and entity relationships
+   - Provides context about how events unfold over time for Claude's reasoning
+
+2. **Added Endpoints**
+   - `/api/timeline/{scenario_id}`: Gets the complete timeline for a scenario
+   - `/api/temporal_context/{scenario_id}`: Gets formatted temporal context for Claude
+   - `/api/events_in_timeframe`: Retrieves events within a specific timeframe
+   - `/api/temporal_sequence/{scenario_id}`: Gets a sequence of events in temporal order
+   - `/api/temporal_relation/{triple_id}`: Finds triples with specific temporal relations
+   - `/api/create_temporal_relation`: Creates temporal relations between triples
+
+3. **Implementation Details**
+   - Integrates with Flask app context to access the ORM
+   - Uses the `TemporalContextService` for timeline building and relation management
+   - Modifies the HTTP ontology MCP server file to include temporal endpoints
+   - Maintains compatibility with the existing MCP server architecture
+
+4. **Benefits for Ontology Agent**
+   - Enables reasoning about temporal aspects of ethical scenarios
+   - Provides context about event sequences for more informed ethical reasoning
+   - Supports questions about "when" things happened in addition to "what" happened
+   - Allows for identifying causal relationships based on temporal ordering
+
+### Ontology Agent Integration with MCP
+
+1. **Ontology Agent Implementation**
+   - Located at `app/routes/ontology_agent.py` with UI template at `app/templates/ontology_agent_window.html`
+   - Provides a specialized interface for exploring ontology structure
+   - Uses the `EnhancedMCPClient` to communicate with the MCP server
+   - Automatically loads the appropriate ontology when a world is selected
+
+2. **Key Integration Points**
+   - In `send_message` route, ontology data is fetched via MCP client and added to LLM context
+   - The `get_entities` API endpoint retrieves entities from ontologies via MCP client
+   - The `get_world_ontology` endpoint maps worlds to their associated ontologies
+   - The `get_suggestions` endpoint uses ontology structure to generate relevant prompts
+
+3. **Data Flow**
+   1. User selects a world, which automatically selects its associated ontology
+   2. Frontend requests entities for the selected ontology via MCP client
+   3. Entities are displayed in the UI and can be explored by the user
+   4. When user sends a message, relevant ontology data is included in the context
+   5. Claude responds based on the enhanced context, with access to ontology knowledge
+
+### Documentation Resources
+
+Comprehensive documentation about the MCP server implementation is available in:
+
+1. **Main Documentation**
+   - `docs/enhanced_ontology_llm_integration.md`: Details on LLM-ontology integration
+   - `docs/mcp_server_integration.md`: General MCP server integration overview
+   - `mcp/README.md`: MCP server implementation details
+
+2. **Detailed Guides**
+   - `docs/mcp_docs/mcp_server_guide.md`: Complete guide to MCP server creation and usage
+   - `docs/mcp_docs/ontology_mcp_integration_guide.md`: Specific guide for ontology integration
+   - `mcp/ontology/INTERMEDIATE_ONTOLOGY_GUIDE.md`: Guide to the intermediate ontology structure
+   - `mcp/ontology/ENGINEERING_CAPABILITIES_GUIDE.md`: Details on engineering capabilities modeling
+
+### Current Limitations and Future Improvements
+
+1. **Performance Considerations**
+   - Large ontologies may exceed LLM context windows
+   - Multiple ontology queries can increase response time
+   - LLMs may not handle ontology access errors optimally
+
+2. **Planned Enhancements**
+   - Integration of a semantic reasoner for complex constraint checking
+   - Query optimization to minimize context window usage
+   - Fine-tuning integration using ontology data
+   - Cross-ontology relationship mapping
+   - User-specific context tailoring
