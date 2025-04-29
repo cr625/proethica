@@ -473,3 +473,35 @@ The fix ensures that the ontology agent can effectively leverage Claude's API fo
   - Avoids potential conflicts when multiple developers work on the same codebase
   - Ensures clean repository without temporary operational files
   - Removed existing lock file from Git cache with `git rm --cached tmp/enhanced_mcp_server.lock` while preserving the file itself
+
+## 2025-04-29 - Added ISWC 2025 Paper Submodule
+
+### Actions Taken
+
+1. **Added ISWC 2025 Paper Repository as Submodule**
+   - Created a dedicated `papers/` directory for academic publications
+   - Added `https://github.com/cr625/ISWC_2025` as a Git submodule in `papers/ISWC_2025`
+   - Verified successful cloning and setup of the submodule
+   - Updated .gitmodules file to track the new submodule reference
+
+### Purpose
+
+The ISWC 2025 submodule contains the LaTeX source files for a research paper planned for submission to the International Semantic Web Conference (ISWC) 2025. This integration allows:
+
+- **Development Tracking**: Direct documentation of how the ontology editor component evolves
+- **Research Alignment**: Ensuring the ongoing development aligns with research objectives
+- **Version Synchronization**: Keeping paper content updated with the latest ProEthica implementation
+- **Collaborative Workflow**: Enabling seamless updates to both code and academic documentation
+
+### Usage Guidelines
+
+When making significant improvements to the ontology editor component:
+
+1. Document technical implementation details in the main repository
+2. Navigate to the paper submodule directory: `cd papers/ISWC_2025`
+3. Update the paper content to reflect these improvements
+4. Commit changes within the submodule repository
+5. Push submodule changes to its remote repository
+6. Update the submodule reference in the main repository
+
+This process ensures that research documentation remains synchronized with actual implementation progress.
