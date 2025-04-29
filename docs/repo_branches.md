@@ -6,9 +6,9 @@ This document outlines the branch strategy for the ProEthica repository after im
 
 ### Main Branches
 
-- **`main`**: The primary branch containing stable, production-ready code.
-- **`production-state`**: The branch deployed to the production server at proethica.org.
-- **`dev`**: The main development branch where all feature branches are merged before going to `main`. This branch now includes the unified environment detection system.
+- **`main`**: The primary branch containing stable, tested code.
+- **`dev`**: The main development branch where feature branches are merged before going to `main`. This branch includes the unified environment detection system.
+- **`production`**: The branch deployed to the production server at proethica.org. This will replace both `production-state` and `agent-ontology-integration` to provide a single, clear production branch.
 
 ### Feature Branches
 
@@ -22,8 +22,8 @@ Examples of feature branches:
 
 1. Development happens in `dev` branch and feature branches
 2. When ready for testing, merge `dev` into `main`
-3. After testing and validation, merge `main` into `production-state` for deployment
-4. The `production-state` branch should only be updated via approved merges from `main`
+3. After testing and validation, merge `main` into `production` for deployment
+4. The `production` branch should only be updated via approved merges from `main`
 
 ## Environment Handling
 
@@ -34,14 +34,15 @@ With the implementation of the unified environment detection system, separate en
 - Regular development environments
 - Production environments
 
-## Branch Cleanup Actions
+## Branch Cleanup Plan
 
-The following actions have been taken to streamline the repository:
+To streamline the repository, we will consolidate production-related branches:
 
-1. The former `agent-ontology-dev` branch, which contained the unified environment system implementation, has been renamed to `dev`.
-2. The deprecated `codespace-environment` branch has been deleted as its functionality is now part of the unified system.
-3. The remote `dev` branch has been updated to match the current branch structure.
-4. We maintain `main` and `production-state` branches for stable code and production deployment respectively.
+1. The Docker PostgreSQL configuration from `agent-ontology-integration` has been incorporated into `dev`
+2. We will create a new `production` branch based on `production-state` but with the Docker deployment configuration
+3. After validation, we can eventually deprecate `production-state` and `agent-ontology-integration`
+
+This will simplify our branch structure while preserving all deployment capabilities.
 
 ## Working with the Unified Environment System
 
