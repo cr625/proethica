@@ -1,126 +1,61 @@
-# Repository Branch Management Guide
+# Repository Branch Strategy
 
-This document explains how to manage branches in the ProEthica project, including how to handle the directly cloned repositories in the project structure.
+This document outlines the branch strategy for the ProEthica repository after implementing the unified environment system.
 
-## Project Repository Structure
+## Branch Structure
 
-The ProEthica project uses directly cloned repositories rather than Git submodules:
+### Main Branches
 
-1. **app/agent_module/**: Agent module system (directly cloned repository)
-2. **app/yamz_o/**: Another directly cloned repository component
+- **`main`**: The primary branch containing stable, production-ready code.
+- **`dev`**: The main development branch where all feature branches are merged before going to `main`.
 
-These repositories are maintained as separate codebases but are incorporated directly into the project structure.
+### Feature Branches
 
-## Creating a New Branch
+Feature branches should be created for specific features or bug fixes. They should be branched from `dev` and merged back when complete.
 
-When you create a new branch, you'll need to consider these cloned repositories:
+Examples of feature branches:
+- `feature/new-ui-component`
+- `fix/database-connection-issue`
 
+## Environment Handling
+
+With the implementation of the unified environment detection system, separate environment-specific branches are no longer needed. The codebase now automatically detects and configures for different environments:
+
+- GitHub Codespaces
+- WSL (Windows Subsystem for Linux)
+- Regular development environments
+- Production environments
+
+## Legacy Branches
+
+The following branches were previously used for environment-specific code but are now deprecated:
+
+- **`codespace-environment`**: Previously contained GitHub Codespaces specific configuration
+- **`agent-ontology-dev`**: Previously contained WSL-specific development configuration
+
+These branches have been consolidated into the unified environment system. All functionality from these branches has been preserved in the main codebase with automatic environment detection.
+
+## Branch Cleanup
+
+After confirming that all necessary changes have been incorporated into the unified environment system, the deprecated environment-specific branches should be deleted to maintain a clean repository.
+
+Local cleanup:
 ```bash
-# Create and switch to a new branch in the main repository
-git checkout -b new-feature-branch
+git branch -d codespace-environment
 ```
 
-### What Happens to Cloned Repositories?
-
-Since these repositories are directly cloned and not linked as Git submodules:
-
-1. The cloned repositories' files are tracked by the main repository **as regular files**
-2. Any changes to these files will be included in the main repository's commits
-3. These repositories maintain their internal Git history separate from the main repository
-
-## Branch Creation and Repository Management
-
-When creating a new branch, **you do not need to re-clone** the repositories. The files are already present in your working directory and will be tracked by Git just like any other files.
-
+Remote cleanup (requires appropriate permissions):
 ```bash
-# Create new branch
-git checkout -b feature-branch
-
-# The cloned repositories will remain unchanged in your working directory
+git push origin --delete codespace-environment
 ```
 
-## Making Changes in Cloned Repositories
+## Working with the Unified Environment System
 
-When you make changes within these repositories, you have two options:
+With the unified system, developers should:
 
-### 1. Treat as Regular Files in Main Repository
+1. Use the `dev` branch for development
+2. Create feature branches from `dev` for specific tasks
+3. Let the system automatically detect their environment
+4. Merge completed feature branches back to `dev`
 
-```bash
-# Make changes in app/agent_module/
-# Then commit those changes in the main repository
-git add app/agent_module/changed_file.py
-git commit -m "Updated agent module file"
-```
-
-### 2. Manage the Repository's Internal Version Control
-
-```bash
-# Navigate to the repository directory
-cd app/agent_module/
-
-# Use git commands here to manage this repo separately
-git checkout -b agent-feature
-git add .
-git commit -m "Made changes in agent module"
-git push origin agent-feature
-
-# Return to main project
-cd ../..
-```
-
-## Best Practices for Branch Management
-
-1. **Document Repository States**: When creating important branches, document which version of each cloned repository is being used.
-
-2. **Coordinate Changes**: If making significant changes to cloned repositories, coordinate with other developers to ensure compatibility.
-
-3. **Release Management**: For releases, record the exact commit hash of each cloned repository to enable reproducing the exact configuration.
-
-4. **Consider Using Script**: For complex setups, use a script to ensure cloned repositories are in the correct state:
-
-```bash
-#!/bin/bash
-# Example script to ensure repositories are in correct state
-
-# Main repo branch
-git checkout specific-branch
-
-# Agent module state
-cd app/agent_module/
-git checkout specific-agent-branch
-cd ../..
-
-# Other repos...
-```
-
-## Troubleshooting
-
-### Repository State Issues
-
-If you're experiencing issues with the state of a cloned repository:
-
-```bash
-# Check the repository's status
-cd app/agent_module/
-git status
-
-# Reset to a known good state if needed
-git checkout main
-git pull
-```
-
-### Working with Multiple Branches
-
-When working with multiple branches that depend on different versions of the cloned repositories, you may need to manually update the cloned repositories when switching branches:
-
-```bash
-# After switching branches
-git checkout another-feature-branch
-
-# Update cloned repositories as needed
-cd app/agent_module/
-git checkout required-agent-branch
-cd ../..
-```
-
-This direct cloning approach gives you more flexibility but requires more manual management than using Git submodules.
+The system will automatically adapt to whatever environment it's running in, eliminating the need to switch branches based on environment.
