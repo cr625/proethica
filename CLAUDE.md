@@ -241,3 +241,32 @@ The implementation involved changes to both frontend and backend components:
    - Added proper error handling for missing ontologies
 
 These changes ensure that when a user selects an Engineering World, the engineering-ethics ontology is automatically loaded, making the interface more intuitive and reliable.
+
+## 2025-04-28 - Note on Agent Module Submodule Integration
+
+### Submodule Configuration
+
+1. **Agent Module Status**
+   - The app/agent_module is configured as a git submodule
+   - Currently pointing to commit 5a320c96 on the 'proethica-integration' branch
+   - The submodule is in a detached HEAD state, which is normal for git submodules
+
+2. **Integration Considerations**
+   - All ontology agent improvements are made in the main repository files (not in the submodule)
+   - Modified files are in the main repository: 
+     - `app/templates/ontology_agent_window.html`
+     - `app/routes/ontology_agent.py`
+     - `app/services/enhanced_mcp_client.py`
+   - No changes were needed in the agent_module submodule for the ontology agent improvements
+
+3. **Submodule Management Notes**
+   - When making future changes to the agent_module, be sure to:
+     - Check out the 'proethica-integration' branch within the submodule first
+     - Make and commit changes within the submodule
+     - Push the submodule changes
+     - Update the reference in the main repository to point to the new commit
+
+### Reference Information
+
+- Agent Module Commit: 5a320c96c079f626bab84f8dab0f12e6de7f6ae2
+- Branch: remotes/origin/proethica-integration
