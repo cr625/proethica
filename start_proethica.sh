@@ -30,6 +30,8 @@ fi
 # Environment detection
 if [ "$CODESPACES" == "true" ]; then
     echo -e "${BLUE}Detected GitHub Codespaces environment...${NC}"
+    ENV="codespace"
+    POSTGRES_CONTAINER="postgres17-pgvector-codespace"
 
     # Check if setup script exists and is executable
     if [ -f "./scripts/setup_codespace_db.sh" ]; then
@@ -46,13 +48,21 @@ if [ "$CODESPACES" == "true" ]; then
     fi
 elif grep -qi microsoft /proc/version 2>/dev/null; then
     echo -e "${BLUE}Detected WSL environment...${NC}"
+    ENV="wsl"
+    POSTGRES_CONTAINER="postgres17-pgvector-wsl"
 
     # Check if native PostgreSQL is running and stop it if needed
     if command -v service &> /dev/null && service postgresql status &> /dev/null; then
         echo -e "${YELLOW}Native PostgreSQL is running in WSL. Stopping it to avoid port conflicts...${NC}"
         sudo service postgresql stop || echo -e "${RED}Could not stop PostgreSQL service. You may experience port conflicts.${NC}"
     fi
+else
+    # Default container name for other environments
+    ENV="development"
+    POSTGRES_CONTAINER="postgres17-pgvector"
 fi
+
+echo -e "${BLUE}Using environment: ${ENV} with container: ${POSTGRES_CONTAINER}${NC}"
 
 # Check if .env exists and ensure it has necessary settings
 if [ ! -f ".env" ]; then
@@ -90,21 +100,22 @@ if pgrep -f "run_enhanced_mcp_server.py" > /dev/null || pgrep -f "http_ontology_
     sleep 2
 fi
 
-# Check Docker if not in Codespaces (Codespaces has its own Docker handling)
+# Check Docker if not in Codespaces (Codespaces has its own Docker handling in the setup script)
 if [ "$CODESPACES" != "true" ]; then
     # Check if Docker is installed and running
     echo -e "${BLUE}Checking Docker and PostgreSQL container...${NC}"
     if ! command -v docker &> /dev/null; then
         echo -e "${YELLOW}Docker is not installed or not in PATH. Skipping Docker checks.${NC}"
     else
-        # Check if PostgreSQL container exists and is running
-        POSTGRES_CONTAINER="postgres17-pgvector"
-
         # Extract database connection details from .env file
         DB_PORT=$(grep "DATABASE_URL" .env | sed -E 's/.*localhost:([0-9]+).*/\1/')
 
         if [ -z "$DB_PORT" ]; then
-            DB_PORT="5433"  # Default port if not found in .env
+            if [ "$ENV" == "wsl" ]; then
+                DB_PORT="5432"  # Default port for WSL
+            else
+                DB_PORT="5433"  # Default port for other environments
+            fi
         fi
 
         CONTAINER_STATUS=$(docker ps -a --filter "name=$POSTGRES_CONTAINER" --format "{{.Status}}")
@@ -135,6 +146,13 @@ fi
 chmod +x scripts/restart_mcp_server.sh 2>/dev/null || true
 [ -f "./scripts/run_with_env.sh" ] && chmod +x ./scripts/run_with_env.sh 2>/dev/null || true
 
+# Update ENVIRONMENT variable in .env file
+if grep -q "^ENVIRONMENT=" .env; then
+    sed -i "s/^ENVIRONMENT=.*/ENVIRONMENT=$ENV/" .env
+else
+    echo "ENVIRONMENT=$ENV" >> .env
+fi
+
 # Launch the application with auto_run.sh
-echo -e "${GREEN}Launching ProEthica with auto-detected environment...${NC}"
+echo -e "${GREEN}Launching ProEthica with auto-detected environment: $ENV${NC}"
 ./auto_run.sh

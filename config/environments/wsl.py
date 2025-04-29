@@ -7,6 +7,7 @@ This file contains settings specific to running in a WSL environment.
 DB_HOST = "localhost"
 DB_PORT = 5432  # Using WSL PostgreSQL port
 DB_NAME = "ai_ethical_dm"
+DB_CONTAINER_NAME = "postgres17-pgvector-wsl"  # WSL-specific container name
 
 # MCP server configuration
 MCP_SERVER_PORT = 5001

@@ -7,6 +7,7 @@ This file contains settings specific to GitHub Codespaces environment.
 DB_HOST = "localhost"
 DB_PORT = 5433  # Using Docker PostgreSQL on port 5433 as specified
 DB_NAME = "ai_ethical_dm"
+DB_CONTAINER_NAME = "postgres17-pgvector-codespace"  # Codespace-specific container name
 
 # MCP server configuration
 MCP_SERVER_PORT = 5001

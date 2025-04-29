@@ -7,6 +7,7 @@ This file contains settings specific to the development environment.
 DB_HOST = "localhost"
 DB_PORT = 5432  # Standard PostgreSQL port for local development
 DB_NAME = "ai_ethical_dm"
+DB_CONTAINER_NAME = "postgres17-pgvector"  # Standard container name for development
 
 # MCP server configuration
 MCP_SERVER_PORT = 5001
