@@ -38,6 +38,53 @@ The issue occurred because:
 
 This fix ensures the ProEthica application can start reliably without port conflicts from previously running MCP server instances.
 
+## 2025-04-29 - Implemented Environment-Aware Configuration System
+
+### Actions Taken
+
+1. **Created Environment Configuration Framework**
+   - Developed a robust, environment-aware configuration system in `config/`
+   - Created separate configuration files for development and production environments
+   - Implemented automatic environment detection based on ENVIRONMENT variable
+   - Added comprehensive logging and error handling for configuration loading
+
+2. **Environment-Specific Settings**
+   - Created environment-specific settings for paths, ports, and debug options
+   - Configured development environment with local paths and debugging enabled
+   - Set up production environment with system paths and minimal debugging
+   - Standardized critical settings like MCP_SERVER_PORT across environments
+   - Customized lock file locations and log directories per environment
+
+3. **Enhanced MCP Server Management**
+   - Created an environment-aware Python MCP server manager (`env_mcp_server.py`)
+   - Updated restart script to use configuration from the appropriate environment
+   - Added robust error handling and reporting for better troubleshooting
+   - Ensured correct directory creation for logs and lock files in each environment
+
+4. **Documentation and Development Infrastructure**
+   - Created comprehensive documentation in `docs/environment_setup.md`
+   - Documented environment differences, setup procedures, and best practices
+   - Created new branch `agent-ontology-dev` for development-specific changes
+   - Set up required local directories for development (logs, tmp)
+
+### Benefits
+
+- **Environment Isolation**: Clear separation between development and production settings
+- **Simplified Configuration**: Centralized configuration that adapts to the current environment
+- **Improved Portability**: Easier deployment with environment-specific defaults
+- **Enhanced Maintainability**: Cleaner codebase with fewer hardcoded values
+- **Better Consistency**: Standardized approach to environment configuration
+- **Robust Error Handling**: Comprehensive validation and fallback mechanisms
+
+### Technical Implementation
+
+The environment configuration system uses a layered approach:
+1. `config/environment.py`: Core module that detects the environment and loads appropriate settings
+2. `config/environments/*.py`: Environment-specific configuration files
+3. Enhanced shell and Python scripts that use the loaded configuration
+
+The system automatically creates required directories, handles error conditions gracefully, and provides detailed logging to assist with troubleshooting.
+
 ## 2025-04-28 - Enhanced Ontology-LLM Integration via MCP
 
 ### Actions Taken
