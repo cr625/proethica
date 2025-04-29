@@ -88,9 +88,129 @@ The system uses a priority-based detection mechanism:
 2. Then checks for WSL environment
 3. Falls back to explicit environment setting or inference from hostname/branch
 
-This allows the code to automatically adapt to whatever environment it's running in, while 
-maintaining environment-specific optimizations for database connections, paths, and other 
+This allows the code to automatically adapt to whatever environment it's running in, while
+maintaining environment-specific optimizations for database connections, paths, and other
 configuration details.
+
+## 2025-04-29 - Repository Branch Structure Reorganization
+
+### Branch Structure
+
+The repository has been reorganized into three primary branches:
+
+1. **`dev`**: Main development branch
+   - Where all active development happens
+   - Contains environment auto-detection system
+   - Implements Docker PostgreSQL configuration
+   - Automatically adapts to WSL, Codespaces, or standard environments
+
+2. **`main`**: Stable branch for testing
+   - Contains code that has been developed and is ready for testing
+   - Used as an intermediary between development and production
+   - Should always be in a runnable state
+
+3. **`production`**: Deployment branch
+   - The branch deployed to the production server at proethica.org
+   - Contains Docker PostgreSQL setup and systemd configuration
+   - Only updated through controlled merges from `main`
+
+All environment-specific branches have been consolidated into this structure, with environment detection happening automatically at runtime.
+
+### Working with Branches
+
+**Development Work:**
+```bash
+# Clone the repository
+git clone https://github.com/cr625/ai-ethical-dm.git
+cd ai-ethical-dm
+
+# Ensure you're on the dev branch
+git checkout dev
+
+# Create a feature branch
+git checkout -b feature/my-new-feature
+
+# After making changes, merge back to dev
+git checkout dev
+git merge feature/my-new-feature
+git push origin dev
+```
+
+**Testing:**
+```bash
+# Move code from dev to main for testing
+git checkout main
+git merge dev
+git push origin main
+```
+
+**Deployment:**
+```bash
+# After testing on main, deploy to production
+git checkout production
+git merge main
+git push origin production
+
+# Then on the production server:
+cd /var/www/proethica
+git pull origin production
+sudo systemctl restart proethica-postgres.service mcp-server.service proethica.service
+```
+
+### Environment Start Commands
+
+**Starting in any environment:**
+```bash
+# The auto-detection will configure for the current environment
+./start_proethica.sh
+```
+
+**Specific environment variables:**
+```bash
+# Force a specific environment regardless of detection
+ENVIRONMENT=development ./start_proethica.sh
+ENVIRONMENT=production ./start_proethica.sh
+```
+
+### Deployment Process
+
+1. **Prepare for deployment:**
+   - Ensure all changes are merged to `main` and tested
+   - Resolve any conflicts or issues
+   - Create a backup of the production database if necessary
+
+2. **Deploy to production:**
+   - Merge `main` to `production` branch
+   - Push to GitHub
+   - Connect to the production server
+   - Pull the latest changes
+   - Restart the services
+
+3. **Verify deployment:**
+   - Check all services are running correctly
+   - Verify the application is accessible
+   - Monitor logs for any issues
+
+4. **Rollback if needed:**
+   - If issues are encountered, revert to the previous production commit
+   - Restart services with the previous version
+
+### Docker PostgreSQL Integration
+
+The production environment uses Docker PostgreSQL with pgvector:
+
+- **Container name:** `proethica-postgres-production`
+- **Port:** 5433 (host) → 5432 (container)
+- **Data persistence:** Docker volume
+- **Automated backup/restore:** Scripts in `backups/` directory
+
+To restore a database backup in production:
+```bash
+cd /var/www/proethica
+./backups/docker_restore.sh backups/latest_backup.dump
+```
+
+The Docker PostgreSQL setup is managed by the systemd service `proethica-postgres.service`, which ensures the container starts automatically with the system.
 
 ## 2025-04-29 - Fixed Claude API Authentication Issue
 
