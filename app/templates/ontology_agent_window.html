@@ -142,6 +142,11 @@
     .entity-item:hover {
         background-color: #dee2e6;
     }
+    
+    .entity-item.selected {
+        background-color: #b8daff;
+        border-left: 3px solid #007bff;
+    }
 
     .entity-details {
         margin-top: 20px;
@@ -164,6 +169,20 @@
 
     .entity-property-value {
         color: #212529;
+    }
+
+    .entity-details-inline {
+        list-style-type: none;
+        margin: -4px 0 12px 0;
+        padding: 0;
+    }
+    
+    .entity-details-inline .entity-details {
+        margin-top: 0;
+        margin-left: 20px;
+        border-top: none;
+        border-left: 3px solid #007bff;
+        background-color: #f0f7ff;
     }
 
     .ontology-filter {
@@ -292,38 +311,38 @@
                         </div>
                         
                         <div v-else>
-                            <ul class="entity-list">
-                                <li v-for="entity in filteredEntities" :key="entity.uri" class="entity-item"
-                                    @click="selectEntity(entity)">
-                                    {% raw %}{{ entity.label }}{% endraw %}
-                                </li>
-                            </ul>
-                            
-                            <div v-if="selectedEntity" class="entity-details">
-                                <h5>{% raw %}{{ selectedEntity.label }}{% endraw %}</h5>
-                                <div v-if="selectedEntity.description" class="entity-property">
-                                    <div class="entity-property-label">Description:</div>
-                                    <div class="entity-property-value">{% raw %}{{ selectedEntity.description }}{% endraw %}</div>
-                                </div>
-                                <div class="entity-property">
-                                    <div class="entity-property-label">URI:</div>
-                                    <div class="entity-property-value">{% raw %}{{ selectedEntity.uri }}{% endraw %}</div>
-                                </div>
-                                <div v-if="selectedEntity.properties && selectedEntity.properties.length > 0">
-                                    <div class="entity-property-label mt-3">Properties:</div>
-                                    <div v-for="prop in selectedEntity.properties" :key="prop.predicate.uri" class="entity-property">
-                                        <div>{% raw %}{{ prop.predicate.label }}{% endraw %}: {% raw %}{{ prop.object.label || prop.object.value }}{% endraw %}</div>
-                                    </div>
-                                </div>
-                                <div v-if="selectedEntity.capabilities && selectedEntity.capabilities.length > 0">
-                                    <div class="entity-property-label mt-3">Capabilities:</div>
-                                    <div v-for="cap in selectedEntity.capabilities" :key="cap.uri" class="entity-property">
-                                        <div>{% raw %}{{ cap.label }}{% endraw %}</div>
-                                    </div>
-                                </div>
-                                <button class="btn btn-sm btn-primary mt-3" @click="askAboutEntity(selectedEntity)">
-                                    Ask About This Entity
-                                </button>
+                            <div class="entity-list-container" style="max-height: 100%; overflow-y: auto">
+                                <ul class="entity-list">
+                                    <template v-for="entity in filteredEntities">
+                                        <li :key="entity.uri + '-item'" class="entity-item"
+                                            @click="selectEntity(entity)" 
+                                            :class="{ 'selected': selectedEntity && selectedEntity.uri === entity.uri }">
+                                            {% raw %}{{ entity.label }}{% endraw %}
+                                        </li>
+                                        <!-- Inline entity details that expand under the selected item -->
+                                        <li :key="entity.uri + '-details'" v-if="selectedEntity && selectedEntity.uri === entity.uri" 
+                                            class="entity-details-inline">
+                                            <div class="entity-details p-2">
+                                                <div class="entity-property" v-if="selectedEntity.description">
+                                                    <div class="entity-property-label">Description:</div>
+                                                    <div class="entity-property-value">{% raw %}{{ selectedEntity.description }}{% endraw %}</div>
+                                                </div>
+                                                <div class="entity-property">
+                                                    <div class="entity-property-label">URI:</div>
+                                                    <div class="entity-property-value text-truncate">{% raw %}{{ selectedEntity.uri }}{% endraw %}</div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <button class="btn btn-sm btn-primary" @click="askAboutEntity(selectedEntity)">
+                                                        Ask About This Entity
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-secondary ms-1" @click="selectedEntity = null">
+                                                        Close
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -421,14 +440,14 @@
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
-<!-- Include Vue.js and Axios -->
+<!-- Include necessary libraries -->
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     new Vue({
         el: '#ontology-agent-app',
@@ -603,23 +622,40 @@
                     url += `ontology_id=${this.selectedOntologyId}`;
                 }
                 
+                console.log(`Loading entities from: ${url}`);
+                
                 axios.get(url)
                     .then(response => {
+                        console.log("Response from entities API:", response.data);
+                        
                         if (response.data.status === 'success') {
                             // Normalize the entities format
                             let allEntities = [];
                             
+                            // Ensure we have entities object to work with
+                            const entitiesData = response.data.entities || {};
+                            
                             // Process different entity types
                             const entityTypes = ['roles', 'capabilities', 'conditions', 'resources', 'events', 'actions'];
                             entityTypes.forEach(type => {
-                                if (response.data.entities && response.data.entities[type]) {
-                                    response.data.entities[type].forEach(entity => {
-                                        entity.entityType = type;
-                                        allEntities.push(entity);
+                                // Check if the entity type exists in the response
+                                if (entitiesData[type] && Array.isArray(entitiesData[type])) {
+                                    entitiesData[type].forEach(entity => {
+                                        // Ensure entity has all expected properties
+                                        const normalizedEntity = {
+                                            uri: entity.uri || `unknown:/${type}/${Math.random().toString(36).substring(7)}`,
+                                            label: entity.label || "Unnamed entity",
+                                            description: entity.description || "",
+                                            entityType: type.slice(0, -1), // remove trailing 's'
+                                            ...entity // preserve any additional fields
+                                        };
+                                        
+                                        allEntities.push(normalizedEntity);
                                     });
                                 }
                             });
                             
+                            console.log("Normalized entities:", allEntities);
                             this.entities = allEntities;
                             this.filterEntities();
                         } else {
@@ -640,13 +676,35 @@
 
             // Filter entities based on selected type
             filterEntities() {
+                console.log("Filtering entities, current filter:", this.entityTypeFilter);
+                console.log("Available entities:", this.entities);
+                
                 if (this.entityTypeFilter === 'all') {
                     this.filteredEntities = this.entities;
                 } else {
-                    this.filteredEntities = this.entities.filter(entity => 
-                        entity.entityType === this.entityTypeFilter.slice(0, -1) // remove trailing 's'
-                    );
+                    // The entity type might be stored differently in different scenarios
+                    // Try multiple approaches to match the entity type
+                    this.filteredEntities = this.entities.filter(entity => {
+                        // Check for entityType property explicitly added
+                        if (entity.entityType && entity.entityType === this.entityTypeFilter.slice(0, -1)) {
+                            return true;
+                        }
+                        
+                        // Check by URI pattern (often contains the entity type)
+                        if (entity.uri && entity.uri.toLowerCase().includes(`/${this.entityTypeFilter.toLowerCase()}/`)) {
+                            return true;
+                        }
+                        
+                        // Check explicit type field if available
+                        if (entity.type && entity.type.toLowerCase() === this.entityTypeFilter.toLowerCase().slice(0, -1)) {
+                            return true;
+                        }
+                        
+                        return false;
+                    });
                 }
+                
+                console.log("Filtered entities:", this.filteredEntities);
                 
                 // Sort alphabetically by label
                 this.filteredEntities.sort((a, b) => a.label.localeCompare(b.label));
