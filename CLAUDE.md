@@ -212,6 +212,69 @@ cd /var/www/proethica
 
 The Docker PostgreSQL setup is managed by the systemd service `proethica-postgres.service`, which ensures the container starts automatically with the system.
 
-## 2025-04-29 - Fixed Claude API Authentication Issue
+## 2025-04-29 - Implemented Hosted LLM MCP Server
 
-### Issue Fixed
+### Actions Taken
+
+1. **Created New MCP Server for Ontology Enhancement**
+   - Implemented `mcp/hosted_llm_mcp/` server that connects to hosted LLM services
+   - Integrated with both Anthropic Claude and OpenAI models
+   - Designed smart model router that directs tasks to the appropriate model based on strengths
+   - Added fallback mechanisms for resilience when a model is unavailable
+   - Implemented result caching to reduce API costs
+
+2. **Developed Specialized Ontology Tools**
+   - `concept_analyzer.py`: Tools for analyzing and explaining ontology concepts
+   - `relationship_tools.py`: Tools for suggesting and validating ontology relationships
+   - `hierarchy_tools.py`: Tools for expanding hierarchies and classifying entities
+   - Each tool integrates seamlessly with the existing enhanced ontology MCP server
+
+3. **Added Robust Model Adapters**
+   - `anthropic_adapter.py`: Optimized for concept analysis, hierarchy expansion, and explanations
+   - `openai_adapter.py`: Optimized for relationship suggestion, ontology validation, and classification
+   - `model_router.py`: Intelligently routes tasks to the appropriate model with fallback capability
+
+4. **Implemented Ontology Integration**
+   - Created connector to interface with the existing enhanced ontology MCP server
+   - Provides methods to retrieve and query ontology data
+   - Supports submitting potential new ontology elements for validation
+
+5. **Configuration and Documentation**
+   - Added configurable routing of tasks to appropriate models based on their strengths
+   - Implemented caching with configurable TTL to reduce API costs
+   - Provided comprehensive documentation, including server setup and API usage
+   - Created a detailed README with examples and troubleshooting guidance
+
+### Usage Instructions
+
+To use the new MCP server:
+
+1. **Installation**:
+   ```bash
+   cd mcp/hosted_llm_mcp
+   pip install -r requirements.txt
+   ```
+
+2. **Configuration**:
+   - Set API keys:
+     ```bash
+     export ANTHROPIC_API_KEY="your_anthropic_api_key"
+     export OPENAI_API_KEY="your_openai_api_key" 
+     ```
+   - Adjust `config.json` for model preferences if needed
+
+3. **Starting the Server**:
+   ```bash
+   cd mcp
+   python -m hosted_llm_mcp.run
+   ```
+
+4. **Available Tools**:
+   - `analyze_concept`: Extract properties and relationships from a concept
+   - `suggest_relationships`: Suggest meaningful connections between concepts
+   - `expand_hierarchy`: Generate sub-concept hierarchies
+   - `validate_ontology`: Check consistency and coherence
+   - `explain_concept`: Generate natural language explanations
+   - `classify_entity`: Determine where an entity fits in the ontology
+
+This implementation combines the strengths of multiple LLM models to enhance the ontology capabilities of the ProEthica platform, providing more sophisticated tools for concept analysis, relationship suggestion, and hierarchical organization.
