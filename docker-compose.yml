@@ -1,0 +1,18 @@
+version: '3'
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: postgres.Dockerfile
+    container_name: proethica-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=PASS
+      - POSTGRES_DB=ai_ethical_dm
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

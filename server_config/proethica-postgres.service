@@ -1,0 +1,15 @@
+[Unit]
+Description=ProEthica PostgreSQL Docker Container
+After=docker.service
+Requires=docker.service
+Before=proethica.service mcp-server.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/var/www/proethica
+ExecStart=/usr/bin/docker-compose up -d postgres
+ExecStop=/usr/bin/docker-compose stop postgres
+
+[Install]
+WantedBy=multi-user.target
