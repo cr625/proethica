@@ -71,75 +71,131 @@ class EnhancedMCPClient:
             entity_type: Type of entity to retrieve (roles, conditions, resources, etc.)
             
         Returns:
-            Dictionary containing entities
+            Dictionary containing entities with standardized format
         """
         try:
-            return self.get_world_entities(ontology_source, entity_type)
+            print(f"Enhanced MCP Client: Getting entities for {ontology_source}, type {entity_type}")
+            result = self.get_world_entities(ontology_source, entity_type)
+            
+            # For debugging
+            print(f"Raw result from get_world_entities: {result}")
+            
+            # Ensure result has a consistent structure
+            if "entities" in result:
+                # If already in the expected format with an "entities" key, use it
+                entities = result["entities"]
+                
+                # Check if entities is a dictionary with the entity types as keys
+                if not isinstance(entities, dict):
+                    # If not a dict, create a new dictionary with the entity type as the key
+                    if entity_type != "all":
+                        entities = {entity_type: entities}
+                    else:
+                        # If entity_type is "all" but entities is not a dict, something is wrong
+                        # Return mock data instead
+                        print("Warning: Entities is not a dictionary, using mock data")
+                        entities = self._create_mock_entities(ontology_source)
+            else:
+                # If no "entities" key, check if the result itself has the expected structure
+                entity_types = ['roles', 'capabilities', 'conditions', 'resources', 'events', 'actions']
+                
+                if any(type_name in result for type_name in entity_types):
+                    # Result already has the entity types as keys
+                    entities = result
+                elif entity_type != "all" and not any(type_name in result for type_name in entity_types):
+                    # For a specific entity type, if not in the expected format, wrap it
+                    entities = {entity_type: result}
+                else:
+                    # If not in any recognized format, use mock data
+                    print("Warning: Result doesn't have a recognized format, using mock data")
+                    entities = self._create_mock_entities(ontology_source)
+            
+            # Ensure all expected entity types exist with at least an empty list
+            if entity_type == "all":
+                entity_types = ['roles', 'capabilities', 'conditions', 'resources', 'events', 'actions']
+                for type_name in entity_types:
+                    if type_name not in entities or not isinstance(entities[type_name], list):
+                        entities[type_name] = []
+            elif entity_type not in entities or not isinstance(entities[entity_type], list):
+                entities[entity_type] = []
+            
+            return entities
         except Exception as e:
             print(f"Error in get_entities: {str(e)}, using mock fallback data")
             # Return mock data as fallback
-            mock_data = {
-                "roles": [
-                    {
-                        "uri": f"{ontology_source}/roles/Engineer",
-                        "label": "Engineer",
-                        "description": "Professional who applies scientific knowledge to solve problems"
-                    },
-                    {
-                        "uri": f"{ontology_source}/roles/Manager",
-                        "label": "Manager",
-                        "description": "Person responsible for planning and directing work"
-                    }
-                ],
-                "capabilities": [
-                    {
-                        "uri": f"{ontology_source}/capabilities/Design",
-                        "label": "Design",
-                        "description": "Ability to create technical plans and specifications"
-                    },
-                    {
-                        "uri": f"{ontology_source}/capabilities/Analysis",
-                        "label": "Analysis",
-                        "description": "Ability to examine data and systems"
-                    }
-                ],
-                "conditions": [
-                    {
-                        "uri": f"{ontology_source}/conditions/SafetyRisk",
-                        "label": "Safety Risk",
-                        "description": "A condition where safety may be compromised"
-                    }
-                ],
-                "resources": [
-                    {
-                        "uri": f"{ontology_source}/resources/EquipmentSpec",
-                        "label": "Equipment Specification",
-                        "description": "Documentation detailing equipment requirements"
-                    }
-                ],
-                "events": [
-                    {
-                        "uri": f"{ontology_source}/events/ProjectReview",
-                        "label": "Project Review",
-                        "description": "Formal assessment of project status"
-                    }
-                ],
-                "actions": [
-                    {
-                        "uri": f"{ontology_source}/actions/TestSystem",
-                        "label": "Test System",
-                        "description": "Perform testing procedures on a system"
-                    }
-                ],
-                "is_mock": True
-            }
+            mock_entities = self._create_mock_entities(ontology_source)
             
             if entity_type == 'all':
-                return mock_data
-            elif entity_type in mock_data:
-                return {entity_type: mock_data[entity_type]}
+                return mock_entities
+            elif entity_type in mock_entities:
+                return {entity_type: mock_entities[entity_type]}
             else:
                 return {entity_type: []}
+    
+    def _create_mock_entities(self, ontology_source: str) -> Dict[str, List[Dict[str, str]]]:
+        """
+        Create mock entity data for fallback purposes.
+        
+        Args:
+            ontology_source: Source of the ontology
+            
+        Returns:
+            Dictionary with mock entities
+        """
+        return {
+            "roles": [
+                {
+                    "uri": f"{ontology_source}/roles/Engineer",
+                    "label": "Engineer",
+                    "description": "Professional who applies scientific knowledge to solve problems"
+                },
+                {
+                    "uri": f"{ontology_source}/roles/Manager",
+                    "label": "Manager",
+                    "description": "Person responsible for planning and directing work"
+                }
+            ],
+            "capabilities": [
+                {
+                    "uri": f"{ontology_source}/capabilities/Design",
+                    "label": "Design",
+                    "description": "Ability to create technical plans and specifications"
+                },
+                {
+                    "uri": f"{ontology_source}/capabilities/Analysis",
+                    "label": "Analysis",
+                    "description": "Ability to examine data and systems"
+                }
+            ],
+            "conditions": [
+                {
+                    "uri": f"{ontology_source}/conditions/SafetyRisk",
+                    "label": "Safety Risk",
+                    "description": "A condition where safety may be compromised"
+                }
+            ],
+            "resources": [
+                {
+                    "uri": f"{ontology_source}/resources/EquipmentSpec",
+                    "label": "Equipment Specification",
+                    "description": "Documentation detailing equipment requirements"
+                }
+            ],
+            "events": [
+                {
+                    "uri": f"{ontology_source}/events/ProjectReview",
+                    "label": "Project Review",
+                    "description": "Formal assessment of project status"
+                }
+            ],
+            "actions": [
+                {
+                    "uri": f"{ontology_source}/actions/TestSystem",
+                    "label": "Test System",
+                    "description": "Perform testing procedures on a system"
+                }
+            ]
+        }
     
     def query_ontology(self, ontology_source: str, query: str) -> Dict[str, Any]:
         """

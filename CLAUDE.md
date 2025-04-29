@@ -191,3 +191,53 @@ This fix ensures the ProEthica application can start reliably without port confl
 - **Better Error Handling**: More direct verification of MCP server status
 - **Enhanced Reliability**: Less chance of conflicting server instances
 - **Clearer Configuration**: More straightforward environment setup with fewer variables
+
+## 2025-04-28 - Improved Ontology Agent Interface
+
+### Issue Fixed
+
+Fixed an issue with the ontology agent interface where selecting a world and an ontology separately caused confusion and unexpected behavior. When a user selected a world, the interface still allowed selection of a different ontology, which would reset the world selection.
+
+### Solution Implemented
+
+1. **Modified Ontology Agent UI**
+   - Updated the ontology selection dropdown to only be visible when no world is selected
+   - Added a display showing the ontology name associated with a selected world
+   - Created a new API endpoint to fetch ontology details for a selected world
+   - Enhanced the world selection handler to automatically fetch and display the appropriate ontology
+
+2. **Added Ontology Lookup Functionality**
+   - Implemented a new `/agent/ontology/api/world-ontology` endpoint that returns ontology information for a world
+   - Added logic to find the correct ontology based on either the world's `ontology_id` or `ontology_source` field
+   - Enhanced the UI to show the associated ontology name when a world is selected
+   - Improved error handling for cases where a world has no associated ontology
+
+3. **Frontend Improvements**
+   - Added conditional display logic to show/hide UI elements based on selections
+   - Created a more intuitive workflow for world and ontology selection
+   - Improved visual indicators of what is selected
+   - Added better handling of reset operations when switching contexts
+
+### Benefits
+
+- **Improved User Experience**: Clearer workflow for selecting ontology contexts
+- **Reduced Confusion**: Eliminated the possibility of conflicting selections
+- **Better Integration**: Worlds now properly load their associated ontologies automatically
+- **Consistent Context**: Ensured ontology entities loaded for a world match the expected ontology
+- **Simplified Interface**: Clearer user journey with fewer opportunities for error
+
+### Technical Implementation
+
+The implementation involved changes to both frontend and backend components:
+
+1. In the frontend template (`ontology_agent_window.html`):
+   - Added conditional display of the ontology selection dropdown based on world selection
+   - Added a readonly display of the associated ontology when a world is selected
+   - Added property to store the world's ontology name
+
+2. In the backend route handlers (`ontology_agent.py`):
+   - Created a new API endpoint to get ontology details for a world
+   - Enhanced world selection logic to reset ontology selection
+   - Added proper error handling for missing ontologies
+
+These changes ensure that when a user selects an Engineering World, the engineering-ethics ontology is automatically loaded, making the interface more intuitive and reliable.

@@ -276,6 +276,54 @@ def get_suggestions():
         'suggestions': suggestions[:5]
     })
 
+@ontology_agent_bp.route('/api/world-ontology', methods=['GET'])
+def get_world_ontology():
+    """Get the ontology associated with a world."""
+    # Get world_id from query parameter
+    world_id = request.args.get('world_id', type=int)
+    
+    if not world_id:
+        return jsonify({
+            'status': 'error',
+            'message': 'world_id parameter is required'
+        }), 400
+        
+    # Get the world from the database
+    world = World.query.get(world_id)
+    if not world:
+        return jsonify({
+            'status': 'error',
+            'message': f'World with ID {world_id} not found'
+        }), 404
+    
+    # Get the ontology associated with the world
+    ontology = None
+    if world.ontology_id:
+        # Direct ontology relationship
+        ontology = Ontology.query.get(world.ontology_id)
+    elif world.ontology_source:
+        # Look up by ontology_source (domain_id)
+        ontology = Ontology.query.filter_by(domain_id=world.ontology_source).first()
+    
+    if not ontology:
+        return jsonify({
+            'status': 'success',
+            'ontology': {
+                'name': 'Default Ontology',
+                'domain_id': world.ontology_source
+            }
+        })
+    
+    # Return the ontology details
+    return jsonify({
+        'status': 'success',
+        'ontology': {
+            'id': ontology.id,
+            'name': ontology.name,
+            'domain_id': ontology.domain_id
+        }
+    })
+
 @ontology_agent_bp.route('/api/entities', methods=['GET'])
 def get_entities():
     """Get entities from an ontology."""
@@ -304,6 +352,16 @@ def get_entities():
     try:
         # Get entities from MCP client
         entities = mcp_client.get_entities(ontology_source, entity_type)
+        
+        # Add debugging information
+        print(f"Loading entities from ontology_source: {ontology_source}, entity_type: {entity_type}")
+        print(f"Received entities: {entities}")
+        
+        # Ensure 'entities' is a dictionary, not the data itself
+        if isinstance(entities, dict) and not any(key in entities for key in ['roles', 'capabilities', 'conditions', 'resources', 'events', 'actions']):
+            # If the result doesn't have the expected entity type keys, structure it properly
+            if entity_type != 'all':
+                entities = {entity_type: entities}
         
         return jsonify({
             'status': 'success',

@@ -233,7 +233,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-4" v-if="!selectedWorldId">
                 <label for="ontology-select" class="form-label">Select Ontology:</label>
                 <select id="ontology-select" class="form-select" v-model="selectedOntologyId" @change="ontologyChanged">
                     <option value="">-- Select an Ontology --</option>
@@ -241,6 +241,10 @@
                     <option value="{{ ontology.id }}">{{ ontology.name }}</option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="col-md-4" v-else>
+                <label class="form-label">Selected World's Ontology:</label>
+                <div class="form-control" disabled>{% raw %}{{ worldOntologyName || 'Default ontology for selected world' }}{% endraw %}</div>
             </div>
             <div class="col-md-4">
                 <label for="service-select" class="form-label">LLM Service:</label>
@@ -440,6 +444,7 @@
             selectedWorldId: '{{ selected_world.id if selected_world else "" }}',
             selectedOntologyId: '{{ selected_ontology.id if selected_ontology else "" }}',
             selectedService: 'claude', // Default to Claude
+            worldOntologyName: '', // Name of the ontology associated with the selected world
             
             // Ontology panel data
             entities: [],
@@ -507,6 +512,7 @@
             worldChanged() {
                 // Reset ontology selection if world changes
                 this.selectedOntologyId = '';
+                this.worldOntologyName = '';
                 
                 // Reset conversation if world changes
                 if (this.messages.length > 1) {
@@ -522,6 +528,23 @@
                         });
                         return;
                     }
+                }
+
+                // Get the world's ontology name if a world is selected
+                if (this.selectedWorldId) {
+                    // Fetch the world details to get the ontology name
+                    axios.get(`/agent/ontology/api/world-ontology?world_id=${this.selectedWorldId}`)
+                        .then(response => {
+                            if (response.data.status === 'success' && response.data.ontology) {
+                                this.worldOntologyName = response.data.ontology.name;
+                            } else {
+                                this.worldOntologyName = 'Default ontology for selected world';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching world ontology:', error);
+                            this.worldOntologyName = 'Default ontology for selected world';
+                        });
                 }
 
                 // Load entities and guidelines for the selected world
