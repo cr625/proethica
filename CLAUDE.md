@@ -131,6 +131,37 @@ This fix ensures the ProEthica application can start reliably without port confl
 - **Better Documentation**: Updated setup instructions for future environment configuration
 - **Enhanced Reliability**: Fixed port configuration prevents connection issues
 
+## 2025-04-28 - Implemented Dereferenceable Ontology IRIs
+
+### Actions Taken
+
+1. **Added Ontology IRI Resolution System**
+   - Created a new Flask blueprint (`ontology_iri_bp`) for handling IRI resolution
+   - Implemented routes to handle IRIs in both hash and slash notation
+   - Added content negotiation to support multiple RDF serialization formats
+   - Created an HTML template for human-readable IRI representation
+
+2. **Integrated Graph Processing for Entity Resolution**
+   - Implemented database-first approach for ontology loading with file fallback
+   - Created entity context extraction to include both subject and object triples
+   - Added detailed entity information extraction for HTML presentation
+   - Implemented RDF serialization in multiple formats (Turtle, RDF/XML, JSON-LD)
+
+3. **Updated Application Configuration**
+   - Registered new blueprint at the root URL level for proper IRI handling
+   - Added comprehensive documentation in `docs/ontology_iri_resolution.md`
+   - Ensured compatibility with the existing MCP server infrastructure
+   - Made sure all IRIs following the pattern `http://proethica.org/ontology/*` are properly resolved
+
+### Benefits
+
+- **Semantic Web Compatibility**: Ontologies now follow linked data principles with dereferenceable IRIs
+- **Multiple Format Support**: Content negotiation allows clients to request preferred RDF formats
+- **Human Browsable Ontologies**: HTML representation makes exploring the ontology structure intuitive
+- **Machine Readability**: Systems can automatically consume and navigate the ontology structure
+- **Enhanced Integration**: Easier integration with external semantic web tools and services
+- **Standards Compliance**: Implementation follows W3C best practices for linked data
+
 ## 2025-04-28 - MCP Server Implementation Simplification
 
 ### Actions Taken

@@ -1,0 +1,115 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix eng: <http://proethica.org/ontology/engineering-ethics#> .
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+
+<http://proethica.org/ontology/engineering-ethics> a owl:Ontology ;
+    rdfs:label "Engineering Ethics Ontology" ;
+    rdfs:comment "Ontology for engineering ethics concepts and relationships." .
+
+# Role definitions
+eng:Role a owl:Class ;
+    rdfs:subClassOf proeth:EntityType ;
+    rdfs:label "Engineering Role" ;
+    rdfs:comment "A professional role in engineering" .
+
+eng:ProjectEngineerRole a eng:Role ;
+    rdfs:label "Project Engineer" ;
+    rdfs:comment "A role responsible for overseeing engineering projects and ensuring they meet specifications." ;
+    eng:hasTier eng:SeniorLevel ;
+    eng:hasCapability eng:ProjectManagement, eng:EngineeringAnalysis, eng:QualityAssurance .
+
+eng:StructuralEngineerRole a eng:Role ;
+    rdfs:label "Structural Engineer" ;
+    rdfs:comment "A role specializing in analyzing and designing load-bearing structures." ;
+    eng:hasTier eng:MidLevel ;
+    eng:hasCapability eng:StructuralAnalysis, eng:BuildingCodes .
+
+eng:SafetyEngineerRole a eng:Role ;
+    rdfs:label "Safety Engineer" ;
+    rdfs:comment "A role focusing on identifying and mitigating safety risks in engineering projects." ;
+    eng:hasTier eng:MidLevel ;
+    eng:hasCapability eng:RiskAssessment, eng:SafetyStandards .
+
+# Capability definitions
+eng:Capability a owl:Class ;
+    rdfs:subClassOf proeth:EntityType ;
+    rdfs:label "Capability" ;
+    rdfs:comment "A professional capability or skill in engineering" .
+
+eng:ProjectManagement a eng:Capability ;
+    rdfs:label "Project Management" ;
+    rdfs:comment "Ability to plan, execute, and oversee engineering projects." .
+
+eng:EngineeringAnalysis a eng:Capability ;
+    rdfs:label "Engineering Analysis" ;
+    rdfs:comment "Ability to perform technical analysis of engineering problems." .
+
+eng:QualityAssurance a eng:Capability ;
+    rdfs:label "Quality Assurance" ;
+    rdfs:comment "Ability to ensure engineering work meets quality standards." .
+
+eng:StructuralAnalysis a eng:Capability ;
+    rdfs:label "Structural Analysis" ;
+    rdfs:comment "Ability to analyze the structural integrity of designs." .
+
+eng:BuildingCodes a eng:Capability ;
+    rdfs:label "Building Codes Knowledge" ;
+    rdfs:comment "Knowledge of applicable building codes and regulations." .
+
+eng:RiskAssessment a eng:Capability ;
+    rdfs:label "Risk Assessment" ;
+    rdfs:comment "Ability to identify and evaluate potential risks." .
+
+eng:SafetyStandards a eng:Capability ;
+    rdfs:label "Safety Standards Knowledge" ;
+    rdfs:comment "Knowledge of safety standards and protocols." .
+
+# Tier definitions
+eng:Tier a owl:Class ;
+    rdfs:label "Professional Tier" ;
+    rdfs:comment "A level of professional experience and responsibility." .
+
+eng:EntryLevel a eng:Tier ;
+    rdfs:label "Entry Level" ;
+    rdfs:comment "Beginning level of professional practice." .
+
+eng:MidLevel a eng:Tier ;
+    rdfs:label "Mid Level" ;
+    rdfs:comment "Intermediate level of professional practice." .
+
+eng:SeniorLevel a eng:Tier ;
+    rdfs:label "Senior Level" ;
+    rdfs:comment "Advanced level of professional practice with significant responsibility." .
+
+eng:ExecutiveLevel a eng:Tier ;
+    rdfs:label "Executive Level" ;
+    rdfs:comment "Top level of professional practice with organizational leadership responsibilities." .
+
+# Ethical principles
+eng:EthicalPrinciple a owl:Class ;
+    rdfs:label "Ethical Principle" ;
+    rdfs:comment "A fundamental ethical principle in engineering practice." .
+
+eng:PublicSafety a eng:EthicalPrinciple ;
+    rdfs:label "Public Safety" ;
+    rdfs:comment "Engineers shall hold paramount the safety, health, and welfare of the public." .
+
+eng:Competence a eng:EthicalPrinciple ;
+    rdfs:label "Professional Competence" ;
+    rdfs:comment "Engineers shall perform services only in areas of their competence." .
+
+eng:Honesty a eng:EthicalPrinciple ;
+    rdfs:label "Honesty and Integrity" ;
+    rdfs:comment "Engineers shall issue public statements only in an objective and truthful manner." .
+
+eng:Confidentiality a eng:EthicalPrinciple ;
+    rdfs:label "Confidentiality" ;
+    rdfs:comment "Engineers shall act for each employer or client as faithful agents or trustees." .
+
+# Relationships between roles and principles
+eng:ProjectEngineerRole eng:mustAdhereTo eng:PublicSafety, eng:Competence, eng:Honesty, eng:Confidentiality .
+eng:StructuralEngineerRole eng:mustAdhereTo eng:PublicSafety, eng:Competence .
+eng:SafetyEngineerRole eng:mustAdhereTo eng:PublicSafety, eng:Honesty .
