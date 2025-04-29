@@ -7,6 +7,7 @@ This file contains settings specific to the production environment.
 DB_HOST = "localhost"
 DB_PORT = 5433  # Modified port for Docker on production
 DB_NAME = "ai_ethical_dm"
+DB_CONTAINER_NAME = "postgres17-pgvector-production"  # Production-specific container name
 
 # MCP server configuration
 MCP_SERVER_PORT = 5001
