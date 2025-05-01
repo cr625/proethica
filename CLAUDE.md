@@ -215,3 +215,28 @@ The Docker PostgreSQL setup is managed by the systemd service `proethica-postgre
 ## 2025-04-29 - Fixed Claude API Authentication Issue
 
 ### Issue Fixed
+
+## 2025-05-01 - Fixed Codespace Environment Configuration Issue
+
+### Issue Fixed
+
+Fixed an application startup failure in GitHub Codespaces environment. The application was failing with a `KeyError: 'codespace'` when trying to access a non-existent configuration for the Codespace environment.
+
+### Root Cause Analysis
+
+The issue occurred because:
+1. The enhanced environment detection system correctly identified the GitHub Codespaces environment
+2. However, the `app/config.py` configuration dictionary didn't include a 'codespace' key
+3. This caused a KeyError when the application tried to load the configuration for the Codespace environment
+
+### Solution Implemented
+
+1. **Updated Configuration Dictionary**
+   - Added 'codespace' key to the configuration dictionary in `app/config.py`
+   - Mapped it to use the DevelopmentConfig class, as Codespaces are development environments
+
+### Benefits
+
+- **Seamless Codespace Integration**: Application now starts correctly in GitHub Codespaces
+- **Environment Consistency**: Maintains the same configuration behavior across different development environments
+- **Improved Developer Experience**: Developers can now use Codespaces without manual configuration steps
