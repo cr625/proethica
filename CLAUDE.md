@@ -240,3 +240,42 @@ The issue occurred because:
 - **Seamless Codespace Integration**: Application now starts correctly in GitHub Codespaces
 - **Environment Consistency**: Maintains the same configuration behavior across different development environments
 - **Improved Developer Experience**: Developers can now use Codespaces without manual configuration steps
+
+## 2025-05-02 - Fixed MCP Server Start Failure Issue
+
+### Issue Fixed
+
+Fixed an issue where the ProEthica application failed to start with the error "Failed to start MCP server. See logs for details" when running the start_proethica.sh script.
+
+### Root Cause Analysis
+
+The issue occurred because:
+1. A previous MCP server process was still running and bound to port 5001
+2. The env_mcp_server.py script was unable to start a new server instance due to port conflict
+3. Despite the restart script attempting to kill existing processes, one process remained active
+4. The script was timing out after waiting for the port to become available
+
+### Solution Implemented
+
+1. **Manual Process Cleanup**
+   - Identified the specific process ID of the lingering MCP server (PID 7377)
+   - Manually terminated the process with `kill -9 7377`
+   - Verified port 5001 was free before restarting
+
+### Benefits
+
+- **Application Successfully Started**: ProEthica now starts correctly with functional MCP server
+- **Diagnostic Process Documented**: Clear steps identified for troubleshooting similar issues in the future
+- **Enhanced Understanding**: Better insight into process/port handling during application startup
+
+### Future Improvements
+
+1. **Enhanced Process Cleanup**:
+   - Add direct port-based process identification (e.g., using `fuser`)
+   - Implement forceful cleanup with elevated privileges if necessary
+   - Add explicit verification that port has been freed after process termination
+
+2. **Improved Error Reporting**:
+   - Include more detailed output about specific port conflicts
+   - Display process information for conflicting processes
+   - Provide automated remediation steps in error messages
