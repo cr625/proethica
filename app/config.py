@@ -32,5 +32,6 @@ config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,
     'production': ProductionConfig,
+    'codespace': DevelopmentConfig,  # Map Codespaces to DevelopmentConfig
     'default': DevelopmentConfig
 }
