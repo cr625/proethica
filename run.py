@@ -27,7 +27,9 @@ else:
     if not environment:
         # Try to detect from hostname
         hostname = socket.gethostname()
-        if hostname == 'proethica.org' or hostname.startswith('prod-'):
+        # Define production hostnames - could be customized in the future
+        production_hostnames = ['proethica.org', 'realm.ai', 'realm.org']
+        if hostname in production_hostnames or hostname.startswith('prod-'):
             environment = 'production'
         else:
             # Try to detect from git branch
