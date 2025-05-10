@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Home - ProEthica{% endblock %}
+{% block title %}Home - {{ config['APP_NAME'] }}{% endblock %}
 
 {% block content %}
 <div class="jumbotron">
-    <h1 class="display-4">ProEthica</h1>
-    <p class="lead">An ethical decision-making framework powered by ontologies and role-based ethics.</p>
+    <h1 class="display-4">{{ config['APP_NAME'] }}</h1>
+    <p class="lead">Resource and Entity Alignment for Language Models</p>
     <hr class="my-4">
-    <p>ProEthica simulates ethical scenarios in customizable worlds using rich domain ontologies, role-based guidelines, 
-       and structured reasoning. The system combines professional guidelines, case precedents, and domain rules to guide 
-       ethical decision-making through ontological inference and validated LLM interactions.
+    <p>{{ config['APP_NAME'] }} simulates ethical scenarios in customizable worlds using rich domain ontologies,
+        role-based guidelines,
+        and structured reasoning. The system combines professional guidelines, case precedents, and domain rules to
+        guide
+        ethical decision-making through ontological inference and validated LLM interactions.
     </p>
     <div class="d-flex gap-2">
         <a class="btn btn-primary btn-lg" href="/worlds" role="button">Explore Worlds</a>
@@ -22,8 +24,10 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Ontology-Driven Knowledge</h5>
-                <p class="card-text">ProEthica leverages rich domain ontologies to create a foundation of structured knowledge, 
-                   enabling precise reasoning and inference about entities, relationships, and professional guidelines.</p>
+                <p class="card-text">{{ config['APP_NAME'] }} leverages rich domain ontologies to create a foundation of
+                    structured knowledge,
+                    enabling precise reasoning and inference about entities, relationships, and professional guidelines.
+                </p>
             </div>
         </div>
     </div>
@@ -31,8 +35,10 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">World & Scenario Building</h5>
-                <p class="card-text">Create customizable worlds with appropriate entities and constraints, then define scenarios 
-                   within these worlds where ethical decisions can be simulated and analyzed based on professional roles.</p>
+                <p class="card-text">Create customizable worlds with appropriate entities and constraints, then define
+                    scenarios
+                    within these worlds where ethical decisions can be simulated and analyzed based on professional
+                    roles.</p>
             </div>
         </div>
     </div>
@@ -40,8 +46,9 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Role-Based Ethics</h5>
-                <p class="card-text">Decisions are evaluated through the lens of professional roles, each bound by 
-                   specific ethical guidelines, cases, rules, and references that determine appropriate conduct within a world context.</p>
+                <p class="card-text">Decisions are evaluated through the lens of professional roles, each bound by
+                    specific ethical guidelines, cases, rules, and references that determine appropriate conduct within
+                    a world context.</p>
             </div>
         </div>
     </div>
@@ -49,8 +56,9 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Structured Reasoning</h5>
-                <p class="card-text">Combines ontological inference with LLM capabilities, using the Model Context Protocol (MCP) to ensure 
-                   valid input/output structures and enhance reasoning with structured domain knowledge.</p>
+                <p class="card-text">Combines ontological inference with LLM capabilities, using the Model Context
+                    Protocol (MCP) to ensure
+                    valid input/output structures and enhance reasoning with structured domain knowledge.</p>
             </div>
         </div>
     </div>
@@ -73,11 +81,13 @@
 <div class="row mt-2">
     <div class="col-md-6">
         <h3>Getting Started</h3>
-        <p>To begin using ProEthica:</p>
+        <p>To begin using {{ config['APP_NAME'] }}:</p>
         <ol>
             <li>Select an existing world or create a new one</li>
             <li>Explore existing scenarios or create a new one within a world</li>
-            <li>Add characters, conditions, and resources to a scenario. The system can assist by drafting descriptions and suggesting appropriate roles, conditions, resources, and actions from those defined in the world</li>
+            <li>Add characters, conditions, and resources to a scenario. The system can assist by drafting descriptions
+                and suggesting appropriate roles, conditions, resources, and actions from those defined in the world
+            </li>
             <li>Create a timeline of events and actions that is considered in the ethical evaluation process.</li>
             <li>See recommendations for decisions and see how they were evaluated.</li>
         </ol>
@@ -88,17 +98,24 @@
     </div>
     <div class="col-md-6">
         <h3>Ontology-Based Ethics Framework</h3>
-        <p>ProEthica combines role-based ethics with rich ontological reasoning to create a comprehensive ethical decision-making system:</p>
+        <p>{{ config['APP_NAME'] }} combines role-based ethics with rich ontological reasoning to create a comprehensive
+            ethical
+            decision-making system:</p>
         <ul>
-            <li><strong>Knowledge Integration:</strong> Combines domain ontologies with professional codes, case precedents, and 
+            <li><strong>Knowledge Integration:</strong> Combines domain ontologies with professional codes, case
+                precedents, and
                 ethical standards as structured knowledge for precise reasoning.</li>
-            <li><strong>Simulation Environment:</strong> Evaluates ethical decisions within worlds that have defined boundaries, 
+            <li><strong>Simulation Environment:</strong> Evaluates ethical decisions within worlds that have defined
+                boundaries,
                 constraints, and relationships between entities.</li>
-            <li><strong>LLM-Enhanced Analysis:</strong> Leverages structured data exchange with language models while using 
+            <li><strong>LLM-Enhanced Analysis:</strong> Leverages structured data exchange with language models while
+                using
                 ontological inferences to guide reliable ethical evaluations.</li>
         </ul>
-        <p>This architecture enables a unique approach where role-based ethics analysis is enhanced by ontological reasoning, 
-           creating a system that can evaluate decisions with both the human ethical guidelines and the formal domain knowledge.</p>
+        <p>This architecture enables a unique approach where role-based ethics analysis is enhanced by ontological
+            reasoning,
+            creating a system that can evaluate decisions with both the human ethical guidelines and the formal domain
+            knowledge.</p>
         <a href="/worlds" class="btn btn-outline-primary">Explore Available Worlds</a>
     </div>
 </div>

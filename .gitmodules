@@ -7,4 +7,4 @@
 	url = https://github.com/cr625/ISWC_2025
 [submodule "papers/AIES-25"]
 	path = papers/AIES-25
-	url = https://github.com/cr625/AIES-25
+	url = https://github.com/cr625/AIES-25.git

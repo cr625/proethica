@@ -142,6 +142,13 @@ def create_app(config_name=None):
         return {
             'use_agent_orchestrator': app.config.get('USE_AGENT_ORCHESTRATOR', True)
         }
+        
+    # Register context processor to make application name available to templates
+    @app.context_processor
+    def inject_app_name():
+        return {
+            'config': app.config
+        }
 
     # Create routes
     @app.route('/')
