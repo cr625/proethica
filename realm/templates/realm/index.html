@@ -1,0 +1,137 @@
+{% extends "realm/base.html" %}
+
+{% block title %}REALM - Materials Science Explorer{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title text-center mb-4">Welcome to REALM</h1>
+                    <p class="lead text-center">
+                        Research Environment for Applied Learning in Materials
+                    </p>
+                    <p class="text-center mb-4">
+                        REALM integrates materials science ontologies with large language models to provide
+                        an interactive learning environment for materials science research and education.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{{ url_for('realm_main.explorer') }}" class="btn btn-primary">
+                            <i class="bi bi-search me-2"></i>Explore Materials
+                        </a>
+                        <a href="{{ url_for('realm_main.chat') }}" class="btn btn-success">
+                            <i class="bi bi-chat-dots me-2"></i>LLM Chat
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2>Available Ontologies</h2>
+            <p class="text-muted">
+                These ontologies provide structured knowledge about materials science concepts and properties.
+            </p>
+        </div>
+    </div>
+
+    {% if ontologies %}
+    <div class="row row-cols-1 row-cols-md-2 g-4 mb-4">
+        {% for ontology in ontologies %}
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ ontology.name }}</h5>
+                    <span class="badge bg-primary">{{ ontology.format }}</span>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ ontology.description or 'No description available.' }}</p>
+                    <div class="d-flex justify-content-between align-items-end">
+                        <div>
+                            <small class="text-muted">Domain: {{ ontology.domain or 'General' }}</small><br>
+                            <small class="text-muted">Version: {{ ontology.version or 'N/A' }}</small>
+                        </div>
+                        <a href="{{ url_for('realm_main.explorer', ontology_id=ontology.id) }}" class="btn btn-sm btn-outline-primary">
+                            Explore
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>Imported: {{ ontology.imported_at.strftime('%Y-%m-%d') if ontology.imported_at else 'Unknown' }}</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                No ontologies have been imported yet. The MSEO (Material Science Engineering Ontology) will be available soon.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-search me-2"></i>Explore Materials
+                    </h5>
+                    <p class="card-text">
+                        Browse through different materials, their properties, and relationships within
+                        the materials science domain.
+                    </p>
+                    <a href="{{ url_for('realm_main.materials') }}" class="btn btn-sm btn-outline-primary">
+                        View Materials
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-chat-dots me-2"></i>Interactive Chat
+                    </h5>
+                    <p class="card-text">
+                        Chat with an AI assistant that has been enhanced with materials science knowledge
+                        from the ontology.
+                    </p>
+                    <a href="{{ url_for('realm_main.chat') }}" class="btn btn-sm btn-outline-success">
+                        Start Chatting
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle me-2"></i>About REALM
+                    </h5>
+                    <p class="card-text">
+                        Learn more about the REALM project, its goals, and how material science ontologies
+                        are integrated with LLMs.
+                    </p>
+                    <a href="{{ url_for('realm_main.about') }}" class="btn btn-sm btn-outline-info">
+                        Learn More
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Any JavaScript needed for the home page
+</script>
+{% endblock %}

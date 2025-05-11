@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}REALM - Materials Science Explorer{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .header {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+
+        .footer {
+            padding-top: 20px;
+            color: #777;
+            border-top: 1px solid #e5e5e5;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        .text-truncate {
+            display: -webkit-box;
+            -webkit-line-clamp: 10;
+            /* Limit to 10 lines */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            /* Ensure text wraps */
+        }
+        
+        /* REALM-specific styles */
+        .realm-brand {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        
+        .app-switcher {
+            border-left: 1px solid #e5e5e5;
+            padding-left: 15px;
+            margin-left: 5px;
+        }
+    </style>
+    {% block styles %}{% endblock %}
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <div class="container-fluid">
+                    <a class="navbar-brand realm-brand" href="/realm">REALM</a>
+                    <span class="navbar-text text-muted d-none d-md-block">
+                        Research Environment for Applied Learning in Materials
+                    </span>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/realm">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/realm/materials">Materials</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/realm/explorer">Explorer</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/realm/chat">LLM Chat</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/realm/about">About</a>
+                            </li>
+                            <li class="nav-item app-switcher">
+                                <a class="nav-link" href="/">ProEthica</a>
+                            </li>
+                        </ul>
+                        <ul class="navbar-nav">
+                            {% if current_user.is_authenticated %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    {{ current_user.username }}
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
+                                </ul>
+                            </li>
+                            {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <div class="content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+
+        <div class="footer">
+            <p>&copy; Christopher Rauch 2025. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU
+                    GPL v3</a>.</p>
+            <p class="small text-muted">
+                REALM is a research project for integrating materials science ontologies with LLM technology.
+                All materials information should be verified against scientific sources.
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>
