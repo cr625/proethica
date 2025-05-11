@@ -1,110 +1,127 @@
 # REALM Integration Plan
 
-This document outlines the integration plan for the REALM (Research Engineering And Materials Library) application, which leverages the Materials Science Engineering Ontology (MSEO) through a Model Context Protocol (MCP) server.
+## Current Integration
 
-## Architecture Overview
+REALM (Resource for Engineering and Advanced Learning in Materials) is currently integrated within the ProEthica repository as a subsystem. The integration allows both applications to share common infrastructure while maintaining separate functionality.
 
-The REALM application is designed with a modular architecture that separates the core application from the ontology integration, allowing for flexibility and extensibility. The main components are:
+## Shared Components
 
-1. **MSEO MCP Server**: A standalone server that provides access to the MSEO ontology data through a standardized API.
-2. **REALM Flask Application**: A web application that provides a user interface for interacting with materials data.
-3. **MCP Client**: A client library that allows the REALM application to communicate with the MCP server.
+1. **agent_module**: The agent orchestration capabilities
+2. **Database Infrastructure**: Shared PostgreSQL instance
+3. **MCP Server Architecture**: Common approach to ontology and LLM integration
 
-## Component Integration
+## Repository Structure
 
-### MSEO MCP Server
+The current structure includes:
 
-- The MSEO MCP server loads and manages the MSEO ontology data.
-- It provides tools for searching, querying, and retrieving information from the ontology.
-- It includes a chat completion tool that enhances LLM responses with ontology context.
-- It serves as the knowledge source for materials science data.
+- **realm/**: Contains REALM-specific application code
+- **mcp/mseo/**: Materials Science & Engineering Ontology MCP server
+- **scripts/**: Shared utility scripts
+- **docs/realm_*.md**: REALM documentation
 
-### REALM Application
+## Future Separation Plan
 
-- The REALM application provides a web interface for users to interact with materials data.
-- It includes a database that stores materialized views of ontology data for efficient querying.
-- It synchronizes data with the MSEO ontology through the MCP server.
-- It provides features for browsing, searching, comparing, and analyzing materials.
+When it becomes necessary to separate REALM into its own repository, follow these steps:
 
-### MCP Client
+### 1. Create a New Repository
 
-- The MCP client handles communication between the REALM application and the MCP server.
-- It provides methods for accessing MCP tools and resources.
-- It abstracts the communication details, making it easy to use MCP capabilities in the application.
+```bash
+mkdir realm-project
+cd realm-project
+git init
+```
 
-## Data Flow
+### 2. Copy REALM-Specific Components
 
-1. **Ontology Synchronization**:
-   - The MSEO MCP server loads the ontology data from files.
-   - The REALM application requests material data from the MCP server.
-   - The REALM application stores the material data in its database for efficient access.
+```bash
+# From original repository
+cp -r realm/ /path/to/realm-project/
+cp -r mcp/mseo/ /path/to/realm-project/mcp/
+cp run_realm.py start_realm.sh /path/to/realm-project/
+cp docs/realm_*.md /path/to/realm-project/docs/
+```
 
-2. **User Queries**:
-   - Users can search for materials using the REALM web interface.
-   - Searches can be based on material properties, categories, or text.
-   - The application queries its database for basic searches.
-   - For more complex queries, the application uses the MCP server.
+### 3. Extract Shared Dependencies
 
-3. **LLM-Assisted Interactions**:
-   - Users can chat with an LLM that has been enhanced with ontology context.
-   - The REALM application sends chat messages to the MCP server.
-   - The MCP server enhances the system prompt with relevant ontology context.
-   - The MCP server forwards the enhanced prompt to the LLM provider.
-   - The LLM response is returned to the user through the REALM application.
+```bash
+# Create a shared library or submodule for agent functionality
+mkdir -p /path/to/realm-project/app/agent_module
+cp -r app/agent_module/ /path/to/realm-project/app/agent_module/
+```
 
-## Implementation Details
+### 4. Setup Configuration
 
-### Database Schema
+```bash
+cp .env.example /path/to/realm-project/.env.example
+# Create a realm-specific configuration
+```
 
-The REALM application uses a relational database with the following key tables:
+### 5. Database Setup
 
-- `materials`: Stores information about materials from the ontology.
-- `material_categories`: Stores material categories.
-- `material_properties`: Stores properties of materials.
-- `material_categories`: Many-to-many relationship between materials and categories.
+```bash
+# Copy database setup scripts
+cp scripts/setup_shared_postgres.sh /path/to/realm-project/scripts/
+```
 
-### API Endpoints
+### 6. Update Import Paths
 
-The REALM application provides RESTful API endpoints for:
+Review all Python files in the new repository and update import paths to reflect the new structure:
 
-- Retrieving materials and their properties.
-- Searching for materials by various criteria.
-- Comparing materials.
-- Synchronizing with the MSEO ontology.
-- Chatting with an ontology-enhanced LLM.
+- Change `from app.agent_module...` to appropriate new paths
+- Update relative imports as needed
+- Ensure configuration paths are updated
 
-### MCP Communication
+### 7. Create Independent Package
 
-The REALM application communicates with the MCP server using HTTP requests:
+Update `setup.py` to create a standalone REALM package:
 
-- Tool execution uses POST requests to `/mcp/tool/{server_name}/{tool_name}`.
-- Resource access uses GET requests to `/mcp/resource/{server_name}/{resource_uri}`.
-- Server metadata is available at `/mcp/servers`.
+```python
+from setuptools import setup, find_packages
 
-## Deployment
+setup(
+    name="realm",
+    version="0.1.0",
+    packages=find_packages(),
+    install_requires=[
+        # List dependencies
+    ],
+    # Additional configuration
+)
+```
 
-The REALM application and MSEO MCP server can be deployed in several ways:
+### 8. Initialize Git Repository
 
-1. **Combined Deployment**: Both components run on the same server, with the MCP server running in a separate process or thread.
-2. **Separate Deployment**: The MCP server and REALM application run on different servers, communicating over HTTP.
-3. **Dockerized Deployment**: Each component runs in its own Docker container, managed with Docker Compose.
+```bash
+git add .
+git commit -m "Initial REALM repository separation from ProEthica"
+```
 
-## Configuration
+## Component Ownership
 
-Configuration is managed through environment variables, with sensible defaults provided:
+| Component | Owner | Future Home |
+|-----------|-------|-------------|
+| MSEO MCP Server | REALM | realm-project/mcp/ |
+| REALM Web UI | REALM | realm-project/realm/ |
+| Material Models | REALM | realm-project/realm/models/ |
+| Agent Module | Shared | Both repositories or separate package |
+| Database Infrastructure | Shared | Separate configuration in each repo |
 
-- `FLASK_CONFIG`: Sets the configuration environment (development, testing, production).
-- `DATABASE_URL`: Database connection URL.
-- `MCP_BASE_URL`: Base URL for the MCP server.
-- `MSEO_MCP_SERVER_NAME`: Name of the MSEO MCP server.
-- `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`: API keys for LLM providers.
+## Version Control
 
-## Next Steps
+The tag `pre-realm-v1.0` marks the state of ProEthica before REALM integration.
+The branch `realm-integration` contains the integrated version with both applications.
 
-1. **Implement Basic UI**: Create basic templates for browsing and searching materials.
-2. **Enhance Data Synchronization**: Improve the process for synchronizing ontology data.
-3. **Add User Authentication**: Implement user accounts and authentication.
-4. **Develop Advanced Features**: Add more advanced features like material comparisons, property analysis, etc.
-5. **Optimize Performance**: Improve performance through caching, indexing, and other optimizations.
-6. **Add Visualization**: Implement visualizations for material properties and relationships.
-7. **Expand Documentation**: Create comprehensive documentation for users and developers.
+For future reference, to extract REALM to its own repository while preserving history:
+
+```bash
+git clone --branch realm-integration <original-repo-url> realm-project
+cd realm-project
+# Keep only REALM-related files
+git filter-branch --prune-empty --tree-filter '
+  mkdir -p temp_preserve &&
+  cp -r realm mcp/mseo docs/realm_* run_realm.py start_realm.sh temp_preserve/ &&
+  rm -rf * &&
+  mv temp_preserve/* . &&
+  rm -rf temp_preserve
+' HEAD
+```
