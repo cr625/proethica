@@ -28,6 +28,10 @@ class MCPClient:
         self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5000')
         self.use_mock_fallback = os.environ.get('USE_MOCK_FALLBACK', 'true').lower() == 'true'
         
+        # Normalize the URL to avoid escape sequence issues
+        if '\\x3a' in self.mcp_url:
+            self.mcp_url = self.mcp_url.replace('\\x3a', ':')
+            
         print(f"MCPClient initialized with MCP_SERVER_URL: {self.mcp_url}")
         print(f"Mock data fallback is {'ENABLED' if self.use_mock_fallback else 'DISABLED'}")
         
@@ -48,7 +52,12 @@ class MCPClient:
         Returns:
             True if connected, False otherwise
         """
-        print(f"Testing connection to MCP server at {self.mcp_url}...")
+        # Ensure URL is properly formatted without escape sequences
+        clean_url = self.mcp_url
+        if '\\' in clean_url:
+            clean_url = clean_url.replace('\\x3a', ':')
+            
+        print(f"Testing connection to MCP server at {clean_url}...")
         
         # Try different endpoints that might be available
         test_endpoints = [
@@ -62,7 +71,8 @@ class MCPClient:
         
         for endpoint in test_endpoints:
             try:
-                full_url = f"{self.mcp_url}{endpoint}"
+                # Use string formatting to avoid escape sequence issues
+                full_url = "{}{}".format(clean_url, endpoint)
                 print(f"  Checking endpoint: {full_url}")
                 response = self.session.get(full_url, timeout=5)
                 
