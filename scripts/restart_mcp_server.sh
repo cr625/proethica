@@ -40,6 +40,12 @@ if [ ! -x "${SCRIPT_DIR}/env_mcp_server.py" ]; then
     chmod +x "${SCRIPT_DIR}/env_mcp_server.py"
 fi
 
+# Check if MCP server is already running via environment variable
+if [ "$MCP_SERVER_ALREADY_RUNNING" = "true" ]; then
+    echo -e "${GREEN}Unified Ontology MCP server is already running. No need to start another server.${NC}"
+    exit 0
+fi
+
 # Run the environment-aware Python script
 echo -e "${GREEN}Starting MCP server with ${ENVIRONMENT} environment configuration...${NC}"
 python3 "${SCRIPT_DIR}/env_mcp_server.py"

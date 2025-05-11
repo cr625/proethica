@@ -118,11 +118,16 @@ elif [ "$ENV" == "codespace" ]; then
     # Ensure scripts are executable
     chmod +x scripts/restart_mcp_server.sh
 
-    # Start the enhanced MCP server and wait for it to initialize
-    echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
-    ./scripts/restart_mcp_server.sh
-    echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
-    sleep 5  # Wait for server to initialize
+    # Check if MCP server is already running
+    if [ "$MCP_SERVER_ALREADY_RUNNING" = "true" ]; then
+        echo -e "${BLUE}Unified Ontology MCP server is already running. Skipping MCP server startup.${NC}"
+    else
+        # Start the enhanced MCP server and wait for it to initialize
+        echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
+        ./scripts/restart_mcp_server.sh
+        echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
+        sleep 5  # Wait for server to initialize
+    fi
 
     # Export environment variables from .env file with proper handling of spaces
     while IFS= read -r line || [[ -n "$line" ]]; do

@@ -26,19 +26,21 @@ logger = logging.getLogger("TemporalModule")
 class TemporalModule(BaseModule):
     """
     Module for temporal functionality in the Unified Ontology Server.
-    
+
     This module integrates the temporal functionality previously provided by
-    add_temporal_functionality.py into the modular architecture of the 
+    add_temporal_functionality.py into the modular architecture of the
     Unified Ontology Server.
     """
-    
-    def __init__(self):
-        """Initialize the TemporalModule."""
-        super().__init__(name="temporal", description="Temporal functionality for ontology")
-        logger.info("Initializing TemporalModule")
-        
-        # Register module tools
-        self._register_tools()
+
+    @property
+    def name(self) -> str:
+        """Get the name of this module."""
+        return "temporal"
+
+    @property
+    def description(self) -> str:
+        """Get the description of this module."""
+        return "Temporal functionality for ontology"
     
     def _register_tools(self):
         """Register all tools provided by this module."""

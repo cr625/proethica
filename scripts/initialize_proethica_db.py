@@ -47,7 +47,7 @@ def initialize_database():
         print("\nVerifying database tables:")
         expected_tables = [
             'users', 'worlds', 'scenarios', 'entities', 
-            'characters', 'documents', 'ontologies', 'triples'
+            'characters', 'documents', 'ontologies', 'entity_triples'
         ]
         
         for table in expected_tables:
