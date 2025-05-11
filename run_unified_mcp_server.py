@@ -93,7 +93,7 @@ def parse_arguments():
     parser.add_argument(
         "--port",
         type=int,
-        default=5001,
+        default=5002,
         help="Port to bind the server to (default: 5001)"
     )
     

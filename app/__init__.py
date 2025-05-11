@@ -67,6 +67,7 @@ def create_app(config_name=None):
     from app.routes.cases import cases_bp
     from app.routes.cases_triple import cases_triple_bp
     from app.routes.ontology import ontology_bp
+    from app.routes.ontology_routes import bp as ontology_api_bp
     # New ontology agent blueprint
     from app.routes.ontology_agent import ontology_agent_bp
     # Ontology IRI resolution blueprint
@@ -121,6 +122,7 @@ def create_app(config_name=None):
     app.register_blueprint(cases_bp)
     app.register_blueprint(cases_triple_bp)
     app.register_blueprint(ontology_bp)
+    app.register_blueprint(ontology_api_bp) 
     app.register_blueprint(ontology_agent_bp)
     
     # Register ontology IRI blueprint at root level (no prefix)

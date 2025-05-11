@@ -34,7 +34,7 @@ load_dotenv()
 
 # Configuration
 FLASK_PORT = int(os.getenv('FLASK_PORT', '5000'))
-ONTOLOGY_SERVER_PORT = int(os.getenv('MCP_SERVER_PORT', '5001'))
+ONTOLOGY_SERVER_PORT = int(os.getenv('MCP_SERVER_PORT', '5002'))
 FLASK_URL = f"http://localhost:{FLASK_PORT}"
 ONTOLOGY_SERVER_URL = f"http://localhost:{ONTOLOGY_SERVER_PORT}"
 FLASK_PROCESS = None

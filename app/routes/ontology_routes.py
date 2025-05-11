@@ -19,7 +19,7 @@ bp = Blueprint('ontology', __name__, url_prefix='/api/ontology')
 @bp.route('/status', methods=['GET'])
 def ontology_status():
     """Test the connection to the ontology server and return its status"""
-    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5002')
     
     try:
         # Try to get info from the ontology server
@@ -50,7 +50,7 @@ def ontology_status():
 @bp.route('/tools', methods=['GET'])
 def list_tools():
     """Get the list of available tools from the ontology server"""
-    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5002')
     
     try:
         # Try to get tools from the ontology server
@@ -79,7 +79,7 @@ def list_tools():
 @bp.route('/query', methods=['POST'])
 def query_ontology():
     """Execute a SPARQL query against the ontology"""
-    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5002')
     
     # Get query from request
     data = request.json
@@ -136,7 +136,7 @@ def query_ontology():
 @bp.route('/entity/<entity_id>', methods=['GET'])
 def get_entity(entity_id):
     """Get detailed information about an entity from the ontology"""
-    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5002')
     
     try:
         # Send request to ontology server
@@ -183,7 +183,7 @@ def get_entity(entity_id):
 @bp.route('/analyze_case/<case_id>', methods=['GET'])
 def analyze_case(case_id):
     """Analyze a case using the ontology"""
-    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    ontology_url = os.getenv('MCP_SERVER_URL', 'http://localhost:5002')
     
     try:
         # Send request to ontology server

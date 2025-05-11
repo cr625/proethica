@@ -35,15 +35,16 @@ load_dotenv()
 
 def get_database_uri():
     """Get the database URI from environment variables"""
-    db_uri = os.getenv('DATABASE_URL')
-    if not db_uri:
-        db_host = os.getenv('DB_HOST', 'localhost')
-        db_port = os.getenv('DB_PORT', '5433')  # Docker PostgreSQL runs on port 5433
-        db_name = os.getenv('DB_NAME', 'proethica')
-        db_user = os.getenv('DB_USER', 'postgres')
-        db_pass = os.getenv('DB_PASSWORD', 'postgres')
-        db_uri = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+    # Instead of relying on the escaped DATABASE_URL, let's build it manually
+    db_host = os.getenv('DB_HOST', 'localhost')
+    db_port = os.getenv('DB_PORT', '5433')  # Docker PostgreSQL runs on port 5433
+    db_name = os.getenv('DB_NAME', 'ai_ethical_dm')  # Match the database name from .env
+    db_user = os.getenv('DB_USER', 'postgres')
+    db_pass = 'PASS'  # Use the same password as in the .env file
     
+    db_uri = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+    
+    logger.info(f"Using database URI: {db_uri}")
     return db_uri
 
 def create_connection():
@@ -70,116 +71,125 @@ def check_table_exists(conn, table_name):
 
 def create_case_analysis_tables(conn, engine):
     """Create tables for case analysis"""
-    metadata = MetaData()
-    
-    # Create case_analysis table if it doesn't exist
-    if not check_table_exists(conn, 'case_analysis'):
-        logger.info("Creating case_analysis table...")
-        case_analysis = Table(
-            'case_analysis',
-            metadata,
-            Column('id', Integer, primary_key=True),
-            Column('case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('analysis_date', DateTime, default=datetime.datetime.utcnow),
-            Column('analyzer_id', String(255), nullable=False),  # ID of the component that did the analysis
-            Column('analyzer_version', String(50)),
-            Column('analysis_complete', Boolean, default=False),
-            Column('analysis_data', JSON),  # Stores the full analysis json data
-            Column('analysis_summary', Text),
-            Column('error_message', Text),
-        )
-    
-    # Create case_entities table if it doesn't exist
-    if not check_table_exists(conn, 'case_entities'):
-        logger.info("Creating case_entities table...")
-        case_entities = Table(
-            'case_entities',
-            metadata,
-            Column('id', Integer, primary_key=True),
-            Column('case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('entity_id', String(255), nullable=False),  # IRI or ID of the ontology entity
-            Column('entity_type', String(50), nullable=False),  # Type of entity (e.g., principle, action, role)
-            Column('entity_label', String(255)),
-            Column('relevance_score', Float),  # Score indicating relevance to the case
-            Column('extraction_date', DateTime, default=datetime.datetime.utcnow),
-            Column('extraction_method', String(50)),  # Method used to extract this entity
-            Column('context', Text),  # Text context where this entity was found
-            Column('entity_data', JSON),  # Additional entity data
-        )
-    
-    # Create case_temporal_elements table if it doesn't exist
-    if not check_table_exists(conn, 'case_temporal_elements'):
-        logger.info("Creating case_temporal_elements table...")
-        case_temporal_elements = Table(
-            'case_temporal_elements',
-            metadata,
-            Column('id', Integer, primary_key=True),
-            Column('case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('element_type', String(50), nullable=False),  # Type of temporal element (event, action, etc.)
-            Column('element_label', String(255)),
-            Column('start_index', Integer),  # Position in the case text where this element starts
-            Column('end_index', Integer),  # Position in the case text where this element ends
-            Column('temporal_order', Integer),  # Order of this element in the temporal sequence
-            Column('temporal_relation', String(50)),  # Relation to other elements (before, after, during, etc.)
-            Column('related_element_id', Integer, ForeignKey('case_temporal_elements.id')),  # ID of related element
-            Column('element_data', JSON),  # Additional temporal element data
-        )
-    
-    # Create case_principles table if it doesn't exist
-    if not check_table_exists(conn, 'case_principles'):
-        logger.info("Creating case_principles table...")
-        case_principles = Table(
-            'case_principles',
-            metadata,
-            Column('id', Integer, primary_key=True),
-            Column('case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('principle_id', String(255), nullable=False),  # IRI or ID of the principle
-            Column('principle_label', String(255)),
-            Column('principle_text', Text),
-            Column('relevance_score', Float),  # Score indicating relevance to the case
-            Column('is_violated', Boolean),
-            Column('is_satisfied', Boolean),
-            Column('is_overridden', Boolean),
-            Column('overridden_by', String(255)),  # ID of overriding principle if any
-            Column('principle_data', JSON),  # Additional principle-specific data
-        )
-    
-    # Create case_principle_instantiations table if it doesn't exist
-    if not check_table_exists(conn, 'case_principle_instantiations'):
-        logger.info("Creating case_principle_instantiations table...")
-        case_principle_instantiations = Table(
-            'case_principle_instantiations',
-            metadata,
-            Column('id', Integer, primary_key=True),
-            Column('case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('principle_id', String(255), nullable=False),  # IRI or ID of the principle
-            Column('relevant_fact_ids', JSON),  # IDs of facts that make the principle relevant
-            Column('violation_fact_ids', JSON),  # IDs of facts related to violation
-            Column('instantiation_type', String(50)),  # Type of instantiation
-            Column('instantiation_data', JSON),  # Additional instantiation data
-        )
-    
-    # Create case_relationships table if it doesn't exist
-    if not check_table_exists(conn, 'case_relationships'):
-        logger.info("Creating case_relationships table...")
-        case_relationships = Table(
-            'case_relationships',
-            metadata,
-            Column('id', Integer, primary_key=True),
-            Column('source_case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('target_case_id', Integer, ForeignKey('cases.id'), nullable=False),
-            Column('relation_type', String(50), nullable=False),  # Type of relationship (similar, precedent, etc.)
-            Column('similarity_score', Float),  # Score indicating similarity between cases
-            Column('common_entities', JSON),  # Entities common to both cases
-            Column('common_principles', JSON),  # Principles common to both cases
-            Column('relationship_data', JSON),  # Additional relationship data
-        )
-    
-    # Create the tables if they don't exist
-    metadata.create_all(engine)
-    logger.info("Case analysis tables created successfully")
-    
-    return True
+    try:
+        # Use raw SQL to create tables with exact control over schema
+        
+        # Create case_analysis table if it doesn't exist
+        if not check_table_exists(conn, 'case_analysis'):
+            logger.info("Creating case_analysis table...")
+            conn.execute(text("""
+                CREATE TABLE case_analysis (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    analysis_date TIMESTAMP DEFAULT NOW(),
+                    analyzer_id VARCHAR(255) NOT NULL,
+                    analyzer_version VARCHAR(50),
+                    analysis_complete BOOLEAN DEFAULT FALSE,
+                    analysis_data JSONB,
+                    analysis_summary TEXT,
+                    error_message TEXT
+                )
+            """))
+        
+        # Create case_entities table if it doesn't exist
+        if not check_table_exists(conn, 'case_entities'):
+            logger.info("Creating case_entities table...")
+            conn.execute(text("""
+                CREATE TABLE case_entities (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    entity_id VARCHAR(255) NOT NULL,
+                    entity_type VARCHAR(50) NOT NULL,
+                    entity_label VARCHAR(255),
+                    relevance_score FLOAT,
+                    extraction_date TIMESTAMP DEFAULT NOW(),
+                    extraction_method VARCHAR(50),
+                    context TEXT,
+                    entity_data JSONB
+                )
+            """))
+        
+        # Create case_temporal_elements table if it doesn't exist
+        if not check_table_exists(conn, 'case_temporal_elements'):
+            logger.info("Creating case_temporal_elements table...")
+            conn.execute(text("""
+                CREATE TABLE case_temporal_elements (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    element_type VARCHAR(50) NOT NULL,
+                    element_label VARCHAR(255),
+                    start_index INTEGER,
+                    end_index INTEGER,
+                    temporal_order INTEGER,
+                    temporal_relation VARCHAR(50),
+                    related_element_id INTEGER,
+                    element_data JSONB
+                )
+            """))
+            
+            # Add the self-reference after the table is created
+            conn.execute(text("""
+                ALTER TABLE case_temporal_elements 
+                ADD CONSTRAINT case_temporal_elements_related_element_id_fkey 
+                FOREIGN KEY (related_element_id) REFERENCES case_temporal_elements(id)
+            """))
+        
+        # Create case_principles table if it doesn't exist
+        if not check_table_exists(conn, 'case_principles'):
+            logger.info("Creating case_principles table...")
+            conn.execute(text("""
+                CREATE TABLE case_principles (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    principle_id VARCHAR(255) NOT NULL,
+                    principle_label VARCHAR(255),
+                    principle_text TEXT,
+                    relevance_score FLOAT,
+                    is_violated BOOLEAN,
+                    is_satisfied BOOLEAN,
+                    is_overridden BOOLEAN,
+                    overridden_by VARCHAR(255),
+                    principle_data JSONB
+                )
+            """))
+        
+        # Create case_principle_instantiations table if it doesn't exist
+        if not check_table_exists(conn, 'case_principle_instantiations'):
+            logger.info("Creating case_principle_instantiations table...")
+            conn.execute(text("""
+                CREATE TABLE case_principle_instantiations (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    principle_id VARCHAR(255) NOT NULL,
+                    relevant_fact_ids JSONB,
+                    violation_fact_ids JSONB,
+                    instantiation_type VARCHAR(50),
+                    instantiation_data JSONB
+                )
+            """))
+        
+        # Create case_relationships table if it doesn't exist
+        if not check_table_exists(conn, 'case_relationships'):
+            logger.info("Creating case_relationships table...")
+            conn.execute(text("""
+                CREATE TABLE case_relationships (
+                    id SERIAL PRIMARY KEY,
+                    source_case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    target_case_id INTEGER NOT NULL REFERENCES scenarios(id),
+                    relation_type VARCHAR(50) NOT NULL,
+                    similarity_score FLOAT,
+                    common_entities JSONB,
+                    common_principles JSONB,
+                    relationship_data JSONB
+                )
+            """))
+            
+        logger.info("Case analysis tables created successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error creating tables: {e}")
+        return False
 
 def create_indexes(conn):
     """Create indexes for performance optimization"""
