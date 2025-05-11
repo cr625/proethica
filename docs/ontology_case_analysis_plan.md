@@ -1,98 +1,160 @@
-# Ontology-Based Case Analysis Enhancement Plan
+# Ontology-Based Case Analysis Plan
+
+This document outlines the plan for enhancing ProEthica with ontology-based case analysis capabilities.
 
 ## Overview
 
-This document outlines the plan for enhancing ProEthica's ontology capabilities with a specific focus on case analysis functionality. This enhancement builds upon the realm-integration branch, focusing on the ontology portion of the system.
+The ontology-focused branch extends ProEthica to leverage its ontology system for sophisticated case analysis. This enables the system to use structured knowledge representation to analyze ethical engineering cases, identify relevant ethical principles, and provide more nuanced reasoning.
 
 ## Key Components
 
-1. **Unified Ontology Server**: Central server managing ontology access and operations
-2. **Case Analysis Module**: Specialized module for analyzing ethics cases using ontologies
-3. **Temporal Ontology Support**: Handling of time-based relationships in ethical scenarios
-4. **Query Interface**: Enhanced querying capabilities for ontology-based analysis
+### 1. Ontology Server Extensions
 
-## Implementation Details
+The unified ontology server will be extended with the following:
 
-### 1. Unified Ontology Server
+- **Case Analysis Module**: A specialized module to analyze cases against ontology structures
+- **Temporal Reasoning**: Support for temporal relationships between case events
+- **Enhanced Query Capabilities**: Specialized SPARQL queries for case analysis
 
-The unified ontology server acts as a central point for ontology operations:
+### 2. Integration with ProEthica
 
-- **Port Configuration**: Uses port 5002 to avoid conflicts with other services
-- **Module System**: Dynamically loads specialized ontology modules
-- **API Endpoints**: Standardized endpoints for consistent access
+- Extend the ProEthica application to interact with the ontology-focused case analysis features
+- Create new API endpoints for case analysis
+- Add UI components for visualizing ontology-based case analysis
 
-### 2. Case Analysis Module
+### 3. Case Analysis Workflow
 
-The case analysis module provides specialized functionality:
+1. **Case Import**: Import case data into the system
+2. **Entity Mapping**: Map case entities to ontology concepts
+3. **Relationship Identification**: Identify relationships between case entities
+4. **Temporal Analysis**: Analyze temporal aspects of the case
+5. **Ethical Principle Mapping**: Map case situations to relevant ethical principles
+6. **Analysis Generation**: Generate comprehensive case analysis based on ontology reasoning
 
-- **Case-to-Ontology Mapping**: Maps case elements to ontology concepts
-- **Ethical Principle Extraction**: Identifies ethical principles in case descriptions
-- **Decision Analysis**: Analyzes decisions in the context of ethical frameworks
+## Implementation Plan
 
-### 3. Temporal Ontology Support
+### Phase 1: Core Infrastructure
 
-Temporal support enables time-based reasoning:
+- [x] Create ontology-focused branch
+- [ ] Implement case analysis module in the unified ontology server
+- [ ] Develop basic query capabilities for case analysis
+- [ ] Create database tables for storing case analysis results
 
-- **Event Sequencing**: Tracks sequence of events in ethical scenarios
-- **Temporal Relationships**: Represents before/after relationships between entities
-- **Causal Analysis**: Supports analysis of cause and effect in ethical cases
+### Phase 2: ProEthica Integration
 
-### 4. Query Interface
+- [ ] Extend ProEthica API for ontology-based case analysis
+- [ ] Implement UI components for case analysis
+- [ ] Create visualization tools for ontology-based reasoning
 
-Enhanced query capabilities include:
+### Phase 3: Advanced Features
 
-- **Natural Language Queries**: Support for natural language questions about cases
-- **Pattern Matching**: Identification of common ethical patterns across cases
-- **Cross-Ontology Queries**: Ability to query across multiple ontology sources
+- [ ] Implement temporal reasoning for case analysis
+- [ ] Add support for comparing multiple cases
+- [ ] Develop machine learning integration for case similarity analysis
+- [ ] Create ethical reasoning enhancements based on ontology rules
 
-## Technical Challenges Addressed
+## Technical Architecture
 
-1. **URL Formatting Issues**: Fixed escape sequence problems (`\x3a`) in URLs
-2. **Blueprint Conflicts**: Resolved conflicts between multiple ontology blueprints
-3. **Port Configurations**: Standardized port usage to avoid conflicts
-4. **Module Loading**: Implemented dynamic loading of specialized modules
+### Case Analysis Module
 
-## Development Roadmap
+The case analysis module (`mcp/modules/case_analysis_module.py`) will provide:
 
-1. **Phase 1**: Core infrastructure setup (completed)
-   - Fix URL formatting issues
-   - Resolve blueprint conflicts
-   - Configure ports properly
+1. **Case Entity Extraction**: Extract entities from case text
+2. **Ontology Mapping**: Map case entities to ontology concepts
+3. **Relationship Analysis**: Analyze relationships between case entities
+4. **Temporal Analysis**: Analyze temporal aspects of case events
+5. **Ethical Principle Identification**: Identify relevant ethical principles
+6. **Recommendation Generation**: Generate recommendations based on analysis
 
-2. **Phase 2**: Case analysis integration (in progress)
-   - Implement case-to-ontology mapping
-   - Develop ethical principle extraction
-   - Create specialized query interfaces
+### Database Schema
 
-3. **Phase 3**: Advanced features (planned)
-   - Temporal reasoning capabilities
-   - Cross-ontology analysis
-   - Recommendation generation
+The case analysis functionality requires additional database tables:
 
-## Integration with ProEthica
+```sql
+CREATE TABLE case_analysis (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER NOT NULL REFERENCES cases(id),
+    analysis_type VARCHAR(50) NOT NULL,
+    analysis_data JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
 
-This enhancement integrates with ProEthica by:
+CREATE TABLE case_entity_mappings (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER NOT NULL REFERENCES cases(id),
+    entity_text VARCHAR(255) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    ontology_iri VARCHAR(255) NOT NULL,
+    confidence FLOAT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-1. Working alongside the realm integration
-2. Enhancing the existing ontology system
-3. Providing specialized endpoints for case analysis
-4. Supporting advanced reasoning about ethical scenarios
+CREATE TABLE case_relation_mappings (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER NOT NULL REFERENCES cases(id),
+    source_entity_id INTEGER NOT NULL REFERENCES case_entity_mappings(id),
+    relation_type VARCHAR(50) NOT NULL,
+    target_entity_id INTEGER NOT NULL REFERENCES case_entity_mappings(id),
+    ontology_relation_iri VARCHAR(255) NOT NULL,
+    confidence FLOAT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-## Usage
+### API Endpoints
 
-To use the ontology-based case analysis:
+New API endpoints for case analysis:
 
-1. Start the unified ontology server:
-   ```bash
-   ./start_unified_ontology_server.sh
-   ```
+- `GET /api/cases/{case_id}/analysis`: Get analysis for a case
+- `POST /api/cases/{case_id}/analyze`: Trigger analysis for a case
+- `GET /api/cases/{case_id}/entity-mappings`: Get entity mappings for a case
+- `GET /api/cases/{case_id}/relation-mappings`: Get relation mappings for a case
+- `POST /api/cases/{case_id}/entity-mappings`: Add entity mapping for a case
+- `POST /api/cases/{case_id}/relation-mappings`: Add relation mapping for a case
 
-2. Access case analysis through API endpoints:
-   ```
-   http://localhost:5002/api/ontology/case-analysis
-   ```
+## Integration with the MCP System
 
-3. Query ethical principles:
-   ```
-   http://localhost:5002/api/ontology/principles?case=<case_id>
-   ```
+The case analysis module will be integrated with the existing MCP system:
+
+1. Register the case analysis module with the unified ontology server
+2. Expose case analysis capabilities through MCP tools and resources
+3. Enable ProEthica to access case analysis functionality via the MCP client
+
+## UI Enhancements
+
+The ProEthica UI will be enhanced with:
+
+1. Case analysis view showing:
+   - Mapped entities and their ontological classifications
+   - Relationships between entities
+   - Timeline of case events
+   - Relevant ethical principles
+   - Recommendations based on analysis
+
+2. Interactive visualizations:
+   - Entity-relationship diagrams
+   - Temporal event timelines
+   - Principle relevance heatmaps
+
+## Testing Plan
+
+1. **Unit Tests**: Test individual functions in the case analysis module
+2. **Integration Tests**: Test integration with the unified ontology server
+3. **End-to-End Tests**: Test the full workflow from case import to analysis visualization
+4. **Case Studies**: Test with real-world engineering ethics cases
+
+## Future Extensions
+
+1. **Cross-Case Analysis**: Compare analysis across multiple cases
+2. **Recommendation Engine**: Generate recommendations based on past cases
+3. **Learning System**: Learn from user feedback to improve analysis accuracy
+4. **Decision Support**: Provide decision support based on case analysis
+
+## Resources
+
+- Engineering ethics cases from the NSPE database
+- Basic Formal Ontology (BFO) for foundational concepts
+- Engineering ethics ontology for domain-specific concepts
+- SPARQL for ontology queries
+- Python libraries for natural language processing and ontology manipulation
