@@ -1,122 +1,102 @@
 #!/bin/bash
-# Script to create a new branch focused on ontology functionality based on the realm-integration branch
+# Script to create a new git branch focused on ontology-based case analysis
 
-# Set colored output
-RED='\033[0;31m'
+# Set script to exit on error
+set -e
+
+# Define colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}Creating a new branch focused on ontology functionality${NC}"
-echo -e "${BLUE}Based on the realm-integration branch${NC}"
+# Branch names
+BASE_BRANCH="realm-integration"
+NEW_BRANCH="ontology-case-analysis"
 
-# Check if we're in the right directory
-if [ ! -d "mcp" ] || [ ! -d "app" ] || [ ! -d "docs" ]; then
-    echo -e "${RED}Error: This doesn't appear to be the project root directory.${NC}"
-    echo -e "${YELLOW}Please run this script from the project root directory.${NC}"
+echo -e "${YELLOW}Creating new branch for ontology-based case analysis...${NC}"
+
+# Check if we're in a git repository
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    echo -e "${RED}Error: Not in a git repository. Please run this script from the project root.${NC}"
     exit 1
 fi
 
-# Ensure we're on the realm-integration branch first
-echo -e "${BLUE}Checking out realm-integration branch...${NC}"
-git checkout realm-integration
+# Fetch the latest changes
+echo -e "${YELLOW}Fetching latest changes from remote...${NC}"
+git fetch
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to checkout realm-integration branch.${NC}"
-    echo -e "${YELLOW}Make sure the branch exists and there are no uncommitted changes.${NC}"
-    exit 1
+# Check if the base branch exists
+if ! git show-ref --verify --quiet refs/heads/$BASE_BRANCH; then
+    # Check if it exists in the remote
+    if git show-ref --verify --quiet refs/remotes/origin/$BASE_BRANCH; then
+        echo -e "${YELLOW}Base branch '$BASE_BRANCH' exists in remote but not locally. Creating local branch...${NC}"
+        git checkout -b $BASE_BRANCH origin/$BASE_BRANCH
+    else
+        echo -e "${RED}Error: Base branch '$BASE_BRANCH' does not exist. Please check the branch name.${NC}"
+        exit 1
+    fi
+else
+    # Switch to the base branch and update it
+    echo -e "${YELLOW}Checking out and updating base branch '$BASE_BRANCH'...${NC}"
+    git checkout $BASE_BRANCH
+    git pull
 fi
 
-# Update the branch to latest
-echo -e "${BLUE}Pulling latest changes...${NC}"
-git pull
-
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to pull latest changes.${NC}"
-    echo -e "${YELLOW}Resolve any conflicts and try again.${NC}"
-    exit 1
-fi
-
-# Set the branch name
-DEFAULT_BRANCH="ontology-enhancement"
-NEW_BRANCH=${1:-$DEFAULT_BRANCH}
-
-# Check if branch already exists
-BRANCH_EXISTS=$(git branch --list $NEW_BRANCH)
-if [ ! -z "$BRANCH_EXISTS" ]; then
+# Check if the new branch already exists
+if git show-ref --verify --quiet refs/heads/$NEW_BRANCH; then
     echo -e "${YELLOW}Branch '$NEW_BRANCH' already exists.${NC}"
     
-    read -p "Do you want to delete and recreate this branch? (y/n) " -n 1 -r REPLY
+    # Ask if the user wants to use the existing branch or create a new one with a different name
+    read -p "Do you want to switch to the existing branch? (y/n) " -n 1 -r
     echo
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}Deleting existing branch...${NC}"
-        git branch -D $NEW_BRANCH
-        
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to delete existing branch.${NC}"
-            exit 1
-        fi
-        
-        echo -e "${GREEN}Successfully deleted existing branch.${NC}"
+        echo -e "${YELLOW}Switching to existing branch '$NEW_BRANCH'...${NC}"
+        git checkout $NEW_BRANCH
+        echo -e "${GREEN}Successfully switched to branch '$NEW_BRANCH'.${NC}"
+        exit 0
     else
-        echo -e "${YELLOW}Please choose a different branch name:${NC}"
-        read -p "Enter new branch name: " NEW_BRANCH_NAME
+        # Ask for a new branch name
+        read -p "Enter a new branch name: " NEW_BRANCH_NAME
+        NEW_BRANCH=$NEW_BRANCH_NAME
         
-        if [ -z "$NEW_BRANCH_NAME" ]; then
-            echo -e "${RED}No branch name provided. Exiting.${NC}"
+        # Check if the new branch name already exists
+        if git show-ref --verify --quiet refs/heads/$NEW_BRANCH; then
+            echo -e "${RED}Error: Branch '$NEW_BRANCH' already exists. Please choose a different name.${NC}"
             exit 1
         fi
-        
-        NEW_BRANCH=$NEW_BRANCH_NAME
     fi
 fi
 
 # Create the new branch
-echo -e "${BLUE}Creating new branch: ${NEW_BRANCH}...${NC}"
+echo -e "${YELLOW}Creating new branch '$NEW_BRANCH' based on '$BASE_BRANCH'...${NC}"
 git checkout -b $NEW_BRANCH
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to create new branch.${NC}"
-    exit 1
-fi
+# Add branch description
+DESCRIPTION="Branch focused on ontology-based case analysis using McLaren's methodology. This branch implements the extensions needed for analyzing engineering ethics cases using McLaren's operationalization techniques and supporting ontology-based simulation."
+git config branch.$NEW_BRANCH.description "$DESCRIPTION"
 
-echo -e "${GREEN}Successfully created new branch: ${NEW_BRANCH}${NC}"
-echo -e "${YELLOW}Current branch is now: ${NEW_BRANCH}${NC}"
+# Create a commit with the initial documentation
+git add docs/ontology_case_analysis_plan.md
+git add scripts/verify_proethica_ontology.py
+git add app/routes/ontology_routes.py
 
-# Add the new files we created
-echo -e "${BLUE}Adding new files to git...${NC}"
+git commit -m "Initialize ontology case analysis branch
 
-# Add our modular MCP server implementation
-git add mcp/modules/__init__.py
-git add mcp/modules/base_module.py
-git add mcp/modules/query_module.py
-git add mcp/modules/case_analysis_module.py
-git add mcp/unified_ontology_server.py
-git add run_unified_mcp_server.py
+- Added detailed implementation plan for case analysis using McLaren's methodology
+- Created verification script for ProEthica and ontology server connectivity
+- Added API routes for ontology interactions
+- Configured Flask app to use the new ontology API routes"
 
-# Add documentation files
-git add docs/unified_ontology_server.md
-git add docs/case_analysis_using_ontology.md
-
-echo -e "${GREEN}Files added to git${NC}"
-
-# Create initial commit
-echo -e "${BLUE}Creating initial commit...${NC}"
-git commit -m "Initial implementation of unified ontology system with modular architecture"
-
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to create initial commit.${NC}"
-    echo -e "${YELLOW}You may need to add the files manually.${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}Branch created and initial commit made successfully${NC}"
-echo -e "${YELLOW}====================================================${NC}"
+echo -e "${GREEN}Successfully created and configured branch '$NEW_BRANCH'.${NC}"
+echo -e "${YELLOW}Branch description:${NC}"
+echo "$DESCRIPTION"
+echo
 echo -e "${YELLOW}Next steps:${NC}"
-echo -e "${YELLOW}- Implement the relationship_module.py and temporal_module.py${NC}"
-echo -e "${YELLOW}- Update the unified_ontology_server.py to load all modules${NC}"
-echo -e "${YELLOW}- Create integration tests${NC}"
-echo -e "${YELLOW}- Create a script to start the unified ontology server${NC}"
-echo -e "${YELLOW}====================================================${NC}"
+echo "1. Implement the basic integration between ProEthica and the unified ontology server"
+echo "2. Create database migrations for the enhanced schema"
+echo "3. Develop the case analysis components based on McLaren's paper"
+echo
+echo -e "${GREEN}To push this branch to remote, use:${NC}"
+echo "git push -u origin $NEW_BRANCH"

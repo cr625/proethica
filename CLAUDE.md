@@ -119,3 +119,77 @@ Implemented the core components of the unified ontology server with a modular ar
 - Create the relationship module for ontology navigation
 - Add comprehensive testing
 - Integrate with the existing Flask application
+
+## May 11, 2025 - Ontology Case Analysis Implementation Planning
+
+### McLaren-based Case Analysis Planning
+
+Developed a comprehensive implementation plan for the ontology-based case analysis system, using McLaren's methodology for engineering ethics case analysis.
+
+**Key Components of the Plan:**
+
+1. **Case Analysis Framework**:
+   - Implementation of McLaren's operationalization techniques from McLaren_2003.pdf
+   - Focus on extensional definitions of ethical principles
+   - Integration with the unified ontology server
+   
+2. **Temporal Case Representation**:
+   - Conversion of cases into temporal representations for simulation
+   - Implementation of a timeline view for ethical decision points
+   - Support for scenario creation from existing cases
+   
+3. **Pattern Matching and Prediction**:
+   - Simple pattern matching between cases based on overlapping ontology elements
+   - Outcome prediction based on similar cases
+   - Confidence visualization for predictions
+
+**Phased Implementation Approach:**
+1. First phase: Verification and basic setup of ProEthica with unified ontology server
+2. Second phase: Implementation of case analysis framework and entity extraction
+3. Third phase: Case transformation to scenarios with temporal representations
+4. Fourth phase: Pattern matching, prediction, and final UI integration
+
+**Documentation:**
+- Created `docs/ontology_case_analysis_plan.md` with detailed implementation plan
+- The plan follows McLaren's approach to operationalization in engineering ethics
+
+**Next Steps:**
+- Begin Phase 1 by verifying the Flask application functionality
+- Set up database schema for enhanced ontology entity tracking
+- Develop initial case analysis components
+
+## May 11, 2025 - Ontology-Case Analysis Branch Implementation
+
+### Created New Branch for Case Analysis
+
+Created a new branch `ontology-case-analysis` from `realm-integration` to specifically focus on implementing the ontology-based case analysis functionality.
+
+**Implementation Features:**
+
+1. **API Integration Layer**:
+   - Developed Flask routes in `app/routes/ontology_routes.py` for ontology server connectivity
+   - Implemented endpoints for SPARQL queries, entity details, and case analysis
+   - Added status verification endpoint to check connectivity
+
+2. **Database Schema Extensions**:
+   - Created migration script `scripts/create_case_analysis_tables.py` for case analysis tables
+   - Added tables for case entities, temporal elements, and principles
+   - Implemented tables for tracking relationships between cases
+   - Added appropriate indexes for performance optimization
+
+3. **Verification and Setup Utilities**:
+   - Implemented `scripts/verify_proethica_ontology.py` to check connectivity
+   - Created `setup_ontology_case_analysis.sh` for one-step environment setup
+   - Added `create_ontology_branch.sh` for branch management
+
+**Technical Design:**
+- Created a modular approach to case analysis
+- Integrated with the unified ontology server
+- Set up infrastructure for ontology-guided case analysis
+- Implemented database schema to support McLaren's operationalization framework
+
+**Next Steps:**
+1. Implement the case analysis components for entity extraction
+2. Create UI elements for displaying analysis results
+3. Develop temporal visualization for case timelines
+4. Implement pattern matching between similar cases
