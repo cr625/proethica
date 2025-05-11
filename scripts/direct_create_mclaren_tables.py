@@ -122,6 +122,51 @@ def create_tables():
 
         logger.info("Created case_triples table")
 
+        # Add foreign key constraints to the documents table
+        cur.execute("""
+            -- Check if the documents table exists
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'documents'
+            );
+        """)
+        documents_exists = cur.fetchone()[0]
+        
+        if documents_exists:
+            # Add foreign key constraints to the documents table
+            cur.execute("""
+                ALTER TABLE principle_instantiations 
+                DROP CONSTRAINT IF EXISTS fk_principle_instantiations_case_id;
+                
+                ALTER TABLE principle_instantiations 
+                ADD CONSTRAINT fk_principle_instantiations_case_id 
+                FOREIGN KEY (case_id) REFERENCES documents(id) ON DELETE CASCADE;
+                
+                ALTER TABLE principle_conflicts 
+                DROP CONSTRAINT IF EXISTS fk_principle_conflicts_case_id;
+                
+                ALTER TABLE principle_conflicts 
+                ADD CONSTRAINT fk_principle_conflicts_case_id 
+                FOREIGN KEY (case_id) REFERENCES documents(id) ON DELETE CASCADE;
+                
+                ALTER TABLE case_operationalization 
+                DROP CONSTRAINT IF EXISTS fk_case_operationalization_case_id;
+                
+                ALTER TABLE case_operationalization 
+                ADD CONSTRAINT fk_case_operationalization_case_id 
+                FOREIGN KEY (case_id) REFERENCES documents(id) ON DELETE CASCADE;
+                
+                ALTER TABLE case_triples 
+                DROP CONSTRAINT IF EXISTS fk_case_triples_case_id;
+                
+                ALTER TABLE case_triples 
+                ADD CONSTRAINT fk_case_triples_case_id 
+                FOREIGN KEY (case_id) REFERENCES documents(id) ON DELETE CASCADE;
+            """)
+            logger.info("Added foreign key constraints to the documents table")
+        else:
+            logger.warning("Documents table not found, foreign key constraints not added")
+
         # Add triggers for updated_at timestamps
         cur.execute("""
             CREATE OR REPLACE FUNCTION update_modified_column()

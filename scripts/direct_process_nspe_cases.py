@@ -88,7 +88,7 @@ def prepare_case_document(conn, case_data):
         
         # Check if a document with this case number already exists
         cur.execute(
-            "SELECT id FROM documents WHERE external_id = %s",
+            "SELECT id FROM documents WHERE doc_metadata->>'case_number' = %s",
             (case_data.get("case_number"),)
         )
         
@@ -98,21 +98,27 @@ def prepare_case_document(conn, case_data):
             return result[0]
         
         # Create a new document for this case
+        metadata = case_data.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+            
+        # Make sure case_number is in the metadata
+        metadata["case_number"] = case_data.get("case_number")
+        metadata["year"] = case_data.get("year")
+        
         cur.execute(
             """
             INSERT INTO documents 
-            (title, content, doc_type, external_id, source_url, doc_date, doc_metadata, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            (title, content, document_type, source, doc_metadata, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
                 case_data.get("title", f"Case {case_data.get('case_number')}"),
                 case_data.get("full_text", ""),
                 "case",
-                case_data.get("case_number"),
                 case_data.get("url"),
-                datetime.strptime(str(case_data.get("year", "2000")), "%Y"),
-                json.dumps(case_data.get("metadata", {})),
+                json.dumps(metadata),
                 datetime.now()
             )
         )
@@ -315,7 +321,7 @@ def get_case_content(conn, case_id):
                 "id": result["id"],
                 "title": result["title"],
                 "content": result["content"],
-                "metadata": json.loads(result["doc_metadata"]) if result["doc_metadata"] else {}
+                "metadata": result["doc_metadata"] if result["doc_metadata"] else {}
             }
         else:
             logger.error(f"Case {case_id} not found in database")

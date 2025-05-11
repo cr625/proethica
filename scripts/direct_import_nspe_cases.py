@@ -80,7 +80,7 @@ def import_cases():
             cur.execute(
                 """
                 SELECT id FROM documents
-                WHERE external_id = %s
+                WHERE doc_metadata->>'case_number' = %s
                 """, 
                 (case_number,)
             )
@@ -106,7 +106,7 @@ def import_cases():
                     UPDATE documents
                     SET content = %s,
                         doc_metadata = %s,
-                        source_url = %s,
+                        source = %s,
                         updated_at = %s
                     WHERE id = %s
                     """,
@@ -131,18 +131,16 @@ def import_cases():
                 cur.execute(
                     """
                     INSERT INTO documents
-                    (title, content, doc_type, external_id, source_url, doc_date, doc_metadata, created_at)
+                    (title, content, document_type, source, doc_metadata, created_at)
                     VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (%s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (
                         title, 
                         full_text, 
                         "case", 
-                        case_number, 
                         url, 
-                        datetime.strptime(str(year), "%Y") if year else None,
                         metadata_json, 
                         datetime.now()
                     )

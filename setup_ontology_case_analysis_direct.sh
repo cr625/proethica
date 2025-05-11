@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/bin/bash
 # Direct setup script for ontology-based case analysis using McLaren's extensional definition approach
 # This script does not require the Flask application to be running
 

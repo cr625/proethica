@@ -69,3 +69,25 @@ These changes create a more comprehensive and informative case detail view that:
 1. Further enhance the triple extraction and principle identification
 2. Add interactive filtering of entities by principle
 3. Implement visualization of principle conflicts
+## Case Detail View Enhancement - 2025-05-11
+
+### Changes Implemented
+1. **Fixed JavaScript Error**: Removed problematic "Show More" link and associated code that was causing the `Uncaught TypeError: Cannot read properties of null (reading addEventListener)` error
+2. **Enhanced Case Display**: Updated the case detail template to include a new "Ontology Integration" section that displays principles and their instantiations
+3. **Created Support Scripts**:
+   - `scripts/fix_case_titles.py`: Improves case titles by converting code references to descriptive titles
+   - `scripts/enhanced_ontology_display.py`: Processes entity triples to extract principle information and add it to case metadata for display
+
+### Verification Steps
+1. **Backed up database**: Created backup `ai_ethical_dm_backup_20250511_165244.dump`
+2. **Committed code changes**: Added the template modifications and new scripts to git
+3. **Ran enhanced_ontology_display.py**: Script executed successfully but found 0 cases with entity triples
+
+### Next Steps for Full Ontology Integration
+1. **Populate Entity Triples**: Cases need entity triples to be created first before the ontology integration display will show relevant information
+2. **Run McLaren Case Analysis**: Use `mclaren_case_analysis_module.py` to analyze cases and generate entity triples
+3. **Re-run Enhancement Script**: Once triples exist, run `enhanced_ontology_display.py` again to update metadata
+4. **Test Display**: Verify the case detail page shows principles and their instantiations properly
+
+The infrastructure for displaying ontology integration is now in place, but requires entity triple data to be populated first.
+
