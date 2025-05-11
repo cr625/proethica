@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/bin/bash
 
 # Database backup script for ai_ethical_dm
 # This script creates a backup of the PostgreSQL database

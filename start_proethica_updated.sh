@@ -194,11 +194,25 @@ fi
 
 # Initialize database schema if needed
 echo -e "${BLUE}Initializing database schema...${NC}"
-if [ -f "./scripts/initialize_proethica_db.py" ]; then
-    echo -e "${YELLOW}Running database initialization script...${NC}"
-    python ./scripts/initialize_proethica_db.py
+if [ -f "./scripts/schema_check.py" ]; then
+    echo -e "${YELLOW}Checking database schema...${NC}"
+    if python ./scripts/schema_check.py; then
+        echo -e "${GREEN}Database schema verified successfully. Skipping full initialization.${NC}"
+    else
+        echo -e "${YELLOW}Schema verification failed. Running full database initialization...${NC}"
+        if [ -f "./scripts/initialize_proethica_db.py" ]; then
+            python ./scripts/initialize_proethica_db.py
+        else
+            echo -e "${RED}Database initialization script not found. Some features may not work correctly.${NC}"
+        fi
+    fi
 else
-    echo -e "${RED}Database initialization script not found. Some features may not work correctly.${NC}"
+    echo -e "${YELLOW}Schema check script not found. Running full database initialization...${NC}"
+    if [ -f "./scripts/initialize_proethica_db.py" ]; then
+        python ./scripts/initialize_proethica_db.py
+    else
+        echo -e "${RED}Database initialization script not found. Some features may not work correctly.${NC}"
+    fi
 fi
 
 # Launch the application with auto_run.sh

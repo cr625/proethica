@@ -408,8 +408,8 @@
                         <div class="alert alert-info">No guidelines available for this world.</div>
                         {% endif %}
                         
-                        <h2>Case Studies</h2>
-                        <a href="{{ url_for('cases.case_options') }}" class="btn btn-primary mb-3">Add Case Study</a>
+                        <h2>Cases</h2>
+                        <a href="{{ url_for('cases.case_options') }}" class="btn btn-primary mb-3">Add Case</a>
                         
                         {% if case_studies %}
                         <div class="list-group">
@@ -424,7 +424,7 @@
                             {% endfor %}
                         </div>
                         {% else %}
-                        <div class="alert alert-info">No case studies available for this world.</div>
+                        <div class="alert alert-info">No cases available for this world.</div>
                         {% endif %}
                     </div>
                 </div>
