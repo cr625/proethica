@@ -176,30 +176,37 @@ elif [ "$ENV" == "wsl" ]; then
 
     # Check if native PostgreSQL is running and stop it if needed
     if command -v service >/dev/null 2>&1 && service postgresql status >/dev/null 2>&1; then
-        echo -e "${YELLOW}Stopping native PostgreSQL service...${NC}"
+        echo -e "${YELLOW}Stopping native PostgreSQL service to avoid conflicts with Docker PostgreSQL...${NC}"
         sudo service postgresql stop
     fi
 
-    # Ensure database is running
+    # Check if Docker PostgreSQL is running (on port 5433)
+    echo -e "${BLUE}Checking Docker PostgreSQL container status...${NC}"
     if command -v pg_isready >/dev/null 2>&1; then
-        if ! pg_isready -h localhost -q; then
-            echo -e "${YELLOW}PostgreSQL is not running. Starting it...${NC}"
-            echo -e "${YELLOW}You might need to enter your sudo password.${NC}"
-            sudo service postgresql start
+        if ! pg_isready -h localhost -p 5433 -q; then
+            echo -e "${YELLOW}Docker PostgreSQL container is not running. Please ensure it's started.${NC}"
+            echo -e "${YELLOW}You can start it with: docker-compose up -d postgres${NC}"
+        else
+            echo -e "${GREEN}Docker PostgreSQL container is running on port 5433.${NC}"
         fi
     else
         echo -e "${YELLOW}pg_isready command not found. Cannot check PostgreSQL status.${NC}"
-        echo -e "${YELLOW}Please ensure PostgreSQL is running.${NC}"
+        echo -e "${YELLOW}Please ensure Docker PostgreSQL container is running.${NC}"
     fi
 
     # Ensure scripts are executable
     chmod +x scripts/restart_mcp_server.sh
 
-    # Start the enhanced MCP server and wait for it to initialize
-    echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
-    ./scripts/restart_mcp_server.sh
-    echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
-    sleep 5  # Wait for server to initialize
+    # Check if MCP server is already running
+    if [ "$MCP_SERVER_ALREADY_RUNNING" = "true" ]; then
+        echo -e "${BLUE}Unified Ontology MCP server is already running. No need to start another server.${NC}"
+    else
+        # Start the enhanced MCP server and wait for it to initialize
+        echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
+        ./scripts/restart_mcp_server.sh
+        echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
+        sleep 5  # Wait for server to initialize
+    fi
 
     # Export environment variables from .env file with proper handling of spaces
     while IFS= read -r line || [[ -n "$line" ]]; do
@@ -257,11 +264,16 @@ else
     # Ensure scripts are executable
     chmod +x scripts/restart_mcp_server.sh
 
-    # Start the enhanced MCP server and wait for it to initialize
-    echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
-    ./scripts/restart_mcp_server.sh
-    echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
-    sleep 5  # Wait for server to initialize
+    # Check if MCP server is already running
+    if [ "$MCP_SERVER_ALREADY_RUNNING" = "true" ]; then
+        echo -e "${BLUE}Unified Ontology MCP server is already running. No need to start another server.${NC}"
+    else
+        # Start the enhanced MCP server and wait for it to initialize
+        echo -e "${BLUE}Starting enhanced MCP server on port 5001...${NC}"
+        ./scripts/restart_mcp_server.sh
+        echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
+        sleep 5  # Wait for server to initialize
+    fi
 
     # Export environment variables from .env file with proper handling of spaces
     while IFS= read -r line || [[ -n "$line" ]]; do

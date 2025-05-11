@@ -1,5 +1,38 @@
 # ProEthica Development Notes
 
+## 2025-05-11 - Fixed PostgreSQL Configuration in WSL Environment
+
+### Issue
+When running the `start_proethica_updated.sh` script in a WSL environment, the system was trying to start the native PostgreSQL service unnecessarily, despite the project being configured to use a Docker PostgreSQL container on port 5433. This resulted in the error message:
+```
+Detected WSL environment
+Starting in WSL mode using Flask dev server...
+PostgreSQL is not running. Starting it...
+You might need to enter your sudo password.
+```
+
+### Investigation
+1. The `docker-compose.yml` file confirmed that PostgreSQL should be running in a Docker container on port 5433.
+2. The `.env` file correctly referenced the Docker PostgreSQL with `DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm`.
+3. In `start_proethica_updated.sh`, native PostgreSQL was properly stopped to avoid port conflicts.
+4. However, in `auto_run.sh`, there was problematic code that:
+   - First stopped the native PostgreSQL service (which was redundant)
+   - Then checked if PostgreSQL was running using `pg_isready`, and if not, started the native PostgreSQL service again
+   - This effectively undid the stopping of PostgreSQL from the previous script
+
+### Solution
+Modified `auto_run.sh` in the WSL environment section to:
+1. Stop native PostgreSQL service if running (kept this as a safety measure)
+2. Check if Docker PostgreSQL is running specifically on port 5433 (not the default 5432)
+3. Provide a helpful message if Docker PostgreSQL is not running, suggesting how to start it
+4. Remove the problematic code that was starting native PostgreSQL
+
+### Results
+- The startup script no longer attempts to start the native PostgreSQL service
+- The system now properly checks for Docker PostgreSQL on port 5433
+- Eliminates the unnecessary sudo password prompt during startup
+- Provides more helpful error messages if Docker PostgreSQL is not running
+
 
 ## 2025-05-11 - Ontology File Fix and MCP Server Configuration
 
@@ -194,3 +227,31 @@ The following ontologies were successfully recovered:
 - Used database backup: `ai_ethical_dm_backup_20250428_000814.dump`
 - Created export script to generate TTL files from the database ontology content
 - Files are now available both in the database and as TTL files in the ontologies directory
+
+## 2025-05-11: Fixed Redundant Initialization in Startup Scripts
+
+### Issue
+When running `start_proethica_updated.sh`, various components were being initialized twice, causing inefficiency and potential conflicts:
+
+1. MCPClient was being initialized twice
+2. Claude service was initialized twice
+3. SentenceTransformer was loaded twice
+4. EnhancedMCPClient was initialized twice
+5. Database was initialized twice
+
+### Investigation
+1. Analyzed the output of `start_proethica_updated.sh` and identified the redundant initializations
+2. Found that while `start_proethica_updated.sh` was setting `MCP_SERVER_ALREADY_RUNNING=true`, the condition was only being checked in the codespace section of `auto_run.sh`
+3. The WSL and generic development environment sections of `auto_run.sh` were not checking this flag before trying to restart the MCP server
+
+### Solution
+Modified `auto_run.sh` to respect the `MCP_SERVER_ALREADY_RUNNING` environment variable in all environment sections:
+1. Updated the WSL environment section to check if MCP server is already running
+2. Updated the development environment section to do the same check
+3. Left the codespace section unchanged as it was already correctly handling this case
+
+### Results
+- Running `start_proethica_updated.sh` no longer results in duplicate initializations
+- The unified ontology server is started once and reused
+- Eliminates confusion from seeing the same initialization messages twice
+- Startup process is more efficient and has less potential for conflicts
