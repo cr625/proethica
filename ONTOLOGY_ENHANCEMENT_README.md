@@ -1,120 +1,69 @@
 # Ontology Enhancement Branch
 
-This branch focuses on enhancing the ontology functionality in ProEthica, with emphasis on the engineering ethics applications through a unified, modular architecture.
+This branch focuses on enhancing the ontology functionality within ProEthica, particularly for engineering ethics applications. It builds on the REALM integration work and implements McLaren's approach to case analysis and ethical reasoning.
 
-## Key Features
+## Overview
 
-- Unified modular architecture for ontology access
-- Enhanced case analysis using ontology data
-- Improved integration with LLMs for ontology-based reasoning
-- Support for temporal functionality (planned)
-- Comprehensive API for ontology access
+The ontology enhancement focuses on:
 
-## Getting Started
+1. **Case Representation**: Implementing temporal representation of ethics cases
+2. **Extensional Definitions**: Using concrete examples to define ethical principles
+3. **Case-Based Reasoning**: Finding similarities between cases to guide ethical analysis
+4. **Operationalization**: Making abstract principles concrete through specific case examples
 
-### Running the Server
+## Setup
 
-To start the unified ontology server:
+1. **Clone this branch**:
+   ```bash
+   git checkout ontology-enhancement-v1
+   ```
 
-```bash
-./start_unified_ontology_server.sh
-```
+2. **Set up the environment**:
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
 
-This will:
-- Set up the Python environment
-- Start the server in the background on port 5001
-- Show available modules and tools
-
-The server provides:
-- JSON-RPC API at `http://localhost:5001/jsonrpc`
-- Direct API endpoints for certain operations
-- Health check at `http://localhost:5001/health`
-- Server info at `http://localhost:5001/info`
-
-To stop the server:
-
-```bash
-./stop_unified_ontology_server.sh
-```
-
-### Testing Case Analysis
-
-You can test the case analysis functionality with:
-
-```bash
-./test_case_analysis.py
-```
-
-Options:
-- `--text "Your text here"` - Text to extract entities from
-- `--case-id 123` - Case ID to analyze
-- `--ontology-source engineering` - Ontology source to use
-- `--mode [extract|analyze|summary|all]` - Test mode
-
-Example:
-
-```bash
-./test_case_analysis.py --text "The engineer must consider safety implications before approving the design."
-```
+3. **Start the unified ontology server**:
+   ```bash
+   ./start_unified_ontology_server.sh
+   ```
 
 ## Architecture
 
-The unified ontology server uses a modular architecture:
+The implementation follows a modular architecture with the following components:
 
-```
-UnifiedOntologyServer
-├── BaseModule (abstract)
-├── QueryModule
-│   ├── get_entities
-│   ├── execute_sparql
-│   └── get_entity_info
-├── CaseAnalysisModule
-│   ├── extract_entities
-│   ├── analyze_case_structure
-│   ├── match_entities
-│   └── generate_summary
-└── [Future modules]
-    ├── RelationshipModule (planned)
-    └── TemporalModule (planned)
-```
+1. **Unified Ontology Server**: Provides ontology access and query capabilities
+2. **Case Analysis Module**: Extracts ontology entities from cases and performs analysis
+3. **Temporal Module**: Manages temporal aspects of case representation
+4. **Database Layer**: Stores case analysis results and relationships
+5. **API Integration**: Connects the Flask application to the ontology system
 
-## API Documentation
+## Key Improvements
 
-For detailed API documentation, see:
+- **Modular Architecture**: Better organized code with clear separation of concerns
+- **Temporal Functionality**: Integrated temporal functionality directly into the unified server architecture
+- **Enhanced Case Analysis**: Support for analyzing engineering ethics cases with ontology support
+- **Better Documentation**: Comprehensive documentation of the ontology case analysis methodology
 
-- `docs/unified_ontology_server.md` - Server architecture and API
-- `docs/case_analysis_using_ontology.md` - Case analysis guide
-- `docs/ontology_enhancement_plan.md` - Enhancement plan
+## Usage
 
-## Development Workflow
+To use the ontology case analysis functionality:
 
-When implementing new features:
+1. Start the unified ontology server:
+   ```bash
+   ./start_unified_ontology_server.sh
+   ```
 
-1. Create a new module extending `BaseModule`
-2. Register tools in the module's `_register_tools` method
-3. Update the server to load your module
-4. Add comprehensive tests and documentation
-5. Add any necessary UI components to interact with your module
+2. Access the case analysis tools through the Flask API at:
+   ```
+   http://localhost:5000/api/ontology/analyze_case/{id}
+   ```
 
-Example module addition:
+3. Stop the server when done:
+   ```bash
+   ./stop_unified_ontology_server.sh
+   ```
 
-```python
-from mcp.modules.base_module import BaseModule
+## References
 
-class MyNewModule(BaseModule):
-    @property
-    def name(self) -> str:
-        return "my_module"
-        
-    @property
-    def description(self) -> str:
-        return "My new functionality"
-        
-    def _register_tools(self) -> None:
-        self.tools = {
-            "my_tool": self.my_tool_method
-        }
-        
-    def my_tool_method(self, arguments):
-        # Implement functionality here
-        return {"result": "success"}
+- McLaren, B. M. (2003). Extensionally Defining Principles and Cases in Ethics: An AI Model. Artificial Intelligence Journal, 150, 145-181.

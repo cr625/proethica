@@ -4,6 +4,18 @@ This document tracks the development of the ProEthica AI Ethical Decision-Making
 
 ## Recent Updates
 
+### May 11, 2025 - Temporal Module for Ontology Enhancement
+
+Created a new temporal module (`mcp/modules/temporal_module.py`) for integration into the unified ontology server architecture. This module provides temporal functionality for representing, analyzing, and querying ethical cases in their temporal context.
+
+Key implementations:
+1. Integrated temporal functionality into the modular architecture of the unified ontology server
+2. Removed dependency on the standalone `add_temporal_functionality.py` script
+3. Created proper tool registration through the BaseModule system
+4. Established consistent pattern following the unified server architecture
+
+This work aligns with our ontology-focused development branch that concentrates on case analysis and representation capabilities.
+
 ### May 11, 2025 - Ontology-Focused Branch Creation
 
 Created a new branch focused on enhancing the ontology functionality within ProEthica, particularly for engineering ethics applications. This branch builds on the realm-integration work and focuses on implementing McLaren's approach to case analysis and ethical reasoning.
@@ -54,6 +66,7 @@ Key changes:
    - Modules include:
      - Query Module: Basic ontology querying
      - Case Analysis Module: Analysis of ethics cases using the ontology
+     - Temporal Module: Representation of cases in temporal context
 
 5. **Agent System**
    - LLM-powered agents for ethical reasoning
