@@ -23,9 +23,14 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Export all environment variables from .env file (excluding comments)
+# Export all environment variables from .env file with proper handling of spaces
 echo -e "${YELLOW}Exporting environment variables from .env file...${NC}"
-export $(grep -v '^#' .env | xargs)
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    # Export the variable
+    export "$line"
+done < .env
 
 # Run the command provided as arguments
 if [ $# -eq 0 ]; then

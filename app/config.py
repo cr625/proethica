@@ -34,5 +34,6 @@ config = {
     'testing': TestingConfig,
     'production': ProductionConfig,
     'codespace': DevelopmentConfig,  # Map Codespaces to DevelopmentConfig
+    'wsl': DevelopmentConfig,  # Map WSL to DevelopmentConfig
     'default': DevelopmentConfig
 }

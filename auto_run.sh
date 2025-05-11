@@ -124,8 +124,13 @@ elif [ "$ENV" == "codespace" ]; then
     echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
     sleep 5  # Wait for server to initialize
 
-    # Export environment variables from .env file
-    export $(grep -v '^#' .env | xargs)
+    # Export environment variables from .env file with proper handling of spaces
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip comments and empty lines
+        [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+        # Export the variable
+        export "$line"
+    done < .env
 
     # Start the Flask development server with proper environment variable handling
     echo -e "${BLUE}Starting Flask development server...${NC}"
@@ -191,8 +196,13 @@ elif [ "$ENV" == "wsl" ]; then
     echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
     sleep 5  # Wait for server to initialize
 
-    # Export environment variables from .env file
-    export $(grep -v '^#' .env | xargs)
+    # Export environment variables from .env file with proper handling of spaces
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip comments and empty lines
+        [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+        # Export the variable
+        export "$line"
+    done < .env
 
     # Start the Flask development server with proper environment variable handling
     echo -e "${BLUE}Starting Flask development server...${NC}"
@@ -248,8 +258,13 @@ else
     echo -e "${BLUE}Waiting for MCP server to initialize...${NC}"
     sleep 5  # Wait for server to initialize
 
-    # Export environment variables from .env file
-    export $(grep -v '^#' .env | xargs)
+    # Export environment variables from .env file with proper handling of spaces
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip comments and empty lines
+        [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+        # Export the variable
+        export "$line"
+    done < .env
 
     # Start the Flask development server with proper environment variable handling
     echo -e "${BLUE}Starting Flask development server...${NC}"

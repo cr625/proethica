@@ -373,3 +373,64 @@ The issue occurred because:
 - **Seamless Integration**: All new features work with the existing enhanced ontology MCP server
 
 The successful merge makes these features available in the development branch, ready for further testing and eventual promotion to the main branch.
+
+## 2025-05-10 - Fixed WSL Environment Support Issues
+
+### Issues Fixed
+
+1. Fixed an error in the `auto_run.sh` script that was causing it to fail with `export: 'Files/Google/Chrome/Application/chrome.exe': not a valid identifier` when running in WSL environment.
+
+2. Fixed a KeyError in the application startup process when running in WSL environment: `KeyError: 'wsl'` in `app/config.py`.
+
+### Root Cause Analysis
+
+The issues occurred because:
+1. **Environment Variable Export Issue**:
+   - The scripts were using `export $(grep -v '^#' .env | xargs)` to export environment variables from the .env file
+   - This approach failed when environment variables contained spaces, such as the Chrome executable path in WSL
+   - The export command was treating parts of the path after spaces as separate commands
+   - This particularly affected `PUPPETEER_EXECUTABLE_PATH` which contained spaces in the Windows path
+
+2. **Configuration Key Error**:
+   - The environment detection in `auto_run.sh` correctly identified the WSL environment
+   - However, the `app/config.py` configuration dictionary didn't include a 'wsl' key
+   - This caused a KeyError when the application tried to load the configuration for the WSL environment
+
+### Solution Implemented
+
+1. **Improved Environment Variable Export in Multiple Scripts**
+   - Replaced the simple `export $(grep -v '^#' .env | xargs)` approach with a more robust method in:
+     - `auto_run.sh` - Main startup script for the application
+     - `scripts/run_with_env.sh` - Helper script for running commands with environment variables
+   - Implemented a line-by-line reading of the .env file using a while loop
+   - Added proper handling of comments and empty lines
+   - Ensured proper exporting of variables with spaces in their values
+
+2. **Updated Configuration Dictionary**
+   - Added 'wsl' key to the configuration dictionary in `app/config.py`
+   - Mapped it to use the DevelopmentConfig class, as WSL is used for development
+   - This follows the same pattern used for the 'codespace' environment
+
+### Code Change
+
+```bash
+# Old approach (problematic with spaces):
+export $(grep -v '^#' .env | xargs)
+
+# New approach (handles spaces correctly):
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    # Export the variable
+    export "$line"
+done < .env
+```
+
+### Benefits
+
+- **Robust Environment Configuration**: Application now properly handles environment variables with spaces
+- **Improved WSL Support**: The script works correctly in WSL with Windows paths containing spaces
+- **More Resilient Startup**: Eliminates a common failure point in the application startup process
+- **Better Cross-Platform Compatibility**: Handles paths from both Linux and Windows sides of WSL
+
+This fix enhances the overall stability of the application startup process in WSL environments, particularly when integrating with Windows-based tools like Chrome for Puppeteer.
