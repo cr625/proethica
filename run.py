@@ -53,7 +53,7 @@ os.environ['ENVIRONMENT'] = environment
 mcp_port = args.mcp_port
 os.environ['MCP_SERVER_PORT'] = str(mcp_port)
 
-# Set the MCP server URL environment variable
+# Set the MCP server URL environment variable - use raw string to avoid escape issues
 mcp_url = f"http://localhost:{mcp_port}"
 os.environ['MCP_SERVER_URL'] = mcp_url
 print(f"Set MCP_SERVER_URL to {mcp_url}")
@@ -66,7 +66,10 @@ print("Checking enhanced MCP server status...")
 # Verify that the MCP server is already running
 mcp_running = False
 try:
-    response = requests.get(f"{mcp_url}/api/guidelines/engineering-ethics", timeout=2)
+    # Use raw literal URL to avoid escape sequence issues
+    test_url = "http://localhost:{}/api/guidelines/engineering-ethics".format(mcp_port)
+    print(f"Testing connection to MCP server at {test_url}...")
+    response = requests.get(test_url, timeout=2)
     if response.status_code == 200:
         mcp_running = True
         print("Successfully connected to existing MCP server!")
