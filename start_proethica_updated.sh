@@ -92,11 +92,12 @@ fi
 
 # Clean up any existing MCP server processes
 echo -e "${BLUE}Checking for running MCP server processes...${NC}"
-if pgrep -f "run_enhanced_mcp_server.py" > /dev/null || pgrep -f "http_ontology_mcp_server.py" > /dev/null; then
+if pgrep -f "run_enhanced_mcp_server.py" > /dev/null || pgrep -f "http_ontology_mcp_server.py" > /dev/null || pgrep -f "run_unified_mcp_server.py" > /dev/null; then
     echo -e "${YELLOW}Stopping existing MCP server processes...${NC}"
     pkill -f "run_enhanced_mcp_server.py" 2>/dev/null || true
     pkill -f "http_ontology_mcp_server.py" 2>/dev/null || true
     pkill -f "ontology_mcp_server.py" 2>/dev/null || true
+    pkill -f "run_unified_mcp_server.py" 2>/dev/null || true
     sleep 2
 fi
 
@@ -151,6 +152,44 @@ if grep -q "^ENVIRONMENT=" .env; then
     sed -i "s/^ENVIRONMENT=.*/ENVIRONMENT=$ENV/" .env
 else
     echo "ENVIRONMENT=$ENV" >> .env
+fi
+
+# Start the unified ontology MCP server
+echo -e "${BLUE}Starting Unified Ontology MCP Server...${NC}"
+
+# Environment setup for unified ontology server
+PORT=${MCP_SERVER_PORT:-5002}
+HOST="0.0.0.0"
+
+# Make sure the unified MCP server script is executable
+if [ -f "./run_unified_mcp_server.py" ]; then
+    chmod +x run_unified_mcp_server.py
+    
+    LOGFILE="logs/unified_ontology_server_$(date +%Y%m%d_%H%M%S).log"
+    mkdir -p logs
+    
+    # Create the command to run
+    CMD="python run_unified_mcp_server.py --host $HOST --port $PORT"
+    
+    # Start the server in the background with nohup
+    echo -e "${BLUE}Starting unified ontology MCP server on ${YELLOW}${HOST}:${PORT}${NC}"
+    nohup $CMD > "$LOGFILE" 2>&1 &
+    
+    # Get the PID of the process
+    UNIFIED_SERVER_PID=$!
+    
+    # Check if the server started successfully
+    sleep 2
+    if ps -p $UNIFIED_SERVER_PID > /dev/null; then
+        echo -e "${GREEN}Unified Ontology Server started successfully with PID ${YELLOW}${UNIFIED_SERVER_PID}${NC}"
+        echo -e "${BLUE}Logs are being written to ${YELLOW}${LOGFILE}${NC}"
+    else
+        echo -e "${RED}Failed to start the Unified Ontology Server. Check the logs: ${YELLOW}${LOGFILE}${NC}"
+        tail -n 10 "$LOGFILE"
+    fi
+else
+    echo -e "${RED}run_unified_mcp_server.py not found. The Unified Ontology Server will not be started.${NC}"
+    echo -e "${YELLOW}Some ontology functionality may not be available.${NC}"
 fi
 
 # Initialize database schema if needed
