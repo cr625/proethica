@@ -47,3 +47,75 @@ REALM (Resource for Engineering and Advanced Learning in Materials) is a new app
 1. Complete the MSEO ontology integration with the MCP server
 2. Implement the REALM-specific UI components
 3. Extend the ontology editor for materials science concepts
+
+## May 11, 2025 - Ontology Enhancement Branch Creation
+
+### Unified Ontology Server Development
+
+Created a new branch `ontology-enhancement` from `realm-integration` to focus on enhancing the ontology functionality in ProEthica, particularly for engineering ethics applications.
+
+**Objectives:**
+- Consolidate multiple MCP server implementations into a unified server
+- Restore engineering ethics ontology from the backup
+- Integrate temporal functionality directly into the server
+- Enhance case analysis using ontology entities
+- Improve LLM integration with ontology data
+
+**Technical Approach:**
+1. Unified modular architecture for MCP server components
+2. Database restoration of engineering ontology from backup file
+3. Case entity extraction and analysis enhancements
+4. Agent module updates for better ontology interactions
+
+**Implementation Plan:**
+- Created implementation documentation in `docs/ontology_enhancement_plan.md`
+- Will develop modular architecture with pluggable components
+- Focus will be on engineering ethics ontology with improved case analysis
+
+This enhancement will restore focus on engineering ethics after the REALM integration branch work, which had shifted the focus to materials science ontology.
+
+## May 11, 2025 - Unified Ontology Server Implementation
+
+### Modular Architecture for Ontology Server
+
+Implemented the core components of the unified ontology server with a modular architecture.
+
+**Key Components Built:**
+
+1. **Base Module System**:
+   - Created abstract `BaseModule` class
+   - Implemented tool registration and management
+   - Added error handling and result formatting
+
+2. **Core Server Architecture**:
+   - Implemented `UnifiedOntologyServer` class
+   - Added dynamic module loading
+   - Created JSON-RPC API endpoint handling
+   - Added caching for ontology graphs
+
+3. **Query Module**:
+   - Implemented entity retrieval functionality
+   - Added SPARQL query execution
+   - Created guideline access tools
+   - Added detailed entity information retrieval
+
+4. **Case Analysis Module**:
+   - Implemented entity extraction from case text
+   - Added case structure analysis using ontologies
+   - Created entity matching between cases and ontologies
+   - Added ontology-based case summary generation
+
+**Documentation:**
+- Created `docs/unified_ontology_server.md` with architecture and API reference
+- Added `docs/case_analysis_using_ontology.md` with practical usage examples
+- Expanded `docs/ontology_enhancement_plan.md` with technical details
+
+**Additional Files:**
+- Added `run_unified_mcp_server.py` for starting the unified server
+- Created `create_ontology_branch.sh` to facilitate branch management
+
+**Next Steps:**
+- Implement the temporal module for time-based entity analysis
+- Create the relationship module for ontology navigation
+- Add comprehensive testing
+- Integrate with the existing Flask application
