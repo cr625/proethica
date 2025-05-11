@@ -1,138 +1,88 @@
-# ProEthica AI Ethical Decision-Making System
+# ProEthica Development Documentation
 
-This document tracks the development of the ProEthica AI Ethical Decision-Making System, recording key implementation details, architecture decisions, and development tasks.
+## Project Overview
 
-## Recent Updates
+ProEthica is an AI-powered ethical reasoning system that integrates multiple components:
+- Web application for user interaction
+- Ontology management for ethical knowledge representation
+- Case analysis functionality for ethical reasoning
+- MCP (Model Context Protocol) for AI model interaction
 
-### May 11, 2025 - Temporal Module for Ontology Enhancement
+## Recent Development Work
 
-Created a new temporal module (`mcp/modules/temporal_module.py`) for integration into the unified ontology server architecture. This module provides temporal functionality for representing, analyzing, and querying ethical cases in their temporal context.
+### Ontology Enhancement Branch (2025-05-11)
 
-Key implementations:
-1. Integrated temporal functionality into the modular architecture of the unified ontology server
-2. Removed dependency on the standalone `add_temporal_functionality.py` script
-3. Created proper tool registration through the BaseModule system
-4. Established consistent pattern following the unified server architecture
+Created a new branch focused on enhancing the ontology portion of ProEthica, based on the realm-integration branch. Key accomplishments:
 
-This work aligns with our ontology-focused development branch that concentrates on case analysis and representation capabilities.
+1. **Branch Setup and Infrastructure**
+   - Created `scripts/create_ontology_branch.sh` for automating branch creation
+   - Configured unified ontology server to use port 5002 to avoid conflicts
+   - Fixed port conflict issues with running MCP server processes
 
-### May 11, 2025 - Ontology-Focused Branch Creation
+2. **Documentation**
+   - Created `docs/ontology_case_analysis_plan.md` outlining the ontology-based case analysis features
+   - Updated `ONTOLOGY_ENHANCEMENT_README.md` with branch information and configuration details
 
-Created a new branch focused on enhancing the ontology functionality within ProEthica, particularly for engineering ethics applications. This branch builds on the realm-integration work and focuses on implementing McLaren's approach to case analysis and ethical reasoning.
+3. **Technical Fixes**
+   - Resolved URL string escape issues (where "\x3a" was appearing instead of ":")
+   - Fixed ontology blueprint conflicts in the Flask application
+   - Improved error handling in MCP client
 
-Key changes:
+### URL Escape Sequence Fixes
 
-1. **Unified Ontology Server Configuration**
-   - Modified the Unified Ontology Server to run on port 5002 (changed from 5001)
-   - Updated all references to the server port in various components:
-     - `run_unified_mcp_server.py`
-     - `scripts/verify_proethica_ontology.py`
-     - `app/routes/ontology_routes.py`
+Addressed issues where URL strings were being improperly escaped, causing "\x3a" to appear instead of ":". This was occurring in the MCP client when constructing URLs for API endpoints. The fix involved:
 
-2. **Management Scripts**
-   - Created `scripts/create_ontology_branch.sh` for setting up the ontology-focused branch
-   - Created `start_unified_ontology_server.sh` and `stop_unified_ontology_server.sh` for server management
-   - Made all scripts executable
+1. Using Python's string format() method instead of f-strings for URL construction
+2. Adding URL normalization in the MCPClient class
+3. Implementing proper string handling for URL paths
 
-3. **Documentation**
-   - Created `docs/ontology_case_analysis_plan.md` outlining the implementation plan for ontology-based case analysis
-   - Organized the implementation into four phases:
-     1. Infrastructure Setup (completed)
-     2. Case Analysis Implementation
-     3. Case Transformation
-     4. Analysis and Visualization
+### Ontology Blueprint Resolution
 
-## System Architecture
-
-### Core Components
-
-1. **Flask Web Application**
-   - Main web interface and API
-   - Handles user authentication, scenario management, and document processing
-   - Connects to the various subsystems
-
-2. **Database Layer**
-   - PostgreSQL with pgvector extension for embeddings
-   - Stores cases, scenarios, user data, analysis results, and ontology information
-
-3. **Ontology System**
-   - Engineering ethics formal ontology
-   - Provides structured representation of ethical principles, roles, responsibilities
-   - Now enhanced with case analysis capabilities through the Unified Ontology Server
-
-4. **Unified Ontology Server**
-   - Modular server providing ontology access and querying
-   - JSON-RPC interface for tool access
-   - Modules include:
-     - Query Module: Basic ontology querying
-     - Case Analysis Module: Analysis of ethics cases using the ontology
-     - Temporal Module: Representation of cases in temporal context
-
-5. **Agent System**
-   - LLM-powered agents for ethical reasoning
-   - Simulation orchestration and character interactions
-   - Case analysis and report generation
-
-### MCP Integration
-
-The Model Context Protocol (MCP) is used for:
-1. Providing access to the ontology via the Unified Ontology Server
-2. Enabling case analysis through specialized tools
-3. Connecting the Flask application to ontology capabilities
-
-## Development Roadmap
-
-### Current Focus: Ontology-Based Case Analysis
-
-The current development focus is on implementing McLaren's methodology for engineering ethics case analysis:
-
-1. Extensional definitions of ethics principles through concrete examples
-2. Temporal representation of ethics cases for analysis
-3. Case-based reasoning to find similar cases and principles
-4. Operationalization of abstract principles through specific case instantiations
+Fixed conflicts between multiple ontology blueprints in app/__init__.py by:
+1. Removing duplicate blueprint registrations
+2. Ensuring correct naming conventions for blueprints
+3. Properly structuring route paths
 
 ### Next Steps
 
-1. Complete the case analysis functionality in the Case Analysis Module
-2. Implement entity extraction from case text
-3. Develop the temporal representation system
-4. Create visualization components for case analysis
-5. Integrate with the simulation system
+1. **Module Implementation**
+   - Complete the case analysis module functionality
+   - Implement temporal ontology support
+   - Enhance query capabilities
 
-## Technical Notes
+2. **Integration Testing**
+   - Test ontology server with ProEthica application
+   - Verify proper communication between components
+   - Validate case analysis functionality
 
-### Running the Unified Ontology Server
+3. **Documentation**
+   - Complete API documentation for new endpoints
+   - Update user documentation with new features
+   - Document ontology data model
 
-The Unified Ontology Server can be managed using:
+## Running the System
+
+### Starting the Unified Ontology Server
 
 ```bash
-# Start the server (runs on port 5002)
 ./start_unified_ontology_server.sh
+```
 
-# Stop the server
+### Stopping the Server
+
+```bash
 ./stop_unified_ontology_server.sh
 ```
 
 ### Creating a New Ontology-Focused Branch
 
-To create a new branch for ontology development:
-
 ```bash
-# Create branch with default name "ontology-focused"
-./scripts/create_ontology_branch.sh
-
-# Create branch with custom name
-./scripts/create_ontology_branch.sh my-custom-branch-name
+./scripts/create_ontology_branch.sh [custom-branch-name]
 ```
 
-### Testing Ontology Server Connectivity
+## Technical Notes
 
-To verify the connection between the Flask app and the Unified Ontology Server:
-
-```bash
-python scripts/verify_proethica_ontology.py
-```
-
-## References
-
-- McLaren, B. M. (2003). Extensionally Defining Principles and Cases in Ethics: An AI Model. Artificial Intelligence Journal, 150, 145-181.
+- The unified ontology server runs on port 5002 by default
+- ProEthica communicates with the ontology server via HTTP
+- Case analysis modules extend the base module functionality
+- Temporal reasoning is handled by specialized ontology structures

@@ -1,69 +1,43 @@
 # Ontology Enhancement Branch
 
-This branch focuses on enhancing the ontology functionality within ProEthica, particularly for engineering ethics applications. It builds on the REALM integration work and implements McLaren's approach to case analysis and ethical reasoning.
+This branch focuses on enhancing the ontology capabilities of ProEthica based on the realm-integration branch.
 
-## Overview
+## Focus Areas
 
-The ontology enhancement focuses on:
+1. **Unified Ontology System**: Integrating and enhancing the ontology capabilities
+2. **Enhanced Case Analysis**: Using ontologies for improved case analysis
+3. **Temporal Ontology Features**: Adding temporal functionality to the ontology system
 
-1. **Case Representation**: Implementing temporal representation of ethics cases
-2. **Extensional Definitions**: Using concrete examples to define ethical principles
-3. **Case-Based Reasoning**: Finding similarities between cases to guide ethical analysis
-4. **Operationalization**: Making abstract principles concrete through specific case examples
+## Implementation Details
 
-## Setup
+### Unified Ontology Server
 
-1. **Clone this branch**:
-   ```bash
-   git checkout ontology-enhancement-v1
-   ```
+The unified ontology server provides centralized access to ontology data and functionality.
+Key features include:
+- Standardized API for ontology access
+- Dynamic loading of ontology modules
+- Query capabilities across multiple ontology sources
 
-2. **Set up the environment**:
-   ```bash
-   python -m pip install -r requirements.txt
-   ```
+### Case Analysis Integration
 
-3. **Start the unified ontology server**:
-   ```bash
-   ./start_unified_ontology_server.sh
-   ```
+Case analysis functionality uses ontologies to:
+- Extract ethical principles from cases
+- Map case elements to ontology concepts
+- Provide structured ethical reasoning
 
-## Architecture
+## Configuration
 
-The implementation follows a modular architecture with the following components:
-
-1. **Unified Ontology Server**: Provides ontology access and query capabilities
-2. **Case Analysis Module**: Extracts ontology entities from cases and performs analysis
-3. **Temporal Module**: Manages temporal aspects of case representation
-4. **Database Layer**: Stores case analysis results and relationships
-5. **API Integration**: Connects the Flask application to the ontology system
-
-## Key Improvements
-
-- **Modular Architecture**: Better organized code with clear separation of concerns
-- **Temporal Functionality**: Integrated temporal functionality directly into the unified server architecture
-- **Enhanced Case Analysis**: Support for analyzing engineering ethics cases with ontology support
-- **Better Documentation**: Comprehensive documentation of the ontology case analysis methodology
+The ontology server runs on port 5002 by default to avoid conflicts with other services.
+The MCP client has been modified to handle URL formatting issues and properly connect to the ontology server.
 
 ## Usage
 
-To use the ontology case analysis functionality:
+To start the unified ontology server:
+```bash
+./start_unified_ontology_server.sh
+```
 
-1. Start the unified ontology server:
-   ```bash
-   ./start_unified_ontology_server.sh
-   ```
-
-2. Access the case analysis tools through the Flask API at:
-   ```
-   http://localhost:5000/api/ontology/analyze_case/{id}
-   ```
-
-3. Stop the server when done:
-   ```bash
-   ./stop_unified_ontology_server.sh
-   ```
-
-## References
-
-- McLaren, B. M. (2003). Extensionally Defining Principles and Cases in Ethics: An AI Model. Artificial Intelligence Journal, 150, 145-181.
+To stop the server:
+```bash
+./stop_unified_ontology_server.sh
+```
