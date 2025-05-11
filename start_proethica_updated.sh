@@ -158,7 +158,7 @@ fi
 echo -e "${BLUE}Starting Unified Ontology MCP Server...${NC}"
 
 # Environment setup for unified ontology server
-PORT=${MCP_SERVER_PORT:-5002}
+PORT=${MCP_SERVER_PORT:-5001}
 HOST="0.0.0.0"
 
 # Make sure the unified MCP server script is executable
