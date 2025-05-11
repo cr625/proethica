@@ -10,7 +10,6 @@ from aiohttp import web
 
 # Add the parent directory to the path so we can import mcp as a package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from add_temporal_functionality import add_temporal_endpoints
 
 # Configurable environment setup
 ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", os.path.join(os.path.dirname(__file__), "ontology"))
@@ -484,8 +483,11 @@ async def run_server():
     server = OntologyMCPServer()
     app = web.Application()
     
-    # Add temporal endpoints
-    add_temporal_endpoints(app)
+    # Import and register the temporal module
+    from mcp.modules.temporal_module import TemporalModule
+    temporal_module = TemporalModule()
+    
+    # Register temporal endpoints directly in the unified server
     
     # JSON-RPC endpoint
     app.router.add_post('/jsonrpc', server.handle_jsonrpc)

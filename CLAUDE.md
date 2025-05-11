@@ -1,195 +1,125 @@
-# ProEthica and REALM Development Log
+# ProEthica AI Ethical Decision-Making System
 
-## May 11, 2025 - Database Schema Initialization and Error Resolution
+This document tracks the development of the ProEthica AI Ethical Decision-Making System, recording key implementation details, architecture decisions, and development tasks.
 
-### Issue Resolved: Database Table Creation
+## Recent Updates
 
-**Problem:** ProEthica was encountering database errors when accessing routes like `/scenarios/` and `/worlds/`. The error logs showed that the database tables like `scenarios` and `worlds` did not exist.
+### May 11, 2025 - Ontology-Focused Branch Creation
 
-**Solution:**
-1. Created a database initialization script (`scripts/initialize_proethica_db.py`) that:
-   - Sets up the proper database connection
-   - Creates all necessary database tables for the application
-   - Verifies the tables have been created correctly
-   
-2. Updated the startup script (`start_proethica_updated.sh`) to:
-   - Run the database initialization script during startup
-   - Improve error handling for the database connection string
-   - Properly clean up and restart MCP server processes
+Created a new branch focused on enhancing the ontology functionality within ProEthica, particularly for engineering ethics applications. This branch builds on the realm-integration work and focuses on implementing McLaren's approach to case analysis and ethical reasoning.
 
-**Results:**
-- The routes `/scenarios/`, `/worlds/`, and `/cases/` now work correctly
-- The database tables are properly created
-- The MCP server starts up correctly and is accessible
+Key changes:
 
-**Technical Notes:**
-- The database URI was being incorrectly parsed due to escaped characters in earlier implementation
-- Setting the `DATABASE_URL` environment variable directly in the initialization script fixed this issue
-- The database schema is now initialized before the application starts
+1. **Unified Ontology Server Configuration**
+   - Modified the Unified Ontology Server to run on port 5002 (changed from 5001)
+   - Updated all references to the server port in various components:
+     - `run_unified_mcp_server.py`
+     - `scripts/verify_proethica_ontology.py`
+     - `app/routes/ontology_routes.py`
 
-## REALM Project Overview and Integration Plan
+2. **Management Scripts**
+   - Created `scripts/create_ontology_branch.sh` for setting up the ontology-focused branch
+   - Created `start_unified_ontology_server.sh` and `stop_unified_ontology_server.sh` for server management
+   - Made all scripts executable
 
-### REALM - Materials Science Ontology Integration
+3. **Documentation**
+   - Created `docs/ontology_case_analysis_plan.md` outlining the implementation plan for ontology-based case analysis
+   - Organized the implementation into four phases:
+     1. Infrastructure Setup (completed)
+     2. Case Analysis Implementation
+     3. Case Transformation
+     4. Analysis and Visualization
 
-REALM (Resource for Engineering and Advanced Learning in Materials) is a new application being developed to integrate with the Materials Science and Engineering Ontology (MSEO) from [matportal.org/ontologies/MSEO](https://matportal.org/ontologies/MSEO).
+## System Architecture
 
-**Current Components:**
-- Created directory structure for REALM application
-- Implemented MCP server integration for MSEO ontology
-- Set up shared database infrastructure with ProEthica
+### Core Components
 
-**Integration Strategy:**
-- REALM will use shared components from the agent_module
-- The ontology MCP server will be extended for both applications
-- Common database infrastructure will be used but with separate schemas
+1. **Flask Web Application**
+   - Main web interface and API
+   - Handles user authentication, scenario management, and document processing
+   - Connects to the various subsystems
 
-**Next Steps:**
-1. Complete the MSEO ontology integration with the MCP server
-2. Implement the REALM-specific UI components
-3. Extend the ontology editor for materials science concepts
+2. **Database Layer**
+   - PostgreSQL with pgvector extension for embeddings
+   - Stores cases, scenarios, user data, analysis results, and ontology information
 
-## May 11, 2025 - Ontology Enhancement Branch Creation
+3. **Ontology System**
+   - Engineering ethics formal ontology
+   - Provides structured representation of ethical principles, roles, responsibilities
+   - Now enhanced with case analysis capabilities through the Unified Ontology Server
 
-### Unified Ontology Server Development
+4. **Unified Ontology Server**
+   - Modular server providing ontology access and querying
+   - JSON-RPC interface for tool access
+   - Modules include:
+     - Query Module: Basic ontology querying
+     - Case Analysis Module: Analysis of ethics cases using the ontology
 
-Created a new branch `ontology-enhancement` from `realm-integration` to focus on enhancing the ontology functionality in ProEthica, particularly for engineering ethics applications.
+5. **Agent System**
+   - LLM-powered agents for ethical reasoning
+   - Simulation orchestration and character interactions
+   - Case analysis and report generation
 
-**Objectives:**
-- Consolidate multiple MCP server implementations into a unified server
-- Restore engineering ethics ontology from the backup
-- Integrate temporal functionality directly into the server
-- Enhance case analysis using ontology entities
-- Improve LLM integration with ontology data
+### MCP Integration
 
-**Technical Approach:**
-1. Unified modular architecture for MCP server components
-2. Database restoration of engineering ontology from backup file
-3. Case entity extraction and analysis enhancements
-4. Agent module updates for better ontology interactions
+The Model Context Protocol (MCP) is used for:
+1. Providing access to the ontology via the Unified Ontology Server
+2. Enabling case analysis through specialized tools
+3. Connecting the Flask application to ontology capabilities
 
-**Implementation Plan:**
-- Created implementation documentation in `docs/ontology_enhancement_plan.md`
-- Will develop modular architecture with pluggable components
-- Focus will be on engineering ethics ontology with improved case analysis
+## Development Roadmap
 
-This enhancement will restore focus on engineering ethics after the REALM integration branch work, which had shifted the focus to materials science ontology.
+### Current Focus: Ontology-Based Case Analysis
 
-## May 11, 2025 - Unified Ontology Server Implementation
+The current development focus is on implementing McLaren's methodology for engineering ethics case analysis:
 
-### Modular Architecture for Ontology Server
+1. Extensional definitions of ethics principles through concrete examples
+2. Temporal representation of ethics cases for analysis
+3. Case-based reasoning to find similar cases and principles
+4. Operationalization of abstract principles through specific case instantiations
 
-Implemented the core components of the unified ontology server with a modular architecture.
+### Next Steps
 
-**Key Components Built:**
+1. Complete the case analysis functionality in the Case Analysis Module
+2. Implement entity extraction from case text
+3. Develop the temporal representation system
+4. Create visualization components for case analysis
+5. Integrate with the simulation system
 
-1. **Base Module System**:
-   - Created abstract `BaseModule` class
-   - Implemented tool registration and management
-   - Added error handling and result formatting
+## Technical Notes
 
-2. **Core Server Architecture**:
-   - Implemented `UnifiedOntologyServer` class
-   - Added dynamic module loading
-   - Created JSON-RPC API endpoint handling
-   - Added caching for ontology graphs
+### Running the Unified Ontology Server
 
-3. **Query Module**:
-   - Implemented entity retrieval functionality
-   - Added SPARQL query execution
-   - Created guideline access tools
-   - Added detailed entity information retrieval
+The Unified Ontology Server can be managed using:
 
-4. **Case Analysis Module**:
-   - Implemented entity extraction from case text
-   - Added case structure analysis using ontologies
-   - Created entity matching between cases and ontologies
-   - Added ontology-based case summary generation
+```bash
+# Start the server (runs on port 5002)
+./start_unified_ontology_server.sh
 
-**Documentation:**
-- Created `docs/unified_ontology_server.md` with architecture and API reference
-- Added `docs/case_analysis_using_ontology.md` with practical usage examples
-- Expanded `docs/ontology_enhancement_plan.md` with technical details
+# Stop the server
+./stop_unified_ontology_server.sh
+```
 
-**Additional Files:**
-- Added `run_unified_mcp_server.py` for starting the unified server
-- Created `create_ontology_branch.sh` to facilitate branch management
+### Creating a New Ontology-Focused Branch
 
-**Next Steps:**
-- Implement the temporal module for time-based entity analysis
-- Create the relationship module for ontology navigation
-- Add comprehensive testing
-- Integrate with the existing Flask application
+To create a new branch for ontology development:
 
-## May 11, 2025 - Ontology Case Analysis Implementation Planning
+```bash
+# Create branch with default name "ontology-focused"
+./scripts/create_ontology_branch.sh
 
-### McLaren-based Case Analysis Planning
+# Create branch with custom name
+./scripts/create_ontology_branch.sh my-custom-branch-name
+```
 
-Developed a comprehensive implementation plan for the ontology-based case analysis system, using McLaren's methodology for engineering ethics case analysis.
+### Testing Ontology Server Connectivity
 
-**Key Components of the Plan:**
+To verify the connection between the Flask app and the Unified Ontology Server:
 
-1. **Case Analysis Framework**:
-   - Implementation of McLaren's operationalization techniques from McLaren_2003.pdf
-   - Focus on extensional definitions of ethical principles
-   - Integration with the unified ontology server
-   
-2. **Temporal Case Representation**:
-   - Conversion of cases into temporal representations for simulation
-   - Implementation of a timeline view for ethical decision points
-   - Support for scenario creation from existing cases
-   
-3. **Pattern Matching and Prediction**:
-   - Simple pattern matching between cases based on overlapping ontology elements
-   - Outcome prediction based on similar cases
-   - Confidence visualization for predictions
+```bash
+python scripts/verify_proethica_ontology.py
+```
 
-**Phased Implementation Approach:**
-1. First phase: Verification and basic setup of ProEthica with unified ontology server
-2. Second phase: Implementation of case analysis framework and entity extraction
-3. Third phase: Case transformation to scenarios with temporal representations
-4. Fourth phase: Pattern matching, prediction, and final UI integration
+## References
 
-**Documentation:**
-- Created `docs/ontology_case_analysis_plan.md` with detailed implementation plan
-- The plan follows McLaren's approach to operationalization in engineering ethics
-
-**Next Steps:**
-- Begin Phase 1 by verifying the Flask application functionality
-- Set up database schema for enhanced ontology entity tracking
-- Develop initial case analysis components
-
-## May 11, 2025 - Ontology-Case Analysis Branch Implementation
-
-### Created New Branch for Case Analysis
-
-Created a new branch `ontology-case-analysis` from `realm-integration` to specifically focus on implementing the ontology-based case analysis functionality.
-
-**Implementation Features:**
-
-1. **API Integration Layer**:
-   - Developed Flask routes in `app/routes/ontology_routes.py` for ontology server connectivity
-   - Implemented endpoints for SPARQL queries, entity details, and case analysis
-   - Added status verification endpoint to check connectivity
-
-2. **Database Schema Extensions**:
-   - Created migration script `scripts/create_case_analysis_tables.py` for case analysis tables
-   - Added tables for case entities, temporal elements, and principles
-   - Implemented tables for tracking relationships between cases
-   - Added appropriate indexes for performance optimization
-
-3. **Verification and Setup Utilities**:
-   - Implemented `scripts/verify_proethica_ontology.py` to check connectivity
-   - Created `setup_ontology_case_analysis.sh` for one-step environment setup
-   - Added `create_ontology_branch.sh` for branch management
-
-**Technical Design:**
-- Created a modular approach to case analysis
-- Integrated with the unified ontology server
-- Set up infrastructure for ontology-guided case analysis
-- Implemented database schema to support McLaren's operationalization framework
-
-**Next Steps:**
-1. Implement the case analysis components for entity extraction
-2. Create UI elements for displaying analysis results
-3. Develop temporal visualization for case timelines
-4. Implement pattern matching between similar cases
+- McLaren, B. M. (2003). Extensionally Defining Principles and Cases in Ethics: An AI Model. Artificial Intelligence Journal, 150, 145-181.

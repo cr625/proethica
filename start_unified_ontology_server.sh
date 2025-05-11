@@ -1,78 +1,75 @@
 #!/bin/bash
-# Script to start the Unified Ontology MCP Server
 
-# Set colored output
+# Script to start the unified ontology MCP server
+
+# Color definitions
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Check if we're in the right directory
-if [ ! -f "run_unified_mcp_server.py" ]; then
-    echo -e "${RED}Error: run_unified_mcp_server.py not found in current directory.${NC}"
-    echo -e "${YELLOW}Please run this script from the project root directory.${NC}"
-    exit 1
+# Environment setup
+PORT=${MCP_SERVER_PORT:-5002}
+HOST="0.0.0.0"
+
+echo -e "${BLUE}Starting Unified Ontology MCP Server on ${YELLOW}${HOST}:${PORT}${NC}"
+
+# Check if the server is already running
+PID=$(pgrep -f "python.*run_unified_mcp_server.py")
+if [ ! -z "$PID" ]; then
+    echo -e "${YELLOW}Warning: Unified Ontology MCP Server is already running (PID: $PID)${NC}"
+    read -p "Do you want to stop it and start a new instance? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${RED}Stopping existing server...${NC}"
+        kill $PID
+        sleep 2
+    else
+        echo -e "${YELLOW}Exiting without starting a new server.${NC}"
+        exit 0
+    fi
 fi
 
-# Make sure run_unified_mcp_server.py is executable
+# Set up Python environment
+if [ -d "venv" ]; then
+    echo -e "${BLUE}Activating virtual environment...${NC}"
+    source venv/bin/activate
+fi
+
+# Load environment variables
+if [ -f .env ]; then
+    echo -e "${BLUE}Loading environment variables from .env file...${NC}"
+    export $(grep -v '^#' .env | xargs)
+fi
+
+# Make sure the unified MCP server script is executable
 chmod +x run_unified_mcp_server.py
 
-# Set up the Python environment
-echo -e "${BLUE}Setting up Python environment...${NC}"
-
-# Check if virtual environment exists
-if [ -d "venv" ] || [ -d ".venv" ]; then
-    # Activate virtual environment if it exists
-    if [ -d "venv" ]; then
-        echo -e "${GREEN}Activating virtual environment: venv${NC}"
-        source venv/bin/activate
-    else
-        echo -e "${GREEN}Activating virtual environment: .venv${NC}"
-        source .venv/bin/activate
-    fi
-else
-    echo -e "${YELLOW}No virtual environment found. Using system Python.${NC}"
-fi
-
-# Set environment variables
-export FLASK_APP=app
-export FLASK_ENV=development
-export PYTHONPATH=$PYTHONPATH:$(pwd)
-
-# Clean up any previous instances
-echo -e "${BLUE}Checking for previous server instances...${NC}"
-pkill -f "python3 run_unified_mcp_server.py" || true
-sleep 1
-
 # Start the server
-echo -e "${BLUE}Starting Unified Ontology MCP Server...${NC}"
-echo -e "${YELLOW}Server will be available at: http://localhost:5001${NC}"
-echo -e "${YELLOW}API documentation available at: http://localhost:5001/info${NC}"
+echo -e "${BLUE}Starting unified ontology MCP server...${NC}"
 
-# Run in the background with output to log file
-echo -e "${BLUE}Running server in the background. Logs will be written to unified_ontology_server.log${NC}"
-python3 run_unified_mcp_server.py > unified_ontology_server.log 2>&1 &
+LOGFILE="logs/unified_ontology_server_$(date +%Y%m%d_%H%M%S).log"
+mkdir -p logs
 
-# Store the PID
+# Create the command to run
+CMD="python run_unified_mcp_server.py --host $HOST --port $PORT"
+
+# Start the server in the background with nohup
+nohup $CMD > "$LOGFILE" 2>&1 &
+
+# Get the PID of the process
 SERVER_PID=$!
-echo $SERVER_PID > unified_ontology_server.pid
-echo -e "${GREEN}Server started with PID: ${SERVER_PID}${NC}"
 
-# Wait a bit for the server to start
+# Check if the server started successfully
 sleep 2
-
-# Check if the server is running
 if ps -p $SERVER_PID > /dev/null; then
-    echo -e "${GREEN}Server is running successfully!${NC}"
-    echo -e "${YELLOW}===========================================${NC}"
-    echo -e "${YELLOW}Available modules and tools:${NC}"
-    curl -s http://localhost:5001/info | python3 -m json.tool
-    echo -e "${YELLOW}===========================================${NC}"
-    echo -e "${YELLOW}To stop the server: ./stop_unified_ontology_server.sh${NC}"
-    echo -e "${YELLOW}To view logs: cat unified_ontology_server.log${NC}"
-    echo -e "${YELLOW}To tail logs: tail -f unified_ontology_server.log${NC}"
+    echo -e "${GREEN}Server started successfully with PID ${YELLOW}${SERVER_PID}${NC}"
+    echo -e "${BLUE}Logs are being written to ${YELLOW}${LOGFILE}${NC}"
+    echo -e "${BLUE}Server is running at ${YELLOW}http://${HOST}:${PORT}${NC}"
+    echo -e "${BLUE}Use ${YELLOW}stop_unified_ontology_server.sh${BLUE} to stop the server${NC}"
 else
-    echo -e "${RED}Server failed to start. Check logs: unified_ontology_server.log${NC}"
+    echo -e "${RED}Failed to start the server. Check the logs: ${YELLOW}${LOGFILE}${NC}"
+    tail -n 10 "$LOGFILE"
     exit 1
 fi
