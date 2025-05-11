@@ -255,3 +255,149 @@ Modified `auto_run.sh` to respect the `MCP_SERVER_ALREADY_RUNNING` environment v
 - The unified ontology server is started once and reused
 - Eliminates confusion from seeing the same initialization messages twice
 - Startup process is more efficient and has less potential for conflicts
+
+## 2025-05-11: Fixed Flask Application Factory Pattern Import Issue
+
+### Issue
+When running the startup script `./start_proethica_updated.sh`, an error was displayed:
+```
+Discovered model: World
+Could not extract routes from Flask URL map: cannot import name 'app' from 'app' (/home/chris/ai-ethical-dm/app/__init__.py)
+```
+
+### Investigation
+1. Identified that the MCP server and other components were trying to import a global `app` instance directly from the app package
+2. Examined the codebase and found that it was using the Flask "application factory" pattern where `create_app()` is exported from `app/__init__.py` instead of a globally defined app variable
+3. Found three files with incorrect import patterns:
+   - `app/services/application_context_service.py`: Attempted to import `app` directly instead of using `create_app()`
+   - `mcp/http_ontology_mcp_server.py`: Imported `db` before creating the app context
+   - `mcp/unified_ontology_server.py`: Lacked a comment about proper import order
+
+### Solution
+1. In `app/services/application_context_service.py`:
+   - Changed `from app import app` to `from app import create_app`
+   - Added code to create the app instance with `app = create_app()`
+
+2. In `mcp/http_ontology_mcp_server.py`:
+   - Fixed import order to properly create app context before importing db
+   - Changed from:
+     ```python
+     from app import create_app, db
+     ```
+   - To:
+     ```python
+     from app import create_app
+     app = create_app()
+     from app import db  # Import db after creating app context
+     ```
+
+3. In `mcp/unified_ontology_server.py`:
+   - Added comment to clarify proper import sequence
+
+### Results
+- The error "cannot import name 'app' from 'app'" no longer appears
+- The Flask application factory pattern is now used correctly in all components
+- Routes extraction from Flask URL map should now work properly
+- System is better aligned with Flask best practices
+
+### Lessons Learned
+- When using Flask's application factory pattern, it's important to consistently follow the correct import pattern throughout the codebase
+- Services that need to access Flask components should create their own app instance using the `create_app()` function
+- Database access (`db`) requires an active app context, so import order matters
+
+## 2025-05-11: Identified Circular Dependency in Application Initialization
+
+### Issue
+When running the `start_proethica_updated.sh` script, the system encountered a critical error with an infinite recursion problem during initialization:
+
+```
+RecursionError: maximum recursion depth exceeded
+```
+
+### Investigation
+Analyzed the error stack trace and identified a circular dependency chain in the application initialization:
+
+1. `create_app()` calls `create_proethica_agent_blueprint()`
+2. `create_proethica_agent_blueprint()` instantiates `ProEthicaContextProvider()`
+3. `ProEthicaContextProvider()` calls `ApplicationContextService.get_instance()`
+4. `ApplicationContextService.get_instance()` calls `ApplicationContextService()`
+5. `ApplicationContextService()` calls `_build_navigation_map()`
+6. `_build_navigation_map()` calls `create_app()` again, creating an infinite loop
+
+### Affected Files
+The circular dependency involves these key files:
+- `app/__init__.py`: The `create_app()` function
+- `app/agent_module/__init__.py`: The `create_proethica_agent_blueprint()` function
+- `app/agent_module/adapters/proethica.py`: The `ProEthicaContextProvider.__init__()` method
+- `app/services/application_context_service.py`: The circular dependency involving `_build_navigation_map()`
+
+### Recommended Solution
+To resolve this circular dependency, the application architecture needs to be refactored in one of these ways:
+
+1. Redesign the `ApplicationContextService` to use lazy initialization for the navigation map, avoiding the call to `create_app()` during initialization
+2. Implement a parameter in `create_app()` to prevent recursive calls, like a `skip_context_service` flag
+3. Use dependency injection to provide the navigation map to `ApplicationContextService` after application startup
+4. Set up a guard condition in the recursive path to prevent infinite loops
+
+### Next Steps
+1. Apply the selected solution approach to break the circular dependency
+2. Test the implementation thoroughly to ensure all components initialize correctly
+3. Add unit tests to verify the system's resilience against circular dependencies
+4. Update documentation to explain the architectural choices and initialization flow
+
+## 2025-05-11: Resolved Circular Dependency in Application Initialization
+
+### Solution Implemented
+Implemented a lazy loading mechanism for the navigation map in the `ApplicationContextService` class to resolve the circular dependency:
+
+1. Modified `ApplicationContextService.__init__()` to initialize a `_navigation` property as `None` instead of directly calling `_build_navigation_map()`
+2. Created a new property getter `navigation` that lazily initializes the navigation map only when first accessed
+3. Modified `_build_navigation_map()` to use `flask.current_app` instead of importing and creating a new app
+
+### Code Changes
+The key changes in `app/services/application_context_service.py`:
+
+```python
+def __init__(self):
+    # ...
+    # Use lazy initialization for navigation map to avoid circular dependency
+    self._navigation = None
+    # ...
+
+@property
+def navigation(self) -> Dict[str, Any]:
+    """
+    Property to lazily initialize and access the navigation map.
+    This breaks the circular dependency with Flask app creation.
+    """
+    if self._navigation is None:
+        self._navigation = self._build_navigation_map()
+    return self._navigation
+        
+def _build_navigation_map(self) -> Dict[str, Any]:
+    # ...
+    # Try to extract routes from Flask's URL map if we're in a Flask context
+    from flask import current_app
+    if current_app:
+        try:
+            if hasattr(current_app, 'url_map'):
+                # Use existing app context
+                # ...
+```
+
+### Results
+1. The application now starts successfully without recursive errors
+2. The Flask server starts properly and the ontology editor loads correctly
+3. Database tables are created successfully and verified
+4. The unified ontology MCP server functions normally
+
+### Benefits of the Solution
+1. Breaks the circular dependency in a clean, maintainable way
+2. Follows the principle of lazy initialization for resource-intensive operations
+3. Improves startup performance as navigation map is only built when needed
+4. No longer imports and creates redundant Flask app instances
+5. Aligns with Flask best practices by using `current_app` proxy
+
+### Documentation
+1. Updated `docs/startup_failure_analysis.md` with detailed explanation of the issue and solution
+2. Recorded the implementation in CLAUDE.md to document the work

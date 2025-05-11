@@ -72,10 +72,11 @@ class OntologyMCPServer:
             try:
                 # Create a Flask app context for database access
                 import os
-                from app import create_app, db
+                from app import create_app
                 from app.models.ontology import Ontology
                 
                 app = create_app()
+                from app import db  # Import db after creating app context
                 with app.app_context():
                     # Try to fetch from database
                     print(f"Attempting to load ontology '{domain_id}' from database", file=sys.stderr)

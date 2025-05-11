@@ -57,6 +57,7 @@ class UnifiedOntologyServer:
         try:
             from app import create_app
             self.app = create_app()
+            # Import db only after creating the app
             logger.info("Successfully initialized Flask app")
         except Exception as e:
             logger.warning(f"Failed to initialize Flask app: {str(e)}")

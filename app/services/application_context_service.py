@@ -66,8 +66,8 @@ class ApplicationContextService:
         # Initialize model registry
         self.model_registry = self._initialize_model_registry()
         
-        # Initialize navigation map
-        self.navigation = self._build_navigation_map()
+        # Use lazy initialization for navigation map to avoid circular dependency
+        self._navigation = None
         
         # Initialize context providers
         self.context_providers = []
@@ -207,6 +207,19 @@ class ApplicationContextService:
         
         return model_registry
     
+    @property
+    def navigation(self) -> Dict[str, Any]:
+        """
+        Property to lazily initialize and access the navigation map.
+        This breaks the circular dependency with Flask app creation.
+        
+        Returns:
+            Dictionary of navigation paths
+        """
+        if self._navigation is None:
+            self._navigation = self._build_navigation_map()
+        return self._navigation
+        
     def _build_navigation_map(self) -> Dict[str, Any]:
         """
         Build a map of available navigation paths in the application.
@@ -216,51 +229,51 @@ class ApplicationContextService:
         """
         navigation = {}
         
-        # Try to extract routes from Flask's URL map
-        try:
-            from app import app
-            
-            if hasattr(app, 'url_map'):
-                for rule in app.url_map.iter_rules():
-                    # Skip static routes and other non-user facing routes
-                    if 'static' in rule.endpoint or rule.endpoint.startswith('_'):
-                        continue
+        # Try to extract routes from Flask's URL map if we're in a Flask context
+        from flask import current_app
+        if current_app:
+            try:
+                if hasattr(current_app, 'url_map'):
+                    for rule in current_app.url_map.iter_rules():
+                        # Skip static routes and other non-user facing routes
+                        if 'static' in rule.endpoint or rule.endpoint.startswith('_'):
+                            continue
+                            
+                        # Get blueprint and endpoint name
+                        if '.' in rule.endpoint:
+                            blueprint, endpoint = rule.endpoint.split('.', 1)
+                        else:
+                            blueprint, endpoint = None, rule.endpoint
+                            
+                        # Get details from rule
+                        url = str(rule)
+                        methods = list(rule.methods - {'HEAD', 'OPTIONS'})
                         
-                    # Get blueprint and endpoint name
-                    if '.' in rule.endpoint:
-                        blueprint, endpoint = rule.endpoint.split('.', 1)
-                    else:
-                        blueprint, endpoint = None, rule.endpoint
+                        # Extract parameters
+                        params = [p for p in rule.arguments]
                         
-                    # Get details from rule
-                    url = str(rule)
-                    methods = list(rule.methods - {'HEAD', 'OPTIONS'})
-                    
-                    # Extract parameters
-                    params = [p for p in rule.arguments]
-                    
-                    # Determine section based on blueprint
-                    section = blueprint or 'main'
-                    
-                    # Initialize section if needed
-                    if section not in navigation:
-                        navigation[section] = {
-                            'url': f"/{section}" if section != 'main' else '/',
-                            'description': f"{section.title()} section",
-                            'actions': {}
+                        # Determine section based on blueprint
+                        section = blueprint or 'main'
+                        
+                        # Initialize section if needed
+                        if section not in navigation:
+                            navigation[section] = {
+                                'url': f"/{section}" if section != 'main' else '/',
+                                'description': f"{section.title()} section",
+                                'actions': {}
+                            }
+                            
+                        # Add action
+                        navigation[section]['actions'][endpoint] = {
+                            'url': url,
+                            'method': '/'.join(methods),
+                            'params': params
                         }
-                        
-                    # Add action
-                    navigation[section]['actions'][endpoint] = {
-                        'url': url,
-                        'method': '/'.join(methods),
-                        'params': params
-                    }
-                
-                print(f"Discovered {len(navigation)} navigation sections from Flask URL map")
-                return navigation
-        except (ImportError, AttributeError) as e:
-            print(f"Could not extract routes from Flask URL map: {str(e)}")
+                    
+                    print(f"Discovered {len(navigation)} navigation sections from Flask URL map")
+                    return navigation
+            except Exception as e:
+                print(f"Could not extract routes from Flask URL map: {str(e)}")
         
         # Fallback to hardcoded navigation
         navigation = {
