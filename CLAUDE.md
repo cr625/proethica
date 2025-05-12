@@ -1,34 +1,55 @@
-# AI Ethical Decision Making System Enhancement Log
+# ProEthica System Development Log
 
-## May 11, 2025 - Case Detail View & Ontology RDF Property Enhancements
+## May 11, 2025: Improving Triple Handling in NSPE Case Pipeline
 
-### Fixed Show More/Less Toggle for Case Descriptions
+Created an improved implementation of the NSPE case pipeline that addresses issues with incomplete triples and improves triple display in the case detail view. These changes enable proper representation of both McLaren extensional definition triples and engineering ethics ontology triples.
 
-* Created standalone `app/static/js/case_detail.js` file for improved code organization
-* Fixed JavaScript error: `Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')`
-* Added robust null checks for all DOM element interactions
-* Implemented better show more/less toggle functionality for case descriptions:
-  * Properly measures content height vs container height 
-  * Uses CSS transitions for smooth animation
-  * Handles edge cases like empty containers
+### Implementation Highlights:
 
-### Improved RDF Properties Display
+1. **Fixed McLaren Extensional Definition Module**:
+   - Implemented `validate_triple()` function to ensure all triples have proper subject-predicate-object format
+   - Improved URI construction for triple subjects, predicates, and objects
+   - Added metadata to triples for better front-end display and categorization
+   - Enhanced the `add_mclaren_extensional_triples()` function to create complete triples
 
-* Created and ran `cleanup_rdf_type_triples.py` to remove generic RDF type triples (11 triples removed)
-* Improved triple display by removing redundant generic type information:
-  * Removed triples with: `22-rdf-syntax-ns#type: intermediate#Role`
-  * These were replaced with more semantic domain-specific predicates like:
-    `engineering-ethics#hasRole: engineering-ethics#EngineeringConsultantRole`
-* The case detail view now shows fewer but more meaningful RDF properties
+2. **Enhanced Engineering World Integration**:
+   - Updated `create_engineering_world_triples()` to use consistent document URI patterns
+   - Added triple metadata for categorization and display
+   - Created proper semantic connections between cases and engineering ethics concepts
 
-### Ontology Tagging Improvements
+3. **UI Improvements for Triple Display**:
+   - Added color coding to the case detail page to distinguish between McLaren extensional triples (green) and engineering ethics triples (blue)
+   - Improved triple label display to show cleaner, more user-friendly triple information
+   - Added legend for triple color coding
 
-* Enhanced the `dual_layer_ontology_tagging.py` script to use more semantic predicates
-* Made all entities reference the case directly with `Case {case_id}` as the subject
-* Added domain-specific predicates that better represent ethical relationships:
-  * `hasRole`, `involvesResource`, `involvesEvent`, `involvesAction`
-  * `involvesEthicalIssue`, `hasEthicalVerdict`
+4. **Pipeline Workflow**:
+   - Created scripts for removing and re-importing cases with the improved triple handling:
+     - `delete_case_187.py`: Safely removes the test case and all associated triples
+     - `import_improved_case_187.py`: Re-imports the case with proper triple handling
 
-## April 28, 2025 - Enhanced Ontology Processing
+### Key Improvements:
 
-...rest of document continues...
+- **Complete Triples**: All triples now have proper subject-predicate-object structure
+- **Visual Distinction**: Users can easily distinguish between McLaren extensional and engineering ethics triples
+- **Proper URIs**: Consistent URI patterns for subjects, predicates, and objects
+- **Enhanced Metadata**: Triple metadata enables better categorization and display
+- **Validation**: Triple validation prevents incomplete or malformed triples
+
+### Applied Concepts to Case 187:
+
+Engineering Ethics Concepts added:
+- **Roles**: Structural Engineer Role, Consulting Engineer Role
+- **Actions**: Design Action, Review Action, Report Action
+- **Conditions**: Structural Deficiency, Safety Hazard
+- **Dilemmas**: Professional Responsibility Dilemma, Engineering Ethical Dilemma
+- **Principles**: Honesty Principle, Disclosure Principle, Public Safety Principle
+
+McLaren Extensional Definition concepts:
+- PrincipleInstantiation connections to HonestDisclosure
+- Proper linking between instantiations, principles, and techniques
+
+### Next Steps:
+
+1. **Testing**: Continue testing with additional NSPE cases to verify the improvements
+2. **Documentation**: Update project documentation to reflect the improved triple handling approach
+3. **Automation**: Enhance automatic identification of engineering ethics concepts through improved NLP approaches

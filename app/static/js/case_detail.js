@@ -5,6 +5,7 @@
  * 1. Triple label selection for finding related cases
  * 2. Show more/less toggle for case description
  * 3. Clear selection button for triple labels
+ * 4. Color coding for different triple sources (McLaren vs. Engineering Ethics)
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -26,6 +27,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 documentId = parseInt(pathParts[2]);
             }
         }
+        
+        // Initialize color coding for triples by source
+        initTripleColorCoding();
         
         console.log('Document ID:', documentId);
         
@@ -80,7 +84,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add show more/less toggle for description
         if (descriptionContainer && descriptionContent) {
-            setupShowMoreLessToggle(descriptionContainer, descriptionContent);
+            console.log('Setting up show more/less toggle for description');
+            setupShowMoreLessToggle();
+        } else {
+            console.log('Description container or content element not found');
         }
         
         // Clear selection button
@@ -99,51 +106,146 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         /**
-         * Set up show more/less toggle for a content element
-         * @param {HTMLElement} container The container element
-         * @param {HTMLElement} content The content element to toggle
+         * Initialize color coding for triples by source
          */
-        function setupShowMoreLessToggle(container, content) {
-            // Safety check
-            if (!container || !content) {
+        function initTripleColorCoding() {
+            console.log('Initializing triple color coding...');
+            const tripleLabels = document.querySelectorAll('.triple-label');
+            
+            tripleLabels.forEach(label => {
+                // Read metadata to determine the triple source
+                const metadata = label.getAttribute('data-metadata');
+                if (metadata) {
+                    try {
+                        const metaObj = JSON.parse(metadata);
+                        if (metaObj && metaObj.triple_type) {
+                            // Apply different styling based on triple type
+                            if (metaObj.triple_type === 'mclaren_extensional') {
+                                label.classList.remove('bg-info');
+                                label.classList.add('bg-success', 'text-white');
+                                label.setAttribute('data-source', 'mclaren');
+                                label.setAttribute('title', 'McLaren Extensional Definition');
+                            } else if (metaObj.triple_type === 'engineering_ethics') {
+                                label.classList.remove('bg-info');
+                                label.classList.add('bg-primary', 'text-white');
+                                label.setAttribute('data-source', 'engineering');
+                                label.setAttribute('title', 'Engineering Ethics Ontology');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error parsing triple metadata:', e);
+                    }
+                }
+                
+                // Check predicate for RDF type indicators if metadata is not available
+                if (!label.hasAttribute('data-source')) {
+                    const predicateText = label.textContent.trim().toLowerCase();
+                    
+                    // Try to identify source by predicate naming pattern
+                    if (predicateText.includes('mclaren') || 
+                        predicateText.includes('instantiation') ||
+                        predicateText.includes('conflict')) {
+                        label.classList.remove('bg-info');
+                        label.classList.add('bg-success', 'text-white');
+                        label.setAttribute('data-source', 'mclaren');
+                        label.setAttribute('title', 'McLaren Extensional Definition');
+                    } else if (predicateText.includes('engineering') || 
+                            predicateText.includes('role') ||
+                            predicateText.includes('action') ||
+                            predicateText.includes('dilemma')) {
+                        label.classList.remove('bg-info');
+                        label.classList.add('bg-primary', 'text-white');
+                        label.setAttribute('data-source', 'engineering');
+                        label.setAttribute('title', 'Engineering Ethics Ontology');
+                    }
+                }
+            });
+            
+            console.log('Triple color coding initialized');
+        }
+        
+        /**
+         * Set up show more/less toggle for description content
+         */
+        /**
+         * Helper function to safely add an event listener with error handling
+         */
+        function safeAddEventListener(element, event, handler) {
+            if (element) {
+                try {
+                    element.addEventListener(event, handler);
+                    return true;
+                } catch (error) {
+                    console.error(`Error adding ${event} event listener:`, error);
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        /**
+         * Set up show more/less toggle for description content with enhanced error handling
+         */
+        function setupShowMoreLessToggle() {
+            // Safety check - return early if elements aren't available
+            if (!descriptionContainer || !descriptionContent) {
                 console.warn('setupShowMoreLessToggle: Missing container or content element');
                 return;
             }
             
             try {
-                const contentHeight = content.scrollHeight;
-                const maxHeight = 300; // Default max height
-                
-                console.log('Content height:', contentHeight, 'Max height:', maxHeight);
-                
-                // Only add show more/less toggle if the content is tall enough
-                if (contentHeight > maxHeight) {
-                    console.log('Adding show more/less toggle for description');
-                    
-                    // Set initial height
-                    content.style.maxHeight = maxHeight + 'px';
-                    content.style.overflow = 'hidden';
-                    content.style.transition = 'max-height 0.3s ease-out';
-                    
-                    // Add show more button
-                    const showMoreBtn = document.createElement('button');
-                    showMoreBtn.classList.add('btn', 'btn-link', 'mt-2', 'p-0');
-                    showMoreBtn.textContent = 'Show More';
-                    container.appendChild(showMoreBtn);
-                    
-                    // Toggle content height on button click
-                    showMoreBtn.addEventListener('click', function() {
-                        if (content.style.maxHeight === maxHeight + 'px') {
-                            content.style.maxHeight = contentHeight + 'px';
-                            this.textContent = 'Show Less';
+                // Need to make sure the element has been rendered to get accurate height
+                // Use setTimeout with a longer delay to ensure proper rendering
+                setTimeout(() => {
+                    try {
+                        const contentHeight = descriptionContent.scrollHeight;
+                        const maxHeight = 300; // Default max height
+                        
+                        console.log('Content height:', contentHeight, 'Max height:', maxHeight);
+                        
+                        // Only add show more/less toggle if the content is tall enough
+                        if (contentHeight > maxHeight) {
+                            console.log('Adding show more/less toggle for description');
+                            
+                            // Set initial height
+                            descriptionContent.style.maxHeight = maxHeight + 'px';
+                            descriptionContent.style.overflow = 'hidden';
+                            descriptionContent.style.transition = 'max-height 0.3s ease-out';
+                            
+                            // Create the show more button
+                            const showMoreBtn = document.createElement('button');
+                            if (!showMoreBtn) {
+                                console.warn('Failed to create show more button');
+                                return;
+                            }
+                            
+                            showMoreBtn.classList.add('btn', 'btn-link', 'mt-2', 'p-0');
+                            showMoreBtn.textContent = 'Show More';
+                            
+                            // Append button only if container exists and isn't null
+                            if (descriptionContainer) {
+                                descriptionContainer.appendChild(showMoreBtn);
+                                
+                                // Add click event listener to button with null check
+                                safeAddEventListener(showMoreBtn, 'click', function() {
+                                    if (descriptionContent.style.maxHeight === maxHeight + 'px') {
+                                        descriptionContent.style.maxHeight = contentHeight + 'px';
+                                        this.textContent = 'Show Less';
+                                    } else {
+                                        descriptionContent.style.maxHeight = maxHeight + 'px';
+                                        this.textContent = 'Show More';
+                                    }
+                                });
+                            } else {
+                                console.warn('Cannot append Show More button: container is null');
+                            }
                         } else {
-                            content.style.maxHeight = maxHeight + 'px';
-                            this.textContent = 'Show More';
+                            console.log('Content height is not tall enough for show more/less toggle');
                         }
-                    });
-                } else {
-                    console.log('Content height is not tall enough for show more/less toggle');
-                }
+                    } catch (innerError) {
+                        console.error('Error in setTimeout callback:', innerError);
+                    }
+                }, 50); // Longer timeout for more reliable rendering
             } catch (error) {
                 console.error('Error setting up show more/less toggle:', error);
             }

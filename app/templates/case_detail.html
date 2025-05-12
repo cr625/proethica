@@ -145,14 +145,21 @@
                 <i class="bi bi-info-circle"></i> Click on any property to see related cases. Select multiple properties to find cases matching all selected criteria.
             </p>
             <div class="triple-labels">
+                <div class="mb-3">
+                    <small class="text-muted">
+                        <span class="badge bg-primary me-1">■</span> Engineering Ethics Ontology
+                        <span class="badge bg-success me-1 ms-3">■</span> McLaren Extensional Definition
+                    </small>
+                </div>
                 {% for triple in entity_triples %}
                 <span class="badge bg-info text-dark me-2 mb-2 triple-label" 
                       data-predicate="{{ triple.predicate }}"
                       data-object="{{ triple.object_literal if triple.is_literal else triple.object_uri }}"
                       data-is-literal="{{ 'true' if triple.is_literal else 'false' }}"
+                      data-metadata="{{ triple.triple_metadata|tojson }}"
                       style="cursor: pointer;">
-                    {{ triple.predicate.split('/')[-1] }}: 
-                    {{ triple.object_literal if triple.is_literal else triple.object_uri.split('/')[-1] }}
+                    {{ triple.predicate.split('/')[-1].split('#')[-1] }}: 
+                    {{ triple.object_literal if triple.is_literal else triple.object_uri.split('/')[-1].split('#')[-1] }}
                 </span>
                 {% endfor %}
             </div>

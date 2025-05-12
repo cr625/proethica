@@ -644,6 +644,341 @@ class ApplicationContextService:
             print(f"Error registering context provider: {str(e)}")
             return False
     
+    # Methods for world entity integration
+    def get_case(self, case_id: int) -> Dict[str, Any]:
+        """
+        Get case by ID.
+        
+        Args:
+            case_id: ID of the case to get
+            
+        Returns:
+            Case data as a dictionary or None if not found
+        """
+        try:
+            # Check if Document model exists for cases
+            from app.models.document import Document
+            case = Document.query.filter_by(id=case_id).first()
+            
+            if not case:
+                return None
+                
+            # Convert to dictionary
+            case_data = {
+                'id': case.id,
+                'title': case.title,
+                'world_id': case.world_id,
+                'description': case.content,
+                'metadata': json.loads(case.metadata) if case.metadata else {},
+                'document_id': case.id
+            }
+            
+            return case_data
+        except Exception as e:
+            print(f"Error getting case: {str(e)}")
+            return None
+    
+    def get_world(self, world_id: int) -> Dict[str, Any]:
+        """
+        Get world by ID.
+        
+        Args:
+            world_id: ID of the world to get
+            
+        Returns:
+            World data as a dictionary or None if not found
+        """
+        try:
+            world = World.query.filter_by(id=world_id).first()
+            
+            if not world:
+                return None
+                
+            # Convert to dictionary
+            world_data = {
+                'id': world.id,
+                'name': world.name,
+                'description': world.description,
+                'ontology_id': world.ontology_id,
+                'ontology_source': world.ontology_source
+            }
+            
+            return world_data
+        except Exception as e:
+            print(f"Error getting world: {str(e)}")
+            return None
+    
+    def get_entity_triples(self, case_id: int) -> List[Dict[str, Any]]:
+        """
+        Get entity triples for a case.
+        
+        Args:
+            case_id: ID of the case
+            
+        Returns:
+            List of entity triples
+        """
+        try:
+            # Try to get triples from the entity_triple_service
+            if hasattr(self, 'entity_triple_service'):
+                triples = self.entity_triple_service.get_triples_for_document(case_id)
+                return triples
+                
+            # Fallback to direct query
+            triples = EntityTriple.query.filter_by(document_id=case_id).all()
+            
+            if not triples:
+                return []
+                
+            # Convert to list of dictionaries
+            triple_list = []
+            for triple in triples:
+                triple_dict = {
+                    'id': triple.id,
+                    'document_id': triple.document_id,
+                    'subject': triple.subject,
+                    'predicate': triple.predicate,
+                    'object_literal': triple.object_literal,
+                    'object_uri': triple.object_uri,
+                    'is_literal': triple.is_literal,
+                    'graph': triple.graph,
+                    'triple_metadata': json.loads(triple.triple_metadata) if triple.triple_metadata else {}
+                }
+                triple_list.append(triple_dict)
+                
+            return triple_list
+        except Exception as e:
+            print(f"Error getting entity triples: {str(e)}")
+            return []
+    
+    def store_entity_triples(self, case_id: int, triples: List[Dict[str, Any]], replace: bool = False) -> bool:
+        """
+        Store entity triples for a case.
+        
+        Args:
+            case_id: ID of the case
+            triples: List of triples to store
+            replace: Whether to replace existing triples
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Use entity_triple_service if available
+            if hasattr(self, 'entity_triple_service'):
+                self.entity_triple_service.store_triples_for_document(case_id, triples, replace)
+                return True
+                
+            # Fallback to direct database operations
+            # If replace, delete existing triples
+            if replace:
+                EntityTriple.query.filter_by(document_id=case_id).delete()
+                
+            # Add new triples
+            for triple_data in triples:
+                triple = EntityTriple(
+                    document_id=case_id,
+                    subject=triple_data.get('subject', ''),
+                    predicate=triple_data.get('predicate', ''),
+                    object_literal=triple_data.get('object_literal'),
+                    object_uri=triple_data.get('object_uri'),
+                    is_literal=triple_data.get('is_literal', True),
+                    graph=triple_data.get('graph', ''),
+                    triple_metadata=json.dumps(triple_data.get('triple_metadata', {}))
+                )
+                db.session.add(triple)
+                
+            db.session.commit()
+            return True
+        except Exception as e:
+            print(f"Error storing entity triples: {str(e)}")
+            db.session.rollback()
+            return False
+    
+    def get_world_entities(self, world_id: int) -> Dict[str, Any]:
+        """
+        Get all entities for a world.
+        
+        Args:
+            world_id: ID of the world
+            
+        Returns:
+            Dictionary of entities by type
+        """
+        from app.models.role import Role
+        from app.models.resource import Resource
+        from app.models.condition import Condition
+        from app.models.event import Event, Action
+        
+        try:
+            # Initialize result structure
+            result = {
+                'world_id': world_id,
+                'entities': {
+                    'roles': [],
+                    'conditions': [],
+                    'resources': [],
+                    'actions': [],
+                    'events': [],
+                    'capabilities': []
+                }
+            }
+            
+            # Get roles
+            roles = Role.query.filter_by(world_id=world_id).all()
+            for role in roles:
+                role_data = {
+                    'id': role.id,
+                    'label': role.name,
+                    'name': role.name,
+                    'description': role.description,
+                    'world_id': role.world_id
+                }
+                result['entities']['roles'].append(role_data)
+                
+            # Get resources
+            resources = Resource.query.filter_by(world_id=world_id).all()
+            for resource in resources:
+                resource_data = {
+                    'id': resource.id,
+                    'label': resource.name,
+                    'name': resource.name,
+                    'description': resource.description,
+                    'world_id': resource.world_id
+                }
+                result['entities']['resources'].append(resource_data)
+                
+            # Get conditions
+            conditions = Condition.query.filter_by(world_id=world_id).all()
+            for condition in conditions:
+                condition_data = {
+                    'id': condition.id,
+                    'label': condition.name,
+                    'name': condition.name,
+                    'description': condition.description,
+                    'world_id': condition.world_id
+                }
+                result['entities']['conditions'].append(condition_data)
+                
+            # Get events
+            events = Event.query.filter_by(world_id=world_id).all()
+            for event in events:
+                event_data = {
+                    'id': event.id,
+                    'label': event.name,
+                    'name': event.name,
+                    'description': event.description,
+                    'world_id': event.world_id
+                }
+                result['entities']['events'].append(event_data)
+                
+            # Get actions
+            actions = Action.query.filter_by(world_id=world_id).all()
+            for action in actions:
+                action_data = {
+                    'id': action.id,
+                    'label': action.name,
+                    'name': action.name,
+                    'description': action.description,
+                    'world_id': action.world_id
+                }
+                result['entities']['actions'].append(action_data)
+                
+            # Capabilities are typically derived from roles or other models
+            # Will depend on the specific application structure
+            
+            return result
+        except Exception as e:
+            print(f"Error getting world entities: {str(e)}")
+            return {
+                'world_id': world_id,
+                'entities': {
+                    'roles': [],
+                    'conditions': [],
+                    'resources': [],
+                    'actions': [],
+                    'events': [],
+                    'capabilities': []
+                }
+            }
+    
+    def create_entity(self, entity_type: str, entity_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create an entity of the specified type.
+        
+        Args:
+            entity_type: Type of entity to create (role, condition, resource, action, event, capability)
+            entity_data: Entity data
+            
+        Returns:
+            Created entity data with ID if successful, or error object
+        """
+        from app.models.role import Role
+        from app.models.resource import Resource
+        from app.models.condition import Condition
+        from app.models.event import Event, Action
+        
+        try:
+            # Map entity type to model class
+            type_to_model = {
+                'role': Role,
+                'resource': Resource,
+                'condition': Condition,
+                'event': Event,
+                'action': Action
+            }
+            
+            if entity_type not in type_to_model:
+                return {
+                    'success': False,
+                    'message': f"Invalid entity type: {entity_type}"
+                }
+                
+            model_class = type_to_model[entity_type]
+            
+            # Create entity instance
+            entity = model_class(
+                name=entity_data.get('label', ''),
+                description=entity_data.get('description', ''),
+                world_id=entity_data.get('world_id')
+            )
+            
+            # Additional fields based on entity type
+            if entity_type == 'role':
+                # Add role-specific fields
+                pass
+            elif entity_type == 'resource':
+                # Add resource-specific fields
+                pass
+            elif entity_type == 'condition':
+                # Add condition-specific fields
+                pass
+            elif entity_type == 'event':
+                # Add event-specific fields
+                pass
+            elif entity_type == 'action':
+                # Add action-specific fields
+                pass
+                
+            # Save to database
+            db.session.add(entity)
+            db.session.commit()
+            
+            # Return created entity with ID
+            return {
+                'success': True,
+                'id': entity.id,
+                'label': entity.name,
+                'description': entity.description
+            }
+        except Exception as e:
+            print(f"Error creating entity: {str(e)}")
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f"Error: {str(e)}"
+            }
+    
     def update_configuration(self, new_config: Dict[str, Any]) -> bool:
         """
         Update the service configuration.

@@ -2,112 +2,155 @@
 """
 Cleanup RDF Type Triples
 ------------------------
-This script removes RDF triples that use http://www.w3.org/1999/02/22-rdf-syntax-ns#type predicate
-from the entity_triples table. These triples are no longer needed since we've transitioned to
-using more semantic domain-specific predicates instead of generic rdf:type statements.
+This script removes generic RDF type triples from the database that 
+don't provide meaningful semantic information to the user.
 
-Example:
-  Instead of: "22-rdf-syntax-ns#type: intermediate#Role"
-  We now use: "engineering-ethics#hasRole: engineering-ethics#EngineeringConsultantRole"
+For example, triples like:
+- "22-rdf-syntax-ns#type: intermediate#Role"
+- "22-rdf-syntax-ns#type: engineering-ethics#Resource"
+
+These generic type triples are redundant and clutter the UI when more specific
+predicates like 'hasRole' or 'involvesResource' are already present.
+
+Usage:
+    python cleanup_rdf_type_triples.py [--dry-run]
 """
 
-import psycopg2
-import json
+import os
+import sys
+import argparse
+import logging
 from datetime import datetime
 
-# Database connection parameters
-DB_PARAMS = {
-    "dbname": "ai_ethical_dm",
-    "user": "postgres",
-    "password": "PASS",
-    "host": "localhost",
-    "port": "5433"
-}
+# Add parent directory to path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-RDF_TYPE_PREDICATE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+# Import required modules
+try:
+    from app import create_app, db
+    from app.models.entity_triple import EntityTriple
+except ImportError:
+    print("Error: Cannot import required modules. Make sure you're running this script from the project root.")
+    sys.exit(1)
 
-def cleanup_rdf_type_triples():
-    """Remove all triples that use rdf:type predicate"""
-    print("Connecting to database...")
-    conn = psycopg2.connect(**DB_PARAMS)
-    cur = conn.cursor()
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("cleanup_rdf_type_triples")
+
+def cleanup_rdf_type_triples(dry_run=False, app=None):
+    """
+    Remove generic RDF type triples from the database.
     
-    # First, get a count of triples to be removed
-    cur.execute(
-        "SELECT COUNT(*) FROM entity_triples WHERE predicate = %s",
-        (RDF_TYPE_PREDICATE,)
-    )
-    count = cur.fetchone()[0]
-    
-    if count == 0:
-        print("No rdf:type triples found in the database.")
-        conn.close()
-        return 0
-    
-    print(f"Found {count} rdf:type triples to be removed.")
-    
-    # Get details about the triples to be removed for reporting
-    cur.execute(
-        """
-        SELECT 
-            entity_id, 
-            subject, 
-            object_uri, 
-            object_literal,
-            is_literal
-        FROM entity_triples 
-        WHERE predicate = %s
-        """,
-        (RDF_TYPE_PREDICATE,)
-    )
-    triples = cur.fetchall()
-    
-    # Group by case/document
-    triples_by_case = {}
-    for triple in triples:
-        case_id = triple[0]
-        if case_id not in triples_by_case:
-            triples_by_case[case_id] = []
+    Args:
+        dry_run: If True, only show what would be deleted without actually deleting
+        app: Flask application instance
         
-        object_value = triple[3] if triple[4] else triple[2]
-        triples_by_case[case_id].append({
-            "subject": triple[1],
-            "object": object_value
-        })
+    Returns:
+        int: Number of triples removed
+    """
+    try:
+        # Create app context if app is provided
+        ctx = app.app_context() if app else None
+        if ctx:
+            ctx.push()
+        # Find all triples with rdf-syntax-ns#type predicate
+        rdf_type_pattern = '%rdf-syntax-ns#type%'
+        generic_patterns = [
+            '%intermediate#Role%',
+            '%intermediate#Resource%',
+            '%intermediate#Condition%',
+            '%intermediate#Event%',
+            '%intermediate#Action%',
+            '%intermediate#Capability%'
+        ]
+        
+        # Construct the query
+        # We want to find triples where:
+        # 1. The predicate contains "rdf-syntax-ns#type"
+        # 2. AND the object_uri matches one of our generic patterns
+        query = EntityTriple.query.filter(
+            EntityTriple.predicate.like(rdf_type_pattern)
+        )
+        
+        # Add OR conditions for each generic pattern
+        from sqlalchemy import or_
+        object_conditions = []
+        for pattern in generic_patterns:
+            object_conditions.append(EntityTriple.object_uri.like(pattern))
+        
+        query = query.filter(or_(*object_conditions))
+        
+        # Get the results
+        triples_to_remove = query.all()
+        count = len(triples_to_remove)
+        
+        logger.info(f"Found {count} generic RDF type triples to remove")
+        
+        if count > 0:
+            # Print the triples that will be removed
+            for i, triple in enumerate(triples_to_remove[:10]):  # Show first 10
+                logger.info(f"  {i+1}. Document {triple.document_id}: {triple.predicate} -> {triple.object_uri}")
+            
+            if count > 10:
+                logger.info(f"  ... and {count - 10} more")
+            
+            # Remove the triples if not a dry run
+            if not dry_run:
+                # Delete the triples
+                for triple in triples_to_remove:
+                    db.session.delete(triple)
+                
+                # Commit the changes
+                db.session.commit()
+                logger.info(f"Successfully removed {count} generic RDF type triples")
+            else:
+                logger.info("DRY RUN: No triples were actually removed")
+        
+        return count
     
-    # Now delete the triples
-    cur.execute(
-        "DELETE FROM entity_triples WHERE predicate = %s",
-        (RDF_TYPE_PREDICATE,)
-    )
+    except Exception as e:
+        logger.error(f"Error cleaning up RDF type triples: {str(e)}")
+        if not dry_run:
+            # Rollback any changes
+            db.session.rollback()
+        return 0
+    finally:
+        # Pop context if we pushed one
+        if ctx:
+            ctx.pop()
+
+def main():
+    """Main entry point for the script."""
+    parser = argparse.ArgumentParser(description='Clean up generic RDF type triples')
+    parser.add_argument('--dry-run', action='store_true', 
+                        help='Show what would be deleted without actually deleting')
+    args = parser.parse_args()
     
-    # Commit the transaction
-    conn.commit()
+    logger.info("Starting RDF type triple cleanup")
     
-    # Print summary
-    print(f"\n=== Removed {count} rdf:type triples ===")
-    print(f"Affected cases/documents: {len(triples_by_case)}")
+    if args.dry_run:
+        logger.info("Running in DRY RUN mode - no changes will be made")
     
-    # Print details for each case
-    for case_id, case_triples in triples_by_case.items():
-        print(f"\nCase/Document ID: {case_id}")
-        print(f"Removed {len(case_triples)} triples:")
-        for t in case_triples:
-            print(f"  - {t['subject']} -> {t['object']}")
+    # Create Flask app
+    try:
+        app = create_app()
+        logger.info("Created Flask application")
+    except Exception as e:
+        logger.error(f"Error creating Flask application: {str(e)}")
+        return 1
     
-    # Close connection
-    cur.close()
-    conn.close()
-    print("\nCleanup complete. Database connection closed.")
+    # Run the cleanup with the app
+    count = cleanup_rdf_type_triples(dry_run=args.dry_run, app=app)
     
-    return count
+    if count > 0:
+        if args.dry_run:
+            logger.info(f"DRY RUN: Would have removed {count} generic RDF type triples")
+        else:
+            logger.info(f"Successfully removed {count} generic RDF type triples")
+    else:
+        logger.info("No generic RDF type triples found to remove")
+    
+    return 0
 
 if __name__ == "__main__":
-    try:
-        removed_count = cleanup_rdf_type_triples()
-        if removed_count > 0:
-            print("\nSUCCESS: All rdf:type triples have been removed from the database.")
-            print("This improves the RDF property display in the case detail view and")
-            print("prevents duplicate type information from being shown.")
-    except Exception as e:
-        print(f"ERROR: {e}")
+    sys.exit(main())

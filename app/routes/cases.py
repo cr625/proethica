@@ -34,14 +34,14 @@ def list_cases():
         # Filter cases by world if specified
         if world_id:
             # Get document-based cases for the specified world
-            document_cases = Document.query.filter_by(
-                world_id=world_id,
-                document_type='case_study'
+            document_cases = Document.query.filter(
+                Document.world_id == world_id,
+                Document.document_type.in_(['case_study', 'case'])
             ).all()
         else:
             # Get all document-based cases
-            document_cases = Document.query.filter_by(
-                document_type='case_study'
+            document_cases = Document.query.filter(
+                Document.document_type.in_(['case_study', 'case'])
             ).all()
         
         # Convert documents to case format
@@ -111,7 +111,7 @@ def search_cases():
             query=query,
             k=10,
             world_id=world_id,
-            document_type='case_study'
+            document_type=['case_study', 'case']
         )
         
         # Get the full documents for each chunk
@@ -177,9 +177,9 @@ def view_case(id):
     # Try to get the case as a document
     document = Document.query.get_or_404(id)
     
-    # Check if it's a case study
-    if document.document_type != 'case_study':
-        flash('The requested document is not a case study', 'warning')
+    # Accept both 'case' and 'case_study' document types
+    if document.document_type not in ['case', 'case_study']:
+        flash('The requested document is not a case', 'warning')
         return redirect(url_for('cases.list_cases'))
     
     # Extract metadata - ensuring it's a dictionary
@@ -285,9 +285,9 @@ def delete_case(id):
     # Try to get the case as a document
     document = Document.query.get_or_404(id)
     
-    # Check if it's a case study
-    if document.document_type != 'case_study':
-        flash('The requested document is not a case study', 'warning')
+    # Check if it's a case
+    if document.document_type not in ['case', 'case_study']:
+        flash('The requested document is not a case', 'warning')
         return redirect(url_for('cases.list_cases'))
     
     # Get the world ID if applicable
@@ -640,9 +640,9 @@ def edit_case_form(id):
     # Try to get the case as a document
     document = Document.query.get_or_404(id)
     
-    # Check if it's a case study
-    if document.document_type != 'case_study':
-        flash('The requested document is not a case study', 'warning')
+    # Check if it's a case
+    if document.document_type not in ['case', 'case_study']:
+        flash('The requested document is not a case', 'warning')
         return redirect(url_for('cases.list_cases'))
     
     # Get the world if applicable
@@ -656,9 +656,9 @@ def edit_case(id):
     # Try to get the case as a document
     document = Document.query.get_or_404(id)
     
-    # Check if it's a case study
-    if document.document_type != 'case_study':
-        flash('The requested document is not a case study', 'warning')
+    # Check if it's a case
+    if document.document_type not in ['case', 'case_study']:
+        flash('The requested document is not a case', 'warning')
         return redirect(url_for('cases.list_cases'))
     
     # Get form data
