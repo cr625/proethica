@@ -33,11 +33,11 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # Import pipeline components
 from scrapers.nspe_case_scraper import scrape_case
-from processors.case_content_cleaner import clean_case_content
+from processors.improved_content_cleaner import clean_case_content
 from utils.database import store_case, get_case
 from taggers.semantic_tagger import tag_case
 from utils.world_entity_integration import integrate_case_with_world
-from utils.engineering_world_integration import add_engineering_world_triples
+from utils.ontology_integration import integrate_ontologies_with_case
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -125,16 +125,24 @@ def process_case_from_url(url, clear_existing_triples=True, integrate_with_world
             else:
                 logger.warning(f"Failed to integrate with world: {integration_result.get('message')}")
                 
-        # Step 8: Add engineering world ontology triples
-        eng_world_result = None
+        # Step 8: Add ontology triples (engineering ethics and McLaren extensional definitions)
+        ontology_result = None
         if add_mclaren_triples:  # We keep the param name for backward compatibility
-            logger.info("Step 8: Adding engineering world ontology triples")
-            eng_world_result = add_engineering_world_triples(case_id)
+            logger.info("Step 8: Adding ontology triples (engineering ethics and McLaren)")
+            eng_count, mclaren_count = integrate_ontologies_with_case(case_id)
+            total_count = eng_count + mclaren_count
             
-            if eng_world_result.get('success'):
-                logger.info(f"Successfully added {eng_world_result.get('triple_count')} engineering world ontology triples")
+            ontology_result = {
+                'success': total_count > 0,
+                'eng_triple_count': eng_count,
+                'mclaren_triple_count': mclaren_count,
+                'total_triple_count': total_count
+            }
+            
+            if ontology_result.get('success'):
+                logger.info(f"Successfully added {eng_count} engineering ethics triples and {mclaren_count} McLaren triples")
             else:
-                logger.warning(f"Failed to add engineering world triples: {eng_world_result.get('message')}")
+                logger.warning("Failed to add ontology triples")
         
         # Successful result with integration information if applicable
         result = {
@@ -155,11 +163,13 @@ def process_case_from_url(url, clear_existing_triples=True, integrate_with_world
                 'added_entities': integration_result.get('added_entities', {})
             }
             
-        # Add engineering world results if available
-        if eng_world_result:
-            result['engineering_world'] = {
-                'success': eng_world_result.get('success', False),
-                'triple_count': eng_world_result.get('triple_count', 0)
+        # Add ontology integration results if available
+        if ontology_result:
+            result['ontology'] = {
+                'success': ontology_result.get('success', False),
+                'eng_triple_count': ontology_result.get('eng_triple_count', 0),
+                'mclaren_triple_count': ontology_result.get('mclaren_triple_count', 0),
+                'total_triple_count': ontology_result.get('total_triple_count', 0)
             }
             
         return result
@@ -204,9 +214,12 @@ def main():
             added_count = sum(len(entities) for entities in result['integration'].get('added_entities', {}).values())
             logger.info(f"Added {added_count} entities to world {result['integration'].get('world_id')}")
             
-        # Print engineering world triples info if available
-        if result.get('engineering_world', {}).get('success', False):
-            logger.info(f"Added {result['engineering_world'].get('triple_count')} engineering world ontology triples")
+        # Print ontology triples info if available
+        if result.get('ontology', {}).get('success', False):
+            eng_count = result['ontology'].get('eng_triple_count', 0)
+            mclaren_count = result['ontology'].get('mclaren_triple_count', 0)
+            total_count = result['ontology'].get('total_triple_count', 0)
+            logger.info(f"Added {eng_count} engineering ethics triples and {mclaren_count} McLaren triples")
         
         # Print case view URL - assuming the application is running on localhost:5000
         logger.info(f"Case can be viewed at: http://localhost:5000/cases/{result['case_id']}")

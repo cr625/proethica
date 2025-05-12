@@ -1,0 +1,48 @@
+2025-05-11 22:58:26,700 - import_enhanced_nspe_case - INFO - Importing case from URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/acknowledging-errors-design
+2025-05-11 22:58:26,700 - import_enhanced_nspe_case - INFO - Step 1: Scraping case with enhanced HTML parsing
+2025-05-11 22:58:26,701 - nspe_case_scraper - INFO - Scraping case from URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/acknowledging-errors-design
+2025-05-11 22:58:27,064 - nspe_case_scraper - INFO - Successfully scraped case: Acknowledging Errors Design (Case #97-13)
+2025-05-11 22:58:27,065 - import_enhanced_nspe_case - INFO - Step 2: Cleaning case content
+2025-05-11 22:58:27,071 - import_enhanced_nspe_case - INFO - Step 3: Inserting case into database
+2025-05-11 22:58:27,088 - database_utils - INFO - Updating existing case 97-13 with ID 186
+2025-05-11 22:58:27,097 - import_enhanced_nspe_case - INFO - Case inserted with ID: 186
+2025-05-11 22:58:27,097 - import_enhanced_nspe_case - INFO - Step 4: Adding ontology triples
+2025-05-11 22:58:27,120 - ontology_integration - INFO - Integrating ontologies with case 186: Acknowledging Errors Design
+2025-05-11 22:58:27,120 - ontology_integration - INFO - Adding engineering world entities to case 186
+2025-05-11 22:58:27,132 - database_utils - INFO - Inserted 4 triples for case ID 186
+2025-05-11 22:58:27,132 - ontology_integration - INFO - Adding McLaren extensional definitions to case 186
+2025-05-11 22:58:27,144 - database_utils - INFO - Inserted 6 triples for case ID 186
+2025-05-11 22:58:27,144 - ontology_integration - INFO - Added 4 engineering world triples and 6 McLaren triples
+2025-05-11 22:58:27,144 - import_enhanced_nspe_case - INFO - Added 4 engineering world triples and 6 McLaren triples
+Importing case from URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/acknowledging-errors-design
+
+=== SCRAPED CASE DATA ===
+Title: Acknowledging Errors Design
+Case Number: 97-13
+Year: 2013
+Sections Found: ['preamble']
+Content Length: 22355
+
+=== CONTENT PREVIEW ===
+Acknowledging Errors in DesignPDF23-4-Acknowledging-Errors-in-Design.pdfCase NumberCase 23-4YearWednesday, June 14, 2023FactsEngineer T, a senior structural engineer who designs commercial buildings in the employ of XYZ Consulting Engineers, was in responsible charge of the design of major structural modifications to an existing building. In establishing the project scope for the structural modifications, Engineer T selected a straightforward approach that required making structural connections ...
+
+=== CLEANED CASE DATA ===
+Structured Sections: ['preamble']
+
+PREAMBLE PREVIEW:
+Acknowledging Errors in DesignPDF23-4-Acknowledging-Errors-in-Design.pdfCase NumberCase 23-4YearWedn...
+
+=== SUCCESS: Case inserted with ID: 186 ===
+
+=== ONTOLOGY TRIPLES ADDED ===
+Engineering Ethics: 4 triples
+McLaren Extensional: 6 triples
+Total: 10 triples
+
+Case successfully imported with the enhanced pipeline!
+Case Title: Acknowledging Errors Design
+Case ID: 186
+Case URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/acknowledging-errors-design
+
+View the case in the web interface at:
+http://127.0.0.1:3333/cases/186
