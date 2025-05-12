@@ -198,6 +198,22 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="principles-tab" data-bs-toggle="tab" data-bs-target="#principles" type="button" role="tab" aria-controls="principles" aria-selected="false">
+                                    Principles
+                                    {% if entities and entities.entities.principles %}
+                                    <span class="badge bg-primary ms-1">{{ entities.entities.principles|length }}</span>
+                                    {% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="obligations-tab" data-bs-toggle="tab" data-bs-target="#obligations" type="button" role="tab" aria-controls="obligations" aria-selected="false">
+                                    Obligations
+                                    {% if entities and entities.entities.obligations %}
+                                    <span class="badge bg-primary ms-1">{{ entities.entities.obligations|length }}</span>
+                                    {% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="conditions-tab" data-bs-toggle="tab" data-bs-target="#conditions" type="button" role="tab" aria-controls="conditions" aria-selected="false">
                                     Conditions
                                     {% if entities and entities.entities.conditions %}
@@ -269,6 +285,50 @@
                                 {% else %}
                                 <div class="empty-tab-message">
                                     <p>No roles defined in this world's ontology.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Principles Tab -->
+                            <div class="tab-pane fade" id="principles" role="tabpanel" aria-labelledby="principles-tab">
+                                {% if entities and entities.entities.principles and entities.entities.principles|length > 0 %}
+                                <div class="row">
+                                    {% for principle in entities.entities.principles %}
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="card entity-item">
+                                            <div class="card-header">{{ principle.label }}</div>
+                                            <div class="card-body">
+                                                <p class="card-text">{{ principle.description }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="empty-tab-message">
+                                    <p>No principles defined in this world's ontology.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Obligations Tab -->
+                            <div class="tab-pane fade" id="obligations" role="tabpanel" aria-labelledby="obligations-tab">
+                                {% if entities and entities.entities.obligations and entities.entities.obligations|length > 0 %}
+                                <div class="row">
+                                    {% for obligation in entities.entities.obligations %}
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="card entity-item">
+                                            <div class="card-header">{{ obligation.label }}</div>
+                                            <div class="card-body">
+                                                <p class="card-text">{{ obligation.description }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="empty-tab-message">
+                                    <p>No obligations defined in this world's ontology.</p>
                                 </div>
                                 {% endif %}
                             </div>

@@ -163,30 +163,84 @@ class EmbeddingService:
             raise ImportError("BeautifulSoup4 is required for HTML text extraction. Install it with 'pip install beautifulsoup4'")
     
     def _extract_from_url(self, url: str) -> str:
-        """Extract text from a URL."""
+        """Extract text from a URL, preserving structure and numbering."""
         try:
             from bs4 import BeautifulSoup
+            import re
             
             # Fetch URL content
-            response = requests.get(url)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+            }
+            response = requests.get(url, headers=headers)
             response.raise_for_status()
             
             # Parse with BeautifulSoup
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Remove script and style elements
-            for script in soup(["script", "style"]):
-                script.extract()
+            # Remove script, style elements, and hidden elements
+            for element in soup(["script", "style", "head", "meta", "noscript"]):
+                element.extract()
+                
+            # Process and extract text while preserving structure
+            result_text = []
             
-            # Get text
-            text = soup.get_text()
+            # Handle headings
+            for heading in soup.find_all(re.compile('^h[1-6]$')):
+                heading_text = heading.get_text().strip()
+                if heading_text:
+                    result_text.append(f"\n{'#' * int(heading.name[1])} {heading_text}\n")
             
-            # Process similar to HTML extraction
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = '\n'.join(chunk for chunk in chunks if chunk)
+            # Handle lists
+            for list_element in soup.find_all(['ul', 'ol']):
+                for i, item in enumerate(list_element.find_all('li'), 1):
+                    item_text = item.get_text().strip()
+                    if list_element.name == 'ul':
+                        result_text.append(f"• {item_text}")
+                    else:
+                        result_text.append(f"{i}. {item_text}")
             
-            return text
+            # Handle paragraphs with potential numbering
+            for paragraph in soup.find_all(['p', 'div']):
+                # Skip if it's a child of lists or headings we've already processed
+                if paragraph.find_parent(['ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+                    continue
+                    
+                text = paragraph.get_text().strip()
+                if text:
+                    # Preserve paragraph numbering if present
+                    numbered_match = re.match(r'^(\d+\.?\d*|\(\d+\)|\w+\.)\s+(.+)$', text)
+                    if numbered_match:
+                        number, content = numbered_match.groups()
+                        result_text.append(f"{number} {content}")
+                    else:
+                        result_text.append(text)
+            
+            # Special handling for tables
+            for table in soup.find_all('table'):
+                result_text.append("\n--- TABLE ---\n")
+                for row in table.find_all('tr'):
+                    cells = [cell.get_text().strip() for cell in row.find_all(['td', 'th'])]
+                    result_text.append(" | ".join(cells))
+                result_text.append("--- END TABLE ---\n")
+            
+            # Combine everything
+            combined_text = "\n\n".join(result_text)
+            
+            # Clean up extra whitespace while preserving structure
+            cleaned_lines = []
+            for line in combined_text.split('\n'):
+                line = re.sub(r'\s+', ' ', line).strip()
+                if line:
+                    cleaned_lines.append(line)
+            
+            final_text = '\n'.join(cleaned_lines)
+            
+            # Debug logging
+            print(f"Extracted text from URL: {url}")
+            print(f"Text length: {len(final_text)} characters")
+            
+            return final_text
         except ImportError:
             raise ImportError("BeautifulSoup4 is required for URL text extraction. Install it with 'pip install beautifulsoup4'")
         except requests.RequestException as e:

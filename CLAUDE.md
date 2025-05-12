@@ -72,3 +72,48 @@ The ontology integration happens in step 8 of the NSPE case processing pipeline 
 ### Conclusion
 
 The NSPE case import pipeline is working correctly for importing ontology triples. The issue was in the query method. By updating the query to use the correct pattern, we can now correctly retrieve the engineering ethics and McLaren ontology triples for cases.
+
+## 2025-05-12: Enhancing Guidelines Feature to Support RDF Triple Association
+
+### Background
+
+The application has a concept of Worlds, with the Engineering World (ID: 1) being the primary world. Each world has RDF triples associated with it from various ontologies. The goal was to enhance the existing guidelines upload feature to better link guidelines to ethical concepts in the engineering-ethics ontology.
+
+### Implementation
+
+1. Enhanced the `GuidelineAnalysisService` to support additional entity types:
+   - Added support for "event" and "capability" entity types alongside the existing types (principle, obligation, role, action, resource, condition)
+   - Updated the LLM prompt to extract these new entity types from guideline content
+   - Modified triple creation methods to handle these new types
+   
+2. Verified that the existing workflow for guidelines is functional:
+   - Uploading guidelines via file, URL, or pasted text
+   - Processing content with LLM to extract concepts
+   - Matching concepts to existing ontology entities
+   - Creating and storing RDF triples for selected concepts
+
+3. Created comprehensive documentation in `guidelines_progress.md` that:
+   - Outlined the implementation phases
+   - Tracked completed features and pending enhancements
+   - Documented technical details of the implementation
+   - Provided clear next steps for future development
+
+### Testing
+
+Testing confirmed that:
+- The guideline upload interface works correctly
+- The LLM integration successfully extracts concepts from guidelines
+- The concept review page displays extracted concepts with their matched entities
+- The system can create and store RDF triples for selected concepts
+
+### Next Steps
+
+Future enhancements will focus on:
+1. Improving the visual distinction between new concepts and matches to existing ontology entities
+2. Enhancing the triple visualization and browsing experience
+3. Comprehensive testing with various document formats
+4. Performance optimizations for larger documents
+
+### Documentation
+
+All changes and progress are documented in `guidelines_progress.md` with details on implementation phases, technical notes, and next steps.

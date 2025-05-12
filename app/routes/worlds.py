@@ -562,6 +562,26 @@ def world_guidelines(id):
     
     return render_template('guidelines.html', world=world, guidelines=guidelines)
 
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>', methods=['GET'])
+def view_guideline(id, document_id):
+    """Display a specific guideline document."""
+    world = World.query.get_or_404(id)
+    
+    from app.models.document import Document
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Check if document is a guideline
+    if guideline.document_type != "guideline":
+        flash('Document is not a guideline', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    return render_template('guideline_content.html', world=world, guideline=guideline)
+
 @worlds_bp.route('/<int:id>/guidelines/add', methods=['GET'])
 def add_guideline_form(id):
     """Display form to add a guideline to a world."""

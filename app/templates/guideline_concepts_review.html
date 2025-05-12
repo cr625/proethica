@@ -81,6 +81,14 @@
                                 <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "condition")|list|length }}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Events
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "event")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Capabilities
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "capability")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
                                 TOTAL
                                 <span class="badge bg-success rounded-pill">{{ concepts|length }}</span>
                             </li>
@@ -143,6 +151,18 @@
                                 <button class="nav-link" id="conditions-tab" data-bs-toggle="tab" data-bs-target="#conditions-content" type="button" role="tab">
                                     Conditions {% if concepts|selectattr("concept_type", "equalto", "condition")|list|length > 0 %}
                                     <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "condition")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events-content" type="button" role="tab">
+                                    Events {% if concepts|selectattr("concept_type", "equalto", "event")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "event")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="capabilities-tab" data-bs-toggle="tab" data-bs-target="#capabilities-content" type="button" role="tab">
+                                    Capabilities {% if concepts|selectattr("concept_type", "equalto", "capability")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "capability")|list|length }}</span>{% endif %}
                                 </button>
                             </li>
                         </ul>
@@ -413,6 +433,94 @@
                                 {% else %}
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle"></i> No conditions found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Events Tab -->
+                            <div class="tab-pane fade" id="events-content" role="tabpanel">
+                                {% set event_concepts = concepts|selectattr("concept_type", "equalto", "event")|list %}
+                                {% if event_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in event_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No events found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Capabilities Tab -->
+                            <div class="tab-pane fade" id="capabilities-content" role="tabpanel">
+                                {% set capability_concepts = concepts|selectattr("concept_type", "equalto", "capability")|list %}
+                                {% if capability_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in capability_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No capabilities found in these guidelines.
                                     Try checking the other tabs as concepts may be classified differently.
                                 </div>
                                 {% endif %}

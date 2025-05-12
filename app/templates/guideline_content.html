@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}{{ guideline.title }} - Guidelines Content{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.list_worlds') }}">Worlds</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ guideline.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ guideline.title }}</h1>
+        <div>
+            <a href="{{ url_for('worlds.analyze_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
+                <i class="fas fa-brain"></i> Analyze for Entities
+            </a>
+            <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#deleteModal">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Document Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>ID:</strong> {{ guideline.id }}</p>
+                    <p><strong>Type:</strong> {{ guideline.document_type }}</p>
+                    <p><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Processing Status:</strong> 
+                        <span class="badge 
+                            {% if guideline.processing_status == 'PENDING' %}badge-secondary
+                            {% elif guideline.processing_status == 'PROCESSING' %}badge-primary
+                            {% elif guideline.processing_status == 'COMPLETED' %}badge-success
+                            {% elif guideline.processing_status == 'FAILED' %}badge-danger
+                            {% else %}badge-info{% endif %}">
+                            {{ guideline.processing_status }}
+                        </span>
+                    </p>
+                    {% if guideline.processing_progress %}
+                    <p><strong>Progress:</strong>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: {{ guideline.processing_progress }}%;" 
+                                aria-valuenow="{{ guideline.processing_progress }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ guideline.processing_progress }}%
+                            </div>
+                        </div>
+                    </p>
+                    {% endif %}
+                    {% if guideline.processing_error %}
+                    <p><strong>Error:</strong> <span class="text-danger">{{ guideline.processing_error }}</span></p>
+                    {% endif %}
+                </div>
+            </div>
+            {% if guideline.source %}
+            <p><strong>Source URL:</strong> <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a></p>
+            {% endif %}
+            {% if guideline.file_path %}
+            <p><strong>File:</strong> {{ guideline.file_path.split('/')[-1] }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Guidelines Content</h5>
+        </div>
+        <div class="card-body">
+            {% if guideline.content %}
+                <div class="guideline-content">
+                    {% for paragraph in guideline.content.split('\n\n') %}
+                        <p>{{ paragraph|nl2br }}</p>
+                    {% endfor %}
+                </div>
+            {% elif guideline.processing_status == 'PROCESSING' %}
+                <div class="alert alert-info">
+                    <i class="fas fa-spinner fa-spin"></i> Content is currently being processed...
+                </div>
+            {% elif guideline.processing_status == 'FAILED' %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Failed to process content: {{ guideline.processing_error }}
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle"></i> No content available.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this guideline document? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

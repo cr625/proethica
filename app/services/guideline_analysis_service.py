@@ -171,13 +171,13 @@ class GuidelineAnalysisService:
         For each concept, provide:
         
         1. concept_name: A concise name for the concept
-        2. concept_type: The type of concept (principle, obligation, role, action, resource, or condition)
+        2. concept_type: The type of concept (principle, obligation, role, action, resource, condition, event, or capability)
         3. description: A clear description of the concept
         4. guideline_text: The exact text from the guidelines that relates to this concept
         5. relevance: Why this concept is important for ethical engineering
         
         IMPORTANT: 
-        1. The concept_type MUST be one of: principle, obligation, role, action, resource, or condition (all lowercase).
+        1. The concept_type MUST be one of: principle, obligation, role, action, resource, condition, event, or capability (all lowercase).
         2. Respond ONLY with a JSON array, with NO additional text before or after.
         
         Return the results STRICTLY as a JSON array matching this structure:
@@ -378,7 +378,9 @@ class GuidelineAnalysisService:
             "roles": "Professional roles or positions with specific responsibilities",
             "actions": "Activities or decisions taken by agents",
             "resources": "Physical or information assets",
-            "conditions": "Contextual factors or situations"
+            "conditions": "Contextual factors or situations",
+            "events": "Occurrences or happenings that may have ethical implications",
+            "capabilities": "Skills, abilities, or competencies associated with roles"
         }
         
         for entity_type, description in entity_types.items():
@@ -425,7 +427,9 @@ class GuidelineAnalysisService:
             "role": "roles",
             "action": "actions",
             "resource": "resources",
-            "condition": "conditions"
+            "condition": "conditions",
+            "event": "events",
+            "capability": "capabilities"
         }
         
         for i, concept in enumerate(concepts):
@@ -479,7 +483,7 @@ class GuidelineAnalysisService:
                 return None
                 
             concept_type = concept.get("concept_type", "").lower()
-            if concept_type not in ["principle", "obligation", "role", "action", "resource", "condition"]:
+            if concept_type not in ["principle", "obligation", "role", "action", "resource", "condition", "event", "capability"]:
                 concept_type = "principle"  # Default to principle
             
             # Create an IRI for the concept
@@ -532,7 +536,7 @@ class GuidelineAnalysisService:
         try:
             concept_name = concept.get("concept_name", "").strip()
             concept_type = concept.get("concept_type", "").lower()
-            if not concept_name or concept_type not in ["principle", "obligation", "role", "action", "resource", "condition"]:
+            if not concept_name or concept_type not in ["principle", "obligation", "role", "action", "resource", "condition", "event", "capability"]:
                 return None
                 
             # Create IRIs

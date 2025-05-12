@@ -83,21 +83,50 @@ class BackgroundTaskQueue:
                 document.processing_progress = 10
                 db.session.commit()
                 
-                # Extract text if needed
-                if document.file_path and not document.content:
+                # Extract content based on document type
+                if document.file_type == "url" and document.source:
+                    # Handle URL type documents
+                    logger.info(f"Processing URL document: {document.source}")
+                    document.processing_phase = PROCESSING_PHASES['EXTRACTING']
+                    document.processing_progress = 20
+                    db.session.commit()
+                    
+                    # Extract text from URL
+                    try:
+                        text = self.embedding_service._extract_from_url(document.source)
+                        document.content = text
+                        document.processing_progress = 30
+                        db.session.commit()
+                        logger.info(f"Successfully extracted {len(text)} characters from URL")
+                    except Exception as e:
+                        logger.error(f"Error extracting text from URL {document.source}: {str(e)}")
+                        document.processing_error = f"URL extraction error: {str(e)}"
+                        document.processing_status = PROCESSING_STATUS['FAILED']
+                        db.session.commit()
+                        return
+                
+                # Extract text from file if needed
+                elif document.file_path and not document.content:
                     # Update progress: Extracting text (20%)
                     document.processing_phase = PROCESSING_PHASES['EXTRACTING']
                     document.processing_progress = 20
                     db.session.commit()
                     
-                    text = self.embedding_service._extract_text(document.file_path, document.file_type)
-                    document.content = text
-                    
-                    # Update progress: Text extracted (30%)
-                    document.processing_progress = 30
-                    db.session.commit()
+                    try:
+                        text = self.embedding_service._extract_text(document.file_path, document.file_type)
+                        document.content = text
+                        
+                        # Update progress: Text extracted (30%)
+                        document.processing_progress = 30
+                        db.session.commit()
+                    except Exception as e:
+                        logger.error(f"Error extracting text from file {document.file_path}: {str(e)}")
+                        document.processing_error = f"File extraction error: {str(e)}"
+                        document.processing_status = PROCESSING_STATUS['FAILED']
+                        db.session.commit()
+                        return
                 
-                # Process document content
+                # Process document content if available
                 if document.content:
                     # Update progress: Chunking text (40%)
                     document.processing_phase = PROCESSING_PHASES['CHUNKING']
@@ -127,6 +156,13 @@ class BackgroundTaskQueue:
                     document.processing_phase = PROCESSING_PHASES['FINALIZING']
                     document.processing_progress = 90
                     db.session.commit()
+                else:
+                    # No content to process
+                    logger.error(f"Document {document_id} has no content to process")
+                    document.processing_error = "No content available for processing"
+                    document.processing_status = PROCESSING_STATUS['FAILED']
+                    db.session.commit()
+                    return
                 
                 # Update document status to completed (100%)
                 document.processing_status = PROCESSING_STATUS['COMPLETED']
