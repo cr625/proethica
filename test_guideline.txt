@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Guideline for Engineering - AI Ethical Decision-Making Simulator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .header {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+
+        .footer {
+            padding-top: 20px;
+            color: #777;
+            border-top: 1px solid #e5e5e5;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        .text-truncate {
+            display: -webkit-box;
+            -webkit-line-clamp: 10;
+            /* Limit to 2 lines */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            /* Ensure text wraps */
+        }
+    </style>
+    
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="/">ProEthic</a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/scenarios">Scenarios</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/worlds">Worlds</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/cases">Cases</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/agent">Agent</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/ontology-editor">Ontology Editor</a>
+                            </li>
+                        </ul>
+                        <ul class="navbar-nav">
+                            
+                            <li class="nav-item">
+                                <a class="nav-link" href="/auth/login">Login</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/auth/register">Register</a>
+                            </li>
+                            
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <div class="content">
+            
+            
+            
+
+            
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Add Guideline for Engineering</h1>
+        <div>
+            <a href="/worlds/1/guidelines" class="btn btn-secondary">Cancel</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Add Guideline</h3>
+        </div>
+        <div class="card-body">
+            <form action="/worlds/1/guidelines/add" method="POST"
+                enctype="multipart/form-data" id="guidelineForm">
+
+                <div class="mb-3">
+                    <label for="guidelines_title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="guidelines_title" name="guidelines_title"
+                        placeholder="e.g., Medical Ethics Guidelines" required>
+                    <div class="form-text">A descriptive title for this guideline.</div>
+                </div>
+
+                <!-- Tabs for different input methods -->
+                <ul class="nav nav-tabs mb-3" id="guidelineTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="file-tab" data-bs-toggle="tab"
+                            data-bs-target="#file-content" type="button" role="tab" aria-controls="file-content"
+                            aria-selected="true">
+                            Upload File
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url-content"
+                            type="button" role="tab" aria-controls="url-content" aria-selected="false">
+                            Add URL
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-content"
+                            type="button" role="tab" aria-controls="text-content" aria-selected="false">
+                            Enter Text
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab content -->
+                <div class="tab-content" id="guidelineTabsContent">
+                    <!-- File Upload Tab -->
+                    <div class="tab-pane fade show active" id="file-content" role="tabpanel" aria-labelledby="file-tab">
+                        <div class="mb-3">
+                            <label for="guidelines_file" class="form-label">Guidelines File</label>
+                            <input type="file" class="form-control" id="guidelines_file" name="guidelines_file">
+                            <div class="form-text">Upload a PDF, DOCX, TXT, or HTML file.</div>
+                        </div>
+                        <input type="hidden" name="input_type" value="file" id="input_type_file">
+                    </div>
+
+                    <!-- URL Tab -->
+                    <div class="tab-pane fade" id="url-content" role="tabpanel" aria-labelledby="url-tab">
+                        <div class="mb-3">
+                            <label for="guidelines_url" class="form-label">URL</label>
+                            <input type="url" class="form-control" id="guidelines_url" name="guidelines_url"
+                                placeholder="https://example.com/guidelines">
+                            <div class="form-text">URL to an external guidelines document or resource.</div>
+                        </div>
+                        <input type="hidden" name="input_type" value="url" id="input_type_url" disabled>
+                    </div>
+
+                    <!-- Text Tab -->
+                    <div class="tab-pane fade" id="text-content" role="tabpanel" aria-labelledby="text-tab">
+                        <div class="mb-3">
+                            <label for="guidelines_text" class="form-label">Guidelines Text</label>
+                            <textarea class="form-control" id="guidelines_text" name="guidelines_text" rows="10"
+                                placeholder="Enter guidelines text here..."></textarea>
+                            <div class="form-text">Enter guidelines text directly.</div>
+                        </div>
+                        <input type="hidden" name="input_type" value="text" id="input_type_text" disabled>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle"></i> Guidelines will be processed for vector embeddings to enable
+                    semantic search.
+                </div>
+
+                <div class="d-grid gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Add Guideline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+        </div>
+
+        <div class="footer">
+            <p>&copy; Christopher Rauch 2025. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU
+                    GPL v3</a>.</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get all tab buttons and input type fields
+        const fileTabs = document.querySelectorAll('.nav-link');
+        const inputTypeFile = document.getElementById('input_type_file');
+        const inputTypeUrl = document.getElementById('input_type_url');
+        const inputTypeText = document.getElementById('input_type_text');
+
+        // Add event listeners to tabs
+        fileTabs.forEach(tab => {
+            tab.addEventListener('click', function () {
+                // Disable all input type fields
+                inputTypeFile.disabled = true;
+                inputTypeUrl.disabled = true;
+                inputTypeText.disabled = true;
+
+                // Enable the selected input type field
+                if (this.id === 'file-tab') {
+                    inputTypeFile.disabled = false;
+                } else if (this.id === 'url-tab') {
+                    inputTypeUrl.disabled = false;
+                } else if (this.id === 'text-tab') {
+                    inputTypeText.disabled = false;
+                }
+            });
+        });
+
+        // Form validation
+        const form = document.getElementById('guidelineForm');
+        form.addEventListener('submit', function (event) {
+            let isValid = true;
+            const activeTab = document.querySelector('.nav-link.active').id;
+
+            if (activeTab === 'file-tab') {
+                const fileInput = document.getElementById('guidelines_file');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    alert('Please select a file to upload.');
+                    isValid = false;
+                }
+            } else if (activeTab === 'url-tab') {
+                const urlInput = document.getElementById('guidelines_url');
+                if (!urlInput.value.trim()) {
+                    alert('Please enter a URL.');
+                    isValid = false;
+                }
+            } else if (activeTab === 'text-tab') {
+                const textInput = document.getElementById('guidelines_text');
+                if (!textInput.value.trim()) {
+                    alert('Please enter some text.');
+                    isValid = false;
+                }
+            }
+
+            if (!isValid) {
+                event.preventDefault();
+            }
+        });
+    });
+</script>
+
+</body>
+
+</html>

@@ -12,6 +12,7 @@ from app.models.ontology import Ontology
 from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 from app.services.ontology_entity_service import OntologyEntityService
+from app.services.guideline_analysis_service import GuidelineAnalysisService
 
 worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 
@@ -19,6 +20,7 @@ worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 mcp_client = MCPClient.get_instance()
 task_queue = BackgroundTaskQueue.get_instance()
 ontology_entity_service = OntologyEntityService.get_instance()
+guideline_analysis_service = GuidelineAnalysisService.get_instance()
 
 # API endpoints
 @worlds_bp.route('/api', methods=['GET'])
@@ -673,6 +675,82 @@ def add_guideline(id):
         return redirect(url_for('worlds.add_guideline_form', id=world.id))
     
     # Always redirect to the guidelines page
+    return redirect(url_for('worlds.world_guidelines', id=world.id))
+
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/analyze', methods=['GET', 'POST'])
+def analyze_guideline(id, document_id):
+    """Analyze a guideline document and extract ontology concepts."""
+    world = World.query.get_or_404(id)
+    
+    from app.models.document import Document
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Check if document is a guideline
+    if guideline.document_type != "guideline":
+        flash('Document is not a guideline', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Analyze guideline
+    analysis_result = guideline_analysis_service.analyze_guideline(document_id)
+    
+    if "error" in analysis_result:
+        flash(f'Error analyzing guideline: {analysis_result["error"]}', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Render the review page with extracted concepts
+    return render_template('guideline_concepts_review.html', 
+                          world=world, 
+                          guideline=guideline, 
+                          concepts=analysis_result["extracted_concepts"],
+                          matched_entities=analysis_result.get("matched_entities", {}))
+
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts', methods=['POST'])
+def save_guideline_concepts(world_id, document_id):
+    """Save selected concepts from a guideline document."""
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Get selected concepts
+    selected_concept_indices = request.form.getlist('selected_concepts')
+    selected_indices = [int(idx) for idx in selected_concept_indices]
+    
+    # Get analysis result
+    analysis_result = guideline_analysis_service.analyze_guideline(document_id)
+    
+    if "error" in analysis_result or not analysis_result.get("success", False):
+        flash(f'Error retrieving guideline analysis: {analysis_result.get("error", "Unknown error")}', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Create triples for selected concepts
+    created_triples = guideline_analysis_service.create_triples_for_concepts(
+        document_id, 
+        analysis_result["extracted_concepts"], 
+        selected_indices
+    )
+    
+    # Update document metadata with selected concepts
+    guideline.doc_metadata = {
+        **(guideline.doc_metadata or {}),
+        "analyzed": True,
+        "concepts_extracted": len(analysis_result["extracted_concepts"]),
+        "concepts_selected": len(selected_indices),
+        "triples_created": len(created_triples)
+    }
+    db.session.commit()
+    
+    flash(f'Successfully created {len(created_triples)} RDF triples from selected concepts', 'success')
     return redirect(url_for('worlds.world_guidelines', id=world.id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])

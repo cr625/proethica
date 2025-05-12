@@ -1,0 +1,579 @@
+{% extends "base.html" %}
+
+{% block title %}Review Guideline Concepts for {{ guideline.title }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Review Concepts for "{{ guideline.title }}"</h1>
+        <div>
+            <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Guidelines
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Left column: Guideline content -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Guidelines Content</h3>
+                </div>
+                <div class="card-body">
+                    <div class="guideline-content">
+                        <pre class="guideline-text">{{ guideline.content|truncate(5000) }}</pre>
+                        {% if guideline.content|length > 5000 %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> The content is truncated for display. The full text has been analyzed.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right column: Concept selection -->
+        <div class="col-md-6">
+            <!-- Debug info card -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h3>Debug Information</h3>
+                    <p class="text-white mb-0">Raw LLM response data</p>
+                </div>
+                <div class="card-body">
+                    <h4>Raw Concepts Data</h4>
+                    <div class="bg-light p-3 rounded mb-3" style="max-height: 300px; overflow-y: auto;">
+                        <pre class="debug-json">{{ concepts|tojson(indent=2) }}</pre>
+                    </div>
+                    
+                    <h4>Concept Type Counts</h4>
+                    <div class="mb-3">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Principles
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "principle")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Obligations
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "obligation")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Roles
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "role")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Actions
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "action")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Resources
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "resource")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Conditions
+                                <span class="badge bg-primary rounded-pill">{{ concepts|selectattr("concept_type", "equalto", "condition")|list|length }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                TOTAL
+                                <span class="badge bg-success rounded-pill">{{ concepts|length }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <h4>All Concept Types</h4>
+                    <div class="bg-light p-3 rounded" style="max-height: 100px; overflow-y: auto;">
+                        <code>{{ concepts|map(attribute='concept_type')|list|tojson }}</code>
+                    </div>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Extracted Ontology Concepts</h3>
+                    <p class="text-muted mb-0">Select which concepts to include in the ontology</p>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}" method="POST" id="conceptsForm">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2" id="selectAllBtn">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2" id="deselectAllBtn">Deselect All</button>
+                            </div>
+                        </div>
+
+                        <!-- Tabs for different concept types -->
+                        <ul class="nav nav-tabs mb-3" id="conceptTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="principles-tab" data-bs-toggle="tab" data-bs-target="#principles-content" type="button" role="tab">
+                                    Principles {% if concepts|selectattr("concept_type", "equalto", "principle")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "principle")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="obligations-tab" data-bs-toggle="tab" data-bs-target="#obligations-content" type="button" role="tab">
+                                    Obligations {% if concepts|selectattr("concept_type", "equalto", "obligation")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "obligation")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="roles-tab" data-bs-toggle="tab" data-bs-target="#roles-content" type="button" role="tab">
+                                    Roles {% if concepts|selectattr("concept_type", "equalto", "role")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "role")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="actions-tab" data-bs-toggle="tab" data-bs-target="#actions-content" type="button" role="tab">
+                                    Actions {% if concepts|selectattr("concept_type", "equalto", "action")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "action")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="resources-tab" data-bs-toggle="tab" data-bs-target="#resources-content" type="button" role="tab">
+                                    Resources {% if concepts|selectattr("concept_type", "equalto", "resource")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "resource")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="conditions-tab" data-bs-toggle="tab" data-bs-target="#conditions-content" type="button" role="tab">
+                                    Conditions {% if concepts|selectattr("concept_type", "equalto", "condition")|list|length > 0 %}
+                                    <span class="badge bg-primary">{{ concepts|selectattr("concept_type", "equalto", "condition")|list|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                        </ul>
+
+                        <!-- Tab content for concepts -->
+                        <div class="tab-content concepts-tab-content">
+                            <!-- Principles Tab -->
+                            <div class="tab-pane fade show active" id="principles-content" role="tabpanel">
+                                {% set principle_concepts = concepts|selectattr("concept_type", "equalto", "principle")|list %}
+                                {% if principle_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in principle_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                    {% if concept.get('matched_entities') %}
+                                                    <span class="badge bg-info ms-2">
+                                                        <i class="fas fa-link"></i> Matched with existing entities
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No principles found in these guidelines. 
+                                    Try using a different file format or uploading a longer document.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Obligations Tab -->
+                            <div class="tab-pane fade" id="obligations-content" role="tabpanel">
+                                {% set obligation_concepts = concepts|selectattr("concept_type", "equalto", "obligation")|list %}
+                                {% if obligation_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in obligation_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No obligations found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Roles Tab -->
+                            <div class="tab-pane fade" id="roles-content" role="tabpanel">
+                                {% set role_concepts = concepts|selectattr("concept_type", "equalto", "role")|list %}
+                                {% if role_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in role_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No roles found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Actions Tab -->
+                            <div class="tab-pane fade" id="actions-content" role="tabpanel">
+                                {% set action_concepts = concepts|selectattr("concept_type", "equalto", "action")|list %}
+                                {% if action_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in action_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No actions found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Resources Tab -->
+                            <div class="tab-pane fade" id="resources-content" role="tabpanel">
+                                {% set resource_concepts = concepts|selectattr("concept_type", "equalto", "resource")|list %}
+                                {% if resource_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in resource_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No resources found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Conditions Tab -->
+                            <div class="tab-pane fade" id="conditions-content" role="tabpanel">
+                                {% set condition_concepts = concepts|selectattr("concept_type", "equalto", "condition")|list %}
+                                {% if condition_concepts|length > 0 %}
+                                <div class="list-group concept-list">
+                                    {% for concept in condition_concepts %}
+                                    <label class="list-group-item concept-item">
+                                        <div class="d-flex">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index0 }}" checked>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">{{ concept.concept_name }}</h5>
+                                                <p class="mb-1">{{ concept.description }}</p>
+                                                <small class="text-muted">
+                                                    <strong>From text:</strong> "{{ concept.guideline_text|truncate(100) }}"
+                                                </small>
+                                                {% if concept.get('confidence') %}
+                                                <div class="mt-1">
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ concept.confidence * 100 }}%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Confidence: {{ "%.0f"|format(concept.confidence * 100) }}%</small>
+                                                </div>
+                                                {% endif %}
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary concept-detail-btn" 
+                                                            data-concept-index="{{ loop.index0 }}">
+                                                        <i class="fas fa-info-circle"></i> Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No conditions found in these guidelines.
+                                    Try checking the other tabs as concepts may be classified differently.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">Save Selected Concepts</button>
+                            <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for concept details -->
+    <div class="modal fade" id="conceptDetailModal" tabindex="-1" aria-labelledby="conceptDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="conceptDetailModalLabel">Concept Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="conceptDetailContent">
+                    <!-- Will be populated dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .guideline-text {
+        white-space: pre-wrap;
+        font-family: inherit;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .concept-list {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .concept-item {
+        transition: background-color 0.2s;
+    }
+    
+    .concept-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .concepts-tab-content {
+        min-height: 200px;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Store concept data in JavaScript
+        const conceptsData = {{ concepts|tojson }};
+        
+        // Detail button functionality
+        const detailBtns = document.querySelectorAll('.concept-detail-btn');
+        const conceptDetailContent = document.getElementById('conceptDetailContent');
+        const conceptDetailModal = new bootstrap.Modal(document.getElementById('conceptDetailModal'));
+        
+        detailBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent label click
+                
+                const conceptIndex = parseInt(this.getAttribute('data-concept-index'));
+                const concept = conceptsData[conceptIndex];
+                
+                // Create detail HTML
+                let detailHTML = `
+                    <h4>${concept.concept_name}</h4>
+                    <div class="mb-3">
+                        <span class="badge bg-primary">${concept.concept_type}</span>
+                        ${concept.confidence ? `<span class="badge bg-success ms-2">Confidence: ${Math.round(concept.confidence * 100)}%</span>` : ''}
+                    </div>
+                    <div class="mb-3">
+                        <h5>Description</h5>
+                        <p>${concept.description}</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Relevance</h5>
+                        <p>${concept.relevance || 'Not specified'}</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Source Text</h5>
+                        <div class="p-3 bg-light rounded">
+                            <p>${concept.guideline_text}</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Add matched entities if any
+                if (concept.matched_entities && concept.matched_entities.length > 0) {
+                    detailHTML += `
+                        <div class="mb-3">
+                            <h5>Matched Ontology Entities</h5>
+                            <ul class="list-group">
+                    `;
+                    
+                    concept.matched_entities.forEach(entity => {
+                        detailHTML += `
+                            <li class="list-group-item">
+                                <h6>${entity.label}</h6>
+                                <p>${entity.description || 'No description'}</p>
+                                <div class="progress" style="height: 5px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: ${entity.match_score * 100}%"></div>
+                                </div>
+                                <small class="text-muted">Match score: ${Math.round(entity.match_score * 100)}%</small>
+                            </li>
+                        `;
+                    });
+                    
+                    detailHTML += `
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                // Set content and show modal
+                conceptDetailContent.innerHTML = detailHTML;
+                conceptDetailModal.show();
+            });
+        });
+        
+        // Select/deselect all buttons
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        const checkboxes = document.querySelectorAll('input[name="selected_concepts"]');
+        
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', function() {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+            });
+        }
+        
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', function() {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
