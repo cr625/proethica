@@ -216,7 +216,9 @@ def view_case(id):
     knowledge_graph_connections = {}
     try:
         triple_service = EntityTripleService()
-        entity_triples = triple_service.find_triples(entity_type='document', entity_id=document.id)
+        # Query using the subject URI pattern which is how ontology triples are stored
+        case_uri = f"http://proethica.org/cases/{document.id}"
+        entity_triples = triple_service.find_triples(subject=case_uri, entity_type='document')
         
         # Find related cases by triples
         related_cases_data = triple_service.find_related_cases_by_triples(document.id)
