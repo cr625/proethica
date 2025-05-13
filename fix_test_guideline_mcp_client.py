@@ -1,27 +1,49 @@
 #!/usr/bin/env python3
 """
-Script to fix test_guideline_mcp_client.py to properly access the JSON-RPC endpoint
-"""
-import sys
-import os
+Fix Test Guideline MCP Client
 
-def fix_client():
-    """Fix the MCP client to properly access the JSON-RPC endpoint"""
-    
-    client_path = "test_guideline_mcp_client.py"
-    
-    if not os.path.exists(client_path):
-        print(f"Error: {client_path} not found")
+This script fixes the test_guideline_mcp_client.py file to correctly check
+for server availability using the JSON-RPC endpoint instead of the root URL.
+"""
+
+import os
+import sys
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Path to the test client file
+TEST_CLIENT_PATH = "test_guideline_mcp_client.py"
+
+def fix_client_file():
+    """Fix the wait_for_server function in the test client file."""
+    if not os.path.exists(TEST_CLIENT_PATH):
+        logger.error(f"Test client file not found: {TEST_CLIENT_PATH}")
         return False
     
     try:
-        with open(client_path, 'r') as f:
+        # Read the file
+        with open(TEST_CLIENT_PATH, "r") as f:
             content = f.read()
         
-        # Fix 1: Correct the wait_for_server function to access the jsonrpc endpoint
-        content = content.replace(
-            """def wait_for_server(timeout=30):
-    \"\"\"Wait for the server to start, with timeout.\"\"\"
+        # Check if it's already fixed
+        if 'jsonrpc' in content and 'list_tools' in content and '"jsonrpc": "2.0"' in content:
+            logger.info("Client file is already fixed. No changes needed.")
+            return True
+        
+        # Look for the wait_for_server function
+        if "def wait_for_server(" not in content:
+            logger.error("Could not find wait_for_server function in test client")
+            return False
+        
+        # Replace the function with the fixed version
+        old_function = '''def wait_for_server(timeout=30):
+    """Wait for the server to start, with timeout."""
     logger.info(f"Waiting up to {timeout} seconds for MCP server...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -37,9 +59,10 @@ def fix_client():
         time.sleep(1)
     
     logger.error(f"Timed out after {timeout} seconds waiting for server to start")
-    return False""",
-            """def wait_for_server(timeout=30):
-    \"\"\"Wait for the server to start, with timeout.\"\"\"
+    return False'''
+        
+        new_function = '''def wait_for_server(timeout=30):
+    """Wait for the server to start, with timeout."""
     logger.info(f"Waiting up to {timeout} seconds for MCP server...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -65,23 +88,58 @@ def fix_client():
         time.sleep(1)
     
     logger.error(f"Timed out after {timeout} seconds waiting for server to start")
-    return False"""
-        )
+    return False'''
         
-        # Write the fixed content back
-        with open(client_path, 'w') as f:
-            f.write(content)
+        # Replace the function
+        updated_content = content.replace(old_function, new_function)
         
-        print(f"✅ Fixed {client_path}")
+        # If the specific function wasn't found, try a more general approach
+        if updated_content == content:
+            import re
+            pattern = r"def wait_for_server\([^)]*\):[^}]*?response = requests\.get[^}]*?return False"
+            match = re.search(pattern, content, re.DOTALL)
+            
+            if match:
+                updated_content = content.replace(match.group(0), new_function)
+            else:
+                logger.warning("Could not find exact match for wait_for_server function.")
+                logger.info("Trying to update the client in a general way...")
+                
+                # Here we would implement a more sophisticated fix
+                # For now, just inject the new function after imports
+                imports_end = content.find("logger = logging.getLogger(__name__)") + len("logger = logging.getLogger(__name__)")
+                
+                updated_content = (
+                    content[:imports_end + 1] + 
+                    "\n\n# Updated server check function\n" + 
+                    new_function + 
+                    "\n\n# Original code continues below\n" + 
+                    content[imports_end + 1:]
+                )
+        
+        # Write the updated content
+        with open(TEST_CLIENT_PATH, "w") as f:
+            f.write(updated_content)
+        
+        logger.info(f"Successfully updated {TEST_CLIENT_PATH} with JSON-RPC endpoint check")
         return True
-    
+        
     except Exception as e:
-        print(f"Error fixing client: {str(e)}")
+        logger.error(f"Error fixing test client: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
-if __name__ == "__main__":
-    if fix_client():
-        print("Fix applied successfully. Try running the client again")
+def main():
+    """Main function."""
+    logger.info("Starting Test Guideline MCP Client fix")
+    
+    if fix_client_file():
+        logger.info("Fix completed successfully!")
+        return 0
     else:
-        print("Failed to apply fix")
-        sys.exit(1)
+        logger.error("Fix failed. Please check the logs.")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())

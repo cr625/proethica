@@ -36,9 +36,9 @@
 <http://proethica.org/guidelines/professional_competence>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Professional Competence""";
-    <http://purl.org/dc/elements/1.1/description> """The obligation for engineers to only perform services in areas where they have adequate expertise, knowledge, and skills.""";
-    <http://proethica.org/ontology/hasCategory> """obligation""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
+    <http://purl.org/dc/elements/1.1/description> """The ethical requirement that engineers only perform services in areas where they have adequate education, training, or experience to ensure quality and safety.""";
+    <http://proethica.org/ontology/hasCategory> """principle""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_competence/reference/1>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_competence/reference/2>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_competence/reference/3>;
@@ -63,7 +63,7 @@
 <http://proethica.org/guidelines/truthfulness_in_public_statements>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Truthfulness in Public Statements""";
-    <http://purl.org/dc/elements/1.1/description> """The requirement for engineers to be objective, truthful, and comprehensive in all public communications and professional reports.""";
+    <http://purl.org/dc/elements/1.1/description> """The obligation for engineers to communicate honestly and objectively in all professional communications, avoiding misrepresentation or omission of important facts.""";
     <http://proethica.org/ontology/hasCategory> """principle""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/truthfulness_in_public_statements/reference/1>;
@@ -72,8 +72,8 @@
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/truthfulness_in_public_statements/reference/4>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/transparency>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/disclosure>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/honesty>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_communication>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_communication>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/honesty>.
 
 <http://proethica.org/guidelines/truthfulness_in_public_statements/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers shall issue public statements only in an objective and truthful manner.""".
@@ -90,9 +90,9 @@
 <http://proethica.org/guidelines/faithful_agency>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Faithful Agency""";
-    <http://purl.org/dc/elements/1.1/description> """The duty of engineers to act as faithful agents or trustees for their employers and clients, protecting their interests while maintaining ethical standards.""";
-    <http://proethica.org/ontology/hasCategory> """obligation""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
+    <http://purl.org/dc/elements/1.1/description> """The duty of engineers to act as trustworthy representatives for their employers and clients, protecting their interests while maintaining ethical standards.""";
+    <http://proethica.org/ontology/hasCategory> """principle""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/faithful_agency/reference/1>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/faithful_agency/reference/2>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/faithful_agency/reference/3>;
@@ -100,7 +100,7 @@
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/conflict_of_interest>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/confidentiality>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_judgment>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/client_relationship>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/loyalty>.
 
 <http://proethica.org/guidelines/faithful_agency/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers shall act as faithful agents or trustees for each employer or client.""".
@@ -117,7 +117,7 @@
 <http://proethica.org/guidelines/professional_integrity>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Professional Integrity""";
-    <http://purl.org/dc/elements/1.1/description> """The commitment to avoid deceptive acts in professional practice and to maintain honest representation of qualifications and capabilities.""";
+    <http://purl.org/dc/elements/1.1/description> """The commitment to honest representation of qualifications and capabilities, avoiding deceptive practices in seeking employment or contracts.""";
     <http://proethica.org/ontology/hasCategory> """principle""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_integrity/reference/1>;
@@ -125,9 +125,8 @@
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_integrity/reference/3>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_integrity/reference/4>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/honesty>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_conduct>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_reputation>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/transparency>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/meritbased_recognition>.
 
 <http://proethica.org/guidelines/professional_integrity/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers shall avoid deceptive acts in the solicitation of professional employment.""".
@@ -144,17 +143,17 @@
 <http://proethica.org/guidelines/ethical_conduct>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Ethical Conduct""";
-    <http://purl.org/dc/elements/1.1/description> """The overarching obligation for engineers to conduct themselves honorably, responsibly, ethically, and lawfully in all professional activities.""";
+    <http://purl.org/dc/elements/1.1/description> """The overarching commitment to honorable, responsible, ethical, and lawful behavior in all professional activities.""";
     <http://proethica.org/ontology/hasCategory> """principle""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/ethical_conduct/reference/1>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/ethical_conduct/reference/2>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/ethical_conduct/reference/3>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/ethical_conduct/reference/4>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/honesty>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/integrity>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/responsibility>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/legal_compliance>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/anticorruption>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/anticorruption>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_support>.
 
 <http://proethica.org/guidelines/ethical_conduct/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully.""".
@@ -171,7 +170,7 @@
 <http://proethica.org/guidelines/sustainability>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Sustainability""";
-    <http://purl.org/dc/elements/1.1/description> """The responsibility of engineers to consider environmental impacts and resource efficiency in their designs and to adhere to principles of sustainable development.""";
+    <http://purl.org/dc/elements/1.1/description> """The ethical responsibility to consider environmental impacts and resource efficiency in engineering design and practice.""";
     <http://proethica.org/ontology/hasCategory> """principle""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/sustainability/reference/1>;
@@ -180,8 +179,8 @@
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/sustainability/reference/4>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/environmental_impact>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/resource_efficiency>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/waste_reduction>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/design_longevity>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/sustainable_development>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/lifecycle_design>.
 
 <http://proethica.org/guidelines/sustainability/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers should strive to adhere to principles of sustainable development.""".
@@ -198,9 +197,9 @@
 <http://proethica.org/guidelines/intellectual_property_respect>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Intellectual Property Respect""";
-    <http://purl.org/dc/elements/1.1/description> """The obligation to respect and properly attribute intellectual property rights, including patents, copyrights, and innovations.""";
-    <http://proethica.org/ontology/hasCategory> """obligation""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
+    <http://purl.org/dc/elements/1.1/description> """The obligation to honor and properly attribute the intellectual contributions of others, including patents, copyrights, and other forms of protected innovation.""";
+    <http://proethica.org/ontology/hasCategory> """principle""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/intellectual_property_respect/reference/1>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/intellectual_property_respect/reference/2>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/intellectual_property_respect/reference/3>;
@@ -225,7 +224,7 @@
 <http://proethica.org/guidelines/whistleblowing>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Whistleblowing""";
-    <http://purl.org/dc/elements/1.1/description> """The ethical responsibility to report unethical behavior or practices that could endanger public safety, following appropriate reporting procedures.""";
+    <http://purl.org/dc/elements/1.1/description> """The ethical responsibility to report unethical behavior or practices that could endanger public safety, following appropriate channels and procedures.""";
     <http://proethica.org/ontology/hasCategory> """obligation""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/whistleblowing/reference/1>;
@@ -234,8 +233,8 @@
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/whistleblowing/reference/4>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/public_safety>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/reporting_procedures>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_responsibility>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/documentation>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/documentation>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_responsibility>.
 
 <http://proethica.org/guidelines/whistleblowing/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers have an ethical responsibility to report unethical behavior or practices that could endanger public safety.""".
@@ -252,14 +251,14 @@
 <http://proethica.org/guidelines/emerging_technology_ethics>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Emerging Technology Ethics""";
-    <http://purl.org/dc/elements/1.1/description> """The responsibility to consider broader societal implications when working with emerging technologies, including potential misuse and impacts on privacy and security.""";
+    <http://purl.org/dc/elements/1.1/description> """The responsibility to consider broader societal implications of new technologies, including potential misuse and impacts on privacy, security, and social well-being.""";
     <http://proethica.org/ontology/hasCategory> """obligation""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/emerging_technology_ethics/reference/1>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/emerging_technology_ethics/reference/2>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/emerging_technology_ethics/reference/3>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/emerging_technology_ethics/reference/4>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/technology_impact_assessment>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/technology_assessment>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/privacy>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/security>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/multidisciplinary_collaboration>.
@@ -279,7 +278,7 @@
 <http://proethica.org/guidelines/cultural_and_global_awareness>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Cultural and Global Awareness""";
-    <http://purl.org/dc/elements/1.1/description> """The obligation to respect cultural differences and consider global impacts of engineering work, including environmental and social consequences.""";
+    <http://purl.org/dc/elements/1.1/description> """The obligation to respect cultural differences and consider global impacts of engineering work, including environmental, social, and labor practices.""";
     <http://proethica.org/ontology/hasCategory> """principle""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Principle>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/cultural_and_global_awareness/reference/1>;
@@ -303,6 +302,78 @@
 <http://proethica.org/guidelines/cultural_and_global_awareness/reference/4>
     <http://proethica.org/ontology/referenceText> """Promote fair labor practices throughout supply chains""".
 
+<http://proethica.org/guidelines/risk_assessment>
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
+    <http://www.w3.org/2000/01/rdf-schema#label> """Risk Assessment""";
+    <http://purl.org/dc/elements/1.1/description> """The systematic process of evaluating potential hazards and their consequences to ensure public safety in engineering projects.""";
+    <http://proethica.org/ontology/hasCategory> """action""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Action>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/risk_assessment/reference/1>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/risk_assessment/reference/2>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/public_safety_and_welfare>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/safety_standards>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_responsibility>.
+
+<http://proethica.org/guidelines/risk_assessment/reference/1>
+    <http://proethica.org/ontology/referenceText> """Always conduct thorough risk assessments""".
+
+<http://proethica.org/guidelines/risk_assessment/reference/2>
+    <http://proethica.org/ontology/referenceText> """Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties.""".
+
+<http://proethica.org/guidelines/continuous_education>
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
+    <http://www.w3.org/2000/01/rdf-schema#label> """Continuous Education""";
+    <http://purl.org/dc/elements/1.1/description> """The ongoing process of maintaining and improving technical skills and knowledge to ensure professional competence.""";
+    <http://proethica.org/ontology/hasCategory> """obligation""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/continuous_education/reference/1>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/continuous_education/reference/2>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_competence>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/technical_skills>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_development>.
+
+<http://proethica.org/guidelines/continuous_education/reference/1>
+    <http://proethica.org/ontology/referenceText> """Maintain and improve technical skills through continuous education""".
+
+<http://proethica.org/guidelines/continuous_education/reference/2>
+    <http://proethica.org/ontology/referenceText> """Engineers shall perform services only in areas of their competence.""".
+
+<http://proethica.org/guidelines/conflict_of_interest>
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
+    <http://www.w3.org/2000/01/rdf-schema#label> """Conflict of Interest""";
+    <http://purl.org/dc/elements/1.1/description> """Situations where personal interests could compromise professional judgment or obligations to employers, clients, or the public.""";
+    <http://proethica.org/ontology/hasCategory> """constraint""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Constraint>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/conflict_of_interest/reference/1>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/conflict_of_interest/reference/2>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/faithful_agency>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_integrity>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_conduct>.
+
+<http://proethica.org/guidelines/conflict_of_interest/reference/1>
+    <http://proethica.org/ontology/referenceText> """Avoid conflicts of interest""".
+
+<http://proethica.org/guidelines/conflict_of_interest/reference/2>
+    <http://proethica.org/ontology/referenceText> """Engineers shall act as faithful agents or trustees for each employer or client.""".
+
+<http://proethica.org/guidelines/confidentiality>
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
+    <http://www.w3.org/2000/01/rdf-schema#label> """Confidentiality""";
+    <http://purl.org/dc/elements/1.1/description> """The obligation to protect sensitive information obtained during professional service to clients or employers.""";
+    <http://proethica.org/ontology/hasCategory> """obligation""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/confidentiality/reference/1>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/confidentiality/reference/2>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/faithful_agency>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_integrity>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/trust>.
+
+<http://proethica.org/guidelines/confidentiality/reference/1>
+    <http://proethica.org/ontology/referenceText> """Protect confidential information""".
+
+<http://proethica.org/guidelines/confidentiality/reference/2>
+    <http://proethica.org/ontology/referenceText> """Engineers shall act as faithful agents or trustees for each employer or client.""".
+
 <http://proethica.org/guidelines/public>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Public""";
@@ -311,8 +382,8 @@
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Stakeholder>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/public/reference/1>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/public_safety_and_welfare>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/risk_assessment>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/social_impact>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/social_responsibility>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/risk_assessment>.
 
 <http://proethica.org/guidelines/public/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties.""".
@@ -320,7 +391,7 @@
 <http://proethica.org/guidelines/employers_and_clients>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
     <http://www.w3.org/2000/01/rdf-schema#label> """Employers and Clients""";
-    <http://purl.org/dc/elements/1.1/description> """Organizations or individuals who engage engineering services and for whom engineers must act as faithful agents or trustees.""";
+    <http://purl.org/dc/elements/1.1/description> """Organizations or individuals who engage engineering services and to whom engineers owe faithful agency.""";
     <http://proethica.org/ontology/hasCategory> """stakeholder""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Stakeholder>;
     <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/employers_and_clients/reference/1>;
@@ -331,104 +402,62 @@
 <http://proethica.org/guidelines/employers_and_clients/reference/1>
     <http://proethica.org/ontology/referenceText> """Engineers shall act as faithful agents or trustees for each employer or client.""".
 
-<http://proethica.org/guidelines/colleagues>
+<http://proethica.org/guidelines/professional_judgment>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Colleagues""";
-    <http://purl.org/dc/elements/1.1/description> """Fellow engineering professionals with whom engineers interact and whom they should support in upholding ethical standards.""";
-    <http://proethica.org/ontology/hasCategory> """stakeholder""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Stakeholder>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/colleagues/reference/1>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_community>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_conduct>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/support>.
-
-<http://proethica.org/guidelines/colleagues/reference/1>
-    <http://proethica.org/ontology/referenceText> """Support colleagues who uphold ethical standards""".
-
-<http://proethica.org/guidelines/risk_assessment>
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Risk Assessment""";
-    <http://purl.org/dc/elements/1.1/description> """The systematic process of evaluating potential risks and hazards associated with engineering projects to ensure public safety.""";
-    <http://proethica.org/ontology/hasCategory> """action""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Action>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/risk_assessment/reference/1>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/public_safety_and_welfare>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/safety_standards>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_responsibility>.
-
-<http://proethica.org/guidelines/risk_assessment/reference/1>
-    <http://proethica.org/ontology/referenceText> """Always conduct thorough risk assessments""".
-
-<http://proethica.org/guidelines/continuous_education>
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Continuous Education""";
-    <http://purl.org/dc/elements/1.1/description> """The ongoing process of maintaining and improving technical skills and knowledge throughout an engineer's career.""";
-    <http://proethica.org/ontology/hasCategory> """action""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Action>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/continuous_education/reference/1>;
+    <http://www.w3.org/2000/01/rdf-schema#label> """Professional Judgment""";
+    <http://purl.org/dc/elements/1.1/description> """The application of technical knowledge, experience, and ethical considerations in making engineering decisions.""";
+    <http://proethica.org/ontology/hasCategory> """value""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Value>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/professional_judgment/reference/1>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_competence>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/technical_skills>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_development>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_conduct>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/technical_skills>.
 
-<http://proethica.org/guidelines/continuous_education/reference/1>
-    <http://proethica.org/ontology/referenceText> """Maintain and improve technical skills through continuous education""".
+<http://proethica.org/guidelines/professional_judgment/reference/1>
+    <http://proethica.org/ontology/referenceText> """Make employers or clients aware of consequences if professional judgment is overruled""".
 
-<http://proethica.org/guidelines/honesty>
+<http://proethica.org/guidelines/anticorruption>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Honesty""";
-    <http://purl.org/dc/elements/1.1/description> """The fundamental value of truthfulness and integrity in all professional communications and actions.""";
+    <http://www.w3.org/2000/01/rdf-schema#label> """Anti-corruption""";
+    <http://purl.org/dc/elements/1.1/description> """The commitment to avoid and oppose bribery, fraud, and corruption in all professional activities.""";
     <http://proethica.org/ontology/hasCategory> """value""";
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Value>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/honesty/reference/1>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/honesty/reference/2>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/integrity>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/truthfulness_in_public_statements>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_integrity>.
-
-<http://proethica.org/guidelines/honesty/reference/1>
-    <http://proethica.org/ontology/referenceText> """Maintain high standards of honesty and integrity""".
-
-<http://proethica.org/guidelines/honesty/reference/2>
-    <http://proethica.org/ontology/referenceText> """Present qualifications and capabilities honestly""".
-
-<http://proethica.org/guidelines/responsibility>
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Responsibility""";
-    <http://purl.org/dc/elements/1.1/description> """The value of being accountable for one's professional actions and decisions and their consequences.""";
-    <http://proethica.org/ontology/hasCategory> """value""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Value>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/responsibility/reference/1>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/anticorruption/reference/1>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_conduct>;
     <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_integrity>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/public_safety_and_welfare>.
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/honesty>.
 
-<http://proethica.org/guidelines/responsibility/reference/1>
-    <http://proethica.org/ontology/referenceText> """Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully.""".
+<http://proethica.org/guidelines/anticorruption/reference/1>
+    <http://proethica.org/ontology/referenceText> """Zero tolerance for bribery, fraud, and corruption""".
 
-<http://proethica.org/guidelines/safety_standards>
+<http://proethica.org/guidelines/environmental_impact>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Safety Standards""";
-    <http://purl.org/dc/elements/1.1/description> """Established guidelines and requirements designed to ensure the safety of engineering projects and products.""";
-    <http://proethica.org/ontology/hasCategory> """constraint""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Constraint>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/safety_standards/reference/1>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/public_safety_and_welfare>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/risk_assessment>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_responsibility>.
+    <http://www.w3.org/2000/01/rdf-schema#label> """Environmental Impact""";
+    <http://purl.org/dc/elements/1.1/description> """The effect of engineering decisions and projects on natural ecosystems and resources.""";
+    <http://proethica.org/ontology/hasCategory> """consideration""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Consideration>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/environmental_impact/reference/1>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/environmental_impact/reference/2>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/sustainability>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/resource_efficiency>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/global_impact>.
 
-<http://proethica.org/guidelines/safety_standards/reference/1>
-    <http://proethica.org/ontology/referenceText> """Never compromise safety standards for cost or schedule""".
+<http://proethica.org/guidelines/environmental_impact/reference/1>
+    <http://proethica.org/ontology/referenceText> """Consider environmental impacts in design decisions""".
 
-<http://proethica.org/guidelines/conflict_of_interest>
+<http://proethica.org/guidelines/environmental_impact/reference/2>
+    <http://proethica.org/ontology/referenceText> """Engineers should strive to adhere to principles of sustainable development.""".
+
+<http://proethica.org/guidelines/multidisciplinary_collaboration>
     <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/EthicalConcept>;
-    <http://www.w3.org/2000/01/rdf-schema#label> """Conflict of Interest""";
-    <http://purl.org/dc/elements/1.1/description> """Situations where personal interests could compromise professional judgment or obligations to employers, clients, or the public.""";
-    <http://proethica.org/ontology/hasCategory> """constraint""";
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Constraint>;
-    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/conflict_of_interest/reference/1>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/faithful_agency>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_integrity>;
-    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/ethical_conduct>.
+    <http://www.w3.org/2000/01/rdf-schema#label> """Multidisciplinary Collaboration""";
+    <http://purl.org/dc/elements/1.1/description> """The practice of working with experts from various fields to better understand complex implications of engineering work.""";
+    <http://proethica.org/ontology/hasCategory> """action""";
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Action>;
+    <http://proethica.org/ontology/hasReference> <http://proethica.org/guidelines/multidisciplinary_collaboration/reference/1>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/emerging_technology_ethics>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/professional_competence>;
+    <http://proethica.org/ontology/relatedTo> <http://proethica.org/guidelines/expert_engagement>.
 
-<http://proethica.org/guidelines/conflict_of_interest/reference/1>
-    <http://proethica.org/ontology/referenceText> """Avoid conflicts of interest""".
+<http://proethica.org/guidelines/multidisciplinary_collaboration/reference/1>
+    <http://proethica.org/ontology/referenceText> """Engage with multidisciplinary experts to understand implications""".

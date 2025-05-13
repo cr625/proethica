@@ -5,105 +5,112 @@
       "ontology_entity": "Public Safety",
       "match_type": "similar",
       "confidence": 0.9,
-      "explanation": "Both concepts focus on prioritizing the safety, health, and welfare of the public. The extracted concept is slightly broader as it explicitly mentions 'welfare' in addition to safety and health."
+      "explanation": "Both concepts focus on prioritizing the safety, health, and welfare of the public in engineering work. The extracted concept is slightly broader as it explicitly mentions 'welfare' alongside safety and health."
     },
     {
       "concept_label": "Professional Competence",
       "ontology_entity": "Professional Competence",
       "match_type": "exact",
       "confidence": 1.0,
-      "explanation": "Both have identical labels and similar descriptions focusing on the obligation for engineers to maintain adequate expertise, knowledge, and skills in their areas of practice."
+      "explanation": "Both concepts have identical labels and describe the same ethical requirement for engineers to maintain adequate education, training, and skills to ensure quality and safety."
     },
     {
       "concept_label": "Truthfulness in Public Statements",
       "ontology_entity": "Honesty",
       "match_type": "narrower",
       "confidence": 0.8,
-      "explanation": "Truthfulness in Public Statements is a specific application of the broader principle of Honesty, focused particularly on communications and professional reports."
+      "explanation": "Truthfulness in Public Statements is a specific application of the broader principle of Honesty, focused particularly on professional communications and public statements."
     },
     {
       "concept_label": "Faithful Agency",
       "ontology_entity": "Professional Responsibility",
       "match_type": "related",
       "confidence": 0.7,
-      "explanation": "Faithful Agency relates to Professional Responsibility as both involve accepting consequences of actions and serving clients/employers, though Faithful Agency is more specific to the trustee relationship."
+      "explanation": "Faithful Agency relates to Professional Responsibility as both involve obligations to stakeholders, but Faithful Agency specifically focuses on trustworthy representation of employers and clients."
     },
     {
       "concept_label": "Professional Integrity",
       "ontology_entity": "Integrity",
       "match_type": "similar",
-      "confidence": 0.95,
-      "explanation": "Both concepts focus on adherence to moral and ethical principles in engineering practice, particularly avoiding deceptive acts and maintaining honest representation."
+      "confidence": 0.9,
+      "explanation": "Both concepts address adherence to moral principles in engineering practice, with the extracted concept specifically focusing on honest representation of qualifications and capabilities."
     },
     {
       "concept_label": "Ethical Conduct",
       "ontology_entity": "Integrity",
       "match_type": "broader",
-      "confidence": 0.85,
-      "explanation": "Ethical Conduct is a broader concept that encompasses Integrity along with other ethical principles like responsibility and legal compliance."
+      "confidence": 0.8,
+      "explanation": "Ethical Conduct is a broader concept that encompasses Integrity along with other ethical principles like honesty and responsible behavior in all professional activities."
+    },
+    {
+      "concept_label": "Whistleblowing",
+      "ontology_entity": "Professional Responsibility",
+      "match_type": "narrower",
+      "confidence": 0.7,
+      "explanation": "Whistleblowing is a specific aspect of Professional Responsibility that involves reporting unethical behavior that could endanger public safety."
+    },
+    {
+      "concept_label": "Risk Assessment",
+      "ontology_entity": "Public Safety",
+      "match_type": "related",
+      "confidence": 0.8,
+      "explanation": "Risk Assessment is a process directly related to ensuring Public Safety, as it involves evaluating potential hazards to protect the public."
     },
     {
       "concept_label": "Continuous Education",
       "ontology_entity": "Professional Development",
       "match_type": "similar",
       "confidence": 0.9,
-      "explanation": "Both concepts focus on ongoing learning and improvement of skills and knowledge throughout an engineer's career."
-    },
-    {
-      "concept_label": "Honesty",
-      "ontology_entity": "Honesty",
-      "match_type": "exact",
-      "confidence": 1.0,
-      "explanation": "Both have identical labels and similar descriptions focusing on truthfulness and sincerity in professional conduct."
-    },
-    {
-      "concept_label": "Responsibility",
-      "ontology_entity": "Professional Responsibility",
-      "match_type": "similar",
-      "confidence": 0.9,
-      "explanation": "Both concepts focus on being accountable for professional actions and decisions and their consequences."
+      "explanation": "Both concepts refer to the ongoing process of maintaining and improving technical skills and knowledge to ensure professional competence."
     },
     {
       "concept_label": "Conflict of Interest",
       "ontology_entity": "Conflict of Interest",
       "match_type": "exact",
       "confidence": 1.0,
-      "explanation": "Both have identical labels and similar descriptions focusing on situations where personal interests could compromise professional judgment."
+      "explanation": "Both concepts have identical labels and describe the same situations where personal interests could compromise professional judgment or obligations."
+    },
+    {
+      "concept_label": "Confidentiality",
+      "ontology_entity": "Confidentiality",
+      "match_type": "exact",
+      "confidence": 1.0,
+      "explanation": "Both concepts have identical labels and describe the same obligation to protect sensitive information obtained during professional service."
     },
     {
       "concept_label": "Public",
       "ontology_entity": "Public",
       "match_type": "exact",
       "confidence": 1.0,
-      "explanation": "Both have identical labels and similar descriptions referring to the general population affected by engineering work."
-    },
-    {
-      "concept_label": "Employers and Clients",
-      "ontology_entity": "Employer",
-      "match_type": "related",
-      "confidence": 0.7,
-      "explanation": "The concept 'Employers and Clients' encompasses the ontology entity 'Employer' but also includes clients, making it broader than just the employer entity."
+      "explanation": "Both concepts have identical labels and refer to the general population whose safety, health, and welfare must be prioritized in engineering work."
     },
     {
       "concept_label": "Employers and Clients",
       "ontology_entity": "Client",
-      "match_type": "related",
+      "match_type": "broader",
       "confidence": 0.7,
-      "explanation": "The concept 'Employers and Clients' encompasses the ontology entity 'Client' but also includes employers, making it broader than just the client entity."
+      "explanation": "The extracted concept 'Employers and Clients' is broader as it encompasses both clients and employers, while the ontology entity focuses only on clients."
     },
     {
-      "concept_label": "Risk Assessment",
-      "ontology_entity": "Professional Responsibility",
+      "concept_label": "Employers and Clients",
+      "ontology_entity": "Employer",
+      "match_type": "broader",
+      "confidence": 0.7,
+      "explanation": "The extracted concept 'Employers and Clients' is broader as it encompasses both clients and employers, while the ontology entity focuses only on employers."
+    },
+    {
+      "concept_label": "Professional Judgment",
+      "ontology_entity": "Professional Competence",
       "match_type": "related",
       "confidence": 0.6,
-      "explanation": "Risk Assessment is related to Professional Responsibility as it's a specific process engineers use to fulfill their responsibility to ensure public safety."
+      "explanation": "Professional Judgment is related to Professional Competence as it involves the application of technical knowledge and skills, but focuses specifically on decision-making aspects."
     },
     {
-      "concept_label": "Safety Standards",
-      "ontology_entity": "Public Safety",
-      "match_type": "related",
-      "confidence": 0.75,
-      "explanation": "Safety Standards are directly related to Public Safety as they are established guidelines designed to ensure the safety of engineering projects and products."
+      "concept_label": "Anti-corruption",
+      "ontology_entity": "Integrity",
+      "match_type": "narrower",
+      "confidence": 0.8,
+      "explanation": "Anti-corruption is a specific aspect of Integrity, focusing particularly on avoiding bribery, fraud, and corruption in professional activities."
     }
   ]
 }

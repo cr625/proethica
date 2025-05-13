@@ -32,7 +32,7 @@ logger = logging.getLogger("UnifiedOntologyServer")
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import base module class
-from mcp.modules.base_module import BaseModule
+from mcp.modules.base_module import MCPBaseModule as BaseModule
 
 
 class UnifiedOntologyServer:

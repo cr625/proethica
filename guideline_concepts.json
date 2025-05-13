@@ -20,8 +20,8 @@
     },
     {
       "label": "Professional Competence",
-      "description": "The obligation for engineers to only perform services in areas where they have adequate expertise, knowledge, and skills.",
-      "category": "obligation",
+      "description": "The ethical requirement that engineers only perform services in areas where they have adequate education, training, or experience to ensure quality and safety.",
+      "category": "principle",
       "related_concepts": [
         "Continuous Education",
         "Technical Skills",
@@ -38,13 +38,13 @@
     },
     {
       "label": "Truthfulness in Public Statements",
-      "description": "The requirement for engineers to be objective, truthful, and comprehensive in all public communications and professional reports.",
+      "description": "The obligation for engineers to communicate honestly and objectively in all professional communications, avoiding misrepresentation or omission of important facts.",
       "category": "principle",
       "related_concepts": [
         "Transparency",
         "Disclosure",
-        "Honesty",
-        "Professional Communication"
+        "Professional Communication",
+        "Honesty"
       ],
       "text_references": [
         "Engineers shall issue public statements only in an objective and truthful manner.",
@@ -56,13 +56,13 @@
     },
     {
       "label": "Faithful Agency",
-      "description": "The duty of engineers to act as faithful agents or trustees for their employers and clients, protecting their interests while maintaining ethical standards.",
-      "category": "obligation",
+      "description": "The duty of engineers to act as trustworthy representatives for their employers and clients, protecting their interests while maintaining ethical standards.",
+      "category": "principle",
       "related_concepts": [
         "Conflict of Interest",
         "Confidentiality",
         "Professional Judgment",
-        "Client Relationship"
+        "Loyalty"
       ],
       "text_references": [
         "Engineers shall act as faithful agents or trustees for each employer or client.",
@@ -74,13 +74,12 @@
     },
     {
       "label": "Professional Integrity",
-      "description": "The commitment to avoid deceptive acts in professional practice and to maintain honest representation of qualifications and capabilities.",
+      "description": "The commitment to honest representation of qualifications and capabilities, avoiding deceptive practices in seeking employment or contracts.",
       "category": "principle",
       "related_concepts": [
         "Honesty",
-        "Ethical Conduct",
         "Professional Reputation",
-        "Transparency"
+        "Merit-based Recognition"
       ],
       "text_references": [
         "Engineers shall avoid deceptive acts in the solicitation of professional employment.",
@@ -92,13 +91,13 @@
     },
     {
       "label": "Ethical Conduct",
-      "description": "The overarching obligation for engineers to conduct themselves honorably, responsibly, ethically, and lawfully in all professional activities.",
+      "description": "The overarching commitment to honorable, responsible, ethical, and lawful behavior in all professional activities.",
       "category": "principle",
       "related_concepts": [
+        "Honesty",
         "Integrity",
-        "Responsibility",
-        "Legal Compliance",
-        "Anti-corruption"
+        "Anti-corruption",
+        "Professional Support"
       ],
       "text_references": [
         "Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully.",
@@ -110,13 +109,13 @@
     },
     {
       "label": "Sustainability",
-      "description": "The responsibility of engineers to consider environmental impacts and resource efficiency in their designs and to adhere to principles of sustainable development.",
+      "description": "The ethical responsibility to consider environmental impacts and resource efficiency in engineering design and practice.",
       "category": "principle",
       "related_concepts": [
         "Environmental Impact",
         "Resource Efficiency",
-        "Waste Reduction",
-        "Design Longevity"
+        "Sustainable Development",
+        "Lifecycle Design"
       ],
       "text_references": [
         "Engineers should strive to adhere to principles of sustainable development.",
@@ -128,8 +127,8 @@
     },
     {
       "label": "Intellectual Property Respect",
-      "description": "The obligation to respect and properly attribute intellectual property rights, including patents, copyrights, and innovations.",
-      "category": "obligation",
+      "description": "The obligation to honor and properly attribute the intellectual contributions of others, including patents, copyrights, and other forms of protected innovation.",
+      "category": "principle",
       "related_concepts": [
         "Attribution",
         "Patents",
@@ -146,13 +145,13 @@
     },
     {
       "label": "Whistleblowing",
-      "description": "The ethical responsibility to report unethical behavior or practices that could endanger public safety, following appropriate reporting procedures.",
+      "description": "The ethical responsibility to report unethical behavior or practices that could endanger public safety, following appropriate channels and procedures.",
       "category": "obligation",
       "related_concepts": [
         "Public Safety",
         "Reporting Procedures",
-        "Ethical Responsibility",
-        "Documentation"
+        "Documentation",
+        "Ethical Responsibility"
       ],
       "text_references": [
         "Engineers have an ethical responsibility to report unethical behavior or practices that could endanger public safety.",
@@ -164,10 +163,10 @@
     },
     {
       "label": "Emerging Technology Ethics",
-      "description": "The responsibility to consider broader societal implications when working with emerging technologies, including potential misuse and impacts on privacy and security.",
+      "description": "The responsibility to consider broader societal implications of new technologies, including potential misuse and impacts on privacy, security, and social well-being.",
       "category": "obligation",
       "related_concepts": [
-        "Technology Impact Assessment",
+        "Technology Assessment",
         "Privacy",
         "Security",
         "Multidisciplinary Collaboration"
@@ -182,7 +181,7 @@
     },
     {
       "label": "Cultural and Global Awareness",
-      "description": "The obligation to respect cultural differences and consider global impacts of engineering work, including environmental and social consequences.",
+      "description": "The obligation to respect cultural differences and consider global impacts of engineering work, including environmental, social, and labor practices.",
       "category": "principle",
       "related_concepts": [
         "Cultural Respect",
@@ -199,50 +198,8 @@
       "id": 10
     },
     {
-      "label": "Public",
-      "description": "The general population whose safety, health, and welfare must be prioritized in engineering work.",
-      "category": "stakeholder",
-      "related_concepts": [
-        "Public Safety and Welfare",
-        "Risk Assessment",
-        "Social Impact"
-      ],
-      "text_references": [
-        "Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties."
-      ],
-      "id": 11
-    },
-    {
-      "label": "Employers and Clients",
-      "description": "Organizations or individuals who engage engineering services and for whom engineers must act as faithful agents or trustees.",
-      "category": "stakeholder",
-      "related_concepts": [
-        "Faithful Agency",
-        "Confidentiality",
-        "Professional Judgment"
-      ],
-      "text_references": [
-        "Engineers shall act as faithful agents or trustees for each employer or client."
-      ],
-      "id": 12
-    },
-    {
-      "label": "Colleagues",
-      "description": "Fellow engineering professionals with whom engineers interact and whom they should support in upholding ethical standards.",
-      "category": "stakeholder",
-      "related_concepts": [
-        "Professional Community",
-        "Ethical Conduct",
-        "Support"
-      ],
-      "text_references": [
-        "Support colleagues who uphold ethical standards"
-      ],
-      "id": 13
-    },
-    {
       "label": "Risk Assessment",
-      "description": "The systematic process of evaluating potential risks and hazards associated with engineering projects to ensure public safety.",
+      "description": "The systematic process of evaluating potential hazards and their consequences to ensure public safety in engineering projects.",
       "category": "action",
       "related_concepts": [
         "Public Safety and Welfare",
@@ -250,66 +207,25 @@
         "Professional Responsibility"
       ],
       "text_references": [
-        "Always conduct thorough risk assessments"
+        "Always conduct thorough risk assessments",
+        "Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties."
       ],
-      "id": 14
+      "id": 11
     },
     {
       "label": "Continuous Education",
-      "description": "The ongoing process of maintaining and improving technical skills and knowledge throughout an engineer's career.",
-      "category": "action",
+      "description": "The ongoing process of maintaining and improving technical skills and knowledge to ensure professional competence.",
+      "category": "obligation",
       "related_concepts": [
         "Professional Competence",
         "Technical Skills",
         "Professional Development"
       ],
       "text_references": [
-        "Maintain and improve technical skills through continuous education"
+        "Maintain and improve technical skills through continuous education",
+        "Engineers shall perform services only in areas of their competence."
       ],
-      "id": 15
-    },
-    {
-      "label": "Honesty",
-      "description": "The fundamental value of truthfulness and integrity in all professional communications and actions.",
-      "category": "value",
-      "related_concepts": [
-        "Integrity",
-        "Truthfulness in Public Statements",
-        "Professional Integrity"
-      ],
-      "text_references": [
-        "Maintain high standards of honesty and integrity",
-        "Present qualifications and capabilities honestly"
-      ],
-      "id": 16
-    },
-    {
-      "label": "Responsibility",
-      "description": "The value of being accountable for one's professional actions and decisions and their consequences.",
-      "category": "value",
-      "related_concepts": [
-        "Ethical Conduct",
-        "Professional Integrity",
-        "Public Safety and Welfare"
-      ],
-      "text_references": [
-        "Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully."
-      ],
-      "id": 17
-    },
-    {
-      "label": "Safety Standards",
-      "description": "Established guidelines and requirements designed to ensure the safety of engineering projects and products.",
-      "category": "constraint",
-      "related_concepts": [
-        "Public Safety and Welfare",
-        "Risk Assessment",
-        "Professional Responsibility"
-      ],
-      "text_references": [
-        "Never compromise safety standards for cost or schedule"
-      ],
-      "id": 18
+      "id": 12
     },
     {
       "label": "Conflict of Interest",
@@ -321,9 +237,110 @@
         "Ethical Conduct"
       ],
       "text_references": [
-        "Avoid conflicts of interest"
+        "Avoid conflicts of interest",
+        "Engineers shall act as faithful agents or trustees for each employer or client."
+      ],
+      "id": 13
+    },
+    {
+      "label": "Confidentiality",
+      "description": "The obligation to protect sensitive information obtained during professional service to clients or employers.",
+      "category": "obligation",
+      "related_concepts": [
+        "Faithful Agency",
+        "Professional Integrity",
+        "Trust"
+      ],
+      "text_references": [
+        "Protect confidential information",
+        "Engineers shall act as faithful agents or trustees for each employer or client."
+      ],
+      "id": 14
+    },
+    {
+      "label": "Public",
+      "description": "The general population whose safety, health, and welfare must be prioritized in engineering work.",
+      "category": "stakeholder",
+      "related_concepts": [
+        "Public Safety and Welfare",
+        "Social Responsibility",
+        "Risk Assessment"
+      ],
+      "text_references": [
+        "Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties."
+      ],
+      "id": 15
+    },
+    {
+      "label": "Employers and Clients",
+      "description": "Organizations or individuals who engage engineering services and to whom engineers owe faithful agency.",
+      "category": "stakeholder",
+      "related_concepts": [
+        "Faithful Agency",
+        "Confidentiality",
+        "Professional Judgment"
+      ],
+      "text_references": [
+        "Engineers shall act as faithful agents or trustees for each employer or client."
+      ],
+      "id": 16
+    },
+    {
+      "label": "Professional Judgment",
+      "description": "The application of technical knowledge, experience, and ethical considerations in making engineering decisions.",
+      "category": "value",
+      "related_concepts": [
+        "Professional Competence",
+        "Ethical Conduct",
+        "Technical Skills"
+      ],
+      "text_references": [
+        "Make employers or clients aware of consequences if professional judgment is overruled"
+      ],
+      "id": 17
+    },
+    {
+      "label": "Anti-corruption",
+      "description": "The commitment to avoid and oppose bribery, fraud, and corruption in all professional activities.",
+      "category": "value",
+      "related_concepts": [
+        "Ethical Conduct",
+        "Professional Integrity",
+        "Honesty"
+      ],
+      "text_references": [
+        "Zero tolerance for bribery, fraud, and corruption"
+      ],
+      "id": 18
+    },
+    {
+      "label": "Environmental Impact",
+      "description": "The effect of engineering decisions and projects on natural ecosystems and resources.",
+      "category": "consideration",
+      "related_concepts": [
+        "Sustainability",
+        "Resource Efficiency",
+        "Global Impact"
+      ],
+      "text_references": [
+        "Consider environmental impacts in design decisions",
+        "Engineers should strive to adhere to principles of sustainable development."
       ],
       "id": 19
+    },
+    {
+      "label": "Multidisciplinary Collaboration",
+      "description": "The practice of working with experts from various fields to better understand complex implications of engineering work.",
+      "category": "action",
+      "related_concepts": [
+        "Emerging Technology Ethics",
+        "Professional Competence",
+        "Expert Engagement"
+      ],
+      "text_references": [
+        "Engage with multidisciplinary experts to understand implications"
+      ],
+      "id": 20
     }
   ]
 }

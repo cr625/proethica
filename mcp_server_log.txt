@@ -1,21 +1,30 @@
-2025-05-13 08:24:50,419 - __main__ - INFO - Starting Enhanced Ontology MCP Server with Guidelines Support...
-2025-05-13 08:24:50,419 - mcp.enhanced_ontology_server_with_guidelines - INFO - Enhanced Ontology Server with Guidelines initialized
-2025-05-13 08:24:50,687 - mcp.enhanced_ontology_server_with_guidelines - INFO - Anthropic client initialized successfully
-2025-05-13 08:24:51,035 - mcp.enhanced_ontology_server_with_guidelines - INFO - OpenAI client initialized successfully
-2025-05-13 08:24:51,060 - mcp.enhanced_ontology_server_with_guidelines - INFO - OpenAI embeddings client initialized successfully
-2025-05-13 08:24:51,060 - mcp.modules.base_module - INFO - Initialized guideline_analysis module
-2025-05-13 08:24:51,060 - mcp.enhanced_ontology_server_with_guidelines - INFO - Added module: guideline_analysis
-2025-05-13 08:24:51,060 - mcp.enhanced_ontology_server_with_guidelines - INFO - Guideline analysis module registered successfully
-2025-05-13 08:24:51,062 - mcp.enhanced_ontology_server_with_guidelines - INFO - Server started at http://localhost:5001
-2025-05-13 08:24:54,979 - aiohttp.access - INFO - 127.0.0.1 [13/May/2025:07:24:54 -0500] "POST /jsonrpc HTTP/1.1" 200 2217 "-" "python-requests/2.32.3"
-2025-05-13 08:24:54,981 - mcp.enhanced_ontology_server_with_guidelines - INFO - Calling tool 'extract_guideline_concepts' in module 'guideline_analysis'
-2025-05-13 08:25:27,144 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-05-13 08:25:27,155 - aiohttp.access - INFO - 127.0.0.1 [13/May/2025:07:24:54 -0500] "POST /jsonrpc HTTP/1.1" 200 10656 "-" "python-requests/2.32.3"
-2025-05-13 08:25:27,160 - mcp.enhanced_ontology_server_with_guidelines - INFO - Calling tool 'match_concepts_to_ontology' in module 'guideline_analysis'
-2025-05-13 08:25:27,160 - mcp.modules.guideline_analysis_module - INFO - Getting ontology entities from source: engineering-ethics
-2025-05-13 08:25:27,160 - mcp.modules.guideline_analysis_module - ERROR - Error calling ontology client: 'EnhancedOntologyServerWithGuidelines' object has no attribute 'get_entities'
-2025-05-13 08:25:27,160 - mcp.modules.guideline_analysis_module - INFO - Falling back to mock entities
-2025-05-13 08:25:49,093 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-05-13 08:25:49,094 - aiohttp.access - INFO - 127.0.0.1 [13/May/2025:07:25:27 -0500] "POST /jsonrpc HTTP/1.1" 200 4722 "-" "python-requests/2.32.3"
-2025-05-13 08:25:49,096 - mcp.enhanced_ontology_server_with_guidelines - INFO - Calling tool 'generate_concept_triples' in module 'guideline_analysis'
-2025-05-13 08:25:49,097 - aiohttp.access - INFO - 127.0.0.1 [13/May/2025:07:25:49 -0500] "POST /jsonrpc HTTP/1.1" 200 84459 "-" "python-requests/2.32.3"
+2025-05-13 08:36:12,727 - __main__ - INFO - Starting Enhanced Ontology MCP Server with Guidelines Support...
+2025-05-13 08:36:12,727 - mcp.enhanced_ontology_server_with_guidelines - INFO - Enhanced Ontology Server with Guidelines initialized
+2025-05-13 08:36:12,993 - mcp.enhanced_ontology_server_with_guidelines - INFO - Anthropic client initialized successfully
+2025-05-13 08:36:13,351 - mcp.enhanced_ontology_server_with_guidelines - INFO - OpenAI client initialized successfully
+2025-05-13 08:36:13,377 - mcp.enhanced_ontology_server_with_guidelines - INFO - OpenAI embeddings client initialized successfully
+2025-05-13 08:36:13,377 - mcp.modules.base_module - INFO - Initialized guideline_analysis module
+2025-05-13 08:36:13,377 - mcp.enhanced_ontology_server_with_guidelines - INFO - Added module: guideline_analysis
+2025-05-13 08:36:13,377 - mcp.enhanced_ontology_server_with_guidelines - INFO - Guideline analysis module registered successfully
+Traceback (most recent call last):
+  File "/home/chris/ai-ethical-dm/mcp/run_enhanced_mcp_server_with_guidelines.py", line 31, in <module>
+    asyncio.run(run_server())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/chris/ai-ethical-dm/mcp/enhanced_ontology_server_with_guidelines.py", line 384, in run_server
+    await server.start()
+  File "/home/chris/ai-ethical-dm/mcp/enhanced_ontology_server_with_guidelines.py", line 280, in start
+    await self.site.start()
+  File "/home/chris/ai-ethical-dm/venv/lib/python3.12/site-packages/aiohttp/web_runner.py", line 121, in start
+    self._server = await loop.create_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1572, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 98] error while attempting to bind on address ('127.0.0.1', 5001): address already in use
