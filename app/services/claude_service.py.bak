@@ -11,13 +11,13 @@ import re
 class ClaudeService:
     """Service for interacting with Anthropic's Claude models."""
     
-    def __init__(self, api_key=None, model="claude-3-7-sonnet-20250219"):
+    def __init__(self, api_key=None, model="claude-3-opus-20240229"):
         """
         Initialize the Claude service.
         
         Args:
             api_key: Anthropic API key (optional, will use env var if not provided)
-            model: Claude model to use (default: claude-3-7-sonnet-20250219)
+            model: Claude model to use (default: claude-3-opus-20240229)
         """
         # Check if mock mode is enabled first - might not need API key at all
         self.use_mock = os.environ.get("USE_MOCK_FALLBACK", "").lower() == "true"

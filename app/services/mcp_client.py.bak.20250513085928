@@ -61,8 +61,12 @@ class MCPClient:
         
         # Try different endpoints that might be available
         test_endpoints = [
-            # Check JSON-RPC endpoint
-            "/jsonrpc"
+            # First try the dedicated ping endpoint
+            "/api/ping",
+            # If that fails, try a known API endpoint that should exist
+            "/api/guidelines/engineering-ethics",
+            # Also check the ontology endpoint
+            "/api/ontology/engineering_ethics.ttl/entities"
         ]
         
         for endpoint in test_endpoints:

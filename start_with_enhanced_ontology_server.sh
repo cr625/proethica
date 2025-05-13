@@ -138,17 +138,48 @@ export MCP_SERVER_URL=http://localhost:5001
 echo "Set MCP_SERVER_URL to http://localhost:5001"
 echo "MCP server will be available at http://localhost:5001"
 
-# Check enhanced MCP server status
+# Check enhanced MCP server status using the dedicated test script
 echo "Checking enhanced MCP server status..."
-echo "Testing connection to MCP server at http://localhost:5001/jsonrpc..."
+echo "Testing connection to MCP server JSON-RPC endpoint..."
 
-# Test connection using curl
-if curl -s -X POST http://localhost:5001/jsonrpc -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":1}' | grep -q jsonrpc; then
-    echo "✓ MCP server is responding to JSON-RPC requests. Server is running properly!"
+if [ -f "test_mcp_jsonrpc_connection.py" ]; then
+    # Use the Python test script for more detailed testing
+    python test_mcp_jsonrpc_connection.py
+    if [ $? -eq 0 ]; then
+        echo "✓ MCP server connection test successful. Server is running properly!"
+    else
+        echo "WARNING: MCP server connection test failed. Check the logs."
+        echo "Continuing because MCP_SERVER_ALREADY_RUNNING is set to true..."
+    fi
 else
-    echo "Warning: Could not verify MCP server is responding to JSON-RPC requests."
-    echo "WARNING: MCP server may not be running properly. Continuing anyway..."
+    # Fallback to curl if the test script is not available
+    if curl -s -X POST http://localhost:5001/jsonrpc -H "Content-Type: application/json" \
+         -d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":1}' | grep -q jsonrpc; then
+        echo "✓ MCP server is responding to JSON-RPC requests. Server is running properly!"
+    else
+        echo "Warning: Could not verify MCP server is responding to JSON-RPC requests."
+        echo "WARNING: MCP server may not be running properly. Check the logs."
+        echo "Continuing because MCP_SERVER_ALREADY_RUNNING is set to true..."
+    fi
+fi
+
+# Set model version to the latest Claude model
+export CLAUDE_MODEL_VERSION="claude-3-7-sonnet-20250219"
+echo "Set CLAUDE_MODEL_VERSION to $CLAUDE_MODEL_VERSION"
+
+# Update components to use JSON-RPC and correct model versions
+if [ -f "fix_mcp_client.py" ]; then
+    echo "Running MCP client fix to use JSON-RPC endpoints..."
+    python fix_mcp_client.py
+else
+    echo "MCP client fix script not found. Using existing MCP client configuration."
+fi
+
+if [ -f "update_claude_models_in_mcp_server.py" ]; then
+    echo "Updating Claude model references across MCP modules..."
+    python update_claude_models_in_mcp_server.py
+else
+    echo "Model update script not found. Skipping model version updates."
 fi
 
 # Run the Flask development server

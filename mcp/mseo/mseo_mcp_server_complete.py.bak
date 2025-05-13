@@ -270,8 +270,8 @@ class MSEOMcpServer(BaseMcpServer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "description": "Name of the model to use (e.g., 'claude-3-7-sonnet-20250219')",
-                        "default": "claude-3-7-sonnet-20250219"
+                        "description": "Name of the model to use (e.g., 'claude-3-opus-20240229')",
+                        "default": "claude-3-opus-20240229"
                     },
                     "messages": {
                         "type": "array",
@@ -426,7 +426,7 @@ class MSEOMcpServer(BaseMcpServer):
     async def handle_chat_completion(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Handle chat completion requests."""
         # Extract arguments
-        model = args.get("model", "claude-3-7-sonnet-20250219")
+        model = args.get("model", "claude-3-opus-20240229")
         messages = args.get("messages", [])
         temperature = args.get("temperature", 0.7)
         max_tokens = args.get("max_tokens", 2048)

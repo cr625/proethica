@@ -768,7 +768,7 @@ class MSEOMCPServer(HTTPOntologyMCPServer):
             
             # Format messages for Claude
             message = client.messages.create(
-                model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"),
+                model=os.environ.get("ANTHROPIC_MODEL", "claude-3-opus-20240229"),
                 max_tokens=2000,
                 messages=messages
             )

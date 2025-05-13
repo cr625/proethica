@@ -90,3 +90,73 @@ To work on the guidelines feature:
 2. Install required packages with `pip install -r requirements-mcp.txt`
 3. Start the MCP server: `python mcp/run_enhanced_mcp_server_with_guidelines.py`
 4. Run tests: `./run_guidelines_mcp_pipeline.sh`
+
+## Guidelines Integration with MCP Server (Updated: 2025-05-13)
+
+The guidelines integration with the MCP server and triples extraction process has been successfully implemented. This integration enables the extraction of concepts from ethical guidelines, matching them to ontology entities, and generating RDF triples to represent the relationships.
+
+### Key Components
+
+1. **Enhanced Ontology Server**:
+   - Integration with `GuidelineAnalysisModule` for processing guidelines
+   - JSON-RPC endpoint for reliable client-server communication
+   - Updated to use the latest Claude model (`claude-3-7-sonnet-20250219`)
+
+2. **MCP Client Improvements**:
+   - Updated to use JSON-RPC endpoints instead of deprecated API endpoints
+   - Fixed model references for consistency across the system
+   - Added comprehensive error handling for connection failures
+
+3. **Pipeline Tools**:
+   - `test_mcp_jsonrpc_connection.py`: Tests server connectivity via JSON-RPC
+   - `fix_mcp_client.py`: Updates client to use JSON-RPC communications
+   - `update_claude_models_in_mcp_server.py`: Ensures consistent model usage
+   - `run_guidelines_mcp_pipeline.sh`: End-to-end testing pipeline
+
+4. **Documentation**:
+   - `RUN_WEBAPP_WITH_GUIDELINES.md`: Instructions for running the web app
+   - `README_GUIDELINES_TESTING.md`: Testing procedures and troubleshooting
+   - `guidelines_progress.md`: Tracking document for progress and next steps
+
+### Running the Application
+
+To run ProEthica with guidelines support:
+
+```bash
+./start_with_enhanced_ontology_server.sh
+```
+
+This script handles all necessary setup, including:
+- Starting the enhanced ontology server
+- Updating MCP client configuration
+- Ensuring proper model usage
+- Starting the Flask web application
+
+### Testing Guidelines Integration
+
+Guidelines integration can be tested using:
+
+```bash
+# Test the MCP server connection
+./test_mcp_jsonrpc_connection.py --verbose
+
+# Run the full pipeline test
+./run_guidelines_mcp_pipeline.sh
+```
+
+### Next Steps
+
+1. **Web Interface Enhancements**:
+   - Improve concept visualization in the web UI
+   - Add better management of guideline triples
+   - Implement batch processing for multiple guidelines
+
+2. **Integration with Existing Ontologies**:
+   - Connect guideline concepts with engineering ethics ontology
+   - Map to existing case analysis frameworks
+   - Establish links to the McLaren model
+
+3. **Performance Optimization**:
+   - Add caching for extracted concepts
+   - Implement parallel processing for large guidelines
+   - Optimize triple generation algorithms

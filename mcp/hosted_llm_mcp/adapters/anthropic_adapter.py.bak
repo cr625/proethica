@@ -30,7 +30,7 @@ class AnthropicAdapter:
     and hierarchy expansion.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-7-sonnet-20250219"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-opus-20240229"):
         """
         Initialize the Anthropic adapter.
         
