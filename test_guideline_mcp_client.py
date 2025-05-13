@@ -53,7 +53,17 @@ def wait_for_server(timeout=30):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            response = requests.get(f"{MCP_URL}", timeout=2)
+            # Test the JSON-RPC endpoint with a simple ping request
+            response = requests.post(
+                f"{MCP_URL}/jsonrpc",
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "list_tools",
+                    "params": {},
+                    "id": 0
+                },
+                timeout=2
+            )
             if response.status_code == 200:
                 logger.info("MCP server is running!")
                 return True
