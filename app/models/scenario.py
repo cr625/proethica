@@ -10,6 +10,9 @@ class Scenario(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     world_id = db.Column(db.Integer, db.ForeignKey('worlds.id'), nullable=False)
+    
+    # Relationships
+    world = db.relationship('World', back_populates='scenarios')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scenario_metadata = db.Column(JSON)
@@ -20,6 +23,7 @@ class Scenario(db.Model):
     events = db.relationship('Event', backref='scenario', cascade='all, delete-orphan')
     actions = db.relationship('Action', backref='scenario', cascade='all, delete-orphan')
     decisions = db.relationship('Decision', backref='scenario', cascade='all, delete-orphan')  # Kept for backward compatibility
+    entity_triples = db.relationship('EntityTriple', back_populates='scenario', foreign_keys='EntityTriple.scenario_id')
     
     def __repr__(self):
         return f'<Scenario {self.name}>'

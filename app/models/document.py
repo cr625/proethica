@@ -89,6 +89,21 @@ class Document(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'metadata': self.doc_metadata
         }
+    
+    def get_content_excerpt(self, length=300):
+        """Get a short excerpt of the content for display purposes."""
+        if not self.content:
+            return "(No content available)"
+        
+        if len(self.content) <= length:
+            return self.content
+        
+        # Find the last space before the cutoff to avoid cutting words
+        last_space = self.content[:length].rfind(' ')
+        if last_space == -1:  # No space found
+            return self.content[:length] + '...'
+        
+        return self.content[:last_space] + '...'
 
 class DocumentChunk(db.Model):
     """

@@ -16,6 +16,7 @@ class Character(db.Model):
     conditions = db.relationship('Condition', backref='character', cascade='all, delete-orphan')
     events = db.relationship('Event', backref='character')
     role_from_role = db.relationship('Role', foreign_keys=[role_id], overlaps="characters")
+    entity_triples = db.relationship('EntityTriple', back_populates='character', foreign_keys='EntityTriple.character_id')
     
     def __repr__(self):
         return f'<Character {self.name}>'

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy.orm import relationship
 from app import db
 from sqlalchemy import func
 import datetime
@@ -9,7 +10,7 @@ class EntityTriple(db.Model):
     """
     RDF Triple model for storing entity data as Subject-Predicate-Object.
     This allows for flexible storage of all entity types, including characters,
-    actions, events, and resources in a unified graph structure.
+    actions, events, resources in a unified graph structure.
     """
     __tablename__ = 'entity_triples'
     
@@ -20,6 +21,11 @@ class EntityTriple(db.Model):
     object_uri = db.Column(String(255))  # Value as URI when is_literal=False
     is_literal = db.Column(Boolean, nullable=False)  # Whether object is a literal or URI
     graph = db.Column(String(255), index=True)  # Named graph (e.g., scenario ID)
+    
+    # Additional fields for label display
+    subject_label = db.Column(String(255))  # Human readable label for subject
+    predicate_label = db.Column(String(255))  # Human readable label for predicate
+    object_label = db.Column(String(255))  # Human readable label for object
     
     # Vector embeddings for semantic similarity searches
     subject_embedding = db.Column(ARRAY(db.Float), nullable=True)
@@ -50,8 +56,16 @@ class EntityTriple(db.Model):
     entity_id = db.Column(Integer, nullable=False)
     
     # Foreign keys
+    world_id = db.Column(Integer, db.ForeignKey('worlds.id', ondelete='CASCADE'), nullable=True)
     scenario_id = db.Column(Integer, db.ForeignKey('scenarios.id', ondelete='CASCADE'), nullable=True)
     character_id = db.Column(Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=True)
+    guideline_id = db.Column(Integer, db.ForeignKey('guidelines.id', ondelete='CASCADE'), nullable=True)
+    
+    # Relationships
+    world = relationship("World", back_populates="entity_triples", foreign_keys=[world_id])
+    scenario = relationship("Scenario", back_populates="entity_triples", foreign_keys=[scenario_id])
+    character = relationship("Character", back_populates="entity_triples", foreign_keys=[character_id])
+    guideline = relationship("Guideline", back_populates="entity_triples", foreign_keys=[guideline_id])
     
     def __repr__(self):
         return f'<EntityTriple {self.subject} {self.predicate} {self.object_literal or self.object_uri}>'
@@ -70,13 +84,18 @@ class EntityTriple(db.Model):
             'object': self.object_literal if self.is_literal else self.object_uri,
             'is_literal': self.is_literal,
             'graph': self.graph,
+            'subject_label': self.subject_label,
+            'predicate_label': self.predicate_label,
+            'object_label': self.object_label,
             'entity_type': self.entity_type,
             'entity_id': self.entity_id,
             'metadata': self.triple_metadata,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'world_id': self.world_id,
             'scenario_id': self.scenario_id,
             'character_id': self.character_id,
+            'guideline_id': self.guideline_id,
             # Temporal fields
             'temporal_region_type': self.temporal_region_type,
             'temporal_start': self.temporal_start.isoformat() if self.temporal_start else None,

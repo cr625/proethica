@@ -20,7 +20,7 @@ worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 mcp_client = MCPClient.get_instance()
 task_queue = BackgroundTaskQueue.get_instance()
 ontology_entity_service = OntologyEntityService.get_instance()
-guideline_analysis_service = GuidelineAnalysisService.get_instance()
+guideline_analysis_service = GuidelineAnalysisService()
 
 # API endpoints
 @worlds_bp.route('/api', methods=['GET'])
@@ -580,7 +580,55 @@ def view_guideline(id, document_id):
         flash('Document is not a guideline', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
-    return render_template('guideline_content.html', world=world, guideline=guideline)
+    # Get associated concepts and triples
+    from app.models.entity_triple import EntityTriple
+    from app.models.guideline import Guideline
+    
+    # Initialize variables with default values
+    triple_count = 0
+    concept_count = 0
+    triples = []
+    concepts = []
+    
+    # Try to get related guideline if exists
+    related_guideline = None
+    if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+        try:
+            guideline_id = guideline.doc_metadata['guideline_id']
+            related_guideline = Guideline.query.get(guideline_id)
+            
+            # If related guideline exists, get its triples
+            if related_guideline:
+                triples = EntityTriple.query.filter_by(
+                    guideline_id=related_guideline.id,
+                    entity_type="guideline_concept"
+                ).all()
+                triple_count = len(triples)
+                
+                # Get concept count from metadata if available
+                if related_guideline.metadata and 'concepts_selected' in related_guideline.metadata:
+                    concept_count = related_guideline.metadata['concepts_selected']
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            flash(f'Error retrieving guideline data: {str(e)}', 'warning')
+    
+    # If no related guideline or metadata available, try to get counts from document metadata
+    if triple_count == 0 and guideline.doc_metadata:
+        if 'triples_created' in guideline.doc_metadata:
+            triple_count = guideline.doc_metadata['triples_created']
+        if 'concepts_selected' in guideline.doc_metadata:
+            concept_count = guideline.doc_metadata['concepts_selected']
+        elif 'concepts_extracted' in guideline.doc_metadata:
+            concept_count = guideline.doc_metadata['concepts_extracted']
+    
+    return render_template('guideline_content.html', 
+                          world=world, 
+                          guideline=guideline, 
+                          triple_count=triple_count, 
+                          concept_count=concept_count, 
+                          triples=triples, 
+                          concepts=concepts)
 
 @worlds_bp.route('/<int:id>/guidelines/add', methods=['GET'])
 def add_guideline_form(id):
@@ -715,19 +763,62 @@ def analyze_guideline(id, document_id):
         flash('Document is not a guideline', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
-    # Analyze guideline
-    analysis_result = guideline_analysis_service.analyze_guideline(document_id)
+    # Get guideline content - prefer content field but fall back to file content
+    content = guideline.content
+    if not content and guideline.file_path:
+        try:
+            with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+        except Exception as e:
+            flash(f'Error reading guideline file: {str(e)}', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
     
-    if "error" in analysis_result:
-        flash(f'Error analyzing guideline: {analysis_result["error"]}', 'error')
+    if not content:
+        flash('No content available for analysis', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
-    # Render the review page with extracted concepts
-    return render_template('guideline_concepts_review.html', 
-                          world=world, 
-                          guideline=guideline, 
-                          concepts=analysis_result["extracted_concepts"],
-                          matched_entities=analysis_result.get("matched_entities", {}))
+    try:
+        # Get ontology source for this world
+        ontology_source = None
+        if world.ontology_source:
+            ontology_source = world.ontology_source
+        elif world.ontology_id:
+            ontology = Ontology.query.get(world.ontology_id)
+            if ontology:
+                ontology_source = ontology.domain_id
+        
+        # Extract concepts from the guideline content
+        concepts_result = guideline_analysis_service.extract_concepts(content, ontology_source)
+        
+        if "error" in concepts_result:
+            flash(f'Error analyzing guideline: {concepts_result["error"]}', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Match concepts to ontology entities
+        matched_result = guideline_analysis_service.match_concepts(
+            concepts_result.get("concepts", []), 
+            ontology_source
+        )
+        
+        # Store analysis results in session for the review page
+        from flask import session
+        session[f'guideline_analysis_{document_id}'] = {
+            'concepts': concepts_result.get("concepts", []),
+            'matched_entities': matched_result.get("matches", {}),
+            'ontology_source': ontology_source
+        }
+        
+        # Render the review page with extracted concepts
+        return render_template('guideline_concepts_review.html', 
+                            world=world, 
+                            guideline=guideline, 
+                            concepts=concepts_result.get("concepts", []),
+                            matched_entities=matched_result.get("matches", {}))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Error analyzing guideline: {str(e)}', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts', methods=['POST'])
 def save_guideline_concepts(world_id, document_id):
@@ -742,36 +833,113 @@ def save_guideline_concepts(world_id, document_id):
         flash('Document does not belong to this world', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
-    # Get selected concepts
+    # Get selected concepts from form
     selected_concept_indices = request.form.getlist('selected_concepts')
     selected_indices = [int(idx) for idx in selected_concept_indices]
     
-    # Get analysis result
-    analysis_result = guideline_analysis_service.analyze_guideline(document_id)
+    if not selected_indices:
+        flash('No concepts selected', 'warning')
+        return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
     
-    if "error" in analysis_result or not analysis_result.get("success", False):
-        flash(f'Error retrieving guideline analysis: {analysis_result.get("error", "Unknown error")}', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Create triples for selected concepts
-    created_triples = guideline_analysis_service.create_triples_for_concepts(
-        document_id, 
-        analysis_result["extracted_concepts"], 
-        selected_indices
-    )
-    
-    # Update document metadata with selected concepts
-    guideline.doc_metadata = {
-        **(guideline.doc_metadata or {}),
-        "analyzed": True,
-        "concepts_extracted": len(analysis_result["extracted_concepts"]),
-        "concepts_selected": len(selected_indices),
-        "triples_created": len(created_triples)
-    }
-    db.session.commit()
-    
-    flash(f'Successfully created {len(created_triples)} RDF triples from selected concepts', 'success')
-    return redirect(url_for('worlds.world_guidelines', id=world.id))
+    try:
+        # Get analysis result from session
+        from flask import session
+        analysis_key = f'guideline_analysis_{document_id}'
+        if analysis_key not in session:
+            flash('Analysis results not found. Please analyze the guideline again.', 'error')
+            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+        
+        analysis_data = session[analysis_key]
+        concepts = analysis_data.get('concepts', [])
+        ontology_source = analysis_data.get('ontology_source')
+        
+        if not concepts:
+            flash('No concepts found in analysis results', 'error')
+            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+        
+        # Generate triples for selected concepts
+        triples_result = guideline_analysis_service.generate_triples(
+            concepts, 
+            selected_indices, 
+            ontology_source
+        )
+        
+        if "error" in triples_result:
+            flash(f'Error generating triples: {triples_result["error"]}', 'error')
+            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+        
+        # Save the guideline model with the triples
+        try:
+            # Create guideline record
+            from app.models.guideline import Guideline
+            new_guideline = Guideline(
+                world_id=world_id,
+                title=guideline.title,
+                content=guideline.content,
+                source_url=guideline.source,
+                file_path=guideline.file_path,
+                file_type=guideline.file_type,
+                metadata={
+                    "document_id": document_id,
+                    "analyzed": True,
+                    "concepts_extracted": len(concepts),
+                    "concepts_selected": len(selected_indices),
+                    "triple_count": triples_result.get("triple_count", 0)
+                }
+            )
+            db.session.add(new_guideline)
+            db.session.flush()  # Get the guideline ID
+            
+            # Save triples
+            triples_data = triples_result.get("triples", [])
+            if triples_data:
+                from app.models.entity_triple import EntityTriple
+                for triple_data in triples_data:
+                    triple = EntityTriple(
+                        subject=triple_data["subject"],
+                        predicate=triple_data["predicate"],
+                        object_literal=triple_data["object"] if isinstance(triple_data["object"], str) else None,
+                        object_uri=None if isinstance(triple_data["object"], str) else triple_data["object"],
+                        is_literal=isinstance(triple_data["object"], str),
+                        subject_label=triple_data.get("subject_label"),
+                        predicate_label=triple_data.get("predicate_label"),
+                        object_label=triple_data.get("object_label"),
+                        graph=f"guideline_{new_guideline.id}",
+                        entity_type="guideline_concept",
+                        entity_id=new_guideline.id,
+                        world_id=world_id,
+                        guideline_id=new_guideline.id
+                    )
+                    db.session.add(triple)
+                
+            # Update document metadata
+            guideline.doc_metadata = {
+                **(guideline.doc_metadata or {}),
+                "analyzed": True,
+                "guideline_id": new_guideline.id,
+                "concepts_extracted": len(concepts),
+                "concepts_selected": len(selected_indices),
+                "triples_created": triples_result.get("triple_count", 0)
+            }
+            db.session.commit()
+            
+            # Remove analysis data from session
+            session.pop(analysis_key, None)
+            
+            flash(f'Successfully created {triples_result.get("triple_count", 0)} RDF triples from selected concepts', 'success')
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            flash(f'Error saving triples: {str(e)}', 'error')
+            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Error processing concepts: {str(e)}', 'error')
+        
+    return redirect(url_for('worlds.world_guidelines', id=world_id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 def delete_guideline(id, document_id):

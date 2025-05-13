@@ -73,47 +73,107 @@ The ontology integration happens in step 8 of the NSPE case processing pipeline 
 
 The NSPE case import pipeline is working correctly for importing ontology triples. The issue was in the query method. By updating the query to use the correct pattern, we can now correctly retrieve the engineering ethics and McLaren ontology triples for cases.
 
-## 2025-05-12: Enhancing Guidelines Feature to Support RDF Triple Association
+## 2025-05-12: Implementing Guidelines Feature with Ontology Entity Integration
 
 ### Background
 
-The application has a concept of Worlds, with the Engineering World (ID: 1) being the primary world. Each world has RDF triples associated with it from various ontologies. The goal was to enhance the existing guidelines upload feature to better link guidelines to ethical concepts in the engineering-ethics ontology.
+The application has a concept of Worlds, with the Engineering World (ID: 1) being the primary world defined so far. Each world has RDF triples associated with it from the engineering-ethics ontology. This implementation enhances the guidelines feature to not just allow uploading guidelines, but to analyze them for concepts that can be represented as entities in the engineering-ethics ontology.
 
-### Implementation
+### Implementation Approach
 
-1. Enhanced the `GuidelineAnalysisService` to support additional entity types:
-   - Added support for "event" and "capability" entity types alongside the existing types (principle, obligation, role, action, resource, condition)
-   - Updated the LLM prompt to extract these new entity types from guideline content
-   - Modified triple creation methods to handle these new types
-   
-2. Verified that the existing workflow for guidelines is functional:
-   - Uploading guidelines via file, URL, or pasted text
-   - Processing content with LLM to extract concepts
-   - Matching concepts to existing ontology entities
-   - Creating and storing RDF triples for selected concepts
+A two-phase approach was implemented for associating RDF triples with guidelines:
+1. Upload phase: Users upload guidelines via file, URL, or direct text entry
+2. Analysis phase: The system evaluates the content using LLM-based analysis to extract concepts and match them to ontology entities
 
-3. Created comprehensive documentation in `guidelines_progress.md` that:
-   - Outlined the implementation phases
-   - Tracked completed features and pending enhancements
-   - Documented technical details of the implementation
-   - Provided clear next steps for future development
+### Components Created/Modified
 
-### Testing
+1. **Database Schema Updates**:
+   - Created a new `guidelines` table to store guideline documents
+   - Updated the `entity_triples` table to link triples to guidelines
+   - Added extra fields for triple labeling and provenance
 
-Testing confirmed that:
-- The guideline upload interface works correctly
-- The LLM integration successfully extracts concepts from guidelines
-- The concept review page displays extracted concepts with their matched entities
-- The system can create and store RDF triples for selected concepts
+2. **Model Updates**:
+   - Enhanced `World` model with a relationship to `Guideline` model
+   - Created `Guideline` model to store and manage guideline documents
 
-### Next Steps
+3. **Services**:
+   - Created `GuidelineAnalysisService` to handle LLM-based analysis of guidelines
+   - Implemented methods for concept extraction and ontology entity matching
 
-Future enhancements will focus on:
-1. Improving the visual distinction between new concepts and matches to existing ontology entities
-2. Enhancing the triple visualization and browsing experience
-3. Comprehensive testing with various document formats
-4. Performance optimizations for larger documents
+4. **MCP Server Integration**:
+   - Created guideline analysis module for the MCP server
+   - Implemented endpoints for guideline analysis using LLM processing
+
+5. **Templates and UI**:
+   - Created `guideline_concepts_review.html` for reviewing extracted concepts
+   - Enhanced existing guidelines interface for better user experience
+
+6. **Routes**:
+   - Updated `worlds.py` routes to handle guideline upload, analysis, and concept selection
+
+### Key Features
+
+1. **Document Processing**:
+   - Support for multiple input methods (file upload, URL, direct text)
+   - Handling of various document formats (PDF, DOCX, TXT, HTML)
+
+2. **Concept Extraction**:
+   - LLM-based extraction of ontology-relevant concepts from guidelines
+   - Classification of concepts by type (principle, obligation, action, etc.)
+   - Relevance scoring for extracted concepts
+
+3. **Entity Matching**:
+   - Matching extracted concepts to existing ontology entities
+   - Calculation of match confidence scores
+   - Support for creating new entities when no matches exist
+
+4. **Concept Review Interface**:
+   - User-friendly interface for reviewing extracted concepts
+   - Selection of concepts to include in the ontology
+   - Preview of matched ontology entities
+
+5. **RDF Triple Generation**:
+   - Creation of RDF triples for selected concepts
+   - Association of triples with both the guideline and the world
+   - Storage with proper labeling for better browsing
+
+### Recent Template Fixes (2025-05-12)
+
+Fixed parameter naming inconsistencies in guideline-related templates to ensure they work correctly with route definitions:
+
+1. **Templates Updated**:
+   - `guidelines.html`: Changed `world_id` to `id` in all URL routes
+   - `guideline_content.html`: Changed `world_id`/`guideline_id` to `id`/`document_id` for all routes
+   - `guideline_concepts_review.html`: Changed `world_id` to `id` for the save concepts route
+
+2. **Workflow Improvements**:
+   - Ensured consistent URL parameter naming convention across all templates
+   - Fixed form actions to correctly submit to the proper endpoints
+   - Updated navigation links for proper guideline browsing experience
+
+3. **Additional Fixes (2025-05-12 Evening)**:
+   - Fixed the breadcrumb navigation in the `guideline_concepts_review.html` template to handle both direct parameters (world_id, document_id) and object properties (world.id, guideline.id) for backward compatibility
+   - Removed references to non-existent routes (`worlds.edit_guideline` and `worlds.export_guideline_triples`)
+   - Updated the progress documentation in `guidelines_progress.md` with detailed information about all template fixes
+   - Removed all references to `csrf_token()` from guidelines-related templates to fix the `jinja2.exceptions.UndefinedError: 'csrf_token' is undefined` error (since Flask-WTF's CSRFProtect is not initialized in the application)
+   - Added default values for undefined variables in guideline_content.html template:
+     * Added `|default(0)` filter to `triple_count` and `concept_count` variables
+     * Added existence check for `triples` list with `triples is defined and triples` in conditional statements
+     * Fixed the `jinja2.exceptions.UndefinedError: 'triple_count' is undefined` error that occurred when viewing guideline details
+
+These fixes ensure the seamless flow of the guideline upload, analysis, and concept extraction pipeline. All guideline-related templates now use consistent parameter naming and URL generation patterns, which resolved previous routing issues.
+
+### Future Enhancements
+
+1. Improve concept extraction quality with refined LLM prompts
+2. Enhance matching algorithm for better ontology entity alignment
+3. Add support for more complex relationships between concepts
+4. Implement versioning for guidelines to track changes over time
 
 ### Documentation
 
-All changes and progress are documented in `guidelines_progress.md` with details on implementation phases, technical notes, and next steps.
+All implementation details and progress are tracked in `guidelines_progress.md`, which outlines:
+- Implementation phases (current and planned)
+- Technical details of database changes and workflow
+- Current limitations and known issues
+- Next steps for further development

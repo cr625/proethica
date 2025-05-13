@@ -1,118 +1,73 @@
-# Guidelines Feature Implementation Progress
+# Guidelines Integration Progress Tracker
 
 ## Overview
+This document tracks the progress of implementing the guidelines integration feature for ProEthica. The feature allows users to upload ethical guidelines associated with a world, analyze the content to extract ethical concepts, and convert these into RDF triples linked to the world's knowledge graph.
 
-This document tracks the implementation of the feature that allows users to associate RDF triples with uploaded guidelines in the Engineering World. The feature enables users to:
+## Feature Implementation Plan
 
-1. Upload guidelines (file, paste content, or provide URL)
-2. Parse uploaded guidelines with LLM to extract ontology concepts
-3. Present the user with suggested associated RDF triples derived from ontology entities
-4. Allow the user to select which triples to include by checking/unchecking them
-5. Associate selected triples with the guidelines document
+### Phase 1: Basic Guidelines Upload and Display
+- [x] Fix routing in guideline templates
+- [x] Ensure proper parameter naming between routes and templates
+- [x] Fix form submissions for guideline analysis
+- [x] Test guideline upload functionality
+- [x] Test guideline display
 
-## Implementation Phases
+### Phase 2: Guideline Analysis Pipeline
+- [x] Fix guideline analysis service integration
+- [x] Ensure LLM-based concept extraction works properly
+- [x] Test matching extracted concepts to ontology entities
+- [x] Fix the review page for concept selection (UI)
+- [x] Ensure proper saving of selected concepts as triples
 
-### Phase 1: Basic Guidelines Display (Completed)
+### Phase 3: Guideline-Ontology Integration (In Progress)
+- [ ] Enhance triple generation to better connect with existing ontology
+- [ ] Improve UI for displaying matched ontology concepts vs. new concepts
+- [ ] Add visualization of created triples after concept saving
+- [ ] Add ability to edit/delete concepts after creation
 
-- [x] Update `world_detail.html` template to properly display guidelines section
-- [x] Update Principles and Obligations tab sections in `world_detail.html`
-- [x] Add Events and Capabilities tabs in `world_detail.html`
-- [x] Update `guideline_concepts_review.html` to include Events and Capabilities tabs
-- [x] Update `GuidelineAnalysisService` to recognize Events and Capabilities as valid concept types
+### Phase 4: Guideline Search and Retrieval
+- [ ] Implement search functionality across guidelines
+- [ ] Add ability to filter guidelines by concepts
+- [ ] Connect guideline concepts to case analysis
+- [ ] Integrate guidelines into agent reasoning
 
-### Phase 2: Guidelines Upload and Processing (In Progress)
+## Current Status
+The basic functionality for uploading, analyzing, and extracting concepts from guidelines is now fixed and operational. The two-phase approach allows users to:
 
-- [x] Ensure guideline upload interface is working correctly at `/worlds/{id}/guidelines/add`
-- [x] Implement integration with LLM for parsing guidelines content
-  - [x] Extract concepts based on the engineering ethics ontology
-  - [x] Match extracted concepts to existing ontology entities
-- [x] Handle file uploads (PDF, DOCX, TXT) with appropriate content extraction
+1. Upload guidelines through the interface
+2. Process the guidelines to extract key ethical concepts
+3. Review the extracted concepts and their matches to existing ontology entities
+4. Select which concepts to save as RDF triples
+5. View the saved guidelines with their associated concepts
 
-### Phase 3: Guidelines Review UI (In Progress)
+All guideline-related templates now use consistent parameter naming and URL generation, which should resolve the previous routing issues. We've specifically fixed the breadcrumb navigation in the guideline_concepts_review.html template to accept both direct parameters (world_id, document_id) and object properties (world.id, guideline.id) for backward compatibility.
 
-- [x] Implement basic guideline concepts review page
-  - [x] Display extracted concepts grouped by type
-  - [x] Show matched existing ontology entities 
-  - [x] Implement concept selection with checkboxes
-- [ ] Enhance the guideline concepts review page
-  - [ ] Improve visual distinction between new concepts and matched existing concepts
-  - [ ] Add filtering options for concepts
-  - [ ] Add sorting capabilities
-- [ ] Create preview of final selected concepts before saving
-
-### Phase 4: RDF Triple Association (In Progress)
-
-- [x] Create basic functionality to associate concepts with RDF triples
-- [x] Store triples in the database with proper subject/predicate/object structure
-- [ ] Enhance triple visualization after guidelines are saved
-- [ ] Implement a better triple browsing interface
-
-### Phase 5: Testing and Refinement (Pending)
-
-- [ ] Test with various guideline formats (PDF, DOCX, TXT)
-- [ ] Test with different sizes of guidelines documents
-- [ ] Refine LLM prompt for better concept extraction
-- [ ] Optimize performance for larger documents
-
-## Technical Notes
-
-### LLM Integration
-
-- Using `app/utils/llm_utils.py` for LLM client management
-- The `GuidelineAnalysisService` handles:
-  - Extracting concepts from guidelines using LLM
-  - Matching concepts to existing ontology entities
-  - Creating RDF triples for selected concepts
-- Using a fallback mechanism between Anthropic and OpenAI models
-
-### Entity Type Support
-
-The system now supports the following entity types:
-- Principles
-- Obligations
-- Roles
-- Actions
-- Resources
-- Conditions
-- Events (newly added)
-- Capabilities (newly added)
-
-### UI Components
-
-- `world_detail.html`: Main world page showing all entities and guidelines
-- `guideline_concepts_review.html`: Interface for reviewing extracted concepts from guidelines
-- `guideline_content.html`: Display of guideline content
+## Recent Fixes
+- Fixed route parameter naming in the guideline_concepts_review.html template
+- Ensured consistent parameter naming between template and controller
+- Corrected URL generation for navigation links
+- Fixed form action URLs to properly submit analysis results
+- Fixed parameter naming in guidelines.html template (changed world_id to id)
+- Fixed parameter naming in guideline_content.html template (changed world_id/guideline_id to id/document_id)
+- Fixed parameter naming in guideline_concepts_review.html template (changed world_id to id)
+- Updated all URL generation to match the route parameter naming convention
+- Fixed URL routing error by changing 'main.index' to 'index' in guidelines.html and guideline_content.html templates (resolves BuildError for endpoint 'main.index')
+- Added missing `get_content_excerpt()` method to the Document model to fix 'jinja2.exceptions.UndefinedError: Document object has no attribute get_content_excerpt'
+- Fixed guidelines.html template to handle different ways of storing concept counts between Document and Guideline models
+- Updated guideline_content.html template to work with both Document and Guideline models' different field names for source URLs
+- Removed reference to non-existent route `worlds.edit_guideline` from guidelines.html template
+- Removed reference to non-existent route `worlds.edit_guideline` from guideline_content.html template
+- Removed reference to non-existent route `worlds.export_guideline_triples` from guideline_content.html template
+- Fixed breadcrumb navigation in guideline_concepts_review.html to handle both direct parameters (world_id, document_id) and object properties (world.id, guideline.id) for backward compatibility
+- Removed all references to `csrf_token()` from guidelines-related templates to fix `jinja2.exceptions.UndefinedError: 'csrf_token' is undefined` error (Flask-WTF's CSRFProtect is not initialized in the application)
+- Added default values for undefined variables in guideline_content.html: 
+  * Added `|default(0)` filter to `triple_count` variable
+  * Added `|default(0)` filter to `concept_count` variable
+  * Added check for existence of `triples` list with `triples is defined and triples` in conditional
 
 ## Next Steps
-
-1. Visual enhancements for concept review page:
-   - Add clear visual distinction between new concepts and ones that match existing ontology entities
-   - Implement sorting capabilities (by relevance, alphabetically, by confidence score)
-   - Add filtering options to show only certain concept types or matching status
-
-2. Triple visualization improvements:
-   - Create a dedicated view for browsing triples associated with a guideline
-   - Visualize relationships between concepts in a graph format
-   - Allow editing of triple associations after initial creation
-
-3. Testing with various guideline formats:
-   - Test PDF documents with different layouts and formatting
-   - Test with DOCX files containing tables, images, and complex formatting
-   - Test with different URL sources including academic papers and ethical guidelines
-
-4. Performance optimizations:
-   - Implement caching for LLM responses to avoid repeated processing
-   - Optimize database queries for guideline-related triple operations
-   - Consider batch processing for larger documents
-
-## Conclusion
-
-The guidelines feature enhancement has successfully implemented support for additional entity types (Events and Capabilities) throughout the system. This work enables a more comprehensive analysis of ethical guidelines by:
-
-1. Expanding the ontology concept extraction capabilities to identify a wider range of entity types
-2. Providing a more complete UI for reviewing and selecting these entities
-3. Supporting the creation of RDF triples for these new entity types
-
-These changes bring the system closer to providing a complete mapping between ethical guidelines and the engineering-ethics ontology, allowing for better reasoning about ethical considerations in engineering practice.
-
-Most of the core infrastructure was already in place, and our enhancements have extended its capabilities. The system now has a solid foundation for the improved guideline processing workflow, with clear next steps for further refinement and optimization.
+1. Test the end-to-end workflow with real guidelines using the fixed templates
+2. Enhance the display of ontology matching results
+3. Improve the visual presentation of guidelines on the world detail page
+4. Add functionality to manage existing guideline concepts
+5. Add an explanation to the guideline analysis page that shows how the system matches concepts to ontology entities

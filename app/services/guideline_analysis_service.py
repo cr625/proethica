@@ -1,582 +1,367 @@
 """
-Service for analyzing guidelines and extracting ontological concepts.
+Service for analyzing guidelines and extracting ontology concepts.
 """
 
 import os
 import json
-import threading
-import time
-from typing import Dict, Any, List, Tuple, Set, Optional
-from flask import current_app
 import requests
+from typing import List, Dict, Any, Optional
+import logging
 
 from app import db
-from app.models.document import Document
-from app.models.triple import Triple
-from app.services.ontology_entity_service import OntologyEntityService
-from app.services.mcp_client import MCPClient
 from app.utils.llm_utils import get_llm_client
+from app.services.mcp_client import MCPClient
+from app.models.entity_triple import EntityTriple
 
-# Thread-local storage for cached analysis results
-_local_storage = threading.local()
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class GuidelineAnalysisService:
-    """Service for analyzing guidelines and extracting ontological concepts."""
-    
-    _instance = None
-    
-    @classmethod
-    def get_instance(cls):
-        """Get the singleton instance of GuidelineAnalysisService."""
-        if cls._instance is None:
-            cls._instance = GuidelineAnalysisService()
-        return cls._instance
+    """
+    Service for analyzing guidelines, extracting concepts, and generating RDF triples.
+    This service supports a two-phase approach:
+    1. Extract concepts from guidelines
+    2. Match concepts to ontology entities and generate triples
+    """
     
     def __init__(self):
-        """Initialize the service."""
-        self.ontology_entity_service = OntologyEntityService.get_instance()
         self.mcp_client = MCPClient.get_instance()
-        self.cache_timeout = 600  # 10 minutes
-        self.cache = {}
-        self.cache_timestamps = {}
-    
-    def analyze_guideline(self, document_id: int) -> Dict[str, Any]:
+        
+    def extract_concepts(self, content: str, ontology_source: Optional[str] = None) -> Dict[str, Any]:
         """
-        Analyze a guideline document and extract ontology concepts.
+        Extract concepts from guideline content.
         
         Args:
-            document_id: The ID of the document to analyze
+            content: The text content of the guideline document
+            ontology_source: Optional ontology source identifier to give context for extraction
             
         Returns:
-            A dictionary containing the analysis results
+            Dict containing the extracted concepts or error information
         """
-        # Check cache first
-        cache_key = f"analyze_guideline_{document_id}"
-        cached_result = self._get_from_cache(cache_key)
-        if cached_result:
-            return cached_result
-        
         try:
-            # Get the document
-            document = Document.query.get(document_id)
-            if not document:
-                return {"success": False, "error": f"Document with ID {document_id} not found"}
+            logger.info(f"Extracting concepts from guideline content with ontology source: {ontology_source}")
             
-            # Get the document's content
-            content = document.content
-            if not content:
-                return {"success": False, "error": "Document has no content"}
+            # Get relevant ontology terms if an ontology source is provided
+            ontology_context = ""
+            entity_names = []
             
-            # Get the world's ontology entities
-            world = document.world
-            entities_result = self.ontology_entity_service.get_entities_for_world(world)
-            if not entities_result or "entities" not in entities_result:
-                return {"success": False, "error": "Failed to get ontology entities"}
-            
-            # Extract concepts using LLM
-            extracted_concepts = self._extract_concepts_with_llm(content, entities_result["entities"])
-            
-            result = {
-                "success": True,
-                "document_id": document_id,
-                "extracted_concepts": extracted_concepts,
-                "matched_entities": self._match_concepts_to_ontology(extracted_concepts, entities_result["entities"])
-            }
-            
-            # Cache the result
-            self._add_to_cache(cache_key, result)
-            
-            return result
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return {"success": False, "error": str(e)}
-    
-    def create_triples_for_concepts(self, document_id: int, concepts: List[Dict], 
-                                  selected_indices: List[int]) -> List[Triple]:
-        """
-        Create RDF triples for selected concepts extracted from guidelines.
-        
-        Args:
-            document_id: The ID of the document
-            concepts: List of extracted concepts
-            selected_indices: List of indices of selected concepts
-            
-        Returns:
-            List of created Triple objects
-        """
-        document = Document.query.get(document_id)
-        if not document:
-            return []
-            
-        world_id = document.world_id
-        created_triples = []
-        
-        # Select only the concepts that were chosen by the user
-        selected_concepts = [concepts[idx] for idx in selected_indices if idx < len(concepts)]
-        
-        for concept in selected_concepts:
-            # Create a triple for each concept
-            triple = self._create_triple_for_concept(concept, document_id, world_id)
-            if triple:
-                created_triples.append(triple)
-                
-            # If the concept has matched entities, create relationship triples
-            if "matched_entities" in concept and concept["matched_entities"]:
-                for entity in concept["matched_entities"]:
-                    relation_triple = self._create_relation_triple(concept, entity, document_id, world_id)
-                    if relation_triple:
-                        created_triples.append(relation_triple)
-        
-        # Commit all triples to the database
-        db.session.commit()
-        return created_triples
-    
-    def _extract_concepts_with_llm(self, content: str, ontology_entities: Dict) -> List[Dict]:
-        """
-        Extract ontological concepts from guideline content using LLM.
-        
-        Args:
-            content: The guideline content
-            ontology_entities: Dictionary of ontology entities
-            
-        Returns:
-            List of extracted concepts with metadata
-        """
-        llm = get_llm_client()
-        max_content_length = 15000  # Limit content length to avoid token limits
-        
-        # Truncate content if needed
-        truncated_content = content[:max_content_length]
-        if len(content) > max_content_length:
-            truncated_content += "... [content truncated for processing]"
-        
-        # Prepare a summary of ontology entities for context
-        entity_summary = self._prepare_entity_summary(ontology_entities)
-            
-        # Prepare the prompt
-        prompt = f"""
-        You are an expert in ethics and ontology analysis. Your task is to analyze the following ethical guidelines 
-        and identify key concepts that can be represented in our ontology.
-
-        The guideline content is:
-        ```
-        {truncated_content}
-        ```
-        
-        The engineering ethics ontology includes the following entity types:
-        {entity_summary}
-        
-        Extract key concepts from the guidelines and categorize them according to the ontology structure.
-        For each concept, provide:
-        
-        1. concept_name: A concise name for the concept
-        2. concept_type: The type of concept (principle, obligation, role, action, resource, condition, event, or capability)
-        3. description: A clear description of the concept
-        4. guideline_text: The exact text from the guidelines that relates to this concept
-        5. relevance: Why this concept is important for ethical engineering
-        
-        IMPORTANT: 
-        1. The concept_type MUST be one of: principle, obligation, role, action, resource, condition, event, or capability (all lowercase).
-        2. Respond ONLY with a JSON array, with NO additional text before or after.
-        
-        Return the results STRICTLY as a JSON array matching this structure:
-        [
-          {{
-            "concept_name": "string",
-            "concept_type": "string",
-            "description": "string",
-            "guideline_text": "string",
-            "relevance": "string"
-          }}
-        ]
-        
-        Identify at least 3 and up to 15 distinct concepts. Focus on concepts that are clearly represented in the text.
-        
-        DO NOT include any explanatory text or headings - respond ONLY with the JSON array.
-        """
-        
-        try:
-            # Check which LLM we're using (Anthropic or OpenAI)
-            if hasattr(llm, 'messages'):  # Anthropic
+            if ontology_source:
                 try:
-                    # Try with modern Claude models using messages API
-                    model_names = [
-                        "claude-3-7-sonnet-latest",  # Latest model version
-                        "claude-3-7-sonnet-20250219", # Specific version
-                        "claude-3-5-sonnet-20241022",
-                        "claude-3-sonnet-20240229",
-                        "claude-3-opus-20240229", 
-                        "claude-3-haiku-20240307",
-                        "claude-3-sonnet",
-                        "claude-3-opus",
-                        "claude-3-haiku"
-                    ]
+                    # Get ontology entities from MCP service
+                    entities_data = self.mcp_client.get_ontology_entities(ontology_source)
                     
-                    prompt_with_json_hint = prompt + "\n\nPlease respond in JSON format with an array of concepts."
-                    result_text = None
-                    last_error = None
-                    
-                    # Try each model until one works
-                    for model_name in model_names:
-                        try:
-                            print(f"Trying Anthropic model: {model_name}")
-                            response = llm.messages.create(
-                                model=model_name,
-                                messages=[{"role": "user", "content": prompt_with_json_hint}],
-                                temperature=0.2,
-                                max_tokens=4000
-                            )
-                            result_text = response.content[0].text
-                            print(f"Successfully used Anthropic model: {model_name}")
-                            break
-                        except Exception as e:
-                            last_error = e
-                            print(f"Error with Anthropic model {model_name}: {str(e)}")
-                            continue
-                    
-                    # If all modern models failed, try OpenAI
-                    if not result_text:
-                        # Let's try OpenAI as a fallback
-                        print("All Anthropic models failed, trying OpenAI fallback")
-                        try:
-                            import openai
-                            api_key = current_app.config.get('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY')
-                            if api_key:
-                                client = openai.OpenAI(api_key=api_key)
-                                response = client.chat.completions.create(
-                                    model="gpt-3.5-turbo",
-                                    messages=[{"role": "user", "content": prompt}],
-                                    temperature=0.2,
-                                    max_tokens=4000
-                                )
-                                result_text = response.choices[0].message.content
-                                print("Successfully used OpenAI fallback")
-                            else:
-                                raise ValueError("No OpenAI API key available")
-                        except Exception as e3:
-                            print(f"OpenAI fallback also failed: {str(e3)}")
-                            # Return empty result that will be handled gracefully
-                            print(f"All LLM API attempts failed. Last error: {str(last_error)}")
-                            return [
-                                {
-                                    "concept_name": "API Compatibility Error",
-                                    "concept_type": "principle",
-                                    "description": f"Failed to access LLM API: {str(last_error)}",
-                                    "guideline_text": "",
-                                    "confidence": 0.1
-                                }
-                            ]
-                except Exception as e_outer:
-                    print(f"Outer Anthropic API error: {str(e_outer)}")
-                    # Return error in a structured way
-                    return [
-                        {
-                            "concept_name": "API Error",
-                            "concept_type": "principle",
-                            "description": f"Anthropic API Error: {str(e_outer)}",
-                            "guideline_text": "",
-                            "confidence": 0.1
-                        }
-                    ]
-                    
-            elif hasattr(llm, 'chat'):  # OpenAI
-                response = llm.chat.completions.create(
-                    model=current_app.config.get('LLM_MODEL', 'gpt-4'),
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2,
-                    max_tokens=4000,
-                    response_format={"type": "json_object"}
-                )
-                result_text = response.choices[0].message.content
-            else:
-                raise ValueError("Unsupported LLM client type")
+                    # Format entity information as context
+                    if entities_data and "entities" in entities_data:
+                        for category, entities in entities_data["entities"].items():
+                            if entities:
+                                entity_names.extend([e.get("label") for e in entities if e.get("label")])
+                                
+                        if entity_names:
+                            ontology_context = f"The following are ethical and engineering concepts from the ontology: {', '.join(entity_names)}.\n\n"
+                except Exception as e:
+                    logger.warning(f"Error getting ontology entities for concept extraction: {str(e)}")
             
-            # Try to extract JSON from the text response
-            result_text = result_text.strip()
-            # If the response starts with ```json or similar, extract just the JSON part
-            if "```" in result_text:
-                import re
-                json_content = re.search(r'```(?:json)?(.*?)```', result_text, re.DOTALL)
-                if json_content:
-                    result_text = json_content.group(1).strip()
+            # Prepare input for the LLM
+            llm_client = get_llm_client()
+            system_prompt = """
+            You are an expert in ethical engineering and ontology analysis. Your task is to extract key ethical concepts
+            from engineering guidelines and standards. Focus on identifying:
             
-            try:
-                # Extract the concepts from the response
-                result = json.loads(result_text)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, try to extract structured data manually
-                print("JSON parsing failed, trying to extract structured data manually")
-                concepts = []
-                # Return minimal data with error info
-                return [
-                    {
-                        "concept_name": "Error in JSON Parsing",
-                        "concept_type": "principle",
-                        "description": "Failed to parse LLM response as JSON. Please check API version compatibility.",
-                        "guideline_text": result_text[:100] + "...",
-                        "confidence": 0.1
-                    }
-                ]
-            # Extract concepts - be case insensitive with keys
-            concepts = []
-            if isinstance(result, list):
-                concepts = result
-            elif isinstance(result, dict):
-                # Check for 'concepts' key with case insensitivity
-                for key in result:
-                    if key.lower() == 'concepts':
-                        concepts = result[key]
-                        break
-                
-                # If no concepts found yet, try to find any array
-                if not concepts:
-                    for key, value in result.items():
-                        if isinstance(value, list) and len(value) > 0:
-                            concepts = value
-                            break
+            1. Ethical principles (e.g., honesty, integrity, responsibility)
+            2. Professional obligations (e.g., public safety, confidentiality)
+            3. Values (e.g., transparency, fairness, sustainability)
+            4. Key engineering concepts (e.g., safety factors, risk assessment)
+            5. Ethical considerations (e.g., conflicts of interest, intellectual property)
             
-            # Log what we found for debugging
-            print(f"JSON parsing result: found {len(concepts)} concepts")
+            For each concept, provide:
+            - A label (short name for the concept)
+            - A description (brief explanation of what it means in this context)
+            - Type (principle, obligation, value, concept, consideration)
             
-            # Add confidence scores based on text overlap
-            for concept in concepts:
-                if "guideline_text" in concept and concept["guideline_text"]:
-                    # Simple confidence score based on text presence
-                    if concept["guideline_text"] in content:
-                        concept["confidence"] = 0.95
-                    else:
-                        # Try to find a close match
-                        confidence = self._calculate_text_similarity(concept["guideline_text"], content)
-                        concept["confidence"] = max(0.5, confidence)
-                else:
-                    concept["confidence"] = 0.7
+            Format your output as a JSON list of concept objects.
+            """
             
-            return concepts
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print(f"Error in extracting concepts with LLM: {e}")
-            # Return a basic placeholder if LLM extraction fails
-            return [
-                {
-                    "concept_name": "Error in Concept Extraction",
-                    "concept_type": "principle",
-                    "description": f"Failed to extract concepts: {str(e)}",
-                    "guideline_text": truncated_content[:200] + "...",
-                    "confidence": 0.1
-                }
+            user_prompt = f"""
+            {ontology_context}
+            
+            Please extract key ethical and engineering concepts from the following guidelines:
+            
+            ---
+            {content[:10000]}  # Limit to first 10k chars as many LLMs have context limits
+            ---
+            
+            Respond with a JSON array of concept objects in the following format:
+            ```json
+            [
+                {{
+                    "label": "Concept Name",
+                    "description": "Explanation of the concept",
+                    "type": "principle|obligation|value|concept|consideration",
+                    "confidence": 0.9  # A number between 0-1 indicating how clearly this concept appears in the text
+                }}
             ]
-    
-    def _prepare_entity_summary(self, ontology_entities: Dict) -> str:
-        """Prepare a summary of ontology entities for the LLM prompt."""
-        summary_parts = []
-        
-        entity_types = {
-            "principles": "Ethical principles that guide decision-making",
-            "obligations": "Duties or responsibilities that must be fulfilled",
-            "roles": "Professional roles or positions with specific responsibilities",
-            "actions": "Activities or decisions taken by agents",
-            "resources": "Physical or information assets",
-            "conditions": "Contextual factors or situations",
-            "events": "Occurrences or happenings that may have ethical implications",
-            "capabilities": "Skills, abilities, or competencies associated with roles"
-        }
-        
-        for entity_type, description in entity_types.items():
-            if entity_type in ontology_entities:
-                entities = ontology_entities[entity_type]
-                entity_names = [e.get("label", "Unnamed entity") for e in entities[:5]]
-                summary = f"- {entity_type.capitalize()}: {description}. Examples: {', '.join(entity_names)}"
-                if len(entities) > 5:
-                    summary += f" and {len(entities) - 5} more"
-                summary_parts.append(summary)
-        
-        return "\n".join(summary_parts)
-    
-    def _calculate_text_similarity(self, text1: str, text2: str) -> float:
-        """Calculate a simple similarity score between two text strings."""
-        # This is a very basic similarity check
-        text1_words = set(text1.lower().split())
-        text2_words = set(text2.lower().split())
-        
-        if not text1_words or not text2_words:
-            return 0.0
+            ```
             
-        common_words = text1_words.intersection(text2_words)
-        return len(common_words) / len(text1_words)
+            Only include concepts that are directly referenced or implied in the guidelines. Focus on quality over quantity.
+            """
+            
+            # Get response from LLM
+            response = llm_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="gpt-4-turbo" if "gpt-4" in llm_client.available_models else "claude-3-haiku-20240307",
+                response_format={"type": "json_object"},
+                max_tokens=4000,
+                temperature=0.2
+            )
+            
+            # Extract JSON from the response
+            try:
+                response_text = response.choices[0].message.content
+                response_json = json.loads(response_text)
+                
+                # Check if response has concepts key or is a direct array
+                if isinstance(response_json, dict) and "concepts" in response_json:
+                    concepts = response_json["concepts"]
+                elif isinstance(response_json, list):
+                    concepts = response_json
+                else:
+                    # Try to find a JSON array in the response
+                    concepts = []
+                    import re
+                    json_match = re.search(r'\[\s*\{.*\}\s*\]', response_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            concepts = json.loads(json_match.group(0))
+                        except:
+                            logger.error("Failed to parse JSON array from LLM response")
+                
+                # Validate concepts format
+                validated_concepts = []
+                for concept in concepts:
+                    if isinstance(concept, dict) and "label" in concept and "description" in concept:
+                        # Ensure type defaults to "concept" if missing
+                        if "type" not in concept:
+                            concept["type"] = "concept"
+                        # Ensure confidence defaults to 0.8 if missing
+                        if "confidence" not in concept:
+                            concept["confidence"] = 0.8
+                        validated_concepts.append(concept)
+                
+                logger.info(f"Successfully extracted {len(validated_concepts)} concepts from guideline content")
+                return {"concepts": validated_concepts}
+            
+            except json.JSONDecodeError:
+                logger.error("Failed to parse JSON from LLM response")
+                return {"error": "Failed to parse concept data from AI response", "concepts": []}
+                
+        except Exception as e:
+            logger.exception(f"Error extracting concepts from guideline: {str(e)}")
+            return {"error": str(e), "concepts": []}
     
-    def _match_concepts_to_ontology(self, concepts: List[Dict], 
-                                   ontology_entities: Dict) -> Dict[str, List]:
+    def match_concepts(self, concepts: List[Dict[str, Any]], ontology_source: Optional[str] = None) -> Dict[str, Any]:
         """
-        Match extracted concepts to existing ontology entities.
+        Match extracted concepts to ontology entities.
         
         Args:
-            concepts: List of extracted concepts
-            ontology_entities: Dictionary of ontology entities
+            concepts: List of concept dictionaries extracted from the guideline
+            ontology_source: Optional ontology source identifier for matching
             
         Returns:
-            Dictionary mapping concept indices to matched entities
+            Dict containing matched entities and confidence scores
         """
-        matches = {}
-        
-        # Create mappings for entity types to their plural forms
-        type_mappings = {
-            "principle": "principles",
-            "obligation": "obligations",
-            "role": "roles",
-            "action": "actions",
-            "resource": "resources",
-            "condition": "conditions",
-            "event": "events",
-            "capability": "capabilities"
-        }
-        
-        for i, concept in enumerate(concepts):
-            concept_type = concept.get("concept_type", "")
-            concept_name = concept.get("concept_name", "")
-            concept_description = concept.get("description", "")
+        try:
+            logger.info(f"Matching {len(concepts)} concepts to ontology entities")
             
-            # Get the plural form of the concept type
-            entity_type_key = type_mappings.get(concept_type.lower(), None)
-            if not entity_type_key or entity_type_key not in ontology_entities:
-                continue
-                
-            # Get entities of this type
-            entities = ontology_entities[entity_type_key]
-            matched_entities = []
+            # Get ontology entities if source is provided
+            ontology_entities = {}
+            if ontology_source:
+                try:
+                    entities_data = self.mcp_client.get_ontology_entities(ontology_source)
+                    if entities_data and "entities" in entities_data:
+                        ontology_entities = entities_data["entities"]
+                except Exception as e:
+                    logger.warning(f"Error getting ontology entities for matching: {str(e)}")
             
-            # Find matching entities
-            for entity in entities:
-                # Calculate a match score based on label and description similarity
-                label_similarity = self._calculate_text_similarity(concept_name, entity.get("label", ""))
-                desc_similarity = self._calculate_text_similarity(
-                    concept_description, entity.get("description", ""))
-                
-                # Weight label matches more highly than description matches
-                match_score = (label_similarity * 0.7) + (desc_similarity * 0.3)
-                
-                # If good enough match, add to matched entities
-                if match_score > 0.3:  # Threshold for considering a match
-                    matched_entities.append({
-                        "id": entity.get("id"),
-                        "label": entity.get("label"),
+            # If no ontology entities could be retrieved, return empty matches
+            if not ontology_entities:
+                logger.warning("No ontology entities available for matching")
+                return {"matches": {}, "error": "No ontology entities available for matching"}
+            
+            # Prepare entity list for matching
+            all_entities = []
+            for category, entities in ontology_entities.items():
+                for entity in entities:
+                    all_entities.append({
+                        "uri": entity.get("uri", ""),
+                        "label": entity.get("label", ""),
                         "description": entity.get("description", ""),
-                        "match_score": match_score
+                        "category": category
                     })
             
-            # Sort by match score and keep top 3
-            if matched_entities:
-                matched_entities.sort(key=lambda x: x.get("match_score", 0), reverse=True)
-                top_matches = matched_entities[:3]
-                concept["matched_entities"] = top_matches
-                matches[str(i)] = top_matches
-        
-        return matches
-    
-    def _create_triple_for_concept(self, concept: Dict, document_id: int, world_id: int) -> Optional[Triple]:
-        """Create a new RDF triple for a concept."""
-        try:
-            # Create a unique identifier for this concept
-            concept_name = concept.get("concept_name", "").strip()
-            if not concept_name:
-                return None
-                
-            concept_type = concept.get("concept_type", "").lower()
-            if concept_type not in ["principle", "obligation", "role", "action", "resource", "condition", "event", "capability"]:
-                concept_type = "principle"  # Default to principle
+            # If no entities found, return empty matches
+            if not all_entities:
+                logger.warning("No entities found in ontology for matching")
+                return {"matches": {}}
             
-            # Create an IRI for the concept
-            concept_slug = concept_name.lower().replace(" ", "_")
-            concept_iri = f"http://example.org/ethics/{concept_type}/{concept_slug}"
+            # Use LLM to match concepts to entities
+            llm_client = get_llm_client()
             
-            # Create a new triple
-            triple = Triple(
-                subject=concept_iri,
-                predicate="http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                object=f"http://example.org/ethics/{concept_type.capitalize()}",
-                subject_label=concept_name,
-                object_label=f"{concept_type.capitalize()}",
-                subject_type="IRI",
-                object_type="IRI",
-                predicate_label="is a",
-                document_id=document_id,
-                world_id=world_id,
-                provenance=f"Extracted from guidelines document {document_id}"
+            # Convert concepts and entities to JSON strings for prompt
+            concepts_json = json.dumps(concepts, indent=2)
+            entities_json = json.dumps(all_entities, indent=2)
+            
+            system_prompt = """
+            You are an expert in ontology mapping and knowledge representation. Your task is to map extracted concepts
+            from a guideline document to formal ontology entities. For each extracted concept, determine if there are
+            matching entities in the ontology.
+            
+            A match can be:
+            1. Exact - The concept label directly matches an entity label
+            2. Synonymous - The concept is semantically equivalent to an entity
+            3. Related - The concept is closely related to an entity
+            4. No match - No corresponding entity exists in the ontology
+            
+            For each match, provide:
+            - Match type (exact, synonym, related, none)
+            - Match confidence (0.0 to 1.0)
+            - The URI of the matched entity
+            
+            Format your response as a JSON object where keys are concept labels and values are arrays of matching entities.
+            """
+            
+            user_prompt = f"""
+            EXTRACTED CONCEPTS:
+            {concepts_json}
+            
+            ONTOLOGY ENTITIES:
+            {entities_json}
+            
+            Map the extracted concepts to the ontology entities. Respond with a JSON object in the following format:
+            ```json
+            {{
+                "ConceptLabel1": [
+                    {{
+                        "uri": "http://example.org/entity1",
+                        "match_type": "exact|synonym|related",
+                        "confidence": 0.95,
+                        "label": "Original entity label"
+                    }}
+                ],
+                "ConceptLabel2": [] // Empty array if no matches
+            }}
+            ```
+            
+            Only include high-quality matches (confidence > 0.7). If a concept has no good matches, include it with an empty array.
+            """
+            
+            # Get response from LLM
+            response = llm_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="gpt-4-turbo" if "gpt-4" in llm_client.available_models else "claude-3-haiku-20240307",
+                response_format={"type": "json_object"},
+                max_tokens=4000,
+                temperature=0.2
             )
             
-            db.session.add(triple)
+            # Extract matches from response
+            try:
+                response_text = response.choices[0].message.content
+                matches = json.loads(response_text)
+                
+                logger.info(f"Successfully matched concepts to ontology entities: {len(matches)} concept mappings")
+                return {"matches": matches}
             
-            # Also create a triple for the description if available
-            description = concept.get("description", "").strip()
-            if description:
-                description_triple = Triple(
-                    subject=concept_iri,
-                    predicate="http://www.w3.org/2000/01/rdf-schema#comment",
-                    object=description,
-                    subject_label=concept_name,
-                    object_label=description[:50] + ("..." if len(description) > 50 else ""),
-                    subject_type="IRI",
-                    object_type="LITERAL",
-                    predicate_label="description",
-                    document_id=document_id,
-                    world_id=world_id,
-                    provenance=f"Extracted from guidelines document {document_id}"
-                )
-                db.session.add(description_triple)
-            
-            return triple
+            except json.JSONDecodeError:
+                logger.error("Failed to parse JSON from LLM response for concept matching")
+                return {"matches": {}, "error": "Failed to parse entity matches from AI response"}
+                
         except Exception as e:
-            print(f"Error creating triple for concept: {e}")
-            return None
+            logger.exception(f"Error matching concepts to ontology entities: {str(e)}")
+            return {"matches": {}, "error": str(e)}
     
-    def _create_relation_triple(self, concept: Dict, entity: Dict, 
-                               document_id: int, world_id: int) -> Optional[Triple]:
-        """Create a relationship triple between a concept and an ontology entity."""
+    def generate_triples(self, 
+                         concepts: List[Dict[str, Any]], 
+                         selected_indices: List[int],
+                         ontology_source: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate RDF triples for selected concepts.
+        
+        Args:
+            concepts: List of all extracted concepts
+            selected_indices: Indices of concepts that the user selected
+            ontology_source: Optional ontology source identifier for context
+            
+        Returns:
+            Dict containing generated triples
+        """
         try:
-            concept_name = concept.get("concept_name", "").strip()
-            concept_type = concept.get("concept_type", "").lower()
-            if not concept_name or concept_type not in ["principle", "obligation", "role", "action", "resource", "condition", "event", "capability"]:
-                return None
-                
-            # Create IRIs
-            concept_slug = concept_name.lower().replace(" ", "_")
-            concept_iri = f"http://example.org/ethics/{concept_type}/{concept_slug}"
+            logger.info(f"Generating triples for {len(selected_indices)} selected concepts")
             
-            entity_id = entity.get("id")
-            if not entity_id:
-                return None
-                
-            # Create a relation triple
-            relation_triple = Triple(
-                subject=concept_iri,
-                predicate="http://example.org/ethics/relatedTo",
-                object=entity_id,
-                subject_label=concept_name,
-                object_label=entity.get("label", "Unnamed entity"),
-                subject_type="IRI",
-                object_type="IRI",
-                predicate_label="related to",
-                document_id=document_id,
-                world_id=world_id,
-                provenance=f"Extracted from guidelines document {document_id}, matched with existing ontology"
-            )
+            # Filter concepts to only those selected by the user
+            selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
             
-            db.session.add(relation_triple)
-            return relation_triple
+            if not selected_concepts:
+                return {"triples": [], "triple_count": 0}
+            
+            # Prepare triples list
+            all_triples = []
+            
+            # For each selected concept, create basic triples
+            for concept in selected_concepts:
+                # Get concept properties
+                concept_label = concept.get("label", "Unknown Concept")
+                concept_description = concept.get("description", "")
+                concept_type = concept.get("type", "concept")
+                
+                # Create URIs
+                # In a production system, these would be more sophisticated and use proper namespace management
+                base_uri = "http://proethica.ai/engineering-ethics/concept/"
+                concept_uri = f"{base_uri}{concept_label.lower().replace(' ', '-')}"
+                
+                # Basic type triple
+                type_triple = {
+                    "subject": concept_uri,
+                    "subject_label": concept_label,
+                    "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                    "predicate_label": "type",
+                    "object": f"http://proethica.ai/engineering-ethics/{concept_type.lower()}",
+                    "object_label": concept_type.capitalize(),
+                    "is_literal": False
+                }
+                all_triples.append(type_triple)
+                
+                # Label triple
+                label_triple = {
+                    "subject": concept_uri,
+                    "subject_label": concept_label,
+                    "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                    "predicate_label": "label",
+                    "object": concept_label,
+                    "is_literal": True
+                }
+                all_triples.append(label_triple)
+                
+                # Description triple (if available)
+                if concept_description:
+                    description_triple = {
+                        "subject": concept_uri,
+                        "subject_label": concept_label,
+                        "predicate": "http://purl.org/dc/elements/1.1/description",
+                        "predicate_label": "description",
+                        "object": concept_description,
+                        "is_literal": True
+                    }
+                    all_triples.append(description_triple)
+            
+            logger.info(f"Generated {len(all_triples)} triples for {len(selected_concepts)} concepts")
+            return {"triples": all_triples, "triple_count": len(all_triples)}
+                
         except Exception as e:
-            print(f"Error creating relation triple: {e}")
-            return None
-        
-    def _get_from_cache(self, key: str) -> Optional[Any]:
-        """Get a value from the cache if it exists and is not expired."""
-        if key in self.cache:
-            timestamp = self.cache_timestamps.get(key)
-            if timestamp and time.time() - timestamp < self.cache_timeout:
-                return self.cache[key]
-        return None
-        
-    def _add_to_cache(self, key: str, value: Any) -> None:
-        """Add a value to the cache with the current timestamp."""
-        self.cache[key] = value
-        self.cache_timestamps[key] = time.time()
+            logger.exception(f"Error generating triples for concepts: {str(e)}")
+            return {"error": str(e), "triples": [], "triple_count": 0}

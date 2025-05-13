@@ -1,124 +1,246 @@
 {% extends "base.html" %}
 
-{% block title %}{{ guideline.title }} - Guidelines Content{% endblock %}
+{% block title %}{{ guideline.title }} - Guideline{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ url_for('worlds.list_worlds') }}">Worlds</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{ guideline.title }}</li>
-        </ol>
-    </nav>
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ guideline.title }}</h1>
-        <div>
-            <a href="{{ url_for('worlds.analyze_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
-                <i class="fas fa-brain"></i> Analyze for Entities
-            </a>
-            <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#deleteModal">
-                <i class="fas fa-trash"></i> Delete
+<div class="container mt-5">
+  <h1>{{ guideline.title }}</h1>
+  
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+      <li class="breadcrumb-item active">{{ guideline.title }}</li>
+    </ol>
+  </nav>
+  
+  <div class="row">
+    <!-- Guideline content column -->
+    <div class="col-lg-8">
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Guideline Content</h5>
+          <div>
+            <!-- Edit functionality not yet implemented -->
+            <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#deleteGuidelineModal">
+              <i class="fas fa-trash"></i> Delete
             </button>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5>Document Information</h5>
+          </div>
         </div>
         <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>ID:</strong> {{ guideline.id }}</p>
-                    <p><strong>Type:</strong> {{ guideline.document_type }}</p>
-                    <p><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Processing Status:</strong> 
-                        <span class="badge 
-                            {% if guideline.processing_status == 'PENDING' %}badge-secondary
-                            {% elif guideline.processing_status == 'PROCESSING' %}badge-primary
-                            {% elif guideline.processing_status == 'COMPLETED' %}badge-success
-                            {% elif guideline.processing_status == 'FAILED' %}badge-danger
-                            {% else %}badge-info{% endif %}">
-                            {{ guideline.processing_status }}
-                        </span>
-                    </p>
-                    {% if guideline.processing_progress %}
-                    <p><strong>Progress:</strong>
-                        <div class="progress">
-                            <div class="progress-bar" role="progressbar" style="width: {{ guideline.processing_progress }}%;" 
-                                aria-valuenow="{{ guideline.processing_progress }}" aria-valuemin="0" aria-valuemax="100">
-                                {{ guideline.processing_progress }}%
-                            </div>
-                        </div>
-                    </p>
-                    {% endif %}
-                    {% if guideline.processing_error %}
-                    <p><strong>Error:</strong> <span class="text-danger">{{ guideline.processing_error }}</span></p>
-                    {% endif %}
-                </div>
-            </div>
+          <p class="text-muted">
+            <strong>Source:</strong> 
             {% if guideline.source %}
-            <p><strong>Source URL:</strong> <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a></p>
+              <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a>
+            {% elif guideline.source_url %}
+              <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
+            {% elif guideline.file_path %}
+              Uploaded file: {{ guideline.file_path.split('/')[-1] }}
+            {% else %}
+              Manual entry
             {% endif %}
-            {% if guideline.file_path %}
-            <p><strong>File:</strong> {{ guideline.file_path.split('/')[-1] }}</p>
+          </p>
+          
+          <div class="mt-4 guideline-content">
+            {% if guideline.content %}
+              {{ guideline.content|safe }}
+            {% else %}
+              <div class="alert alert-warning">
+                No content available for this guideline.
+              </div>
             {% endif %}
+          </div>
         </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h5>Guidelines Content</h5>
+      </div>
+      
+      <!-- Extracted concepts section -->
+      <div class="card mb-4">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Associated Concepts</h5>
+          <a href="{{ url_for('worlds.analyze_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-sm btn-light">
+            <i class="fas fa-brain"></i> Analyze Concepts
+          </a>
         </div>
         <div class="card-body">
-            {% if guideline.content %}
-                <div class="guideline-content">
-                    {% for paragraph in guideline.content.split('\n\n') %}
-                        <p>{{ paragraph|nl2br }}</p>
-                    {% endfor %}
-                </div>
-            {% elif guideline.processing_status == 'PROCESSING' %}
-                <div class="alert alert-info">
-                    <i class="fas fa-spinner fa-spin"></i> Content is currently being processed...
-                </div>
-            {% elif guideline.processing_status == 'FAILED' %}
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i> Failed to process content: {{ guideline.processing_error }}
-                </div>
-            {% else %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-circle"></i> No content available.
-                </div>
-            {% endif %}
+          {% if concepts %}
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Concept</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for concept in concepts %}
+                    <tr>
+                      <td><strong>{{ concept.subject_label }}</strong></td>
+                      <td>
+                        {% if concept.type_label %}
+                          <span class="badge bg-secondary">{{ concept.type_label }}</span>
+                        {% else %}
+                          <span class="badge bg-secondary">Concept</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if concept.description %}
+                          {{ concept.description }}
+                        {% else %}
+                          <em>No description available</em>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="alert alert-info">
+              <p>No concepts have been associated with this guideline yet.</p>
+              <p>Click "Analyze Concepts" to extract ethical concepts from this guideline using AI.</p>
+            </div>
+          {% endif %}
         </div>
+      </div>
     </div>
+    
+    <!-- Metadata sidebar column -->
+    <div class="col-lg-4">
+      <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+          <h5 class="mb-0">Guideline Information</h5>
+        </div>
+        <div class="card-body">
+          <dl class="row">
+            <dt class="col-sm-4">Created</dt>
+            <dd class="col-sm-8">{{ guideline.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+            
+            <dt class="col-sm-4">Updated</dt>
+            <dd class="col-sm-8">{{ guideline.updated_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+            
+            <dt class="col-sm-4">World</dt>
+            <dd class="col-sm-8">
+              <a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a>
+            </dd>
+            
+            <dt class="col-sm-4">File Type</dt>
+            <dd class="col-sm-8">{{ guideline.file_type or 'N/A' }}</dd>
+            
+            <dt class="col-sm-4">Concepts</dt>
+            <dd class="col-sm-8">{{ concept_count|default(0) }}</dd>
+          </dl>
+        </div>
+      </div>
+      
+      <!-- Related guidelines -->
+      {% if related_guidelines %}
+        <div class="card mb-4">
+          <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Related Guidelines</h5>
+          </div>
+          <div class="card-body">
+            <ul class="list-group list-group-flush">
+              {% for rel_guideline in related_guidelines %}
+                <li class="list-group-item">
+                  <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=rel_guideline.id) }}">
+                    {{ rel_guideline.title }}
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endif %}
+      
+      <!-- Associated RDF triples -->
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          <h5 class="mb-0">RDF Knowledge</h5>
+        </div>
+        <div class="card-body">
+          <p>This guideline has <strong>{{ triple_count|default(0) }}</strong> associated RDF triples.</p>
+          
+          {% if triple_count|default(0) > 0 and triples is defined and triples %}
+            <button class="btn btn-sm btn-outline-dark mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#triplesList">
+              Show/Hide Triples
+            </button>
+            
+            <div class="collapse" id="triplesList">
+              <div class="card card-body bg-light mb-3">
+                <ul class="list-group list-group-flush">
+                  {% for triple in triples %}
+                    <li class="list-group-item small">
+                      <strong>{{ triple.subject_label or triple.subject }}</strong>
+                      <span class="text-muted">{{ triple.predicate_label or triple.predicate }}</span>
+                      <span>{{ triple.object_label or triple.object_literal or triple.object_uri }}</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+          
+          <!-- Export functionality not yet implemented -->
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                Are you sure you want to delete this guideline document? This action cannot be undone.
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="POST">
-                    <button type="submit" class="btn btn-danger">Delete</button>
-                </form>
-            </div>
-        </div>
+<!-- Delete Guideline Modal -->
+<div class="modal fade" id="deleteGuidelineModal" tabindex="-1" aria-labelledby="deleteGuidelineModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteGuidelineModalLabel">Delete Guideline</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete the guideline <strong>{{ guideline.title }}</strong>?</p>
+        <p class="text-danger">This action cannot be undone. All associated concepts and triples will also be deleted.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="post">
+          <!-- CSRF token removed due to configuration issue -->
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+  .guideline-content {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  
+  .guideline-content h1, .guideline-content h2, .guideline-content h3, 
+  .guideline-content h4, .guideline-content h5, .guideline-content h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .guideline-content p {
+    margin-bottom: 1rem;
+  }
+  
+  .guideline-content ul, .guideline-content ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+  }
+  
+  .guideline-content blockquote {
+    border-left: 4px solid #ccc;
+    padding-left: 1rem;
+    margin-left: 0;
+    color: #666;
+  }
+</style>
 {% endblock %}

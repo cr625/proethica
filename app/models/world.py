@@ -1,6 +1,7 @@
 from app import db
 from datetime import datetime
 import json
+from sqlalchemy.orm import relationship
 
 class World(db.Model):
     """
@@ -21,8 +22,11 @@ class World(db.Model):
     cases = db.Column(db.JSON, default=lambda: [])  # List of cases associated with this world
     rulesets = db.Column(db.JSON, default=lambda: [])  # List of rulesets associated with this world
     
-    # Relationship with scenarios
-    scenarios = db.relationship('Scenario', backref='world', lazy=True)
+    # Relationships
+    scenarios = relationship('Scenario', back_populates='world', lazy=True)
+    guidelines = relationship('Guideline', back_populates='world', lazy=True, cascade="all, delete-orphan")
+    entity_triples = relationship('EntityTriple', back_populates='world', lazy=True,
+                              primaryjoin="World.id==EntityTriple.world_id")
     
     # Metadata for storing additional information
     world_metadata = db.Column(db.JSON, default=lambda: {})
@@ -42,5 +46,7 @@ class World(db.Model):
             'rulesets': self.rulesets,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'metadata': self.world_metadata
+            'metadata': self.world_metadata,
+            'guideline_count': len(self.guidelines) if self.guidelines else 0,
+            'entity_triple_count': len(self.entity_triples) if self.entity_triples else 0
         }

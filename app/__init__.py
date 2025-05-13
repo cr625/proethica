@@ -54,6 +54,11 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     
+    # Import models to ensure proper initialization order
+    from app.models.entity_triple import EntityTriple
+    from app.models.guideline import Guideline
+    from app.models.world import World
+    
     # Register blueprints
     from app.routes.auth import auth_bp
     from app.routes.worlds import worlds_bp

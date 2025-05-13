@@ -2,30 +2,19 @@
 """
 Base Module for Unified Ontology Server
 
-This module defines the BaseModule abstract class that all modules must inherit from,
-providing a consistent interface and common functionality.
+This module provides a base class for creating modules that can be loaded
+into the unified ontology server.
 """
 
-import abc
 import logging
-from typing import Dict, Any, List, Optional, Union, Callable
-import json
-import asyncio
+from typing import Dict, Any, Callable
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, 
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-
-class BaseModule(abc.ABC):
+class BaseModule:
     """
-    Abstract base class for all unified ontology server modules.
+    Base class for server modules.
     
-    Each module provides specific functionality to the unified ontology server,
-    such as query capabilities, relationship navigation, temporal features, etc.
-    
-    Modules must implement the required abstract methods and can optionally
-    override other methods to customize behavior.
+    This class provides the basic structure and functionality for MCP server modules,
+    including tool registration, handling of tool calls, and utility functions.
     """
     
     def __init__(self, server=None):
@@ -33,146 +22,81 @@ class BaseModule(abc.ABC):
         Initialize the module.
         
         Args:
-            server: The parent server instance this module belongs to
+            server: The MCP server instance that will host this module
         """
         self.server = server
-        self.logger = logging.getLogger(f"{self.__class__.__name__}")
-        self.logger.info(f"Initializing {self.__class__.__name__}")
-        self.tools = {}  # Will be populated with callable tool handlers
+        self.tools = {}
         self._register_tools()
-    
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """
-        Get the name of the module.
         
-        Returns:
-            String name identifier for this module
-        """
-        pass
-    
-    @property
-    @abc.abstractmethod
-    def description(self) -> str:
-        """
-        Get the description of the module.
-        
-        Returns:
-            String description of what this module does
-        """
-        pass
-    
-    @abc.abstractmethod
     def _register_tools(self) -> None:
         """
         Register the tools provided by this module.
         
-        This method should populate the self.tools dictionary with
-        tool_name: handler_method pairs.
+        This method should be overridden by derived classes to register their tools.
         """
-        pass
+        self.tools = {}
     
-    def get_tools(self) -> List[Dict[str, Any]]:
+    @property
+    def name(self) -> str:
         """
-        Get the list of tools provided by this module.
+        Get the name of this module.
         
         Returns:
-            List of tool definitions (name, description, parameters)
+            String name of the module
         """
-        tools = []
+        return "base_module"
+    
+    @property
+    def description(self) -> str:
+        """
+        Get the description of this module.
         
-        for tool_name in self.tools:
-            handler = self.tools[tool_name]
-            
-            # Extract tool metadata from handler docstring
-            doc = handler.__doc__ or ""
-            description = doc.strip().split("\n")[0] if doc else f"{tool_name} tool"
-            
-            # Add tool to list
-            tools.append({
-                "name": tool_name,
-                "description": description,
-                "module": self.name
-            })
-            
-        return tools
+        Returns:
+            String description of the module
+        """
+        return "Base module for MCP server extensions"
     
     async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Handle a call to a tool provided by this module.
+        Handle a call to a tool in this module.
         
         Args:
             tool_name: Name of the tool to call
             arguments: Arguments to pass to the tool
             
         Returns:
-            Tool execution result
+            Result of the tool execution
             
         Raises:
             ValueError: If the tool is not found
         """
         if tool_name not in self.tools:
-            error_msg = f"Tool '{tool_name}' not found in module '{self.name}'"
-            self.logger.error(error_msg)
-            raise ValueError(error_msg)
-            
-        tool_handler = self.tools[tool_name]
-        self.logger.info(f"Calling tool '{tool_name}' with arguments: {arguments}")
+            raise ValueError(f"Tool '{tool_name}' not found in module '{self.name}'")
         
+        # Get the tool handler
+        handler = self.tools[tool_name]
+        
+        # Call the tool handler
         try:
-            # Check if handler is coroutine function
-            if asyncio.iscoroutinefunction(tool_handler):
-                result = await tool_handler(arguments)
+            # Check if the handler is a coroutine function
+            if hasattr(handler, '__await__'):
+                # If it's awaitable, await it
+                result = await handler(arguments)
             else:
-                result = tool_handler(arguments)
+                # Otherwise call it directly
+                result = handler(arguments)
                 
-            return self._format_result(result)
+            # Format the result for JSON-RPC response
+            if isinstance(result, dict) and "content" in result:
+                return result
+            else:
+                # Wrap the result in the expected format
+                return {"content": [{"text": result}]}
         except Exception as e:
-            self.logger.error(f"Error executing tool '{tool_name}': {str(e)}", exc_info=True)
-            return {"error": f"Error executing tool: {str(e)}"}
-    
-    def _format_result(self, result: Any) -> Dict[str, Any]:
-        """
-        Format the result from a tool handler for the MCP response.
-        
-        Args:
-            result: Raw result from tool handler
+            # Log the error
+            logging.error(f"Error executing tool {tool_name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             
-        Returns:
-            Formatted result for MCP response
-        """
-        # If result is already a dict with the expected format, return it
-        if isinstance(result, dict) and "content" in result:
-            return result
-            
-        # If result is a dict but missing the content wrapper, wrap it
-        if isinstance(result, dict):
-            try:
-                # Try to JSON stringify the dict
-                json_str = json.dumps(result)
-                return {"content": [{"text": json_str}]}
-            except:
-                # If that fails, format as string
-                return {"content": [{"text": str(result)}]}
-                
-        # For non-dict results, convert to string
-        return {"content": [{"text": str(result)}]}
-    
-    def initialize(self) -> None:
-        """
-        Perform any initialization required by this module.
-        
-        This method is called after the server has been fully initialized
-        and can be overridden by modules that need additional setup.
-        """
-        pass
-    
-    def shutdown(self) -> None:
-        """
-        Perform any cleanup required by this module.
-        
-        This method is called before the server shuts down
-        and can be overridden by modules that need cleanup.
-        """
-        self.logger.info(f"Shutting down {self.__class__.__name__}")
+            # Return an error response
+            return {"content": [{"text": {"error": f"Error executing tool {tool_name}: {str(e)}"}}]}
