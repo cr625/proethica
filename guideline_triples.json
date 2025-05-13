@@ -1,0 +1,2238 @@
+{
+  "triples": [
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Public Safety and Welfare",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "label",
+      "object_label": "Public Safety and Welfare"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The paramount obligation of engineers to prioritize the safety, health, and welfare of the public above all other considerations in their professional work.",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "principle",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "has category",
+      "object_label": "principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Principle",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "type",
+      "object_label": "Principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare/reference/1",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties. This takes precedence over other considerations.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare/reference/2",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Always conduct thorough risk assessments",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare/reference/3",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Never compromise safety standards for cost or schedule",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare/reference/4",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Promptly report potential dangers to appropriate authorities",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/risk_assessment",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "related to",
+      "object_label": "Risk Assessment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/safety_standards",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "related to",
+      "object_label": "Safety Standards"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/reporting_dangers",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "related to",
+      "object_label": "Reporting Dangers"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_responsibility",
+      "subject_label": "Public Safety and Welfare",
+      "predicate_label": "related to",
+      "object_label": "Professional Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Professional Competence",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Professional Competence",
+      "subject_label": "Professional Competence",
+      "predicate_label": "label",
+      "object_label": "Professional Competence"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The obligation for engineers to only perform services in areas where they have adequate expertise, knowledge, and skills.",
+      "subject_label": "Professional Competence",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "obligation",
+      "subject_label": "Professional Competence",
+      "predicate_label": "has category",
+      "object_label": "obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Obligation",
+      "subject_label": "Professional Competence",
+      "predicate_label": "type",
+      "object_label": "Obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_competence/reference/1",
+      "subject_label": "Professional Competence",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall perform services only in areas of their competence.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_competence/reference/2",
+      "subject_label": "Professional Competence",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Maintain and improve technical skills through continuous education",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_competence/reference/3",
+      "subject_label": "Professional Competence",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Accept assignments only when qualified by education or experience",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_competence/reference/4",
+      "subject_label": "Professional Competence",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engage qualified experts when projects require knowledge beyond personal expertise",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/continuous_education",
+      "subject_label": "Professional Competence",
+      "predicate_label": "related to",
+      "object_label": "Continuous Education"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/technical_skills",
+      "subject_label": "Professional Competence",
+      "predicate_label": "related to",
+      "object_label": "Technical Skills"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_development",
+      "subject_label": "Professional Competence",
+      "predicate_label": "related to",
+      "object_label": "Professional Development"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_competence",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/expert_engagement",
+      "subject_label": "Professional Competence",
+      "predicate_label": "related to",
+      "object_label": "Expert Engagement"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Truthfulness in Public Statements",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "label",
+      "object_label": "Truthfulness in Public Statements"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The requirement for engineers to be objective, truthful, and comprehensive in all public communications and professional reports.",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "principle",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "has category",
+      "object_label": "principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Principle",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "type",
+      "object_label": "Principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/1",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall issue public statements only in an objective and truthful manner.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/2",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Disclose all pertinent information in professional reports, statements, and testimony",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/3",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Include all relevant data in public statements",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/4",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Avoid statements containing material misrepresentation of fact",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/transparency",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "related to",
+      "object_label": "Transparency"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/disclosure",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "related to",
+      "object_label": "Disclosure"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/honesty",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "related to",
+      "object_label": "Honesty"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_communication",
+      "subject_label": "Truthfulness in Public Statements",
+      "predicate_label": "related to",
+      "object_label": "Professional Communication"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Faithful Agency",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "label",
+      "object_label": "Faithful Agency"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The duty of engineers to act as faithful agents or trustees for their employers and clients, protecting their interests while maintaining ethical standards.",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "obligation",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "has category",
+      "object_label": "obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Obligation",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "type",
+      "object_label": "Obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/faithful_agency/reference/1",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall act as faithful agents or trustees for each employer or client.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/faithful_agency/reference/2",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Avoid conflicts of interest",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/faithful_agency/reference/3",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Protect confidential information",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/faithful_agency/reference/4",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Make employers or clients aware of consequences if professional judgment is overruled",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/conflict_of_interest",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "related to",
+      "object_label": "Conflict of Interest"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/confidentiality",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "related to",
+      "object_label": "Confidentiality"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_judgment",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "related to",
+      "object_label": "Professional Judgment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/faithful_agency",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/client_relationship",
+      "subject_label": "Faithful Agency",
+      "predicate_label": "related to",
+      "object_label": "Client Relationship"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Professional Integrity",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "label",
+      "object_label": "Professional Integrity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The commitment to avoid deceptive acts in professional practice and to maintain honest representation of qualifications and capabilities.",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "principle",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "has category",
+      "object_label": "principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Principle",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "type",
+      "object_label": "Principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_integrity/reference/1",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall avoid deceptive acts in the solicitation of professional employment.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_integrity/reference/2",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Present qualifications and capabilities honestly",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_integrity/reference/3",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Avoid improper solicitation of professional employment",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/professional_integrity/reference/4",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Base professional reputation on merit of services",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/honesty",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "related to",
+      "object_label": "Honesty"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/ethical_conduct",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "related to",
+      "object_label": "Ethical Conduct"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_reputation",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "related to",
+      "object_label": "Professional Reputation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/professional_integrity",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/transparency",
+      "subject_label": "Professional Integrity",
+      "predicate_label": "related to",
+      "object_label": "Transparency"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Ethical Conduct",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "label",
+      "object_label": "Ethical Conduct"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The overarching obligation for engineers to conduct themselves honorably, responsibly, ethically, and lawfully in all professional activities.",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "principle",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "has category",
+      "object_label": "principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Principle",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "type",
+      "object_label": "Principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/ethical_conduct/reference/1",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/ethical_conduct/reference/2",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Maintain high standards of honesty and integrity",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/ethical_conduct/reference/3",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Zero tolerance for bribery, fraud, and corruption",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/ethical_conduct/reference/4",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Support colleagues who uphold ethical standards",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/integrity",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "related to",
+      "object_label": "Integrity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/responsibility",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "related to",
+      "object_label": "Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/legal_compliance",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "related to",
+      "object_label": "Legal Compliance"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/ethical_conduct",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/anticorruption",
+      "subject_label": "Ethical Conduct",
+      "predicate_label": "related to",
+      "object_label": "Anti-corruption"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Sustainability",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Sustainability",
+      "subject_label": "Sustainability",
+      "predicate_label": "label",
+      "object_label": "Sustainability"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The responsibility of engineers to consider environmental impacts and resource efficiency in their designs and to adhere to principles of sustainable development.",
+      "subject_label": "Sustainability",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "principle",
+      "subject_label": "Sustainability",
+      "predicate_label": "has category",
+      "object_label": "principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Principle",
+      "subject_label": "Sustainability",
+      "predicate_label": "type",
+      "object_label": "Principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/sustainability/reference/1",
+      "subject_label": "Sustainability",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers should strive to adhere to principles of sustainable development.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/sustainability/reference/2",
+      "subject_label": "Sustainability",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Consider environmental impacts in design decisions",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/sustainability/reference/3",
+      "subject_label": "Sustainability",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Minimize resource consumption and waste generation",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/sustainability/reference/4",
+      "subject_label": "Sustainability",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Design for longevity, reusability, and recyclability",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/environmental_impact",
+      "subject_label": "Sustainability",
+      "predicate_label": "related to",
+      "object_label": "Environmental Impact"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/resource_efficiency",
+      "subject_label": "Sustainability",
+      "predicate_label": "related to",
+      "object_label": "Resource Efficiency"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/waste_reduction",
+      "subject_label": "Sustainability",
+      "predicate_label": "related to",
+      "object_label": "Waste Reduction"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/sustainability",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/design_longevity",
+      "subject_label": "Sustainability",
+      "predicate_label": "related to",
+      "object_label": "Design Longevity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Intellectual Property Respect",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "label",
+      "object_label": "Intellectual Property Respect"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The obligation to respect and properly attribute intellectual property rights, including patents, copyrights, and innovations.",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "obligation",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "has category",
+      "object_label": "obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Obligation",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "type",
+      "object_label": "Obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/intellectual_property_respect/reference/1",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall respect intellectual property rights.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/intellectual_property_respect/reference/2",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Properly attribute ideas and innovations",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/intellectual_property_respect/reference/3",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Honor patents, copyrights, and other forms of intellectual property",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/intellectual_property_respect/reference/4",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Maintain proper documentation of design decisions",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/attribution",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "related to",
+      "object_label": "Attribution"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/patents",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "related to",
+      "object_label": "Patents"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/copyrights",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "related to",
+      "object_label": "Copyrights"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/intellectual_property_respect",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/documentation",
+      "subject_label": "Intellectual Property Respect",
+      "predicate_label": "related to",
+      "object_label": "Documentation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Whistleblowing",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "label",
+      "object_label": "Whistleblowing"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The ethical responsibility to report unethical behavior or practices that could endanger public safety, following appropriate reporting procedures.",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "obligation",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "has category",
+      "object_label": "obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Obligation",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "type",
+      "object_label": "Obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/whistleblowing/reference/1",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers have an ethical responsibility to report unethical behavior or practices that could endanger public safety.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/whistleblowing/reference/2",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Follow proper reporting procedures within organizations",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/whistleblowing/reference/3",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "If internal reporting fails, consider appropriate external reporting",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/whistleblowing/reference/4",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Document concerns and actions taken",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/public_safety",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "related to",
+      "object_label": "Public Safety"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/reporting_procedures",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "related to",
+      "object_label": "Reporting Procedures"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/ethical_responsibility",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "related to",
+      "object_label": "Ethical Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/whistleblowing",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/documentation",
+      "subject_label": "Whistleblowing",
+      "predicate_label": "related to",
+      "object_label": "Documentation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Emerging Technology Ethics",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "label",
+      "object_label": "Emerging Technology Ethics"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The responsibility to consider broader societal implications when working with emerging technologies, including potential misuse and impacts on privacy and security.",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "obligation",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "has category",
+      "object_label": "obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Obligation",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "type",
+      "object_label": "Obligation"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/emerging_technology_ethics/reference/1",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers working with emerging technologies should consider broader societal implications.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/emerging_technology_ethics/reference/2",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Evaluate potential misuse of technology",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/emerging_technology_ethics/reference/3",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Consider impacts on privacy, security, and social well-being",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/emerging_technology_ethics/reference/4",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engage with multidisciplinary experts to understand implications",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/technology_impact_assessment",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "related to",
+      "object_label": "Technology Impact Assessment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/privacy",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "related to",
+      "object_label": "Privacy"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/security",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "related to",
+      "object_label": "Security"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/emerging_technology_ethics",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/multidisciplinary_collaboration",
+      "subject_label": "Emerging Technology Ethics",
+      "predicate_label": "related to",
+      "object_label": "Multidisciplinary Collaboration"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Cultural and Global Awareness",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "label",
+      "object_label": "Cultural and Global Awareness"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The obligation to respect cultural differences and consider global impacts of engineering work, including environmental and social consequences.",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "principle",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "has category",
+      "object_label": "principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Principle",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "type",
+      "object_label": "Principle"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/1",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers should be aware of cultural differences and global impacts of their work.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/2",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Respect local cultural practices and values",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/3",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "has reference",
+      "object_label": "Reference 3"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/3",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Consider global environmental and social impacts",
+      "subject_label": "Reference 3",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/4",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "has reference",
+      "object_label": "Reference 4"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness/reference/4",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Promote fair labor practices throughout supply chains",
+      "subject_label": "Reference 4",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/cultural_respect",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "related to",
+      "object_label": "Cultural Respect"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/global_impact",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "related to",
+      "object_label": "Global Impact"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/fair_labor",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "related to",
+      "object_label": "Fair Labor"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/cultural_and_global_awareness",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/social_responsibility",
+      "subject_label": "Cultural and Global Awareness",
+      "predicate_label": "related to",
+      "object_label": "Social Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Public",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Public",
+      "subject_label": "Public",
+      "predicate_label": "label",
+      "object_label": "Public"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The general population whose safety, health, and welfare must be prioritized in engineering work.",
+      "subject_label": "Public",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "stakeholder",
+      "subject_label": "Public",
+      "predicate_label": "has category",
+      "object_label": "stakeholder"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Stakeholder",
+      "subject_label": "Public",
+      "predicate_label": "type",
+      "object_label": "Stakeholder"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/public/reference/1",
+      "subject_label": "Public",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "subject_label": "Public",
+      "predicate_label": "related to",
+      "object_label": "Public Safety and Welfare"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/risk_assessment",
+      "subject_label": "Public",
+      "predicate_label": "related to",
+      "object_label": "Risk Assessment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/public",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/social_impact",
+      "subject_label": "Public",
+      "predicate_label": "related to",
+      "object_label": "Social Impact"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Employers and Clients",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "label",
+      "object_label": "Employers and Clients"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "Organizations or individuals who engage engineering services and for whom engineers must act as faithful agents or trustees.",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "stakeholder",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "has category",
+      "object_label": "stakeholder"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Stakeholder",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "type",
+      "object_label": "Stakeholder"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/employers_and_clients/reference/1",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall act as faithful agents or trustees for each employer or client.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/faithful_agency",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "related to",
+      "object_label": "Faithful Agency"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/confidentiality",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "related to",
+      "object_label": "Confidentiality"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/employers_and_clients",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_judgment",
+      "subject_label": "Employers and Clients",
+      "predicate_label": "related to",
+      "object_label": "Professional Judgment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Colleagues",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Colleagues",
+      "subject_label": "Colleagues",
+      "predicate_label": "label",
+      "object_label": "Colleagues"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "Fellow engineering professionals with whom engineers interact and whom they should support in upholding ethical standards.",
+      "subject_label": "Colleagues",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "stakeholder",
+      "subject_label": "Colleagues",
+      "predicate_label": "has category",
+      "object_label": "stakeholder"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Stakeholder",
+      "subject_label": "Colleagues",
+      "predicate_label": "type",
+      "object_label": "Stakeholder"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/colleagues/reference/1",
+      "subject_label": "Colleagues",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Support colleagues who uphold ethical standards",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_community",
+      "subject_label": "Colleagues",
+      "predicate_label": "related to",
+      "object_label": "Professional Community"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/ethical_conduct",
+      "subject_label": "Colleagues",
+      "predicate_label": "related to",
+      "object_label": "Ethical Conduct"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/colleagues",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/support",
+      "subject_label": "Colleagues",
+      "predicate_label": "related to",
+      "object_label": "Support"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Risk Assessment",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "label",
+      "object_label": "Risk Assessment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The systematic process of evaluating potential risks and hazards associated with engineering projects to ensure public safety.",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "action",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "has category",
+      "object_label": "action"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Action",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "type",
+      "object_label": "Action"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/risk_assessment/reference/1",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Always conduct thorough risk assessments",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "related to",
+      "object_label": "Public Safety and Welfare"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/safety_standards",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "related to",
+      "object_label": "Safety Standards"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/risk_assessment",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_responsibility",
+      "subject_label": "Risk Assessment",
+      "predicate_label": "related to",
+      "object_label": "Professional Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Continuous Education",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Continuous Education",
+      "subject_label": "Continuous Education",
+      "predicate_label": "label",
+      "object_label": "Continuous Education"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The ongoing process of maintaining and improving technical skills and knowledge throughout an engineer's career.",
+      "subject_label": "Continuous Education",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "action",
+      "subject_label": "Continuous Education",
+      "predicate_label": "has category",
+      "object_label": "action"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Action",
+      "subject_label": "Continuous Education",
+      "predicate_label": "type",
+      "object_label": "Action"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/continuous_education/reference/1",
+      "subject_label": "Continuous Education",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Maintain and improve technical skills through continuous education",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_competence",
+      "subject_label": "Continuous Education",
+      "predicate_label": "related to",
+      "object_label": "Professional Competence"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/technical_skills",
+      "subject_label": "Continuous Education",
+      "predicate_label": "related to",
+      "object_label": "Technical Skills"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/continuous_education",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_development",
+      "subject_label": "Continuous Education",
+      "predicate_label": "related to",
+      "object_label": "Professional Development"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Honesty",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Honesty",
+      "subject_label": "Honesty",
+      "predicate_label": "label",
+      "object_label": "Honesty"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The fundamental value of truthfulness and integrity in all professional communications and actions.",
+      "subject_label": "Honesty",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "value",
+      "subject_label": "Honesty",
+      "predicate_label": "has category",
+      "object_label": "value"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Value",
+      "subject_label": "Honesty",
+      "predicate_label": "type",
+      "object_label": "Value"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/honesty/reference/1",
+      "subject_label": "Honesty",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Maintain high standards of honesty and integrity",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/honesty/reference/2",
+      "subject_label": "Honesty",
+      "predicate_label": "has reference",
+      "object_label": "Reference 2"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty/reference/2",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Present qualifications and capabilities honestly",
+      "subject_label": "Reference 2",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/integrity",
+      "subject_label": "Honesty",
+      "predicate_label": "related to",
+      "object_label": "Integrity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/truthfulness_in_public_statements",
+      "subject_label": "Honesty",
+      "predicate_label": "related to",
+      "object_label": "Truthfulness in Public Statements"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/honesty",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_integrity",
+      "subject_label": "Honesty",
+      "predicate_label": "related to",
+      "object_label": "Professional Integrity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Responsibility",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Responsibility",
+      "subject_label": "Responsibility",
+      "predicate_label": "label",
+      "object_label": "Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "The value of being accountable for one's professional actions and decisions and their consequences.",
+      "subject_label": "Responsibility",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "value",
+      "subject_label": "Responsibility",
+      "predicate_label": "has category",
+      "object_label": "value"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Value",
+      "subject_label": "Responsibility",
+      "predicate_label": "type",
+      "object_label": "Value"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/responsibility/reference/1",
+      "subject_label": "Responsibility",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully.",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/ethical_conduct",
+      "subject_label": "Responsibility",
+      "predicate_label": "related to",
+      "object_label": "Ethical Conduct"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_integrity",
+      "subject_label": "Responsibility",
+      "predicate_label": "related to",
+      "object_label": "Professional Integrity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/responsibility",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "subject_label": "Responsibility",
+      "predicate_label": "related to",
+      "object_label": "Public Safety and Welfare"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Safety Standards",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Safety Standards",
+      "subject_label": "Safety Standards",
+      "predicate_label": "label",
+      "object_label": "Safety Standards"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "Established guidelines and requirements designed to ensure the safety of engineering projects and products.",
+      "subject_label": "Safety Standards",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "constraint",
+      "subject_label": "Safety Standards",
+      "predicate_label": "has category",
+      "object_label": "constraint"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Constraint",
+      "subject_label": "Safety Standards",
+      "predicate_label": "type",
+      "object_label": "Constraint"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/safety_standards/reference/1",
+      "subject_label": "Safety Standards",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Never compromise safety standards for cost or schedule",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/public_safety_and_welfare",
+      "subject_label": "Safety Standards",
+      "predicate_label": "related to",
+      "object_label": "Public Safety and Welfare"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/risk_assessment",
+      "subject_label": "Safety Standards",
+      "predicate_label": "related to",
+      "object_label": "Risk Assessment"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/safety_standards",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_responsibility",
+      "subject_label": "Safety Standards",
+      "predicate_label": "related to",
+      "object_label": "Professional Responsibility"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/EthicalConcept",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "type",
+      "object_label": "Ethical Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Conflict of Interest",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "label",
+      "object_label": "Conflict of Interest"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "object": "Situations where personal interests could compromise professional judgment or obligations to employers, clients, or the public.",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "description",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://proethica.org/ontology/hasCategory",
+      "object": "constraint",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "has category",
+      "object_label": "constraint"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Constraint",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "type",
+      "object_label": "Constraint"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://proethica.org/ontology/hasReference",
+      "object": "http://proethica.org/guidelines/conflict_of_interest/reference/1",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "has reference",
+      "object_label": "Reference 1"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest/reference/1",
+      "predicate": "http://proethica.org/ontology/referenceText",
+      "object": "Avoid conflicts of interest",
+      "subject_label": "Reference 1",
+      "predicate_label": "reference text",
+      "object_label": null
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/faithful_agency",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "related to",
+      "object_label": "Faithful Agency"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/professional_integrity",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "related to",
+      "object_label": "Professional Integrity"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/conflict_of_interest",
+      "predicate": "http://proethica.org/ontology/relatedTo",
+      "object": "http://proethica.org/guidelines/ethical_conduct",
+      "subject_label": "Conflict of Interest",
+      "predicate_label": "related to",
+      "object_label": "Ethical Conduct"
+    }
+  ],
+  "triple_count": 279,
+  "format": "turtle"
+}

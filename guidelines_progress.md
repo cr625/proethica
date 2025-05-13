@@ -41,16 +41,23 @@ This document tracks the implementation of the guidelines feature for the AI Eth
 - ✅ Created client test script for guideline MCP services
 - ✅ Added pipeline script for end-to-end MCP-based guideline processing
 - ✅ Fixed server startup and module registration issues
+- ✅ Fixed Claude model version from claude-3-sonnet-20240229 to claude-3-7-sonnet-20250219
+- ✅ Resolved MCP server client connection issues via JSON-RPC endpoint
+- ✅ Successfully tested guideline concept extraction with end-to-end pipeline
+- ✅ Created comprehensive README_GUIDELINES_TESTING.md with full documentation
+- ✅ Generated RDF triples from guideline concepts with proper Turtle format output
 
 ### In Progress
-- 🔄 Testing guideline concept extraction and entity matching
 - 🔄 Refining the concept review interface
 - 🔄 Enhancing error handling and server diagnostics
 - 🔄 Implementing integration with app's GuidelineAnalysisService
+- 🔄 Improving semantic matching between concepts and ontology entities
 
 ### Planned
-- 📅 Complete concept extraction and matching implementation
-- 📅 Implement RDF triple association with guidelines
+- 📅 Implement visualization tools for guideline concept relationships
+- 📅 Create web interface for guideline management
+- 📅 Integrate RDF triple database storage with the guideline workflow
+- 📅 Add batch processing for multiple guideline documents
 - 📅 Create workflow for associating guidelines with world entities
 
 ## Current Architecture
@@ -177,79 +184,24 @@ We will use the enhanced ontology MCP server with guidelines support for this fe
    """
    ```
 
-### Phase 2: Concept Matching Enhancement
+### Next Steps: Expand API Integration
 
-1. **Direct Use of MCP Guidelines Module**
-   ```python
-   def match_concepts(self, concepts: List[Dict[str, Any]], ontology_source: Optional[str] = None) -> Dict[str, Any]:
-       """Match concepts to ontology entities with improved MCP integration."""
-       try:
-           # Try to use the MCP server's match_concepts_to_ontology tool directly
-           response = requests.post(
-               f"{self.mcp_client.mcp_url}/jsonrpc",
-               json={
-                   "jsonrpc": "2.0",
-                   "method": "call_tool",
-                   "params": {
-                       "name": "match_concepts_to_ontology",
-                       "arguments": {
-                           "concepts": concepts,
-                           "ontology_source": ontology_source,
-                           "match_threshold": 0.6
-                       }
-                   },
-                   "id": 1
-               },
-               timeout=30
-           )
-           
-           if response.status_code == 200:
-               # Process and return the matches
-               result = response.json()
-               if "result" in result:
-                   return result["result"]
-           
-           # Fall back to LLM-based matching if MCP fails
-       except Exception as e:
-           logger.warning(f"Error calling MCP: {str(e)}, falling back to LLM")
-   ```
+Now that we have successfully tested the MCP server integration with the triples extraction process, our next steps are:
 
-### Phase 3: Triple Generation Enhancement
+1. **Full Integration with Web Application**
+   - Update the GuidelineAnalysisService to use our new MCP tools
+   - Enhance the web interface to display extracted concepts and relationships
+   - Add visualization of the generated triples
 
-1. **Improved Triple Generation**
-   ```python
-   def generate_triples(self, concepts: List[Dict[str, Any]], selected_indices: List[int], 
-                       ontology_source: Optional[str] = None) -> Dict[str, Any]:
-       """Generate RDF triples for selected concepts."""
-       # Try MCP server first
-       try:
-           response = requests.post(
-               f"{self.mcp_client.mcp_url}/jsonrpc",
-               json={
-                   "jsonrpc": "2.0",
-                   "method": "call_tool",
-                   "params": {
-                       "name": "generate_concept_triples",
-                       "arguments": {
-                           "concepts": concepts,
-                           "selected_indices": selected_indices,
-                           "ontology_source": ontology_source,
-                           "namespace": "http://proethica.org/guidelines/",
-                           "output_format": "turtle"
-                       }
-                   },
-                   "id": 1
-               },
-               timeout=20
-           )
-           
-           if response.status_code == 200:
-               return response.json().get("result", {})
-       except Exception as e:
-           logger.warning(f"Error using MCP for triple generation: {str(e)}")
-       
-       # Fall back to direct implementation
-   ```
+2. **Optimization and Refinement**
+   - Improve matching algorithms with feedback-based learning
+   - Add caching of extracted concepts for performance improvement
+   - Implement batch processing capabilities
+
+3. **Expand Triple Generation**
+   - Create more sophisticated RDF patterns for representing ethical relationships
+   - Add support for additional ontology sources beyond engineering ethics
+   - Implement export options for various RDF formats
 
 ## Technical Notes
 
@@ -261,42 +213,20 @@ We will use the enhanced ontology MCP server with guidelines support for this fe
 - The server can use OpenAI embeddings when available, falling back to a simple similarity calculator otherwise
 - All components follow a pattern of trying the MCP service first, then falling back to local processing
 
-### MCP Server Components
-
-1. **Base Module System**
-   - Introduced `MCPBaseModule` class for consistent module architecture
-   - Provides tools and resources registration and access methods
-   - Standardized error handling for tool execution
-
-2. **GuidelineAnalysisModule**
-   - Module added to the Enhanced Ontology Server
-   - Provides three main tools:
-     - `extract_guideline_concepts`: Extract concepts from guideline content
-     - `match_concepts_to_ontology`: Match extracted concepts to ontology entities
-     - `generate_concept_triples`: Generate RDF triples from matched concepts
-   - Integrates with the ontology client for entity access
-   - Uses LLM and embedding clients for analysis
-
-3. **Client Integration**
-   - Updated GuidelineAnalysisService to use MCP tools
-   - Added fallback to direct LLM when MCP is unavailable
-   - Improved error handling and logging throughout
-
 ## Testing
 
 1. **Server Testing**
-   - Test script `debug_mcp_guideline_server.py` verifies server operation
+   - Test script `test_guideline_mcp_client.py` verifies MCP server operations
    - Can be used for debugging MCP server issues
 
-2. **Client Testing**
-   - `test_guideline_mcp_client.py` tests direct interaction with MCP server
-   - Tests all three tools independently
-   - Captures JSON output for further analysis
-
-3. **Pipeline Testing**
+2. **Pipeline Testing**
    - `run_guidelines_mcp_pipeline.sh` provides end-to-end testing
    - Starts server, runs client test, and shuts down server
-   - Useful for integration verification
+   - Generates output files: guideline_concepts.json, guideline_matches.json, guideline_triples.json, guideline_triples.ttl
+
+3. **Documentation Added**
+   - Created `README_GUIDELINES_TESTING.md` with comprehensive testing documentation
+   - Added troubleshooting guidance for common issues
 
 ## Future Enhancements
 
