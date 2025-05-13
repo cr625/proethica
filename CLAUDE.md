@@ -32,9 +32,9 @@ The AI Ethical Design Manager is a platform to help engineers and designers thin
 - Interactive ethical reasoning tools
 - Guideline management and visualization
 
-## Recent Work and Progress
+## Current Status (Updated: 2025-05-13)
 
-### GitHub Codespaces Support (Added: 2025-05-13)
+### GitHub Codespaces Support
 - ✅ Updated `start_proethica_updated.sh` for GitHub Codespaces compatibility
 - ✅ Enhanced server startup process to use the guidelines-enabled MCP server
 - ✅ Created comprehensive documentation for running in Codespaces
@@ -45,43 +45,42 @@ The AI Ethical Design Manager is a platform to help engineers and designers thin
 - ✅ Enhanced MCP server with guideline analysis capabilities
 - ✅ Added `GuidelineAnalysisModule` with concept extraction, matching, and triple generation
 - ✅ Created end-to-end testing pipeline
-- ✅ Fixed model version and server connectivity issues
+- ✅ Fixed model version and server connectivity issues (Now using `claude-3-7-sonnet-20250219`)
 - ✅ Successfully generated RDF triples from guideline content
+- ✅ Implemented robust JSON-RPC communication between client and server
 
-### Next Steps
+### In Progress
+- 🔄 Refining the concept review interface
+- 🔄 Enhancing error handling and server diagnostics
+- 🔄 Implementing integration with app's GuidelineAnalysisService
+- 🔄 Improving semantic matching between concepts and ontology entities
+
+## Next Steps
+
 1. **Web Interface Integration**
-   - Update `GuidelineAnalysisService` to use the MCP tools
-   - Enhance the concept review interface
-   - Add visualization for relationships
+   - Complete the GuidelineAnalysisService integration with the MCP tools
+   - Enhance the concept review interface with better visualization
+   - Add relationship visualization for guideline concepts
 
 2. **Enhanced Triple Generation**
-   - Create more sophisticated RDF patterns
-   - Support additional ontology sources
-   - Implement export options for various formats
+   - Create more sophisticated RDF patterns for ethical relationships
+   - Support additional ontology sources beyond engineering ethics
+   - Implement export options for various RDF formats
 
-3. **Batch Processing**
-   - Add capabilities for processing multiple guidelines
-   - Implement caching for better performance
-   - Create comparison tools for guidelines analysis
+3. **Batch Processing and Performance**
+   - Add capabilities for processing multiple guidelines simultaneously
+   - Implement caching for extracted concepts
+   - Add parallel processing for large guidelines
+   - Optimize triple generation algorithms
 
-## Development Resources
+## Key Implementation Documents
 
-### Documentation
-- `CODESPACE_GUIDELINES_STARTUP.md` - Running with guidelines in Codespaces
-- `README_GUIDELINES_TESTING.md` - Testing the guideline features
-- `guidelines_progress.md` - Implementation progress and plan
-- `docs/ontology_case_analysis_plan.md` - Overall ontology integration
-- `mcp_integration_plan.md` - Detailed plan for MCP server UI integration
+For the most up-to-date information on implementation status and plans:
 
-### Tools
-- `run_guidelines_mcp_pipeline.sh` - End-to-end testing script
-- `test_guideline_mcp_client.py` - MCP client for guideline testing
-- `fix_test_guideline_mcp_client.py` - Fix for the client connectivity
-
-### Server
-- `mcp/enhanced_ontology_server_with_guidelines.py` - Main MCP server
-- `mcp/modules/guideline_analysis_module.py` - Guidelines analysis module
-- `mcp/modules/base_module.py` - Base module system
+- `mcp_integration_plan.md` - Current detailed plan for MCP server UI integration
+- `guidelines_progress.md` - Tracking document for progress and implementation details
+- `CODESPACE_GUIDELINES_STARTUP.md` - Latest instructions for running in Codespaces
+- `README_GUIDELINES_TESTING.md` - Current testing procedures and troubleshooting
 
 ## Technical Architecture
 
@@ -92,89 +91,20 @@ The system uses a modular design with:
 4. LLM integration (Claude and OpenAI)
 5. RDF/OWL ontology with SPARQL for querying
 
-## Environment Setup
-
-To work on the guidelines feature:
-1. Ensure the proper environment variables are set in `.env`
-2. Install required packages with `pip install -r requirements-mcp.txt`
-3. Start the MCP server: `python mcp/run_enhanced_mcp_server_with_guidelines.py`
-4. Run tests: `./run_guidelines_mcp_pipeline.sh`
-
-## Running in GitHub Codespaces (Added: 2025-05-13)
-
-The application now supports running the complete solution with guidelines support in GitHub Codespaces.
-
-### Quick Start in Codespaces
+## Running in GitHub Codespaces
 
 ```bash
 ./start_proethica_updated.sh
 ```
 
-This updated script:
+This script:
 - Automatically detects the Codespaces environment
 - Sets up PostgreSQL using Docker in the codespace
 - Starts the enhanced MCP server with guidelines support
 - Applies necessary fixes for JSON-RPC and model references
 - Launches the Flask application with proper configuration
 
-### Codespace-specific Adaptations
-
-1. **Database Setup**: Uses codespace-specific PostgreSQL container configuration
-2. **MCP Server**: Enhanced ontology server with guidelines support
-3. **Model References**: Updated to use Claude 3.7 Sonnet (`claude-3-7-sonnet-20250219`)
-4. **Server Architecture**: Optimized for Codespaces networking environment
-5. **Connection Handling**: JSON-RPC for more reliable API communication
-
-Detailed documentation is available in `CODESPACE_GUIDELINES_STARTUP.md`.
-
-## Guidelines Integration with MCP Server (Updated: 2025-05-13)
-
-The guidelines integration with the MCP server and triples extraction process has been successfully implemented. This integration enables the extraction of concepts from ethical guidelines, matching them to ontology entities, and generating RDF triples to represent the relationships.
-
-### Key Components
-
-1. **Enhanced Ontology Server**:
-   - Integration with `GuidelineAnalysisModule` for processing guidelines
-   - JSON-RPC endpoint for reliable client-server communication
-   - Updated to use the latest Claude model (`claude-3-7-sonnet-20250219`)
-
-2. **MCP Client Improvements**:
-   - Updated to use JSON-RPC endpoints instead of deprecated API endpoints
-   - Fixed model references for consistency across the system
-   - Added comprehensive error handling for connection failures
-
-3. **Pipeline Tools**:
-   - `test_mcp_jsonrpc_connection.py`: Tests server connectivity via JSON-RPC
-   - `fix_mcp_client.py`: Updates client to use JSON-RPC communications
-   - `update_claude_models_in_mcp_server.py`: Ensures consistent model usage
-   - `run_guidelines_mcp_pipeline.sh`: End-to-end testing pipeline
-
-4. **Documentation**:
-   - `RUN_WEBAPP_WITH_GUIDELINES.md`: Instructions for running the web app
-   - `README_GUIDELINES_TESTING.md`: Testing procedures and troubleshooting
-   - `guidelines_progress.md`: Tracking document for progress and next steps
-
-### Running the Application
-
-To run ProEthica with guidelines support:
-
-```bash
-# For standard environments:
-./start_with_enhanced_ontology_server.sh
-
-# For GitHub Codespaces:
-./start_proethica_updated.sh
-```
-
-These scripts handle all necessary setup, including:
-- Starting the enhanced ontology server
-- Updating MCP client configuration
-- Ensuring proper model usage
-- Starting the Flask web application
-
-### Testing Guidelines Integration
-
-Guidelines integration can be tested using:
+## Testing Guidelines Integration
 
 ```bash
 # Test the MCP server connection
@@ -184,19 +114,4 @@ Guidelines integration can be tested using:
 ./run_guidelines_mcp_pipeline.sh
 ```
 
-### Next Steps
-
-1. **Web Interface Enhancements**:
-   - Improve concept visualization in the web UI
-   - Add better management of guideline triples
-   - Implement batch processing for multiple guidelines
-
-2. **Integration with Existing Ontologies**:
-   - Connect guideline concepts with engineering ethics ontology
-   - Map to existing case analysis frameworks
-   - Establish links to the McLaren model
-
-3. **Performance Optimization**:
-   - Add caching for extracted concepts
-   - Implement parallel processing for large guidelines
-   - Optimize triple generation algorithms
+These scripts verify the complete guidelines processing pipeline from extraction to triple generation.

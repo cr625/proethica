@@ -1,7 +1,9 @@
 # Guidelines Feature Implementation Progress
 
+> **Note:** For the most up-to-date implementation status, please refer to the [Guidelines Implementation Status](guidelines_implementation_status.md) document which contains the latest information as of 2025-05-13.
+
 ## Overview
-This document tracks the implementation of the guidelines feature for the AI Ethical DM application. The feature allows uploading guidelines associated with a world and linking them to RDF triples from the engineering-ethics ontology.
+This document tracks the historical implementation of the guidelines feature for the AI Ethical DM application. The feature allows uploading guidelines associated with a world and linking them to RDF triples from the engineering-ethics ontology.
 
 ## Requirements
 

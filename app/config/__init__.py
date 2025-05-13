@@ -4,42 +4,12 @@ This package contains different configuration classes for different environments
 """
 
 import os
-from app import config as base_config
 from app.config import codespace as codespace_config
 
-class DevelopmentConfig:
-    """Base configuration for development environment."""
-    DEBUG = base_config.DEBUG
-    TESTING = base_config.TESTING
-    SECRET_KEY = base_config.SECRET_KEY
-    DATABASE_URL = base_config.DATABASE_URL
-    SQLALCHEMY_DATABASE_URI = base_config.SQLALCHEMY_DATABASE_URI
-    SQLALCHEMY_TRACK_MODIFICATIONS = base_config.SQLALCHEMY_TRACK_MODIFICATIONS
-    SESSION_TYPE = base_config.SESSION_TYPE
-    SESSION_PERMANENT = base_config.SESSION_PERMANENT
-    SESSION_USE_SIGNER = base_config.SESSION_USE_SIGNER
-    WTF_CSRF_ENABLED = base_config.WTF_CSRF_ENABLED
-    SET_CSRF_TOKEN_ON_PAGE_LOAD = base_config.SET_CSRF_TOKEN_ON_PAGE_LOAD
-    UPLOAD_FOLDER = base_config.UPLOAD_FOLDER
-    MAX_CONTENT_LENGTH = base_config.MAX_CONTENT_LENGTH
-    ENVIRONMENT = base_config.ENVIRONMENT
-    USE_AGENT_ORCHESTRATOR = base_config.USE_AGENT_ORCHESTRATOR
-    USE_CLAUDE = base_config.USE_CLAUDE
-    OPENAI_API_KEY = base_config.OPENAI_API_KEY
-    ANTHROPIC_API_KEY = base_config.ANTHROPIC_API_KEY
-    CLAUDE_MODEL_VERSION = base_config.CLAUDE_MODEL_VERSION
-    EMBEDDING_PROVIDER_PRIORITY = base_config.EMBEDDING_PROVIDER_PRIORITY
-    LOCAL_EMBEDDING_MODEL = base_config.LOCAL_EMBEDDING_MODEL
-    CLAUDE_EMBEDDING_MODEL = base_config.CLAUDE_EMBEDDING_MODEL
-    OPENAI_EMBEDDING_MODEL = base_config.OPENAI_EMBEDDING_MODEL
-    ZOTERO_API_KEY = base_config.ZOTERO_API_KEY
-    ZOTERO_USER_ID = base_config.ZOTERO_USER_ID
-    ZOTERO_GROUP_ID = base_config.ZOTERO_GROUP_ID
-    MCP_SERVER_URL = base_config.MCP_SERVER_URL
-    USE_MOCK_FALLBACK = base_config.USE_MOCK_FALLBACK
-
+# CodespaceConfig is the primary config for GitHub Codespaces environment
 class CodespaceConfig:
     """Configuration for GitHub Codespaces environment."""
+    # Explicitly assign all settings from codespace.py
     DEBUG = codespace_config.DEBUG
     TESTING = codespace_config.TESTING
     SECRET_KEY = codespace_config.SECRET_KEY
@@ -72,39 +42,52 @@ class CodespaceConfig:
     ENABLE_LIVERELOAD = codespace_config.ENABLE_LIVERELOAD
     DB_SSL_MODE = codespace_config.DB_SSL_MODE
 
+# Simplified configs for other environments
+# These are included to ensure compatibility but the focus is on Codespace
+class DevelopmentConfig:
+    """Simplified configuration for development environment."""
+    DEBUG = True
+    TESTING = False
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key')
+    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ai_ethical_dm')
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = False
+    SESSION_USE_SIGNER = True
+    WTF_CSRF_ENABLED = True
+    SET_CSRF_TOKEN_ON_PAGE_LOAD = True
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    ENVIRONMENT = 'development'
+    USE_AGENT_ORCHESTRATOR = True
+    USE_CLAUDE = True
+    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+    CLAUDE_MODEL_VERSION = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+    MCP_SERVER_URL = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    USE_MOCK_FALLBACK = os.getenv('USE_MOCK_FALLBACK', 'false').lower() == 'true'
+
 class ProductionConfig:
-    """Configuration for production environment."""
-    DEBUG = base_config.DEBUG
-    TESTING = base_config.TESTING
-    SECRET_KEY = base_config.SECRET_KEY
-    DATABASE_URL = base_config.DATABASE_URL
-    SQLALCHEMY_DATABASE_URI = base_config.SQLALCHEMY_DATABASE_URI
-    SQLALCHEMY_TRACK_MODIFICATIONS = base_config.SQLALCHEMY_TRACK_MODIFICATIONS
-    SESSION_TYPE = base_config.SESSION_TYPE
-    SESSION_PERMANENT = base_config.SESSION_PERMANENT
-    SESSION_USE_SIGNER = base_config.SESSION_USE_SIGNER
-    WTF_CSRF_ENABLED = base_config.WTF_CSRF_ENABLED
-    SET_CSRF_TOKEN_ON_PAGE_LOAD = base_config.SET_CSRF_TOKEN_ON_PAGE_LOAD
-    UPLOAD_FOLDER = base_config.UPLOAD_FOLDER
-    MAX_CONTENT_LENGTH = base_config.MAX_CONTENT_LENGTH
-    ENVIRONMENT = base_config.ENVIRONMENT
-    USE_AGENT_ORCHESTRATOR = base_config.USE_AGENT_ORCHESTRATOR
-    USE_CLAUDE = base_config.USE_CLAUDE
-    OPENAI_API_KEY = base_config.OPENAI_API_KEY
-    ANTHROPIC_API_KEY = base_config.ANTHROPIC_API_KEY
-    CLAUDE_MODEL_VERSION = base_config.CLAUDE_MODEL_VERSION
-    EMBEDDING_PROVIDER_PRIORITY = base_config.EMBEDDING_PROVIDER_PRIORITY
-    LOCAL_EMBEDDING_MODEL = base_config.LOCAL_EMBEDDING_MODEL
-    CLAUDE_EMBEDDING_MODEL = base_config.CLAUDE_EMBEDDING_MODEL
-    OPENAI_EMBEDDING_MODEL = base_config.OPENAI_EMBEDDING_MODEL
-    ZOTERO_API_KEY = base_config.ZOTERO_API_KEY
-    ZOTERO_USER_ID = base_config.ZOTERO_USER_ID
-    ZOTERO_GROUP_ID = base_config.ZOTERO_GROUP_ID
-    MCP_SERVER_URL = base_config.MCP_SERVER_URL
-    USE_MOCK_FALLBACK = base_config.USE_MOCK_FALLBACK
-    
-    # Override settings for production
+    """Simplified configuration for production environment."""
     DEBUG = False
     TESTING = False
+    SECRET_KEY = os.getenv('SECRET_KEY')
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = False
+    SESSION_USE_SIGNER = True
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
+    WTF_CSRF_ENABLED = True
+    SET_CSRF_TOKEN_ON_PAGE_LOAD = True
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    ENVIRONMENT = 'production'
+    USE_AGENT_ORCHESTRATOR = True
+    USE_CLAUDE = True
+    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+    CLAUDE_MODEL_VERSION = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+    MCP_SERVER_URL = os.getenv('MCP_SERVER_URL')
+    USE_MOCK_FALLBACK = False

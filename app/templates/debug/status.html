@@ -1,0 +1,122 @@
+
+{% extends 'base.html' %}
+
+{% block title %}System Status{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>ProEthica System Status</h1>
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary mb-3">Back to Home</a>
+            
+            <h3>Environment</h3>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Variable</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in env_vars.items() %}
+                            <tr>
+                                <td>{{ key }}</td>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <h3>Database Status</h3>
+            <div class="card mb-4">
+                <div class="card-body">
+                    {% if db_status.status == 'Connected' %}
+                        <div class="alert alert-success">
+                            <strong>Connected</strong> - {{ db_status.version }}
+                        </div>
+                        
+                        <h5>Tables</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Table Name</th>
+                                    <th>Columns</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for table_name, column_count in db_status.tables %}
+                                <tr>
+                                    <td>{{ table_name }}</td>
+                                    <td>{{ column_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            {{ db_status.status }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <h3>MCP Server Status</h3>
+            <div class="card mb-4">
+                <div class="card-body">
+                    {% if mcp_status.status == 'Connected' %}
+                        <div class="alert alert-success">
+                            <strong>Connected</strong>
+                        </div>
+                        
+                        <h5>Available Tools</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Tool</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tool in mcp_status.tools %}
+                                <tr>
+                                    <td>{{ tool.name }}</td>
+                                    <td>{{ tool.description }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            {{ mcp_status.status }}
+                        </div>
+                        {% if mcp_status.raw_response %}
+                        <pre>{{ mcp_status.raw_response }}</pre>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <h3>System Information</h3>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <tbody>
+                            {% for key, value in sys_info.items() %}
+                            <tr>
+                                <th>{{ key|title }}</th>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
