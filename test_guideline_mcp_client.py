@@ -1,51 +1,33 @@
 #!/usr/bin/env python3
 """
-Test Guideline Analysis MCP Client
+Test Guideline MCP Client
 
-This script tests the guideline analysis functionality through the MCP client.
-It sends the test guideline to the server for analysis and displays the results.
+This script tests the guideline analysis functionality of the MCP server.
+It extracts concepts from a test guideline, matches them to ontology entities,
+and generates RDF triples.
 """
 
 import os
 import sys
 import json
 import time
+import logging
 import asyncio
 import requests
-import logging
 from pathlib import Path
 
-# Set up logging
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Add project root to path for imports
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
-
 # MCP server URL
 MCP_URL = "http://localhost:5001"
 
 # Test guideline file path
-TEST_GUIDELINE_PATH = Path("test_guideline.txt")
-
-def read_test_guideline():
-    """Read the test guideline content."""
-    try:
-        if not TEST_GUIDELINE_PATH.exists():
-            logger.error(f"Test guideline file not found at {TEST_GUIDELINE_PATH}")
-            return None
-        
-        with open(TEST_GUIDELINE_PATH, "r") as f:
-            content = f.read()
-            logger.info(f"Read {len(content)} characters from test guideline")
-            return content
-    except Exception as e:
-        logger.error(f"Error reading test guideline: {str(e)}")
-        return None
+TEST_GUIDELINE_PATH = "test_guideline.txt"
 
 def wait_for_server(timeout=30):
     """Wait for the server to start, with timeout."""
@@ -76,298 +58,236 @@ def wait_for_server(timeout=30):
     logger.error(f"Timed out after {timeout} seconds waiting for server to start")
     return False
 
-def list_available_tools():
-    """List all available tools from the MCP server."""
-    try:
-        response = requests.post(
-            f"{MCP_URL}/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "method": "list_tools",
-                "params": {},
-                "id": 1
-            },
-            timeout=10
-        )
+def call_mcp_tool(tool_name, arguments):
+    """
+    Call a tool on the MCP server.
+    
+    Args:
+        tool_name: Name of the tool to call
+        arguments: Arguments to pass to the tool
         
-        if response.status_code == 200:
-            data = response.json()
-            if "result" in data and "tools" in data["result"]:
-                tools = data["result"]["tools"]
-                logger.info(f"Available tools: {json.dumps(tools, indent=2)}")
-                return tools
-            else:
-                logger.error(f"Unexpected response format: {data}")
-                return None
-        else:
-            logger.error(f"Error listing tools: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        logger.error(f"Exception while listing tools: {str(e)}")
-        return None
-
-def extract_concepts(content):
-    """Extract concepts from the guideline content."""
-    try:
-        logger.info("Calling extract_guideline_concepts tool...")
-        
-        response = requests.post(
-            f"{MCP_URL}/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "method": "call_tool",
-                "params": {
-                    "name": "extract_guideline_concepts",
-                    "arguments": {
-                        "content": content,
-                        "ontology_source": "engineering-ethics"  # Optional
-                    }
-                },
-                "id": 1
-            },
-            timeout=60  # Longer timeout for LLM processing
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "result" in data:
-                logger.info(f"Successfully extracted concepts")
-                result = data["result"]
-                
-                # Log the number of concepts extracted
-                if "concepts" in result:
-                    concepts = result["concepts"]
-                    logger.info(f"Extracted {len(concepts)} concepts")
-                    
-                    # Display first few concepts
-                    for i, concept in enumerate(concepts[:3]):
-                        logger.info(f"Concept {i+1}: {concept.get('label')} - {concept.get('category')}")
-                
-                return result
-            else:
-                logger.error(f"Error in response: {data.get('error')}")
-                return None
-        else:
-            logger.error(f"HTTP error: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        logger.error(f"Exception while extracting concepts: {str(e)}")
-        return None
-
-def match_concepts_to_ontology(concepts):
-    """Match extracted concepts to ontology entities."""
-    if not concepts or "concepts" not in concepts:
-        logger.error("No concepts to match")
-        return None
+    Returns:
+        Result from the tool
+    """
+    logger.info(f"Calling MCP tool: {tool_name}")
+    
+    # Prepare JSON-RPC request
+    request_data = {
+        "jsonrpc": "2.0",
+        "method": "call_tool",
+        "params": {
+            "name": tool_name,
+            "arguments": arguments
+        },
+        "id": int(time.time())
+    }
     
     try:
-        logger.info("Calling match_concepts_to_ontology tool...")
-        
+        # Make the request
         response = requests.post(
             f"{MCP_URL}/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "method": "call_tool",
-                "params": {
-                    "name": "match_concepts_to_ontology",
-                    "arguments": {
-                        "concepts": concepts["concepts"],
-                        "ontology_source": "engineering-ethics",  # Optional
-                        "match_threshold": 0.5  # Optional
-                    }
-                },
-                "id": 2
-            },
-            timeout=60  # Longer timeout for LLM processing
+            json=request_data,
+            timeout=300  # Long timeout for LLM operations
         )
         
-        if response.status_code == 200:
-            data = response.json()
-            if "result" in data:
-                logger.info(f"Successfully matched concepts to ontology")
-                result = data["result"]
-                
-                # Log the number of matches
-                if "matches" in result:
-                    matches = result["matches"]
-                    logger.info(f"Found {len(matches)} ontology matches")
-                    
-                    # Display first few matches
-                    for i, match in enumerate(matches[:3]):
-                        logger.info(f"Match {i+1}: {match.get('concept_label')} -> {match.get('ontology_entity')} "
-                                   f"(confidence: {match.get('confidence')})")
-                
-                return result
-            else:
-                logger.error(f"Error in response: {data.get('error')}")
-                return None
-        else:
-            logger.error(f"HTTP error: {response.status_code} - {response.text}")
-            return None
+        # Check response status
+        if response.status_code != 200:
+            logger.error(f"HTTP error {response.status_code}: {response.text}")
+            return {"error": f"HTTP error {response.status_code}"}
+        
+        # Parse response
+        result = response.json()
+        
+        # Check for JSON-RPC error
+        if "error" in result:
+            logger.error(f"JSON-RPC error: {result['error']}")
+            return {"error": result["error"]}
+        
+        # Return result
+        return result.get("result", {})
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error: {str(e)}")
+        return {"error": f"Request failed: {str(e)}"}
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
+        return {"error": f"Invalid JSON response: {str(e)}"}
     except Exception as e:
-        logger.error(f"Exception while matching concepts: {str(e)}")
-        return None
+        logger.error(f"Unexpected error: {str(e)}")
+        return {"error": f"Unexpected error: {str(e)}"}
 
-def generate_triples(concepts, selected_indices=None):
-    """Generate RDF triples for selected concepts."""
-    if not concepts or "concepts" not in concepts:
-        logger.error("No concepts to generate triples for")
-        return None
-    
-    # If no indices specified, use the first 5 concepts
-    if selected_indices is None:
-        selected_indices = list(range(min(5, len(concepts["concepts"]))))
-    
+def save_json(data, filename):
+    """Save data to a JSON file."""
     try:
-        logger.info(f"Calling generate_concept_triples tool for {len(selected_indices)} concepts...")
-        
-        response = requests.post(
-            f"{MCP_URL}/jsonrpc",
-            json={
-                "jsonrpc": "2.0",
-                "method": "call_tool",
-                "params": {
-                    "name": "generate_concept_triples",
-                    "arguments": {
-                        "concepts": concepts["concepts"],
-                        "selected_indices": selected_indices,
-                        "namespace": "http://proethica.org/guidelines/engineering/",
-                        "output_format": "turtle"
-                    }
-                },
-                "id": 3
-            },
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "result" in data:
-                logger.info(f"Successfully generated triples")
-                result = data["result"]
-                
-                # Log the number of triples
-                if "triples" in result:
-                    triples = result["triples"]
-                    logger.info(f"Generated {len(triples)} RDF triples")
-                    
-                    # Display first few triples
-                    for i, triple in enumerate(triples[:3]):
-                        logger.info(f"Triple {i+1}: {triple.get('subject_label')} -> "
-                                   f"{triple.get('predicate_label')} -> {triple.get('object_label')}")
-                
-                return result
-            else:
-                logger.error(f"Error in response: {data.get('error')}")
-                return None
-        else:
-            logger.error(f"HTTP error: {response.status_code} - {response.text}")
-            return None
+        with open(filename, "w") as f:
+            json.dump(data, indent=2, fp=f)
+        logger.info(f"Saved data to {filename}")
     except Exception as e:
-        logger.error(f"Exception while generating triples: {str(e)}")
-        return None
+        logger.error(f"Error saving to {filename}: {str(e)}")
 
-def save_results(concepts, matches, triples):
-    """Save the analysis results to files."""
+def save_turtle(triples_data, filename):
+    """
+    Save triples data as Turtle RDF.
+    
+    This is a simple conversion - in a real implementation,
+    use a proper RDF library like rdflib.
+    
+    Args:
+        triples_data: Dictionary containing triples
+        filename: Output filename
+    """
     try:
-        # Save concepts
-        if concepts and "concepts" in concepts:
-            with open("guideline_concepts.json", "w") as f:
-                json.dump(concepts, f, indent=2)
-            logger.info(f"Saved concepts to guideline_concepts.json")
+        # Get triples from data
+        triples = triples_data.get("triples", [])
         
-        # Save matches
-        if matches and "matches" in matches:
-            with open("guideline_matches.json", "w") as f:
-                json.dump(matches, f, indent=2)
-            logger.info(f"Saved matches to guideline_matches.json")
+        if not triples:
+            logger.warning("No triples to save")
+            return
         
-        # Save triples
-        if triples and "triples" in triples:
-            with open("guideline_triples.json", "w") as f:
-                json.dump(triples, f, indent=2)
-            logger.info(f"Saved triples to guideline_triples.json")
+        # Start with prefixes
+        ttl_content = [
+            "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .",
+            "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .",
+            "@prefix owl: <http://www.w3.org/2002/07/owl#> .",
+            "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .",
+            "@prefix dc: <http://purl.org/dc/elements/1.1/> .",
+            "@prefix proeth: <http://proethica.org/ontology/> .",
+            "@prefix guide: <http://proethica.org/guidelines/> .",
+            ""
+        ]
+        
+        # Group triples by subject
+        subjects = {}
+        for triple in triples:
+            subject = triple["subject"]
+            if subject not in subjects:
+                subjects[subject] = []
+            subjects[subject].append(triple)
+        
+        # Generate Turtle content
+        for subject, subject_triples in subjects.items():
+            ttl_content.append(f"<{subject}>")
             
-            # Create a simple Turtle file from the triples
-            try:
-                with open("guideline_triples.ttl", "w") as f:
-                    f.write("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n")
-                    f.write("@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n")
-                    f.write("@prefix proeth: <http://proethica.org/ontology/> .\n")
-                    f.write("@prefix guide: <http://proethica.org/guidelines/engineering/> .\n\n")
-                    
-                    for triple in triples["triples"]:
-                        subject = triple["subject"]
-                        predicate = triple["predicate"]
-                        obj = triple["object"]
-                        
-                        # Handle literal vs URI objects
-                        if predicate.endswith("label") or predicate.endswith("description") or predicate.endswith("Text"):
-                            # Escape quotes in literals
-                            obj_str = f'"{obj.replace('"', '\\"')}"'
-                        else:
-                            obj_str = f"<{obj}>"
-                        
-                        f.write(f"<{subject}> <{predicate}> {obj_str} .\n")
+            # Add predicates and objects
+            for i, triple in enumerate(subject_triples):
+                predicate = triple["predicate"]
+                obj = triple["object"]
                 
-                logger.info(f"Saved Turtle triples to guideline_triples.ttl")
-            except Exception as e:
-                logger.error(f"Error creating Turtle file: {str(e)}")
-    
+                # Check if object is a URI or literal
+                if obj.startswith("http://"):
+                    obj_ttl = f"<{obj}>"
+                else:
+                    # Simple quoting - a real implementation would handle datatypes
+                    obj_ttl = f'"""{obj}"""'
+                
+                # Add separator
+                separator = ";" if i < len(subject_triples) - 1 else "."
+                
+                # Add the triple
+                ttl_content.append(f"    <{predicate}> {obj_ttl}{separator}")
+            
+            # Add empty line between subjects
+            ttl_content.append("")
+        
+        # Write to file
+        with open(filename, "w") as f:
+            f.write("\n".join(ttl_content))
+            
+        logger.info(f"Saved Turtle RDF to {filename}")
+        
     except Exception as e:
-        logger.error(f"Error saving results: {str(e)}")
+        logger.error(f"Error saving Turtle to {filename}: {str(e)}")
 
-def main():
+async def main():
     """Main function."""
-    logger.info("Starting guideline analysis test")
+    logger.info("Starting Guideline MCP Client test")
     
-    # Wait for the server to be available
-    if not wait_for_server(timeout=30):
-        logger.error("Server not available, exiting")
-        return
+    # Check if MCP server is running
+    if not wait_for_server():
+        logger.error("Cannot connect to MCP server. Make sure it's running.")
+        return 1
     
-    # Read the test guideline
-    content = read_test_guideline()
-    if not content:
-        return
+    # Check for test guideline
+    if not os.path.exists(TEST_GUIDELINE_PATH):
+        logger.error(f"Test guideline file not found: {TEST_GUIDELINE_PATH}")
+        return 1
     
-    # List available tools
-    tools = list_available_tools()
-    if not tools:
-        logger.error("Could not list available tools, exiting")
-        return
-    
-    # Extract concepts
-    concepts = extract_concepts(content)
-    if not concepts:
-        logger.error("Failed to extract concepts, exiting")
-        return
-    
-    # Match concepts to ontology
-    matches = match_concepts_to_ontology(concepts)
-    
-    # Generate triples
-    # If we have matches, use the indices of matched concepts
-    selected_indices = None
-    if matches and "matches" in matches:
-        # Get the concept labels that have matches
-        matched_labels = [m["concept_label"] for m in matches["matches"]]
-        # Find their indices in the concepts list
-        if "concepts" in concepts:
-            selected_indices = [
-                i for i, concept in enumerate(concepts["concepts"])
-                if concept.get("label") in matched_labels
-            ]
-            # Limit to top 10 matches if there are many
-            if len(selected_indices) > 10:
-                selected_indices = selected_indices[:10]
-    
-    triples = generate_triples(concepts, selected_indices)
-    
-    # Save results
-    save_results(concepts, matches, triples)
-    
-    logger.info("Guideline analysis test completed")
+    try:
+        # Read guideline content
+        with open(TEST_GUIDELINE_PATH, "r") as f:
+            guideline_content = f.read()
+        
+        # Step 1: Extract concepts
+        logger.info("Extracting concepts from guideline...")
+        extract_result = call_mcp_tool("extract_guideline_concepts", {
+            "content": guideline_content,
+            "ontology_source": "engineering-ethics"
+        })
+        
+        if "error" in extract_result:
+            logger.error(f"Failed to extract concepts: {extract_result['error']}")
+            return 1
+        
+        # Save the concepts
+        save_json(extract_result, "guideline_concepts.json")
+        
+        # Get the concepts
+        concepts = extract_result.get("concepts", [])
+        if not concepts:
+            logger.warning("No concepts extracted")
+            return 0
+        
+        # Step 2: Match concepts to ontology
+        logger.info("Matching concepts to ontology entities...")
+        match_result = call_mcp_tool("match_concepts_to_ontology", {
+            "concepts": concepts,
+            "ontology_source": "engineering-ethics",
+            "match_threshold": 0.6
+        })
+        
+        if "error" in match_result:
+            logger.error(f"Failed to match concepts: {match_result['error']}")
+            return 1
+        
+        # Save the matches
+        save_json(match_result, "guideline_matches.json")
+        
+        # Step 3: Generate triples
+        logger.info("Generating triples...")
+        
+        # Get all concept indices
+        selected_indices = list(range(len(concepts)))
+        
+        triple_result = call_mcp_tool("generate_concept_triples", {
+            "concepts": concepts,
+            "selected_indices": selected_indices,
+            "ontology_source": "engineering-ethics",
+            "namespace": "http://proethica.org/guidelines/",
+            "output_format": "turtle"
+        })
+        
+        if "error" in triple_result:
+            logger.error(f"Failed to generate triples: {triple_result['error']}")
+            return 1
+        
+        # Save the triples as JSON
+        save_json(triple_result, "guideline_triples.json")
+        
+        # Save the triples as Turtle
+        save_turtle(triple_result, "guideline_triples.ttl")
+        
+        # Report results
+        logger.info(f"Extracted {len(concepts)} concepts")
+        logger.info(f"Generated {triple_result.get('triple_count', 0)} triples")
+        logger.info("Test completed successfully!")
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(asyncio.run(main()))

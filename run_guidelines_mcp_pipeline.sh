@@ -1,70 +1,88 @@
 #!/bin/bash
-# This script runs the complete guidelines MCP pipeline
-# It starts the MCP server and then runs the test client
+# Run Guidelines MCP Pipeline
+# This script runs the complete pipeline for testing the guidelines MCP integration
 
-# Set up environment variables if needed
-if [ -f .env ]; then
-    echo "Loading environment variables from .env file..."
-    export $(grep -v '^#' .env | xargs)
-fi
+# Set up error handling
+set -e
+echo "Starting Guidelines MCP Pipeline..."
 
-# Make sure MCP_SERVER_PORT is set, default to 5001
-export MCP_SERVER_PORT=${MCP_SERVER_PORT:-5001}
-echo "Using MCP server port: ${MCP_SERVER_PORT}"
+# Check if test_guideline.txt exists
+if [ ! -f "test_guideline.txt" ]; then
+  echo "Error: test_guideline.txt not found"
+  echo "Creating a sample test guideline file..."
+  cat > test_guideline.txt << 'EOT'
+# Engineering Ethics Guidelines
 
-# Display Anthropic and OpenAI key availability
-if [ -n "$ANTHROPIC_API_KEY" ]; then
-    echo "Anthropic API key is available"
-else
-    echo "WARNING: Anthropic API key is not set. LLM features may not work properly."
-fi
+## Professional Obligations
 
-if [ -n "$OPENAI_API_KEY" ]; then
-    echo "OpenAI API key is available"
-else
-    echo "Note: OpenAI API key is not set. Will use fallback mode if needed."
+Engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties.
+
+Engineers shall perform services only in areas of their competence.
+
+Engineers shall issue public statements only in an objective and truthful manner.
+
+Engineers shall act for each employer or client as faithful agents or trustees.
+
+Engineers shall avoid deceptive acts.
+
+## Professional Conduct
+
+Engineers shall act in such a manner as to uphold and enhance the honor, integrity, and dignity of the engineering profession.
+
+Engineers shall treat all persons with dignity, respect, fairness and without discrimination.
+
+Engineers shall strive to serve the public interest.
+
+## Professional Development
+
+Engineers shall continue their professional development throughout their careers and shall provide opportunities for the professional development of those engineers under their supervision.
+
+## Confidentiality
+
+Engineers shall not disclose, without consent, confidential information concerning the business affairs or technical processes of any present or former client or employer.
+
+## Conflicts of Interest
+
+Engineers shall avoid all known conflicts of interest with their employers or clients and shall promptly inform their employers or clients of any business association, interests, or circumstances which could influence their judgment or the quality of their services.
+
+## Whistleblowing
+
+When engineers have knowledge or reason to believe that another person or firm may be in violation of any of the provisions of these Guidelines, they shall present such information to the proper authority in writing and shall cooperate with the proper authority in furnishing such further information or assistance as may be required.
+EOT
+  echo "Sample test guideline created."
 fi
 
 # Start the MCP server in the background
-echo "Starting the MCP server..."
-python mcp/run_enhanced_mcp_server_with_guidelines.py &
-MCP_PID=$!
+echo "Starting MCP server..."
+python mcp/run_enhanced_mcp_server_with_guidelines.py > mcp_server_log.txt 2>&1 &
+SERVER_PID=$!
 
-# Check if the server started properly
-if [ $? -ne 0 ]; then
-    echo "Failed to start MCP server"
-    exit 1
-fi
-
-echo "MCP server started with PID: $MCP_PID"
-
-# Wait for server to initialize (can be adjusted as needed)
-echo "Waiting 5 seconds for server to initialize..."
+# Give the server time to start up
+echo "Waiting for server to initialize..."
 sleep 5
 
-# Run the test client
-echo "Running guideline analysis test client..."
+# Fix the client if needed
+echo "Making sure the client is using the correct endpoint..."
+python fix_test_guideline_mcp_client.py
+
+# Run the client
+echo "Running test client..."
 python test_guideline_mcp_client.py
 
-# Capture the result from the client
-CLIENT_RESULT=$?
-
-# Kill the server process
-echo "Shutting down MCP server (PID: $MCP_PID)..."
-kill $MCP_PID
-
-# Wait for server to shut down gracefully
-sleep 2
-
-# Check if we need to force kill
-if ps -p $MCP_PID > /dev/null; then
-    echo "Server still running, forcing shutdown..."
-    kill -9 $MCP_PID
+# Check if files were created
+if [ -f "guideline_concepts.json" ] && [ -f "guideline_triples.json" ]; then
+  echo "Pipeline completed successfully!"
+  echo "Output files created:"
+  echo "- guideline_concepts.json"
+  echo "- guideline_matches.json"
+  echo "- guideline_triples.json"
+  echo "- guideline_triples.ttl"
+else
+  echo "Pipeline completed but some output files are missing."
 fi
 
-echo ""
-echo "Pipeline execution complete."
-echo "Results saved to guideline_*.json and guideline_triples.ttl files."
+# Shutdown the server
+echo "Shutting down MCP server..."
+kill $SERVER_PID
 
-# Return the client's exit code
-exit $CLIENT_RESULT
+echo "Done."

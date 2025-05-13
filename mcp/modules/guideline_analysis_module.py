@@ -245,9 +245,9 @@ class GuidelineAnalysisModule(MCPBaseModule):
             
             # Call Anthropic API (assumed to be async)
             if hasattr(self.llm_client, 'messages'):  # Anthropic Claude
-                # Use Claude 3 Sonnet model
+                # Use Claude 3 Sonnet model with updated version
                 response = await self.llm_client.messages.create(
-                    model="claude-3-sonnet-20240229",
+                    model="claude-3-7-sonnet-20250219",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.2,
                     max_tokens=4000
@@ -342,7 +342,7 @@ class GuidelineAnalysisModule(MCPBaseModule):
             if hasattr(self.llm_client, 'messages'):  # Anthropic Claude
                 # Use Claude 3 Sonnet model
                 response = await self.llm_client.messages.create(
-                    model="claude-3-sonnet-20240229",
+                    model="claude-3-7-sonnet-20250219",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.2,
                     max_tokens=4000

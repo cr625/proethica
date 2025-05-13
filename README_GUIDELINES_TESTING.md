@@ -1,236 +1,107 @@
-# Guidelines MCP Integration Testing Guide
+# Guidelines Ontology Integration Testing Guide
 
-This guide explains how to test the newly implemented guidelines MCP integration feature that uses the enhanced MCP server to extract concepts from engineering ethics guidelines, match them to ontology entities, and generate RDF triples.
+This guide explains how to test the integration between the ontology MCP server and the guidelines analysis functionality.
+
+## Overview
+
+The integration enables:
+1. Extracting concepts from guideline documents
+2. Matching concepts to ontology entities
+3. Generating RDF triples for guideline concepts
+4. Analyzing ethical principles in guidelines
 
 ## Prerequisites
 
-Before testing, make sure you have:
+- Python 3.8 or higher
+- Required packages (install with `pip install -r requirements-mcp.txt`)
+- An Anthropic API key (set as environment variable `ANTHROPIC_API_KEY`)
+- An OpenAI API key (optional, set as environment variable `OPENAI_API_KEY`)
 
-1. Set up the environment variables (especially for LLM API access):
-   - `ANTHROPIC_API_KEY` - Required for Claude 3 Sonnet model access
-   - `OPENAI_API_KEY` - Optional for embeddings (will use fallback if not available)
+## Testing Steps
 
-2. Installed all required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Step 1: Fix the client connectivity issue
 
-3. The test guideline file (`test_guideline.txt`) which contains engineering ethics guidelines content
-
-## Testing Methods
-
-There are three main ways to test the guidelines integration feature:
-
-### 1. Full Pipeline Testing (Recommended)
-
-Run the entire pipeline with a single command to start the server, execute tests, and shut everything down properly:
+Run the fix script to update the test client to use the correct JSON-RPC endpoint:
 
 ```bash
-./run_guidelines_mcp_pipeline.sh
+./fix_test_guideline_mcp_client.py
 ```
 
-This script:
-1. Sets up environment variables (from `.env` if available)
-2. Starts the MCP server with guidelines support
-3. Runs the test client to process the test guideline
-4. Saves results as JSON and Turtle files
-5. Shuts down the server properly
+This updates `test_guideline_mcp_client.py` to properly check for server availability using the JSON-RPC endpoint instead of the root URL.
 
-After running, check the output files:
-- `guideline_concepts.json`: Contains extracted concepts
-- `guideline_matches.json`: Contains ontology entity matches
-- `guideline_triples.json`: Contains generated triples in JSON format
-- `guideline_triples.ttl`: Contains generated triples in Turtle format
-
-### 2. Manual Component Testing
-
-Test each component separately for more detailed examination:
-
-#### Step 1: Start the MCP server manually
+### Step 2: Start the MCP server
 
 ```bash
 python mcp/run_enhanced_mcp_server_with_guidelines.py
 ```
 
-The server will start and listen on port 5001 by default (or the port specified in your environment).
+The server log should show successful initialization of all components:
+- Anthropic client
+- OpenAI client (if configured)
+- Embeddings client
+- Guideline analysis module
 
-#### Step 2: Run the test client
-
-In a separate terminal:
+### Step 3: Run the test client
 
 ```bash
 python test_guideline_mcp_client.py
 ```
 
-This will connect to the MCP server, process the test guideline, and save the output files.
+This will:
+1. Load a test guideline
+2. Extract concepts using the LLM
+3. Match concepts to ontology entities
+4. Generate RDF triples
+5. Save results to JSON and Turtle files
 
-#### Step 3: Examine the results
+### Step 4: Examine the output files
 
-Check the generated files as mentioned above.
-
-#### Step 4: Shut down the server
-
-Press Ctrl+C in the terminal where the server is running.
-
-### 3. Interactive Testing with Browser
-
-For a visual examination of the MCP server functionality:
-
-1. Start the MCP server:
-   ```bash
-   python mcp/run_enhanced_mcp_server_with_guidelines.py
-   ```
-
-2. Open a browser and navigate to:
-   ```
-   http://localhost:5001
-   ```
-
-3. Use the MCP server's built-in UI to explore available tools and resources
-
-4. Test individual tools by making JSON-RPC requests through the UI:
-   - Tool: `extract_guideline_concepts`
-   - Tool: `match_concepts_to_ontology`
-   - Tool: `generate_concept_triples`
+- `guideline_concepts.json`: Contains extracted concepts
+- `guideline_matches.json`: Contains matches between concepts and ontology entities
+- `guideline_triples.json`: Contains the generated RDF triples
+- `guideline_triples.ttl`: Contains the triples in Turtle format
 
 ## Troubleshooting
 
-### MCP Server Won't Start
+### Model Version Issues
 
-1. Check for port conflicts:
-   ```bash
-   lsof -i :5001
-   ```
-   If another process is using port 5001, either stop that process or set a different port with:
-   ```bash
-   export MCP_SERVER_PORT=5002
-   ```
+If you see errors related to `claude-3-sonnet-20240229` being not found, the model version needs to be updated. The correct model name is `claude-3-7-sonnet-20250219`.
 
-2. Verify environment variables:
-   ```bash
-   echo $ANTHROPIC_API_KEY
-   ```
-   If empty, the LLM features won't work properly. Set it in your `.env` file or directly in the terminal.
+### Connection Issues
 
-3. Check for Python errors:
-   - Make sure all required packages are installed
-   - Check that project paths are correctly set up in the scripts
+If the client can't connect to the server, make sure the server is running on port 5001 and check:
 
-### Client Connection Errors
-
-1. Ensure the server is running:
-   ```bash
-   ps aux | grep enhanced_mcp_server
-   ```
-
-2. Check the server logs for any errors
-
-3. Verify the client is using the correct port (same as the server)
-
-### LLM API Errors
-
-1. Check your API key validity
-
-2. Look for rate limiting messages in the logs
-
-3. Ensure you have sufficient API credits/quota
-
-## Expected Results
-
-When everything works correctly, you should see output similar to this:
-
-```
-Starting guideline analysis test
-Waiting up to 30 seconds for MCP server...
-MCP server is running!
-Read 3214 characters from test guideline
-Available tools: [list of tools]
-Calling extract_guideline_concepts tool...
-Successfully extracted concepts
-Extracted 24 concepts
-Concept 1: Public Safety - Obligation
-Concept 2: Professional Competence - Principle
-Concept 3: Truthful Communication - Obligation
-Calling match_concepts_to_ontology tool...
-Successfully matched concepts to ontology
-Found 17 matches
-Match 1: Public Safety -> http://proethica.org/ontology/PublicSafety (confidence: 0.92)
-Match 2: Professional Competence -> http://proethica.org/ontology/Competence (confidence: 0.87)
-Match 3: Truthful Communication -> http://proethica.org/ontology/Integrity (confidence: 0.83)
-Calling generate_concept_triples tool for 10 concepts...
-Successfully generated triples
-Generated 38 RDF triples
-Triple 1: Public Safety -> is a -> Obligation
-Triple 2: Public Safety -> defined by -> "Engineers must hold paramount the safety, health, and welfare of the public"
-Triple 3: Public Safety -> related to -> Professional Responsibility
-Saved concepts to guideline_concepts.json
-Saved matches to guideline_matches.json
-Saved triples to guideline_triples.json
-Saved Turtle triples to guideline_triples.ttl
-Guideline analysis test completed
+```bash
+curl -X POST http://localhost:5001/jsonrpc -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":1}'
 ```
 
-## Viewing the Output
+### API Key Issues
 
-### Turtle File
+If you see authentication errors, ensure your API keys are set correctly:
 
-The `guideline_triples.ttl` file contains semantic triples in Turtle format that can be loaded into any RDF-compatible tool. For example:
-
-```turtle
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix proeth: <http://proethica.org/ontology/> .
-@prefix guide: <http://proethica.org/guidelines/engineering/> .
-
-<http://proethica.org/guidelines/engineering/PublicSafety> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://proethica.org/ontology/Obligation> .
-<http://proethica.org/guidelines/engineering/PublicSafety> <http://www.w3.org/2000/01/rdf-schema#label> "Public Safety" .
-<http://proethica.org/guidelines/engineering/PublicSafety> <http://proethica.org/ontology/hasDescription> "Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties." .
+```bash
+export ANTHROPIC_API_KEY=your_key_here
+export OPENAI_API_KEY=your_key_here
 ```
-
-### JSON Files
-
-The JSON files contain more detailed information about each stage of the process:
-
-- `guideline_concepts.json`: Contains all extracted concepts with their properties
-- `guideline_matches.json`: Contains matches between concepts and ontology entities
-- `guideline_triples.json`: Contains the generated triples in JSON format
 
 ## Advanced Testing
 
-### Custom Guidelines
+### Test with Custom Guidelines
 
-To test with your own guidelines content:
+1. Create a text file with your guideline content
+2. Update the client to use your file path
+3. Run the client as before
 
-1. Create a new text file with your guidelines content
-2. Update the path in `test_guideline_mcp_client.py`:
-   ```python
-   TEST_GUIDELINE_PATH = Path("your_custom_guideline.txt")
-   ```
-3. Run the tests as described above
+### Modify the Extraction Process
 
-### Direct API Testing
+You can edit `mcp/modules/guideline_analysis_module.py` to customize:
+- The concept extraction template
+- The matching algorithm
+- The triple generation patterns
 
-For advanced testing, you can make direct JSON-RPC calls to the MCP server:
+## Next Steps
 
-```bash
-curl -X POST http://localhost:5001/jsonrpc -H "Content-Type: application/json" -d '{
-  "jsonrpc": "2.0",
-  "method": "call_tool",
-  "params": {
-    "name": "extract_guideline_concepts",
-    "arguments": {
-      "content": "Your guideline content here",
-      "ontology_source": "engineering-ethics"
-    }
-  },
-  "id": 1
-}'
-```
-
-## Integrating with the Main Application
-
-After testing, you can integrate these features with the main application:
-
-1. Update `app/services/guideline_analysis_service.py` to use the MCP client for guideline analysis
-2. Update `app/routes/worlds.py` to handle the new analysis workflow
-3. Test the integrated feature through the web interface
+After successful testing:
+1. Integrate the guidelines analysis with the main application
+2. Develop a web interface for guideline management
+3. Create visualization tools for guideline concepts and relationships
