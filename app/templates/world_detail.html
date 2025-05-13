@@ -449,24 +449,72 @@
 
                 <div class="row">
                     <div class="col-md-12">
-                        <h2>Guidelines</h2>
-                        <a href="{{ url_for('worlds.add_guideline_form', id=world.id) }}" class="btn btn-primary mb-3">Add Guidelines</a>
-                        
-                        {% if guidelines %}
-                        <div class="list-group mb-4">
-                            {% for guideline in guidelines %}
-                            <div class="list-group-item">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1">{{ guideline.title }}</h5>
-                                </div>
-                                <p class="mb-1">{{ guideline.content[:200] ~ '...' if guideline.content and guideline.content|length > 200 else guideline.content }}</p>
-                                <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                        <!-- Guidelines Section -->
+                        <div class="card mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h2 class="mb-0">Guidelines</h2>
+                                <a href="{{ url_for('worlds.add_guideline_form', id=world.id) }}" class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Add Guidelines
+                                </a>
                             </div>
-                            {% endfor %}
+                            
+                            <div class="card-body">
+                                {% if guidelines %}
+                                    <div class="row">
+                                        {% for guideline in guidelines %}
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card h-100 shadow-sm">
+                                                    <div class="card-header bg-light">
+                                                        <h5 class="mb-0">{{ guideline.title }}</h5>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="text-muted small mb-2">
+                                                            <span class="badge bg-info">
+                                                                <i class="bi bi-calendar"></i> {{ guideline.updated_at.strftime('%Y-%m-%d') }}
+                                                            </span>
+                                                            {% if guideline.processing_status %}
+                                                                <span class="badge bg-{{ 'success' if guideline.processing_status == 'completed' else 'warning' }}">
+                                                                    {{ guideline.processing_status }}
+                                                                </span>
+                                                            {% endif %}
+                                                        </div>
+                                                        
+                                                        <p class="card-text text-truncate" style="-webkit-line-clamp: 3;">
+                                                            {{ guideline.content }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="card-footer bg-transparent d-flex justify-content-between">
+                                                        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="bi bi-eye"></i> View Details
+                                                        </a>
+                                                        <a href="{{ url_for('worlds.analyze_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-sm btn-outline-info">
+                                                            <i class="bi bi-diagram-3"></i> Analyze Concepts
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-sm btn-secondary">
+                                            View All Guidelines
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-5">
+                                        <div class="mb-3">
+                                            <i class="bi bi-journal-text" style="font-size: 2rem;"></i>
+                                        </div>
+                                        <h5>No guidelines available for this world</h5>
+                                        <p class="text-muted">Add guidelines to provide ethical context for this world</p>
+                                        <a href="{{ url_for('worlds.add_guideline_form', id=world.id) }}" class="btn btn-outline-primary">
+                                            <i class="bi bi-plus-circle"></i> Add Your First Guideline
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% else %}
-                        <div class="alert alert-info">No guidelines available for this world.</div>
-                        {% endif %}
                         
                         <h2>Cases</h2>
                         <a href="{{ url_for('cases.case_options') }}" class="btn btn-primary mb-3">Add Case</a>

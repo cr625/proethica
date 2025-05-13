@@ -23,7 +23,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import enhanced server
-from mcp.enhanced_ontology_server_with_guidelines import EnhancedOntologyServerWithGuidelines, run_server
+from mcp.enhanced_ontology_server_with_guidelines import run_server
 
 if __name__ == "__main__":
     # Start the enhanced server

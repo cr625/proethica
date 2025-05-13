@@ -1,102 +1,165 @@
 #!/usr/bin/env python3
 """
-Base Module for Unified Ontology Server
+Base Module for MCP Servers
 
-This module provides a base class for creating modules that can be loaded
-into the unified ontology server.
+This module provides the base class for MCP server modules.
 """
 
 import logging
-from typing import Dict, Any, Callable
+from typing import Dict, List, Any, Optional
 
-class BaseModule:
+logger = logging.getLogger(__name__)
+
+class MCPBaseModule:
     """
-    Base class for server modules.
+    Base class for MCP server modules.
     
-    This class provides the basic structure and functionality for MCP server modules,
-    including tool registration, handling of tool calls, and utility functions.
+    This class provides the basic structure for a module that can be
+    added to an MCP server. It includes methods for registering tools
+    and resources.
     """
     
-    def __init__(self, server=None):
+    def __init__(self, name: str):
         """
         Initialize the module.
         
         Args:
-            server: The MCP server instance that will host this module
+            name: The name of the module
         """
-        self.server = server
+        self.name = name
         self.tools = {}
+        self.resources = {}
+        
+        # Register this module's tools and resources
         self._register_tools()
+        self._register_resources()
         
-    def _register_tools(self) -> None:
-        """
-        Register the tools provided by this module.
-        
-        This method should be overridden by derived classes to register their tools.
-        """
-        self.tools = {}
+        logger.info(f"Initialized {self.name} module")
     
-    @property
-    def name(self) -> str:
+    def _register_tools(self):
         """
-        Get the name of this module.
+        Register this module's tools.
         
-        Returns:
-            String name of the module
+        This method should be overridden by subclasses to register their tools.
         """
-        return "base_module"
+        pass
     
-    @property
-    def description(self) -> str:
+    def _register_resources(self):
         """
-        Get the description of this module.
+        Register this module's resources.
         
-        Returns:
-            String description of the module
+        This method should be overridden by subclasses to register their resources.
         """
-        return "Base module for MCP server extensions"
+        pass
     
-    async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def register_tool(self, name: str, handler, description: str, input_schema: Dict[str, Any]):
         """
-        Handle a call to a tool in this module.
+        Register a tool with the module.
         
         Args:
-            tool_name: Name of the tool to call
-            arguments: Arguments to pass to the tool
+            name: The name of the tool
+            handler: The function that implements the tool
+            description: A description of the tool
+            input_schema: The JSON schema for the tool's input
+        """
+        self.tools[name] = {
+            "handler": handler,
+            "description": description,
+            "input_schema": input_schema
+        }
+        logger.debug(f"Registered tool '{name}' with {self.name} module")
+    
+    def register_resource(self, uri: str, handler, description: str):
+        """
+        Register a resource with the module.
+        
+        Args:
+            uri: The URI of the resource
+            handler: The function that implements the resource
+            description: A description of the resource
+        """
+        self.resources[uri] = {
+            "handler": handler,
+            "description": description
+        }
+        logger.debug(f"Registered resource '{uri}' with {self.name} module")
+    
+    def get_tools(self) -> List[Dict[str, Any]]:
+        """
+        Get the list of tools registered with this module.
+        
+        Returns:
+            A list of tool definitions
+        """
+        return [
+            {
+                "name": name,
+                "description": info["description"],
+                "input_schema": info["input_schema"]
+            }
+            for name, info in self.tools.items()
+        ]
+    
+    def get_resources(self) -> List[Dict[str, Any]]:
+        """
+        Get the list of resources registered with this module.
+        
+        Returns:
+            A list of resource definitions
+        """
+        return [
+            {
+                "uri": uri,
+                "description": info["description"]
+            }
+            for uri, info in self.resources.items()
+        ]
+    
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Call a tool registered with this module.
+        
+        Args:
+            name: The name of the tool to call
+            arguments: The arguments to pass to the tool
             
         Returns:
-            Result of the tool execution
+            The result of the tool call
             
         Raises:
             ValueError: If the tool is not found
         """
-        if tool_name not in self.tools:
-            raise ValueError(f"Tool '{tool_name}' not found in module '{self.name}'")
+        if name not in self.tools:
+            raise ValueError(f"Tool '{name}' not found in {self.name} module")
         
-        # Get the tool handler
-        handler = self.tools[tool_name]
-        
-        # Call the tool handler
+        handler = self.tools[name]["handler"]
         try:
-            # Check if the handler is a coroutine function
-            if hasattr(handler, '__await__'):
-                # If it's awaitable, await it
-                result = await handler(arguments)
-            else:
-                # Otherwise call it directly
-                result = handler(arguments)
-                
-            # Format the result for JSON-RPC response
-            if isinstance(result, dict) and "content" in result:
-                return result
-            else:
-                # Wrap the result in the expected format
-                return {"content": [{"text": result}]}
+            result = await handler(arguments)
+            return result
         except Exception as e:
-            # Log the error
-            logging.error(f"Error executing tool {tool_name}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error calling tool '{name}': {str(e)}")
+            raise
+    
+    async def access_resource(self, uri: str) -> Dict[str, Any]:
+        """
+        Access a resource registered with this module.
+        
+        Args:
+            uri: The URI of the resource to access
             
-            # Return an error response
-            return {"content": [{"text": {"error": f"Error executing tool {tool_name}: {str(e)}"}}]}
+        Returns:
+            The resource data
+            
+        Raises:
+            ValueError: If the resource is not found
+        """
+        if uri not in self.resources:
+            raise ValueError(f"Resource '{uri}' not found in {self.name} module")
+        
+        handler = self.resources[uri]["handler"]
+        try:
+            result = await handler()
+            return result
+        except Exception as e:
+            logger.error(f"Error accessing resource '{uri}': {str(e)}")
+            raise

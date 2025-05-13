@@ -160,6 +160,26 @@ Fixed parameter naming inconsistencies in guideline-related templates to ensure 
      * Added `|default(0)` filter to `triple_count` and `concept_count` variables
      * Added existence check for `triples` list with `triples is defined and triples` in conditional statements
      * Fixed the `jinja2.exceptions.UndefinedError: 'triple_count' is undefined` error that occurred when viewing guideline details
+   - Created a test guideline document for testing and added it to the database (ID: 201)
+   - Verified that guideline listing and individual guideline viewing routes work correctly
+   - Created a `guidelines_progress.md` file to track progress on the guidelines feature implementation
+
+4. **UI and Rendering Improvements (2025-05-12 Late Evening)**:
+   - Added Markdown rendering support to guideline content display:
+     * Created a custom Markdown template filter in `app/template_filters.py`
+     * Installed the Python Markdown library to enable richer formatting
+     * Updated the `guideline_concepts_review.html` template to use the new markdown filter
+   - Enhanced the Guidelines section in the `world_detail.html` template:
+     * Reorganized the layout with a card-based design
+     * Added visual indicators for guideline processing status
+     * Improved typography and spacing for better readability
+     * Added proper links to guideline details and concept analysis
+   - Updated the concept review interface:
+     * Improved the display of matched ontology entities
+     * Added better visual hierarchy for concept information
+     * Enhanced the table layout for better spacing and readability
+   - Added Bootstrap Icons for improved visual cues across the guidelines interfaces
+   - Tested all template improvements with actual guideline content
 
 These fixes ensure the seamless flow of the guideline upload, analysis, and concept extraction pipeline. All guideline-related templates now use consistent parameter naming and URL generation patterns, which resolved previous routing issues.
 
@@ -169,6 +189,42 @@ These fixes ensure the seamless flow of the guideline upload, analysis, and conc
 2. Enhance matching algorithm for better ontology entity alignment
 3. Add support for more complex relationships between concepts
 4. Implement versioning for guidelines to track changes over time
+
+### MCP Server Ontology Integration (2025-05-12 Night)
+
+To improve the guideline analysis process, we've implemented enhanced MCP server integration with the ontology system:
+
+1. **Enhanced GuidelineAnalysisModule**:
+   - Created a specialized MCP module for guideline analysis
+   - Implemented three main tools:
+     * `extract_guideline_concepts` - Extracts concepts from guideline content
+     * `match_concepts_to_ontology` - Matches extracted concepts to ontology entities
+     * `generate_concept_triples` - Generates RDF triples for selected concepts
+   - Added structured ontology context for better LLM-based concept extraction
+   - Implemented improved error handling and logging throughout
+
+2. **Improved Embeddings Client**:
+   - Enhanced the MCP server with OpenAI embeddings support for better semantic matching
+   - Implemented intelligent fallback to a smarter similarity calculator when API keys aren't available
+   - Added vector normalization and cosine similarity calculations for semantic matching
+
+3. **Enhanced GuidelineAnalysisService**:
+   - Updated `extract_concepts` method to use the MCP server when available
+   - Improved entity matching with better structured ontology context
+   - Added graceful fallback to direct LLM processing when MCP server is unavailable
+   - Enhanced error handling to ensure stability and informative error messages
+
+4. **LLM Prompt Engineering**:
+   - Refined system prompts for consistent concept categorization (role, principle, obligation, etc.)
+   - Added structured ontology context to improve concept matching quality
+   - Enhanced extraction process to include confidence scores for better filtering
+
+5. **Server Configuration**:
+   - Updated server metadata to include detailed capability descriptions
+   - Added debug mode toggle via environment variables
+   - Improved initialization logging for better operational visibility
+
+All these enhancements create a more robust pipeline for guideline analysis that leverages both local and server-side LLM processing based on availability.
 
 ### Documentation
 

@@ -47,7 +47,15 @@
       <div class="collapse" id="guidelineContent">
         <div class="card card-body bg-light">
           {% if guideline.content %}
-            <div class="guideline-content">{{ guideline.content|safe }}</div>
+            <div class="guideline-content">
+              {% if guideline.content.startswith('#') or '##' in guideline.content %}
+                <div class="markdown-content">
+                  {{ guideline.content|markdown|safe }}
+                </div>
+              {% else %}
+                {{ guideline.content|safe }}
+              {% endif %}
+            </div>
           {% else %}
             <div class="alert alert-warning">No content available for this guideline.</div>
           {% endif %}

@@ -4,6 +4,7 @@ Custom template filters for the application.
 
 import os
 import re
+import markdown
 from flask import current_app
 from markupsafe import Markup
 
@@ -22,3 +23,13 @@ def init_app(app):
             return ''
         text = str(text)
         return Markup(text.replace('\n', '<br>\n'))
+    
+    @app.template_filter('markdown')
+    def markdown_filter(text):
+        """Convert markdown text to HTML."""
+        if not text:
+            return ''
+        text = str(text)
+        # Convert markdown to HTML using the Python-Markdown library
+        md = markdown.Markdown(extensions=['extra', 'codehilite', 'fenced_code'])
+        return Markup(md.convert(text))

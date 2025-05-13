@@ -44,7 +44,14 @@
           
           <div class="mt-4 guideline-content">
             {% if guideline.content %}
-              {{ guideline.content|safe }}
+              <!-- Check if content appears to be markdown -->
+              {% if guideline.content.startswith('#') or '##' in guideline.content %}
+                <div class="markdown-content">
+                  {{ guideline.content|markdown|safe }}
+                </div>
+              {% else %}
+                {{ guideline.content|safe }}
+              {% endif %}
             {% else %}
               <div class="alert alert-warning">
                 No content available for this guideline.

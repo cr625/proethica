@@ -19,6 +19,9 @@ import sys
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# Import base module class
+from mcp.modules.base_module import MCPBaseModule
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
@@ -26,7 +29,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class GuidelineAnalysisModule:
+class GuidelineAnalysisModule(MCPBaseModule):
     """
     Module for analyzing ethical guidelines and extracting concepts.
     
@@ -45,6 +48,9 @@ class GuidelineAnalysisModule:
             ontology_client: Client for ontology operations
             embedding_client: Client for embedding calculations
         """
+        # Initialize base module
+        super().__init__(name="guideline_analysis")
+        
         self.llm_client = llm_client
         self.ontology_client = ontology_client
         self.embedding_client = embedding_client
@@ -122,127 +128,115 @@ class GuidelineAnalysisModule:
         }}
         """
     
-    def get_name(self) -> str:
-        """Get the name of this module."""
-        return "guideline_analysis"
-    
-    def get_description(self) -> str:
-        """Get the description of this module."""
-        return "Module for analyzing ethical guidelines and extracting ontology concepts"
-    
-    def get_tools(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get the tools provided by this module.
-        
-        Returns:
-            Dictionary mapping tool names to tool definitions
-        """
-        return {
-            "extract_guideline_concepts": {
-                "description": "Extract concepts from guideline content",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "content": {
-                            "type": "string", 
-                            "description": "Guideline content to analyze"
-                        },
-                        "ontology_source": {
-                            "type": "string",
-                            "description": "Optional ontology source ID"
-                        }
+    def _register_tools(self):
+        """Register this module's tools."""
+        self.register_tool(
+            name="extract_guideline_concepts",
+            handler=self.extract_guideline_concepts,
+            description="Extract concepts from guideline content",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string", 
+                        "description": "Guideline content to analyze"
                     },
-                    "required": ["content"],
-                    "additionalProperties": False
+                    "ontology_source": {
+                        "type": "string",
+                        "description": "Optional ontology source ID"
+                    }
                 },
-                "handler": self.extract_guideline_concepts
-            },
-            "match_concepts_to_ontology": {
-                "description": "Match extracted concepts to ontology entities",
-                "input_schema": {
-                    "type": "object", 
-                    "properties": {
-                        "concepts": {
-                            "type": "array",
-                            "items": {"type": "object"},
-                            "description": "Extracted concepts"
-                        },
-                        "ontology_source": {
-                            "type": "string",
-                            "description": "Ontology source ID"
-                        },
-                        "match_threshold": {
-                            "type": "number",
-                            "description": "Matching threshold (0.0-1.0)",
-                            "minimum": 0,
-                            "maximum": 1,
-                            "default": 0.5
-                        }
-                    },
-                    "required": ["concepts"],
-                    "additionalProperties": False
-                },
-                "handler": self.match_concepts_to_ontology
-            },
-            "generate_concept_triples": {
-                "description": "Generate RDF triples for selected concepts",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "concepts": {
-                            "type": "array", 
-                            "items": {"type": "object"},
-                            "description": "List of concepts"
-                        },
-                        "selected_indices": {
-                            "type": "array",
-                            "items": {"type": "number"},
-                            "description": "Indices of selected concepts"
-                        },
-                        "ontology_source": {
-                            "type": "string",
-                            "description": "Ontology source ID"
-                        },
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace for generated entities",
-                            "default": "http://proethica.org/guidelines/"
-                        },
-                        "output_format": {
-                            "type": "string",
-                            "description": "Output format (turtle, jsonld, etc.)",
-                            "enum": ["turtle", "jsonld", "ntriples"],
-                            "default": "turtle"
-                        }
-                    },
-                    "required": ["concepts", "selected_indices"],
-                    "additionalProperties": False
-                },
-                "handler": self.generate_concept_triples
+                "required": ["content"],
+                "additionalProperties": False
             }
-        }
-    
-    def get_resources(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get the resources provided by this module.
+        )
         
-        Returns:
-            Dictionary mapping resource URIs to resource definitions
-        """
-        return {}
+        self.register_tool(
+            name="match_concepts_to_ontology",
+            handler=self.match_concepts_to_ontology,
+            description="Match extracted concepts to ontology entities",
+            input_schema={
+                "type": "object", 
+                "properties": {
+                    "concepts": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Extracted concepts"
+                    },
+                    "ontology_source": {
+                        "type": "string",
+                        "description": "Ontology source ID"
+                    },
+                    "match_threshold": {
+                        "type": "number",
+                        "description": "Matching threshold (0.0-1.0)",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "default": 0.5
+                    }
+                },
+                "required": ["concepts"],
+                "additionalProperties": False
+            }
+        )
+        
+        self.register_tool(
+            name="generate_concept_triples",
+            handler=self.generate_concept_triples,
+            description="Generate RDF triples for selected concepts",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "concepts": {
+                        "type": "array", 
+                        "items": {"type": "object"},
+                        "description": "List of concepts"
+                    },
+                    "selected_indices": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "Indices of selected concepts"
+                    },
+                    "ontology_source": {
+                        "type": "string",
+                        "description": "Ontology source ID"
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Namespace for generated entities",
+                        "default": "http://proethica.org/guidelines/"
+                    },
+                    "output_format": {
+                        "type": "string",
+                        "description": "Output format (turtle, jsonld, etc.)",
+                        "enum": ["turtle", "jsonld", "ntriples"],
+                        "default": "turtle"
+                    }
+                },
+                "required": ["concepts", "selected_indices"],
+                "additionalProperties": False
+            }
+        )
     
-    async def extract_guideline_concepts(self, content: str, ontology_source: str = None) -> Dict[str, Any]:
+    async def extract_guideline_concepts(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract concepts from guideline content.
         
         Args:
-            content: The guideline content to analyze
-            ontology_source: Optional ontology source ID
+            arguments: Dictionary with the following keys:
+                - content: The guideline content to analyze
+                - ontology_source: Optional ontology source ID
             
         Returns:
             Dictionary with extracted concepts
         """
         try:
+            content = arguments.get("content", "")
+            ontology_source = arguments.get("ontology_source")
+            
+            if not content:
+                return {"error": "No content provided"}
+                
             if not self.llm_client:
                 return {"error": "LLM client not available"}
             
@@ -251,6 +245,7 @@ class GuidelineAnalysisModule:
             
             # Call Anthropic API (assumed to be async)
             if hasattr(self.llm_client, 'messages'):  # Anthropic Claude
+                # Use Claude 3 Sonnet model
                 response = await self.llm_client.messages.create(
                     model="claude-3-sonnet-20240229",
                     messages=[{"role": "user", "content": prompt}],
@@ -301,21 +296,27 @@ class GuidelineAnalysisModule:
             traceback.print_exc()
             return {"error": f"Failed to extract concepts: {str(e)}"}
     
-    async def match_concepts_to_ontology(self, concepts: List[Dict[str, Any]], 
-                                       ontology_source: str = None,
-                                       match_threshold: float = 0.5) -> Dict[str, Any]:
+    async def match_concepts_to_ontology(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Match extracted concepts to ontology entities.
         
         Args:
-            concepts: List of extracted concepts
-            ontology_source: Ontology source ID
-            match_threshold: Matching threshold (0.0-1.0)
+            arguments: Dictionary with the following keys:
+                - concepts: List of extracted concepts
+                - ontology_source: Ontology source ID
+                - match_threshold: Matching threshold (0.0-1.0)
             
         Returns:
             Dictionary with matched entities
         """
         try:
+            concepts = arguments.get("concepts", [])
+            ontology_source = arguments.get("ontology_source")
+            match_threshold = float(arguments.get("match_threshold", 0.5))
+            
+            if not concepts:
+                return {"error": "No concepts provided"}
+                
             if not self.ontology_client:
                 return {"error": "Ontology client not available"}
             
@@ -339,6 +340,7 @@ class GuidelineAnalysisModule:
             
             # Call Anthropic API (assumed to be async)
             if hasattr(self.llm_client, 'messages'):  # Anthropic Claude
+                # Use Claude 3 Sonnet model
                 response = await self.llm_client.messages.create(
                     model="claude-3-sonnet-20240229",
                     messages=[{"role": "user", "content": prompt}],
@@ -391,25 +393,28 @@ class GuidelineAnalysisModule:
             traceback.print_exc()
             return {"error": f"Failed to match concepts: {str(e)}"}
     
-    async def generate_concept_triples(self, concepts: List[Dict[str, Any]], 
-                                     selected_indices: List[int],
-                                     ontology_source: str = None,
-                                     namespace: str = "http://proethica.org/guidelines/",
-                                     output_format: str = "turtle") -> Dict[str, Any]:
+    async def generate_concept_triples(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate RDF triples for selected concepts.
         
         Args:
-            concepts: List of concepts
-            selected_indices: Indices of selected concepts
-            ontology_source: Ontology source ID
-            namespace: Namespace for generated entities
-            output_format: Output format (turtle, jsonld, etc.)
+            arguments: Dictionary with the following keys:
+                - concepts: List of concepts
+                - selected_indices: Indices of selected concepts
+                - ontology_source: Ontology source ID
+                - namespace: Namespace for generated entities
+                - output_format: Output format (turtle, jsonld, etc.)
             
         Returns:
             Dictionary with generated triples
         """
         try:
+            concepts = arguments.get("concepts", [])
+            selected_indices = arguments.get("selected_indices", [])
+            ontology_source = arguments.get("ontology_source")
+            namespace = arguments.get("namespace", "http://proethica.org/guidelines/")
+            output_format = arguments.get("output_format", "turtle")
+            
             if not selected_indices:
                 return {"triples": [], "triple_count": 0}
             
@@ -548,86 +553,189 @@ class GuidelineAnalysisModule:
             List of ontology entities
         """
         if not self.ontology_client:
-            return []
+            logger.warning("No ontology client available, returning mock entities")
+            return self._get_mock_entities(ontology_source)
         
         try:
-            # Call the ontology client to get entities
-            # This is implementation-specific based on your ontology client
+            logger.info(f"Getting ontology entities from source: {ontology_source}")
             
-            # Mock implementation for now
-            # In a real implementation, query the actual ontology
+            # Try to get entities from the ontology client with improved error handling
+            try:
+                # Direct call to ontology client
+                entities_result = await self.ontology_client.get_entities(ontology_source)
+                
+                if not entities_result:
+                    logger.warning(f"No entities returned for ontology source: {ontology_source}")
+                    return self._get_mock_entities(ontology_source)
+                
+                # Process the entities result
+                all_entities = []
+                
+                # Check if the result is structured by entity type
+                if isinstance(entities_result, dict) and "entities" in entities_result:
+                    # Extract entities from categorized structure
+                    for entity_type, entities in entities_result["entities"].items():
+                        for entity in entities:
+                            all_entities.append({
+                                "uri": entity.get("uri", ""),
+                                "label": entity.get("label", ""),
+                                "description": entity.get("description", ""),
+                                "category": entity_type
+                            })
+                # Check if the result is a flat list
+                elif isinstance(entities_result, list):
+                    all_entities = entities_result
+                
+                logger.info(f"Successfully retrieved {len(all_entities)} entities from ontology client")
+                return all_entities
             
-            if ontology_source == "engineering-ethics":
-                return [
-                    {
-                        "uri": "http://proethica.org/engineering/Honesty",
-                        "label": "Honesty",
-                        "description": "The ethical principle of being truthful and sincere in professional conduct"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/Integrity",
-                        "label": "Integrity",
-                        "description": "Adherence to moral and ethical principles in engineering practice"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/PublicSafety",
-                        "label": "Public Safety",
-                        "description": "The paramount concern for the safety, health, and welfare of the public"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/Competence",
-                        "label": "Professional Competence",
-                        "description": "Maintaining and improving technical skills and knowledge"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/ProfessionalDevelopment",
-                        "label": "Professional Development",
-                        "description": "Continuous learning and improvement of skills and knowledge"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/Confidentiality",
-                        "label": "Confidentiality",
-                        "description": "Protection of sensitive information entrusted by clients or employers"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/ConflictOfInterest",
-                        "label": "Conflict of Interest",
-                        "description": "Situations where personal interests might compromise professional judgment"
-                    },
-                    {
-                        "uri": "http://proethica.org/engineering/Responsibility",
-                        "label": "Professional Responsibility",
-                        "description": "Acceptance of the consequences of engineering decisions and actions"
-                    }
-                ]
-            else:
-                # Default generic entities
-                return [
-                    {
-                        "uri": "http://proethica.org/ontology/EthicalPrinciple",
-                        "label": "Ethical Principle",
-                        "description": "A foundational belief that guides ethical reasoning and judgment"
-                    },
-                    {
-                        "uri": "http://proethica.org/ontology/ProfessionalObligation",
-                        "label": "Professional Obligation",
-                        "description": "A duty or responsibility arising from professional standards"
-                    },
-                    {
-                        "uri": "http://proethica.org/ontology/Stakeholder",
-                        "label": "Stakeholder",
-                        "description": "Individual or group affected by or capable of affecting a decision or action"
-                    },
-                    {
-                        "uri": "http://proethica.org/ontology/EthicalValue",
-                        "label": "Ethical Value", 
-                        "description": "A moral principle or standard that guides behavior"
-                    }
-                ]
+            except Exception as e:
+                logger.error(f"Error calling ontology client: {str(e)}")
+                logger.info("Falling back to mock entities")
+                return self._get_mock_entities(ontology_source)
                 
         except Exception as e:
-            logger.error(f"Error getting ontology entities: {str(e)}")
-            return []
+            logger.exception(f"Error getting entities from ontology: {str(e)}")
+            return self._get_mock_entities(ontology_source)
+    
+    def _get_mock_entities(self, ontology_source: str) -> List[Dict[str, Any]]:
+        """
+        Get mock entities when the ontology client is unavailable.
+        
+        Args:
+            ontology_source: Ontology source ID
+            
+        Returns:
+            List of mock ontology entities
+        """
+        # Provide different mock entities based on the ontology source
+        if ontology_source and "engineering" in ontology_source.lower():
+            return [
+                {
+                    "uri": "http://proethica.org/engineering/Honesty",
+                    "label": "Honesty",
+                    "description": "The ethical principle of being truthful and sincere in professional conduct",
+                    "category": "principle"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Integrity",
+                    "label": "Integrity",
+                    "description": "Adherence to moral and ethical principles in engineering practice",
+                    "category": "principle"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/PublicSafety",
+                    "label": "Public Safety",
+                    "description": "The paramount concern for the safety, health, and welfare of the public",
+                    "category": "obligation"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Competence",
+                    "label": "Professional Competence",
+                    "description": "Maintaining and improving technical skills and knowledge",
+                    "category": "obligation"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/ProfessionalDevelopment",
+                    "label": "Professional Development",
+                    "description": "Continuous learning and improvement of skills and knowledge",
+                    "category": "obligation"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Confidentiality",
+                    "label": "Confidentiality",
+                    "description": "Protection of sensitive information entrusted by clients or employers",
+                    "category": "obligation"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/ConflictOfInterest",
+                    "label": "Conflict of Interest",
+                    "description": "Situations where personal interests might compromise professional judgment",
+                    "category": "condition"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Responsibility",
+                    "label": "Professional Responsibility",
+                    "description": "Acceptance of the consequences of engineering decisions and actions",
+                    "category": "principle"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Engineer",
+                    "label": "Engineer",
+                    "description": "Professional who applies scientific knowledge to solve technical problems",
+                    "category": "role"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Client",
+                    "label": "Client",
+                    "description": "Person or entity that commissions engineering services",
+                    "category": "role"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Employer",
+                    "label": "Employer",
+                    "description": "Organization that employs engineers",
+                    "category": "role"
+                },
+                {
+                    "uri": "http://proethica.org/engineering/Public",
+                    "label": "Public",
+                    "description": "General population affected by engineering work",
+                    "category": "role"
+                }
+            ]
+        else:
+            # Default generic entities
+            return [
+                {
+                    "uri": "http://proethica.org/ontology/EthicalPrinciple",
+                    "label": "Ethical Principle",
+                    "description": "A foundational belief that guides ethical reasoning and judgment",
+                    "category": "principle"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/ProfessionalObligation",
+                    "label": "Professional Obligation",
+                    "description": "A duty or responsibility arising from professional standards",
+                    "category": "obligation"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/Stakeholder",
+                    "label": "Stakeholder",
+                    "description": "Individual or group affected by or capable of affecting a decision or action",
+                    "category": "role"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/EthicalValue",
+                    "label": "Ethical Value", 
+                    "description": "A moral principle or standard that guides behavior",
+                    "category": "principle"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/Resource",
+                    "label": "Resource", 
+                    "description": "Asset or material that can be utilized in professional practice",
+                    "category": "resource"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/Action",
+                    "label": "Action", 
+                    "description": "Something done or performed by a professional",
+                    "category": "action"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/Event",
+                    "label": "Event", 
+                    "description": "Occurrence or happening in a professional context",
+                    "category": "event"
+                },
+                {
+                    "uri": "http://proethica.org/ontology/Capability",
+                    "label": "Capability", 
+                    "description": "Ability or competence to perform specific professional tasks",
+                    "category": "capability"
+                }
+            ]
     
     async def _get_default_entities(self) -> List[Dict[str, Any]]:
         """
@@ -636,13 +744,42 @@ class GuidelineAnalysisModule:
         Returns:
             List of default ontology entities
         """
-        # Return a mix of engineering ethics and general ontology entities
-        
-        # Could be expanded to query multiple ontologies
-        entities_eng = await self._get_entities_from_ontology("engineering-ethics")
-        entities_gen = await self._get_entities_from_ontology("general")
-        
-        return entities_eng + entities_gen
+        try:
+            # Try to get entities from the engineering ethics ontology first
+            if self.ontology_client:
+                try:
+                    # Check for available ontology sources
+                    available_sources = await self.ontology_client.get_available_sources()
+                    
+                    if available_sources:
+                        # Look for engineering-related sources
+                        engineering_sources = [s for s in available_sources 
+                                              if 'engineering' in s.lower() or 'ethics' in s.lower()]
+                        
+                        if engineering_sources:
+                            # Use the first matching source
+                            source = engineering_sources[0]
+                            logger.info(f"Using default ontology source: {source}")
+                            return await self._get_entities_from_ontology(source)
+                except Exception as e:
+                    logger.warning(f"Error getting available ontology sources: {str(e)}")
+            
+            # Fall back to a mix of engineering ethics and general ontology entities
+            entities_eng = await self._get_entities_from_ontology("engineering_ethics")
+            entities_gen = await self._get_entities_from_ontology("general")
+            
+            # Combine and return unique entities by URI
+            all_entities = entities_eng + entities_gen
+            unique_entities = {}
+            for entity in all_entities:
+                if entity.get("uri") not in unique_entities:
+                    unique_entities[entity.get("uri")] = entity
+                    
+            return list(unique_entities.values())
+            
+        except Exception as e:
+            logger.exception(f"Error getting default entities: {str(e)}")
+            return self._get_mock_entities("general")
     
     def _slugify(self, text: str) -> str:
         """
@@ -657,11 +794,19 @@ class GuidelineAnalysisModule:
         if not text:
             return "unnamed"
         
-        # Simple slugify - in a real implementation, use a proper library
-        slug = text.lower().replace(' ', '_')
-        slug = ''.join(c for c in slug if c.isalnum() or c == '_')
+        import re
+        # Convert to lowercase
+        slug = str(text).lower()
+        # Replace spaces with underscores
+        slug = re.sub(r'\s+', '_', slug)
+        # Remove non-alphanumeric characters except underscores
+        slug = re.sub(r'[^a-z0-9_]', '', slug)
+        # Replace multiple underscores with a single one
+        slug = re.sub(r'_+', '_', slug)
+        # Remove leading and trailing underscores
+        slug = slug.strip('_')
         
-        return slug
+        return slug if slug else "unnamed"
     
     def _capitalize(self, text: str) -> str:
         """

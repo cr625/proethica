@@ -19,7 +19,32 @@ def get_llm_client():
         import anthropic
         api_key = current_app.config.get('ANTHROPIC_API_KEY') or os.getenv('ANTHROPIC_API_KEY')
         if api_key:
-            return anthropic.Anthropic(api_key=api_key)
+            # Determine Anthropic API version
+            import pkg_resources
+            anthropic_version = pkg_resources.get_distribution("anthropic").version
+            client = anthropic.Anthropic(api_key=api_key)
+            
+            # Add version info to client for easier compatibility checks
+            if anthropic_version.startswith('0.') or anthropic_version.startswith('1.'):
+                client.api_version = "v1"
+            else:
+                client.api_version = "v2"
+                
+            # Detect available models
+            try:
+                if client.api_version == "v2" and hasattr(client, 'models'):
+                    models = client.models.list()
+                    available_models = [model.id for model in models.data]
+                    client.available_models = available_models
+                else:
+                    # Default models for v1
+                    client.available_models = ["claude-2.0", "claude-2.1", "claude-instant-1.2"]
+            except Exception:
+                # Fallback if models check fails
+                client.available_models = ["claude-3-opus-20240229", "claude-3-haiku-20240307"]
+                
+            print(f"Initialized Anthropic client version {anthropic_version} ({client.api_version}) with models: {client.available_models}")
+            return client
     except (ImportError, Exception) as e:
         print(f"Failed to initialize Anthropic: {str(e)}")
     

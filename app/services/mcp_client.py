@@ -113,6 +113,20 @@ class MCPClient:
             print(f"Error getting guidelines: {str(e)}")
             return {}
     
+    def get_ontology_entities(self, ontology_source: str, entity_type: str = "all") -> Dict[str, Any]:
+        """
+        Get entities for a specific ontology.
+        
+        Args:
+            ontology_source: Source of the ontology
+            entity_type: Type of entity to retrieve (roles, conditions, resources, actions, events, or all)
+            
+        Returns:
+            Dictionary containing entities
+        """
+        # Forward to get_world_entities which has the same functionality
+        return self.get_world_entities(ontology_source, entity_type)
+        
     def get_world_entities(self, ontology_source: str, entity_type: str = "all") -> Dict[str, Any]:
         """
         Get entities for a specific world from ontology.
