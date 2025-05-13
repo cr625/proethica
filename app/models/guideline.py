@@ -4,7 +4,7 @@ Guideline model for ethical guidelines associated with worlds.
 
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
-from app import db
+from app.models import db
 from app.models.entity_triple import EntityTriple
 
 class Guideline(db.Model):

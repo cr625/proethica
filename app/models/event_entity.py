@@ -1,4 +1,4 @@
-from app import db
+from app.models import db
 
 event_entity = db.Table(
     'event_entity',

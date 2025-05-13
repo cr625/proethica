@@ -1,4 +1,46 @@
-# Module to load ontologies from database
+#!/usr/bin/env python3
+# Script to fix the circular import issue between app/__init__.py and app/models/domain.py
+
+import os
+import sys
+import shutil
+import time
+
+def backup_file(file_path):
+    """Create a backup of the file"""
+    backup_path = f"{file_path}.bak.{time.strftime('%Y%m%d%H%M%S')}"
+    shutil.copy2(file_path, backup_path)
+    print(f"Created backup at {backup_path}")
+
+# 1. Fix model files to import db from app.models, not from app directly
+def fix_model_files():
+    model_files = [
+        "app/models/domain.py",
+        "app/models/world.py",
+        "app/models/role.py",
+        # Add other model files that have "from app import db" here
+    ]
+    
+    for model_path in model_files:
+        backup_file(model_path)
+        
+        with open(model_path, 'r') as f:
+            content = f.read()
+        
+        # Replace import statement
+        new_content = content.replace("from app import db", "from app.models import db")
+        
+        with open(model_path, 'w') as f:
+            f.write(new_content)
+        
+        print(f"Updated {model_path} to import db from app.models")
+
+# 2. Fix mcp/load_from_db.py to avoid importing from app.models if needed
+def fix_load_from_db_py():
+    load_from_db_path = "mcp/load_from_db.py"
+    backup_file(load_from_db_path)
+    
+    new_content = '''# Module to load ontologies from database
 # This file is included by mcp/__init__.py
 
 import os
@@ -23,7 +65,7 @@ def get_db_connection():
             with open(os.path.join(os.path.dirname(__file__), "..", ".env")) as f:
                 for line in f:
                     if line.startswith("DATABASE_URL="):
-                        db_url = line.strip().split("=", 1)[1].strip('"')
+                        db_url = line.strip().split("=", 1)[1].strip(\'"\')
                         break
         except Exception as e:
             print(f"Warning: Could not read .env file: {e}")
@@ -62,7 +104,7 @@ def load_ontology_from_db(ontology_name):
         result = cursor.fetchone()
         
         if not result:
-            print(f"Warning: Ontology '{ontology_name}' not found in database")
+            print(f"Warning: Ontology \'{ontology_name}\' not found in database")
             return {"name": ontology_name, "loaded": False, "error": "Not found"}
         
         ontology_id, name, description, file_path = result
@@ -98,3 +140,15 @@ def load_ontology_from_db(ontology_name):
     except Exception as e:
         print(f"Error loading ontology from database: {e}")
         return {"name": ontology_name, "loaded": False, "error": str(e)}
+'''
+    
+    with open(load_from_db_path, 'w') as f:
+        f.write(new_content)
+    
+    print(f"Updated {load_from_db_path} to avoid circular imports")
+
+if __name__ == "__main__":
+    print("Fixing circular import issues...")
+    fix_model_files()
+    fix_load_from_db_py()
+    print("Circular import fixes completed!")

@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import JSON
-from app import db
+from app.models import db
 
 class Scenario(db.Model):
     """Scenario model representing a simulation scenario."""

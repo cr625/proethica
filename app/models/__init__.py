@@ -1,4 +1,10 @@
 # Import models to make them available when importing from app.models
+# Import db first to avoid circular imports
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+# Import models after db is defined
 from app.models.domain import Domain
 from app.models.world import World
 from app.models.role import Role

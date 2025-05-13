@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import JSON
-from app import db
+from app.models import db
 from app.models.entity import Entity
 from app.models.event_entity import event_entity
 from app.models.evaluation import Evaluation

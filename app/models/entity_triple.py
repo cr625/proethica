@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from sqlalchemy.orm import relationship
-from app import db
+from app.models import db
 from sqlalchemy import func
 import datetime
 from sqlalchemy.ext.hybrid import hybrid_property

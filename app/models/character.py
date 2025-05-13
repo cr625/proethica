@@ -1,5 +1,5 @@
 from sqlalchemy import JSON
-from app import db
+from app.models import db
 
 class Character(db.Model):
     """Character model representing individuals in a scenario."""

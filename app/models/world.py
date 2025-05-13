@@ -1,4 +1,4 @@
-from app import db
+from app.models import db
 from datetime import datetime
 import json
 from sqlalchemy.orm import relationship

@@ -1,5 +1,5 @@
 from sqlalchemy import JSON
-from app import db
+from app.models import db
 
 class Evaluation(db.Model):
     """Evaluation model representing assessments of actions/decisions."""

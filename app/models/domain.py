@@ -1,4 +1,4 @@
-from app import db
+from app.models import db
 
 class Domain(db.Model):
     """Domain model representing a category of ethical decision-making scenarios."""

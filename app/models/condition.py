@@ -1,5 +1,5 @@
 from datetime import datetime
-from app import db
+from app.models import db
 
 class Condition(db.Model):
     """Condition model representing character states or conditions."""
