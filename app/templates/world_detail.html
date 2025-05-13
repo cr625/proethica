@@ -120,19 +120,13 @@
                             </li>
                         </ul>
                         <ul class="navbar-nav">
-                            {% if current_user.is_authenticated %}
+                            {% if session.get('user_id') %}
                             <li class="nav-item">
-                                <a class="nav-link" href="/auth/profile">{{ current_user.username }}</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/auth/logout">Logout</a>
+                                <a class="nav-link" href="#">User</a>
                             </li>
                             {% else %}
                             <li class="nav-item">
-                                <a class="nav-link" href="/auth/login">Login</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/auth/register">Register</a>
+                                <a class="nav-link" href="#">Login</a>
                             </li>
                             {% endif %}
                         </ul>
@@ -517,7 +511,7 @@
                         </div>
                         
                         <h2>Cases</h2>
-                        <a href="{{ url_for('cases.case_options') }}" class="btn btn-primary mb-3">Add Case</a>
+                        <a href="/cases/add" class="btn btn-primary mb-3">Add Case</a>
                         
                         {% if case_studies %}
                         <div class="list-group">
@@ -527,7 +521,7 @@
                                     <h5 class="mb-1">{{ case.title }}</h5>
                                 </div>
                                 <p class="mb-1">{{ case.content[:200] ~ '...' if case.content and case.content|length > 200 else case.content }}</p>
-                                <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                                <a href="/cases/{{ case.id }}" class="btn btn-sm btn-outline-primary">View Details</a>
                             </div>
                             {% endfor %}
                         </div>

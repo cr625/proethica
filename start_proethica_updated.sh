@@ -43,6 +43,16 @@ if [ "$CODESPACES" == "true" ]; then
         # Run the codespace setup script
         echo -e "${BLUE}Setting up PostgreSQL for codespace environment...${NC}"
         ./scripts/setup_codespace_db.sh
+        
+        # Check if we have our password fix script and run it
+        if [ -f "./fix_db_password.sh" ]; then
+            if [ ! -x "./fix_db_password.sh" ]; then
+                echo -e "${YELLOW}Making fix_db_password.sh executable...${NC}"
+                chmod +x ./fix_db_password.sh
+            fi
+            echo -e "${BLUE}Setting PostgreSQL password to match .env configuration...${NC}"
+            ./fix_db_password.sh
+        fi
     else
         echo -e "${RED}Codespace setup script not found. Database may not work correctly.${NC}"
     fi
@@ -78,6 +88,7 @@ else
     # If in Codespaces, ensure DATABASE_URL is updated with the correct password
     if [ "$CODESPACES" == "true" ]; then
         echo -e "${YELLOW}Updating DATABASE_URL for Codespaces environment...${NC}"
+        # Use 'PASS' as the password for Codespaces environment
         sed -i "s|DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm|g" .env
     fi
     

@@ -1,84 +1,59 @@
 """
-Environment configuration loader.
-This module detects the current environment and loads the appropriate configuration.
+Base configuration for all environments.
 """
 
 import os
-import importlib
-import logging
-import sys
+from dotenv import load_dotenv
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Load variables from .env file
+load_dotenv()
 
-# Environment detection
-# Check if we're in GitHub Codespaces
-if os.environ.get('CODESPACES', '').lower() == 'true':
-    ENVIRONMENT = 'codespace'
-    logger.info("Detected GitHub Codespaces environment")
-# Check if we're in WSL
-elif sys.platform == 'linux' and os.path.exists('/proc/version') and 'microsoft' in open('/proc/version').read().lower():
-    ENVIRONMENT = 'wsl'
-    logger.info("Detected WSL environment")
-else:
-    # Default to environment variable if set, otherwise development
-    ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development').lower()
-    logger.info(f"Using environment from configuration: {ENVIRONMENT}")
+class config:
+    """Base configuration for the application."""
+    # Debug and development settings
+    DEBUG = os.getenv('FLASK_ENV') == 'development'
+    TESTING = False
+    SECRET_KEY = os.getenv('SECRET_KEY', 'development-key-change-me')
 
-VALID_ENVIRONMENTS = ['development', 'production', 'wsl', 'codespace']
+    # Database URL with fallback
+    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5433/ai_ethical_dm')
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-if ENVIRONMENT not in VALID_ENVIRONMENTS:
-    logger.warning(f"Unknown environment: {ENVIRONMENT}, defaulting to development")
-    ENVIRONMENT = 'development'
+    # Flask session config
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = False
+    SESSION_USE_SIGNER = True
 
-logger.info(f"Loading configuration for environment: {ENVIRONMENT}")
+    # CSRF protection
+    WTF_CSRF_ENABLED = True
+    SET_CSRF_TOKEN_ON_PAGE_LOAD = os.getenv('SET_CSRF_TOKEN_ON_PAGE_LOAD', 'false').lower() == 'true'
 
-# Load environment-specific configuration
-try:
-    config_module = importlib.import_module(f"config.environments.{ENVIRONMENT}")
+    # File uploads
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
-    # Export all settings from the environment module
-    for setting in dir(config_module):
-        if not setting.startswith('_'):  # Skip private attributes
-            globals()[setting] = getattr(config_module, setting)
+    # Environment detection
+    ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 
-    # Mark with a constant that configuration was loaded successfully
-    CONFIG_LOADED = True
+    # API configuration
+    USE_AGENT_ORCHESTRATOR = os.getenv('USE_AGENT_ORCHESTRATOR', 'true').lower() == 'true'
+    USE_CLAUDE = os.getenv('USE_CLAUDE', 'true').lower() == 'true'
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+    CLAUDE_MODEL_VERSION = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
 
-except ImportError as e:
-    logger.error(f"Failed to load configuration for {ENVIRONMENT}: {str(e)}")
-    CONFIG_LOADED = False
+    # Embedding configuration
+    EMBEDDING_PROVIDER_PRIORITY = os.getenv('EMBEDDING_PROVIDER_PRIORITY', 'local')
+    LOCAL_EMBEDDING_MODEL = os.getenv('LOCAL_EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+    CLAUDE_EMBEDDING_MODEL = os.getenv('CLAUDE_EMBEDDING_MODEL', 'claude-3-embedding-3-0')
+    OPENAI_EMBEDDING_MODEL = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002')
 
-# Export the detected environment
-__all__ = ['ENVIRONMENT', 'CONFIG_LOADED'] + [
-    setting for setting in dir()
-    if not setting.startswith('_') and
-       setting not in ['ENVIRONMENT', 'CONFIG_LOADED', 'VALID_ENVIRONMENTS',
-                      'config_module', 'importlib', 'logging', 'logger', 'os', 'setting', 'sys']
-]
+    # Zotero API configuration
+    ZOTERO_API_KEY = os.getenv('ZOTERO_API_KEY')
+    ZOTERO_USER_ID = os.getenv('ZOTERO_USER_ID')
+    ZOTERO_GROUP_ID = os.getenv('ZOTERO_GROUP_ID')
 
-# Create required directories
-if 'LOG_DIR' in globals() and not os.path.exists(LOG_DIR):
-    try:
-        os.makedirs(LOG_DIR, exist_ok=True)
-        logger.info(f"Created log directory: {LOG_DIR}")
-    except PermissionError:
-        logger.warning(f"Cannot create log directory {LOG_DIR}, insufficient permissions")
-
-# Check for lock file path
-if 'LOCK_FILE_PATH' in globals():
-    lock_dir = os.path.dirname(LOCK_FILE_PATH)
-    if lock_dir and lock_dir != '/tmp' and not os.path.exists(lock_dir):
-        try:
-            os.makedirs(lock_dir, exist_ok=True)
-            logger.info(f"Created lock file directory: {lock_dir}")
-        except PermissionError:
-            logger.warning(f"Cannot create lock file directory {lock_dir}, insufficient permissions")
-
-# Display loaded configuration if verbose logging is enabled
-if globals().get('VERBOSE_LOGGING', False):
-    logger.info("Loaded configuration settings:")
-    for setting in __all__:
-        if setting in globals():
-            logger.info(f"  {setting} = {globals()[setting]}")
+    # MCP Server configuration
+    MCP_SERVER_URL = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
+    USE_MOCK_FALLBACK = os.getenv('USE_MOCK_FALLBACK', 'false').lower() == 'true'

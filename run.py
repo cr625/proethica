@@ -81,8 +81,8 @@ except requests.exceptions.RequestException as e:
 if not mcp_running:
     print("WARNING: MCP server may not be running properly. Continuing anyway...")
 
-# Create app instance with the detected environment
-app = create_app(environment)
+# Create app instance with the proper configuration module
+app = create_app('config')
 
 if __name__ == '__main__':
     print(f"Starting Flask server on port {args.port}...")

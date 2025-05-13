@@ -72,22 +72,13 @@
                             </li>
                         </ul>
                         <ul class="navbar-nav">
-                            {% if current_user.is_authenticated %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
-                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                    {{ current_user.username }}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                                    <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
-                                </ul>
+                            {% if session.get('user_id') %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="#">User</a>
                             </li>
                             {% else %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a>
+                                <a class="nav-link" href="#">Login</a>
                             </li>
                             {% endif %}
                         </ul>

@@ -8,20 +8,29 @@ from flask import Flask
 from app.models import db
 from app.template_filters import init_app as init_filters
 
-def create_app(config_object='app.config'):
+def create_app(config_module='app.config'):
     """
     Create and configure the Flask application.
     
     Args:
-        config_object (str): Module path to the configuration object.
+        config_module (str): Module path to the configuration object.
         
     Returns:
         Flask: The configured Flask application
     """
     app = Flask(__name__)
     
-    # Configure the app
-    app.config.from_object(config_object)
+    # Configure the app based on config_module
+    if config_module == 'config':
+        # Using our enhanced configuration system
+        from config import app_config
+        # Update app.config with our dictionary values
+        for key, value in app_config.items():
+            app.config[key] = value
+        print(f"Using enhanced config: Database URL = {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
+    else:
+        # Using original configuration approach
+        app.config.from_object(config_module)
     
     # Configure database
     db.init_app(app)

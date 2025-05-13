@@ -1,117 +1,132 @@
-# AI Ethical Design Manager
+# ProEthica Development Notes
 
-## Project Overview
+## Database Configuration in Codespace Environment
 
-The AI Ethical Design Manager is a platform to help engineers and designers think through the ethical implications of their work using real-world case studies, guidelines, and ontology-based reasoning.
+When running in GitHub Codespaces, the PostgreSQL container uses port 5433 (instead of the standard 5432) and the password for the 'postgres' user should be set to 'PASS' to match the configuration in the `.env` file.
 
-## Key Features and Components
+The `start_proethica_updated.sh` script handles this automatically by:
+1. Detecting the Codespace environment
+2. Running `fix_db_password.sh` to set the PostgreSQL password to 'PASS'
+3. Updating the `.env` file with the appropriate DATABASE_URL
 
-### 1. Case Analysis System
-- Import and process engineering ethics case studies
-- Extract ethical concepts and principles
-- Link cases to ontology concepts
-
-### 2. Ontology System
-- Engineering ethics ontology
-- Semantic matching with case content
-- RDF triple store for knowledge representation
-- Integration with:
-  - World entities (roles, resources, actions)
-  - McLaren's engineering ethics framework
-
-### 3. Guidelines Feature
-- Upload and process ethical guidelines
-- Extract concepts from guidelines
-- Match concepts to ontology entities
-- Generate RDF triples for relationships
-- Associate guidelines with worlds and entities
-
-### 4. User Interface
-- World management
-- Case browsing and analysis
-- Interactive ethical reasoning tools
-- Guideline management and visualization
-
-## Current Status (Updated: 2025-05-13)
-
-### GitHub Codespaces Support
-- ✅ Updated `start_proethica_updated.sh` for GitHub Codespaces compatibility
-- ✅ Enhanced server startup process to use the guidelines-enabled MCP server
-- ✅ Created comprehensive documentation for running in Codespaces
-- ✅ Fixed PostgreSQL container setup in Codespaces environment
-- ✅ Improved JSON-RPC connectivity for Codespaces networking
-
-### Guidelines - MCP Server Integration
-- ✅ Enhanced MCP server with guideline analysis capabilities
-- ✅ Added `GuidelineAnalysisModule` with concept extraction, matching, and triple generation
-- ✅ Created end-to-end testing pipeline
-- ✅ Fixed model version and server connectivity issues (Now using `claude-3-7-sonnet-20250219`)
-- ✅ Successfully generated RDF triples from guideline content
-- ✅ Implemented robust JSON-RPC communication between client and server
-
-### In Progress
-- 🔄 Refining the concept review interface
-- 🔄 Enhancing error handling and server diagnostics
-- 🔄 Implementing integration with app's GuidelineAnalysisService
-- 🔄 Improving semantic matching between concepts and ontology entities
-
-## Next Steps
-
-1. **Web Interface Integration**
-   - Complete the GuidelineAnalysisService integration with the MCP tools
-   - Enhance the concept review interface with better visualization
-   - Add relationship visualization for guideline concepts
-
-2. **Enhanced Triple Generation**
-   - Create more sophisticated RDF patterns for ethical relationships
-   - Support additional ontology sources beyond engineering ethics
-   - Implement export options for various RDF formats
-
-3. **Batch Processing and Performance**
-   - Add capabilities for processing multiple guidelines simultaneously
-   - Implement caching for extracted concepts
-   - Add parallel processing for large guidelines
-   - Optimize triple generation algorithms
-
-## Key Implementation Documents
-
-For the most up-to-date information on implementation status and plans:
-
-- `mcp_integration_plan.md` - Current detailed plan for MCP server UI integration
-- `guidelines_progress.md` - Tracking document for progress and implementation details
-- `CODESPACE_GUIDELINES_STARTUP.md` - Latest instructions for running in Codespaces
-- `README_GUIDELINES_TESTING.md` - Current testing procedures and troubleshooting
-
-## Technical Architecture
-
-The system uses a modular design with:
-1. Core Flask application for web interface
-2. MCP server for ontology and AI operations
-3. PostgreSQL database with pgvector for embeddings
-4. LLM integration (Claude and OpenAI)
-5. RDF/OWL ontology with SPARQL for querying
-
-## Running in GitHub Codespaces
-
+If you encounter database connection issues, you can manually run:
 ```bash
-./start_proethica_updated.sh
+./fix_db_password.sh
 ```
 
-This script:
-- Automatically detects the Codespaces environment
-- Sets up PostgreSQL using Docker in the codespace
-- Starts the enhanced MCP server with guidelines support
-- Applies necessary fixes for JSON-RPC and model references
-- Launches the Flask application with proper configuration
+### Database Password Configuration Notes
 
-## Testing Guidelines Integration
+There are two environments where the application can run:
+- **WSL environment**: Uses 'PASS' as the database password
+- **Codespace environment**: Originally uses 'postgres' as the default password but needs 'PASS' to match configuration
 
+When `start_proethica_updated.sh` runs, it:
+1. Detects the environment (WSL or Codespace)
+2. For Codespace: Executes `fix_db_password.sh` to ensure the PostgreSQL user's password is set to 'PASS'
+3. Updates the `.env` file with the correct DATABASE_URL for the environment
+
+If you see a "password authentication failed" error when running the application, it typically means there's a mismatch between:
+- The actual password set on the PostgreSQL container (check with `docker exec -it postgres17-pgvector-codespace psql -U postgres -c "SELECT 1"`)
+- The password in the DATABASE_URL in the `.env` file
+
+The fix involves ensuring both match by running `./fix_db_password.sh` to set the container password to 'PASS'.
+
+## Application Structure Notes
+
+The application follows a modular structure with Flask blueprints:
+- Each entity type (roles, resources, conditions, characters, events, etc.) has its own blueprint in app/routes/
+- The debug blueprint (debug_bp) is imported from debug_routes.py into app/routes/debug.py
+- Model relationships rely on proper imports in app/models/__init__.py
+
+### Model Imports and Database Schema
+
+The application uses SQLAlchemy for ORM with models defined in the app/models/ directory. Important models include:
+- Ontology - Represents knowledge structures
+- OntologyImport - Manages relationships between ontologies
+- OntologyVersion - Tracks ontology versions
+- EntityTriple - Stores RDF-like triples for entities
+- Guideline - Stores engineering ethics guidelines for analysis
+
+When adding new models or changing relationships, ensure that:
+1. The model is properly defined with appropriate relationships
+2. The model is imported in `app/models/__init__.py`
+3. Any circular imports are resolved (usually by importing models after db is defined)
+
+Common errors when models aren't properly imported include:
+- "name 'ModelName' is not defined" in SQLAlchemy mapper initialization
+- "Could not build url for endpoint" in templates that reference routes using undefined models
+
+To fix model import issues, examine the error message to identify the missing model, then add the appropriate import to app/models/__init__.py.
+
+## Debug Routes and Troubleshooting
+
+The application includes a debug blueprint that provides development and troubleshooting functionality:
+- Located in `app/routes/debug_routes.py`
+- Imported and registered in `app/routes/debug.py`
+- Mounted at `/debug` URL prefix
+
+### Debug Status Endpoint
+
+The `/debug/status` endpoint is designed to check various system components:
+- MCP server connectivity
+- Database connectivity
+- Ontology and guidelines status
+
+If you encounter a 500 Internal Server Error when accessing this endpoint, it may indicate issues with:
+1. Connection to the MCP server (JSON-RPC endpoint)
+2. Database connectivity issues
+3. Missing dependencies or libraries
+4. Template URL routing errors (e.g., incorrect blueprint names in `url_for()` calls)
+
+#### Troubleshooting Debug Routes
+
+If the `/debug/status` endpoint is failing with a 500 error, check the application logs for detailed error messages. Common issues include:
+
+1. **URL Routing Errors**: If you see errors like `BuildError: Could not build url for endpoint 'main.index'`, update the template to use the correct blueprint name. For example, change `url_for('main.index')` to `url_for('index.index')`.
+
+2. **MCP Server Connection**: The system now uses JSON-RPC exclusively for communicating with the MCP server instead of REST endpoints. You may see 404 errors for endpoints like `/api/guidelines/engineering-ethics` in the logs, but these are not critical if the JSON-RPC endpoint is working.
+
+3. **API Keys**: If the MCP server logs show warnings about missing API keys (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`), the server will fall back to using a simple embeddings client, which may limit some functionality.
+
+To diagnose specific connection issues:
+- Check MCP server logs in `logs/enhanced_ontology_server_*.log`
+- Verify database connectivity using `psql` or the `/debug/healthcheck` endpoint
+- Check Flask application logs for detailed error messages
+
+To restore a backup of the debug routes if needed:
 ```bash
-# Test the MCP server connection
-./test_mcp_jsonrpc_connection.py --verbose
-
-# Run the full pipeline test
-./run_guidelines_mcp_pipeline.sh
+cp app/routes/debug_routes.py.bak app/routes/debug_routes.py
 ```
 
-These scripts verify the complete guidelines processing pipeline from extraction to triple generation.
+## MCP Integration for Guidelines
+
+The MCP server provides enhanced ontology and guidelines functionality:
+- Runs on port 5001 via JSON-RPC
+- Requires the GuidelineAnalysisModule for concept extraction
+- Uses Claude 3.7 Sonnet (claude-3-7-sonnet-20250219) for analysis
+
+For full documentation on guidelines implementation, refer to:
+- `guidelines_implementation_status.md` - Current status
+- `mcp_integration_plan.md` - Integration architecture
+- `README_GUIDELINES_TESTING.md` - Testing procedures
+
+## Flask Templates and Authentication
+
+The application's templates use Jinja2 for rendering and have the following structure:
+- Base template (`base.html`) provides the layout used by all other templates
+- Each entity type has its own template files
+
+### Authentication and User Management
+
+The templates reference `current_user` which is typically provided by Flask-Login. If you encounter a Jinja2 error about `'current_user' is undefined`, this indicates one of the following issues:
+
+1. Flask-Login is not properly initialized in the application
+2. The templates are trying to access Flask-Login features but the extension is not being used
+
+#### Temporary workaround:
+We've modified the templates to check for `session.get('user_id')` instead of `current_user.is_authenticated`. This allows the templates to render correctly even without Flask-Login, though actual authentication features will be limited.
+
+If you need proper authentication, consider:
+1. Adding Flask-Login to the application
+2. Initializing it in `app/__init__.py`
+3. Creating a User model with the required interface

@@ -104,7 +104,11 @@ if [ "$(docker ps -q -f name=$POSTGRES_CONTAINER)" ]; then
     
     # Initialize the database with pgvector extension
     echo -e "${YELLOW}Initializing pgvector extension...${NC}"
-    docker exec -it $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB -c 'CREATE EXTENSION IF NOT EXISTS pgvector;'
+    docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB -c 'CREATE EXTENSION IF NOT EXISTS pgvector;'
+    
+    # Ensure the password is set to PASS
+    echo -e "${YELLOW}Ensuring database password is set to PASS...${NC}"
+    docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -c "ALTER USER postgres WITH PASSWORD 'PASS';"
     
     # Check if init-pgvector.sql exists
     if [ -f "init-pgvector.sql" ]; then

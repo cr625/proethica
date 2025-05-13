@@ -22,5 +22,9 @@ from app.models.decision import Decision
 from app.models.document import Document, DocumentChunk
 from app.models.simulation_session import SimulationSession
 from app.models.simulation_state import SimulationState
+from app.models.ontology import Ontology
+from app.models.ontology_version import OntologyVersion
 from app.models.triple import Triple
 from app.models.entity_triple import EntityTriple
+from app.models.guideline import Guideline
+from app.models.ontology_import import OntologyImport
