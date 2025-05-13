@@ -1,174 +1,75 @@
-from flask import Flask, render_template
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_login import LoginManager
+"""
+Flask application initialization module.
+"""
+
 import os
+from flask import Flask
 
-# Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
-login_manager = LoginManager()
-login_manager.login_view = 'auth.login'
-login_manager.login_message = 'Please log in to access this page.'
-login_manager.login_message_category = 'info'
+from app.models import db
+from app.template_filters import init_app as init_filters
 
-@login_manager.user_loader
-def load_user(user_id):
-    from app.models.user import User
-    return User.query.get(int(user_id))
-
-def create_app(config_name=None):
-    """Create and configure the Flask application."""
+def create_app(config_object='app.config'):
+    """
+    Create and configure the Flask application.
+    
+    Args:
+        config_object (str): Module path to the configuration object.
+        
+    Returns:
+        Flask: The configured Flask application
+    """
     app = Flask(__name__)
     
-    # Determine configuration based on environment variable if not explicitly provided
-    if config_name is None:
-        config_name = os.environ.get('ENVIRONMENT', 'development')
+    # Configure the app
+    app.config.from_object(config_object)
     
-    # Load configuration
-    from app.config import config
-    app.config.from_object(config[config_name])
-    
-    app.logger.info(f"Starting application in {config_name.upper()} mode")
-    
-    # Read environment variables - each is completely independent
-    use_claude = os.environ.get('USE_CLAUDE', 'true').lower() == 'true'
-    use_agent_orchestrator = os.environ.get('USE_AGENT_ORCHESTRATOR', 'true').lower() == 'true'
-    
-    # Use separate config settings for each feature
-    app.config['USE_CLAUDE'] = use_claude
-    app.config['USE_AGENT_ORCHESTRATOR'] = use_agent_orchestrator
-    
-    # Also update the global Config class for non-Flask contexts
-    from app.config import Config
-    Config.USE_CLAUDE = use_claude
-    Config.USE_AGENT_ORCHESTRATOR = use_agent_orchestrator
-    
-    if app.config['USE_AGENT_ORCHESTRATOR']:
-        app.logger.info("Agent Orchestrator is ENABLED")
-    else:
-        app.logger.info("Agent Orchestrator is DISABLED")
-    
-    # Initialize extensions with app
+    # Configure database
     db.init_app(app)
-    migrate.init_app(app, db)
-    login_manager.init_app(app)
-    
-    # Import models to ensure proper initialization order
-    from app.models.entity_triple import EntityTriple
-    from app.models.guideline import Guideline
-    from app.models.world import World
-    
-    # Register blueprints
-    from app.routes.auth import auth_bp
-    from app.routes.worlds import worlds_bp
-    from app.routes.scenarios import scenarios_bp
-    from app.routes.entities import entities_bp
-    # Use modular agent blueprint
-    from app.agent_module import create_proethica_agent_blueprint
-    from app.routes.mcp_api import mcp_api_bp
-    from app.routes.documents import documents_bp, documents_web_bp
-    from app.routes.simulation import simulation_bp
-    from app.routes.cases import cases_bp
-    from app.routes.cases_triple import cases_triple_bp
-    from app.routes.ontology import ontology_bp
-    # New ontology agent blueprint
-    from app.routes.ontology_agent import ontology_agent_bp
-    # Ontology IRI resolution blueprint
-    from app.routes.ontology_iri import ontology_iri_bp
-    # Ontology editor blueprint
-    from ontology_editor import create_ontology_editor_blueprint
-    
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(worlds_bp)
-    app.register_blueprint(scenarios_bp)
-    app.register_blueprint(entities_bp)
-
-    # Register ontology editor blueprint
-    ontology_editor_bp = create_ontology_editor_blueprint(
-        config={
-            'require_auth': True,
-            'admin_only': True,  # Admin-only access
-            'entity_types': ['roles', 'conditions', 'resources', 'events', 'actions']
-        }
-    )
-    app.register_blueprint(ontology_editor_bp)
-    
-    # Agent blueprint
-    agent_bp = create_proethica_agent_blueprint(
-        config={
-            'require_auth': False,  # Disable authentication for testing
-            'api_key': os.environ.get('ANTHROPIC_API_KEY'),
-            'use_claude': app.config.get('USE_CLAUDE', True)
-        },
-        config_override={
-            'prompt_templates': {
-                'default': {
-                    'welcome_message': 'Choose a world to generate suggestions or type your message below.'
-                }
-            }
-        },
-        url_prefix='/agent'
-    )
-    app.register_blueprint(agent_bp)
-    
-    # Create and register history blueprint
-    from app.agent_module import create_proethica_history_blueprint
-    history_bp = create_proethica_history_blueprint(
-        url_prefix='/agent/history'
-    )
-    app.register_blueprint(history_bp)
-    
-    app.register_blueprint(mcp_api_bp)
-    app.register_blueprint(documents_bp)
-    app.register_blueprint(documents_web_bp)
-    app.register_blueprint(simulation_bp)
-    app.register_blueprint(cases_bp)
-    app.register_blueprint(cases_triple_bp)
-    app.register_blueprint(ontology_bp)
-    # Ontology API blueprint registration is removed to avoid conflict
-    app.register_blueprint(ontology_agent_bp)
-    
-    # Register ontology IRI blueprint at root level (no prefix)
-    app.register_blueprint(ontology_iri_bp, url_prefix='')
     
     # Register template filters
-    from app import template_filters
-    template_filters.init_app(app)
+    init_filters(app)
     
-    # Import MCPClient here to avoid circular imports
-    from app.services import MCPClient
+    # Register blueprints
+    from app.routes.index import index_bp
+    from app.routes.worlds import worlds_bp
+    from app.routes.domains import domains_bp
+    from app.routes.roles import roles_bp
+    from app.routes.resources import resources_bp
+    from app.routes.conditions import conditions_bp
+    from app.routes.scenarios import scenarios_bp
+    from app.routes.characters import characters_bp
+    from app.routes.events import events_bp
+    from app.routes.simulation import simulation_bp
+    from app.routes.ontology import ontology_bp
+    from app.routes.debug import debug_bp
+    from app.routes.documents import documents_bp
     
-    # Get the singleton instance of MCPClient
-    client = MCPClient.get_instance()
+    app.register_blueprint(index_bp)
+    app.register_blueprint(worlds_bp, url_prefix='/worlds')
+    app.register_blueprint(domains_bp, url_prefix='/domains')
+    app.register_blueprint(roles_bp, url_prefix='/roles')
+    app.register_blueprint(resources_bp, url_prefix='/resources')
+    app.register_blueprint(conditions_bp, url_prefix='/conditions')
+    app.register_blueprint(scenarios_bp, url_prefix='/scenarios')
+    app.register_blueprint(characters_bp, url_prefix='/characters')
+    app.register_blueprint(events_bp, url_prefix='/events')
+    app.register_blueprint(simulation_bp, url_prefix='/simulation')
+    app.register_blueprint(ontology_bp, url_prefix='/ontology')
+    app.register_blueprint(debug_bp, url_prefix='/debug')
+    app.register_blueprint(documents_bp, url_prefix='/documents')
     
-    # Register context processor to make agent orchestrator config available to templates
+    # Make db accessible at app level for imports in other modules
+    app.db = db
+    
     @app.context_processor
-    def inject_agent_orchestrator_config():
+    def inject_environment():
+        """Add environment variables to template context."""
         return {
-            'use_agent_orchestrator': app.config.get('USE_AGENT_ORCHESTRATOR', True)
+            'environment': app.config.get('ENVIRONMENT', 'development'),
+            'app_name': 'ProEthica'
         }
-        
-    # Register context processor to make application name available to templates
-    @app.context_processor
-    def inject_app_name():
-        return {
-            'config': app.config
-        }
-
-    # Create routes
-    @app.route('/')
-    def index():
-        return render_template('index.html')
     
-    # Redirect /cases to the cases blueprint
-    @app.route('/cases')
-    def cases_redirect():
-        from flask import redirect, url_for
-        return redirect(url_for('cases.list_cases'))
-    
-    @app.route('/about')
-    def about():
-        return render_template('about.html')
-
     return app
+
+# Make db accessible at the module level for imports
+db = db

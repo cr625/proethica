@@ -33,3 +33,12 @@ def init_app(app):
         # Convert markdown to HTML using the Python-Markdown library
         md = markdown.Markdown(extensions=['extra', 'codehilite', 'fenced_code'])
         return Markup(md.convert(text))
+    
+    @app.template_filter('slice')
+    def slice_filter(iterable, start, end=None):
+        """Slice an iterable and return a list."""
+        if not iterable:
+            return []
+        if end is None:
+            return list(iterable)[start:]
+        return list(iterable)[start:end]

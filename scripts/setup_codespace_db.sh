@@ -1,103 +1,120 @@
 #!/bin/bash
+# Setup PostgreSQL for GitHub Codespaces environment
 
-# This script sets up the PostgreSQL Docker container for GitHub Codespaces
-# and restores the database from the latest backup
+# ANSI color codes for better readability
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-set -e  # Exit on error
+echo -e "${BLUE}Setting up PostgreSQL for GitHub Codespaces environment...${NC}"
 
 # Check if we're in a GitHub Codespace
-if [ "${CODESPACES}" != "true" ]; then
-    echo "This script should only be run in GitHub Codespaces"
+if [ "$CODESPACES" != "true" ]; then
+    echo -e "${RED}This script should only be run in a GitHub Codespace environment.${NC}"
     exit 1
 fi
 
-echo "Setting up PostgreSQL Docker container for GitHub Codespace environment..."
+# Get current directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
 
-# Configuration
-DB_NAME="ai_ethical_dm"
-DB_USER="postgres"
-DB_PASSWORD="PASS"
-DB_PORT="5433"
-DB_CONTAINER_NAME="postgres17-pgvector-codespace"
-BACKUP_DIR="$(pwd)/backups"
-
-# Find the latest backup
-LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/${DB_NAME}_backup_*.dump 2>/dev/null | head -1)
-
-if [ -z "${LATEST_BACKUP}" ]; then
-    echo "No backup files found in ${BACKUP_DIR}"
-    echo "Will proceed with empty database"
-fi
-
-# Check if Docker is installed
+# Ensure Docker is installed and running
 if ! command -v docker &> /dev/null; then
-    echo "Docker is required but not installed. Please install Docker."
+    echo -e "${RED}Docker is not installed or not in PATH. Please install Docker.${NC}"
     exit 1
 fi
 
-# Check if container already exists
-if docker ps -a --format '{{.Names}}' | grep -q "${DB_CONTAINER_NAME}"; then
-    echo "Container ${DB_CONTAINER_NAME} already exists"
-    
-    # Check if it's running
-    if docker ps --format '{{.Names}}' | grep -q "${DB_CONTAINER_NAME}"; then
-        echo "Container is already running"
-    else
-        echo "Starting existing container..."
-        docker start ${DB_CONTAINER_NAME}
-    fi
+# Define PostgreSQL container details
+POSTGRES_CONTAINER="postgres17-pgvector-codespace"
+POSTGRES_VERSION="15"
+POSTGRES_PORT="5433"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="PASS"
+POSTGRES_DB="ai_ethical_dm"
+
+# Check if the PostgreSQL container is already running
+if [ "$(docker ps -q -f name=$POSTGRES_CONTAINER)" ]; then
+    echo -e "${GREEN}PostgreSQL container '$POSTGRES_CONTAINER' is already running.${NC}"
 else
-    echo "Creating PostgreSQL container..."
-    docker run -d --name ${DB_CONTAINER_NAME} \
-        -p ${DB_PORT}:5432 \
-        -e POSTGRES_PASSWORD=${DB_PASSWORD} \
-        -e POSTGRES_DB=${DB_NAME} \
-        -v pgvector_data_codespace:/var/lib/postgresql/data \
-        pgvector/pgvector:pg17
+    # Check if the container exists but is not running
+    if [ "$(docker ps -aq -f name=$POSTGRES_CONTAINER)" ]; then
+        echo -e "${YELLOW}PostgreSQL container '$POSTGRES_CONTAINER' exists but is not running. Starting it now...${NC}"
+        docker start $POSTGRES_CONTAINER
+    else
+        # Create and start a new PostgreSQL container
+        echo -e "${YELLOW}Creating new PostgreSQL container with pgvector extension...${NC}"
         
-    echo "Waiting for PostgreSQL to start..."
-    sleep 5  # Give PostgreSQL time to initialize
-fi
-
-# Test the connection
-echo "Testing database connection..."
-max_retries=10
-retry_count=0
-
-while [ $retry_count -lt $max_retries ]; do
-    if docker exec -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER_NAME} psql -h localhost -U ${DB_USER} -d ${DB_NAME} -c "SELECT 1" > /dev/null 2>&1; then
-        echo "Database connection successful!"
-        break
+        # Check if postgres.Dockerfile exists
+        if [ -f "postgres.Dockerfile" ]; then
+            echo -e "${YELLOW}Building PostgreSQL image with pgvector from Dockerfile...${NC}"
+            docker build -t postgres-pgvector:$POSTGRES_VERSION -f postgres.Dockerfile .
+            
+            echo -e "${YELLOW}Running PostgreSQL container with pgvector...${NC}"
+            docker run --name $POSTGRES_CONTAINER \
+                -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+                -e POSTGRES_DB=$POSTGRES_DB \
+                -p $POSTGRES_PORT:5432 \
+                -d postgres-pgvector:$POSTGRES_VERSION
+        else
+            echo -e "${YELLOW}Using PostgreSQL 15 with pgvector extension from Docker Hub...${NC}"
+            docker run --name $POSTGRES_CONTAINER \
+                -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+                -e POSTGRES_DB=$POSTGRES_DB \
+                -p $POSTGRES_PORT:5432 \
+                -d ankane/pgvector:v0.5.1
+        fi
     fi
     
-    echo "Connection failed, retrying in 2 seconds..."
-    sleep 2
-    retry_count=$((retry_count + 1))
-done
+    # Wait for PostgreSQL to start
+    echo -e "${YELLOW}Waiting for PostgreSQL to initialize...${NC}"
+    sleep 5
+fi
 
-if [ $retry_count -eq $max_retries ]; then
-    echo "Failed to connect to the database after multiple attempts"
+# Check if PostgreSQL is running
+if [ "$(docker ps -q -f name=$POSTGRES_CONTAINER)" ]; then
+    echo -e "${GREEN}PostgreSQL container is running on port $POSTGRES_PORT.${NC}"
+    
+    # Check if .env file exists
+    if [ -f ".env" ]; then
+        # Update DATABASE_URL in .env file
+        if grep -q "DATABASE_URL" .env; then
+            echo -e "${YELLOW}Updating DATABASE_URL in .env file...${NC}"
+            sed -i "s|DATABASE_URL=.*|DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB|g" .env
+        else
+            echo -e "${YELLOW}Adding DATABASE_URL to .env file...${NC}"
+            echo "DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB" >> .env
+        fi
+        
+        # Update ENVIRONMENT in .env file
+        if grep -q "ENVIRONMENT" .env; then
+            echo -e "${YELLOW}Updating ENVIRONMENT in .env file...${NC}"
+            sed -i "s|ENVIRONMENT=.*|ENVIRONMENT=codespace|g" .env
+        else
+            echo -e "${YELLOW}Adding ENVIRONMENT to .env file...${NC}"
+            echo "ENVIRONMENT=codespace" >> .env
+        fi
+    else
+        echo -e "${YELLOW}No .env file found. Creating one...${NC}"
+        echo "DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB" > .env
+        echo "ENVIRONMENT=codespace" >> .env
+    fi
+    
+    # Initialize the database with pgvector extension
+    echo -e "${YELLOW}Initializing pgvector extension...${NC}"
+    docker exec -it $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB -c 'CREATE EXTENSION IF NOT EXISTS pgvector;'
+    
+    # Check if init-pgvector.sql exists
+    if [ -f "init-pgvector.sql" ]; then
+        echo -e "${YELLOW}Running init-pgvector.sql initialization script...${NC}"
+        docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB < init-pgvector.sql
+    fi
+    
+    echo -e "${GREEN}PostgreSQL with pgvector has been successfully set up in codespace environment!${NC}"
+else
+    echo -e "${RED}Failed to start PostgreSQL container. Please check Docker logs.${NC}"
+    docker logs $POSTGRES_CONTAINER
     exit 1
 fi
-
-# Restore from backup if available
-if [ -n "${LATEST_BACKUP}" ]; then
-    echo "Restoring from latest backup: $(basename ${LATEST_BACKUP})"
-    
-    # Drop existing database
-    docker exec -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER_NAME} dropdb -h localhost -U ${DB_USER} --if-exists ${DB_NAME}
-    
-    # Create new database
-    docker exec -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER_NAME} createdb -h localhost -U ${DB_USER} ${DB_NAME}
-    
-    # Restore from backup
-    cat "${LATEST_BACKUP}" | docker exec -i -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER_NAME} pg_restore -h localhost -U ${DB_USER} -d ${DB_NAME}
-    
-    echo "Database restore completed"
-fi
-
-echo "PostgreSQL setup completed successfully!"
-echo "Connection string: postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
-echo
-echo "You can now start the application with:"
-echo "./start_proethica.sh"

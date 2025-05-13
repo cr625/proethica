@@ -34,6 +34,13 @@ The AI Ethical Design Manager is a platform to help engineers and designers thin
 
 ## Recent Work and Progress
 
+### GitHub Codespaces Support (Added: 2025-05-13)
+- ✅ Updated `start_proethica_updated.sh` for GitHub Codespaces compatibility
+- ✅ Enhanced server startup process to use the guidelines-enabled MCP server
+- ✅ Created comprehensive documentation for running in Codespaces
+- ✅ Fixed PostgreSQL container setup in Codespaces environment
+- ✅ Improved JSON-RPC connectivity for Codespaces networking
+
 ### Guidelines - MCP Server Integration
 - ✅ Enhanced MCP server with guideline analysis capabilities
 - ✅ Added `GuidelineAnalysisModule` with concept extraction, matching, and triple generation
@@ -60,9 +67,11 @@ The AI Ethical Design Manager is a platform to help engineers and designers thin
 ## Development Resources
 
 ### Documentation
+- `CODESPACE_GUIDELINES_STARTUP.md` - Running with guidelines in Codespaces
 - `README_GUIDELINES_TESTING.md` - Testing the guideline features
 - `guidelines_progress.md` - Implementation progress and plan
 - `docs/ontology_case_analysis_plan.md` - Overall ontology integration
+- `mcp_integration_plan.md` - Detailed plan for MCP server UI integration
 
 ### Tools
 - `run_guidelines_mcp_pipeline.sh` - End-to-end testing script
@@ -90,6 +99,33 @@ To work on the guidelines feature:
 2. Install required packages with `pip install -r requirements-mcp.txt`
 3. Start the MCP server: `python mcp/run_enhanced_mcp_server_with_guidelines.py`
 4. Run tests: `./run_guidelines_mcp_pipeline.sh`
+
+## Running in GitHub Codespaces (Added: 2025-05-13)
+
+The application now supports running the complete solution with guidelines support in GitHub Codespaces.
+
+### Quick Start in Codespaces
+
+```bash
+./start_proethica_updated.sh
+```
+
+This updated script:
+- Automatically detects the Codespaces environment
+- Sets up PostgreSQL using Docker in the codespace
+- Starts the enhanced MCP server with guidelines support
+- Applies necessary fixes for JSON-RPC and model references
+- Launches the Flask application with proper configuration
+
+### Codespace-specific Adaptations
+
+1. **Database Setup**: Uses codespace-specific PostgreSQL container configuration
+2. **MCP Server**: Enhanced ontology server with guidelines support
+3. **Model References**: Updated to use Claude 3.7 Sonnet (`claude-3-7-sonnet-20250219`)
+4. **Server Architecture**: Optimized for Codespaces networking environment
+5. **Connection Handling**: JSON-RPC for more reliable API communication
+
+Detailed documentation is available in `CODESPACE_GUIDELINES_STARTUP.md`.
 
 ## Guidelines Integration with MCP Server (Updated: 2025-05-13)
 
@@ -123,10 +159,14 @@ The guidelines integration with the MCP server and triples extraction process ha
 To run ProEthica with guidelines support:
 
 ```bash
+# For standard environments:
 ./start_with_enhanced_ontology_server.sh
+
+# For GitHub Codespaces:
+./start_proethica_updated.sh
 ```
 
-This script handles all necessary setup, including:
+These scripts handle all necessary setup, including:
 - Starting the enhanced ontology server
 - Updating MCP client configuration
 - Ensuring proper model usage

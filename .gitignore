@@ -75,3 +75,5 @@ package-lock.json
 
 # External Repositories
 _src/
+# Backup files
+*.bak*

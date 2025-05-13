@@ -152,7 +152,7 @@ class GuidelineAnalysisService:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
-                        model="gpt-4-turbo" if hasattr(llm_client, 'available_models') and "gpt-4" in llm_client.available_models else "claude-3-haiku-20240307",
+                        model="gpt-4-turbo" if hasattr(llm_client, 'available_models') and "gpt-4" in llm_client.available_models else "claude-3-7-sonnet-20250219",
                         response_format={"type": "json_object"},
                         max_tokens=4000,
                         temperature=0.2
@@ -188,7 +188,7 @@ class GuidelineAnalysisService:
                         messages=[
                             {"role": "user", "content": user_prompt}
                         ],
-                        model="claude-3-haiku-20240307",
+                        model="claude-3-7-sonnet-20250219",
                         max_tokens=4000,
                         temperature=0.2
                     )
@@ -406,7 +406,7 @@ class GuidelineAnalysisService:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
-                        model="gpt-4-turbo" if hasattr(llm_client, 'available_models') and "gpt-4" in llm_client.available_models else "claude-3-haiku-20240307",
+                        model="gpt-4-turbo" if hasattr(llm_client, 'available_models') and "gpt-4" in llm_client.available_models else "claude-3-7-sonnet-20250219",
                         response_format={"type": "json_object"},
                         max_tokens=4000,
                         temperature=0.2
@@ -442,7 +442,7 @@ class GuidelineAnalysisService:
                         messages=[
                             {"role": "user", "content": user_prompt}
                         ],
-                        model="claude-3-haiku-20240307",
+                        model="claude-3-7-sonnet-20250219",
                         max_tokens=4000,
                         temperature=0.2
                     )

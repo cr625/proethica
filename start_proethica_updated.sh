@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}=== ProEthica Starter ===${NC}"
+echo -e "${BLUE}=== ProEthica Starter with Guidelines Support ===${NC}"
 echo -e "${YELLOW}Starting ProEthica with environment auto-detection...${NC}"
 
 # Check if auto_run.sh exists and is executable
@@ -68,11 +68,19 @@ echo -e "${BLUE}Using environment: ${ENV} with container: ${POSTGRES_CONTAINER}$
 if [ ! -f ".env" ]; then
     echo -e "${YELLOW}No .env file found. Creating one from .env.example...${NC}"
     cp .env.example .env
-    echo -e "${YELLOW}Adding MCP_SERVER_URL to .env file...${NC}"
+    echo -e "${YELLOW}Adding MCP_SERVER_URL and other settings to .env file...${NC}"
     echo "MCP_SERVER_URL=http://localhost:5001" >> .env
     echo "USE_MOCK_FALLBACK=false" >> .env
+    echo "CLAUDE_MODEL_VERSION=claude-3-7-sonnet-20250219" >> .env
+    echo "SET_CSRF_TOKEN_ON_PAGE_LOAD=true" >> .env
 else
     # Update existing .env file with correct settings
+    # If in Codespaces, ensure DATABASE_URL is updated with the correct password
+    if [ "$CODESPACES" == "true" ]; then
+        echo -e "${YELLOW}Updating DATABASE_URL for Codespaces environment...${NC}"
+        sed -i "s|DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm|g" .env
+    fi
+    
     if ! grep -q "MCP_SERVER_URL=" .env; then
         echo -e "${YELLOW}Adding MCP_SERVER_URL to .env file...${NC}"
         echo "MCP_SERVER_URL=http://localhost:5001" >> .env
@@ -88,13 +96,27 @@ else
         # Do not override existing value
         echo -e "${BLUE}Using existing USE_MOCK_FALLBACK setting from .env file${NC}"
     fi
+    
+    if ! grep -q "CLAUDE_MODEL_VERSION=" .env; then
+        echo -e "${YELLOW}Adding CLAUDE_MODEL_VERSION to .env file...${NC}"
+        echo "CLAUDE_MODEL_VERSION=claude-3-7-sonnet-20250219" >> .env
+    else
+        # Update Claude model version to the latest
+        sed -i "s|CLAUDE_MODEL_VERSION=.*|CLAUDE_MODEL_VERSION=claude-3-7-sonnet-20250219|g" .env
+    fi
+    
+    if ! grep -q "SET_CSRF_TOKEN_ON_PAGE_LOAD=" .env; then
+        echo -e "${YELLOW}Adding SET_CSRF_TOKEN_ON_PAGE_LOAD to .env file...${NC}"
+        echo "SET_CSRF_TOKEN_ON_PAGE_LOAD=true" >> .env
+    fi
 fi
 
 # Clean up any existing MCP server processes
 echo -e "${BLUE}Checking for running MCP server processes...${NC}"
-if pgrep -f "run_enhanced_mcp_server.py" > /dev/null || pgrep -f "http_ontology_mcp_server.py" > /dev/null || pgrep -f "run_unified_mcp_server.py" > /dev/null; then
+if pgrep -f "run_enhanced_mcp_server.py" > /dev/null || pgrep -f "enhanced_ontology_server_with_guidelines.py" > /dev/null || pgrep -f "http_ontology_mcp_server.py" > /dev/null || pgrep -f "run_unified_mcp_server.py" > /dev/null; then
     echo -e "${YELLOW}Stopping existing MCP server processes...${NC}"
     pkill -f "run_enhanced_mcp_server.py" 2>/dev/null || true
+    pkill -f "run_enhanced_mcp_server_with_guidelines.py" 2>/dev/null || true
     pkill -f "http_ontology_mcp_server.py" 2>/dev/null || true
     pkill -f "ontology_mcp_server.py" 2>/dev/null || true
     pkill -f "run_unified_mcp_server.py" 2>/dev/null || true
@@ -149,47 +171,115 @@ chmod +x scripts/restart_mcp_server.sh 2>/dev/null || true
 
 # Update ENVIRONMENT variable in .env file
 if grep -q "^ENVIRONMENT=" .env; then
-    sed -i "s/^ENVIRONMENT=.*/ENVIRONMENT=$ENV/" .env
+            # Set environment with proper detection
+            if [ "$CODESPACES" == "true" ]; then
+                sed -i "s/^ENVIRONMENT=.*/ENVIRONMENT=codespace/" .env
+            else
+                sed -i "s/^ENVIRONMENT=.*/ENVIRONMENT=$ENV/" .env
+            fi
 else
     echo "ENVIRONMENT=$ENV" >> .env
 fi
 
-# Start the unified ontology MCP server
-echo -e "${BLUE}Starting Unified Ontology MCP Server...${NC}"
+# Apply fixes to MCP client and Claude model references
+echo -e "${BLUE}Applying MCP client and model reference fixes...${NC}"
+if [ -f "./fix_mcp_client.py" ]; then
+    echo -e "${YELLOW}Updating MCP client to use JSON-RPC API...${NC}"
+    python fix_mcp_client.py
+fi
 
-# Environment setup for unified ontology server
+if [ -f "./update_claude_models_in_mcp_server.py" ]; then
+    echo -e "${YELLOW}Updating Claude model references...${NC}"
+    python update_claude_models_in_mcp_server.py
+fi
+
+# Start the enhanced ontology MCP server with guidelines support
+echo -e "${BLUE}Starting Enhanced Ontology MCP Server with Guidelines Support...${NC}"
+
+# Environment setup for enhanced ontology server
 PORT=${MCP_SERVER_PORT:-5001}
 HOST="0.0.0.0"
 
-# Make sure the unified MCP server script is executable
-if [ -f "./run_unified_mcp_server.py" ]; then
-    chmod +x run_unified_mcp_server.py
+# Make sure the enhanced MCP server script is executable
+if [ -f "./mcp/run_enhanced_mcp_server_with_guidelines.py" ]; then
+    chmod +x mcp/run_enhanced_mcp_server_with_guidelines.py
     
-    LOGFILE="logs/unified_ontology_server_$(date +%Y%m%d_%H%M%S).log"
+    LOGFILE="logs/enhanced_ontology_server_$(date +%Y%m%d_%H%M%S).log"
     mkdir -p logs
     
     # Create the command to run
-    CMD="python run_unified_mcp_server.py --host $HOST --port $PORT"
+    CMD="python mcp/run_enhanced_mcp_server_with_guidelines.py"
     
     # Start the server in the background with nohup
-    echo -e "${BLUE}Starting unified ontology MCP server on ${YELLOW}${HOST}:${PORT}${NC}"
+    echo -e "${BLUE}Starting enhanced ontology MCP server with guidelines support on ${YELLOW}${HOST}:${PORT}${NC}"
     nohup $CMD > "$LOGFILE" 2>&1 &
     
     # Get the PID of the process
-    UNIFIED_SERVER_PID=$!
+    ENHANCED_SERVER_PID=$!
     
     # Check if the server started successfully
     sleep 2
-    if ps -p $UNIFIED_SERVER_PID > /dev/null; then
-        echo -e "${GREEN}Unified Ontology Server started successfully with PID ${YELLOW}${UNIFIED_SERVER_PID}${NC}"
+    if ps -p $ENHANCED_SERVER_PID > /dev/null; then
+        echo -e "${GREEN}Enhanced Ontology Server with Guidelines started successfully with PID ${YELLOW}${ENHANCED_SERVER_PID}${NC}"
         echo -e "${BLUE}Logs are being written to ${YELLOW}${LOGFILE}${NC}"
     else
-        echo -e "${RED}Failed to start the Unified Ontology Server. Check the logs: ${YELLOW}${LOGFILE}${NC}"
+        echo -e "${RED}Failed to start the Enhanced Ontology Server. Check the logs: ${YELLOW}${LOGFILE}${NC}"
         tail -n 10 "$LOGFILE"
     fi
+    
+    # Test the MCP server connection using the JSON-RPC endpoint
+    echo -e "${YELLOW}Testing MCP server JSON-RPC connection...${NC}"
+    sleep 3
+    
+    if [ -f "./test_mcp_jsonrpc_connection.py" ]; then
+        if python test_mcp_jsonrpc_connection.py; then
+            echo -e "${GREEN}MCP server JSON-RPC connection test successful!${NC}"
+        else
+            echo -e "${YELLOW}MCP server JSON-RPC connection test failed. Server may not be running correctly.${NC}"
+        fi
+    else
+        # Fallback to curl for testing
+        if curl -s -X POST http://localhost:5001/jsonrpc -H "Content-Type: application/json" \
+             -d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":1}' | grep -q jsonrpc; then
+            echo -e "${GREEN}MCP server JSON-RPC connection test successful!${NC}"
+        else
+            echo -e "${YELLOW}MCP server JSON-RPC connection test failed. Server may not be running correctly.${NC}"
+        fi
+    fi
 else
-    echo -e "${RED}run_unified_mcp_server.py not found. The Unified Ontology Server will not be started.${NC}"
-    echo -e "${YELLOW}Some ontology functionality may not be available.${NC}"
+    echo -e "${RED}Enhanced ontology server script not found. The guidelines functionality will not be available.${NC}"
+    
+    # Fall back to unified server if it exists
+    if [ -f "./run_unified_mcp_server.py" ]; then
+        echo -e "${YELLOW}Falling back to unified ontology server (without guidelines support)...${NC}"
+        chmod +x run_unified_mcp_server.py
+        
+        LOGFILE="logs/unified_ontology_server_$(date +%Y%m%d_%H%M%S).log"
+        mkdir -p logs
+        
+        # Create the command to run
+        CMD="python run_unified_mcp_server.py --host $HOST --port $PORT"
+        
+        # Start the server in the background with nohup
+        echo -e "${BLUE}Starting unified ontology MCP server on ${YELLOW}${HOST}:${PORT}${NC}"
+        nohup $CMD > "$LOGFILE" 2>&1 &
+        
+        # Get the PID of the process
+        UNIFIED_SERVER_PID=$!
+        
+        # Check if the server started successfully
+        sleep 2
+        if ps -p $UNIFIED_SERVER_PID > /dev/null; then
+            echo -e "${GREEN}Unified Ontology Server started successfully with PID ${YELLOW}${UNIFIED_SERVER_PID}${NC}"
+            echo -e "${BLUE}Logs are being written to ${YELLOW}${LOGFILE}${NC}"
+            echo -e "${YELLOW}Note: Guidelines functionality will not be available with the unified server.${NC}"
+        else
+            echo -e "${RED}Failed to start the Unified Ontology Server. Check the logs: ${YELLOW}${LOGFILE}${NC}"
+            tail -n 10 "$LOGFILE"
+        fi
+    else
+        echo -e "${RED}Neither enhanced nor unified ontology server scripts found. Ontology functionality will not be available.${NC}"
+    fi
 fi
 
 # Initialize database schema if needed
@@ -221,3 +311,18 @@ echo -e "${GREEN}Launching ProEthica with auto-detected environment: $ENV${NC}"
 export MCP_SERVER_ALREADY_RUNNING=true
 echo -e "${BLUE}Setting MCP_SERVER_ALREADY_RUNNING=true to prevent starting duplicate MCP server${NC}"
 ./auto_run.sh
+
+# Register cleanup function for server processes
+cleanup() {
+    echo -e "${YELLOW}Shutting down MCP server processes...${NC}"
+    if [ -n "$ENHANCED_SERVER_PID" ]; then
+        kill $ENHANCED_SERVER_PID 2>/dev/null || true
+    fi
+    if [ -n "$UNIFIED_SERVER_PID" ]; then
+        kill $UNIFIED_SERVER_PID 2>/dev/null || true
+    fi
+    echo -e "${GREEN}Cleanup complete.${NC}"
+}
+
+# Register the cleanup function to be called on script exit
+trap cleanup EXIT

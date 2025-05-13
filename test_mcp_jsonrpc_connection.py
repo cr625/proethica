@@ -1,171 +1,126 @@
 #!/usr/bin/env python3
 """
-Test MCP JSON-RPC Connection
+Test MCP server JSON-RPC connection.
 
-This script tests connectivity to the MCP server using the JSON-RPC endpoint.
-It provides a cleaner, more reliable way to check if the server is operational.
+This script tests the connection to the MCP server using the JSON-RPC protocol.
+It's useful for debugging connectivity issues in the GitHub Codespaces environment.
 """
 
 import sys
 import json
-import logging
 import requests
 import argparse
-from typing import Dict, Any, Optional
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Default MCP server URL
-DEFAULT_MCP_URL = "http://localhost:5001"
-
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
+def parse_args():
     parser = argparse.ArgumentParser(description="Test MCP server JSON-RPC connection")
-    parser.add_argument(
-        "--url", 
-        default=DEFAULT_MCP_URL,
-        help=f"MCP server URL (default: {DEFAULT_MCP_URL})"
-    )
-    parser.add_argument(
-        "--timeout", 
-        type=float, 
-        default=10.0,
-        help="Connection timeout in seconds (default: 10.0)"
-    )
-    parser.add_argument(
-        "--verbose", 
-        "-v", 
-        action="store_true",
-        help="Display verbose output"
-    )
+    parser.add_argument("--url", default="http://localhost:5001/jsonrpc", help="MCP server URL")
+    parser.add_argument("--timeout", type=int, default=10, help="Request timeout in seconds")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     return parser.parse_args()
 
-def make_jsonrpc_request(
-    url: str, 
-    method: str, 
-    params: Dict[str, Any] = None, 
-    timeout: float = 10.0
-) -> Optional[Dict[str, Any]]:
+def test_jsonrpc_connection(url, timeout=10, verbose=False):
     """
-    Make a JSON-RPC request to the MCP server.
+    Test connection to MCP server using JSON-RPC.
+    """
+    if verbose:
+        print(f"Testing connection to MCP server at {url}")
     
-    Args:
-        url: The URL of the JSON-RPC endpoint
-        method: The JSON-RPC method to call
-        params: Parameters to pass to the method (optional)
-        timeout: Connection timeout in seconds
-        
-    Returns:
-        The JSON-RPC response result or None if the request failed
-    """
-    if params is None:
-        params = {}
-        
-    # Prepare the JSON-RPC request
-    jsonrpc_request = {
+    # Prepare JSON-RPC request to list available tools
+    request_data = {
         "jsonrpc": "2.0",
-        "method": method,
-        "params": params,
+        "method": "list_tools",
+        "params": {},
         "id": 1
     }
     
     try:
+        # Send the request
+        if verbose:
+            print("Sending JSON-RPC request...")
+        
         response = requests.post(
             url,
-            json=jsonrpc_request,
+            json=request_data,
+            headers={"Content-Type": "application/json"},
             timeout=timeout
         )
         
         # Check if the request was successful
-        if response.status_code != 200:
-            logger.error(f"Error: Server returned status code {response.status_code}")
-            logger.debug(f"Response content: {response.text}")
-            return None
+        if response.status_code == 200:
+            result = response.json()
             
-        # Parse the JSON response
-        result = response.json()
-        
-        # Check for JSON-RPC errors
-        if "error" in result:
-            logger.error(f"JSON-RPC error: {result['error']}")
-            return None
-            
-        return result
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Connection error: {str(e)}")
-        return None
-    except json.JSONDecodeError:
-        logger.error("Failed to decode JSON response")
-        logger.debug(f"Response content: {response.text}")
-        return None
-
-def test_server_connection(url: str, timeout: float = 10.0, verbose: bool = False) -> bool:
-    """
-    Test connection to the MCP server.
+            # Check if the response contains the expected fields
+            if "jsonrpc" in result and "result" in result and "id" in result:
+                if verbose:
+                    print("MCP server responded successfully with a valid JSON-RPC response")
+                    print("\nAvailable tools:")
+                    
+                    # Print available tools if any
+                    if "tools" in result["result"]:
+                        for tool in result["result"]["tools"]:
+                            print(f"- {tool}")
+                    else:
+                        print("No tools found")
+                        
+                # Check specifically for the guideline analysis module tools
+                guideline_tools = []
+                for tool in result["result"].get("tools", []):
+                    if isinstance(tool, dict) and "name" in tool:
+                        if "guideline" in tool["name"].lower():
+                            guideline_tools.append(tool["name"])
+                    elif isinstance(tool, str):
+                        if "guideline" in tool.lower():
+                            guideline_tools.append(tool)
+                
+                if guideline_tools:
+                    if verbose:
+                        print("\nGuideline analysis tools found:")
+                        for tool in guideline_tools:
+                            print(f"- {tool}")
+                    return True, "Connection successful. Guideline tools available."
+                else:
+                    if verbose:
+                        print("\nWARNING: No guideline analysis tools found")
+                    return True, "Connection successful, but no guideline tools found."
+            else:
+                if verbose:
+                    print("Response does not follow JSON-RPC format:")
+                    print(json.dumps(result, indent=2))
+                return False, f"Invalid JSON-RPC response: {result}"
+        else:
+            if verbose:
+                print(f"Request failed with status code {response.status_code}")
+                print(f"Response: {response.text}")
+            return False, f"Failed with status {response.status_code}: {response.text}"
     
-    Args:
-        url: The MCP server URL
-        timeout: Connection timeout in seconds
-        verbose: Whether to display verbose output
-        
-    Returns:
-        True if the connection was successful, False otherwise
-    """
-    jsonrpc_url = f"{url}/jsonrpc"
-    
-    logger.info(f"Testing connection to MCP server at {jsonrpc_url}")
-    
-    # Try to list the available tools
-    result = make_jsonrpc_request(jsonrpc_url, "list_tools", timeout=timeout)
-    
-    if not result:
-        logger.error("Failed to connect to MCP server")
-        return False
-        
-    if "result" not in result:
-        logger.error("Invalid response from MCP server (missing 'result' field)")
-        return False
-    
-    tools = result["result"]
-    
-    if not tools:
-        logger.warning("Server returned an empty list of tools")
-    else:
-        logger.info(f"Server returned {len(tools)} available tools")
-        
+    except requests.exceptions.ConnectionError:
+        error_msg = f"Connection error: Could not connect to {url}"
         if verbose:
-            logger.info("Available tools:")
-            for tool in tools:
-                logger.info(f"  - {tool}")
-            
-    return True
+            print(error_msg)
+            print("Make sure the MCP server is running")
+        return False, error_msg
+    
+    except requests.exceptions.Timeout:
+        error_msg = f"Connection timeout after {timeout} seconds"
+        if verbose:
+            print(error_msg)
+        return False, error_msg
+    
+    except Exception as e:
+        error_msg = f"Error: {str(e)}"
+        if verbose:
+            print(error_msg)
+        return False, error_msg
 
-def main() -> int:
-    """Main function."""
+def main():
     args = parse_args()
-    
-    # Set log level based on verbose flag
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    
-    # Test connection to the server
-    success = test_server_connection(
-        url=args.url,
-        timeout=args.timeout,
-        verbose=args.verbose
-    )
+    success, message = test_jsonrpc_connection(args.url, args.timeout, args.verbose)
     
     if success:
-        logger.info("✅ MCP server connection successful")
+        print(f"✅ SUCCESS: {message}")
         return 0
     else:
-        logger.error("❌ MCP server connection failed")
+        print(f"❌ ERROR: {message}")
         return 1
 
 if __name__ == "__main__":

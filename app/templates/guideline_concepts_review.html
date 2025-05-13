@@ -5,28 +5,35 @@
 {% block content %}
 <div class="container mt-5">
   <h1>Review Extracted Concepts</h1>
-  
+
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world_id or world.id, document_id=document_id or guideline.id) }}">{{ guideline.title }}</a></li>
+      <li class="breadcrumb-item"><a
+          href="{{ url_for('worlds.view_guideline', id=world_id or world.id, document_id=document_id or guideline.id) }}">{{
+          guideline.title }}</a></li>
       <li class="breadcrumb-item active">Review Concepts</li>
     </ol>
   </nav>
-  
+
   <div class="alert alert-info">
     <h4 class="alert-heading">Two-Phase Analysis</h4>
-    <p>This page displays ethical and engineering concepts that have been extracted from the guideline document. These concepts can be added to the world's knowledge graph as RDF triples.</p>
+    <p>This page displays ethical and engineering concepts that have been extracted from the guideline document. These
+      concepts can be added to the world's knowledge graph as RDF triples.</p>
     <ol>
-      <li><strong>Review extracted concepts</strong> - Select which concepts you want to include in the knowledge graph</li>
-      <li><strong>Generate RDF triples</strong> - Save the selected concepts as RDF triples linked to this guideline</li>
+      <li><strong>Review extracted concepts</strong> - Select which concepts you want to include in the knowledge graph
+      </li>
+      <li><strong>Generate RDF triples</strong> - Save the selected concepts as RDF triples linked to this guideline
+      </li>
     </ol>
     <hr>
-    <p class="mb-0">Select the concepts that accurately represent important ethical principles in this guideline. <strong>Checked concepts will be included</strong> when you submit the form.</p>
+    <p class="mb-0">Select the concepts that accurately represent important ethical principles in this guideline.
+      <strong>Checked concepts will be included</strong> when you submit the form.
+    </p>
   </div>
-  
+
   <div class="card mb-4">
     <div class="card-header bg-primary text-white">
       <h5 class="mb-0">Guideline Information</h5>
@@ -34,43 +41,126 @@
     <div class="card-body">
       <h4>{{ guideline.title }}</h4>
       <p class="text-muted">
-        <strong>Source:</strong> 
+        <strong>Source:</strong>
         {% if guideline.source_url %}
-          <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
+        <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
         {% elif guideline.file_path %}
-          Uploaded file: {{ guideline.file_path.split('/')[-1] }}
+        Uploaded file: {{ guideline.file_path.split('/')[-1] }}
         {% else %}
-          Manual entry
+        Manual entry
         {% endif %}
       </p>
-      
+
       <div class="collapse" id="guidelineContent">
         <div class="card card-body bg-light">
           {% if guideline.content %}
-            <div class="guideline-content">
-              {% if guideline.content.startswith('#') or '##' in guideline.content %}
-                <div class="markdown-content">
-                  {{ guideline.content|markdown|safe }}
-                </div>
-              {% else %}
-                {{ guideline.content|safe }}
-              {% endif %}
+          <div class="guideline-content">
+            {% if guideline.content.startswith('#') or '##' in guideline.content %}
+            <div class="markdown-content">
+              {{ guideline.content|markdown|safe }}
             </div>
+            {% else %}
+            {{ guideline.content|safe }}
+            {% endif %}
+          </div>
           {% else %}
-            <div class="alert alert-warning">No content available for this guideline.</div>
+          <div class="alert alert-warning">No content available for this guideline.</div>
           {% endif %}
         </div>
       </div>
-      
-      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#guidelineContent">
+
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
+        data-bs-target="#guidelineContent">
         Show/Hide Content
       </button>
     </div>
   </div>
-  
+
   <form method="post" action="{{ url_for('worlds.save_guideline_concepts', id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
-    
+
+    <!-- Preview of the triples that will be generated -->
+    {% if preview_triples and preview_triples|length > 0 %}
+    <div class="row mb-4">
+      <div class="col">
+        <div class="card border-dark">
+          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Generated RDF Triples Preview</h5>
+            <div>
+              <span class="badge bg-light text-dark">{{ triple_count }} triples</span>
+              <button class="btn btn-sm btn-outline-light ms-2" type="button" data-bs-toggle="collapse"
+                data-bs-target="#triplesPreview">
+                <i class="fas fa-eye"></i> Show/Hide Triples
+              </button>
+            </div>
+          </div>
+          <div class="collapse" id="triplesPreview">
+            <div class="card-body">
+              <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> This is a preview of the RDF triples that will be generated from the
+                selected concepts.
+                These triples represent the semantic relationships that will be added to the knowledge graph.
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                  <thead class="table-dark">
+                    <tr>
+                      <th>Subject</th>
+                      <th>Predicate</th>
+                      <th>Object</th>
+                      <th>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for triple in preview_triples %}
+                    <tr>
+                      <td>
+                        <span class="text-primary">{{ triple.subject_label or triple.subject }}</span>
+                        <small class="d-block text-muted text-truncate" style="max-width: 250px;">{{ triple.subject
+                          }}</small>
+                      </td>
+                      <td>
+                        <span>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</span>
+                      </td>
+                      <td>
+                        {% if triple.is_literal %}
+                        <span class="text-success">"{{ triple.object }}"</span>
+                        {% else %}
+                        <span class="text-info">{{ triple.object_label or triple.object }}</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if triple.is_literal %}
+                        <span class="badge bg-success">Literal</span>
+                        {% else %}
+                        <span class="badge bg-info">URI</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                    {% if preview_triples|length > 100 %}
+                    <tr>
+                      <td colspan="4" class="text-center">
+                        <em>... and {{ preview_triples|length - 100 }} more triples (showing first 100 only)</em>
+                      </td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="alert alert-warning mt-3">
+                <strong>Note:</strong> This is just a preview. Only triples for the concepts you select will actually be
+                saved.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="row mb-4">
       <div class="col">
         <div class="card border-info">
@@ -95,42 +185,44 @@
                 </thead>
                 <tbody>
                   {% if concepts %}
-                    {% for concept in concepts %}
-                      <tr>
-                        <td class="text-center">
-                          <div class="form-check">
-                            <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept{{ loop.index }}" checked>
-                            <label class="form-check-label" for="concept{{ loop.index }}"></label>
-                          </div>
-                        </td>
-                        <td><strong>{{ concept.label }}</strong></td>
-                        <td>
-                          <span class="badge bg-secondary">{{ concept.type|capitalize }}</span>
-                        </td>
-                        <td>{{ concept.description }}</td>
-                        <td>
-                          {% if concept.label in matched_entities and matched_entities[concept.label]|length > 0 %}
-                            {% for match in matched_entities[concept.label] %}
-                              <div class="mb-1">
-                                <span class="badge bg-success">{{ match.match_type|capitalize }}</span>
-                                <strong>{{ match.label }}</strong>
-                                <small class="text-muted d-block">Confidence: {{ (match.confidence * 100)|int }}%</small>
-                              </div>
-                            {% endfor %}
-                          {% else %}
-                            <span class="badge bg-warning text-dark">New Concept</span>
-                          {% endif %}
-                        </td>
-                      </tr>
-                    {% endfor %}
+                  {% for concept in concepts %}
+                  <tr>
+                    <td class="text-center">
+                      <div class="form-check">
+                        <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts"
+                          value="{{ loop.index0 }}" id="concept{{ loop.index }}" checked>
+                        <label class="form-check-label" for="concept{{ loop.index }}"></label>
+                      </div>
+                    </td>
+                    <td><strong>{{ concept.label }}</strong></td>
+                    <td>
+                      <span class="badge bg-secondary">{{ concept.type|capitalize }}</span>
+                    </td>
+                    <td>{{ concept.description }}</td>
+                    <td>
+                      {% if concept.label in matched_entities and matched_entities[concept.label]|length > 0 %}
+                      {% for match in matched_entities[concept.label] %}
+                      <div class="mb-1">
+                        <span class="badge bg-success">{{ match.match_type|capitalize }}</span>
+                        <strong>{{ match.label }}</strong>
+                        <small class="text-muted d-block">Confidence: {{ (match.confidence * 100)|int }}%</small>
+                      </div>
+                      {% endfor %}
+                      {% else %}
+                      <span class="badge bg-warning text-dark">New Concept</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
                   {% else %}
-                    <tr>
-                      <td colspan="5" class="text-center py-4">
-                        <div class="alert alert-warning mb-0">
-                          No concepts were extracted from this guideline. This may happen if the guideline does not contain any recognizable ethical concepts or if the extraction process encountered an error.
-                        </div>
-                      </td>
-                    </tr>
+                  <tr>
+                    <td colspan="5" class="text-center py-4">
+                      <div class="alert alert-warning mb-0">
+                        No concepts were extracted from this guideline. This may happen if the guideline does not
+                        contain any recognizable ethical concepts or if the extraction process encountered an error.
+                      </div>
+                    </td>
+                  </tr>
                   {% endif %}
                 </tbody>
               </table>
@@ -139,18 +231,19 @@
         </div>
       </div>
     </div>
-    
+
     <div class="d-flex justify-content-between">
-      <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">Cancel</a>
-      
+      <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
+        class="btn btn-secondary">Cancel</a>
+
       {% if concepts %}
-        <button type="submit" class="btn btn-primary">
-          <i class="fas fa-save"></i> Save Selected Concepts
-        </button>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save"></i> Save Selected Concepts
+      </button>
       {% else %}
-        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
-          <i class="fas fa-arrow-left"></i> Return to Guideline
-        </a>
+      <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
+        <i class="fas fa-arrow-left"></i> Return to Guideline
+      </a>
       {% endif %}
     </div>
   </form>
@@ -160,21 +253,21 @@
 {% block scripts %}
 {{ super() }}
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     // Get references to buttons and checkboxes
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
     const checkboxes = document.querySelectorAll('.concept-checkbox');
-    
+
     // Select all concepts
-    selectAllBtn.addEventListener('click', function() {
+    selectAllBtn.addEventListener('click', function () {
       checkboxes.forEach(checkbox => {
         checkbox.checked = true;
       });
     });
-    
+
     // Deselect all concepts
-    deselectAllBtn.addEventListener('click', function() {
+    deselectAllBtn.addEventListener('click', function () {
       checkboxes.forEach(checkbox => {
         checkbox.checked = false;
       });
@@ -192,7 +285,7 @@
     font-size: 0.9rem;
     line-height: 1.5;
   }
-  
+
   .table td {
     vertical-align: middle;
   }

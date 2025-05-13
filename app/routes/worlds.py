@@ -800,10 +800,36 @@ def analyze_guideline(id, document_id):
             ontology_source
         )
         
+        # Generate preview triples for all concepts (for visualization purposes)
+        # We'll use all concept indices to preview what triples would be generated
+        concepts_list = concepts_result.get("concepts", [])
+        preview_indices = list(range(len(concepts_list)))
+        preview_triples_result = {}
+        preview_triples = []
+        triple_count = 0
+        
+        if preview_indices:
+            try:
+                preview_triples_result = guideline_analysis_service.generate_triples(
+                    concepts_list,
+                    preview_indices,
+                    ontology_source
+                )
+                preview_triples = preview_triples_result.get("triples", [])
+                triple_count = len(preview_triples)
+                print(f"Generated {triple_count} preview triples")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(f"Error generating preview triples: {str(e)}")
+        
+        # Manually limit preview triples to 100 max for display
+        limited_preview_triples = preview_triples[:100] if len(preview_triples) > 100 else preview_triples
+        
         # Store analysis results in session for the review page
         from flask import session
         session[f'guideline_analysis_{document_id}'] = {
-            'concepts': concepts_result.get("concepts", []),
+            'concepts': concepts_list,
             'matched_entities': matched_result.get("matches", {}),
             'ontology_source': ontology_source
         }
@@ -812,8 +838,10 @@ def analyze_guideline(id, document_id):
         return render_template('guideline_concepts_review.html', 
                             world=world, 
                             guideline=guideline, 
-                            concepts=concepts_result.get("concepts", []),
-                            matched_entities=matched_result.get("matches", {}))
+                            concepts=concepts_list,
+                            matched_entities=matched_result.get("matches", {}),
+                            preview_triples=limited_preview_triples,
+                            triple_count=triple_count)
     except Exception as e:
         import traceback
         traceback.print_exc()
