@@ -77,3 +77,4 @@ package-lock.json
 _src/
 # Backup files
 *.bak*
+mcp_server.pid
