@@ -91,6 +91,9 @@
                   <a href="{{ url_for('worlds.analyze_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-outline-info">
                     <i class="fas fa-brain"></i> Analyze
                   </a>
+                  <a href="{{ url_for('fix_concepts.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" class="btn btn-outline-success">
+                    <i class="fas fa-microscope"></i> Extract Concepts
+                  </a>
                   <!-- Edit functionality not yet implemented -->
                 </div>
               </div>

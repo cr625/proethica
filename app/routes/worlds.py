@@ -750,34 +750,39 @@ def analyze_guideline(id, document_id):
     """Analyze a guideline document and extract ontology concepts."""
     world = World.query.get_or_404(id)
     
-    from app.models.document import Document
-    guideline = Document.query.get_or_404(document_id)
-    
-    # Check if document belongs to this world
-    if guideline.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Check if document is a guideline
-    if guideline.document_type != "guideline":
-        flash('Document is not a guideline', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Get guideline content - prefer content field but fall back to file content
-    content = guideline.content
-    if not content and guideline.file_path:
-        try:
-            with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-        except Exception as e:
-            flash(f'Error reading guideline file: {str(e)}', 'error')
-            return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    if not content:
-        flash('No content available for analysis', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    # Import the direct concept extraction and extract-only implementations
+    from app.routes.worlds_direct_concepts import direct_concept_extraction
+    from app.routes.worlds_extract_only import extract_only_analyze_guideline
     
     try:
+        # First try to get the document and content
+        from app.models.document import Document
+        guideline = Document.query.get_or_404(document_id)
+        
+        # Check if document belongs to this world
+        if guideline.world_id != world.id:
+            flash('Document does not belong to this world', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Check if document is a guideline
+        if guideline.document_type != "guideline":
+            flash('Document is not a guideline', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Get guideline content - prefer content field but fall back to file content
+        content = guideline.content
+        if not content and guideline.file_path:
+            try:
+                with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+            except Exception as e:
+                flash(f'Error reading guideline file: {str(e)}', 'error')
+                return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        if not content:
+            flash('No content available for analysis', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
         # Get ontology source for this world
         ontology_source = None
         if world.ontology_source:
@@ -790,63 +795,92 @@ def analyze_guideline(id, document_id):
         # Extract concepts from the guideline content
         concepts_result = guideline_analysis_service.extract_concepts(content, ontology_source)
         
-        if "error" in concepts_result:
+        # Check for various outcomes:
+        
+        # CASE 1: Extraction failed completely
+        if "error" in concepts_result and "concepts" not in concepts_result:
             flash(f'Error analyzing guideline: {concepts_result["error"]}', 'error')
             return redirect(url_for('worlds.world_guidelines', id=world.id))
         
-        # Match concepts to ontology entities
-        matched_result = guideline_analysis_service.match_concepts(
-            concepts_result.get("concepts", []), 
-            ontology_source
-        )
+        # CASE 2: MCP extraction succeeded but LLM is unavailable 
+        if (concepts_result.get("concepts", []) and 
+            ("error" in concepts_result and "LLM client not available" in concepts_result["error"])):
+            # Simply show the concepts that were extracted since that part worked
+            return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
         
-        # Generate preview triples for all concepts (for visualization purposes)
-        # We'll use all concept indices to preview what triples would be generated
-        concepts_list = concepts_result.get("concepts", [])
-        preview_indices = list(range(len(concepts_list)))
-        preview_triples_result = {}
-        preview_triples = []
-        triple_count = 0
+        # CASE 3: No concepts were found
+        if not concepts_result.get("concepts", []):
+            flash('No concepts were found in this guideline', 'warning')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
         
-        if preview_indices:
-            try:
+        # CASE 4: Try the full analysis flow with matching and triple generation
+        try:
+            # Match concepts to ontology entities
+            matched_result = guideline_analysis_service.match_concepts(
+                concepts_result.get("concepts", []), 
+                ontology_source
+            )
+            
+            # Check if matching failed - if so, just show the concepts
+            if "error" in matched_result and "LLM client not available" in matched_result["error"]:
+                return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
+            
+            # Generate preview triples for all concepts
+            concepts_list = concepts_result.get("concepts", [])
+            preview_indices = list(range(len(concepts_list)))
+            preview_triples = []
+            triple_count = 0
+            
+            if preview_indices:
                 preview_triples_result = guideline_analysis_service.generate_triples(
                     concepts_list,
                     preview_indices,
                     ontology_source
                 )
+                
+                # Check if triple generation failed - if so, just show the concepts
+                if "error" in preview_triples_result and "LLM client not available" in preview_triples_result["error"]:
+                    return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
+                
                 preview_triples = preview_triples_result.get("triples", [])
                 triple_count = len(preview_triples)
-                print(f"Generated {triple_count} preview triples")
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                print(f"Error generating preview triples: {str(e)}")
-        
-        # Manually limit preview triples to 100 max for display
-        limited_preview_triples = preview_triples[:100] if len(preview_triples) > 100 else preview_triples
-        
-        # Store analysis results in session for the review page
-        from flask import session
-        session[f'guideline_analysis_{document_id}'] = {
-            'concepts': concepts_list,
-            'matched_entities': matched_result.get("matches", {}),
-            'ontology_source': ontology_source
-        }
-        
-        # Render the review page with extracted concepts
-        return render_template('guideline_concepts_review.html', 
-                            world=world, 
-                            guideline=guideline, 
-                            concepts=concepts_list,
-                            matched_entities=matched_result.get("matches", {}),
-                            preview_triples=limited_preview_triples,
-                            triple_count=triple_count)
+            
+            # Manually limit preview triples to 100 max for display
+            limited_preview_triples = preview_triples[:100] if len(preview_triples) > 100 else preview_triples
+            
+            # Store analysis results in session for the review page
+            from flask import session
+            session[f'guideline_analysis_{document_id}'] = {
+                'concepts': concepts_list,
+                'matched_entities': matched_result.get("matches", {}),
+                'ontology_source': ontology_source
+            }
+            
+            # Full analysis worked - render the complete review page
+            return render_template('guideline_concepts_review.html', 
+                                world=world, 
+                                guideline=guideline, 
+                                concepts=concepts_list,
+                                matched_entities=matched_result.get("matches", {}),
+                                preview_triples=limited_preview_triples,
+                                triple_count=triple_count)
+        except Exception as e:
+            # If any part of the matching/triples flow fails, just show the concepts
+            import traceback
+            traceback.print_exc()
+            return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
+                
     except Exception as e:
         import traceback
         traceback.print_exc()
-        flash(f'Error analyzing guideline: {str(e)}', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # If any exception occurs, try the extract-only implementation as fallback
+        try:
+            return extract_only_analyze_guideline(id, document_id, world, guideline_analysis_service)
+        except Exception as inner_e:
+            # If even the fallback fails, show the original error
+            flash(f'Error analyzing guideline: {str(e)}', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts', methods=['POST'])
 def save_guideline_concepts(world_id, document_id):

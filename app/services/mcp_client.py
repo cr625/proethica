@@ -59,28 +59,31 @@ class MCPClient:
             
         print(f"Testing connection to MCP server at {clean_url}...")
         
-        # Try different endpoints that might be available
-        test_endpoints = [
-            # Check JSON-RPC endpoint
-            "/jsonrpc"
-        ]
-        
-        for endpoint in test_endpoints:
-            try:
-                # Use string formatting to avoid escape sequence issues
-                full_url = "{}{}".format(clean_url, endpoint)
-                print(f"  Checking endpoint: {full_url}")
-                response = self.session.get(full_url, timeout=5)
-                
-                if response.status_code == 200:
-                    print(f"Successfully connected to MCP server at {full_url}")
-                    return True
-                else:
-                    print(f"  Endpoint returned status code {response.status_code}")
-            except requests.exceptions.ConnectionError:
-                print(f"  Could not connect to {full_url}")
-            except Exception as e:
-                print(f"  Error checking endpoint {full_url}: {str(e)}")
+        # Try JSON-RPC endpoint with proper POST request
+        jsonrpc_endpoint = f"{clean_url}/jsonrpc"
+        try:
+            print(f"  Checking JSON-RPC endpoint: {jsonrpc_endpoint}")
+            # Use POST with proper JSON-RPC request format
+            response = self.session.post(
+                jsonrpc_endpoint, 
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "list_tools",
+                    "params": {},
+                    "id": 1
+                },
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                print(f"Successfully connected to MCP server at {jsonrpc_endpoint}")
+                return True
+            else:
+                print(f"  JSON-RPC endpoint returned status code {response.status_code}")
+        except requests.exceptions.ConnectionError:
+            print(f"  Could not connect to {jsonrpc_endpoint}")
+        except Exception as e:
+            print(f"  Error checking JSON-RPC endpoint: {str(e)}")
         
         print(f"All connection attempts to MCP server failed")
         return False
@@ -219,14 +222,55 @@ class MCPClient:
             Dictionary with status info including 'status' key with value 'current', 'deprecated', or 'unknown'
         """
         try:
-            # Make request to check ontology status
-            response = self.session.get(f"{self.mcp_url}/api/ontology/{ontology_source}/status")
+            # First try to get the status using JSON-RPC
+            try:
+                response = self.session.post(
+                    f"{self.mcp_url}/jsonrpc",
+                    json={
+                        "jsonrpc": "2.0",
+                        "method": "get_ontology_status",
+                        "params": {"ontology_id": ontology_source},
+                        "id": 1
+                    },
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if "result" in result:
+                        return result["result"]
+            except Exception as e:
+                # Silently catch errors and continue to database check
+                pass
+                
+            # If JSON-RPC fails, check directly in the database
+            from app.models.ontology import Ontology
+            from app import db
             
-            if response.status_code == 200:
-                return response.json()
+            # Get the ontology from the database
+            ontology = Ontology.query.filter_by(source=ontology_source).first()
+            
+            if ontology:
+                # Check if the ontology is deprecated
+                is_deprecated = False
+                if hasattr(ontology, 'is_deprecated'):
+                    is_deprecated = ontology.is_deprecated
+                
+                # Get the number of triples as a measure of ontology size
+                triple_count = 0
+                if hasattr(ontology, 'content') and ontology.content:
+                    # Rough estimate of triple count based on content lines
+                    triple_count = len([line for line in ontology.content.split('\n') if line.strip() and not line.strip().startswith('#')])
+                
+                return {
+                    'status': 'deprecated' if is_deprecated else 'current',
+                    'message': 'Retrieved from database',
+                    'ontology_id': ontology.id,
+                    'name': ontology.name,
+                    'triple_count': triple_count
+                }
             else:
-                print(f"Error checking ontology status: {response.status_code} - {response.text}")
-                return {'status': 'unknown', 'message': f'Error: {response.status_code}'}
+                return {'status': 'unknown', 'message': 'Ontology not found in database'}
         except Exception as e:
             print(f"Error checking ontology status: {str(e)}")
             return {'status': 'unknown', 'message': f'Error: {str(e)}'}

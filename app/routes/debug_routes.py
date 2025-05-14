@@ -80,6 +80,8 @@ def debug_status():
     # Check MCP server status
     try:
         mcp_url = os.environ.get("MCP_SERVER_URL", "http://localhost:5001")
+        
+        # Better JSON-RPC request for the MCP server
         response = requests.post(
             f"{mcp_url}/jsonrpc",
             json={
@@ -93,7 +95,11 @@ def debug_status():
         
         if response.status_code == 200:
             result = response.json()
-            if "result" in result and "tools" in result["result"]:
+            
+            # Debug the response
+            print(f"MCP Response: {json.dumps(result, indent=2)}")
+            
+            if "result" in result and isinstance(result["result"], dict) and "tools" in result["result"]:
                 tools = result["result"]["tools"]
                 guideline_tools = [t for t in tools if "guideline" in t["name"].lower()]
                 
@@ -109,16 +115,55 @@ def debug_status():
                     "error": None
                 }
                 
-                # Set ontology status based on available tools
-                if any("entity" in t["name"].lower() for t in tools):
-                    status_data["system_status"]["ontology"] = {
-                        "status": "available",
-                        "detail": {
-                            "entity_tools_available": True,
-                            "entity_tools": [t["name"] for t in tools if "entity" in t["name"].lower()]
-                        },
-                        "error": None
-                    }
+                # Set ontology status based on available tools and database content
+                # Check for entity tools including the specific "get_world_entities" tool
+                if any("entity" in t["name"].lower() for t in tools) or any(t["name"] == "get_world_entities" for t in tools):
+                    # Also check for ontologies in the database to provide more information
+                    try:
+                        from app.models.ontology import Ontology
+                        ontologies = Ontology.query.all()
+                        
+                        if ontologies:
+                            # For ontology status, display as "available" instead of "unknown"
+                            status_data["system_status"]["ontology"] = {
+                                "status": "available",
+                                "detail": {
+                                    "entity_tools_available": True,
+                                    "entity_tools": [t["name"] for t in tools if "entity" in t["name"].lower() or t["name"] == "get_world_entities"],
+                                    "ontology_count": len(ontologies),
+                                    "ontologies": [
+                                        {
+                                            "id": o.id,
+                                            "name": o.name,
+                                            "source": o.source,
+                                            "triple_count": len(o.content.split('\n')) if o.content else 0
+                                        } 
+                                        for o in ontologies[:5]  # Limit to 5 to avoid large responses
+                                    ]
+                                },
+                                "error": None
+                            }
+                        else:
+                            status_data["system_status"]["ontology"] = {
+                                "status": "available",
+                                "detail": {
+                                    "entity_tools_available": True,
+                                    "entity_tools": [t["name"] for t in tools if "entity" in t["name"].lower() or t["name"] == "get_world_entities"],
+                                    "warning": "No ontologies found in database"
+                                },
+                                "error": None
+                            }
+                    except Exception as e:
+                        # Fall back to basic information if there's an error accessing the database
+                        status_data["system_status"]["ontology"] = {
+                            "status": "available",
+                            "detail": {
+                                "entity_tools_available": True,
+                                "entity_tools": [t["name"] for t in tools if "entity" in t["name"].lower() or t["name"] == "get_world_entities"],
+                                "db_error": str(e)
+                            },
+                            "error": None
+                        }
                 
                 # Set guidelines status based on available tools
                 if guideline_tools:
@@ -180,6 +225,33 @@ def debug_status():
             if 'documents' in tables:
                 cur.execute("SELECT COUNT(*) FROM documents WHERE document_type='guideline';")
                 guideline_count = cur.fetchone()[0]
+            
+            # Check if ontologies table exists and get ontology data even if MCP server isn't working
+            if 'ontologies' in tables and status_data["system_status"]["ontology"]["status"] == "unknown":
+                try:
+                    from app.models.ontology import Ontology
+                    ontologies = Ontology.query.all()
+                    
+                    if ontologies:
+                        status_data["system_status"]["ontology"] = {
+                            "status": "available",
+                            "detail": {
+                                "source": "database",
+                                "ontology_count": len(ontologies),
+                                "ontologies": [
+                                    {
+                                        "id": o.id,
+                                        "name": o.name,
+                                        "source": o.source,
+                                        "triple_count": len(o.content.split('\n')) if o.content else 0
+                                    } 
+                                    for o in ontologies[:5]  # Limit to 5 to avoid large responses
+                                ]
+                            },
+                            "error": None
+                        }
+                except Exception as e:
+                    print(f"Error getting ontology info from database: {e}")
             
             conn.close()
             
