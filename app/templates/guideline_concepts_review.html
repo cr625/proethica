@@ -33,6 +33,18 @@
       <strong>Checked concepts will be included</strong> when you submit the form.
     </p>
   </div>
+  
+  {% if llm_unavailable %}
+  <div class="alert alert-warning">
+    <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Limited Functionality</h4>
+    <p>The LLM (Large Language Model) service is currently unavailable. The following functionality is limited:</p>
+    <ul>
+      <li>Concept matching with ontology entities may not be available</li>
+      <li>Triple generation preview may be limited</li>
+    </ul>
+    <p class="mb-0">You can still review and save the extracted concepts, but some advanced features may not work fully.</p>
+  </div>
+  {% endif %}
 
   <div class="card mb-4">
     <div class="card-header bg-primary text-white">

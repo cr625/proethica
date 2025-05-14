@@ -1,117 +1,138 @@
 """
-Modified worlds routes that support concept-only extraction without requiring LLM.
-This adds a specialized route for showing only extracted concepts without requiring match/triples.
+Routes for extracting concepts from guidelines without relying on entity integration.
+This provides a direct route to extract concepts from guidelines using the LLM.
 """
 
-from flask import render_template, flash, redirect, url_for, session
-import traceback
-
+from flask import Blueprint, render_template, request, jsonify, current_app, flash, redirect, url_for, session
+from app.services.guideline_analysis_service import GuidelineAnalysisService
 from app.models.document import Document
-from app.models.ontology import Ontology
+from app.models.world import World
+from app import db
+import json
+import logging
 
-def extract_only_analyze_guideline(id, document_id, world, guideline_analysis_service):
+logger = logging.getLogger(__name__)
+
+worlds_extract_only_bp = Blueprint('worlds_extract_only', __name__)
+
+@worlds_extract_only_bp.route('/worlds/<int:world_id>/guidelines/<int:document_id>/extract_concepts_direct', methods=['GET', 'POST'])
+def extract_concepts_direct(world_id, document_id):
     """
-    Special implementation of analyze_guideline that only requires concept extraction
-    to succeed, and does not require the matching and triple generation steps.
+    Extract concepts from a guideline document directly using the LLM-based extraction.
+    This bypasses the entity integration and focuses solely on extracting concepts.
     
-    This allows users to see extracted concepts even when LLM is unavailable.
+    Args:
+        world_id: ID of the world containing the guideline
+        document_id: ID of the guideline document to extract concepts from
+        
+    Returns:
+        JSON response with extracted concepts or redirect to concepts review page
     """
-    from app.models.document import Document
-    guideline = Document.query.get_or_404(document_id)
-    
-    # Check if document belongs to this world
-    if guideline.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Check if document is a guideline
-    if guideline.document_type != "guideline":
-        flash('Document is not a guideline', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Get guideline content - prefer content field but fall back to file content
-    content = guideline.content
-    if not content and guideline.file_path:
-        try:
-            with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-        except Exception as e:
-            flash(f'Error reading guideline file: {str(e)}', 'error')
-            return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    if not content:
-        flash('No content available for analysis', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Get ontology source for this world
-    ontology_source = None
-    if world.ontology_source:
+    try:
+        world = World.query.get_or_404(world_id)
+        document = Document.query.get_or_404(document_id)
+        
+        analysis_service = GuidelineAnalysisService()
+        
+        # Check if document belongs to this world
+        if document.world_id != world.id:
+            flash("Document does not belong to this world", "error")
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        
+        # Check if document is a guideline
+        if document.document_type != "guideline":
+            flash("Document is not a guideline", "error")
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        
+        # Get document content
+        content = document.content
+        if not content and document.file_path:
+            try:
+                with open(document.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+            except Exception as e:
+                flash(f"Error reading file: {str(e)}", "error")
+                return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        if not content:
+            flash("No content found in the guideline document", "error")
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        
+        # Create analysis service
+        analysis_service = GuidelineAnalysisService()
+        
+        # Get ontology source for this world if available
         ontology_source = world.ontology_source
-    elif world.ontology_id:
-        ontology = Ontology.query.get(world.ontology_id)
-        if ontology:
-            ontology_source = ontology.domain_id
-    
-    # Extract concepts from the guideline content
-    concepts_result = guideline_analysis_service.extract_concepts(content, ontology_source)
-    
-    if "error" in concepts_result:
-        flash(f'Error analyzing guideline: {concepts_result["error"]}', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Initialize empty values for optional components
-    matched_entities = {}
-    preview_triples = []
-    triple_count = 0
-    concepts_list = concepts_result.get("concepts", [])
-    
-    # Try to match concepts to ontology entities if possible
-    # But continue even if this fails
-    try:
-        matched_result = guideline_analysis_service.match_concepts(concepts_list, ontology_source)
-        if not "error" in matched_result:
-            matched_entities = matched_result.get("matches", {})
-        else:
-            flash(f'Warning: Unable to match concepts to ontology: {matched_result["error"]}', 'warning')
-    except Exception as e:
-        flash(f'Warning: Unable to match concepts to ontology: {str(e)}', 'warning')
-    
-    # Try to generate preview triples if possible
-    # But continue even if this fails
-    try:
-        preview_indices = list(range(len(concepts_list)))
-        if preview_indices:
-            preview_triples_result = guideline_analysis_service.generate_triples(
-                concepts_list,
-                preview_indices,
-                ontology_source
-            )
-            if not "error" in preview_triples_result:
-                preview_triples = preview_triples_result.get("triples", [])
-                triple_count = len(preview_triples)
-                # Manually limit preview triples to 100 max for display
-                preview_triples = preview_triples[:100] if len(preview_triples) > 100 else preview_triples
+        
+        # Extract concepts using the enhanced LLM-based approach
+        logger.info(f"Extracting concepts directly from guideline: {document.title}")
+        result = analysis_service.extract_concepts(content, ontology_source)
+        
+        # Store the extracted concepts in session for review
+        if "concepts" in result:
+            extracted_concepts = result["concepts"]
+            
+            # Save the concepts to a JSON file for debugging/review
+            try:
+                with open('guideline_concepts.json', 'w') as f:
+                    json.dump(extracted_concepts, f, indent=2)
+            except Exception as e:
+                logger.warning(f"Could not save concepts to file: {str(e)}")
+            
+            logger.info(f"Successfully extracted {len(extracted_concepts)} concepts from guideline")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # If AJAX request, return JSON response
+                return jsonify({
+                    "success": True, 
+                    "concepts": extracted_concepts,
+                    "document_id": document_id
+                })
             else:
-                flash(f'Warning: Unable to generate triple previews: {preview_triples_result["error"]}', 'warning')
+                # Store concepts in session for review page
+                # Store in session to preserve data between requests
+                analysis_data = {
+                    'concepts': extracted_concepts,
+                    'ontology_source': ontology_source
+                }
+                session[f'guideline_analysis_{document_id}'] = analysis_data
+                
+                # Render the extracted concepts template directly
+                return render_template('guideline_extracted_concepts.html',
+                                     world=world,
+                                     guideline=document,
+                                     concepts=extracted_concepts,
+                                     world_id=world_id,
+                                     document_id=document_id)
+        else:
+            # Handle error case
+            error_message = result.get("error", "Unknown error in concept extraction")
+            logger.error(f"Error extracting concepts: {error_message}")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"success": False, "error": error_message})
+            else:
+                flash(f"Error extracting concepts: {error_message}", "error")
+                # If there are concepts in the result (even with error), show them
+                if "concepts" in result and result["concepts"]:
+                    return render_template('guideline_extracted_concepts.html',
+                                         world=world,
+                                         guideline=document,
+                                         concepts=result["concepts"],
+                                         world_id=world_id,
+                                         document_id=document_id,
+                                         error=error_message)
+                else:
+                    return redirect(url_for('worlds.view_guideline', 
+                                         id=world_id, 
+                                         document_id=document_id))
+        
     except Exception as e:
-        flash(f'Warning: Unable to generate triple previews: {str(e)}', 'warning')
-    
-    # Store analysis results in session for the review page
-    from flask import session
-    session[f'guideline_analysis_{document_id}'] = {
-        'concepts': concepts_list,
-        'matched_entities': matched_entities,
-        'ontology_source': ontology_source
-    }
-    
-    # Render the review page with extracted concepts
-    # This will work even if matching or triples failed
-    return render_template('guideline_concepts_review.html', 
-                        world=world, 
-                        guideline=guideline, 
-                        concepts=concepts_list,
-                        matched_entities=matched_entities,
-                        preview_triples=preview_triples,
-                        triple_count=triple_count,
-                        world_id=world.id,
-                        document_id=document_id)
+        logger.exception(f"Error in extract_concepts_direct: {str(e)}")
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({"success": False, "error": str(e)})
+        else:
+            flash(f"Error extracting concepts: {str(e)}", "error")
+            return redirect(url_for('worlds.view_guideline', 
+                                   id=world_id, 
+                                   document_id=document_id))

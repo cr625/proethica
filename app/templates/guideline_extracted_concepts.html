@@ -1,119 +1,147 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Extracted Concepts - {{ guideline.title }}{% endblock %}
+{% block title %}Guideline Extracted Concepts{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <h1>Concepts from {{ guideline.title }}</h1>
-  
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document_id) }}">{{ guideline.title }}</a></li>
-      <li class="breadcrumb-item active">Extracted Concepts</li>
-    </ol>
-  </nav>
-  
-  {% if error_message %}
-    <div class="alert alert-danger">
-      {{ error_message }}
-    </div>
-  {% endif %}
-
-  {% if success_message %}
-    <div class="alert alert-success">
-      {{ success_message }}
-    </div>
-  {% endif %}
-  
-  <div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-      <h2 class="card-title h5 mb-0">Guideline Content</h2>
-    </div>
-    <div class="card-body">
-      <div class="mb-4">
-        <div style="max-height: 300px; overflow-y: auto; padding: 15px; background-color: #f8f9fa; border-radius: 5px; font-family: monospace;">
-          {{ content|safe }}
+<div class="container my-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.list_worlds') }}">Worlds</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}">{{ guideline.title }}</a></li>
+            <li class="breadcrumb-item active">Extracted Concepts</li>
+        </ol>
+    </nav>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1>Extracted Concepts from "{{ guideline.title }}"</h1>
+            <p class="text-muted">These concepts were automatically extracted from the guideline text.</p>
         </div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="card">
-    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-      <h2 class="card-title h5 mb-0">Extracted Concepts ({{ concepts|length }})</h2>
-      <small class="text-white-50">MCP extraction successful</small>
     </div>
     
-    <div class="card-body">
-      {% if concepts|length > 0 %}
-        <div class="table-responsive">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th scope="col">Concept</th>
-                <th scope="col">Type</th>
-                <th scope="col">Description</th>
-                <th scope="col">Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for concept in concepts %}
-                <tr>
-                  <td width="20%">
-                    <strong>{{ concept.name|default(concept.concept_name, true)|default(concept.label, true) }}</strong>
-                  </td>
-                  <td width="15%">
-                    <span class="badge bg-info">{{ concept.type|default(concept.concept_type, true) }}</span>
-                  </td>
-                  <td width="50%">
-                    {{ concept.description|default(concept.concept_description, true)|default('No description available', true) }}
-                  </td>
-                  <td width="15%">
-                    {% if concept.confidence is defined %}
-                      <div class="progress" style="height: 20px;">
-                        <div class="progress-bar bg-success" role="progressbar" 
-                             style="width: {{ (concept.confidence * 100)|int }}%;" 
-                             aria-valuenow="{{ (concept.confidence * 100)|int }}" 
-                             aria-valuemin="0" 
-                             aria-valuemax="100">
-                          {{ (concept.confidence * 100)|int }}%
-                        </div>
-                      </div>
-                    {% else %}
-                      <span class="badge bg-secondary">N/A</span>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="alert alert-info mt-3">
-          <h5 class="alert-heading"><i class="fas fa-info-circle"></i> Concept Extraction Only</h5>
-          <p>
-            These concepts were extracted using the MCP ontology service. 
-            For more advanced features like generating triples for the knowledge graph, the LLM service needs to be available.
-          </p>
-        </div>
-      {% else %}
-        <div class="alert alert-warning">
-          <p class="mb-0">No concepts were extracted from this guideline.</p>
-        </div>
-      {% endif %}
-      
-      <div class="d-flex justify-content-between mt-3">
-        <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-secondary">
-          <i class="fas fa-arrow-left"></i> Back to Guidelines
-        </a>
-        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document_id) }}" class="btn btn-primary">
-          <i class="fas fa-book"></i> View Complete Guideline
-        </a>
-      </div>
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Error!</h4>
+        <p>{{ error }}</p>
     </div>
-  </div>
+    {% endif %}
+    
+    {% if concepts %}
+    <form method="POST" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <h3>Select concepts to include in the ontology:</h3>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label" for="selectAll">
+                            <strong>Select/Deselect All</strong>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <button type="submit" class="btn btn-primary">Save Selected Concepts</button>
+                <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Extracted Concepts ({{ concepts|length }})</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 5%">Select</th>
+                                        <th style="width: 20%">Concept</th>
+                                        <th style="width: 15%">Type</th>
+                                        <th style="width: 45%">Description</th>
+                                        <th style="width: 15%">Confidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for concept in concepts %}
+                                    <tr>
+                                        <td>
+                                            <div class="form-check">
+                                                <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts" value="{{ concept.id }}" id="concept-{{ concept.id }}">
+                                            </div>
+                                        </td>
+                                        <td><label class="form-check-label" for="concept-{{ concept.id }}"><strong>{{ concept.label }}</strong></label></td>
+                                        <td>{{ concept.type|title }}</td>
+                                        <td>{{ concept.description }}</td>
+                                        <td>
+                                            <div class="progress">
+                                                {% set confidence_pct = (concept.confidence * 100)|int %}
+                                                {% set confidence_class = "bg-success" if confidence_pct >= 80 else "bg-warning" if confidence_pct >= 60 else "bg-danger" %}
+                                                <div class="progress-bar {{ confidence_class }}" role="progressbar" style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}" aria-valuemin="0" aria-valuemax="100">{{ confidence_pct }}%</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12 text-end">
+                <button type="submit" class="btn btn-primary">Save Selected Concepts</button>
+                <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">No concepts found</h4>
+        <p>No concepts were extracted from this guideline. The guideline content may be too short or not contain recognizable ethical engineering concepts.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">Back to Guideline</a>
+        </p>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Select/deselect all checkboxes
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const conceptCheckboxes = document.querySelectorAll('.concept-checkbox');
+    
+    selectAllCheckbox.addEventListener('change', function() {
+        const isChecked = selectAllCheckbox.checked;
+        conceptCheckboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+        });
+    });
+    
+    // Update "Select All" state based on individual checkboxes
+    function updateSelectAllCheckbox() {
+        const checkedCount = document.querySelectorAll('.concept-checkbox:checked').length;
+        selectAllCheckbox.checked = checkedCount === conceptCheckboxes.length;
+        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < conceptCheckboxes.length;
+    }
+    
+    conceptCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectAllCheckbox);
+    });
+    
+    // Sort concepts by confidence (optional feature)
+    // Could be implemented with JavaScript to allow dynamic sorting
+});
+</script>
 {% endblock %}
