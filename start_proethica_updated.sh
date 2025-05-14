@@ -204,6 +204,23 @@ if [ -f "./update_claude_models_in_mcp_server.py" ]; then
     python update_claude_models_in_mcp_server.py
 fi
 
+# Check if port 5001 is already in use and kill the process if needed
+echo -e "${BLUE}Checking if port 5001 is already in use...${NC}"
+# Use netstat instead of lsof which might hang in this environment
+if netstat -tuln 2>/dev/null | grep -q ":5001 "; then
+    echo -e "${YELLOW}Port 5001 is already in use. Attempting to find and kill the process...${NC}"
+    # Try to kill any process using port 5001 using fuser if available
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k 5001/tcp >/dev/null 2>&1 || true
+        echo -e "${GREEN}Process using port 5001 has been terminated.${NC}"
+    else
+        echo -e "${YELLOW}fuser command not available. Please manually ensure port 5001 is free.${NC}"
+    fi
+    sleep 2
+else
+    echo -e "${GREEN}Port 5001 is available.${NC}"
+fi
+
 # Start the enhanced ontology MCP server with guidelines support
 echo -e "${BLUE}Starting Enhanced Ontology MCP Server with Guidelines Support...${NC}"
 

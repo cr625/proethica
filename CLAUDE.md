@@ -1,5 +1,15 @@
 # ProEthica Development Notes
 
+## Startup Script Troubleshooting
+
+### Port 5001 Check Issue
+If the `start_proethica_updated.sh` script hangs at the "Checking if port 5001 is already in use..." step, it's likely due to an issue with the `lsof` command in the script. The fix involves:
+
+1. Replacing the `lsof` command with `netstat` for checking port availability
+2. Using `fuser` as a fallback for process termination when possible
+
+This issue has been fixed in the current version of the script, which now uses a more reliable approach to check port availability.
+
 ## Database Configuration in Codespace Environment
 
 When running in GitHub Codespaces, the PostgreSQL container uses port 5433 (instead of the standard 5432) and the password for the 'postgres' user should be set to 'PASS' to match the configuration in the `.env` file.
@@ -66,6 +76,40 @@ The application follows a modular structure with Flask blueprints:
 - Each entity type (roles, resources, conditions, characters, events, etc.) has its own blueprint in app/routes/
 - The debug blueprint (debug_bp) is imported from debug_routes.py into app/routes/debug.py
 - Model relationships rely on proper imports in app/models/__init__.py
+
+### Blueprint URL Routing in Templates
+
+Flask blueprints change how URL endpoints are referenced. When routes are moved from the main application to blueprints, the endpoint naming changes from simple function names to `blueprint_name.function_name`.
+
+For example, with the application structured as:
+```python
+index_bp = Blueprint('index', __name__)
+
+@index_bp.route('/')
+def index():
+    return render_template('index.html')
+```
+
+Templates must reference the endpoint as:
+```html
+<a href="{{ url_for('index.index') }}">Home</a>
+```
+instead of the old style:
+```html
+<a href="{{ url_for('index') }}">Home</a>
+```
+
+#### Recent Fix for URL Routing Errors
+
+A 500 Internal Server Error related to blueprint URL routing was fixed in the following files:
+- `app/templates/guidelines.html`
+- `app/templates/guideline_concepts_review.html`
+- `app/templates/guideline_content.html`
+- `app/routes/auth.py`
+
+The error occurred because these files were still using non-blueprint style URL references (`url_for('index')`) instead of the blueprint-prefixed style (`url_for('index.index')`).
+
+For detailed information on this fix, including the specific changes made and recommendations for preventing similar issues, see `docs/template_routing_fix.md`.
 
 ### Model Imports and Database Schema
 

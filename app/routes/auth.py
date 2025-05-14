@@ -11,7 +11,7 @@ def login():
     """Handle user login."""
     # Redirect if user is already logged in
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('index.index'))
     
     form = LoginForm()
     if form.validate_on_submit():
@@ -26,7 +26,7 @@ def login():
             # Redirect to the page the user was trying to access
             next_page = request.args.get('next')
             if not next_page or not next_page.startswith('/'):
-                next_page = url_for('index')
+                next_page = url_for('index.index')
             return redirect(next_page)
         else:
             flash('Invalid username or password', 'danger')
@@ -38,7 +38,7 @@ def register():
     """Handle user registration."""
     # Redirect if user is already logged in
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('index.index'))
     
     form = RegistrationForm()
     if form.validate_on_submit():
@@ -64,4 +64,4 @@ def logout():
     """Handle user logout."""
     logout_user()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('index'))
+    return redirect(url_for('index.index'))
