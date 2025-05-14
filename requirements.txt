@@ -41,6 +41,7 @@ langgraph
 PyPDF2                # PDF text extraction
 python-docx           # DOCX text extraction
 beautifulsoup4        # HTML text extraction
+markdown              # Markdown to HTML conversion
 
 # VECTOR EMBEDDINGS
 pgvector              # PostgreSQL vector extension

@@ -5,6 +5,14 @@
 
 set -e  # Exit on error
 
+# Source the Python path setup script
+if [ -f "./scripts/ensure_python_path.sh" ]; then
+    echo "Setting up Python environment paths..."
+    source ./scripts/ensure_python_path.sh
+else
+    echo "Warning: Python path setup script not found"
+fi
+
 # ANSI color codes for better readability
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'

@@ -2,6 +2,10 @@
 
 This document explains how to use the VSCode debugger with the ProEthica application.
 
+## Important Note About Python Environments
+
+The ProEthica application's Python dependencies are installed in the user site-packages directory (`/home/codespace/.local/lib/python3.12/site-packages`), but VSCode's debugger may use the conda Python environment (`/opt/conda/bin/python`). Our setup handles this automatically by adding the user site-packages to the Python path.
+
 ## Overview
 
 The ProEthica application normally starts using the `start_proethica_updated.sh` shell script, which:
@@ -44,6 +48,22 @@ The setup consists of three files:
 3. **.vscode/tasks.json**
    - Defines the pre-launch task to run the setup script
 
+## Python Path Configuration
+
+To ensure the debugger can access all required packages, we use the following approach:
+
+1. **Environment Variables in launch.json**:
+   ```json
+   "env": {
+     "PYTHONPATH": "/home/codespace/.local/lib/python3.12/site-packages:${PYTHONPATH}",
+     "USE_CONDA": "false"
+   }
+   ```
+   This adds the user site-packages directory to the Python path.
+
+2. **Python Path Setup Script**:
+   The script `scripts/ensure_python_path.sh` is sourced at the beginning of the setup process to set the correct Python paths.
+
 ## Troubleshooting
 
 If you encounter issues with the debugger:
@@ -57,3 +77,8 @@ If you encounter issues with the debugger:
 4. **Environment Variables**: If the application isn't picking up environment variables correctly, check the `.env` file and verify that the setup script is modifying it correctly.
 
 5. **Console Output**: Check the DEBUG CONSOLE panel in VSCode for any error messages or warnings that might explain the issue.
+
+6. **Python Module Import Errors**: If you encounter a "module not found" error:
+   - Check if the module exists in either `/opt/conda/lib/python3.12/site-packages` or `/home/codespace/.local/lib/python3.12/site-packages`
+   - If not, install it using `pip install --user <module-name>` to add it to the user site-packages
+   - Make sure the PYTHONPATH includes the correct site-packages directory

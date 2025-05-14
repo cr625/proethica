@@ -1,5 +1,48 @@
 # AI Ethical DM - Development Log
 
+## May 14, 2025: VSCode Debugging Environment Fix
+
+### Task Completed
+Fixed a Python module import issue that was preventing the VSCode debugger from properly running the application.
+
+### Problem
+When running the application in VSCode debug mode, there was a module not found error for the `markdown` package. This occurred because the VSCode debugger was using the conda Python environment (`/opt/conda/bin/python`), but the application's dependencies were installed in the user's site-packages directory (`/home/codespace/.local/lib/python3.12/site-packages`).
+
+### Changes Made
+1. Installed the `markdown` package using conda to make it available in the conda environment
+2. Updated the VSCode debug configuration in `.vscode/launch.json` to add the user's site-packages to the Python path:
+   ```json
+   "env": {
+     "PYTHONPATH": "/home/codespace/.local/lib/python3.12/site-packages:${PYTHONPATH}",
+     "USE_CONDA": "false"
+   }
+   ```
+3. Created a script `scripts/ensure_python_path.sh` that properly sets up the Python environment for debugging
+4. Modified `scripts/setup_debug_environment.sh` to source the Python path setup script
+
+### How to Use
+The VSCode debugger should now work properly with the following steps:
+1. In VSCode, go to the Run and Debug panel (Ctrl+Shift+D)
+2. Select "Debug ProEthica Application" from the dropdown menu
+3. Click the green "Play" button
+4. The setup script will run first, configure the Python environment, then the application will start with the debugger attached
+
+### Additional Notes
+This fix ensures that the debugger can access all packages installed in the user's site-packages directory while running in the conda Python environment. It should work for all Python dependencies regardless of where they are installed.
+
+## May 14, 2025: Missing Python Package Fix
+
+### Task Completed
+Fixed a missing Python package dependency issue where the `markdown` package was required but not explicitly listed in the requirements file.
+
+### Changes Made
+1. Installed the `markdown` package using conda: `conda install markdown -y`
+2. Updated `requirements.txt` to include the markdown package in the DOCUMENT PROCESSING section
+3. Verified that the package is properly documented as a dependency
+
+### How to Use
+The `markdown` package is used by template filters for converting markdown content to HTML in the web application. It should now be automatically installed when setting up the environment using the requirements file.
+
 ## May 14, 2025: VSCode Debugging Configuration
 
 ### Task Completed
@@ -166,3 +209,39 @@ Enhanced the LLM connection functionality and implemented robust fallback mechan
 - The test script helps isolate LLM connection issues from application logic problems
 - Model updates ensure the application uses the latest available Claude models
 - Even without a valid API key, the concept extraction feature will work with generated mock concepts
+
+## May 14, 2025: Guidelines Documentation Consolidation
+
+### Task Completed
+Consolidated all guideline-related documentation into two comprehensive files for improved organization and clarity.
+
+### Changes Made
+1. Created `docs/guidelines_implementation_progress.md`:
+   - Comprehensive document detailing the current implementation status
+   - Includes architecture description, implementation details, and recent achievements
+   - Documents the technical approach and code examples of key implementation aspects
+
+2. Created `docs/guidelines_implementation_next_steps.md`:
+   - Roadmap for future guidelines feature development
+   - Organized into immediate priorities and future enhancements
+   - Includes technical implementation plans and success criteria
+
+3. Archived redundant guideline documentation:
+   - Moved `README_GUIDELINES_TESTING.md` to `docs/archive/`
+   - Moved `README_GUIDELINE_MCP_INTEGRATION.md` to `docs/archive/`
+   - Moved `RUN_WEBAPP_WITH_GUIDELINES.md` to `docs/archive/`
+   - Moved `testing_guidelines_feature.md` to `docs/archive/`
+   - Moved `CODESPACE_GUIDELINES_STARTUP.md` to `docs/archive/`
+   - Moved `docs/multiple_guidelines.md` to `docs/archive/`
+   - Consolidated information from all these files into the progress and next steps files
+
+### How to Use
+The new documentation structure provides:
+- `guidelines_implementation_progress.md` - Reference for current state and implementation details
+- `guidelines_implementation_next_steps.md` - Planning document for ongoing development efforts
+
+### Notes
+- All important information from previous documentation has been preserved in the archive folder
+- The new structure reduces duplication and makes it easier to find relevant information
+- Future guideline feature development should update these two files rather than creating additional ones
+- Runtime environment information, testing procedures, and MCP integration details have been documented in both files
