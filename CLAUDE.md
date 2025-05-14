@@ -31,6 +31,27 @@ If you see a "password authentication failed" error when running the application
 
 The fix involves ensuring both match by running `./fix_db_password.sh` to set the container password to 'PASS'.
 
+## Script Organization
+
+The project's shell scripts are organized as follows:
+
+- **Root Directory Scripts**: Only essential scripts directly referenced by the main launcher remain in the root directory:
+  - `start_proethica_updated.sh` - The main launcher script
+  - `auto_run.sh` - Called by the main launcher
+  - `fix_db_password.sh` - Used for database configuration
+
+- **Archived Scripts**: All other shell scripts have been moved to the `scripts/archive` directory. These include:
+  - Environment setup scripts (e.g., `codespace_launcher.sh`, `start_codespace_env.sh`)
+  - Process-specific scripts (e.g., `process_case_187.sh`, `process_example_case.sh`)
+  - Server management scripts (e.g., `restart_server.sh`, `start_unified_ontology_server.sh`)
+  - Test scripts (e.g., `test_guideline_api.sh`, `run_guideline_mcp_test.sh`)
+
+If you need functionality from an archived script, either:
+1. Reference it directly from `scripts/archive/` directory
+2. Create a new script in the `scripts/` directory that provides the needed functionality
+
+This organization helps maintain a cleaner root directory while preserving all script functionality.
+
 ## Application Structure Notes
 
 The application follows a modular structure with Flask blueprints:
