@@ -33,18 +33,26 @@ The fix involves ensuring both match by running `./fix_db_password.sh` to set th
 
 ## Script Organization
 
-The project's shell scripts are organized as follows:
+The project's scripts are organized as follows:
 
 - **Root Directory Scripts**: Only essential scripts directly referenced by the main launcher remain in the root directory:
   - `start_proethica_updated.sh` - The main launcher script
   - `auto_run.sh` - Called by the main launcher
   - `fix_db_password.sh` - Used for database configuration
+  - `fix_mcp_client.py` - Used for updating MCP client to use JSON-RPC API
 
-- **Archived Scripts**: All other shell scripts have been moved to the `scripts/archive` directory. These include:
-  - Environment setup scripts (e.g., `codespace_launcher.sh`, `start_codespace_env.sh`)
-  - Process-specific scripts (e.g., `process_case_187.sh`, `process_example_case.sh`)
-  - Server management scripts (e.g., `restart_server.sh`, `start_unified_ontology_server.sh`)
-  - Test scripts (e.g., `test_guideline_api.sh`, `run_guideline_mcp_test.sh`)
+- **Archived Scripts in scripts/archive/**: All files not directly referenced by the main launcher have been moved to improve organization:
+  - Shell scripts:
+    - Environment setup scripts (e.g., `codespace_launcher.sh`, `start_codespace_env.sh`)
+    - Process-specific scripts (e.g., `process_case_187.sh`, `process_example_case.sh`)
+    - Server management scripts (e.g., `restart_server.sh`, `start_unified_ontology_server.sh`)
+    - Test scripts (e.g., `test_guideline_api.sh`, `run_guideline_mcp_test.sh`)
+  
+  - Python files:
+    - Test-related files (e.g., `test_case_analysis.py`, `test_mcp_jsonrpc_connection.py`)
+    - Update scripts (e.g., `update_claude_models_in_mcp_server.py`, `update_guidelines_in_CLAUDE_md.py`)
+    - Fix scripts (e.g., `fix_all_model_imports.py`, `fix_circular_import.py`, `fix_entity_triples_query.py`)
+    - Other utility scripts that aren't directly referenced by the main launcher
 
 If you need functionality from an archived script, either:
 1. Reference it directly from `scripts/archive/` directory
