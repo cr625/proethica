@@ -72,34 +72,48 @@ This document outlines the next steps and future enhancements for the Guidelines
   - Implement more complex relationship types between concepts
   - Add support for temporal and provenance information
   - Create inference rules for derived relationships
+  - Enhance the `guideline_triples.ttl` with more detailed relationships
+  - Implement formal concept validation against upper ontologies
 
 - **Support Additional Ontology Sources**
   - Add integration with BFO (Basic Formal Ontology)
   - Implement support for domain-specific ontologies
   - Create ontology mapping and alignment tools
+  - Enhance concept matching with better entity resolution
 
 - **Implement Export Options**
   - Add support for JSON-LD format
   - Implement N-Triples export
   - Create RDF/XML export option for legacy systems
   - Add visualization export to PNG/SVG
+  - Support direct import into triple stores (e.g., GraphDB, Virtuoso)
 
 ### 2. Integration with Existing Systems
+
+- **Enhance GuidelinesAgent**
+  - Expand the `GuidelinesAgent` class to utilize extracted concepts more effectively
+  - Implement weighted relevance scoring for guidelines during decision analysis
+  - Add support for contextual reasoning based on guideline principles
+  - Enhance the agent's analysis chain with different reasoning templates for different types of decisions
+  - Create methods for agent to explain its guideline-based reasoning
 
 - **Connect with Case Analysis**
   - Link guideline concepts to case entities
   - Create comparison views between guidelines and cases
   - Implement cross-referencing between cases and guidelines
+  - Develop a uniform API for retrieving guidelines across different contexts
 
 - **Map to Engineering Ethics Frameworks**
   - Create mappings to NSPE Code of Ethics
   - Add IEEE Code of Ethics integration
   - Implement mappings to international ethics frameworks
+  - Develop a guidelines-to-ontology bridging layer
 
 - **Establish Links to McLaren Model**
   - Connect guideline principles to McLaren ethical dimensions
   - Map guideline concepts to McLaren moral categories
   - Create visualization of guideline coverage in McLaren model
+  - Implement data-driven recommendations based on guidelines
 
 ### 3. Advanced Features
 

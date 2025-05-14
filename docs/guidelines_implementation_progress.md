@@ -50,6 +50,28 @@ The guidelines feature follows a modular architecture with distinct components:
     - URLs: stored with `source` field
     - Text: stored with `content` field
 
+### RDF Knowledge Representation
+
+- **Triple Structure**: Guidelines are represented as RDF triples in the `guideline_triples.ttl` file
+  - Uses standard ontology prefixes (rdf, rdfs, owl, xsd, dc)
+  - Custom prefixes: `proeth` (http://proethica.org/ontology/) and `guide` (http://proethica.org/guidelines/)
+  - Each concept is modeled with consistent properties:
+    - `rdf:type` - Indicates concept type (Principle, Obligation, Action, etc.)
+    - `rdfs:label` - Human-readable name
+    - `dc:description` - Detailed description
+    - `proethica:hasCategory` - Classification (principle, obligation, value, etc.)
+    - `proethica:hasReference` - Links to reference text sources
+    - `proethica:relatedTo` - Connections to other concepts
+
+- **Concept Types**: The system models various ethical concept types:
+  - Principles (e.g., "Public Safety and Welfare")
+  - Obligations (e.g., "Whistleblowing")
+  - Values (e.g., "Professional Judgment")
+  - Actions (e.g., "Risk Assessment")
+  - Stakeholders (e.g., "Public", "Employers and Clients")
+  - Considerations (e.g., "Environmental Impact")
+  - Constraints (e.g., "Conflict of Interest")
+
 ### User Interface Components
 
 - **Guideline Content Page** (`app/templates/guideline_content.html`): Contains the "Analyze Concepts" button that initiates the concept extraction process.
@@ -67,6 +89,12 @@ The guidelines feature follows a modular architecture with distinct components:
 - **Guideline Analysis Service** (`app/services/guideline_analysis_service.py`): The core service that handles the extraction and processing of concepts.
 - **MCP Client** (`app/services/mcp_client.py`): Provides communication with the Model Context Protocol server for enhanced concept extraction.
 - **LLM Utils** (`app/utils/llm_utils.py`): Utilities for interacting with Large Language Models for concept extraction.
+- **Guidelines Agent** (`app/services/agents/guidelines_agent.py`): Specialized agent for retrieving and analyzing guidelines for ethical decision-making.
+  - Extends the BaseAgent class with guideline-specific capabilities
+  - Uses embedding similarity search to find relevant guidelines
+  - Leverages LangChain with Claude to analyze guidelines in the context of decisions
+  - Provides detailed analysis of how decision options align with ethical guidelines
+  - Returns alignment scores, reasoning, and applicable guideline principles
 
 ### MCP Server Components
 
