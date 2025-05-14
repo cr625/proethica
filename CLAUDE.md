@@ -1,5 +1,39 @@
 # AI Ethical DM - Development Log
 
+## May 14, 2025: VSCode Debugging Configuration
+
+### Task Completed
+Created a custom VSCode debugging configuration that allows debugging the ProEthica application which is normally started using the `start_proethica_updated.sh` shell script.
+
+### Changes Made
+1. Created a setup script `scripts/setup_debug_environment.sh`:
+   - Handles all environment setup tasks from `start_proethica_updated.sh`
+   - Configures environment variables
+   - Starts the MCP server
+   - Initializes the database
+   - But does not start the Flask application (this is handled by the debugger)
+
+2. Created VSCode configurations:
+   - Updated `.vscode/launch.json` with a new debug configuration that runs `run.py`
+   - Created `.vscode/tasks.json` to define the pre-launch task that runs the setup script
+   - These configurations work together to first set up the environment, then start the application with the debugger attached
+
+3. Added documentation in `docs/vscode_debugging_setup.md`:
+   - Explains how to use the debugger with ProEthica
+   - Describes the configuration files and their purpose
+   - Provides troubleshooting tips
+
+### How to Use
+1. In VSCode, go to the Run and Debug panel (Ctrl+Shift+D)
+2. Select "Debug ProEthica Application" from the dropdown menu
+3. Click the green "Play" button
+4. The setup script will run first, then the application will start with the debugger attached
+
+### Notes
+- This approach separates the environment setup from the application launch, allowing the debugger to attach to the application at startup
+- The setup script preserves all the functionality of the original `start_proethica_updated.sh` script
+- Breakpoints can be set in the code and will be hit during execution
+
 ## May 14, 2025: Flask Blueprint URL Routing Reference
 
 ### Important Note on URL Routing with Blueprints
