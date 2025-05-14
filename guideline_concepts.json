@@ -1,13 +1,13 @@
 [
   {
     "label": "Public Safety",
-    "description": "The paramount obligation of engineers to prioritize the safety, health, and welfare of the public above all other considerations in their professional work.",
+    "description": "The paramount obligation of engineers to prioritize the safety, health, and welfare of the general public above all other considerations in their professional work.",
     "category": "principle",
     "related_concepts": [
       "Professional Responsibility",
       "Risk Management",
-      "Whistleblowing",
-      "Competence"
+      "Ethical Decision-Making",
+      "Public Welfare"
     ],
     "text_references": [
       "Hold paramount the safety, health, and welfare of the public.",
@@ -18,90 +18,91 @@
   },
   {
     "label": "Professional Competence",
-    "description": "The obligation of engineers to only perform services in areas where they possess adequate knowledge, skills, and expertise.",
+    "description": "The obligation of engineers to only perform services in areas where they possess adequate knowledge, skills, and expertise to ensure quality and safety.",
     "category": "obligation",
     "related_concepts": [
       "Continuing Education",
-      "Professional Development",
       "Technical Expertise",
-      "Honesty"
+      "Professional Development",
+      "Qualification"
     ],
     "text_references": [
       "Perform services only in areas of their competence.",
-      "Engineers shall perform services only in areas of their competence.",
       "Accept only qualified assignments.",
-      "Do not sign off on work outside area of expertise."
+      "Do not sign off on work outside area of expertise.",
+      "Commit to ongoing professional development."
     ],
     "id": 1
   },
   {
     "label": "Truthfulness",
-    "description": "The requirement for engineers to communicate honestly and objectively in all professional statements, avoiding deception or misrepresentation.",
+    "description": "The ethical requirement for engineers to communicate honestly and objectively in all professional statements, avoiding misrepresentation or deception.",
     "category": "principle",
     "related_concepts": [
-      "Integrity",
+      "Honesty",
       "Transparency",
       "Public Communication",
-      "Honesty"
+      "Integrity"
     ],
     "text_references": [
       "Issue public statements only in an objective and truthful manner.",
-      "Engineers shall issue public statements only in an objective and truthful manner.",
       "Be objective and include all pertinent facts in statements or testimony.",
-      "Express opinions based on facts and competence."
+      "Express opinions based on facts and competence.",
+      "Engineers shall avoid conduct that deceives the public."
     ],
     "id": 2
   },
   {
-    "label": "Fidelity",
-    "description": "The duty of engineers to act as faithful agents or trustees for their employers or clients, maintaining loyalty and trust.",
-    "category": "principle",
+    "label": "Fidelity to Employers and Clients",
+    "description": "The duty of engineers to act as faithful agents or trustees for their employers or clients, maintaining loyalty and acting in their best interests while balancing other ethical obligations.",
+    "category": "obligation",
     "related_concepts": [
+      "Loyalty",
       "Conflict of Interest",
       "Confidentiality",
-      "Professional Responsibility",
-      "Trust"
+      "Professional Relationship"
     ],
     "text_references": [
       "Act for each employer or client as faithful agents or trustees.",
-      "Engineers shall act for each employer or client as faithful agents or trustees.",
-      "Disclose actual or potential conflicts of interest."
+      "Do not disclose client/employer information without consent or legal obligation.",
+      "Disclose actual or potential conflicts of interest.",
+      "Do not accept gifts or considerations from outside agents."
     ],
     "id": 3
   },
   {
-    "label": "Honesty and Integrity",
-    "description": "The core ethical values that should guide all engineering practice, requiring truthfulness, moral uprightness, and adherence to strong moral principles.",
+    "label": "Integrity",
+    "description": "The fundamental character trait requiring engineers to adhere to high moral and ethical standards in all professional activities, including honesty, consistency, and moral uprightness.",
     "category": "value",
     "related_concepts": [
-      "Truthfulness",
+      "Honesty",
+      "Ethics",
       "Professional Conduct",
-      "Ethical Behavior",
-      "Transparency"
+      "Moral Character"
     ],
     "text_references": [
       "Engineers are expected to exhibit the highest standards of honesty and integrity.",
       "Engineers shall be guided by honesty and integrity.",
-      "Admit and correct errors.",
-      "Avoid deceptive acts."
+      "Uphold professional dignity.",
+      "Conduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession."
     ],
     "id": 4
   },
   {
     "label": "Conflict of Interest",
-    "description": "Situations where an engineer's personal interests or obligations conflict with professional responsibilities, requiring disclosure and management.",
+    "description": "Situations where an engineer's personal interests, relationships, or influences could compromise professional judgment or obligations to employers, clients, or the public.",
     "category": "constraint",
     "related_concepts": [
-      "Fidelity",
-      "Professional Responsibility",
-      "Transparency",
-      "Ethics"
+      "Disclosure",
+      "Professional Independence",
+      "Ethical Decision-Making",
+      "Transparency"
     ],
     "text_references": [
       "Disclose actual or potential conflicts of interest.",
       "Accept multiple compensations only with full disclosure.",
-      "Do not accept gifts or considerations from outside agents.",
-      "Avoid decision-making in public positions involving own interests."
+      "Avoid decision-making in public positions involving own interests.",
+      "Engineers shall not be influenced by conflicting interests."
     ],
     "id": 5
   },
@@ -110,10 +111,10 @@
     "description": "The obligation to protect and not disclose private or proprietary information obtained during professional service without proper authorization.",
     "category": "obligation",
     "related_concepts": [
+      "Privacy",
       "Trust",
-      "Fidelity",
-      "Professional Responsibility",
-      "Intellectual Property"
+      "Information Security",
+      "Client Relationship"
     ],
     "text_references": [
       "Do not disclose client/employer information without consent or legal obligation.",
@@ -125,187 +126,67 @@
   },
   {
     "label": "Public",
-    "description": "The general population whose safety, health, and welfare engineers must prioritize in their professional work.",
+    "description": "The general population whose safety, health, and welfare engineers must prioritize in their professional work, representing the broader societal stakeholders affected by engineering decisions.",
     "category": "stakeholder",
     "related_concepts": [
       "Public Safety",
       "Public Interest",
-      "Social Responsibility"
+      "Social Responsibility",
+      "Community"
     ],
     "text_references": [
       "Hold paramount the safety, health, and welfare of the public.",
       "Engineering has a direct and vital impact on the quality of life for all people.",
-      "Engineers shall strive to serve the public interest."
+      "Engineers shall strive to serve the public interest.",
+      "Promote public understanding of engineering."
     ],
     "id": 7
   },
   {
-    "label": "Employer/Client",
-    "description": "Organizations or individuals who engage engineering services and to whom engineers owe duties of loyalty and competent service.",
+    "label": "Employers and Clients",
+    "description": "Organizations or individuals who engage engineers' professional services and to whom engineers owe duties of loyalty, competence, and faithful service.",
     "category": "stakeholder",
     "related_concepts": [
       "Fidelity",
-      "Confidentiality",
-      "Professional Responsibility"
+      "Professional Relationship",
+      "Contractual Obligation",
+      "Fiduciary Duty"
     ],
     "text_references": [
       "Act for each employer or client as faithful agents or trustees.",
-      "Notify employer or client and appropriate authority if judgment is overruled endangering life/property.",
-      "Warn employers or clients of project issues."
+      "Warn employers or clients of project issues.",
+      "Notify employer before accepting outside work.",
+      "Respect employer policies in outside work."
     ],
     "id": 8
   },
   {
     "label": "Professional Colleagues",
-    "description": "Other engineers and professionals with whom engineers interact and to whom they owe respect and fair treatment.",
+    "description": "Other engineers and professionals with whom engineers interact, collaborate, or whose work they may review or evaluate.",
     "category": "stakeholder",
     "related_concepts": [
       "Professional Courtesy",
+      "Peer Review",
       "Collaboration",
-      "Credit Attribution"
+      "Professional Community"
     ],
     "text_references": [
       "Engineers shall not harm others' professional reputation.",
       "Do not review another engineer's work without disclosure.",
-      "Engineers shall credit others appropriately.",
+      "Do not mislead to attract other engineers.",
       "Name individuals responsible for work when possible."
     ],
     "id": 9
   },
   {
-    "label": "Whistleblowing",
-    "description": "The ethical obligation to report violations or dangerous conditions to appropriate authorities when public safety is at risk.",
-    "category": "action",
-    "related_concepts": [
-      "Public Safety",
-      "Professional Responsibility",
-      "Moral Courage"
-    ],
-    "text_references": [
-      "Notify employer or client and appropriate authority if judgment is overruled endangering life/property.",
-      "Report known code violations to professional or public bodies.",
-      "Refuse to sign non-compliant documents and report pressure."
-    ],
-    "id": 10
-  },
-  {
-    "label": "Professional Development",
-    "description": "The ongoing commitment to maintain and improve professional knowledge, skills, and expertise throughout one's career.",
-    "category": "obligation",
-    "related_concepts": [
-      "Competence",
-      "Lifelong Learning",
-      "Professional Excellence"
-    ],
-    "text_references": [
-      "Commit to ongoing professional development."
-    ],
-    "id": 11
-  },
-  {
-    "label": "Sustainability",
-    "description": "The consideration of environmental, social, and economic impacts of engineering work to meet present needs without compromising future generations.",
-    "category": "value",
-    "related_concepts": [
-      "Public Interest",
-      "Environmental Responsibility",
-      "Social Responsibility"
-    ],
-    "text_references": [
-      "Support sustainability."
-    ],
-    "id": 12
-  },
-  {
-    "label": "Professional Reputation",
-    "description": "The collective standing and perception of the engineering profession, which individual engineers have a duty to uphold and enhance.",
-    "category": "value",
-    "related_concepts": [
-      "Professional Conduct",
-      "Honor",
-      "Integrity",
-      "Public Trust"
-    ],
-    "text_references": [
-      "Conduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.",
-      "Uphold professional dignity."
-    ],
-    "id": 13
-  },
-  {
-    "label": "Intellectual Property",
-    "description": "The rights related to creations of the mind, including engineering designs, processes, and documentation, which must be respected and properly attributed.",
-    "category": "constraint",
-    "related_concepts": [
-      "Credit Attribution",
-      "Confidentiality",
-      "Ownership"
-    ],
-    "text_references": [
-      "Respect proprietary rights of clients.",
-      "Set ownership expectations clearly.",
-      "Understand employer retains rights to exclusive work materials."
-    ],
-    "id": 14
-  },
-  {
-    "label": "Fairness and Equity",
-    "description": "The principles of impartial and just treatment of all individuals in engineering practice and decision-making.",
-    "category": "principle",
-    "related_concepts": [
-      "Justice",
-      "Impartiality",
-      "Non-discrimination",
-      "Professional Conduct"
-    ],
-    "text_references": [
-      "The services provided by engineers require honesty, impartiality, fairness, and equity.",
-      "Treat all individuals with fairness and respect."
-    ],
-    "id": 15
-  },
-  {
-    "label": "Public Education",
-    "description": "The responsibility of engineers to promote public understanding of engineering and its impact on society.",
-    "category": "obligation",
-    "related_concepts": [
-      "Public Interest",
-      "Social Responsibility",
-      "Transparency"
-    ],
-    "text_references": [
-      "Engage in civic and educational outreach.",
-      "Promote public understanding of engineering."
-    ],
-    "id": 16
-  },
-  {
-    "label": "Improper Financial Gain",
-    "description": "The prohibition against seeking professional advantage through unethical financial arrangements or improper use of resources.",
-    "category": "constraint",
-    "related_concepts": [
-      "Conflict of Interest",
-      "Professional Conduct",
-      "Integrity"
-    ],
-    "text_references": [
-      "Do not offer bribes or commissions to secure contracts.",
-      "Reject inducements from suppliers.",
-      "Refuse commissions from contractors related to work.",
-      "Avoid contingent fee arrangements that compromise ethics.",
-      "Do not misuse employer resources for personal practice."
-    ],
-    "id": 17
-  },
-  {
-    "label": "Professional Accountability",
-    "description": "The willingness to take responsibility for one's professional actions and decisions, including admitting and correcting errors.",
+    "label": "Accountability",
+    "description": "The principle that engineers must take responsibility for their professional actions and decisions, including acknowledging errors and accepting consequences.",
     "category": "principle",
     "related_concepts": [
       "Responsibility",
       "Transparency",
-      "Integrity",
-      "Professional Conduct"
+      "Professional Ethics",
+      "Error Correction"
     ],
     "text_references": [
       "Engineers shall accept responsibility for their actions.",
@@ -313,38 +194,157 @@
       "Follow registration laws.",
       "Avoid unethical acts under corporate cover."
     ],
-    "id": 18
+    "id": 10
   },
   {
-    "label": "Credit Attribution",
-    "description": "The ethical requirement to properly acknowledge the contributions and work of others in engineering projects and publications.",
+    "label": "Fairness and Equity",
+    "description": "The commitment to treat all individuals justly, without discrimination or bias, and to ensure equitable distribution of benefits and burdens in engineering practice.",
+    "category": "value",
+    "related_concepts": [
+      "Justice",
+      "Equality",
+      "Non-discrimination",
+      "Impartiality"
+    ],
+    "text_references": [
+      "The services provided by engineers require honesty, impartiality, fairness, and equity.",
+      "Treat all individuals with fairness and respect.",
+      "Do not offer bribes or commissions to secure contracts.",
+      "Reject inducements from suppliers."
+    ],
+    "id": 11
+  },
+  {
+    "label": "Sustainability",
+    "description": "The consideration of long-term environmental, social, and economic impacts in engineering decisions to meet present needs without compromising future generations.",
+    "category": "value",
+    "related_concepts": [
+      "Environmental Responsibility",
+      "Future Generations",
+      "Resource Conservation",
+      "Long-term Planning"
+    ],
+    "text_references": [
+      "Support sustainability."
+    ],
+    "id": 12
+  },
+  {
+    "label": "Professional Development",
+    "description": "The ongoing process of maintaining and improving professional knowledge, skills, and competence throughout an engineer's career.",
     "category": "obligation",
     "related_concepts": [
-      "Intellectual Property",
-      "Honesty",
-      "Professional Courtesy"
+      "Continuing Education",
+      "Competence",
+      "Career Growth",
+      "Learning"
+    ],
+    "text_references": [
+      "Commit to ongoing professional development."
+    ],
+    "id": 13
+  },
+  {
+    "label": "Public Education",
+    "description": "The responsibility of engineers to promote public understanding of engineering principles, practices, and impacts to enable informed civic participation.",
+    "category": "obligation",
+    "related_concepts": [
+      "Outreach",
+      "Communication",
+      "Public Engagement",
+      "Transparency"
+    ],
+    "text_references": [
+      "Engage in civic and educational outreach.",
+      "Promote public understanding of engineering."
+    ],
+    "id": 14
+  },
+  {
+    "label": "Intellectual Property",
+    "description": "The recognition and protection of rights related to creative works, designs, and innovations in engineering, including proper attribution and respect for proprietary information.",
+    "category": "principle",
+    "related_concepts": [
+      "Attribution",
+      "Copyright",
+      "Patents",
+      "Proprietary Information"
     ],
     "text_references": [
       "Engineers shall credit others appropriately.",
       "Name individuals responsible for work when possible.",
-      "Acknowledge contributions of others."
+      "Respect proprietary rights of clients.",
+      "Set ownership expectations clearly."
     ],
-    "id": 19
+    "id": 15
   },
   {
-    "label": "Legal Compliance",
-    "description": "The obligation of engineers to adhere to applicable laws, regulations, and professional standards in their practice.",
-    "category": "obligation",
+    "label": "Professional Reputation",
+    "description": "The collective perception of the engineering profession's integrity, competence, and value to society, which individual engineers have a duty to uphold and enhance.",
+    "category": "value",
     "related_concepts": [
-      "Professional Conduct",
-      "Accountability",
-      "Public Safety"
+      "Professional Image",
+      "Public Trust",
+      "Honor",
+      "Dignity"
     ],
     "text_references": [
-      "Conduct themselves honorably, responsibly, ethically, and lawfully.",
-      "Follow registration laws.",
-      "Do not aid in unlawful engineering practice."
+      "Conduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.",
+      "Uphold professional dignity.",
+      "Engineers shall not harm others' professional reputation."
     ],
-    "id": 20
+    "id": 16
+  },
+  {
+    "label": "Compliance with Standards",
+    "description": "The obligation to adhere to established technical standards, codes, and regulations that govern engineering practice to ensure safety and quality.",
+    "category": "obligation",
+    "related_concepts": [
+      "Regulations",
+      "Codes",
+      "Quality Assurance",
+      "Legal Compliance"
+    ],
+    "text_references": [
+      "Approve only engineering documents conforming to standards.",
+      "Report known code violations to professional or public bodies.",
+      "Refuse to sign non-compliant documents and report pressure."
+    ],
+    "id": 17
+  },
+  {
+    "label": "Whistleblowing",
+    "description": "The ethical duty to report violations, unsafe conditions, or unethical practices to appropriate authorities when normal channels have failed to address the issue.",
+    "category": "action",
+    "related_concepts": [
+      "Public Safety",
+      "Moral Courage",
+      "Reporting Violations",
+      "Professional Responsibility"
+    ],
+    "text_references": [
+      "Notify employer or client and appropriate authority if judgment is overruled endangering life/property.",
+      "Report known code violations to professional or public bodies.",
+      "Refuse to sign non-compliant documents and report pressure."
+    ],
+    "id": 18
+  },
+  {
+    "label": "Avoidance of Deception",
+    "description": "The ethical requirement to refrain from any form of dishonesty, misrepresentation, or misleading conduct in professional activities.",
+    "category": "principle",
+    "related_concepts": [
+      "Honesty",
+      "Transparency",
+      "Integrity",
+      "Truthfulness"
+    ],
+    "text_references": [
+      "Avoid deceptive acts.",
+      "Do not misrepresent qualifications or responsibilities.",
+      "Engineers shall avoid conduct that deceives the public.",
+      "Avoid material misrepresentations or omissions."
+    ],
+    "id": 19
   }
 ]

@@ -32,6 +32,7 @@ def extract_concepts_direct(world_id, document_id):
         world = World.query.get_or_404(world_id)
         document = Document.query.get_or_404(document_id)
         
+        # Create analysis service
         analysis_service = GuidelineAnalysisService()
         
         # Check if document belongs to this world
@@ -55,10 +56,8 @@ def extract_concepts_direct(world_id, document_id):
                 return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
         if not content:
             flash("No content found in the guideline document", "error")
-            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))        
         
-        # Create analysis service
-        analysis_service = GuidelineAnalysisService()
         
         # Get ontology source for this world if available
         ontology_source = world.ontology_source
@@ -88,15 +87,7 @@ def extract_concepts_direct(world_id, document_id):
                     "document_id": document_id
                 })
             else:
-                # Store concepts in session for review page
-                # Store in session to preserve data between requests
-                analysis_data = {
-                    'concepts': extracted_concepts,
-                    'ontology_source': ontology_source
-                }
-                session[f'guideline_analysis_{document_id}'] = analysis_data
-                
-                # Render the extracted concepts template directly
+                # Directly render the extracted concepts template for review (no session storage)
                 return render_template('guideline_extracted_concepts.html',
                                      world=world,
                                      guideline=document,
