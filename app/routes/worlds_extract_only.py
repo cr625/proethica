@@ -66,7 +66,6 @@ def extract_concepts_direct(world_id, document_id):
         logger.info(f"Extracting concepts directly from guideline: {document.title}")
         result = analysis_service.extract_concepts(content, ontology_source)
         
-        # Store the extracted concepts in session for review
         if "concepts" in result:
             extracted_concepts = result["concepts"]
             
