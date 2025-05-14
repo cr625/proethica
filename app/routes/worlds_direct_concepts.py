@@ -82,14 +82,33 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         session[f'guideline_analysis_{document_id}'] = analysis_data
         
         logger.info(f"Successfully extracted {len(concepts_list)} concepts")
-            
-        # Render the concepts review template with just the concepts
-        return render_template('guideline_extracted_concepts.html', 
-                            world=world, 
-                            guideline=guideline,
-                            concepts=concepts_list,
-                            world_id=world.id,
-                            document_id=document_id)
+        
+        # Try to use the guideline_concepts_review.html template, which is more robust
+        # than guideline_extracted_concepts.html and has proper URL routing
+        try:
+            # First try the better template
+            return render_template('guideline_concepts_review.html', 
+                               world=world, 
+                               guideline=guideline,
+                               concepts=concepts_list,
+                               world_id=world.id,
+                               document_id=document_id)
+        except Exception as template_error:
+            # Fall back to the original template if needed
+            logger.warning(f"Error using guideline_concepts_review.html template: {str(template_error)}. Falling back to guideline_extracted_concepts.html")
+            try:
+                # Fallback template
+                return render_template('guideline_extracted_concepts.html', 
+                                    world=world, 
+                                    guideline=guideline,
+                                    concepts=concepts_list,
+                                    world_id=world.id,
+                                    document_id=document_id)
+            except Exception as fallback_error:
+                # If both templates fail, redirect back to the guideline
+                logger.error(f"Both templates failed. Error: {str(fallback_error)}")
+                flash("Successfully extracted concepts, but encountered an error displaying them.", "warning")
+                return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
     except Exception as e:
         logger.exception(f"Error in direct_concept_extraction: {str(e)}")
         flash(f'Unexpected error during concept extraction: {str(e)}', 'error')

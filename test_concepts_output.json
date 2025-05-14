@@ -1,0 +1,107 @@
+[
+  {
+    "label": "Engineer",
+    "description": "A professional who applies technical knowledge and skills in engineering practice, bound by ethical standards and professional obligations",
+    "type": "role",
+    "confidence": 1.0,
+    "id": 0
+  },
+  {
+    "label": "Public Safety",
+    "description": "The paramount principle that engineers must prioritize the safety, health, and welfare of the public above all other considerations",
+    "type": "principle",
+    "confidence": 1.0,
+    "id": 1
+  },
+  {
+    "label": "Competence",
+    "description": "The principle that engineers should only perform services in areas where they have sufficient knowledge, skills, and expertise",
+    "type": "principle",
+    "confidence": 1.0,
+    "id": 2
+  },
+  {
+    "label": "Honesty and Integrity",
+    "description": "The principle that engineers must be truthful and objective in all professional communications and activities",
+    "type": "principle",
+    "confidence": 1.0,
+    "id": 3
+  },
+  {
+    "label": "Professional Development",
+    "description": "The principle that engineers should continuously improve their knowledge and skills throughout their careers",
+    "type": "principle",
+    "confidence": 1.0,
+    "id": 4
+  },
+  {
+    "label": "Truthful Reporting",
+    "description": "The obligation to provide objective and truthful information in all professional reports, statements, and testimony",
+    "type": "obligation",
+    "confidence": 1.0,
+    "id": 5
+  },
+  {
+    "label": "Confidentiality",
+    "description": "The obligation to protect and not disclose confidential information without proper consent",
+    "type": "obligation",
+    "confidence": 1.0,
+    "id": 6
+  },
+  {
+    "label": "Conflict of Interest Disclosure",
+    "description": "The obligation to disclose any known or potential conflicts of interest that might affect professional judgment",
+    "type": "obligation",
+    "confidence": 1.0,
+    "id": 7
+  },
+  {
+    "label": "Compensation Transparency",
+    "description": "The obligation to disclose when receiving compensation from multiple parties for the same service",
+    "type": "obligation",
+    "confidence": 1.0,
+    "id": 8
+  },
+  {
+    "label": "Professional Honor",
+    "description": "The obligation to uphold the honor and dignity of the engineering profession through ethical conduct",
+    "type": "obligation",
+    "confidence": 1.0,
+    "id": 9
+  },
+  {
+    "label": "Public Statement",
+    "description": "A formal communication made by an engineer to the public or stakeholders that must be objective and truthful",
+    "type": "action",
+    "confidence": 0.9,
+    "id": 10
+  },
+  {
+    "label": "Professional Service",
+    "description": "Work performed by an engineer that requires technical competence and adherence to ethical standards",
+    "type": "action",
+    "confidence": 0.9,
+    "id": 11
+  },
+  {
+    "label": "Technical Competence",
+    "description": "The capability to perform engineering work with adequate knowledge, skills, and judgment in a specific domain",
+    "type": "capability",
+    "confidence": 0.9,
+    "id": 12
+  },
+  {
+    "label": "Ethical Judgment",
+    "description": "The capability to recognize ethical issues and make decisions that align with professional principles and obligations",
+    "type": "capability",
+    "confidence": 0.8,
+    "id": 13
+  },
+  {
+    "label": "Professional Code",
+    "description": "A formal document that establishes ethical standards and guidelines for professional conduct",
+    "type": "resource",
+    "confidence": 1.0,
+    "id": 14
+  }
+]

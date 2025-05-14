@@ -168,7 +168,21 @@ class GuidelineAnalysisService:
                 try:
                     if hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
                         logger.info("Using Anthropic v2+ API format")
-                        model_name = "gpt-4-turbo" if hasattr(llm_client, 'available_models') and "gpt-4" in llm_client.available_models else "claude-3-opus-20240229"
+                        # Get preferred model from environment or config
+                        preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+                        # Use preferred model if available, otherwise select best available model
+                        if hasattr(llm_client, 'available_models'):
+                            if preferred_model in llm_client.available_models:
+                                model_name = preferred_model
+                            elif "claude-3-7-sonnet-latest" in llm_client.available_models:
+                                model_name = "claude-3-7-sonnet-latest"
+                            elif len(llm_client.available_models) > 0:
+                                model_name = llm_client.available_models[0]  # Use first available model
+                            else:
+                                model_name = preferred_model  # Fallback to preferred model
+                        else:
+                            model_name = preferred_model  # Fallback to preferred model
+                        
                         logger.info(f"Using model: {model_name}")
                         
                         response = llm_client.chat.completions.create(
@@ -215,7 +229,7 @@ class GuidelineAnalysisService:
                             messages=[
                                 {"role": "user", "content": user_prompt}
                             ],
-                            model="claude-3-opus-20240229",
+                            model="claude-3-7-sonnet-latest",
                             max_tokens=4000,
                             temperature=0.2
                         )
@@ -579,12 +593,29 @@ class GuidelineAnalysisService:
             try:
                 # Try newer Anthropic API format (v2.0+)
                 if hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+                    # Get preferred model from environment or config
+                    preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+                    # Use preferred model if available, otherwise select best available model
+                    if hasattr(llm_client, 'available_models'):
+                        if preferred_model in llm_client.available_models:
+                            model_name = preferred_model
+                        elif "claude-3-7-sonnet-latest" in llm_client.available_models:
+                            model_name = "claude-3-7-sonnet-latest"
+                        elif len(llm_client.available_models) > 0:
+                            model_name = llm_client.available_models[0]  # Use first available model
+                        else:
+                            model_name = preferred_model  # Fallback to preferred model
+                    else:
+                        model_name = preferred_model  # Fallback to preferred model
+                    
+                    logger.info(f"Using model for concept matching: {model_name}")
+                    
                     response = llm_client.chat.completions.create(
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
-                        model="gpt-4-turbo" if hasattr(llm_client, 'available_models') and "gpt-4" in llm_client.available_models else "claude-3-opus-20240229",
+                        model=model_name,
                         response_format={"type": "json_object"},
                         max_tokens=4000,
                         temperature=0.2
@@ -620,7 +651,7 @@ class GuidelineAnalysisService:
                         messages=[
                             {"role": "user", "content": user_prompt}
                         ],
-                        model="claude-3-opus-20240229",
+                        model="claude-3-7-sonnet-latest",
                         max_tokens=4000,
                         temperature=0.2
                     )

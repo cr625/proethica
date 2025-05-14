@@ -3,7 +3,8 @@ Base document model (includes guidelines, case studies, and other document types
 """
 
 from datetime import datetime
-from app import db
+from flask_sqlalchemy import SQLAlchemy
+from app.models import db
 import os
 import re
 from sqlalchemy.dialects.postgresql import JSON
@@ -14,6 +15,16 @@ PROCESSING_STATUS = {
     'PROCESSING': 'processing',
     'COMPLETED': 'completed',
     'FAILED': 'failed'
+}
+
+# Processing phases constants
+PROCESSING_PHASES = {
+    'INITIALIZING': 'initializing',
+    'EXTRACTING': 'extracting',
+    'CHUNKING': 'chunking',
+    'EMBEDDING': 'embedding',
+    'STORING': 'storing',
+    'FINALIZING': 'finalizing'
 }
 
 class Document(db.Model):
@@ -86,3 +97,25 @@ class Document(db.Model):
     
     def __repr__(self):
         return f"<Document {self.id}: {self.title} ({self.document_type})>"
+
+
+class DocumentChunk(db.Model):
+    """
+    Document chunk model for storing and retrieving document chunks (for vector search and embeddings)
+    """
+    __tablename__ = 'document_chunks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
+    chunk_index = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    embedding = db.Column(db.ARRAY(db.Float), nullable=True)
+    chunk_metadata = db.Column(JSON, nullable=True)  # Renamed from metadata which is reserved
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Define relationship to document
+    document = db.relationship('Document', backref='chunks')
+    
+    def __repr__(self):
+        return f"<DocumentChunk {self.id}: {self.document_id}:{self.chunk_index}>"

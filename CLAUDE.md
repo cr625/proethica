@@ -1,5 +1,37 @@
 # AI Ethical DM - Development Log
 
+## May 14, 2025: Flask Blueprint URL Routing Reference
+
+### Important Note on URL Routing with Blueprints
+
+When using Flask blueprints, URL endpoints must be referenced with the blueprint name prefix:
+
+**Correct format for blueprint routes:**
+```python
+url_for('blueprint_name.route_name')  # Example: url_for('index.index')
+```
+
+**Incorrect format (causes BuildError):**
+```python
+url_for('route_name')  # Example: url_for('index') - This will fail!
+```
+
+Common errors that occur when this pattern is not followed:
+```
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'main.index'. Did you mean 'index.index' instead?
+```
+
+Most common incorrectly referenced endpoints that need to be updated:
+- `main.index` → `index.index`
+- `index` → `index.index`
+
+This applies to:
+- Templates using `url_for()`
+- Python code using `redirect(url_for())`
+- Any other use of `url_for()`
+
+Always check template files first when encountering URL routing errors after blueprint refactoring.
+
 ## May 14, 2025: Concept Extraction Feature Fix
 
 ### Task Completed
@@ -54,3 +86,49 @@ The concept extraction process involves several components:
 - The fixed implementation preserves the original architecture and API contracts
 - The system will now properly handle concept extraction even when the MCP server or LLM is unavailable
 - The feature now works consistently across the application
+
+## May 14, 2025: LLM Connection Improvements and Model Updates
+
+### Task Completed
+Enhanced the LLM connection functionality and implemented robust fallback mechanisms for concept extraction to ensure the feature works even when LLM services are unavailable.
+
+### Changes Made
+1. Created a standalone test script (`test_llm_connection.py`):
+   - Script tests LLM connectivity outside the Flask application context
+   - Provides detailed logging of connection attempts and issues
+   - Tests both simple completions and concept extraction with sample guidelines
+   - Helps diagnose LLM connection issues independently
+
+2. Enhanced fallback mechanism in `GuidelineAnalysisService`:
+   - Improved fallback logic to clearly indicate when mock concepts are being used
+   - Added better error reporting with specific error messages
+   - Ensured mock concepts are generated even when all LLM connections fail
+
+3. Updated LLM model references:
+   - Changed from `claude-3-opus-20240229` to `claude-3-7-sonnet-latest` or `claude-3-7-sonnet-20250219`
+   - Updated all API calls to use the new models
+   - Maintained compatibility with different Anthropic SDK versions
+
+4. Documented concept extraction implementation:
+   - Added detailed explanation of the concept extraction process
+   - Included testing procedures and troubleshooting steps
+   - Outlined future improvements for the feature
+
+### How to Test LLM Connection
+1. Set the ANTHROPIC_API_KEY environment variable:
+   ```bash
+   export ANTHROPIC_API_KEY=your_key_here
+   ```
+
+2. Run the test script:
+   ```bash
+   python test_llm_connection.py
+   ```
+
+3. Check the output for connection status, successful completions, and concept extraction results
+
+### Notes
+- The system now gracefully degrades when LLM is unavailable by providing mock concepts
+- The test script helps isolate LLM connection issues from application logic problems
+- Model updates ensure the application uses the latest available Claude models
+- Even without a valid API key, the concept extraction feature will work with generated mock concepts

@@ -41,9 +41,11 @@ def get_llm_client():
                     client.available_models = ["claude-2.0", "claude-2.1", "claude-instant-1.2"]
             except Exception:
                 # Fallback if models check fails
-                client.available_models = ["claude-3-opus-20240229", "claude-3-haiku-20240307"]
+                preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+                client.available_models = [preferred_model, "claude-3-7-sonnet-latest", "claude-3-haiku-20240307"]
                 
-            print(f"Initialized Anthropic client version {anthropic_version} ({client.api_version}) with models: {client.available_models}")
+            model_list = ", ".join(client.available_models[:3]) + ("..." if len(client.available_models) > 3 else "")
+            print(f"Initialized Anthropic client version {anthropic_version} ({client.api_version}) with models: {model_list}")
             return client
     except (ImportError, Exception) as e:
         print(f"Failed to initialize Anthropic: {str(e)}")
