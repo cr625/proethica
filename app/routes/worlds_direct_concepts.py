@@ -74,12 +74,9 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
             flash('No concepts were extracted from this guideline', 'warning')
             return redirect(url_for('worlds.world_guidelines', id=world.id))
             
-        # Store concepts in session to preserve them for the next request
-        analysis_data = {
-            'concepts': concepts_list,
-            'ontology_source': ontology_source
-        }
-        session[f'guideline_analysis_{document_id}'] = analysis_data
+        # Don't store concepts in session, we'll include them in the form as hidden fields
+        # and pass them directly through the form submission
+        concepts_json = json.dumps(concepts_list)
         
         logger.info(f"Successfully extracted {len(concepts_list)} concepts")
         

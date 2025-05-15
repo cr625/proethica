@@ -795,16 +795,17 @@ def save_guideline_concepts(world_id, document_id):
         return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
     
     try:
-        # Get analysis result from session
-        from flask import session
-        analysis_key = f'guideline_analysis_{document_id}'
-        if analysis_key not in session:
-            flash('Analysis results not found. Please analyze the guideline again.', 'error')
-            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+        # Get concepts data from the form instead of session
+        concepts_data = request.form.get('concepts_data', '[]')
+        ontology_source = request.form.get('ontology_source', '')
         
-        analysis_data = session[analysis_key]
-        concepts = analysis_data.get('concepts', [])
-        ontology_source = analysis_data.get('ontology_source')
+        try:
+            # Parse the JSON data from the form
+            concepts = json.loads(concepts_data)
+        except Exception as json_error:
+            logger.error(f"Error parsing concepts JSON: {str(json_error)}")
+            flash('Error processing concepts data. Please try again.', 'error')
+            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
         
         if not concepts:
             flash('No concepts found in analysis results', 'error')
@@ -904,9 +905,6 @@ def save_guideline_concepts(world_id, document_id):
                 "analysis_date": datetime.utcnow().isoformat()
             }
             db.session.commit()
-            
-            # Remove analysis data from session
-            session.pop(analysis_key, None)
             
             logger.info(f"Successfully created {triple_count} RDF triples for guideline {new_guideline.id}")
             flash(f'Successfully created {triple_count} RDF triples from selected concepts', 'success')

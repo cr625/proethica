@@ -90,6 +90,9 @@
 
   <form method="post" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
+    <!-- Include concepts data as hidden field -->
+    <input type="hidden" name="concepts_data" value="{{ concepts|tojson }}" />
+    <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
 
     <!-- Preview of the triples that will be generated -->
     {% if preview_triples and preview_triples|length > 0 %}
