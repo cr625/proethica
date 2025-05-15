@@ -30,7 +30,7 @@
     {% endif %}
     
     {% if concepts %}
-    <form method="POST" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
+    <form method="POST" action="{{ url_for('fix_concepts.save_extracted_concepts', world_id=world.id, document_id=guideline.id) }}">
         <!-- Include concepts data as hidden field -->
         <input type="hidden" name="concepts_data" value="{{ concepts|tojson }}" />
         <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
@@ -75,10 +75,10 @@
                                     <tr>
                                         <td>
                                             <div class="form-check">
-                                                <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts" value="{{ concept.id }}" id="concept-{{ concept.id }}">
+                                                <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index }}">
                                             </div>
                                         </td>
-                                        <td><label class="form-check-label" for="concept-{{ concept.id }}"><strong>{{ concept.label }}</strong></label></td>
+                                        <td><label class="form-check-label" for="concept-{{ loop.index }}"><strong>{{ concept.label }}</strong></label></td>
                                         <td>{{ concept.category|capitalize if concept.category else (concept.type|capitalize if concept.type else "Concept") }}</td>
                                         <td>{{ concept.description }}</td>
                                         <td>

@@ -83,13 +83,17 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         # Try to use the guideline_concepts_review.html template, which is more robust
         # than guideline_extracted_concepts.html and has proper URL routing
         try:
-            # First try the better template
+            # Debug log the concepts list to help with troubleshooting
+            logger.info(f"Passing {len(concepts_list)} concepts to template guideline_concepts_review.html")
+            
+            # First try the better template with additional logging
             return render_template('guideline_concepts_review.html', 
                                world=world, 
                                guideline=guideline,
                                concepts=concepts_list,
                                world_id=world.id,
-                               document_id=document_id)
+                               document_id=document_id,
+                               ontology_source=ontology_source)  # Pass ontology_source explicitly
         except Exception as template_error:
             # Fall back to the original template if needed
             logger.warning(f"Error using guideline_concepts_review.html template: {str(template_error)}. Falling back to guideline_extracted_concepts.html")

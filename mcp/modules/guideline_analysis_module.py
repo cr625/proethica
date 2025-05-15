@@ -55,6 +55,14 @@ class GuidelineAnalysisModule(MCPBaseModule):
         self.ontology_client = ontology_client
         self.embedding_client = embedding_client
         
+        # Development mode for faster testing without LLM calls
+        self.use_mock_responses = os.environ.get("USE_MOCK_GUIDELINE_RESPONSES", "false").lower() == "true"
+        
+        # Load mock concepts data if available
+        self.mock_concepts = self._load_mock_concepts()
+        
+        logger.info(f"GuidelineAnalysisModule initialized with mock mode: {self.use_mock_responses}")
+        
         # Set up default prompt templates
         self.concept_extraction_template = """
         You are an expert in ethical analysis, ontology engineering, and knowledge extraction. 
@@ -218,6 +226,51 @@ class GuidelineAnalysisModule(MCPBaseModule):
             }
         )
     
+    def _load_mock_concepts(self) -> Dict[str, Any]:
+        """
+        Load mock concept data from guideline_concepts.json file.
+        
+        Returns:
+            Dictionary with mock concepts data
+        """
+        try:
+            # Check if we have a guideline_concepts.json file in the project root
+            mock_file_path = os.path.join(project_root, "guideline_concepts.json")
+            
+            if os.path.exists(mock_file_path):
+                logger.info(f"Loading mock concepts from {mock_file_path}")
+                with open(mock_file_path, 'r', encoding='utf-8') as f:
+                    concepts_data = json.load(f)
+                    
+                # If it's just an array, wrap it in the expected format
+                if isinstance(concepts_data, list):
+                    concepts_data = {"concepts": concepts_data}
+                    
+                logger.info(f"Successfully loaded {len(concepts_data.get('concepts', []))} mock concepts")
+                return concepts_data
+            else:
+                # If no file exists, also check test_concepts_output.json
+                alt_file_path = os.path.join(project_root, "test_concepts_output.json")
+                if os.path.exists(alt_file_path):
+                    logger.info(f"Loading mock concepts from {alt_file_path}")
+                    with open(alt_file_path, 'r', encoding='utf-8') as f:
+                        concepts_data = json.load(f)
+                        
+                    # If it's just an array, wrap it in the expected format
+                    if isinstance(concepts_data, list):
+                        concepts_data = {"concepts": concepts_data}
+                        
+                    logger.info(f"Successfully loaded {len(concepts_data.get('concepts', []))} mock concepts")
+                    return concepts_data
+            
+            # If no files exist, return empty mock data
+            logger.warning("No mock concept data files found, using empty mock data")
+            return {"concepts": []}
+            
+        except Exception as e:
+            logger.error(f"Error loading mock concepts: {str(e)}")
+            return {"concepts": []}
+    
     async def extract_guideline_concepts(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract concepts from guideline content.
@@ -244,6 +297,36 @@ class GuidelineAnalysisModule(MCPBaseModule):
             if not content:
                 return {"error": "No content provided"}
                 
+            # Check if we should use mock responses for faster development
+            if self.use_mock_responses:
+                logger.info("Using mock concepts response (development mode)")
+                # Clone the mock concepts data to avoid modifying the original
+                if self.mock_concepts:
+                    return self.mock_concepts.copy()
+                else:
+                    # Generate simple mock concepts if no mock data is available
+                    return {
+                        "concepts": [
+                            {
+                                "id": 0,
+                                "label": "Public Safety",
+                                "description": "The paramount obligation of engineers to prioritize public safety",
+                                "category": "principle",
+                                "related_concepts": ["Ethical Responsibility", "Risk Management"],
+                                "text_references": ["Engineers shall hold paramount the safety of the public"]
+                            },
+                            {
+                                "id": 1,
+                                "label": "Professional Competence",
+                                "description": "The obligation to only perform work within one's area of competence",
+                                "category": "obligation",
+                                "related_concepts": ["Professional Development", "Technical Expertise"],
+                                "text_references": ["Engineers shall perform services only in areas of their competence"]
+                            }
+                        ]
+                    }
+                
+            # If not using mock mode, check if LLM client is available
             if not self.llm_client:
                 return {"error": "LLM client not available"}
             

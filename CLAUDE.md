@@ -1,5 +1,39 @@
 AI Ethical DM - Development Log
 
+## May 15, 2025 (Update #3): Added Mock Responses and Fixed JSON Parsing for Guideline Concept Extraction
+
+### Task Completed
+Implemented a mock response system for guideline concept extraction to speed up development and testing, and fixed JSON parsing issues in the form submission process.
+
+### Key Improvements
+1. **Mock Response System**: Added a development mode that uses pre-loaded concepts instead of calling Claude API:
+   - Created environment variable `USE_MOCK_GUIDELINE_RESPONSES` to toggle mock mode
+   - Implemented loading of mock concept data from JSON files (`guideline_concepts.json` or `test_concepts_output.json`)
+   - Added fallback to default mock concepts if no files are found
+   - Integrated mock responses in the GuidelineAnalysisModule for faster development cycles
+
+2. **Enhanced JSON Parsing**: Improved the form submission process to handle various JSON formatting issues:
+   - Added robust JSON parsing with multiple fallback strategies
+   - Fixed missing quotes around property names in malformed JSON
+   - Added conversion from single quotes to double quotes
+   - Implemented ast.literal_eval fallback for Python-style dictionaries
+   - Added comprehensive error logging for JSON parsing failures
+
+3. **Development Utilities**: Created a new debug script to make testing easier:
+   - Added `debug_with_mock_guidelines.sh` script to launch both servers with mock mode enabled
+   - Improved error handling and logging throughout the concept extraction process
+
+### Technical Details
+- Added `_load_mock_concepts()` method to GuidelineAnalysisModule to load sample data
+- Modified `extract_guideline_concepts()` to use mock data when in development mode
+- Enhanced JSON parsing in `save_extracted_concepts()` route with robust error recovery
+- Added a shell script to easily enable mock responses for testing
+
+### Next Steps
+1. Complete the implementation of native Claude tool use as previously documented
+2. Improve the UI for reviewing and managing saved concepts
+3. Enhance the concept matching algorithm to better integrate with the ontology
+
 ## May 15, 2025 (Update #2): Improved Guideline Concept Saving to Ontology Database
 
 ### Task Completed
