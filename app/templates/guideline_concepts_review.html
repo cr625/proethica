@@ -88,8 +88,8 @@
     </div>
   </div>
 
-  <!-- Use the fix_concepts.save_extracted_concepts route when coming from the fix/extract_concepts page -->
-  <form method="post" action="{{ url_for('fix_concepts.save_extracted_concepts', world_id=world.id, document_id=guideline.id) }}">
+  <!-- Use the worlds.save_guideline_concepts route for saving extracted concepts -->
+  <form method="post" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
     <!-- Include concepts data as hidden field with proper JSON escaping -->
     <input type="hidden" name="concepts_data" value="{{ concepts|tojson|safe }}" />

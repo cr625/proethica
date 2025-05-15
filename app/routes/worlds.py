@@ -754,10 +754,32 @@ def add_guideline(id):
 def analyze_guideline(id, document_id):
     """Analyze a guideline document and extract ontology concepts."""
     # Import the direct extraction function
-    from app.routes.worlds_extract_only import extract_concepts_direct
+    from app.routes.worlds_direct_concepts import direct_concept_extraction
     
-    # Call the extract function directly
-    return extract_concepts_direct(id, document_id)
+    # Get world object
+    world = World.query.get_or_404(id)
+    
+    # Call the direct extraction function
+    return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
+
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/extract_concepts', methods=['GET'])
+def extract_and_display_concepts(id, document_id):
+    """Extract concepts from a guideline using MCP server and display them."""
+    try:
+        # Import the direct concept extraction function
+        from app.routes.worlds_direct_concepts import direct_concept_extraction
+        
+        world = World.query.get_or_404(id)
+        
+        logger.info(f"Attempting to extract concepts for world {id}, document {document_id}")
+        
+        # Call the direct concept extraction function
+        return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
+        
+    except Exception as e:
+        logger.exception(f"Error in extract_and_display_concepts for world {id}, document {document_id}: {str(e)}")
+        flash(f'Unexpected error extracting concepts: {str(e)}', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/analyze_legacy', methods=['POST'])
 def analyze_guideline_legacy(id, document_id):
