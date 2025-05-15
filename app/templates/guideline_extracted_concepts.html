@@ -79,10 +79,11 @@
                                         <td>{{ concept.type|title }}</td>
                                         <td>{{ concept.description }}</td>
                                         <td>
-                                            <div class="progress">
+                                            <div class="progress">{#
                                                 {% set confidence_pct = (concept.confidence * 100)|int %}
                                                 {% set confidence_class = "bg-success" if confidence_pct >= 80 else "bg-warning" if confidence_pct >= 60 else "bg-danger" %}
                                                 <div class="progress-bar {{ confidence_class }}" role="progressbar" style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}" aria-valuemin="0" aria-valuemax="100">{{ confidence_pct }}%</div>
+                                            #}
                                             </div>
                                         </td>
                                     </tr>

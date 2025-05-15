@@ -480,6 +480,10 @@ class OntologyMCPServer:
         # Return mock guidelines for the specified world or empty dictionary if not found
         return web.json_response({"guidelines": mock_guidelines.get(world_name, [])})
 
+    async def handle_health(self, request):
+        """Simple health check endpoint for the MCP server."""
+        return web.json_response({"status": "ok", "message": "Ontology MCP server is running"})
+
 async def run_server():
     server = OntologyMCPServer()
     app = web.Application()
@@ -496,6 +500,9 @@ async def run_server():
     # Direct API endpoints
     app.router.add_get('/api/ontology/{ontology_source}/entities', server.handle_get_entities)
     app.router.add_get('/api/guidelines/{world_name}', server.handle_get_guidelines)
+    
+    # Health check endpoint
+    app.router.add_get('/health', server.handle_health)
     
     # CORS middleware
     @web.middleware

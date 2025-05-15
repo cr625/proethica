@@ -253,6 +253,10 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         self.modules[module_name] = module
         logger.info(f"Added module: {module_name}")
     
+    async def handle_health(self, request):
+        """Simple health check endpoint for the Enhanced Ontology MCP server."""
+        return web.json_response({"status": "ok", "message": "Enhanced Ontology MCP server with guidelines is running"})
+    
     async def start(self):
         """Start the server."""
         # Initialize web application
@@ -260,6 +264,8 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         
         # Register routes
         self.app.router.add_post('/jsonrpc', self.handle_jsonrpc)
+        # Health check endpoint
+        self.app.router.add_get('/health', self.handle_health)
         
         # Add CORS middleware
         @web.middleware
