@@ -722,36 +722,54 @@ class GuidelineAnalysisService:
                 if mcp_url:
                     logger.info(f"Attempting to use MCP server at {mcp_url} for triple generation")
                     
-                    # Make JSON-RPC call to MCP server
-                    response = requests.post(
-                        f"{mcp_url}/jsonrpc",
-                        json={
-                            "jsonrpc": "2.0",
-                            "method": "call_tool",
-                            "params": {
-                                "name": "generate_concept_triples",
-                                "arguments": {
-                                    "concepts": concepts,
-                                    "selected_indices": selected_indices,
-                                    "ontology_source": ontology_source,
-                                    "namespace": "http://proethica.org/guidelines/",
-                                    "output_format": "json"
-                                }
-                            },
-                            "id": 1
-                        },
-                        timeout=30  # Timeout for triple generation
-                    )
+                    # Create proper filtered concepts list for the JSON-RPC call
+                    selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
+                    if not selected_concepts:
+                        return {"triples": [], "triple_count": 0, "concept_count": 0}
                     
-                    if response.status_code == 200:
-                        result = response.json()
-                        if "result" in result and not "error" in result:
-                            logger.info(f"Successfully generated triples using MCP server")
-                            return result["result"]
-                        elif "error" in result:
-                            logger.warning(f"MCP server returned error: {result['error']}")
-                    else:
-                        logger.warning(f"MCP server returned status code {response.status_code}")
+                    # Make JSON-RPC call to MCP server with better error handling
+                    try:
+                        response = requests.post(
+                            f"{mcp_url}/jsonrpc",
+                            json={
+                                "jsonrpc": "2.0",
+                                "method": "call_tool",
+                                "params": {
+                                    "name": "generate_concept_triples",
+                                    "arguments": {
+                                        "concepts": concepts,
+                                        "selected_indices": selected_indices,
+                                        "ontology_source": ontology_source,
+                                        "namespace": "http://proethica.org/guidelines/",
+                                        "output_format": "json"
+                                    }
+                                },
+                                "id": 1
+                            },
+                            timeout=60  # Longer timeout for triple generation
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            if "result" in result and not "error" in result:
+                                logger.info(f"Successfully generated {result['result'].get('triple_count', 0)} triples using MCP server")
+                                
+                                # Enhance the response with ontology relationships
+                                if ontology_source and "triples" in result["result"]:
+                                    result["result"] = self._enhance_triples_with_ontology_relationships(
+                                        result["result"], ontology_source
+                                    )
+                                return result["result"]
+                            elif "error" in result:
+                                logger.warning(f"MCP server returned error: {result['error']}")
+                        else:
+                            logger.warning(f"MCP server returned status code {response.status_code}")
+                    except requests.Timeout:
+                        logger.warning("Timeout occurred when calling MCP server for triple generation")
+                    except requests.ConnectionError:
+                        logger.warning("Connection error when calling MCP server for triple generation")
+                    except Exception as e:
+                        logger.warning(f"Error during MCP JSON-RPC call: {str(e)}")
             except Exception as e:
                 logger.warning(f"Error using MCP server for triple generation: {str(e)}")
                 logger.info("Falling back to direct implementation")
@@ -760,7 +778,9 @@ class GuidelineAnalysisService:
             selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
             
             if not selected_concepts:
-                return {"triples": [], "triple_count": 0}
+                return {"triples": [], "triple_count": 0, "concept_count": 0}
+            
+            logger.info(f"Generating triples directly for {len(selected_concepts)} concepts")
             
             # Prepare triples list
             all_triples = []
@@ -788,11 +808,22 @@ class GuidelineAnalysisService:
                 }
                 all_triples.append(type_triple)
                 
+                # Label triple
+                label_triple = {
+                    "subject": concept_uri,
+                    "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                    "object": concept_label,
+                    "subject_label": concept_label,
+                    "predicate_label": "label",
+                    "object_label": concept_label
+                }
+                all_triples.append(label_triple)
+                
                 # Description triple if provided
                 if concept_description:
                     description_triple = {
                         "subject": concept_uri,
-                        "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
+                        "predicate": "http://purl.org/dc/elements/1.1/description",
                         "object": concept_description,
                         "subject_label": concept_label,
                         "predicate_label": "has description",
@@ -810,6 +841,17 @@ class GuidelineAnalysisService:
                     "object_label": str(confidence)
                 }
                 all_triples.append(confidence_triple)
+                
+                # Category triple
+                category_triple = {
+                    "subject": concept_uri,
+                    "predicate": "http://proethica.org/ontology/hasCategory",
+                    "object": concept_type,
+                    "subject_label": concept_label,
+                    "predicate_label": "has category",
+                    "object_label": concept_type.title()
+                }
+                all_triples.append(category_triple)
                 
                 # Add relationship triples based on concept type
                 if concept_type == "role":
@@ -847,6 +889,31 @@ class GuidelineAnalysisService:
                         "object_label": "Professional Role"
                     }
                     all_triples.append(obligation_triple)
+                
+                # Add related concepts if available
+                if "related_concepts" in concept and isinstance(concept["related_concepts"], list):
+                    for related in concept["related_concepts"]:
+                        related_uri = f"{namespace}{self._slugify(related)}"
+                        related_triple = {
+                            "subject": concept_uri,
+                            "predicate": "http://proethica.org/ontology/relatedTo",
+                            "object": related_uri,
+                            "subject_label": concept_label,
+                            "predicate_label": "related to",
+                            "object_label": related
+                        }
+                        all_triples.append(related_triple)
+            
+            # Try to enhance triples with ontology relationships if ontology source provided
+            if ontology_source:
+                try:
+                    # Get relevant ontology entities
+                    ontology_entities = self.mcp_client.get_ontology_entities(ontology_source)
+                    if ontology_entities and "entities" in ontology_entities:
+                        # Add ontology relationships here if needed
+                        pass
+                except Exception as e:
+                    logger.warning(f"Could not enhance triples with ontology relationships: {str(e)}")
             
             # Save the final results
             result = {
@@ -856,8 +923,11 @@ class GuidelineAnalysisService:
             }
             
             # Optionally save to JSON file for debugging
-            with open('guideline_triples.json', 'w') as f:
-                json.dump(result, f, indent=2)
+            try:
+                with open('guideline_triples.json', 'w') as f:
+                    json.dump(result, f, indent=2)
+            except Exception as e:
+                logger.warning(f"Could not save triples to debug file: {str(e)}")
                 
             logger.info(f"Generated {len(all_triples)} triples for {len(selected_concepts)} concepts")
             return result
@@ -865,3 +935,73 @@ class GuidelineAnalysisService:
         except Exception as e:
             logger.exception(f"Error generating triples: {str(e)}")
             return {"error": str(e), "triples": [], "triple_count": 0}
+    
+    def _enhance_triples_with_ontology_relationships(self, triples_result: Dict, ontology_source: str) -> Dict:
+        """
+        Enhance triples with additional relationships to ontology entities if available.
+        
+        Args:
+            triples_result: The triple generation result
+            ontology_source: The ontology source identifier
+            
+        Returns:
+            Enhanced triples result
+        """
+        try:
+            # Get ontology entities
+            entities_data = self.mcp_client.get_ontology_entities(ontology_source)
+            if not entities_data or "entities" not in entities_data:
+                return triples_result
+                
+            all_triples = triples_result.get("triples", [])
+            
+            # Extract subjects from existing triples
+            subjects = {}
+            for triple in all_triples:
+                if "subject" in triple and "subject_label" in triple:
+                    subjects[triple["subject"]] = triple["subject_label"]
+            
+            # For each subject, try to find matching ontology entities
+            for subject_uri, subject_label in subjects.items():
+                # Find matches in ontology entities
+                matches = []
+                
+                for entity_type, entities in entities_data["entities"].items():
+                    for entity in entities:
+                        entity_label = entity.get("label", "")
+                        if entity_label.lower() == subject_label.lower():
+                            # Exact match by label
+                            matches.append((entity, "exact", 0.95))
+                        elif entity_label.lower() in subject_label.lower() or subject_label.lower() in entity_label.lower():
+                            # Partial match
+                            matches.append((entity, "partial", 0.75))
+                
+                # Sort matches by confidence
+                matches.sort(key=lambda m: m[2], reverse=True)
+                
+                # Add relationship triple for top match if available
+                if matches:
+                    top_match = matches[0][0]
+                    match_uri = top_match.get("uri", "")
+                    match_label = top_match.get("label", "")
+                    
+                    if match_uri:
+                        # Add equivalence or similarity relationship
+                        relation_triple = {
+                            "subject": subject_uri,
+                            "predicate": "http://proethica.org/ontology/mappedToEntity",
+                            "object": match_uri,
+                            "subject_label": subject_label,
+                            "predicate_label": "mapped to entity",
+                            "object_label": match_label
+                        }
+                        all_triples.append(relation_triple)
+            
+            # Update the result
+            triples_result["triples"] = all_triples
+            triples_result["triple_count"] = len(all_triples)
+            
+            return triples_result
+        except Exception as e:
+            logger.warning(f"Error enhancing triples with ontology relationships: {str(e)}")
+            return triples_result

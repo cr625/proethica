@@ -230,6 +230,13 @@ class GuidelineAnalysisModule(MCPBaseModule):
         Returns:
             Dictionary with extracted concepts
         """
+        # DEBUGGING BREAKPOINT - This line is for manual debugging
+        import inspect
+        current_frame = inspect.currentframe()
+        frame_info = inspect.getframeinfo(current_frame)
+        logger.debug(f"BREAKPOINT: Hit extract_guideline_concepts at {frame_info.filename}:{frame_info.lineno}")
+        logger.debug(f"BREAKPOINT: Arguments: {arguments}")
+        
         try:
             content = arguments.get("content", "")
             ontology_source = arguments.get("ontology_source")

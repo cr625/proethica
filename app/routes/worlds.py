@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from datetime import datetime
 import os
+import logging
 from werkzeug.utils import secure_filename
 from app import db
 from app.models.world import World
@@ -13,6 +14,9 @@ from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 from app.services.ontology_entity_service import OntologyEntityService
 from app.services.guideline_analysis_service import GuidelineAnalysisService
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 worlds_bp = Blueprint('worlds', __name__, url_prefix='/worlds')
 
@@ -769,7 +773,9 @@ def analyze_guideline_legacy(id, document_id):
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts', methods=['POST'])
 def save_guideline_concepts(world_id, document_id):
-    """Save selected concepts from a guideline document."""
+    """Save selected concepts from a guideline document to the ontology database."""
+    logger.info(f"Saving guideline concepts for document {document_id} in world {world_id}")
+    
     world = World.query.get_or_404(world_id)
     
     from app.models.document import Document
@@ -804,6 +810,8 @@ def save_guideline_concepts(world_id, document_id):
             flash('No concepts found in analysis results', 'error')
             return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
         
+        logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
+        
         # Generate triples for selected concepts
         triples_result = guideline_analysis_service.generate_triples(
             concepts, 
@@ -826,28 +834,46 @@ def save_guideline_concepts(world_id, document_id):
                 source_url=guideline.source,
                 file_path=guideline.file_path,
                 file_type=guideline.file_type,
-                metadata={
+                guideline_metadata={
                     "document_id": document_id,
                     "analyzed": True,
                     "concepts_extracted": len(concepts),
                     "concepts_selected": len(selected_indices),
-                    "triple_count": triples_result.get("triple_count", 0)
+                    "triple_count": triples_result.get("triple_count", 0),
+                    "analysis_date": datetime.utcnow().isoformat(),
+                    "ontology_source": ontology_source
                 }
             )
             db.session.add(new_guideline)
             db.session.flush()  # Get the guideline ID
             
-            # Save triples
+            # Get triples data
             triples_data = triples_result.get("triples", [])
+            triple_count = len(triples_data)
+            
             if triples_data:
+                # Log the number of triples to be saved
+                logger.info(f"Saving {triple_count} triples to the database for guideline {new_guideline.id}")
+                
+                # Bulk insert triples for better performance
+                entity_triples = []
                 from app.models.entity_triple import EntityTriple
+                
                 for triple_data in triples_data:
+                    # Determine if object is literal or URI
+                    is_literal = isinstance(triple_data["object"], str)
+                    object_value = triple_data["object"]
+                    
+                    # Check if the object value isn't a URI - if it starts with http:// or https://, it's a URI
+                    if is_literal and (object_value.startswith("http://") or object_value.startswith("https://")):
+                        is_literal = False
+                    
                     triple = EntityTriple(
                         subject=triple_data["subject"],
                         predicate=triple_data["predicate"],
-                        object_literal=triple_data["object"] if isinstance(triple_data["object"], str) else None,
-                        object_uri=None if isinstance(triple_data["object"], str) else triple_data["object"],
-                        is_literal=isinstance(triple_data["object"], str),
+                        object_literal=object_value if is_literal else None,
+                        object_uri=None if is_literal else object_value,
+                        is_literal=is_literal,
                         subject_label=triple_data.get("subject_label"),
                         predicate_label=triple_data.get("predicate_label"),
                         object_label=triple_data.get("object_label"),
@@ -855,9 +881,17 @@ def save_guideline_concepts(world_id, document_id):
                         entity_type="guideline_concept",
                         entity_id=new_guideline.id,
                         world_id=world_id,
-                        guideline_id=new_guideline.id
+                        guideline_id=new_guideline.id,
+                        triple_metadata={
+                            "source": "guideline_analysis",
+                            "confidence": triple_data.get("confidence", 1.0) if "confidence" in triple_data else 1.0,
+                            "created_at": datetime.utcnow().isoformat()
+                        }
                     )
-                    db.session.add(triple)
+                    entity_triples.append(triple)
+                
+                # Add all triples to the session
+                db.session.bulk_save_objects(entity_triples)
                 
             # Update document metadata
             guideline.doc_metadata = {
@@ -866,24 +900,28 @@ def save_guideline_concepts(world_id, document_id):
                 "guideline_id": new_guideline.id,
                 "concepts_extracted": len(concepts),
                 "concepts_selected": len(selected_indices),
-                "triples_created": triples_result.get("triple_count", 0)
+                "triples_created": triple_count,
+                "analysis_date": datetime.utcnow().isoformat()
             }
             db.session.commit()
             
             # Remove analysis data from session
             session.pop(analysis_key, None)
             
-            flash(f'Successfully created {triples_result.get("triple_count", 0)} RDF triples from selected concepts', 'success')
+            logger.info(f"Successfully created {triple_count} RDF triples for guideline {new_guideline.id}")
+            flash(f'Successfully created {triple_count} RDF triples from selected concepts', 'success')
         except Exception as e:
             db.session.rollback()
             import traceback
-            traceback.print_exc()
+            error_trace = traceback.format_exc()
+            logger.error(f"Error saving triples: {str(e)}\n{error_trace}")
             flash(f'Error saving triples: {str(e)}', 'error')
             return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
         
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        error_trace = traceback.format_exc()
+        logger.error(f"Error processing concepts: {str(e)}\n{error_trace}")
         flash(f'Error processing concepts: {str(e)}', 'error')
         
     return redirect(url_for('worlds.world_guidelines', id=world_id))

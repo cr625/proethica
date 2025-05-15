@@ -21,6 +21,45 @@ The Guidelines Feature allows users to upload, process, and analyze ethical guid
 - ✅ **Model Updates**: Updated all Claude model references to claude-3-7-sonnet-20250219
 - ✅ **Pipeline Testing**: Created end-to-end testing pipeline for verification
 - ✅ **Client Error Handling**: Added comprehensive error handling for connection failures
+- ✅ **Debug Environment**: Added VSCode debug configuration and breakpoint setup for tracing request flow
+
+### Technical Implementation Flow
+
+The guideline concept extraction flow works as follows:
+
+1. **User Interface**: User clicks "Analyze Concepts" button on the guideline content page
+2. **HTTP Request**: Request is sent to route `/worlds/<world_id>/guidelines/<document_id>/analyze` 
+3. **Route Handler**: `analyze_guideline()` function in `worlds.py` processes the request
+4. **Service Layer**: `GuidelineAnalysisService.extract_concepts()` method is called with guideline content
+5. **MCP Communication**: Service makes a JSON-RPC call to MCP server:
+   ```python
+   response = requests.post(
+       f"{mcp_url}/jsonrpc",
+       json={
+           "jsonrpc": "2.0",
+           "method": "call_tool",
+           "params": {
+               "name": "extract_guideline_concepts",
+               "arguments": {
+                   "content": content[:50000],
+                   "ontology_source": ontology_source
+               }
+           },
+           "id": 1
+       },
+       timeout=60
+   )
+   ```
+6. **MCP Server Processing**:
+   - Request is received by `handle_jsonrpc()` in the enhanced ontology server
+   - `_process_request()` parses the JSON-RPC request
+   - `_handle_call_tool()` directs the call to the appropriate module
+   - `GuidelineAnalysisModule.extract_guideline_concepts()` handles the actual extraction
+   - LLM (Claude 3.7 Sonnet) processes the guideline content using a specialized prompt
+   - Extracted concepts are returned in JSON format
+7. **Response Processing**: Results are processed and displayed in the guideline concepts review template
+8. **User Review**: User reviews and selects concepts to include in the ontology
+9. **Triple Generation**: Selected concepts are converted to RDF triples through a follow-up request
 
 ### GitHub Codespaces Support
 
@@ -166,7 +205,29 @@ def extract_concepts(self, content: str, ontology_source: Optional[str] = None) 
     return self._extract_concepts_direct(content, ontology_source)
 ```
 
-### 2. LLM Model Updates
+### 2. Current Claude Integration Approach
+
+Through debugging and analysis, we've identified how ontology entities are used in the guideline concept extraction process:
+
+1. **Prompt-based Integration**: The current implementation uses prompt engineering to integrate ontology entities:
+   - When `extract_guideline_concepts` is called with an ontology source, entities are retrieved from that source
+   - These entities are incorporated into the prompt sent to Claude
+   - Claude uses this context to extract concepts that align with the existing ontology
+
+2. **No Native Tool Use**: The current implementation does not utilize Claude's tool use capabilities:
+   - All interactions with Claude are simple "user message → assistant response" exchanges
+   - Ontology data must be included in the initial prompt
+   - Claude cannot actively query the ontology during its reasoning process
+
+3. **Data Flow Process**:
+   - Web UI triggers concept extraction with ontology source parameter
+   - MCP server retrieves ontology entities and enhances the prompt
+   - Enhanced prompt with guideline content AND ontology entities is sent to Claude
+   - Claude's response is parsed to extract structured concept data
+
+This insight will inform our next implementation phase, where we'll upgrade to native tool use to allow Claude to dynamically query the ontology as needed during concept extraction.
+
+### 3. LLM Model Updates
 
 All Claude model references have been updated to use Claude 3.7 Sonnet:
 
@@ -317,6 +378,27 @@ Run the guidelines MCP pipeline test:
 ```bash
 ./run_guidelines_mcp_pipeline.sh
 ```
+
+### Debugging Setup
+
+For debugging the MCP server integration, we've created dedicated tools:
+
+1. **Debug Run Script** (`debug_run.py`):
+   - Fixes the SQLAlchemy URL escaping issue in configuration files
+   - Allows running the application directly with the correct database settings
+   - Usage: `python debug_run.py --port 3333 --mcp-port 5001`
+
+2. **MCP Server Debug Script** (`debug_mcp_server.sh`):
+   - Sets up the environment for MCP server debugging
+   - Stops any running MCP server processes
+   - Configures the necessary environment variables
+
+3. **VSCode Debug Configuration**:
+   - Added breakpoints configuration for tracing request flow 
+   - Modified launch.json to enable proper debugging of MCP server
+   - Added debug mode flag to enhance logging
+
+See `DEBUG_INSTRUCTIONS.md` for detailed steps to debug the guideline concept extraction process.
 
 This will:
 1. Load a test guideline

@@ -76,7 +76,7 @@
                                             </div>
                                         </td>
                                         <td><label class="form-check-label" for="concept-{{ concept.id }}"><strong>{{ concept.label }}</strong></label></td>
-                                        <td>{{ concept.type|title }}</td>
+                                        <td>{{ concept.category|capitalize if concept.category else (concept.type|capitalize if concept.type else "Concept") }}</td>
                                         <td>{{ concept.description }}</td>
                                         <td>
                                             <div class="progress">{#

@@ -88,7 +88,7 @@
     </div>
   </div>
 
-  <form method="post" action="{{ url_for('worlds.save_guideline_concepts', id=world.id, document_id=guideline.id) }}">
+  <form method="post" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
 
     <!-- Preview of the triples that will be generated -->
@@ -208,7 +208,7 @@
                     </td>
                     <td><strong>{{ concept.label }}</strong></td>
                     <td>
-                      <span class="badge bg-secondary">{{ concept.type|capitalize }}</span>
+                      <span class="badge bg-secondary">{{ concept.category|capitalize if concept.category else (concept.type|capitalize if concept.type else "Concept") }}</span>
                     </td>
                     <td>{{ concept.description }}</td>
                     <td>

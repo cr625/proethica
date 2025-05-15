@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import logging
+from mcp.enhanced_debug_logging import log_debug_point, log_json_rpc_request, log_method_call
 import asyncio
 import aiohttp
 from aiohttp import web
@@ -73,7 +74,9 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         # Check environment variable for debug mode
         self.debug_mode = os.environ.get("MCP_DEBUG", "false").lower() == "true"
         if self.debug_mode:
-            logger.info("Debug mode enabled")
+            logger.info("Debug mode enabled - breakpoints should be active")
+            # Set higher log level for debug mode
+            logging.getLogger().setLevel(logging.DEBUG)
             
         logger.info("Enhanced Ontology Server with Guidelines initialized")
         
@@ -305,6 +308,7 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         Returns:
             Result of the tool call
         """
+        log_debug_point(message="Handling tool call")
         name = params.get("name")
         arguments = params.get("arguments", {})
         

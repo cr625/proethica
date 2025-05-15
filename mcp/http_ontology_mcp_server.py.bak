@@ -10,7 +10,6 @@ from aiohttp import web
 
 # Add the parent directory to the path so we can import mcp as a package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from add_temporal_functionality import add_temporal_endpoints
 
 # Configurable environment setup
 ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", os.path.join(os.path.dirname(__file__), "ontology"))
@@ -46,18 +45,64 @@ class OntologyMCPServer:
         self.namespaces[key] = namespace
         return namespace
 
-    def _load_graph_from_file(self, ontology_file):
+    def _load_graph_from_file(self, ontology_source):
+        """
+        Load ontology content primarily from database with file fallback.
+        
+        Args:
+            ontology_source: Source identifier for ontology (domain_id or filename)
+            
+        Returns:
+            RDFLib Graph object with loaded ontology
+        """
         g = Graph()
-        if not ontology_file:
-            print(f"Error: No ontology file specified", file=sys.stderr)
+        if not ontology_source:
+            print(f"Error: No ontology source specified", file=sys.stderr)
             return g
             
-        ontology_path = os.path.join(ONTOLOGY_DIR, ontology_file)
+        # Handle cleanup of file extension if present
+        if ontology_source.endswith('.ttl'):
+            domain_id = ontology_source[:-4]  # Remove .ttl extension
+        else:
+            domain_id = ontology_source
+            
         try:
+            # First try to load from database
+            # We need to import these here to avoid circular imports
+            try:
+                # Create a Flask app context for database access
+                import os
+                from app import create_app
+                from app.models.ontology import Ontology
+                
+                app = create_app()
+                from app import db  # Import db after creating app context
+                with app.app_context():
+                    # Try to fetch from database
+                    print(f"Attempting to load ontology '{domain_id}' from database", file=sys.stderr)
+                    ontology = Ontology.query.filter_by(domain_id=domain_id).first()
+                    
+                    if ontology:
+                        print(f"Found ontology '{domain_id}' (ID: {ontology.id}) in database", file=sys.stderr)
+                        print(f"Content length: {len(ontology.content)} bytes", file=sys.stderr)
+                        
+                        g.parse(data=ontology.content, format="turtle")
+                        print(f"Successfully parsed ontology content with {len(g)} triples", file=sys.stderr)
+                        return g
+                    else:
+                        print(f"Ontology '{domain_id}' not found in database", file=sys.stderr)
+            except Exception as db_error:
+                print(f"Error loading from database: {str(db_error)}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                
+            # Fall back to file (for backward compatibility)
+            print(f"Falling back to filesystem for ontology '{domain_id}'", file=sys.stderr)
+            ontology_path = os.path.join(ONTOLOGY_DIR, ontology_source)
             if not os.path.exists(ontology_path):
                 print(f"Error: Ontology file not found: {ontology_path}", file=sys.stderr)
                 return g
-                
+
             g.parse(ontology_path, format="turtle")
             print(f"Successfully loaded ontology from {ontology_path}", file=sys.stderr)
         except Exception as e:
@@ -193,8 +238,16 @@ class OntologyMCPServer:
         if entity_type in ("all", "roles"):
             # Look for both namespace.Role and proeth:Role
             role_subjects = set()
+            
+            # Look for instances linked via rdf:type to Role
             role_subjects.update(graph.subjects(RDF.type, namespace.Role))
             role_subjects.update(graph.subjects(RDF.type, proeth_namespace.Role))
+            
+            # ADDITIONAL: Look for instances that have both EntityType and Role types
+            entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+            for s in entity_type_subjects:
+                if (s, RDF.type, proeth_namespace.Role) in graph:
+                    role_subjects.add(s)
             
             out["roles"] = [
                 {
@@ -220,6 +273,12 @@ class OntologyMCPServer:
             condition_subjects.update(graph.subjects(RDF.type, namespace.ConditionType))
             condition_subjects.update(graph.subjects(RDF.type, proeth_namespace.ConditionType))
             
+            # ADDITIONAL: Look for instances that have both EntityType and ConditionType types
+            entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+            for s in entity_type_subjects:
+                if (s, RDF.type, proeth_namespace.ConditionType) in graph:
+                    condition_subjects.add(s)
+            
             out["conditions"] = [
                 {
                     "id": str(s), 
@@ -234,6 +293,12 @@ class OntologyMCPServer:
             resource_subjects = set()
             resource_subjects.update(graph.subjects(RDF.type, namespace.ResourceType))
             resource_subjects.update(graph.subjects(RDF.type, proeth_namespace.ResourceType))
+            
+            # ADDITIONAL: Look for instances that have both EntityType and ResourceType types
+            entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+            for s in entity_type_subjects:
+                if (s, RDF.type, proeth_namespace.ResourceType) in graph:
+                    resource_subjects.add(s)
             
             out["resources"] = [
                 {
@@ -250,6 +315,12 @@ class OntologyMCPServer:
             event_subjects.update(graph.subjects(RDF.type, namespace.EventType))
             event_subjects.update(graph.subjects(RDF.type, proeth_namespace.EventType))
             
+            # ADDITIONAL: Look for instances that have both EntityType and EventType types
+            entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+            for s in entity_type_subjects:
+                if (s, RDF.type, proeth_namespace.EventType) in graph:
+                    event_subjects.add(s)
+            
             out["events"] = [
                 {
                     "id": str(s), 
@@ -264,6 +335,12 @@ class OntologyMCPServer:
             action_subjects = set()
             action_subjects.update(graph.subjects(RDF.type, namespace.ActionType))
             action_subjects.update(graph.subjects(RDF.type, proeth_namespace.ActionType))
+            
+            # ADDITIONAL: Look for instances that have both EntityType and ActionType types
+            entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+            for s in entity_type_subjects:
+                if (s, RDF.type, proeth_namespace.ActionType) in graph:
+                    action_subjects.add(s)
             
             out["actions"] = [
                 {
@@ -280,6 +357,12 @@ class OntologyMCPServer:
             capability_subjects.update(graph.subjects(RDF.type, namespace.Capability))
             capability_subjects.update(graph.subjects(RDF.type, proeth_namespace.Capability))
             
+            # ADDITIONAL: Look for instances that have both EntityType and Capability types
+            entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+            for s in entity_type_subjects:
+                if (s, RDF.type, proeth_namespace.Capability) in graph:
+                    capability_subjects.add(s)
+            
             # Also get capabilities that are associated with roles
             for role in graph.subjects(RDF.type, namespace.Role):
                 capability_subjects.update(graph.objects(role, proeth_namespace.hasCapability))
@@ -294,6 +377,10 @@ class OntologyMCPServer:
                 }
                 for s in capability_subjects
             ]
+            
+        # Log what was found for debugging
+        for entity_type, entity_list in out.items():
+            print(f"Found {len(entity_list)} {entity_type} in ontology", file=sys.stderr)
             
         return out
 
@@ -393,12 +480,19 @@ class OntologyMCPServer:
         # Return mock guidelines for the specified world or empty dictionary if not found
         return web.json_response({"guidelines": mock_guidelines.get(world_name, [])})
 
+    async def handle_health(self, request):
+        """Simple health check endpoint for the MCP server."""
+        return web.json_response({"status": "ok", "message": "Ontology MCP server is running"})
+
 async def run_server():
     server = OntologyMCPServer()
     app = web.Application()
     
-    # Add temporal endpoints
-    add_temporal_endpoints(app)
+    # Import and register the temporal module
+    from mcp.modules.temporal_module import TemporalModule
+    temporal_module = TemporalModule()
+    
+    # Register temporal endpoints directly in the unified server
     
     # JSON-RPC endpoint
     app.router.add_post('/jsonrpc', server.handle_jsonrpc)
@@ -406,6 +500,9 @@ async def run_server():
     # Direct API endpoints
     app.router.add_get('/api/ontology/{ontology_source}/entities', server.handle_get_entities)
     app.router.add_get('/api/guidelines/{world_name}', server.handle_get_guidelines)
+    
+    # Health check endpoint
+    app.router.add_get('/health', server.handle_health)
     
     # CORS middleware
     @web.middleware

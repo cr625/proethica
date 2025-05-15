@@ -33,6 +33,14 @@ def create_app(config_module='app.config'):
         app.config.from_object(config_module)
     
     # Configure database
+    # SQLAlchemy URL fix
+
+    if app.config.get('SQLALCHEMY_DATABASE_URI') and '\\x3a' in app.config['SQLALCHEMY_DATABASE_URI']:
+
+        app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('\\x3a', ':')
+
+        print(f"Fixed escaped database URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
+
     db.init_app(app)
     
     # Register template filters

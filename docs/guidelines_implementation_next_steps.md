@@ -22,6 +22,12 @@ This document outlines the next steps and future enhancements for the Guidelines
   - Create a status indicator component for the UI
   - Add automatic reconnection logic
   - Implement server health check endpoint
+  
+- **Enhance Debugging Capabilities**
+  - Add comprehensive request/response logging throughout the MCP communication flow
+  - Implement a "debug mode" flag in the web UI for guidelines feature
+  - Create a diagnostic view to show the complete call stack and execution time for each step
+  - Add performance metrics collection for concept extraction pipeline
 
 ### 2. Enhance the User Interface
 
@@ -66,7 +72,22 @@ This document outlines the next steps and future enhancements for the Guidelines
 
 ## Future Enhancements
 
-### 1. Triple Generation and Export
+### 1. Implement Native Claude Tool Use
+
+- **MUST DO: Implement Native Tool Use for Claude**
+  - Upgrade from simple prompts to native Claude tool use functionality
+  - Define structured JSON tools in the API calls to Anthropic
+  - Allow Claude to dynamically query ontology entities as needed
+  - Implement interactive reasoning with real-time tool calls
+  - Support self-correction by letting Claude validate outputs against ontology constraints
+
+- **Update MCP Module Interface for Native Tool Use**
+  - Define JSON schema for all ontology query operations
+  - Create tool definitions for entity retrieval, filtering, and semantic matching
+  - Implement proper error handling for tool call failures
+  - Add result caching to prevent redundant tool calls
+
+### 2. Triple Generation and Export
 
 - **Create Sophisticated RDF Patterns**
   - Implement more complex relationship types between concepts
