@@ -26,7 +26,7 @@ parser.add_argument('--mcp-port', type=int, default=5001, help='Port for the MCP
 args = parser.parse_args()
 
 # Set Codespace-specific environment variables
-os.environ['ENVIRONMENT'] = 'app.config.CodespaceConfig'
+os.environ['ENVIRONMENT'] = 'codespace'
 os.environ['CODESPACE'] = 'true'
 os.environ['FLASK_ENV'] = 'development'
 os.environ['FLASK_DEBUG'] = '1'

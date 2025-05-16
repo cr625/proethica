@@ -1,178 +1,340 @@
 #!/bin/bash
-# Unified debugging script that runs both the MCP server and Flask app
-# with mock guideline responses enabled
+# Combined debug script for testing guideline concept extraction and saving
+# This script sets up a debug environment that includes:
+# 1. PostgreSQL with pgvector properly set up
+# 2. Database schema verification and fixing
+# 3. Flask app running with debug mode
+# 4. MCP server with guideline analysis module
+# 5. Mock Claude responses for testing
+#
+# The script can be run in two modes:
+# - Full mode: Sets up everything and starts Flask and MCP server
+# - Setup-only mode: Only sets up PostgreSQL (for VSCode integration)
+#   Enable this by setting SETUP_ONLY=true before running
 
-# ANSI color codes for better readability
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
+# Don't exit on error - we want to handle errors gracefully
+# set -e
+
+# Color codes for output
 RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}====================================================${NC}"
-echo -e "${YELLOW}UNIFIED DEBUG WITH MOCK GUIDELINE RESPONSES${NC}"
-echo -e "${BLUE}====================================================${NC}"
+# Print banner
+echo -e "${BLUE}=================================${NC}"
+echo -e "${BLUE}= Guideline Concept Debug Setup =${NC}"
+echo -e "${BLUE}=================================${NC}"
 
-# Enable mock guideline responses
-export USE_MOCK_GUIDELINE_RESPONSES=true
-echo -e "${GREEN}Enabled mock guideline responses${NC}"
-
-# Kill any existing MCP server and Flask app processes
-echo -e "${BLUE}Checking for existing processes...${NC}"
-pkill -f "python mcp/run_enhanced_mcp_server_with_guidelines.py" 2>/dev/null
-pkill -f "flask run --port 3333" 2>/dev/null
-sleep 1
-
-# Ensure the PostgreSQL container is running
-echo -e "${BLUE}Checking PostgreSQL container...${NC}"
-
-# Detect environment and set PostgreSQL container name accordingly
-if [ "$CODESPACES" == "true" ]; then
-    echo -e "${BLUE}Detected GitHub Codespaces environment...${NC}"
-    ENV="codespace"
-    POSTGRES_CONTAINER="postgres17-pgvector-codespace"
-    
-    # Check if setup script exists and run it
-    if [ -f "./scripts/setup_codespace_db.sh" ]; then
-        if [ ! -x "./scripts/setup_codespace_db.sh" ]; then
-            echo -e "${YELLOW}Making setup_codespace_db.sh executable...${NC}"
-            chmod +x ./scripts/setup_codespace_db.sh
-        fi
-        
-        # Run the codespace setup script
-        echo -e "${BLUE}Setting up PostgreSQL for codespace environment...${NC}"
-        ./scripts/setup_codespace_db.sh
-    else
-        echo -e "${RED}Codespace setup script not found. Database may not work correctly.${NC}"
-    fi
-elif grep -qi microsoft /proc/version 2>/dev/null; then
-    echo -e "${BLUE}Detected WSL environment...${NC}"
-    ENV="wsl"
-    POSTGRES_CONTAINER="postgres17-pgvector-wsl"
-    
-    # Check if native PostgreSQL is running and stop it if needed
-    if command -v service &> /dev/null && service postgresql status &> /dev/null; then
-        echo -e "${YELLOW}Native PostgreSQL is running in WSL. Stopping it to avoid port conflicts...${NC}"
-        sudo service postgresql stop || echo -e "${RED}Could not stop PostgreSQL service. You may experience port conflicts.${NC}"
-    fi
-else
-    # Default container name for other environments
-    ENV="development"
-    POSTGRES_CONTAINER="postgres17-pgvector"
-fi
-
-echo -e "${BLUE}Using environment: ${ENV} with container: ${POSTGRES_CONTAINER}${NC}"
-
-# Extract database connection details from .env file if it exists
-DB_PORT="5433"  # Default port
-if [ -f ".env" ] && grep -q "DATABASE_URL" .env; then
-    EXTRACTED_PORT=$(grep "DATABASE_URL" .env | sed -E 's/.*localhost:([0-9]+).*/\1/')
-    if [ ! -z "$EXTRACTED_PORT" ]; then
-        DB_PORT=$EXTRACTED_PORT
-    fi
-fi
-
-# Check Docker if not in Codespaces (Codespaces has its own Docker handling in the setup script)
-if [ "$CODESPACES" != "true" ]; then
-    # Check if Docker is installed and running
-    if ! command -v docker &> /dev/null; then
-        echo -e "${YELLOW}Docker is not installed or not in PATH. Skipping Docker checks.${NC}"
-    else
-        # Check container status
-        CONTAINER_STATUS=$(docker ps -a --filter "name=$POSTGRES_CONTAINER" --format "{{.Status}}")
-        
-        if [ -z "$CONTAINER_STATUS" ]; then
-            echo -e "${YELLOW}PostgreSQL container '$POSTGRES_CONTAINER' not found.${NC}"
-            echo -e "${YELLOW}Setting up shared PostgreSQL container...${NC}"
-            
-            # Check if shared postgres setup script exists
-            if [ -f "./scripts/setup_shared_postgres.sh" ]; then
-                chmod +x ./scripts/setup_shared_postgres.sh
-                ./scripts/setup_shared_postgres.sh
-            else
-                echo -e "${YELLOW}Setup script not found. Using docker-compose to start postgres...${NC}"
-                docker-compose up -d postgres
-            fi
-            
-            echo -e "${YELLOW}Waiting for database to initialize...${NC}"
-            sleep 10
-        else
-            if [[ $CONTAINER_STATUS == Exited* ]] || [[ $CONTAINER_STATUS == Created* ]]; then
-                echo -e "${YELLOW}PostgreSQL container '$POSTGRES_CONTAINER' exists but is not running. Starting it now...${NC}"
-                if docker start $POSTGRES_CONTAINER; then
-                    echo -e "${GREEN}PostgreSQL container started successfully on port $DB_PORT.${NC}"
-                    echo -e "${YELLOW}Waiting for PostgreSQL to initialize...${NC}"
-                    sleep 5
-                else
-                    echo -e "${RED}Failed to start PostgreSQL container. Please check Docker logs.${NC}"
-                fi
-            else
-                echo -e "${GREEN}PostgreSQL container '$POSTGRES_CONTAINER' is already running on port $DB_PORT.${NC}"
-            fi
-        fi
-    fi
-fi
-
-# Apply SQLAlchemy URL fix if needed
-echo -e "${BLUE}Applying SQLAlchemy URL fix...${NC}"
-./patch_sqlalchemy_url.py app/__init__.py
-
-# Start the MCP server in the background
-echo -e "${BLUE}Starting MCP server with mock guideline responses...${NC}"
-python mcp/run_enhanced_mcp_server_with_guidelines.py --port 5001 > mcp_server_log.txt 2>&1 &
-MCP_PID=$!
-
-echo -e "${YELLOW}MCP server starting with PID: $MCP_PID${NC}"
-
-# Wait for MCP server to initialize
-echo -e "${YELLOW}Waiting for MCP server to initialize...${NC}"
-sleep 5
-
-# Check if MCP server is running
-if ps -p $MCP_PID > /dev/null; then
-    echo -e "${GREEN}MCP server is running.${NC}"
-else
-    echo -e "${RED}MCP server failed to start. Check mcp_server_log.txt for details.${NC}"
+# Check if backup exists
+if [ ! -d "./backups" ]; then
+    echo -e "${RED}Error: backups directory not found${NC}"
+    echo "Please make sure you're in the project root directory"
     exit 1
 fi
 
-# Test MCP server connectivity
-echo -e "${BLUE}Testing connection to MCP server at http://localhost:5001...${NC}"
-curl -s -o /dev/null -w "%{http_code}" http://localhost:5001/status > /dev/null
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}MCP server is responding.${NC}"
+# Define PostgreSQL container variables for Codespaces
+POSTGRES_CONTAINER="postgres17-pgvector-codespace"
+POSTGRES_VERSION="17"
+POSTGRES_PORT="5433"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="PASS"
+POSTGRES_DB="ai_ethical_dm"
+
+# Setup the PostgreSQL container with pgvector
+echo -e "${BLUE}Setting up PostgreSQL container with pgvector...${NC}"
+
+# Stop and remove any existing containers with the same name
+echo -e "${YELLOW}Stopping and removing any existing PostgreSQL containers...${NC}"
+docker stop $POSTGRES_CONTAINER 2>/dev/null || true
+docker rm -f $POSTGRES_CONTAINER 2>/dev/null || true
+echo -e "${GREEN}Removed any existing containers.${NC}"
+
+# Clean up any stale Docker networks/volumes
+echo -e "${YELLOW}Cleaning up Docker resources...${NC}"
+docker network prune -f >/dev/null 2>&1
+docker volume prune -f >/dev/null 2>&1
+
+# Build and start fresh container
+echo -e "${YELLOW}Building PostgreSQL image with pgvector...${NC}"
+if [ -f "./postgres.Dockerfile" ]; then
+    docker build -t postgres-pgvector:$POSTGRES_VERSION -f postgres.Dockerfile . || {
+        echo -e "${RED}Failed to build Docker image. Trying with pgvector from Docker Hub instead.${NC}"
+        docker run --name $POSTGRES_CONTAINER \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_USER=$POSTGRES_USER \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            -p $POSTGRES_PORT:5432 \
+            -d pgvector/pgvector:pg$POSTGRES_VERSION || {
+                echo -e "${RED}Failed to start container. Please check Docker logs.${NC}"
+                exit 1
+            }
+    }
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Image built successfully. Starting container...${NC}"
+        docker run --name $POSTGRES_CONTAINER \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_USER=$POSTGRES_USER \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            -p $POSTGRES_PORT:5432 \
+            -d postgres-pgvector:$POSTGRES_VERSION
+    fi
 else
-    echo -e "${YELLOW}Warning: Could not verify MCP server status. Continuing anyway...${NC}"
+    echo -e "${YELLOW}postgres.Dockerfile not found, using pgvector image from Docker Hub...${NC}"
+    docker run --name $POSTGRES_CONTAINER \
+        -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+        -e POSTGRES_USER=$POSTGRES_USER \
+        -e POSTGRES_DB=$POSTGRES_DB \
+        -p $POSTGRES_PORT:5432 \
+        -d pgvector/pgvector:pg$POSTGRES_VERSION || {
+            echo -e "${RED}Failed to start container from pgvector/pgvector:pg$POSTGRES_VERSION.${NC}"
+            exit 1
+        }
 fi
 
-# Set debug environment variables
-export FLASK_ENV=development
-export FLASK_DEBUG=1
-export MCP_DEBUG=true
+# Wait for container to initialize
+echo -e "${YELLOW}Waiting for PostgreSQL to initialize (15 seconds)...${NC}"
+sleep 15
 
-echo -e "${BLUE}====================================================${NC}"
-echo -e "${YELLOW}DEBUG ENVIRONMENT READY${NC}"
-echo -e "${BLUE}====================================================${NC}"
-echo -e "${GREEN}MCP Server: Running with mock responses (PID: $MCP_PID)${NC}"
-echo -e "${GREEN}MCP Server Log: mcp_server_log.txt${NC}"
-echo -e "${GREEN}To debug:${NC}"
-echo -e "  1. Set breakpoints in VSCode"
-echo -e "  2. In VSCode Run panel, select 'Python: Flask' from dropdown"
-echo -e "  3. Click start debugging (F5)"
-echo -e ""
-echo -e "${YELLOW}Or run the Flask app directly:${NC}"
-echo -e "  ./debug_app.sh"
-echo -e ""
-echo -e "${RED}To stop everything when done:${NC}"
-echo -e "  kill $MCP_PID"
-echo -e "${BLUE}====================================================${NC}"
+# Verify container is running
+if [ ! "$(docker ps -q -f name=$POSTGRES_CONTAINER)" ]; then
+    echo -e "${RED}PostgreSQL container failed to start. Please check Docker logs:${NC}"
+    docker logs $POSTGRES_CONTAINER
+    exit 1
+fi
 
-# Option to start the Flask app directly
-read -p "Start Flask app now? (y/n): " start_flask
-if [[ $start_flask == "y" || $start_flask == "Y" ]]; then
-    echo -e "${BLUE}Starting Flask app...${NC}"
-    ./debug_app.sh
+# Initialize pgvector extension
+echo -e "${YELLOW}Initializing pgvector extension...${NC}"
+docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB -c 'CREATE EXTENSION IF NOT EXISTS pgvector;' || {
+    echo -e "${RED}Failed to initialize pgvector extension. Trying again after 5 seconds...${NC}"
+    sleep 5
+    docker exec -i $POSTGRES_CONTAINER psql -U $POSTGRES_USER -d $POSTGRES_DB -c 'CREATE EXTENSION IF NOT EXISTS pgvector;'
+}
+
+# Update or create .env file
+if [ -f ".env" ]; then
+    echo -e "${YELLOW}Updating DATABASE_URL in .env file...${NC}"
+    sed -i "s|DATABASE_URL=.*|DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB|g" .env
+    
+    # Ensure other necessary settings
+    if ! grep -q "USE_MOCK_GUIDELINE_RESPONSES" .env; then
+        echo "USE_MOCK_GUIDELINE_RESPONSES=true" >> .env
+    fi
 else
-    echo -e "${YELLOW}Start the Flask app manually or use VSCode debugger.${NC}"
-    echo -e "${YELLOW}MCP server is running in the background.${NC}"
+    echo -e "${YELLOW}Creating .env file...${NC}"
+    cp .env.example .env 2>/dev/null || echo "DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB" > .env
+    echo "USE_MOCK_GUIDELINE_RESPONSES=true" >> .env
+    echo -e "${GREEN}Created .env file${NC}"
+fi
+
+# Source updated environment variables
+source .env
+
+# Verify database connection
+echo -e "${BLUE}Checking database connection...${NC}"
+if ! PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB -c "\conninfo"; then
+    echo -e "${RED}Database connection failed. Please check container status and connection parameters.${NC}"
+    echo -e "${YELLOW}Container status:${NC}"
+    docker ps -a -f name=$POSTGRES_CONTAINER
+    exit 1
+fi
+echo -e "${GREEN}Database connection successful!${NC}"
+
+# Ensure database schema has necessary tables and columns
+echo -e "${BLUE}Verifying and updating database schema...${NC}"
+python scripts/ensure_schema.py
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Database schema verification failed. See logs above.${NC}"
+    echo -e "${YELLOW}Continuing anyway, but you may encounter errors...${NC}"
+else
+    echo -e "${GREEN}Database schema verified and updated successfully!${NC}"
+fi
+
+# Verify guideline concepts SQL table status
+echo -e "${BLUE}Checking guidelines and entity_triples tables...${NC}"
+PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB -f verify_guideline_concepts.sql
+
+# Create mock guideline responses directory if needed
+MOCK_DIR="./mcp/mock_responses"
+if [ ! -d "$MOCK_DIR" ]; then
+    echo -e "${BLUE}Creating mock responses directory...${NC}"
+    mkdir -p "$MOCK_DIR"
+    
+    echo -e "${YELLOW}Creating sample mock responses...${NC}"
+    # Create a sample mock response for concept extraction
+    cat > "$MOCK_DIR/extract_concepts_response.json" << EOF
+{
+  "concepts": [
+    {
+      "name": "Responsibility",
+      "definition": "The ethical obligation to act in the best interest of others and to fulfill duties.",
+      "type": "EthicalPrinciple",
+      "related_terms": ["Accountability", "Duty", "Obligation"],
+      "examples": ["Engineers have a responsibility to ensure public safety in their designs."]
+    },
+    {
+      "name": "Professional Integrity",
+      "definition": "Maintaining high ethical standards and honesty in professional practice.",
+      "type": "ProfessionalValue",
+      "related_terms": ["Honesty", "Ethics", "Professionalism"],
+      "examples": ["Engineers should not falsify test results, even under pressure from management."]
+    },
+    {
+      "name": "Public Safety",
+      "definition": "The paramount concern for protecting the public from harm in engineering decisions.",
+      "type": "EthicalConcern",
+      "related_terms": ["Risk Assessment", "Harm Prevention", "Public Welfare"],
+      "examples": ["Engineers must prioritize safety over cost considerations."]
+    },
+    {
+      "name": "Conflict of Interest",
+      "definition": "A situation where professional judgment may be compromised by secondary interests.",
+      "type": "EthicalIssue",
+      "related_terms": ["Bias", "Disclosure", "Impartiality"],
+      "examples": ["An engineer should not review work for a company where they hold substantial stock."]
+    },
+    {
+      "name": "Whistle-blowing",
+      "definition": "Reporting unethical or illegal activities within an organization to appropriate authorities.",
+      "type": "EthicalAction",
+      "related_terms": ["Disclosure", "Reporting", "Moral Courage"],
+      "examples": ["An engineer may need to report safety violations when internal reporting fails."]
+    }
+  ]
+}
+EOF
+
+    # Create a sample triples response
+    cat > "$MOCK_DIR/generate_triples_response.json" << EOF
+{
+  "triples": [
+    {
+      "subject": "http://example.org/guidelines/concepts/Responsibility",
+      "subject_label": "Responsibility",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalPrinciple",
+      "object_label": "Ethical Principle",
+      "confidence": 0.95
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Responsibility",
+      "subject_label": "Responsibility",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "predicate_label": "has description",
+      "object": "The ethical obligation to act in the best interest of others and to fulfill duties.",
+      "confidence": 0.92
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Professional_Integrity",
+      "subject_label": "Professional Integrity",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/ProfessionalValue",
+      "object_label": "Professional Value",
+      "confidence": 0.94
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Professional_Integrity",
+      "subject_label": "Professional Integrity",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "predicate_label": "has description",
+      "object": "Maintaining high ethical standards and honesty in professional practice.",
+      "confidence": 0.91
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Public_Safety",
+      "subject_label": "Public Safety",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalConcern",
+      "object_label": "Ethical Concern",
+      "confidence": 0.97
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Public_Safety",
+      "subject_label": "Public Safety",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "predicate_label": "has description",
+      "object": "The paramount concern for protecting the public from harm in engineering decisions.",
+      "confidence": 0.93
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Conflict_of_Interest",
+      "subject_label": "Conflict of Interest",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalIssue",
+      "object_label": "Ethical Issue",
+      "confidence": 0.89
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Whistle-blowing",
+      "subject_label": "Whistle-blowing",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalAction",
+      "object_label": "Ethical Action",
+      "confidence": 0.92
+    }
+  ],
+  "triple_count": 8
+}
+EOF
+    echo -e "${GREEN}Created sample mock responses${NC}"
+fi
+
+# Set up environment for mock responses
+export USE_MOCK_RESPONSES=true
+export MOCK_RESPONSES_DIR="$MOCK_DIR"
+
+# Check for setup-only mode
+if [ "$SETUP_ONLY" = "true" ]; then
+    echo -e "${BLUE}Running in setup-only mode (PostgreSQL configuration only)${NC}"
+    
+    # Exit with success after setup is complete
+    echo -e "${GREEN}PostgreSQL setup complete! Exiting setup-only mode.${NC}"
+    exit 0
+else
+    # Start the MCP server with guideline analysis in a new terminal
+    echo -e "${BLUE}Starting MCP server with guideline analysis module...${NC}"
+    gnome-terminal -- bash -c "source .env && echo -e '${GREEN}Starting MCP server...${NC}' && python mcp/run_enhanced_mcp_server_with_guidelines.py; read -p 'Press Enter to close...'"
+
+    # Wait for MCP server to start
+    echo -e "${YELLOW}Waiting for MCP server to initialize (5 seconds)...${NC}"
+    sleep 5
+
+    # Start the Flask app in debug mode
+    echo -e "${BLUE}Starting Flask app in debug mode...${NC}"
+    gnome-terminal -- bash -c "source .env && echo -e '${GREEN}Starting Flask app...${NC}' && python -m flask run --debug --port 5000; read -p 'Press Enter to close...'"
+
+    # Wait for Flask app to start
+    echo -e "${YELLOW}Waiting for Flask app to initialize (3 seconds)...${NC}"
+    sleep 3
+
+    # Open browser to the guidelines page
+    echo -e "${BLUE}Opening browser to view guidelines list...${NC}"
+    python -c "import webbrowser; webbrowser.open('http://localhost:5000/worlds')"
+
+    echo -e "${GREEN}Debug environment is ready!${NC}"
+    echo 
+    echo -e "${YELLOW}To test the guideline concept extraction:${NC}"
+    echo "1. Create a new world if needed"
+    echo "2. Add a guideline document to the world"
+    echo "3. Click on 'Extract Concepts' for the guideline"
+    echo "4. Review and select concepts to save"
+    echo "5. Click 'Save Selected Concepts'"
+    echo 
+    echo -e "${BLUE}To verify saved concepts:${NC}"
+    echo "Run: python query_guideline_concepts.py"
+    echo
+    echo -e "${YELLOW}Press Ctrl+C to stop this script when done testing${NC}"
+
+    # Keep script running
+    while true; do
+      sleep 1
+    done
 fi

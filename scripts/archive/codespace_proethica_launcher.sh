@@ -42,7 +42,7 @@ fi
 # Set environment variables
 export FLASK_ENV=development
 export FLASK_DEBUG=1
-export ENVIRONMENT="app.config.CodespaceConfig"
+export ENVIRONMENT="codespace"
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_ethical_dm
 export MCP_SERVER_URL=http://localhost:5001/jsonrpc
 

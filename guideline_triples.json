@@ -1,478 +1,229 @@
 {
   "triples": [
     {
-      "subject": "http://proethica.org/guidelines/integrity",
+      "subject": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Integrity",
-      "predicate_label": "is a",
-      "object_label": "Principle"
+      "object": "http://proethica.org/ontology/Guideline"
     },
     {
-      "subject": "http://proethica.org/guidelines/integrity",
-      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
-      "object": "Integrity",
-      "subject_label": "Integrity",
-      "predicate_label": "label",
-      "object_label": "Integrity"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/integrity",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
-      "object": "Upholding ethical standards and being honest in all professional activities",
-      "subject_label": "Integrity",
-      "predicate_label": "has description",
-      "object_label": "Upholding ethical standards and being honest in al..."
-    },
-    {
-      "subject": "http://proethica.org/guidelines/integrity",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Integrity",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/integrity",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Integrity",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/integrity",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Integrity",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/confidentiality",
+      "subject": "http://proethica.org/guidelines/concept/confidentiality",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Confidentiality",
-      "predicate_label": "is a",
-      "object_label": "Principle"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/confidentiality",
+      "subject": "http://proethica.org/guidelines/concept/confidentiality",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
       "object": "Confidentiality",
-      "subject_label": "Confidentiality",
-      "predicate_label": "label",
-      "object_label": "Confidentiality"
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/confidentiality",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "subject": "http://proethica.org/guidelines/concept/confidentiality",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
       "object": "Maintaining private or proprietary information as confidential",
-      "subject_label": "Confidentiality",
-      "predicate_label": "has description",
-      "object_label": "Maintaining private or proprietary information as ..."
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/confidentiality",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Confidentiality",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
+      "subject": "http://proethica.org/guidelines/concept/confidentiality",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/confidentiality",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Confidentiality",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/confidentiality",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Confidentiality",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/competence",
+      "subject": "http://proethica.org/guidelines/concept/competence",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Competence",
-      "predicate_label": "is a",
-      "object_label": "Principle"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/competence",
+      "subject": "http://proethica.org/guidelines/concept/competence",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
       "object": "Competence",
-      "subject_label": "Competence",
-      "predicate_label": "label",
-      "object_label": "Competence"
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/competence",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "subject": "http://proethica.org/guidelines/concept/competence",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
       "object": "Performing services only in areas of one's competence",
-      "subject_label": "Competence",
-      "predicate_label": "has description",
-      "object_label": "Performing services only in areas of one's compete..."
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/competence",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Competence",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
+      "subject": "http://proethica.org/guidelines/concept/competence",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/competence",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Competence",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/competence",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Competence",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/professional-development",
+      "subject": "http://proethica.org/guidelines/concept/professional-development",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Professional Development",
-      "predicate_label": "is a",
-      "object_label": "Principle"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/professional-development",
+      "subject": "http://proethica.org/guidelines/concept/professional-development",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
       "object": "Professional Development",
-      "subject_label": "Professional Development",
-      "predicate_label": "label",
-      "object_label": "Professional Development"
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/professional-development",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "subject": "http://proethica.org/guidelines/concept/professional-development",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
       "object": "Continuing to develop skills and knowledge throughout one's career",
-      "subject_label": "Professional Development",
-      "predicate_label": "has description",
-      "object_label": "Continuing to develop skills and knowledge through..."
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/professional-development",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Professional Development",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
+      "subject": "http://proethica.org/guidelines/concept/professional-development",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/professional-development",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Professional Development",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/professional-development",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Professional Development",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/honesty",
+      "subject": "http://proethica.org/guidelines/concept/objectivity",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Honesty",
-      "predicate_label": "is a",
-      "object_label": "Principle"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/honesty",
+      "subject": "http://proethica.org/guidelines/concept/objectivity",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
-      "object": "Honesty",
-      "subject_label": "Honesty",
-      "predicate_label": "label",
-      "object_label": "Honesty"
+      "object": "Objectivity",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/honesty",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
-      "object": "Being truthful and transparent in all professional interactions",
-      "subject_label": "Honesty",
-      "predicate_label": "has description",
-      "object_label": "Being truthful and transparent in all professional..."
+      "subject": "http://proethica.org/guidelines/concept/objectivity",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
+      "object": "Making decisions and recommendations based on facts rather than personal bias",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/honesty",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Honesty",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
+      "subject": "http://proethica.org/guidelines/concept/objectivity",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/honesty",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Honesty",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/honesty",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Honesty",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/sustainability",
+      "subject": "http://proethica.org/guidelines/concept/engineer",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Sustainability",
-      "predicate_label": "is a",
-      "object_label": "Principle"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/sustainability",
-      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
-      "object": "Sustainability",
-      "subject_label": "Sustainability",
-      "predicate_label": "label",
-      "object_label": "Sustainability"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/sustainability",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
-      "object": "Considering the environmental and social impact of engineering work",
-      "subject_label": "Sustainability",
-      "predicate_label": "has description",
-      "object_label": "Considering the environmental and social impact of..."
-    },
-    {
-      "subject": "http://proethica.org/guidelines/sustainability",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Sustainability",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/sustainability",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Sustainability",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/sustainability",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Sustainability",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/fairness",
-      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/principle",
-      "subject_label": "Fairness",
-      "predicate_label": "is a",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/fairness",
-      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
-      "object": "Fairness",
-      "subject_label": "Fairness",
-      "predicate_label": "label",
-      "object_label": "Fairness"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/fairness",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
-      "object": "Treating all persons fairly and with respect",
-      "subject_label": "Fairness",
-      "predicate_label": "has description",
-      "object_label": "Treating all persons fairly and with respect"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/fairness",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.9",
-      "subject_label": "Fairness",
-      "predicate_label": "has confidence score",
-      "object_label": "0.9"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/fairness",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "principle",
-      "subject_label": "Fairness",
-      "predicate_label": "has category",
-      "object_label": "Principle"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/fairness",
-      "predicate": "http://proethica.org/ontology/guides",
-      "object": "http://proethica.org/ontology/ProfessionalBehavior",
-      "subject_label": "Fairness",
-      "predicate_label": "guides",
-      "object_label": "Professional Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/engineer",
-      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/role",
-      "subject_label": "Engineer",
-      "predicate_label": "is a",
-      "object_label": "Role"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/engineer",
+      "subject": "http://proethica.org/guidelines/concept/engineer",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
       "object": "Engineer",
-      "subject_label": "Engineer",
-      "predicate_label": "label",
-      "object_label": "Engineer"
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/engineer",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "subject": "http://proethica.org/guidelines/concept/engineer",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
       "object": "A professional who designs, builds, or maintains systems, structures, or processes",
-      "subject_label": "Engineer",
-      "predicate_label": "has description",
-      "object_label": "A professional who designs, builds, or maintains s..."
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/engineer",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.85",
-      "subject_label": "Engineer",
-      "predicate_label": "has confidence score",
-      "object_label": "0.85"
+      "subject": "http://proethica.org/guidelines/concept/engineer",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/engineer",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "role",
-      "subject_label": "Engineer",
-      "predicate_label": "has category",
-      "object_label": "Role"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/engineer",
-      "predicate": "http://proethica.org/ontology/hasResponsibility",
-      "object": "http://proethica.org/ontology/EthicalBehavior",
-      "subject_label": "Engineer",
-      "predicate_label": "has responsibility",
-      "object_label": "Ethical Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/client",
+      "subject": "http://proethica.org/guidelines/concept/client",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/role",
-      "subject_label": "Client",
-      "predicate_label": "is a",
-      "object_label": "Role"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/client",
+      "subject": "http://proethica.org/guidelines/concept/client",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
       "object": "Client",
-      "subject_label": "Client",
-      "predicate_label": "label",
-      "object_label": "Client"
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/client",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "subject": "http://proethica.org/guidelines/concept/client",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
       "object": "The person or organization that commissions engineering services",
-      "subject_label": "Client",
-      "predicate_label": "has description",
-      "object_label": "The person or organization that commissions engine..."
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/client",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.85",
-      "subject_label": "Client",
-      "predicate_label": "has confidence score",
-      "object_label": "0.85"
+      "subject": "http://proethica.org/guidelines/concept/client",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/client",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "role",
-      "subject_label": "Client",
-      "predicate_label": "has category",
-      "object_label": "Role"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/client",
-      "predicate": "http://proethica.org/ontology/hasResponsibility",
-      "object": "http://proethica.org/ontology/EthicalBehavior",
-      "subject_label": "Client",
-      "predicate_label": "has responsibility",
-      "object_label": "Ethical Behavior"
-    },
-    {
-      "subject": "http://proethica.org/guidelines/preamble-engineering",
+      "subject": "http://proethica.org/guidelines/concept/engineering-ethics-guidelines",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-      "object": "http://proethica.org/ontology/concept",
-      "subject_label": "Preamble\r\n\r\nEngineering",
-      "predicate_label": "is a",
-      "object_label": "Concept"
+      "object": "http://proethica.org/ontology/Concept"
     },
     {
-      "subject": "http://proethica.org/guidelines/preamble-engineering",
+      "subject": "http://proethica.org/guidelines/concept/engineering-ethics-guidelines",
       "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
-      "object": "Preamble\r\n\r\nEngineering",
-      "subject_label": "Preamble\r\n\r\nEngineering",
-      "predicate_label": "label",
-      "object_label": "Preamble\r\n\r\nEngineering"
+      "object": "Engineering Ethics Guidelines",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/preamble-engineering",
-      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "subject": "http://proethica.org/guidelines/concept/engineering-ethics-guidelines",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
       "object": "Concept identified from the guidelines",
-      "subject_label": "Preamble\r\n\r\nEngineering",
-      "predicate_label": "has description",
-      "object_label": "Concept identified from the guidelines"
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
     },
     {
-      "subject": "http://proethica.org/guidelines/preamble-engineering",
-      "predicate": "http://proethica.org/ontology/hasConfidence",
-      "object": "0.7",
-      "subject_label": "Preamble\r\n\r\nEngineering",
-      "predicate_label": "has confidence score",
-      "object_label": "0.7"
+      "subject": "http://proethica.org/guidelines/concept/engineering-ethics-guidelines",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     },
     {
-      "subject": "http://proethica.org/guidelines/preamble-engineering",
-      "predicate": "http://proethica.org/ontology/hasCategory",
-      "object": "concept",
-      "subject_label": "Preamble\r\n\r\nEngineering",
-      "predicate_label": "has category",
-      "object_label": "Concept"
+      "subject": "http://proethica.org/guidelines/concept/professional-responsibility-engineers",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-responsibility-engineers",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Professional Responsibility\r\nEngineers",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-responsibility-engineers",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
+      "object": "Concept identified from the guidelines",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-responsibility-engineers",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-competence-engineers",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-competence-engineers",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Professional Competence\r\nEngineers",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-competence-engineers",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
+      "object": "Concept identified from the guidelines",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/professional-competence-engineers",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/truthfulness",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": "http://proethica.org/ontology/Concept"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/truthfulness",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+      "object": "Truthfulness",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/truthfulness",
+      "predicate": "http://www.w3.org/2000/01/rdf-schema#comment",
+      "object": "Concept identified from the guidelines",
+      "datatype": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    {
+      "subject": "http://proethica.org/guidelines/concept/truthfulness",
+      "predicate": "http://proethica.org/ontology/isDefinedIn",
+      "object": "http://proethica.org/guidelines/guideline/ff3ce98c-6044-44c8-b3fe-caf743c8c237"
     }
-  ],
-  "triple_count": 59,
-  "concept_count": 10
+  ]
 }

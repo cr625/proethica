@@ -1,5 +1,449 @@
 AI Ethical DM - Development Log
 
+## May 16, 2025 (Update #24): Streamlined Debugging Configuration for Guideline Concept Extraction
+
+### Task Completed
+Implemented a robust, working debugging configuration for the guideline concept extraction feature after testing different approaches. The new configuration focuses on the most reliable method: running the MCP server and Flask application in separate terminals.
+
+### Key Improvements
+1. **VSCode Launch Configurations**:
+   - Updated `.vscode/launch.json` with working configurations:
+     - "Start MCP Server (Terminal)": Runs the MCP server in a terminal tab
+     - "Start Flask App (Terminal)": Runs the Flask app in a terminal tab
+     - "Full System (Terminals)": Compound configuration that launches both components
+     - Maintained debug configurations for both components for setting breakpoints
+
+2. **Simplified Database Setup**:
+   - Added task in `.vscode/tasks.json` for database setup with proper formatting
+   - Includes cleanup of existing containers, initialization of PostgreSQL with pgvector
+   - Fixes the embedding column issue in the guidelines table
+
+3. **Comprehensive Documentation**:
+   - Created `docs/debug_guideline_concept_extraction.md` with detailed instructions
+   - Included multiple debugging approaches with step-by-step guidance
+   - Added troubleshooting section for common issues and their fixes
+   - Documented key files and methods for setting breakpoints
+
+### Verification
+Tested the configuration and confirmed both components run successfully:
+1. MCP server starts properly with no 'claude_tools' attribute error
+2. Flask application connects to both PostgreSQL and the MCP server
+3. Navigation through the web interface works correctly
+
+The terminal-based approach proved more reliable than previous attempts at integrated debugging with preLaunchTask, avoiding issues with database initialization and proper script execution.
+
+### Next Steps
+1. **Extended Testing**: Test the guideline concept extraction feature with actual guidelines
+2. **User Interface Enhancement**: Improve the concept visualization and review interface
+3. **Documentation Updates**: Incorporate the debugging workflow into the main project documentation
+4. **Performance Optimization**: Profile and optimize the guideline concept extraction process
+
+## May 16, 2025 (Update #23): Verified Guideline Concept Extraction Fix Success
+
+### Task Completed
+Successfully fixed and verified both the GuidelineAnalysisModule initialization issue and the database schema issue for guideline concept extraction. Both fixes are now complete and have been tested working.
+
+### Key Verifications
+1. **MCP Server Initialization**: The MCP server now starts properly without the `'GuidelineAnalysisModule' object has no attribute 'claude_tools'` error. The server is properly initializing all required components and registers all tools correctly.
+
+2. **Database Schema Implementation**: The `embedding` column in the `guidelines` table is now properly defined as a FLOAT[] array type in PostgreSQL, allowing storage of vector embeddings.
+
+3. **End-to-End Testing**: Successfully verified the system by:
+   - Starting the MCP server
+   - Starting the Flask application
+   - Accessing the web interface
+   - Navigating to world details
+
+### Fixed Components
+1. **GuidelineAnalysisModule**: 
+   - Fixed initialization order to ensure claude_tools is defined before super().__init__() is called
+   - Properly implemented tool registration with correct attribute access
+   - Ensured the module loads correctly with all tools available
+
+2. **Database Schema**:
+   - Created SQL fix script (fix_embedding_column.sql) that:
+     - Checks for existing embedding column with wrong type
+     - Drops column if it exists with wrong type
+     - Adds column with correct FLOAT[] array type
+   - Updated ensure_schema.py to correctly define the embedding column
+   - Fixed SQL execution in ensure_schema.py using SQLAlchemy's text() method
+
+### Next Steps
+1. **Comprehensive Testing**: Conduct more thorough testing of guideline concept extraction with actual guidelines
+2. **User Interface Enhancement**: Improve the concepts review interface
+3. **Documentation**: Update technical documentation with details of the fixes and implementation
+4. **Performance Optimization**: Profile and optimize the guideline concept extraction process
+
+## May 16, 2025 (Update #22): Fixed Guidelines Table Schema Issue
+
+### Problem Identified & Fixed
+Fixed the database error `column "embedding" of relation "guidelines" does not exist` that occurred when saving extracted guideline concepts. The issue was:
+
+1. The Guidelines model in the application included an 'embedding' column for vector representations
+2. This column was properly defined in create_guidelines_table.sql but was missing in the database
+3. The schema validation script had two issues:
+   - The 'embedding' column was missing in the SQLAlchemy model definition
+   - The SQL execution was failing due to improper SQL statement execution
+
+The solution was to:
+1. Update the SQLAlchemy model in ensure_schema.py to include the 'embedding' column
+2. Add the column to the required_columns dictionary for validation
+3. Fix SQL execution by using SQLAlchemy's text() method for proper statement execution
+
+### Technical Implementation
+1. Modified the ensure_schema.py script to:
+   - Import SQLAlchemy's text function for proper SQL statement execution
+   - Update SQL execution in all methods to use text() to execute SQL statements
+   - Consistently handle all SQL statements with proper error handling
+
+2. Tested the fix by running the schema validation script, which:
+   - Successfully detected the missing 'embedding' column
+   - Added it to the guidelines table with the correct data type
+   - Verified all other required columns were present
+
+### Impact
+This fix ensures guideline concepts can be successfully extracted and saved with their vector embeddings, which are crucial for semantic similarity searches and ontology alignment. The embedding column supports:
+
+1. Semantic search capabilities for finding similar guidelines
+2. Improved concept alignment with existing ontology entities
+3. More accurate matching of extracted concepts to ontology structure
+
+Together with the previous GuidelineAnalysisModule initialization fix, the guideline concept extraction feature is now fully functional.
+
+## May 16, 2025 (Update #21): Fixed GuidelineAnalysisModule Claude Tools Initialization
+
+### Problem Identified & Fixed
+Fixed the `'GuidelineAnalysisModule' object has no attribute 'claude_tools'` error by properly ordering the initialization sequence in the GuidelineAnalysisModule class. The issue was occurring because:
+
+1. The parent class `__init__` method was calling `self._register_tools()` before `self.claude_tools` was defined
+2. When trying to access `self.claude_tools` in the tool registration process, the attribute didn't exist yet
+
+The solution was to:
+1. Move the `self.claude_tools` definition to the beginning of the `__init__` method, before calling `super().__init__()`
+2. Remove a duplicate definition of `self.claude_tools` later in the `__init__` method that was overriding the first definition
+
+These changes ensure the `claude_tools` attribute is available when the tool registration process needs it, allowing the MCP server to start properly with all tools registered correctly.
+
+### Testing
+Tested the changes by running the Enhanced MCP Server with Guidelines through the VSCode debugger and verified the server starts successfully without the previous error.
+
+## May 16, 2025 (Update #20): Analyzed GuidelineAnalysisModule Claude Tool Use Implementation
+
+### Analysis Summary
+Completed a comprehensive review of the GuidelineAnalysisModule implementation, focusing on the Claude tool use functionality. The recent implementation of `get_claude_tools()` and proper tool registration fixed the error where `'GuidelineAnalysisModule' object has no attribute 'claude_tools'`.
+
+### Key Implementation Details
+1. **Claude Tools Implementation**:
+   - Three core ontology tools have been implemented correctly:
+     - `query_ontology`: Searches the ontology for specific concepts with customizable filters for entity type and result limits
+     - `search_similar_concepts`: Finds similarity matches between extracted concepts and existing ontology entities
+     - `get_ontology_structure`: Retrieves a comprehensive view of the ontology structure to guide extraction
+   - Each tool follows the proper Anthropic Claude tool schema with type definitions and required parameters
+
+2. **Tool Registration Process**:
+   - The `_register_tools()` method properly registers all tools
+   - Each tool has a handler, description, and JSON schema for input validation
+   - The added `get_claude_tools()` method provides the tools to both Claude and the registration process
+
+3. **Tool Handler Implementation**:
+   - `handle_query_ontology`: Implements basic search functionality over the ontology entities
+   - `handle_search_similar_concepts`: Uses embeddings for semantic similarity when available, with fallback to text matching
+   - `handle_get_ontology_structure`: Provides a categorized view of the ontology
+
+4. **Concept Extraction Flow**:
+   - Uses Claude 3 Sonnet (claude-3-7-sonnet-20250219) model
+   - Implements proper tool choice and handling
+   - Processes Claude's tool calls and integrates the results back into the extraction
+   - Includes robust error handling and fallback mechanisms
+
+### Integration with Flask Application
+The Flask application's GuidelineAnalysisService communicates with the MCP server's GuidelineAnalysisModule through JSON-RPC calls, properly handling:
+- Tool call request formatting
+- Response parsing and error handling
+- Fallback to direct LLM calls when the MCP server is unavailable
+
+### Next Steps and Recommendations
+1. **Performance Optimization**:
+   - Consider caching frequently accessed ontology entities to reduce database queries
+   - Implement batched embedding calculations to improve similarity search efficiency
+
+2. **Enhanced Semantic Matching**:
+   - Expand the `search_similar_concepts` tool to include hierarchical relationships
+   - Add capability to suggest ontology placement for new concepts
+
+3. **Testing Improvements**:
+   - Create more comprehensive mock responses with realistic tool interactions
+   - Implement automated tests that verify the full tool calling flow
+
+4. **UI Enhancements**:
+   - Add visualization to show which ontology entities were referenced during extraction
+   - Show the tool reasoning process to users for better transparency
+
+5. **Documentation**:
+   - Create comprehensive documentation for the Claude tool use implementation
+   - Add example prompts and responses for each tool
+
+The implementation successfully addresses the immediate issue and lays a solid foundation for further ontology integration enhancements outlined in the guidelines_implementation_next_steps.md document.
+
+## May 16, 2025 (Update #19): Implemented Native Claude Tool Use for Guideline Concept Extraction
+
+### Task Completed
+Implemented native Claude tool use capability in the GuidelineAnalysisModule to allow dynamic ontology querying during concept extraction, improving the quality and ontology alignment of extracted concepts.
+
+### Key Improvements
+1. **Native Claude Tool Use Integration**:
+   - Implemented three core ontology tools for Claude to use during extraction:
+     - `query_ontology`: Searches ontology for specific concepts
+     - `search_similar_concepts`: Finds ontology entities similar to extracted concepts
+     - `get_ontology_structure`: Retrieves high-level ontology structure
+   - Added structured tool definitions with JSON schema validation
+   - Created tool handlers to process Claude's tool calls
+
+2. **Concept Extraction Enhancement**:
+   - Updated extract_guideline_concepts method to use tool calling API
+   - Improved system prompts to guide Claude in tool usage
+   - Added comprehensive response processing logic to handle tool results
+   - Enhanced JSON parsing and validation for improved reliability
+
+3. **Triple Generation Completion**:
+   - Implemented generate_concept_triples functionality to create RDF triples
+   - Added proper mapping of extracted concepts to ontology categories
+   - Created comprehensive URI generation for concepts using slug formatting
+   - Implemented multiple triple types for rich semantic representation
+
+4. **Robust Error Handling**:
+   - Added fallback paths for all key operations
+   - Enhanced logging throughout the extraction and triple generation flow
+   - Implemented mock response capability for testing
+   - Added debug functionality to trace execution flow
+
+### Technical Details
+The implementation follows a multi-step process:
+
+1. **Concept Extraction** now leverages Claude's tool-calling API:
+   - Claude analyzes guideline text and uses tools to query the ontology
+   - Tools provide real-time information about existing ontology entities
+   - Claude extracts concepts aligned with the ontology structure
+   - Results include concepts with type, confidence, and related concepts
+
+2. **Triple Generation** processes the selected concepts:
+   - Creates URIs for each concept with proper namespacing
+   - Generates type triples based on concept category
+   - Creates label and description triples
+   - Adds relationship triples between concepts
+   - Connects concepts to the guideline document
+
+3. **Saving to Ontology**:
+   - Generated triples are properly formatted for database storage
+   - Triples maintain references to their source guideline
+   - All necessary metadata is included for provenance tracking
+
+This implementation completes the first phase of the guidelines implementation next steps document, establishing native Claude tool use for improved concept extraction.
+
+### Next Steps
+1. **Enhance Ontology Alignment**: 
+   - Further improve matching between extracted concepts and existing ontology entities
+   - Add hierarchical placement of new concepts in the ontology
+   - Implement better relationship mapping between new and existing concepts
+
+2. **Improve User Review Interface**:
+   - Add visualization for concept relationships
+   - Show potential conflicts with existing concepts
+   - Enhance editing capabilities before saving
+
+3. **Add Batch Processing**:
+   - Implement processing of multiple guidelines simultaneously
+   - Add comparison of concepts across documents
+   - Create identification of common themes
+
+## May 16, 2025 (Update #18): Fixed Debug Environment for Guideline Concept Extraction
+
+### Task Completed
+Created a robust unified debug script that properly handles PostgreSQL container setup with pgvector support for VSCode debugging.
+
+### Key Improvements
+1. **Unified Debug Script**:
+   - Created `debug_unified_with_mock.sh` to provide a single script for testing guideline concept extraction
+   - Properly handles container setup, database schema verification, and mock response configuration
+   - Supports both standalone execution and VSCode integration through setup-only mode
+
+2. **Proper PostgreSQL + pgvector Setup**:
+   - Implemented thorough Docker container cleanup and setup procedures
+   - Added proper error handling for Docker operations with informative messages
+   - Added retries for pgvector extension initialization
+   - Ensured database connection parameters are properly set in .env file
+
+3. **VSCode Integration**:
+   - Updated `scripts/setup_debug_with_mock.sh` to use the new unified debug script
+   - Added fallback mechanism if the unified script fails
+   - Maintained compatibility with existing VSCode tasks and launch configurations
+
+### Technical Details
+The issues with the VSCode debug tasks were happening because:
+
+1. When Codespaces times out and shuts down, the Docker container for PostgreSQL isn't shut down properly
+2. Subsequent attempts to restart it failed due to partially removed containers
+3. The PostgreSQL container was being created without proper pgvector support
+
+The new workflow:
+1. Completely removes any existing PostgreSQL containers
+2. Cleans up Docker networks and volumes to avoid resource conflicts
+3. Creates a fresh pgvector-enabled PostgreSQL container using either:
+   - The project's postgres.Dockerfile if available
+   - The pgvector/pgvector:pg17 image from Docker Hub as a fallback
+4. Properly initializes the pgvector extension and verifies database connectivity
+5. Updates environment variables and database settings
+
+The improved workflow ensures reliable debugging of the guideline concept extraction feature by providing the correct PostgreSQL environment with pgvector support, which is required for ontology operations.
+
+## May 16, 2025 (Update #17): Improved Guideline Concept Extraction and Database Storage
+
+### Task Completed
+Enhanced the guideline concept extraction flow with proper verification, debugging tools, and comprehensive documentation.
+
+### Key Improvements
+1. **Database Verification Tools**:
+   - Created `verify_guideline_concepts.sql` to validate DB schema for guideline concepts
+   - Implemented `query_guideline_concepts.py` utility to inspect extracted concepts
+   - Added SQL functions to count and verify guideline triples by type
+
+2. **Schema Validation Framework**:
+   - Developed `scripts/ensure_schema.py` to verify and fix database schema issues
+   - Added auto-creation of missing columns for EntityTriple and Guideline models
+   - Implemented foreign key constraint verification for data integrity
+
+3. **Debug Environment Integration**:
+   - Created unified debug script (`debug_unified_with_mock.sh`) with mock Claude responses
+   - Added mock response capability for concept extraction and triple generation
+   - Provided clear testing instructions and workflow for developers
+
+4. **Comprehensive Documentation**:
+   - Added detailed `concept_extraction_implementation.md` to document current architecture
+   - Created `guidelines_implementation_next_steps.md` for planned improvements
+   - Updated `guidelines_implementation_progress.md` to track feature status
+
+### Technical Details
+The guideline concept extraction flow has been verified to correctly:
+
+1. **Extract Concepts**: The `GuidelineAnalysisService` correctly interfaces with the MCP server's `GuidelineAnalysisModule` to extract ethical concepts from guideline content using Claude API calls.
+
+2. **Review and Select Concepts**: The web UI properly displays extracted concepts for user review and allows selection of concepts to save.
+
+3. **Generate and Save Triples**: Selected concepts are properly converted into RDF triples and stored in the database with correct metadata.
+
+4. **Link to Ontology**: Concepts are saved as `EntityTriple` records with proper `guideline_id` and `entity_type='guideline_concept'` references.
+
+The system now correctly handles the full flow from guideline upload to concept extraction and storage in the ontology database, providing a solid foundation for the planned native Claude tool use implementation.
+
+### Next Steps
+1. **Implement Native Claude Tool Use**: Upgrade from simple prompts to native Claude tool use functionality to allow Claude to dynamically query the ontology as needed.
+
+2. **Enhance Ontology Alignment**: Improve matching between extracted concepts and existing ontology entities.
+
+3. **Improve Review Interface**: Enhance the concept review UI with interactive visualization.
+
+## May 16, 2025 (Update #16): Fixed PostgreSQL Container in Debug Environment
+
+### Task Completed
+Created a robust solution to fix PostgreSQL container issues in the debug environment that were preventing proper setup of the database for guideline concept extraction.
+
+### Key Improvements
+1. **Comprehensive Container Cleanup and Restart**:
+   - Created a new `fix_postgres_codespace.sh` script that thoroughly cleans up Docker resources
+   - Implemented proper container removal, image cleanup, and network/volume pruning
+   - Added robust error handling and fallback mechanisms for container startup
+   - Built in extensive logging to identify specific failure points
+
+2. **Enhanced Debug Setup Integration**:
+   - Integrated the fix into the `setup_debug_with_mock.sh` script used by VSCode
+   - Added graceful fallback to the original setup script if needed
+   - Ensured proper environment variable configuration for the debugging session
+   - Added improved error detection and reporting
+
+3. **Improved Database Initialization**:
+   - Added extended wait periods to ensure PostgreSQL fully initializes
+   - Implemented retry mechanisms for pgvector extension installation
+   - Added verification steps to confirm database readiness
+   - Enhanced error reporting for database initialization steps
+
+### Technical Details
+The VSCode debugging environment was failing because:
+
+1. The PostgreSQL container (`postgres17-pgvector-codespace`) had not shut down properly
+2. Subsequent attempts to start the container failed due to resource conflicts
+3. Docker was trying to create directories that already existed from previous container instances
+
+The new fix script systematically:
+1. Stops and removes any existing container with the target name
+2. Cleans up related Docker images, networks, and volumes
+3. Builds a fresh container from the Dockerfile or falls back to Docker Hub image
+4. Properly initializes the database with the pgvector extension
+5. Updates the .env file with the correct database connection information
+6. Provides detailed status information for easier troubleshooting
+
+This fix ensures the VSCode "Debug ProEthica with Mock Guidelines" configuration works correctly by providing a clean PostgreSQL environment for each debugging session.
+
+## May 16, 2025 (Update #15): Verified Guideline Concept Storage in Ontology Database
+
+### Task Completed
+Analyzed the concept extraction and storage flow in the AI Ethical DM system and verified that guideline concepts are properly stored in the ontology database.
+
+### Key Findings
+1. **Successful Concept Storage Verification**:
+   - Created a diagnostic script `query_guideline_concepts.py` to check the database directly
+   - Verified that 177 guideline concept triples are stored in the entity_triples table
+   - Confirmed the existence of ethical concepts like Honesty, Integrity, Competence
+   - Validated proper linking between guidelines and their associated concepts
+
+2. **Database Schema Analysis**:
+   - Confirmed all necessary tables exist: guidelines and entity_triples
+   - Verified proper foreign key relationships between tables
+   - Data structure supports 3 guidelines with 59 triples each
+
+3. **Full Implementation Flow Analysis**:
+   - Guideline modules have proper structure with the MCP server flow working correctly
+   - The Flask application successfully processes extracted guideline concepts
+   - Save functionality properly creates both guideline and entity_triple records
+   - Relationships between entities are correctly established in the database
+
+### Technical Details
+The implementation flow was verified step by step through the following components:
+
+1. **MCP Server Layer**:
+   - `GuidelineAnalysisModule` properly extracts concepts from guidelines via Claude
+   - The `generate_concept_triples` method creates well-formed RDF triples
+   - JSON-RPC interface correctly passes data between MCP server and Flask app
+
+2. **Flask Application Layer**:
+   - `GuidelineAnalysisService` successfully interfaces with the MCP server
+   - Template rendering correctly displays extracted concepts for review
+   - Form submission properly passes selected concepts for storage
+   - Bulk insert operations correctly store triples in the database
+
+3. **Database Layer**:
+   - Entity triples are correctly formatted with subject/predicate/object structure
+   - Proper metadata fields track the origin of each triple
+   - Foreign key relationships maintain data integrity
+
+### Next Steps Based on guidelines_implementation_next_steps.md
+1. **Implement Native Claude Tool Use** (Highest Priority):
+   - Update from simple prompts to native Claude tool use functionality
+   - Define structured JSON tools in the API calls to Anthropic
+   - Allow Claude to dynamically query the ontology during extraction
+   - Implement interactive reasoning with real-time tool calls
+
+2. **Enhance Triple Generation**:
+   - Create more complex relationship types between concepts
+   - Add support for temporal and provenance information
+   - Implement formal concept validation against upper ontologies
+
+3. **Improve UI Experience**:
+   - Add graph visualization for guideline concepts
+   - Create interactive network diagrams of concept relationships
+   - Enhance concept categorization and filtering
+
+The system is now proven to correctly extract concepts from guidelines and store them as RDF triples in the ontology database. This provides a solid foundation for further enhancements and integrations.
+
 ## May 16, 2025 (Update #14): Added Missing World ID Column in Entity Triples
 
 ### Task Completed
@@ -66,455 +510,3 @@ The schema validation system now:
 4. Reports detailed information about what changes were made
 
 This approach ensures the database always matches the SQLAlchemy model, preventing similar errors in the future when columns are added to the model.
-
-## May 15, 2025 (Update #12): Fixed Guidelines Database Table
-
-### Task Completed
-Created the missing `guidelines` database table and fixed the database schema to support storing extracted concepts in the ontology.
-
-### Key Improvements
-1. **Database Schema Alignment**: Created the `guidelines` table in the database to match the SQLAlchemy model:
-   - Added proper column definitions matching the Guideline model
-   - Set up appropriate foreign key relationships to the world table
-   - Created necessary indexes for improved query performance
-   - Added PostgreSQL-specific data types (JSONB, array) to match the model
-
-2. **Entity Triple Integration**: Updated the entity_triples table schema:
-   - Added guideline_id column if not already present
-   - Set up proper foreign key constraint to the guidelines table
-   - Used PL/pgSQL to handle existing tables gracefully
-
-### Technical Details
-The error "relation 'guidelines' does not exist" was occurring because the SQLAlchemy model existed in the codebase (app/models/guideline.py), but the corresponding database table had not been created. The direct SQL approach used ensures that:
-
-1. The guidelines table is created with the correct structure
-2. The entity_triples table has the necessary foreign key column
-3. Existing tables are not affected or modified unnecessarily
-
-This fix enables the complete flow of:
-1. Extracting concepts from guidelines
-2. Saving them to the database as a Guideline record
-3. Creating EntityTriple records linked to the saved Guideline
-4. Properly representing these relationships in the system's data model
-
-## May 15, 2025 (Update #11): Fixed JSON Parsing for Concept Saving
-
-### Task Completed
-Fixed the JSON parsing issue that was causing errors when saving extracted concepts to the ontology database.
-
-### Key Improvements
-1. **Client-side JSON Handling**: Moved JSON serialization to the client side:
-   - Modified the guideline_concepts_review.html template
-   - Replaced the Jinja template `tojson` filter with JavaScript-based serialization
-   - Uses JavaScript's native `JSON.stringify()` to ensure proper JSON formatting
-
-2. **Form Submission Flow**: Improved the data flow when submitting the concept form:
-   - Added a hidden input field with a proper ID
-   - Populated the field using JavaScript during page load
-   - Preserves proper JSON structure without template escaping issues
-   - Prevents malformed JSON from being sent to the server
-
-3. **Robust Error Handling**: Enhanced error handling around JSON parsing:
-   - The server-side robust_json_parse function still handles any malformed input
-   - Provides clear error messages if JSON parsing fails
-   - Properly redirects to the error page with detailed information
-
-### Technical Details
-The root cause of the issue was that Jinja2's `tojson` filter sometimes produces single-quoted JSON when inserted directly into an HTML attribute. By moving the JSON serialization to JavaScript, we ensure that:
-
-1. The concepts data is initially passed from Jinja to JavaScript using the `tojson` filter (which works correctly in this context)
-2. JavaScript then uses its native `JSON.stringify()` method to create properly formatted JSON
-3. This properly formatted JSON is then set as the value of the hidden form field
-
-This approach ensures that the JSON sent to the server is always double-quoted and properly escaped, preventing parsing errors during form submission.
-
-## May 15, 2025 (Update #10): Fixed Mock Guideline Responses in GuidelineAnalysisService
-
-### Task Completed
-Fixed the guideline concept extraction flow to properly use mock responses in the Flask application layer.
-
-### Key Improvements
-1. **Added Mock Response Support to GuidelineAnalysisService**:
-   - Added environment variable check in the service's `__init__` method
-   - Properly initializes `self.use_mock_responses` flag from the environment
-   - Logs when the service is running in mock response mode
-
-2. **Enhanced Extract Concepts Method**:
-   - Added an early check for mock mode before any API calls
-   - When mock mode is enabled, directly returns generated mock concepts
-   - Prevents the service from falling back to direct LLM processing
-   - Adds clear message and mock flag in the response
-
-3. **Enhanced Match Concepts Method**:
-   - Added mock response support for concept-to-ontology matching
-   - Generates appropriate mock matches for concepts
-   - Returns consistent data structure with a mock indicator flag
-   - Prevents unnecessary LLM or MCP server calls when in mock mode
-
-### Technical Details
-- The `USE_MOCK_GUIDELINE_RESPONSES` environment variable is now respected at all levels:
-  - MCP server (GuidelineAnalysisModule)
-  - Flask application (GuidelineAnalysisService)
-  - Support utility methods
-- This ensures consistent behavior when debugging with mock responses
-- When set to "true", no LLM API calls will be made at any point in the flow
-
-This fix ensures that both the VSCode debugging environment and command-line scripts like `debug_unified_with_mock.sh` will consistently use mock responses. The system now properly respects the environment variable at all layers of the application stack.
-
-## May 15, 2025 (Update #9): Enhanced VSCode Debugging for Mock Guidelines
-
-### Task Completed
-Improved the VSCode debugging configuration to better handle environment variables from the setup script.
-
-### Key Improvements
-1. **Environment Variable Sharing**: Added the `envFile` configuration to the launch file:
-   - Added `"envFile": "${workspaceFolder}/.vscode/debug_env_vars"` to the launch configuration
-   - This ensures environment variables set by the setup script are properly loaded
-   - Makes the debug configuration more robust across different environments
-
-2. **Reliable Mock Response Handling**: Ensures mock guideline responses work consistently:
-   - Setup script writes critical environment variables to .vscode/debug_env_vars
-   - VSCode loads these variables when launching the debugger
-   - Both the MCP server and Flask app now consistently use the same settings
-
-3. **Consolidated Configuration**: The debug configuration now has two sources of environment variables:
-   - Hard-coded variables in the launch.json file
-   - Dynamic variables from the setup script via debug_env_vars
-
-### Technical Details
-The setup script creates a .vscode/debug_env_vars file containing:
-```
-USE_MOCK_GUIDELINE_RESPONSES=true
-MCP_SERVER_ALREADY_RUNNING=true
-MCP_SERVER_URL=http://localhost:5001
-MCP_SERVER_PORT=5001
-MCP_DEBUG=true
-FLASK_APP=app/__init__.py
-FLASK_DEBUG=1
-PYTHONUNBUFFERED=1
-```
-
-This approach allows the setup script to pass environment-specific configurations to VSCode's debugger, ensuring consistent behavior between the command line scripts and VSCode debugging.
-
-## May 15, 2025 (Update #8): Added VSCode Debugging Configuration for Mock Guidelines
-
-### Task Completed
-Created a dedicated VSCode debug configuration that simplifies debugging the guideline concept extraction flow with mock responses.
-
-### Key Improvements
-1. **New Debug Configuration**: Added a specialized configuration in launch.json:
-   - "Debug ProEthica with Mock Guidelines" - Uses mock responses for faster development
-   - Automatically sets up all required environment variables
-   - Configured to run with enhanced debugging capabilities
-   - Proper integration with the VSCode debugger for breakpoint support
-
-2. **Dedicated Setup Script**: Created a new setup script (`scripts/setup_debug_with_mock.sh`):
-   - Handles all environment preparation in a single script
-   - Automatically detects environment (Codespaces, WSL, etc.)
-   - Configures the appropriate PostgreSQL container
-   - Starts the MCP server with mock guideline responses
-   - Properly sets up environment variables for VSCode
-
-3. **Streamlined Task Configuration**: Added a new task to tasks.json:
-   - "Setup ProEthica Debug With Mock Responses" - Prepares the environment
-   - Integrated as a preLaunchTask in the debug configuration
-   - Provides informative console output during setup
-   - Ensures MCP server is properly running before starting the Flask app
-
-### How to Use the New Debug Configuration
-1. Set any breakpoints in the code where you want to debug (particularly in guideline-related routes)
-2. Select the "Debug ProEthica with Mock Guidelines" configuration from the VSCode Debug menu
-3. Press F5 or click the green play button to start debugging
-4. The system will:
-   - Setup the environment automatically
-   - Start the MCP server with mock responses
-   - Launch the Flask app in debug mode
-   - Stop at your breakpoints for inspection
-
-### Technical Details
-The configuration sets these key environment variables:
-- `USE_MOCK_GUIDELINE_RESPONSES=true` - Enables mock guideline responses
-- `MCP_SERVER_ALREADY_RUNNING=true` - Prevents duplicate MCP server startup
-- `MCP_DEBUG=true` - Enables enhanced debugging in the MCP server
-- Other standard Flask debug variables
-
-## May 15, 2025 (Update #7): Improved JSON Parsing for Concept Data
-
-### Task Completed
-Fixed the JSON parsing issue in the concept extraction flow to properly handle malformed JSON from the form submission.
-
-### Key Improvements
-1. **Robust JSON Parser**: Implemented a utility function that can handle common JSON formatting issues:
-   - Automatically converts single quotes to double quotes
-   - Adds missing quotes around property names
-   - Attempts multiple parsing strategies in sequence
-   - Falls back to Python's ast.literal_eval for dictionary-like strings
-   - Provides detailed error messages for debugging
-
-2. **Enhanced Error Handling**: Applied the robust parser specifically to the concept extraction workflow:
-   - Used in the save_guideline_concepts route to handle form submission data
-   - Maintains proper error redirection to the dedicated error page
-   - Preserves detailed error information for troubleshooting
-
-3. **Backward Compatibility**: Maintains compatibility with properly formatted JSON while adding resilience against:
-   - Single quoted JSON (from JavaScript objects)
-   - Unquoted property names
-   - Python-style dictionaries
-   - Other common JSON syntax errors
-
-### Technical Details
-- Added imports for ast and re modules to support advanced parsing operations
-- Implemented the `robust_json_parse()` utility function
-- Updated the save_guideline_concepts route to use the robust parser
-- Preserved all error handling paths to maintain the improved user experience
-
-## May 15, 2025 (Update #6): Fixed Route Reference in Error Template
-
-### Task Completed
-Fixed the route reference in the guidelines processing error template to ensure proper navigation.
-
-### Key Improvements
-1. **Template Route Fix**: Updated the guideline_processing_error.html template to use the correct route name:
-   - Changed `main.index` to `index.index` to match the app's blueprint configuration
-   - Ensured consistent navigation across all template files
-   - Fixed potential 404 errors when clicking the Home link in the breadcrumb
-
-## May 15, 2025 (Update #5): Improved Error Handling for Guideline Concept Extraction
-
-### Task Completed
-Enhanced the error handling in the guideline concept extraction flow to prevent extraction errors from causing a redirect loop back to the extraction page.
-
-### Key Improvements
-1. **Dedicated Error Page**: Created a new template (`guideline_processing_error.html`) for displaying processing errors:
-   - Shows detailed error information with proper formatting 
-   - Provides clear options for users to retry or return to guidelines
-   - Includes a collapsible technical details section for debugging
-   - Maintains proper breadcrumb navigation for context
-
-2. **Improved Error Redirection**: Modified the concept saving flow to redirect to the error page instead of back to the extraction page:
-   - Prevents extraction from being triggered repeatedly when errors occur
-   - Shows specific error messages based on the type of error encountered
-   - Includes stacktraces in a collapsible section for developer debugging
-   - Maintains all necessary context information for proper navigation
-
-3. **Granular Error Types**: Added specific error handling for different failure scenarios:
-   - JSON parsing errors for concept data
-   - Empty concept selection validation
-   - Triple generation failures
-   - Database persistence errors
-   - General unexpected exceptions
-
-## May 15, 2025 (Update #4): Standardized Guideline Concept Extraction Routes
-
-### Task Completed
-Improved the concept extraction flow by standardizing route structure and eliminating duplicate routes. Unified all guideline concept extraction functionality under the main '/worlds' routes.
-
-### Key Improvements
-1. **Unified Route Structure**: Standardized the URL patterns for guideline concept extraction:
-   - Removed the "/fix/" URL prefix for concept extraction routes
-   - Added direct route at `/worlds/<id>/guidelines/<document_id>/extract_concepts`
-   - Added save concepts route at `/worlds/<world_id>/guidelines/<document_id>/save_concepts`
-   - Removed the unnecessary fix_concepts_bp blueprint registration
-
-2. **Template Updates**: Fixed references in all templates to use the standardized routes:
-   - Updated `guideline_concepts_review.html` to use the proper form submission target
-   - Fixed `guideline_extracted_concepts.html` form action URLs
-   - Corrected `guideline_content.html` "Analyze Concepts" button links
-   - Updated `guidelines.html` to use consistent route naming for both buttons
-
-3. **Codebase Cleanup**:
-   - Fixed import issues in the route functions
-   - Ensured proper argument passing in all function calls
-   - Removed redundant code path with duplicate functionality
-   - Deleted unused fix_concept_extraction.py file
-
-### Technical Details
-- Properly imported direct_concept_extraction in the route functions
-- Added specific import statements to ensure function availability
-- Maintained all enhanced error handling and JSON parsing from the previous implementation
-- Kept the mock response system fully functional for faster development
-
-### Next Steps
-1. Complete the implementation of native Claude tool use as previously documented
-2. Improve concept extraction performance with caching mechanisms
-3. Enhance the UI for reviewing and managing saved concepts
-
-### How To Debug the Updated System
-
-To test and debug the updated route system with mock responses, use the new unified debugging script:
-
-```bash
-./debug_unified_with_mock.sh
-```
-
-This script:
-1. Enables mock guideline responses via environment variables
-2. Kills any existing MCP server and Flask app processes
-3. Ensures the PostgreSQL container is running with environment-specific configuration:
-   - Codespaces: Uses `postgres17-pgvector-codespace` container and runs `setup_codespace_db.sh`
-   - WSL: Uses `postgres17-pgvector-wsl` container and stops native PostgreSQL if running
-   - Other environments: Uses `postgres17-pgvector` container
-4. Applies any necessary SQLAlchemy URL fixes
-5. Starts the MCP server in the background with enhanced logging
-6. Sets up all debug environment variables
-7. Provides options to either:
-   - Use the VSCode debugger with preconfigured breakpoints
-   - Start the Flask app directly from the script
-
-The unified script makes it faster to test the guideline concept extraction flow by:
-- Starting both servers with a single command
-- Using mock responses to avoid the ~30 second wait for Claude API calls
-- Setting up proper logging and environment variables for debugging
-- Supporting breakpoints in both the MCP server and Flask app
-- Using the correct PostgreSQL container configuration for each environment
-
-When the MCP server is running with mock responses, it will use predefined concept data from either:
-- `guideline_concepts.json` in the project root
-- `test_concepts_output.json` (fallback)
-- Or default mock concepts if no files are found
-
-## May 15, 2025 (Update #3): Added Mock Responses and Fixed JSON Parsing for Guideline Concept Extraction
-
-### Task Completed
-Implemented a mock response system for guideline concept extraction to speed up development and testing, and fixed JSON parsing issues in the form submission process.
-
-### Key Improvements
-1. **Mock Response System**: Added a development mode that uses pre-loaded concepts instead of calling Claude API:
-   - Created environment variable `USE_MOCK_GUIDELINE_RESPONSES` to toggle mock mode
-   - Implemented loading of mock concept data from JSON files (`guideline_concepts.json` or `test_concepts_output.json`)
-   - Added fallback to default mock concepts if no files are found
-   - Integrated mock responses in the GuidelineAnalysisModule for faster development cycles
-
-2. **Enhanced JSON Parsing**: Improved the form submission process to handle various JSON formatting issues:
-   - Added robust JSON parsing with multiple fallback strategies
-   - Fixed missing quotes around property names in malformed JSON
-   - Added conversion from single quotes to double quotes
-   - Implemented ast.literal_eval fallback for Python-style dictionaries
-   - Added comprehensive error logging for JSON parsing failures
-
-3. **Development Utilities**: Created a new debug script to make testing easier:
-   - Added `debug_with_mock_guidelines.sh` script to launch both servers with mock mode enabled
-   - Improved error handling and logging throughout the concept extraction process
-
-### Technical Details
-- Added `_load_mock_concepts()` method to GuidelineAnalysisModule to load sample data
-- Modified `extract_guideline_concepts()` to use mock data when in development mode
-- Enhanced JSON parsing in `save_extracted_concepts()` route with robust error recovery
-- Added a shell script to easily enable mock responses for testing
-
-### Next Steps
-1. Complete the implementation of native Claude tool use as previously documented
-2. Improve the UI for reviewing and managing saved concepts
-3. Enhance the concept matching algorithm to better integrate with the ontology
-
-## May 15, 2025 (Update #2): Improved Guideline Concept Saving to Ontology Database
-
-### Task Completed
-Enhanced the guidelines concept saving flow to ensure extracted concepts are properly saved to the ontology database. Improved the triple generation process and entity matching with the ontology.
-
-### Key Improvements
-1. **Improved Triple Generation**: Enhanced the triple generation process in the `GuidelineAnalysisService`:
-   - Added support for related concepts with proper RDF relationships
-   - Improved error handling for JSON-RPC calls to the MCP server
-   - Extended timeout periods for complex concept processing
-   - Added ontology relationship enhancement to connect guideline concepts with existing ontology entities
-   - Added additional triple types (label, category) for better semantic representation
-
-2. **Enhanced Database Saving**: Optimized the process of saving triples to the database:
-   - Implemented bulk save operations for better performance
-   - Added improved handling of literal values versus URI references
-   - Enhanced metadata with timestamps and confidence scores
-   - Added better logging throughout the triple generation and saving process
-
-3. **Better Error Handling**: Added robust error handling and reporting:
-   - Added detailed error tracking with stack traces
-   - Enhanced error handling for MCP server timeouts and connection issues
-   - Added better session state management for analysis results
-
-### Technical Details
-- Enhanced `generate_triples()` method in `GuidelineAnalysisService` to better integrate with the MCP server
-- Added new `_enhance_triples_with_ontology_relationships()` helper method to connect concepts with the ontology
-- Improved `save_guideline_concepts()` route to better handle triple data and perform bulk database operations
-- Added URI/literal detection to properly store object values in the correct format
-
-### Next Steps
-1. Complete the implementation of native Claude tool use as previously documented
-2. Add UI improvements for reviewing and managing saved concepts
-3. Implement a bulk concept extraction feature for processing multiple guidelines simultaneously
-
-## May 15, 2025: Claude Tool Use & Guidelines Debugging Implementation
-
-### Task Completed
-Analyzed the guidelines concept extraction flow and implemented debugging tools. Additionally, identified the need for native tool use with Claude for improved ontology integration.
-
-### Key Findings
-1. **Current Integration Method**: The system currently integrates ontology data with Claude through prompt engineering:
-   - Ontology entities are retrieved from the specified source
-   - These entities are incorporated into the prompt sent to Claude
-   - Claude cannot actively query the ontology during its reasoning process
-   - All interactions follow a basic "user message → assistant response" pattern
-
-2. **Debugging Flow**: Identified and documented how guideline extraction requests flow through the system:
-   - Web UI → Flask route → GuidelineAnalysisService → MCP server JSON-RPC → GuidelineAnalysisModule → Claude API
-
-3. **VSCode Breakpoint Issues**: Discovered that VSCode breakpoints aren't reliably triggered in the MCP server:
-   - Likely due to asyncio event loop interactions with the debugger
-   - Enhanced logging has been implemented as a workaround
-   - Created utilities for tracking execution flow without relying on breakpoints
-
-### Changes Made
-1. Created comprehensive debugging tools:
-   - `mcp/enhanced_debug_logging.py` - Logging framework for tracking execution flow
-   - `debug_patch_server.sh` - Script to patch MCP server with enhanced logging
-   - `DEBUG_BREAKPOINTS.md` - Documentation explaining breakpoint issues and solutions
-   - Updated `DEBUG_INSTRUCTIONS.md` with improved workflow
-
-2. Updated documentation:
-   - Added native Claude tool use as a critical next step in `docs/guidelines_implementation_next_steps.md`
-   - Documented current Claude integration approach in `docs/guidelines_implementation_progress.md`
-   - Added workflow details for debugging guidelines code
-
-### Future Implementation: Native Tool Use
-Added a priority item to implement native Claude tool use:
-- Define JSON schema for ontology query operations 
-- Create structured tool definitions for dynamic entity retrieval
-- Allow Claude to interactively query the ontology during reasoning
-- Enable self-validation of extracted concepts against ontology constraints
-
-### How to Debug Guidelines Flow
-1. Use the enhanced debug logging tools to trace execution:
-   - Run `./debug_patch_server.sh` to add debug logging to the server
-   - Set `MCP_DEBUG=true` when running the MCP server
-   - Watch console output for detailed execution logs
-
-2. Follow the complete concept extraction flow through:
-   - UI → Flask → GuidelineAnalysisService → MCP JSON-RPC → GuidelineAnalysisModule → Claude
-
-### Technical Reference
-The execution flow has been traced and documented to show exactly how:
-1. Guideline content is sent via JSON-RPC to the MCP server
-2. Ontology entities are retrieved and incorporated into Claude's prompt
-3. Claude processes the guidelines to extract concepts
-4. Response is parsed and returned through the call chain
-
-This analysis will inform the implementation of native tool use that will allow Claude to actively query the ontology during concept extraction.
-
-## May 14, 2025: VSCode Debugging Environment Fix
-
-### Task Completed
-Fixed a Python module import issue that was preventing the VSCode debugger from properly running the application.
-
-### Problem
-When running the application in VSCode debug mode, there was a module not found error for the `markdown` package. This occurred because the VSCode debugger was using the conda Python environment (`/opt/conda/bin/python`), but the application's dependencies were installed in the user's site-packages directory (`/home/codespace/.local/lib/python3.12/site-packages`).
-
-### Changes Made
-1. Installed the `markdown` package using conda to make it available in the conda environment
-2. Updated the VSCode debug configuration in `.vscode/launch.json` to add the user's site-packages to the Python path:
-   ```json
-   "env": {
-     "PYTHONPATH": "/home/codespace/.local/lib/python3.12/site-packages:${PYTHONPATH}",
-     "USE_CONDA": "false"
-   }
-   ```
-3. Created a script `scripts/ensure_python_path.sh` that properly sets up the Python environment for debugging
-4. Modified `scripts/setup_debug_environment.sh` to include the new Python path configuration

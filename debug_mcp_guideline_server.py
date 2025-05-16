@@ -56,7 +56,8 @@ def wait_for_server(timeout=30):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            response = requests.get(f"{MCP_URL}", timeout=2)
+            # Check the health endpoint instead of the root URL
+            response = requests.get(f"{MCP_URL}/health", timeout=2)
             if response.status_code == 200:
                 logger.info("MCP server is running!")
                 return True

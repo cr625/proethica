@@ -58,7 +58,7 @@ The system includes several launcher scripts for different use cases:
    - Implemented proper port mapping (5433 instead of 5432)
 
 3. **Config Management**
-   - Updated configuration to use CodespaceConfig class
+   - Updated configuration to use ENVIRONMENT='codespace' (removed CodespaceConfig class)
    - Created environment variable overrides
    - Fixed SQLALCHEMY_DATABASE_URI configuration
 

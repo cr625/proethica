@@ -32,18 +32,89 @@ if [ "$CODESPACES" == "true" ]; then
     ENV="codespace"
     POSTGRES_CONTAINER="postgres17-pgvector-codespace"
     
-    # Check if setup script exists and run it
-    if [ -f "./scripts/setup_codespace_db.sh" ]; then
-        if [ ! -x "./scripts/setup_codespace_db.sh" ]; then
-            echo -e "${YELLOW}Making setup_codespace_db.sh executable...${NC}"
-            chmod +x ./scripts/setup_codespace_db.sh
+    # Make sure we use the right PostgreSQL container with pgvector
+    echo -e "${BLUE}Ensuring we use a PostgreSQL container with pgvector...${NC}"
+    
+    # Use our unified debug script which handles container setup properly
+    if [ -f "./debug_unified_with_mock.sh" ]; then
+        if [ ! -x "./debug_unified_with_mock.sh" ]; then
+            echo -e "${YELLOW}Making debug_unified_with_mock.sh executable...${NC}"
+            chmod +x ./debug_unified_with_mock.sh
         fi
         
-        # Run the codespace setup script
-        echo -e "${BLUE}Setting up PostgreSQL for codespace environment...${NC}"
-        ./scripts/setup_codespace_db.sh
+        # Run the unified debug script in setup-only mode
+        echo -e "${BLUE}Setting up PostgreSQL with unified debug script (container-only mode)...${NC}"
+        export SETUP_ONLY=true
+        ./debug_unified_with_mock.sh
+        
+        # Capture the exit code
+        SETUP_EXIT_CODE=$?
+        
+        if [ $SETUP_EXIT_CODE -ne 0 ]; then
+            echo -e "${RED}Unified debug script failed with code $SETUP_EXIT_CODE. Falling back to fix_postgres_codespace.sh...${NC}"
+            
+            # Fall back to fix_postgres_codespace.sh
+            if [ -f "./scripts/fix_postgres_codespace.sh" ]; then
+                if [ ! -x "./scripts/fix_postgres_codespace.sh" ]; then
+                    echo -e "${YELLOW}Making fix_postgres_codespace.sh executable...${NC}"
+                    chmod +x ./scripts/fix_postgres_codespace.sh
+                fi
+                
+                # Run the fixed codespace setup script
+                echo -e "${BLUE}Setting up PostgreSQL for codespace environment with fixed script...${NC}"
+                ./scripts/fix_postgres_codespace.sh
+            else
+                echo -e "${RED}All setup scripts failed. Database may not work correctly.${NC}"
+            fi
+        fi
     else
-        echo -e "${RED}Codespace setup script not found. Database may not work correctly.${NC}"
+        echo -e "${RED}Unified debug script not found. Falling back to fix_postgres_codespace.sh...${NC}"
+        
+        # Fall back to fix_postgres_codespace.sh
+        if [ -f "./scripts/fix_postgres_codespace.sh" ]; then
+            if [ ! -x "./scripts/fix_postgres_codespace.sh" ]; then
+                echo -e "${YELLOW}Making fix_postgres_codespace.sh executable...${NC}"
+                chmod +x ./scripts/fix_postgres_codespace.sh
+            fi
+            
+            # Run the fixed codespace setup script
+            echo -e "${BLUE}Setting up PostgreSQL for codespace environment with fixed script...${NC}"
+            ./scripts/fix_postgres_codespace.sh
+        else
+            echo -e "${RED}Fixed codespace setup script not found. Database may not work correctly.${NC}"
+        fi
+    fi
+
+    # Double verify pgvector extension is enabled
+    echo -e "${BLUE}Verifying pgvector extension is enabled...${NC}"
+    
+    # Read database connection info
+    if [ -f ".env" ] && grep -q "DATABASE_URL" .env; then
+        DB_URL=$(grep "DATABASE_URL" .env | cut -d '=' -f2-)
+        echo -e "${YELLOW}Using database URL from .env: $DB_URL${NC}"
+    else
+        DB_URL="postgresql://postgres:PASS@localhost:5433/ai_ethical_dm"
+        echo -e "${YELLOW}Using default database URL: $DB_URL${NC}"
+    fi
+
+    # Test for pgvector extension
+    echo -e "${BLUE}Testing pgvector extension...${NC}"
+    PGVECTOR_TEST=$(PGPASSWORD=PASS psql -h localhost -p 5433 -U postgres -d ai_ethical_dm -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector';")
+    
+    if [[ $PGVECTOR_TEST == *"1"* ]]; then
+        echo -e "${GREEN}pgvector extension is properly enabled.${NC}"
+    else
+        echo -e "${RED}pgvector extension is NOT enabled! Attempting to enable it...${NC}"
+        PGPASSWORD=PASS psql -h localhost -p 5433 -U postgres -d ai_ethical_dm -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        
+        # Check again
+        PGVECTOR_TEST=$(PGPASSWORD=PASS psql -h localhost -p 5433 -U postgres -d ai_ethical_dm -t -c "SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector';")
+        if [[ $PGVECTOR_TEST == *"1"* ]]; then
+            echo -e "${GREEN}Successfully enabled pgvector extension.${NC}"
+        else
+            echo -e "${RED}Failed to enable pgvector extension. This will cause issues with concept extraction.${NC}"
+            echo -e "${RED}Please check your PostgreSQL container and make sure it supports pgvector.${NC}"
+        fi
     fi
 elif grep -qi microsoft /proc/version 2>/dev/null; then
     echo -e "${BLUE}Detected WSL environment...${NC}"

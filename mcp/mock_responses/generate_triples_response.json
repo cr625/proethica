@@ -1,0 +1,74 @@
+{
+  "triples": [
+    {
+      "subject": "http://example.org/guidelines/concepts/Responsibility",
+      "subject_label": "Responsibility",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalPrinciple",
+      "object_label": "Ethical Principle",
+      "confidence": 0.95
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Responsibility",
+      "subject_label": "Responsibility",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "predicate_label": "has description",
+      "object": "The ethical obligation to act in the best interest of others and to fulfill duties.",
+      "confidence": 0.92
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Professional_Integrity",
+      "subject_label": "Professional Integrity",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/ProfessionalValue",
+      "object_label": "Professional Value",
+      "confidence": 0.94
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Professional_Integrity",
+      "subject_label": "Professional Integrity",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "predicate_label": "has description",
+      "object": "Maintaining high ethical standards and honesty in professional practice.",
+      "confidence": 0.91
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Public_Safety",
+      "subject_label": "Public Safety",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalConcern",
+      "object_label": "Ethical Concern",
+      "confidence": 0.97
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Public_Safety",
+      "subject_label": "Public Safety",
+      "predicate": "http://purl.org/dc/elements/1.1/description",
+      "predicate_label": "has description",
+      "object": "The paramount concern for protecting the public from harm in engineering decisions.",
+      "confidence": 0.93
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Conflict_of_Interest",
+      "subject_label": "Conflict of Interest",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalIssue",
+      "object_label": "Ethical Issue",
+      "confidence": 0.89
+    },
+    {
+      "subject": "http://example.org/guidelines/concepts/Whistle-blowing",
+      "subject_label": "Whistle-blowing",
+      "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "predicate_label": "is a",
+      "object": "http://example.org/ontology/EthicalAction",
+      "object_label": "Ethical Action",
+      "confidence": 0.92
+    }
+  ],
+  "triple_count": 8
+}

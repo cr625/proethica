@@ -1,133 +1,86 @@
 # Guideline Concept Extraction Implementation
 
-## Overview
+This document outlines the implementation of the guideline concept extraction feature in the AI Ethical DM system.
 
-This document outlines the implementation of the concept extraction feature for guidelines in the AI Ethical DM system. This feature allows users to analyze ethical guidelines and extract key concepts, which can then be integrated into the knowledge graph as RDF triples.
+## Architecture Overview
 
-## Architecture
+The guideline concept extraction flow consists of several components:
 
-The guideline concept extraction feature involves several components:
+1. **Flask Application Routes**:
+   - `worlds.py`: Contains routes for managing worlds and guidelines, including the `save_guideline_concepts` function that saves selected concepts to the database
+   - `worlds_direct_concepts.py`: Provides simplified routes for direct concept extraction without requiring ontology matching
 
-### 1. User Interface Components
+2. **Service Layer**:
+   - `GuidelineAnalysisService`: Interfaces with the MCP server to extract concepts and generate RDF triples
 
-- **Guideline Content Page** (`app/templates/guideline_content.html`): Contains the "Analyze Concepts" button that initiates the concept extraction process.
-- **Extracted Concepts Review Page** (`app/templates/guideline_extracted_concepts.html`): Displays the extracted concepts for user review and selection.
-- **Concepts Review Page** (`app/templates/guideline_concepts_review.html`): An alternative, more robust template for reviewing and selecting extracted concepts.
+3. **MCP Server Components**:
+   - `GuidelineAnalysisModule`: Implements tools for extracting concepts and generating triples using Claude
+   - `enhanced_ontology_server_with_guidelines.py`: Integrates the guideline analysis module with the MCP server
 
-### 2. Routes
+4. **Database Models**:
+   - `Guideline`: Stores metadata about guideline documents
+   - `EntityTriple`: Stores RDF triples in subject-predicate-object format for all ontology entities, including guideline concepts
 
-- **Fix Concept Extraction** (`app/routes/fix_concept_extraction.py`): Provides routes for extracting concepts with improved error handling and fallback mechanisms.
-- **Direct Concept Extraction** (`app/routes/worlds_direct_concepts.py`): Contains the direct concept extraction implementation that bypasses extensive processing to just show extracted concepts.
-- **Extract-Only Logic** (`app/routes/worlds_extract_only.py`): Provides routes for extracting concepts directly from guidelines without requiring entity integration.
+## Concept Extraction Flow
 
-### 3. Services
-
-- **Guideline Analysis Service** (`app/services/guideline_analysis_service.py`): The core service that handles the extraction and processing of concepts.
-- **MCP Client** (`app/services/mcp_client.py`): Provides communication with the Model Context Protocol server for enhanced concept extraction.
-- **LLM Utils** (`app/utils/llm_utils.py`): Utilities for interacting with Large Language Models for concept extraction.
-
-## Flow
-
-The concept extraction process follows this flow:
-
-1. **User Initiates Analysis**: User clicks the "Analyze Concepts" button on the guideline content page.
-2. **Route Handling**: The request is processed by `extract_and_display_concepts` in `fix_concept_extraction.py`, which delegates to the direct extraction function.
-3. **Concept Extraction**: The `GuidelineAnalysisService.extract_concepts()` method is called, which:
-   - First attempts to use the MCP server for concept extraction
-   - Falls back to direct LLM processing if MCP is unavailable
-   - Provides mock concepts as a last resort if both MCP and LLM are unavailable
-4. **Display Results**: The extracted concepts are rendered in the template for user review.
-5. **User Selection**: The user reviews the extracted concepts and selects which ones to include.
-6. **Triple Generation**: When the user submits the selection, the `generate_triples()` method creates RDF triples for the selected concepts.
-7. **Save to Database**: The generated triples are saved to the knowledge graph.
+1. User uploads a guideline document to a world
+2. User clicks "Extract Concepts" on the guideline
+3. System sends the guideline content to the MCP server via `GuidelineAnalysisService`
+4. MCP server uses Claude API to extract ethical concepts from the text
+5. Extracted concepts are displayed to the user for review
+6. User selects which concepts to save to the ontology
+7. System generates RDF triples for the selected concepts
+8. Triples are saved to the `entity_triples` table with `guideline_id` and `entity_type='guideline_concept'`
 
 ## Implementation Details
 
-### Concept Extraction Methods
+### Concept Extraction
 
-The system uses a multi-layer approach to concept extraction:
+The concept extraction is performed by Claude via the `extract_concepts` tool in the `GuidelineAnalysisModule`. The prompt asks Claude to:
 
-1. **MCP Server Extraction**: Uses the JSON-RPC endpoint of the MCP server to extract concepts.
-2. **Direct LLM Processing**: Uses the LLM directly when the MCP server is unavailable.
-3. **Mock Concept Generation**: Generates mock concepts based on pattern matching when both MCP and LLM are unavailable.
+1. Identify key ethical concepts, principles, and values
+2. Provide a name, definition, and type for each concept
+3. Format the output as a structured JSON object
 
-### Fallback Mechanism
+### Triple Generation
 
-The fallback mechanism ensures that the concept extraction feature always provides results, even when services are unavailable:
+For each selected concept, the system generates RDF triples using the `generate_triples` tool. These triples include:
 
-```
-MCP Server → Direct LLM → Mock Concepts
-```
+1. Type triples (e.g., "Responsibility is_a EthicalPrinciple")
+2. Description triples (e.g., "Responsibility has_description 'The ethical obligation to...'")
+3. Relationship triples between concepts (e.g., "Responsibility related_to Public_Safety")
 
-### LLM Integration
+### Database Storage
 
-The service support multiple LLM client APIs:
+Concepts are stored in the database as:
 
-- Anthropic API v2+ (preferred)
-- OpenAI API
-- Anthropic API v1.x (legacy)
+1. A `Guideline` record with metadata about the guideline document
+2. Multiple `EntityTriple` records for each concept and its relationships, linked to the guideline via `guideline_id`
 
-### Error Handling
+## Testing and Debugging
 
-The system includes robust error handling:
+Several tools are available for testing and debugging the concept extraction flow:
 
-- Timeouts for API calls to prevent hanging requests
-- Error propagation from MCP server to client
-- Clear error messages when services are unavailable
-- Always providing mock concepts as a fallback
+1. `verify_guideline_concepts.sql`: SQL script to verify the database tables
+2. `query_guideline_concepts.py`: Python script to query and display saved concepts
+3. `scripts/ensure_schema.py`: Script to ensure the database has the required schema
+4. `debug_unified_with_mock.sh`: Combined debug script with mock Claude responses
 
 ## Configuration
 
-Relevant configuration options:
+The concept extraction can be configured through:
 
-- `ANTHROPIC_API_KEY`: API key for the Anthropic Claude models
-- `CLAUDE_MODEL_VERSION`: Preferred Claude model version
-- `MCP_SERVER_URL`: URL of the MCP server
+1. Environment variables:
+   - `USE_MOCK_RESPONSES`: Set to `true` to use mock responses for testing
+   - `MOCK_RESPONSES_DIR`: Directory containing mock response JSON files
 
-## Troubleshooting
+2. MCP server configuration:
+   - `GuidelineAnalysisModule` configuration in `enhanced_ontology_server_with_guidelines.py`
 
-Common issues and solutions:
+## Error Handling
 
-### 1. Template Rendering Errors
+The system includes error handling at multiple levels:
 
-**Issue**: Error in templates with URL routing using old format (`url_for('index')` instead of `url_for('index.index')`).
-
-**Solution**: Ensure all templates use the blueprint-prefixed format for URL endpoints.
-
-### 2. LLM Connection Issues
-
-**Issue**: Error connecting to the LLM service.
-
-**Solution**: 
-- Verify the API key is set in the environment variables
-- Run `test_llm_connection.py` to diagnose connection issues
-- Check the model availability in the LLM client
-
-### 3. MCP Server Connection Issues
-
-**Issue**: Cannot connect to the MCP server.
-
-**Solution**:
-- Verify the MCP server is running
-- Check the MCP server URL configuration
-- Look for error messages in the MCP server logs
-
-## Testing
-
-To test the concept extraction feature:
-
-1. Navigate to a guideline page (e.g., `/worlds/1/guidelines/189`)
-2. Click the "Analyze Concepts" button
-3. Verify that concepts are extracted and displayed
-4. Select concepts and save them
-5. Verify that the selected concepts appear on the guideline page
-
-## Future Improvements
-
-Planned improvements for the feature:
-
-1. Add concept filtering options to help users focus on specific concept types
-2. Improve matching with ontology entities for better integration
-3. Add real-time feedback during the extraction process
-4. Implement concept clustering to group related concepts
-5. Add support for concept extraction from multiple guidelines simultaneously
+1. Service level in `GuidelineAnalysisService` for MCP connection errors
+2. Route level in `worlds.py` for database and form submission errors
+3. Template level with error templates like `guideline_processing_error.html`

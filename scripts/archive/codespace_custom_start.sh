@@ -46,7 +46,7 @@ export FLASK_DEBUG=1
 export MCP_SERVER_ALREADY_RUNNING=true
 export MCP_SERVER_URL=http://localhost:5001
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_ethical_dm
-export ENVIRONMENT=app.config.CodespaceConfig
+export ENVIRONMENT=codespace
 
 # Start the application using the Codespace-specific entry point
 python codespace_run.py

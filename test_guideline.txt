@@ -1,88 +1,35 @@
-# Engineering Ethics Guidelines
+Engineering Code of Ethics - Guidelines for Professional Conduct
 
-## Introduction
-These guidelines outline ethical principles and practices for engineering professionals. They are designed to ensure that engineering work adheres to high standards of integrity, safety, and responsibility.
+The following principles form the cornerstone of ethical engineering practice:
 
-## Core Principles
+1. Hold Paramount the Safety, Health, and Welfare of the Public
+Engineers shall recognize that the lives, safety, health, and welfare of the general public are dependent upon engineering decisions, judgment, and practices. Engineering designs, services, and products must prioritize public safety above all other considerations.
 
-### 1. Prioritize Public Safety and Welfare
-Engineers must hold paramount the safety, health, and welfare of the public in the performance of their professional duties. This takes precedence over other considerations.
+2. Perform Services Only in Areas of Competence
+Engineers shall perform services only in areas of their competence based on education, training, and experience. They must not undertake technical assignments for which they are not qualified.
 
-- Always conduct thorough risk assessments
-- Never compromise safety standards for cost or schedule
-- Promptly report potential dangers to appropriate authorities
+3. Issue Public Statements Only in an Objective and Truthful Manner
+Engineers shall be objective and truthful in professional reports, statements, or testimony. They shall include all relevant and pertinent information in such reports, statements, or testimony.
 
-### 2. Perform Services Only in Areas of Competence
-Engineers shall perform services only in areas of their competence.
+4. Act for Each Employer or Client as Faithful Agents or Trustees
+Engineers shall act with fairness and justice to all parties when serving as expert witnesses, performing contract reviews, or providing opinions.
 
-- Maintain and improve technical skills through continuous education
-- Accept assignments only when qualified by education or experience
-- Engage qualified experts when projects require knowledge beyond personal expertise
+5. Avoid Deceptive Acts
+Engineers shall not falsify or permit misrepresentation of their academic or professional qualifications. They shall not misrepresent or exaggerate their responsibility in or for the subject matter of prior assignments.
 
-### 3. Issue Public Statements Only in an Objective and Truthful Manner
-Engineers shall issue public statements only in an objective and truthful manner.
+6. Conduct Engineering Activities in an Honorable and Ethical Manner
+Engineers shall act in accordance with the highest principles of ethical conduct. They shall disclose any potential conflicts of interest that could influence their judgment or the quality of their services.
 
-- Disclose all pertinent information in professional reports, statements, and testimony
-- Include all relevant data in public statements
-- Avoid statements containing material misrepresentation of fact
+7. Maintain Confidentiality
+Engineers shall not disclose, without proper authorization, confidential information concerning the proprietary business affairs or technical processes of any present or former client or employer.
 
-### 4. Act as Faithful Agents for Employers and Clients
-Engineers shall act as faithful agents or trustees for each employer or client.
+8. Engage in Professional Development
+Engineers shall continue their professional development throughout their careers and shall provide opportunities for the professional development of those engineers under their supervision.
 
-- Avoid conflicts of interest
-- Protect confidential information
-- Make employers or clients aware of consequences if professional judgment is overruled
+9. Consider Environmental Impact
+Engineers shall consider environmental factors and sustainability in their decision-making and strive to minimize adverse environmental effects of their operations.
 
-### 5. Avoid Deceptive Acts
-Engineers shall avoid deceptive acts in the solicitation of professional employment.
+10. Report Ethical Violations
+Engineers who have knowledge of possible violations of ethical standards shall present such information to the proper authority for action. Engineers shall not retaliate against whistleblowers.
 
-- Present qualifications and capabilities honestly
-- Avoid improper solicitation of professional employment
-- Base professional reputation on merit of services
-
-### 6. Conduct Ethically
-Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully.
-
-- Maintain high standards of honesty and integrity
-- Zero tolerance for bribery, fraud, and corruption
-- Support colleagues who uphold ethical standards
-
-## Specific Ethical Considerations
-
-### Sustainability
-Engineers should strive to adhere to principles of sustainable development.
-
-- Consider environmental impacts in design decisions
-- Minimize resource consumption and waste generation
-- Design for longevity, reusability, and recyclability
-
-### Intellectual Property
-Engineers shall respect intellectual property rights.
-
-- Properly attribute ideas and innovations
-- Honor patents, copyrights, and other forms of intellectual property
-- Maintain proper documentation of design decisions
-
-### Whistleblowing
-Engineers have an ethical responsibility to report unethical behavior or practices that could endanger public safety.
-
-- Follow proper reporting procedures within organizations
-- If internal reporting fails, consider appropriate external reporting
-- Document concerns and actions taken
-
-### Ethical Considerations in Emerging Technologies
-Engineers working with emerging technologies should consider broader societal implications.
-
-- Evaluate potential misuse of technology
-- Consider impacts on privacy, security, and social well-being
-- Engage with multidisciplinary experts to understand implications
-
-### Cultural and Global Considerations
-Engineers should be aware of cultural differences and global impacts of their work.
-
-- Respect local cultural practices and values
-- Consider global environmental and social impacts
-- Promote fair labor practices throughout supply chains
-
-## Conclusion
-These guidelines serve as a framework for ethical decision-making in engineering practice. Engineers should refer to them when facing ethical dilemmas and use them to guide professional conduct. Upholding these principles helps maintain public trust in the engineering profession and ensures that engineering work contributes positively to society.
+Adherence to these guidelines requires a commitment to ethical values that transcend technical compliance, embracing a broader sense of responsibility to society, clients, the profession, and fellow engineers.

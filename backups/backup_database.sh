@@ -4,10 +4,9 @@
 # This script creates a backup of the PostgreSQL database
 
 # Configuration
+CONTAINER="proethica-postgres"
 DB_NAME="ai_ethical_dm"
 DB_USER="postgres"
-DB_HOST="localhost"
-DB_PORT="5433"
 BACKUP_DIR="$(dirname "$0")"  # Use the directory where this script is located
 
 # IMPORTANT: Before using this script, ensure that md5 authentication is properly configured
@@ -42,8 +41,13 @@ BACKUP_FILE="${BACKUP_DIR}/${DB_NAME}_backup_${TIMESTAMP}.dump"
 # Display backup start message
 echo "Starting backup of database '${DB_NAME}' to ${BACKUP_FILE}"
 
-# Run pg_dump to create the backup
-pg_dump -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -F c -b -v -f "${BACKUP_FILE}" ${DB_NAME}
+# Run pg_dump inside the Docker container to create the backup
+docker exec -u postgres "$CONTAINER" pg_dump -Fc -d "$DB_NAME" -U "$DB_USER" -f /tmp/backup.dump
+
+# Copy the backup file from the container to the host
+echo "Copying backup file from container..."
+docker cp "$CONTAINER":/tmp/backup.dump "$BACKUP_FILE"
+docker exec -u postgres "$CONTAINER" rm /tmp/backup.dump
 
 # Check if backup was successful
 if [ $? -eq 0 ]; then

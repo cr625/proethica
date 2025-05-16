@@ -1,9 +1,7 @@
 version: '3'
 services:
   postgres:
-    build:
-      context: .
-      dockerfile: postgres.Dockerfile
+    image: pgvector/pgvector:pg17
     container_name: proethica-postgres
     restart: always
     environment:
@@ -14,5 +12,6 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
 volumes:
   pgdata:

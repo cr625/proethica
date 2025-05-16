@@ -55,22 +55,10 @@ fi
 export FLASK_APP=app
 export FLASK_ENV=development
 export FLASK_DEBUG=1
-export ENVIRONMENT="app.config.CodespaceConfig"
+export ENVIRONMENT="codespace"
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_ethical_dm
 export MCP_SERVER_URL=http://localhost:5001/jsonrpc
 export CODESPACE=true
-
-# Ensure app.config.__init__.py has the CodespaceConfig class
-if ! grep -q "class CodespaceConfig" app/config/__init__.py; then
-    echo "Adding CodespaceConfig to app/config/__init__.py..."
-    cat >> app/config/__init__.py << EOL
-
-# Add CodespaceConfig class
-class CodespaceConfig:
-    """Configuration for GitHub Codespaces environment."""
-    from app.config.codespace import *
-EOL
-fi
 
 # Fix codespace_run.py if needed
 if head -n 1 codespace_run.py | grep -q "^!"; then
