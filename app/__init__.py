@@ -43,6 +43,22 @@ def create_app(config_module='app.config'):
 
     db.init_app(app)
     
+    # Ensure database schema is properly setup (especially for models added after initial setup)
+    with app.app_context():
+        try:
+            from scripts.ensure_schema import ensure_guidelines_table, ensure_entity_triples_columns
+            
+            # Ensure guidelines table exists
+            ensure_guidelines_table()
+            
+            # Ensure required columns exist in entity_triples
+            ensure_entity_triples_columns()
+            
+            print("Database schema verification completed successfully.")
+        except Exception as e:
+            print(f"Warning: Schema verification encountered an error: {str(e)}")
+            print("The application will continue, but some features may not work correctly.")
+    
     # Register template filters
     init_filters(app)
     

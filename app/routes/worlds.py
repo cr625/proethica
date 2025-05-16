@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 import json
+import ast
+import re
 from datetime import datetime
 import os
 import logging
@@ -794,6 +796,68 @@ def analyze_guideline_legacy(id, document_id):
     # Call the direct extraction function
     return extract_concepts_direct(id, document_id)
 
+# Utility function for robust JSON parsing
+def robust_json_parse(json_str):
+    """Parse JSON with fallback methods for common syntax issues."""
+    try:
+        # Try standard JSON parsing first
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        logger.info(f"Standard JSON parsing failed, attempting recovery: {str(e)}")
+        
+        # If JSON has single quotes instead of double quotes, try to fix it
+        try:
+            if "'" in json_str:
+                # Replace single quotes with double quotes, but be careful with nested quotes
+                # This is a simplified approach and might not work for all cases
+                fixed_json = json_str.replace("'", '"')
+                return json.loads(fixed_json)
+        except Exception:
+            pass
+            
+        # Try using ast.literal_eval for Python-style dictionaries
+        try:
+            return ast.literal_eval(json_str)
+        except Exception:
+            pass
+            
+        # Try to fix missing quotes around property names
+        try:
+            # Use regex to find and fix common JSON errors
+            json_str = re.sub(r'(\w+):', r'"\1":', json_str)
+            return json.loads(json_str)
+        except Exception:
+            pass
+            
+        # If all else fails, raise the original error
+        raise
+
+# Add new route for displaying guideline processing errors
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/error', methods=['GET'])
+def guideline_processing_error(world_id, document_id):
+    """Display error page for guideline processing problems."""
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Get error details from query parameters
+    error_title = request.args.get('error_title', 'Processing Error')
+    error_message = request.args.get('error_message', 'An error occurred while processing the guideline concepts.')
+    error_details = request.args.get('error_details', '')
+    
+    return render_template('guideline_processing_error.html', 
+                          world=world, 
+                          guideline=guideline,
+                          error_title=error_title,
+                          error_message=error_message,
+                          error_details=error_details)
+
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts', methods=['POST'])
 def save_guideline_concepts(world_id, document_id):
     """Save selected concepts from a guideline document to the ontology database."""
@@ -815,7 +879,11 @@ def save_guideline_concepts(world_id, document_id):
     
     if not selected_indices:
         flash('No concepts selected', 'warning')
-        return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+        return redirect(url_for('worlds.guideline_processing_error', 
+                                world_id=world_id, 
+                                document_id=document_id,
+                                error_title='No Concepts Selected',
+                                error_message='You must select at least one concept to save to the ontology.'))
     
     try:
         # Get concepts data from the form instead of session
@@ -823,16 +891,24 @@ def save_guideline_concepts(world_id, document_id):
         ontology_source = request.form.get('ontology_source', '')
         
         try:
-            # Parse the JSON data from the form
-            concepts = json.loads(concepts_data)
+            # Parse the JSON data from the form with our robust parser
+            concepts = robust_json_parse(concepts_data)
         except Exception as json_error:
             logger.error(f"Error parsing concepts JSON: {str(json_error)}")
-            flash('Error processing concepts data. Please try again.', 'error')
-            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='JSON Parsing Error',
+                                    error_message='Could not parse the concept data from the form submission.',
+                                    error_details=str(json_error)))
         
         if not concepts:
-            flash('No concepts found in analysis results', 'error')
-            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+            logger.error("No concepts found in parsed data")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='No Concepts Found',
+                                    error_message='No concepts were found in the analysis results.'))
         
         logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
         
@@ -844,8 +920,12 @@ def save_guideline_concepts(world_id, document_id):
         )
         
         if "error" in triples_result:
-            flash(f'Error generating triples: {triples_result["error"]}', 'error')
-            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+            logger.error(f"Error in triple generation: {triples_result['error']}")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='Triple Generation Error',
+                                    error_message=triples_result['error']))
         
         # Save the guideline model with the triples
         try:
@@ -936,14 +1016,23 @@ def save_guideline_concepts(world_id, document_id):
             import traceback
             error_trace = traceback.format_exc()
             logger.error(f"Error saving triples: {str(e)}\n{error_trace}")
-            flash(f'Error saving triples: {str(e)}', 'error')
-            return redirect(url_for('worlds.analyze_guideline', id=world_id, document_id=document_id))
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                   world_id=world_id, 
+                                   document_id=document_id,
+                                   error_title='Database Error',
+                                   error_message=f'Error saving triples: {str(e)}',
+                                   error_details=error_trace))
         
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         logger.error(f"Error processing concepts: {str(e)}\n{error_trace}")
-        flash(f'Error processing concepts: {str(e)}', 'error')
+        return redirect(url_for('worlds.guideline_processing_error', 
+                               world_id=world_id, 
+                               document_id=document_id,
+                               error_title='Unexpected Error',
+                               error_message=f'Error processing concepts: {str(e)}',
+                               error_details=error_trace))
         
     return redirect(url_for('worlds.world_guidelines', id=world_id))
 

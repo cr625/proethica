@@ -27,6 +27,10 @@ class GuidelineAnalysisService:
     
     def __init__(self):
         self.mcp_client = MCPClient.get_instance()
+        # Check if we should use mock responses
+        self.use_mock_responses = os.environ.get("USE_MOCK_GUIDELINE_RESPONSES", "false").lower() == "true"
+        if self.use_mock_responses:
+            logger.info("GuidelineAnalysisService initialized with mock response mode enabled")
         
     def extract_concepts(self, content: str, ontology_source: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -42,7 +46,17 @@ class GuidelineAnalysisService:
         try:
             logger.info(f"Extracting concepts from guideline content with ontology source: {ontology_source}")
             
-            # First try using MCP server's guideline_analysis module (direct JSON-RPC call)
+            # If mock responses are enabled, return mock concepts directly
+            if self.use_mock_responses:
+                logger.info("Using mock concept response mode (from environment variable)")
+                mock_concepts = self._generate_mock_concepts_from_content(content)
+                return {
+                    "concepts": mock_concepts,
+                    "mock": True,
+                    "message": "Using mock guideline responses as configured by environment variable"
+                }
+            
+            # Otherwise, first try using MCP server's guideline_analysis module (direct JSON-RPC call)
             try:
                 mcp_url = self.mcp_client.mcp_url
                 if mcp_url:
@@ -459,6 +473,27 @@ class GuidelineAnalysisService:
         """
         try:
             logger.info(f"Matching {len(concepts)} concepts to ontology entities")
+            
+            # If mock responses are enabled, return mock matches
+            if self.use_mock_responses:
+                logger.info("Using mock concept matching mode (from environment variable)")
+                # Generate simple mock matches
+                mock_matches = {}
+                for concept in concepts:
+                    concept_label = concept.get("label", "")
+                    if concept_label:
+                        mock_matches[concept_label] = []
+                        
+                        # Add a fake match for some concepts
+                        if concept.get("type") in ["principle", "obligation", "role"]:
+                            mock_matches[concept_label].append({
+                                "uri": f"http://proethica.org/ontology/{self._slugify(concept_label)}",
+                                "match_type": "similar",
+                                "confidence": 0.85,
+                                "label": concept_label
+                            })
+                
+                return {"matches": mock_matches, "mock": True}
             
             # Try to use the MCP server's match_concepts_to_ontology tool directly
             try:

@@ -92,7 +92,7 @@
   <form method="post" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
     <!-- Include concepts data as hidden field with proper JSON escaping -->
-    <input type="hidden" name="concepts_data" value="{{ concepts|tojson|safe }}" />
+    <input type="hidden" name="concepts_data" id="concepts_data" />
     <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
 
     <!-- Preview of the triples that will be generated -->
@@ -274,6 +274,11 @@
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
     const checkboxes = document.querySelectorAll('.concept-checkbox');
+    const conceptsDataField = document.getElementById('concepts_data');
+
+    // Initialize concepts data field with properly formatted JSON
+    const conceptsData = {{ concepts|tojson|safe }};
+    conceptsDataField.value = JSON.stringify(conceptsData);
 
     // Select all concepts
     selectAllBtn.addEventListener('click', function () {

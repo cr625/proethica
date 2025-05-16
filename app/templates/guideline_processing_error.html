@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row my-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('worlds.list_worlds') }}">Worlds</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}">{{ guideline.title }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Error</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Error Processing Guideline Concepts
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-3 text-danger">{{ error_title }}</h6>
+                    
+                    <div class="alert alert-danger">
+                        <p><strong>Error details:</strong> {{ error_message }}</p>
+                    </div>
+
+                    <p>There was a problem processing the selected concepts from the guideline. This could be due to:</p>
+                    <ul>
+                        <li>Connection issues with the ontology server</li>
+                        <li>Problems parsing the selected concept data</li>
+                        <li>An issue with generating the RDF triples</li>
+                        <li>Database constraints or connectivity issues</li>
+                    </ul>
+                    
+                    <div class="alert alert-info">
+                        <p><i class="fas fa-info-circle me-2"></i>Your extraction was not completed and no partial data was saved.</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Guideline
+                        </a>
+                        <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
+                            <i class="fas fa-redo me-2"></i>Try Extraction Again
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            {% if error_details %}
+            <div class="card mb-4 border-secondary">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <a data-bs-toggle="collapse" href="#technicalDetails" role="button" aria-expanded="false" aria-controls="technicalDetails">
+                            <i class="fas fa-code me-2"></i>Technical Details
+                            <i class="fas fa-chevron-down float-end"></i>
+                        </a>
+                    </h5>
+                </div>
+                <div class="collapse" id="technicalDetails">
+                    <div class="card-body">
+                        <pre class="bg-light p-3 rounded"><code>{{ error_details }}</code></pre>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Other Options</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-list me-2"></i>View All Guidelines
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('worlds.view_world', id=world.id) }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-globe me-2"></i>Return to World
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

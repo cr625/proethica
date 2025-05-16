@@ -109,7 +109,8 @@ Alternatively, with a wrapper object:
 The mock response system is implemented in:
 
 - `mcp/modules/guideline_analysis_module.py`: The `_load_mock_concepts()` method loads mock data from JSON files
-- `app/routes/fix_concept_extraction.py`: Contains improved JSON parsing to handle various formatting issues
+- `app/routes/worlds.py`: Contains improved JSON parsing and concept extraction routing
+- `app/routes/worlds_direct_concepts.py`: Provides the direct concept extraction functionality
 
 ## Database Connection
 
