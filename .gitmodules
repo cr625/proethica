@@ -2,9 +2,6 @@
 	path = app/agent_module
 	url = https://github.com/cr625/agent_module.git
 	branch = proethica-integration
-[submodule "papers/ISWC_2025"]
-	path = papers/ISWC_2025
-	url = https://github.com/cr625/ISWC_2025
 [submodule "papers/AIES-25"]
 	path = papers/AIES-25
 	url = https://github.com/cr625/AIES-25.git
