@@ -1,13 +1,3 @@
-2025-05-16 00:09:02,208 - __main__ - INFO - Starting Enhanced Ontology MCP Server with Guidelines Support...
-2025-05-16 00:09:02,208 - mcp.enhanced_ontology_server_with_guidelines - INFO - Enhanced Ontology Server with Guidelines initialized
-2025-05-16 00:09:03,590 - mcp.enhanced_ontology_server_with_guidelines - INFO - Anthropic client initialized successfully
-2025-05-16 00:09:04,449 - mcp.enhanced_ontology_server_with_guidelines - INFO - OpenAI client initialized successfully
-2025-05-16 00:09:04,582 - mcp.enhanced_ontology_server_with_guidelines - INFO - OpenAI embeddings client initialized successfully
-2025-05-16 00:09:04,584 - mcp.modules.base_module - INFO - Initialized guideline_analysis module
-2025-05-16 00:09:04,584 - mcp.modules.guideline_analysis_module - INFO - Loading mock concepts from /workspaces/ai-ethical-dm/guideline_concepts.json
-2025-05-16 00:09:04,584 - mcp.modules.guideline_analysis_module - INFO - Successfully loaded 21 mock concepts
-2025-05-16 00:09:04,587 - mcp.modules.guideline_analysis_module - INFO - GuidelineAnalysisModule initialized with mock mode: True
-2025-05-16 00:09:04,587 - mcp.enhanced_ontology_server_with_guidelines - INFO - Added module: guideline_analysis
-2025-05-16 00:09:04,587 - mcp.enhanced_ontology_server_with_guidelines - INFO - Guideline analysis module registered successfully
-2025-05-16 00:09:04,597 - mcp.enhanced_ontology_server_with_guidelines - INFO - Server started at http://localhost:5001
-2025-05-16 00:09:06,221 - aiohttp.access - INFO - ::1 [16/May/2025:00:09:06 +0000] "GET /status HTTP/1.1" 404 175 "-" "curl/7.68.0"
+2025-05-16 01:05:45,678 - __main__ - INFO - Starting Enhanced Ontology MCP Server with Guidelines Support...
+2025-05-16 01:05:45,679 - mcp.enhanced_ontology_server_with_guidelines - INFO - Enhanced Ontology Server with Guidelines initialized
+2025-05-16 01:05:47,668 - mcp.enhanced_ontology_server_with_guidelines - INFO - Anthropic client initialized successfully

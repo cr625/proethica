@@ -613,11 +613,37 @@ def view_guideline(id, document_id):
                 triple_count = len(triples)
                 
                 # Get concept count from metadata if available
-                if related_guideline.metadata and 'concepts_selected' in related_guideline.metadata:
-                    concept_count = related_guideline.metadata['concepts_selected']
+                if related_guideline.guideline_metadata and 'concepts_selected' in related_guideline.guideline_metadata:
+                    concept_count = related_guideline.guideline_metadata['concepts_selected']
+                
+                # Extract concepts from triples to display in the UI
+                concepts = []
+                # Group triples by subject to form concept objects
+                subject_groups = {}
+                for triple in triples:
+                    if triple.subject not in subject_groups:
+                        subject_groups[triple.subject] = {
+                            'subject': triple.subject,
+                            'subject_label': triple.subject_label or triple.subject.split('/')[-1],
+                            'description': None,
+                            'type_label': None
+                        }
+                    
+                    # Check for rdf:type predicates to get concept type
+                    if triple.predicate.endswith('#type') or triple.predicate.endswith('/type'):
+                        subject_groups[triple.subject]['type_label'] = triple.object_label or (triple.object_uri and triple.object_uri.split('/')[-1]) or "Concept"
+                    
+                    # Check for description predicates
+                    if triple.predicate.endswith('#comment') or triple.predicate.endswith('/comment') or 'description' in triple.predicate or 'definition' in triple.predicate:
+                        subject_groups[triple.subject]['description'] = triple.object_literal or triple.object_uri
+                
+                # Convert grouped data to list of concepts
+                concepts = list(subject_groups.values())
+                logger.info(f"Extracted {len(concepts)} concepts from {triple_count} triples for display")
         except Exception as e:
             import traceback
             traceback.print_exc()
+            logger.error(f'Error retrieving guideline data: {str(e)}')
             flash(f'Error retrieving guideline data: {str(e)}', 'warning')
     
     # If no related guideline or metadata available, try to get counts from document metadata
