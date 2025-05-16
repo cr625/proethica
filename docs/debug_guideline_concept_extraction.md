@@ -21,8 +21,10 @@ This approach is ideal for using the VSCode debugger on the Flask application wh
 
 This will:
 1. Start the MCP server in the background (saving output to mcp_server.log)
-2. Launch the Flask app with the debugger attached
+2. Launch the Flask app with the debugger attached using a Python wrapper script
 3. Allow you to set breakpoints and step through Flask app code
+
+> **Note**: We use a Python wrapper script (`debug_flask_app.py`) instead of the shell script to ensure proper VSCode debugger integration. The wrapper sets up the same environment variables and runs the app directly in the Python process.
 
 ### Option 2: Separate Debug Sessions
 
@@ -87,6 +89,12 @@ This task will:
 
 ### Common Issues
 
+#### VSCode Debugger Not Stopping at Breakpoints
+If the debugger isn't stopping at breakpoints:
+1. Make sure you're using the "Debug Flask App with Background MCP" configuration
+2. Verify the breakpoints are set in files that are actually being executed
+3. Try setting a breakpoint in `debug_flask_app.py` to verify the debugger is attached
+
 #### PostgreSQL Connection Issues
 If you encounter database connection issues:
 ```bash
@@ -128,7 +136,5 @@ If you encounter the error `'GuidelineAnalysisModule' object has no attribute 'c
 ## Using Mock Responses
 
 For testing without making actual Claude API calls:
-1. Set the environment variable `USE_MOCK_GUIDELINE_RESPONSES=true` 
+1. The environment variable `USE_MOCK_GUIDELINE_RESPONSES=true` is set in debug_flask_app.py
 2. Check or edit mock responses in `tests/mock_responses/guideline_concepts_response.json`
-
-This variable is set by default in the VSCode debug configurations.

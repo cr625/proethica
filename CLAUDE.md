@@ -1,5 +1,57 @@
 AI Ethical DM - Development Log
 
+## May 16, 2025 (Update #25): Improved VSCode Debugging for Flask App with Background MCP
+
+### Task Completed
+Created a robust debugging solution that enables proper VSCode debugging of the Flask application with the MCP server running in the background.
+
+### Key Improvements
+1. **Python-Based Debugging Setup**:
+   - Created `debug_flask_app.py` wrapper script that replaces the shell-based `debug_app.sh`
+   - Implemented proper Python-based initialization to ensure VSCode debugger attaches correctly
+   - Added environment variable setup directly in Python code
+
+2. **Background MCP Server Script**:
+   - Added `scripts/start_mcp_server_background.sh` to run the MCP server as a non-blocking background process
+   - Implemented proper output redirection to `mcp_server.log` for troubleshooting
+   - Added status reporting that works with VSCode task system
+
+3. **Fixed VSCode Configurations**:
+   - Updated `.vscode/launch.json` with proper debugpy configurations
+   - Configured task-based preLaunchTask for background MCP server
+   - Added problemMatcher patterns to properly detect when background tasks complete
+
+4. **Comprehensive Documentation**:
+   - Updated `docs/debug_guideline_concept_extraction.md` with clear debugging instructions
+   - Added troubleshooting section for common issues
+   - Documented key breakpoints to set for effective debugging
+
+### Technical Details
+The main challenge with debugging the Flask app was that the shell script `debug_app.sh` wasn't properly compatible with the VSCode Python debugger. We addressed this by:
+
+1. Creating a Python wrapper script that:
+   - Sets the same environment variables as the shell script
+   - Runs the patch_sqlalchemy_url.py script using subprocess
+   - Directly imports and calls the main function from run.py
+   - Runs everything in the same Python process so the debugger works properly
+
+2. Setting up a background task system where:
+   - The MCP server runs in a separate process with output redirected to a log
+   - The background task reports specific pattern matches for VSCode to detect completion
+   - The Flask app doesn't start until the MCP server is properly initialized
+
+This approach ensures that:
+1. VSCode can properly attach the debugger to the Flask application
+2. Breakpoints work correctly in Flask app code
+3. The MCP server runs reliably in the background without blocking debugging
+4. Both components have proper error logging and reporting
+
+### Next Steps
+1. **Extended Testing**: Test the debugging setup with more complex scenarios and edge cases
+2. **Pipeline Integration**: Consider integrating this improved debugging workflow into CI/CD
+3. **Documentation Updates**: Incorporate the debugging workflow into the main project documentation
+4. **Performance Analysis**: Use the debugging capability to profile and optimize the guideline concept extraction process
+
 ## May 16, 2025 (Update #24): Streamlined Debugging Configuration for Guideline Concept Extraction
 
 ### Task Completed

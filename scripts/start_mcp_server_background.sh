@@ -1,6 +1,6 @@
 #!/bin/bash
 # Start the MCP server in the background
-echo "Starting MCP server in the background..."
+echo "Starting MCP server in the background"
 nohup python mcp/run_enhanced_mcp_server_with_guidelines.py > mcp_server.log 2>&1 &
 MCP_PID=$!
 echo "MCP server started with PID: $MCP_PID"
