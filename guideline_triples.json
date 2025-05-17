@@ -1,7 +1,7 @@
 {
   "triples": [
     {
-      "subject": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d",
+      "subject": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c",
       "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
       "object": "http://proethica.org/ontology/Guideline"
     },
@@ -25,7 +25,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/confidentiality",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/competence",
@@ -47,7 +47,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/competence",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/professional-development",
@@ -69,7 +69,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/professional-development",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/objectivity",
@@ -91,7 +91,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/objectivity",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/engineer",
@@ -113,7 +113,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/engineer",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/client",
@@ -135,7 +135,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/client",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/engineering-ethics-guidelines",
@@ -157,7 +157,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/engineering-ethics-guidelines",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/professional-responsibility-engineers",
@@ -179,7 +179,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/professional-responsibility-engineers",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/professional-competence-engineers",
@@ -201,7 +201,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/professional-competence-engineers",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     },
     {
       "subject": "http://proethica.org/guidelines/concept/truthfulness",
@@ -223,7 +223,7 @@
     {
       "subject": "http://proethica.org/guidelines/concept/truthfulness",
       "predicate": "http://proethica.org/ontology/isDefinedIn",
-      "object": "http://proethica.org/guidelines/guideline/47cf0f19-95d7-4291-a0b8-ffe05b5fce9d"
+      "object": "http://proethica.org/guidelines/guideline/72db6e2f-bee6-4a8a-98ad-edccd58aef1c"
     }
   ]
 }

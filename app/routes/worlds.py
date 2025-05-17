@@ -832,31 +832,56 @@ def robust_json_parse(json_str):
     except json.JSONDecodeError as e:
         logger.info(f"Standard JSON parsing failed, attempting recovery: {str(e)}")
         
+        # Debugging: log the problematic JSON string (truncated if large)
+        max_log_len = 200  # Only log first 200 chars for debugging
+        log_str = json_str[:max_log_len] + "..." if len(json_str) > max_log_len else json_str
+        logger.info(f"Problematic JSON string (truncated): {log_str}")
+        
         # If JSON has single quotes instead of double quotes, try to fix it
         try:
             if "'" in json_str:
                 # Replace single quotes with double quotes, but be careful with nested quotes
-                # This is a simplified approach and might not work for all cases
-                fixed_json = json_str.replace("'", '"')
-                return json.loads(fixed_json)
-        except Exception:
+                logger.info("Attempting to fix single quotes in JSON")
+                # This approach handles single quotes better by first going through ast.literal_eval
+                try:
+                    python_obj = ast.literal_eval(json_str)
+                    return python_obj
+                except Exception:
+                    # Fallback to simple replacement if ast.literal_eval fails
+                    fixed_json = json_str.replace("'", '"')
+                    return json.loads(fixed_json)
+        except Exception as e:
+            logger.info(f"Single quote fix failed: {str(e)}")
             pass
             
         # Try using ast.literal_eval for Python-style dictionaries
         try:
+            logger.info("Attempting ast.literal_eval")
             return ast.literal_eval(json_str)
-        except Exception:
+        except Exception as e:
+            logger.info(f"ast.literal_eval failed: {str(e)}")
             pass
             
         # Try to fix missing quotes around property names
         try:
+            logger.info("Attempting regex fix for property names")
             # Use regex to find and fix common JSON errors
-            json_str = re.sub(r'(\w+):', r'"\1":', json_str)
-            return json.loads(json_str)
+            fixed_json = re.sub(r'(\w+):', r'"\1":', json_str)
+            return json.loads(fixed_json)
+        except Exception as e:
+            logger.info(f"Regex fix failed: {str(e)}")
+            pass
+            
+        # Try handling JavaScript objects with undefined values
+        try:
+            logger.info("Attempting to fix undefined values")
+            fixed_json = json_str.replace('undefined', 'null')
+            return json.loads(fixed_json)
         except Exception:
             pass
             
         # If all else fails, raise the original error
+        logger.error(f"All JSON parsing recovery methods failed for: {log_str}")
         raise
 
 # Add new route for displaying guideline processing errors

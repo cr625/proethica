@@ -108,7 +108,7 @@
     <form method="post"
         action="{{ url_for('worlds.generate_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
         <!-- Hidden fields to pass necessary data -->
-        <input type="hidden" name="concepts_data" value="{{ concepts_json|safe }}" />
+        <input type="hidden" name="concepts_data" value='{{ concepts_json }}' />
         {% for idx in selected_indices %}
         <input type="hidden" name="selected_concepts" value="{{ idx }}" />
         {% endfor %}
