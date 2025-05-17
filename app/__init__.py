@@ -46,13 +46,17 @@ def create_app(config_module='app.config'):
     # Ensure database schema is properly setup (especially for models added after initial setup)
     with app.app_context():
         try:
+            from sqlalchemy import create_engine
             from scripts.ensure_schema import ensure_guidelines_table, ensure_entity_triples_columns
             
+            # Create engine from app config
+            engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+            
             # Ensure guidelines table exists
-            ensure_guidelines_table()
+            ensure_guidelines_table(engine)
             
             # Ensure required columns exist in entity_triples
-            ensure_entity_triples_columns()
+            ensure_entity_triples_columns(engine)
             
             print("Database schema verification completed successfully.")
         except Exception as e:

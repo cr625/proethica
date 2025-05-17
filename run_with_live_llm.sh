@@ -51,7 +51,11 @@ case $choice in
     export FLASK_DEBUG=1
     export MCP_SERVER_URL=http://localhost:5001
     
-    python debug_flask_app.py
+    # Set database URL for SQLAlchemy
+    export DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
+    export SQLALCHEMY_TRACK_MODIFICATIONS=false
+    
+    python run_debug_app.py
     ;;
     
   2)
@@ -66,7 +70,11 @@ case $choice in
     export FLASK_DEBUG=1
     export MCP_SERVER_URL=http://localhost:5001
     
-    python debug_flask_app.py
+    # Set database URL for SQLAlchemy
+    export DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
+    export SQLALCHEMY_TRACK_MODIFICATIONS=false
+    
+    python run_debug_app.py
     ;;
     
   3)

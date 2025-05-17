@@ -22,8 +22,8 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 # Default database connection string for Codespace
-DEFAULT_DB_URL = 'postgresql://postgres:postgres@localhost:5433/postgres'
-TARGET_DB_URL = 'postgresql://postgres:postgres@localhost:5433/ai_ethical_dm'
+DEFAULT_DB_URL = 'postgresql://postgres:PASS@localhost:5433/postgres'
+TARGET_DB_URL = 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm'
 
 def wait_for_postgres(db_url, max_retries=5, retry_interval=2):
     """Wait for PostgreSQL to become available"""
