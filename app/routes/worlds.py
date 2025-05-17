@@ -17,6 +17,7 @@ from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 from app.services.ontology_entity_service import OntologyEntityService
 from app.services.guideline_analysis_service import GuidelineAnalysisService
+from app.models.entity_triple import EntityTriple
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -1067,8 +1068,77 @@ def save_guideline_concepts(world_id, document_id):
             db.session.add(new_guideline)
             db.session.flush()  # Get the guideline ID
             
-            # No triples are being generated or saved at this point
-                
+            # Create basic entity triples for each selected concept
+            # These are minimal triples just to represent the concepts, not the full semantic relationships
+            created_triple_count = 0
+            namespace = "http://proethica.org/guidelines/"
+            
+            for idx in selected_indices:
+                if idx < len(concepts):
+                    concept = concepts[idx]
+                    concept_label = concept.get("label", "Unknown Concept")
+                    concept_description = concept.get("description", "")
+                    concept_type = concept.get("type", "concept")
+                    
+                    # Create concept URI
+                    concept_uri = f"{namespace}{concept_label.lower().replace(' ', '_')}"
+                    
+                    # Create basic triples for this concept
+                    # 1. Type triple
+                    type_triple = EntityTriple(
+                        subject=concept_uri,
+                        subject_label=concept_label,
+                        predicate="http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                        predicate_label="is a",
+                        object_uri=f"http://proethica.org/ontology/{concept_type}",
+                        object_label=concept_type.title(),
+                        is_literal=False,
+                        entity_type="guideline_concept",
+                        entity_id=new_guideline.id,
+                        guideline_id=new_guideline.id,
+                        world_id=world_id,
+                        graph=f"guideline_{new_guideline.id}"
+                    )
+                    db.session.add(type_triple)
+                    created_triple_count += 1
+                    
+                    # 2. Label triple
+                    label_triple = EntityTriple(
+                        subject=concept_uri,
+                        subject_label=concept_label,
+                        predicate="http://www.w3.org/2000/01/rdf-schema#label",
+                        predicate_label="label",
+                        object_literal=concept_label,
+                        object_label=concept_label,
+                        is_literal=True,
+                        entity_type="guideline_concept",
+                        entity_id=new_guideline.id,
+                        guideline_id=new_guideline.id,
+                        world_id=world_id,
+                        graph=f"guideline_{new_guideline.id}"
+                    )
+                    db.session.add(label_triple)
+                    created_triple_count += 1
+                    
+                    # 3. Description triple if available
+                    if concept_description:
+                        description_triple = EntityTriple(
+                            subject=concept_uri,
+                            subject_label=concept_label,
+                            predicate="http://purl.org/dc/elements/1.1/description",
+                            predicate_label="has description",
+                            object_literal=concept_description,
+                            object_label=concept_description[:50] + "..." if len(concept_description) > 50 else concept_description,
+                            is_literal=True,
+                            entity_type="guideline_concept",
+                            entity_id=new_guideline.id,
+                            guideline_id=new_guideline.id,
+                            world_id=world_id,
+                            graph=f"guideline_{new_guideline.id}"
+                        )
+                        db.session.add(description_triple)
+                        created_triple_count += 1
+            
             # Update document metadata
             guideline.doc_metadata = {
                 **(guideline.doc_metadata or {}),
@@ -1076,9 +1146,16 @@ def save_guideline_concepts(world_id, document_id):
                 "guideline_id": new_guideline.id,
                 "concepts_extracted": len(concepts),
                 "concepts_selected": len(selected_indices),
-                "triples_created": 0,  # No triples yet
+                "triples_created": created_triple_count,  # Update with the number of created triples
                 "analysis_date": datetime.utcnow().isoformat()
             }
+            
+            # Also update the guideline_metadata with the triple count
+            new_guideline.guideline_metadata = {
+                **(new_guideline.guideline_metadata or {}),
+                "triple_count": created_triple_count
+            }
+            
             db.session.commit()
             
             logger.info(f"Successfully saved {len(selected_indices)} concepts for guideline {new_guideline.id}")

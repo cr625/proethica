@@ -1,5 +1,47 @@
 AI Ethical DM - Development Log
 
+## May 17, 2025 (Update #30): Fixed Guideline Concept Association Display Issue
+
+### Task Completed
+Fixed an issue where concepts extracted and saved from guidelines weren't appearing in the "Associated Concepts" section when viewing a guideline, despite being saved to the database.
+
+### Current Git Hash
+73ea93b296efb5d55d94114d1670906bf35ca40b
+
+### Problem Analysis
+After a user selects concepts to save, the system was creating a Guideline record in the database and updating Document metadata, but it wasn't creating any EntityTriple records to represent the actual concepts. Since the "Associated Concepts" section in the guideline view page looks for EntityTriple records with matching guideline_id, no concepts were being displayed.
+
+### Key Improvements
+1. **Basic Entity Triple Creation**:
+   - Modified the `save_guideline_concepts` function to create basic EntityTriple records for each selected concept
+   - Added creation of three RDF triples for each concept:
+     - Type triple (is-a relationship)
+     - Label triple (rdfs:label)
+     - Description triple (dc:description) when available
+
+2. **Proper Association**:
+   - All triples are properly associated with the guideline_id
+   - Each triple is tagged with entity_type="guideline_concept"
+   - This ensures they appear in the "Associated Concepts" section immediately
+
+3. **Metadata Accuracy**:
+   - Updated document metadata with accurate triple count
+   - Updated guideline metadata with proper triple count
+   - Preserved the separation between the concept-saving phase and the full triple generation phase
+
+### Technical Details
+The implementation allows for the three-phase workflow to function as intended:
+1. The extraction phase identifies concepts in the guideline text
+2. The concept review and save phase now properly creates triples for basic concept representation
+3. The later triple generation phase (which remains separate) can create more complex semantic relationships
+
+The solution maintains the workflow as designed while ensuring that concepts are immediately visible in the UI after being saved.
+
+### Next Steps
+1. **Testing**: Thoroughly test the fix with different guideline texts and concept sets
+2. **UI Enhancements**: Consider improving the concepts list view with better categorization or filtering
+3. **Performance Monitoring**: Monitor the triple creation process for any performance impacts as concept count increases
+
 ## May 17, 2025 (Update #29): Created Database Cleanup Utilities for Guideline Concepts Testing
 
 ### Task Completed

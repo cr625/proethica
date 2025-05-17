@@ -109,7 +109,9 @@
         action="{{ url_for('worlds.generate_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
         <!-- Hidden fields to pass necessary data -->
         <input type="hidden" name="concepts_data" value="{{ concepts_json|safe }}" />
-        <input type="hidden" name="selected_concepts" value="{{ selected_indices|tojson|safe }}" />
+        {% for idx in selected_indices %}
+        <input type="hidden" name="selected_concepts" value="{{ idx }}" />
+        {% endfor %}
         <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
         <input type="hidden" name="guideline_id" value="{{ guideline_id }}" />
 
