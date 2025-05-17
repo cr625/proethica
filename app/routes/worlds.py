@@ -1040,36 +1040,8 @@ def save_guideline_concepts(world_id, document_id):
         
         logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
         
-        # Get triples data from the form
-        triples_data_json = request.form.get('triples_data', '[]')
-        selected_triple_indices = request.form.getlist('selected_triples')
-        selected_triple_indices = [int(idx) for idx in selected_triple_indices]
-        
-        try:
-            # Parse the JSON data from the form with our robust parser
-            all_triples = robust_json_parse(triples_data_json)
-            
-            # Filter to only selected triples
-            if selected_triple_indices:
-                triples_data = [all_triples[i] for i in selected_triple_indices if i < len(all_triples)]
-            else:
-                # If no specific triples selected, use all of them (fall back behavior)
-                triples_data = all_triples
-                
-            triple_count = len(triples_data)
-            logger.info(f"Saving {triple_count} selected triples out of {len(all_triples)} total triples")
-            
-            if not triples_data:
-                flash('No triples were selected for saving', 'warning')
-                return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
-        except Exception as json_error:
-            logger.error(f"Error parsing triples JSON: {str(json_error)}")
-            return redirect(url_for('worlds.guideline_processing_error', 
-                                    world_id=world_id, 
-                                    document_id=document_id,
-                                    error_title='JSON Parsing Error',
-                                    error_message='Could not parse the triples data from the form submission.',
-                                    error_details=str(json_error)))
+        # At this stage, we're just saving the concepts, not generating or saving triples yet
+        # No triples data is needed here
         
         # Save the guideline model with the triples
         try:
@@ -1085,57 +1057,17 @@ def save_guideline_concepts(world_id, document_id):
                 guideline_metadata={
                     "document_id": document_id,
                     "analyzed": True,
-                "concepts_extracted": len(concepts),
-                "concepts_selected": len(selected_indices),
-                "triple_count": triple_count,
-                "analysis_date": datetime.utcnow().isoformat(),
+                    "concepts_extracted": len(concepts),
+                    "concepts_selected": len(selected_indices),
+                    "triple_count": 0,  # No triples yet
+                    "analysis_date": datetime.utcnow().isoformat(),
                 "ontology_source": ontology_source
                 }
             )
             db.session.add(new_guideline)
             db.session.flush()  # Get the guideline ID
             
-            if triples_data:
-                # Log the number of triples to be saved
-                logger.info(f"Saving {triple_count} triples to the database for guideline {new_guideline.id}")
-                
-                # Bulk insert triples for better performance
-                entity_triples = []
-                from app.models.entity_triple import EntityTriple
-                
-                for triple_data in triples_data:
-                    # Determine if object is literal or URI
-                    is_literal = isinstance(triple_data["object"], str)
-                    object_value = triple_data["object"]
-                    
-                    # Check if the object value isn't a URI - if it starts with http:// or https://, it's a URI
-                    if is_literal and (object_value.startswith("http://") or object_value.startswith("https://")):
-                        is_literal = False
-                    
-                    triple = EntityTriple(
-                        subject=triple_data["subject"],
-                        predicate=triple_data["predicate"],
-                        object_literal=object_value if is_literal else None,
-                        object_uri=None if is_literal else object_value,
-                        is_literal=is_literal,
-                        subject_label=triple_data.get("subject_label"),
-                        predicate_label=triple_data.get("predicate_label"),
-                        object_label=triple_data.get("object_label"),
-                        graph=f"guideline_{new_guideline.id}",
-                        entity_type="guideline_concept",
-                        entity_id=new_guideline.id,
-                        world_id=world_id,
-                        guideline_id=new_guideline.id,
-                        triple_metadata={
-                            "source": "guideline_analysis",
-                            "confidence": triple_data.get("confidence", 1.0) if "confidence" in triple_data else 1.0,
-                            "created_at": datetime.utcnow().isoformat()
-                        }
-                    )
-                    entity_triples.append(triple)
-                
-                # Add all triples to the session
-                db.session.bulk_save_objects(entity_triples)
+            # No triples are being generated or saved at this point
                 
             # Update document metadata
             guideline.doc_metadata = {
@@ -1144,23 +1076,42 @@ def save_guideline_concepts(world_id, document_id):
                 "guideline_id": new_guideline.id,
                 "concepts_extracted": len(concepts),
                 "concepts_selected": len(selected_indices),
-                "triples_created": triple_count,
+                "triples_created": 0,  # No triples yet
                 "analysis_date": datetime.utcnow().isoformat()
             }
             db.session.commit()
             
-            logger.info(f"Successfully created {triple_count} RDF triples for guideline {new_guideline.id}")
-            flash(f'Successfully created {triple_count} RDF triples from selected concepts', 'success')
+            logger.info(f"Successfully saved {len(selected_indices)} concepts for guideline {new_guideline.id}")
+            
+            # Get the selected concepts for display in the template
+            selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
+            
+            # Convert to JSON for passing to the template
+            concepts_json = json.dumps(selected_concepts)
+            
+            # Render the intermediate page showing saved concepts with a Generate Triples button
+            return render_template('guideline_saved_concepts.html',
+                                  world=world,
+                                  guideline=guideline,
+                                  concepts=selected_concepts,
+                                  concepts_json=concepts_json,
+                                  selected_indices=selected_indices,
+                                  concept_count=len(selected_indices),
+                                  guideline_id=new_guideline.id,
+                                  world_id=world_id,
+                                  document_id=document_id,
+                                  ontology_source=ontology_source)
+            
         except Exception as e:
             db.session.rollback()
             import traceback
             error_trace = traceback.format_exc()
-            logger.error(f"Error saving triples: {str(e)}\n{error_trace}")
+            logger.error(f"Error saving concepts: {str(e)}\n{error_trace}")
             return redirect(url_for('worlds.guideline_processing_error', 
                                    world_id=world_id, 
                                    document_id=document_id,
                                    error_title='Database Error',
-                                   error_message=f'Error saving triples: {str(e)}',
+                                   error_message=f'Error saving concepts: {str(e)}',
                                    error_details=error_trace))
         
     except Exception as e:
@@ -1173,8 +1124,6 @@ def save_guideline_concepts(world_id, document_id):
                                error_title='Unexpected Error',
                                error_message=f'Error processing concepts: {str(e)}',
                                error_details=error_trace))
-        
-    return redirect(url_for('worlds.world_guidelines', id=world_id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 def delete_guideline(id, document_id):
