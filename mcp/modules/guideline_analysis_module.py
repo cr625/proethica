@@ -713,6 +713,7 @@ class GuidelineAnalysisModule(MCPBaseModule):
         frame_info = inspect.getframeinfo(current_frame)
         logger.debug(f"BREAKPOINT: Hit extract_guideline_concepts at {frame_info.filename}:{frame_info.lineno}")
         logger.debug(f"BREAKPOINT: Arguments: {arguments}")
+        logger.info(f"Extract guideline concepts - USE_MOCK_RESPONSES: {self.use_mock_responses}")
         
         try:
             content = arguments.get("content", "")
@@ -721,6 +722,9 @@ class GuidelineAnalysisModule(MCPBaseModule):
             if not content:
                 return {"error": "No content provided"}
                 
+            # Import time module for timing measurements
+            import time
+            
             # Check if we should use mock responses for faster development
             if self.use_mock_responses:
                 logger.info("Using mock concepts response (development mode)")
@@ -785,31 +789,70 @@ class GuidelineAnalysisModule(MCPBaseModule):
             
             First use the available tools to understand the ontology structure and find similar concepts that may already exist.
             Then use this knowledge to extract and categorize concepts from the guidelines in a way that aligns with the existing ontology.
+            
+            IMPORTANT: You MUST respond with valid JSON that matches this exact format. Do not include any explanatory text before or after the JSON:
+            {
+                "concepts": [
+                    {
+                        "label": "string", 
+                        "description": "string", 
+                        "category": "string",
+                        "confidence": 0.95,
+                        "related_concepts": ["string"],
+                        "text_references": ["string"]
+                    }
+                ]
+            }
+            
+            Even if the ontology structure is unavailable, still extract concepts and return them in valid JSON format.
             """
             
             # Create user message with the guideline content
             user_message = f"""
-            Please analyze the following guidelines and extract key ethical concepts:
+            Analyze the following guidelines and extract key ethical concepts. Return ONLY a valid JSON object with the extracted concepts, no explanations or other text.
             
             {content[:10000]}  # Limit to first 10k chars to avoid token limits
             
-            Use the available tools to check if similar concepts already exist in the ontology, then extract concepts that align with the ontology structure.
+            Use the available tools first to check if similar concepts exist in the ontology, then extract concepts that align with the ontology structure.
+            
+            IMPORTANT: Your response MUST be valid JSON that follows this structure exactly:
+            {{
+                "concepts": [
+                    {{
+                        "label": "Concept Name",
+                        "description": "Detailed description of the concept",
+                        "category": "principle", 
+                        "confidence": 0.95,
+                        "related_concepts": ["Related Concept 1", "Related Concept 2"],
+                        "text_references": ["Quote from the text supporting this concept"]
+                    }}
+                ]
+            }}
+            
+            Do not include any text or explanations before or after the JSON - ONLY return the JSON object itself.
             """
             
             # Call Anthropic API with tool use
             try:
-                # Use Claude 3 Sonnet model with updated version and tool use
+                logger.info("Making LIVE LLM call to extract guideline concepts")
+                start_time = time.time()
+                
+                # Use Claude 3 Sonnet model with correct version
+                # FIX: Fixed messages format and model version
                 response = await self.llm_client.messages.create(
                     model="claude-3-7-sonnet-20250219",
+                    system=system_prompt,
                     messages=[
-                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message}
                     ],
                     tools=self.claude_tools,
-                    tool_choice="auto",
-                    temperature=0.2,
-                    max_tokens=4000
+                    max_tokens=4000,
+                    temperature=0.2
                 )
+                
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                logger.info(f"LLM API call completed in {elapsed_time:.2f} seconds")
                 
                 # Process the response
                 result_text = None
@@ -820,9 +863,10 @@ class GuidelineAnalysisModule(MCPBaseModule):
                     if content_item.type == "text":
                         result_text = content_item.text
                     elif content_item.type == "tool_use":
+                        # Fix for updated Anthropic API response structure
                         tool_calls.append({
-                            "name": content_item.tool_use.name,
-                            "arguments": content_item.tool_use.arguments
+                            "name": content_item.name,
+                            "arguments": content_item.input
                         })
                 
                 # Process all tool calls
@@ -916,8 +960,12 @@ class GuidelineAnalysisModule(MCPBaseModule):
                     "model": "claude-3-7-sonnet-20250219",
                     "prompt_length": len(user_message),
                     "response_length": len(result_text) if result_text else 0,
-                    "tool_calls_count": len(tool_calls)
+                    "tool_calls_count": len(tool_calls),
+                    "elapsed_time": elapsed_time
                 }
+                
+                # Add flag to indicate this is NOT a mock response
+                concepts_data["mock"] = False
                 
                 return concepts_data
             except Exception as e:

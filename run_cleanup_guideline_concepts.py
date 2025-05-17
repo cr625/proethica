@@ -1,186 +1,155 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Script to execute the cleanup_guideline_concepts.sql script to remove all
-guideline concepts, triples, and reset document metadata for testing.
+Utility script to clean up guideline concepts and related data for testing.
+This script executes the SQL cleanup script in a safe way and provides status feedback.
 """
 
 import os
-import sys
 import subprocess
-import tempfile
-import time
+import sys
+from datetime import datetime
 
-# Database connection parameters for Docker container
-CONTAINER_NAME = "proethica-postgres"
-DB_NAME = "ai_ethical_dm"
-DB_USER = "postgres"
-DB_PASS = "PASS"
-
-def check_container_running():
-    """Check if the database container is running."""
-    try:
-        result = subprocess.run(
-            ["docker", "ps", "--filter", f"name={CONTAINER_NAME}", "--format", "{{.Names}}"],
-            capture_output=True, text=True, check=True
-        )
-        return CONTAINER_NAME in result.stdout
-    except subprocess.CalledProcessError:
-        return False
-
-def execute_sql_in_container(sql_file):
-    """Execute an SQL file inside the PostgreSQL container."""
-    # Check if container is running
-    if not check_container_running():
-        print(f"Error: Container '{CONTAINER_NAME}' is not running!")
-        print("Please ensure the database container is running before proceeding.")
-        sys.exit(1)
-    
-    # Read the SQL file
-    with open(sql_file, 'r') as f:
-        sql_content = f.read()
-    
-    # Split the SQL into statements and filter out comments and empty lines
-    raw_statements = sql_content.split(';')
-    statements = []
-    
-    for stmt in raw_statements:
-        # Remove comments and empty lines
-        cleaned_stmt = []
-        for line in stmt.split('\n'):
-            line = line.strip()
-            if line and not line.startswith('--'):
-                cleaned_stmt.append(line)
-        
-        if cleaned_stmt:
-            statements.append(' '.join(cleaned_stmt))
-    
-    # Track success
-    success_count = 0
-    failure_count = 0
-    
-    try:
-        print(f"Executing SQL statements in container {CONTAINER_NAME}...")
-        
-        # First, display what would be deleted (SELECTs)
-        print("\n--- Current Data Status ---")
-        for query in [
-            "SELECT COUNT(*) AS \"Guideline Concept Triples\" FROM public.entity_triples WHERE entity_type = 'guideline_concept'",
-            "SELECT COUNT(*) AS \"Guidelines\" FROM public.guidelines",
-            "SELECT COUNT(*) AS \"Documents with guideline references\" FROM public.documents WHERE doc_metadata->>'guideline_id' IS NOT NULL"
-        ]:
-            cmd = [
-                "docker", "exec", "-u", "postgres", CONTAINER_NAME,
-                "psql", "-d", DB_NAME, "-U", DB_USER, 
-                "-c", query, "-t"  # -t for tuple only output (cleaner)
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"{query}: {result.stdout.strip()}")
-            else:
-                print(f"Error getting data for {query}: {result.stderr.strip()}")
-        
-        # Execute the actual DELETE and UPDATE statements
-        print("\n--- Executing Cleanup Statements ---")
-        
-        # 1. Delete all entity_triples for guideline concepts
-        print("\n1. Deleting entity triples for guideline concepts...")
-        delete_triples_cmd = [
-            "docker", "exec", "-u", "postgres", CONTAINER_NAME,
-            "psql", "-d", DB_NAME, "-U", DB_USER, 
-            "-c", "DELETE FROM public.entity_triples WHERE entity_type = 'guideline_concept'",
-            "-t"
-        ]
-        result = subprocess.run(delete_triples_cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"Success: {result.stdout.strip()}")
-            success_count += 1
-        else:
-            print(f"Error: {result.stderr.strip()}")
-            failure_count += 1
-        
-        # 2. Update document metadata to remove guideline references
-        print("\n2. Updating document metadata to remove guideline_id references...")
-        for field in ['guideline_id', 'analyzed', 'concepts_extracted', 
-                     'concepts_selected', 'triples_created', 'analysis_date']:
-            update_cmd = [
-                "docker", "exec", "-u", "postgres", CONTAINER_NAME,
-                "psql", "-d", DB_NAME, "-U", DB_USER, 
-                "-c", f"UPDATE public.documents SET doc_metadata = doc_metadata - '{field}' WHERE doc_metadata->>'{field}' IS NOT NULL",
-                "-t"
-            ]
-            result = subprocess.run(update_cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"Removed {field}: {result.stdout.strip()}")
-                success_count += 1
-            else:
-                print(f"Error removing {field}: {result.stderr.strip()}")
-                failure_count += 1
-        
-        # 3. Delete all guidelines
-        print("\n3. Deleting all guidelines...")
-        delete_guidelines_cmd = [
-            "docker", "exec", "-u", "postgres", CONTAINER_NAME,
-            "psql", "-d", DB_NAME, "-U", DB_USER, 
-            "-c", "DELETE FROM public.guidelines",
-            "-t"
-        ]
-        result = subprocess.run(delete_guidelines_cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"Success: {result.stdout.strip()}")
-            success_count += 1
-        else:
-            print(f"Error: {result.stderr.strip()}")
-            failure_count += 1
-        
-        # Verify the deletions
-        print("\n--- Verification After Cleanup ---")
-        for query in [
-            "SELECT COUNT(*) AS \"Remaining Guideline Concept Triples\" FROM public.entity_triples WHERE entity_type = 'guideline_concept'",
-            "SELECT COUNT(*) AS \"Remaining Guidelines\" FROM public.guidelines",
-            "SELECT COUNT(*) AS \"Documents still having guideline references\" FROM public.documents WHERE doc_metadata->>'guideline_id' IS NOT NULL"
-        ]:
-            cmd = [
-                "docker", "exec", "-u", "postgres", CONTAINER_NAME,
-                "psql", "-d", DB_NAME, "-U", DB_USER, 
-                "-c", query, "-t"
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"{query}: {result.stdout.strip()}")
-            else:
-                print(f"Error getting data for {query}: {result.stderr.strip()}")
-        
-        # Report success
-        print(f"\n--- SQL Execution Summary ---")
-        print(f"Successful statements: {success_count}")
-        print(f"Failed statements: {failure_count}")
-        
-        return failure_count == 0
-    
-    except Exception as e:
-        print(f"Error executing SQL: {e}")
-        return False
+def run_command(cmd):
+    """Run a shell command and return output"""
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True,
+        text=True
+    )
+    stdout, stderr = process.communicate()
+    return process.returncode, stdout, stderr
 
 def main():
-    """Main function to run the cleanup script."""
-    print("Starting guideline concepts cleanup...")
+    print("=" * 70)
+    print("Running Guideline Concept Cleanup")
+    print("=" * 70)
     
-    # Ask for confirmation
-    response = input("This will delete all guideline concepts and reset document metadata. Continue? (y/n): ")
-    if response.lower() != 'y':
-        print("Operation cancelled.")
-        return
+    # Get the script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Execute the SQL file
-    sql_file = 'sql/cleanup_guideline_concepts.sql'
-    success = execute_sql_in_container(sql_file)
+    # Path to the SQL script (relative to this script)
+    sql_script_path = os.path.join(script_dir, "sql", "cleanup_guideline_concepts.sql")
     
-    if success:
-        print("\nCleanup complete!")
+    # Check if the SQL script exists
+    if not os.path.isfile(sql_script_path):
+        print(f"Error: SQL script not found at {sql_script_path}")
+        return 1
+    
+    print(f"Found SQL cleanup script: {sql_script_path}")
+    
+    # Check for Docker environment
+    print("Checking Docker container for PostgreSQL...")
+    
+    # Detect environment and set PostgreSQL container name
+    container_name = "proethica-postgres"
+    if "CODESPACES" in os.environ and os.environ["CODESPACES"] == "true":
+        print("Detected GitHub Codespaces environment")
+    
+    # Check if Docker is available
+    returncode, stdout, stderr = run_command("docker --version")
+    if returncode != 0:
+        print("Error: Docker is not available")
+        return 1
+    
+    print(f"Using Docker with container: {container_name}")
+    
+    # Check if PostgreSQL container is running
+    returncode, stdout, stderr = run_command(f"docker ps -q -f name={container_name}")
+    if not stdout.strip():
+        print(f"Error: PostgreSQL container '{container_name}' is not running")
+        return 1
+    
+    print(f"Container {container_name} is running")
+    
+    # First get the counts before cleanup for reporting
+    print("\n" + "="*40)
+    print("CURRENT DATABASE STATE:")
+    print("="*40)
+    
+    count_query = """
+    SELECT COUNT(*) FROM public.entity_triples WHERE entity_type = 'guideline_concept';
+    SELECT COUNT(*) FROM public.guidelines;
+    SELECT COUNT(*) FROM public.documents WHERE doc_metadata->>'guideline_id' IS NOT NULL;
+    """
+    
+    returncode, stdout, stderr = run_command(
+        f"docker exec {container_name} psql -U postgres -d ai_ethical_dm -c \"{count_query}\""
+    )
+    if returncode != 0:
+        print(f"Error checking database state: {stderr}")
     else:
-        print("\nCleanup failed. Please check the error messages above.")
+        print(stdout)
+    
+    # Confirm before proceeding
+    confirmation = input("Do you want to proceed with cleanup? (y/n): ")
+    if confirmation.lower() != 'y':
+        print("Operation cancelled.")
+        return 0
+    
+    # Execute the SQL cleanup script
+    print("\n" + "="*40)
+    print("EXECUTING CLEANUP SCRIPT...")
+    print("="*40)
+    
+    returncode, stdout, stderr = run_command(
+        f"docker exec -i {container_name} psql -U postgres -d ai_ethical_dm < {sql_script_path}"
+    )
+    
+    if returncode != 0:
+        print(f"Error executing SQL cleanup script: {stderr}")
+        return 1
+    
+    print(stdout)
+    print("SQL cleanup script executed successfully")
+    
+    # Verify the cleanup
+    print("\n" + "="*40)
+    print("VERIFICATION AFTER CLEANUP:")
+    print("="*40)
+    
+    verification_query = """
+    SELECT COUNT(*) AS "Remaining Guideline Concept Triples"
+    FROM public.entity_triples
+    WHERE entity_type = 'guideline_concept';
+    
+    SELECT COUNT(*) AS "Remaining Guidelines"
+    FROM public.guidelines;
+    
+    SELECT COUNT(*) AS "Documents still having guideline references"
+    FROM public.documents
+    WHERE doc_metadata->>'guideline_id' IS NOT NULL;
+    """
+    
+    returncode, stdout, stderr = run_command(
+        f"docker exec {container_name} psql -U postgres -d ai_ethical_dm -c \"{verification_query}\""
+    )
+    if returncode != 0:
+        print(f"Error verifying cleanup: {stderr}")
+        return 1
+    
+    print(stdout)
+    
+    # Generate log file
+    log_filename = f"cleanup_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    with open(log_filename, 'w') as log_file:
+        log_file.write("Guideline Concept Cleanup Log\n")
+        log_file.write("=" * 40 + "\n")
+        log_file.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        log_file.write(f"SQL Script: {sql_script_path}\n")
+        log_file.write(f"Container: {container_name}\n\n")
+        log_file.write("Cleanup Output:\n")
+        log_file.write(stdout)
+    
+    print(f"\nLog saved to: {log_filename}")
+    
+    print("\n" + "="*40)
+    print("CLEANUP COMPLETE")
+    print("="*40)
+    print("You can now proceed with fresh guideline extraction testing.")
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

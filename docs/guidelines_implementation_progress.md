@@ -2,6 +2,14 @@
 
 This document tracks the implementation progress of the guidelines concept extraction feature.
 
+## Recent Fixes
+
+### May 17, 2025: JSON Data Handling Fix
+- ✅ Fixed JSON double encoding issue in the triple saving functionality
+- ✅ Modified how JSON data is passed through HTML templates
+- ✅ Improved server-side JSON parsing to be more robust
+- ✅ Last known good commit: 38f5a865b7e6459583ad983e62120ec5bb8e3487
+
 ## Completed Features
 
 ### Core Functionality

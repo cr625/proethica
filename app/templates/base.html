@@ -105,6 +105,10 @@
         <div class="footer">
             <p>&copy; Christopher Rauch 2025. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU
                     GPL v3</a>.</p>
+            <div class="template-info mt-2" style="font-size: 12px; color: #aaa;">
+                <p class="mb-0">Template: {{ request.endpoint or 'unknown' }}</p>
+                <p class="mb-0">Path: app/templates/{{ self._TemplateReference__context.name or 'unknown' }}</p>
+            </div>
         </div>
     </div>
 

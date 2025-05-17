@@ -2,7 +2,38 @@
 
 This document outlines the planned improvements and next steps for the guidelines concept extraction feature.
 
-## 1. Upgrade to Native Claude Tool Use
+## Immediate Next Steps
+
+### 1. Test with Live LLM Integration
+
+#### Current Status
+Currently, the guideline concept extraction feature is working with mock data. With the fix for the JSON double encoding issue in the triple saving functionality, we are now ready to test with the live LLM.
+
+#### Implementation Plan
+1. Modify environment variables to disable mock data:
+   ```bash
+   export USE_MOCK_GUIDELINE_RESPONSES=false
+   ```
+
+2. Test the complete workflow with the live LLM:
+   - Upload guideline document
+   - Extract concepts using Claude
+   - Review and select concepts
+   - Generate triples
+   - Review and save triples
+   - Verify saved triples in the database and UI
+
+3. Monitor performance and errors:
+   - Track Claude API response times
+   - Watch for any JSON encoding/decoding issues with real API responses
+   - Ensure all error handling works properly with actual LLM data
+
+4. Analyze quality of extracted concepts:
+   - Compare quality of LLM-extracted concepts vs mock data
+   - Identify areas where prompt engineering could improve results
+   - Document any ontology mapping issues that may arise
+
+## 2. Upgrade to Native Claude Tool Use
 
 ### Current Approach
 Currently, the guideline concept extraction uses simple prompts with Claude to extract ethical concepts and generate RDF triples. While functional, this approach doesn't allow Claude to dynamically access the ontology during extraction.
