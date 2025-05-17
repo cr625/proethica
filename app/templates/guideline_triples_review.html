@@ -38,11 +38,11 @@
     <form method="post"
         action="{{ url_for('worlds.save_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
         <!-- Pass necessary data as hidden fields -->
-        <input type="hidden" name="concepts_data" value="{{ concepts_json|safe }}" />
-        <input type="hidden" name="selected_concepts_json" value="{{ selected_concepts_json|safe }}" />
+        <input type="hidden" name="concepts_data" value="{{ concepts_json }}" />
+        <input type="hidden" name="selected_concepts_json" value="{{ selected_concepts_json }}" />
         <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
         <input type="hidden" name="selected_concept_indices" value="{{ selected_concept_indices }}" />
-        <input type="hidden" name="triples_data" id="triples_data" value="{{ triples_json|safe }}" />
+        <input type="hidden" name="triples_data" id="triples_data" data-triples="{{ triples_json }}" value="" />
 
         <div class="row mb-4">
             <div class="col">
@@ -154,6 +154,16 @@
         const selectAllBtn = document.getElementById('selectAllBtn');
         const deselectAllBtn = document.getElementById('deselectAllBtn');
         const checkboxes = document.querySelectorAll('.triple-checkbox');
+
+        // Get reference to form and triples data input
+        const form = document.querySelector('form');
+        const triplesDataInput = document.getElementById('triples_data');
+        const triplesJson = triplesDataInput.getAttribute('data-triples');
+
+        // When the form is submitted, set the value of the input to the JSON data
+        form.addEventListener('submit', function (e) {
+            triplesDataInput.value = triplesJson;
+        });
 
         // Select all triples
         selectAllBtn.addEventListener('click', function () {

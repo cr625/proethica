@@ -1259,8 +1259,13 @@ def save_guideline_triples(world_id, document_id):
         ontology_source = request.form.get('ontology_source', '')
         
         try:
-            # Parse the JSON data
-            all_triples = robust_json_parse(triples_data)
+            # First try direct JSON parsing
+            try:
+                all_triples = json.loads(triples_data)
+            except json.JSONDecodeError:
+                # Fall back to robust parsing only if needed
+                logger.warning("Standard JSON parsing failed, falling back to robust parser")
+                all_triples = robust_json_parse(triples_data)
         except Exception as json_error:
             logger.error(f"Error parsing triples JSON: {str(json_error)}")
             return redirect(url_for('worlds.guideline_processing_error', 
