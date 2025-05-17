@@ -37,6 +37,14 @@ Queries to explore the relationship between documents (uploaded guidelines) and 
 
 Queries for working with the RDF triples that represent concepts extracted from guidelines. These allow you to view, analyze, and manage the semantic representation of guidelines in the knowledge graph.
 
+### `cleanup_guideline_concepts.sql`
+
+Comprehensive cleanup utility for resetting the guideline concept extraction state in the database. This script:
+- Deletes all entity_triples related to guideline concepts
+- Updates document metadata to remove guideline references
+- Deletes all guideline records
+- Includes verification queries to confirm successful cleanup
+
 ### `GET_CONCEPT_INFO.sql`
 
 Queries for extracting and analyzing concept information, focusing on the concepts and their relationships.
@@ -44,6 +52,25 @@ Queries for extracting and analyzing concept information, focusing on the concep
 ### `DELETE_CONCEPTS.sql`
 
 Utilities for safely removing concept data, including cleanup operations for guidelines processing.
+
+## Database Cleanup Utilities
+
+For a more comprehensive approach to database cleanup, we provide a Python script that executes the SQL cleanup operations in the correct Docker environment:
+
+### `run_cleanup_guideline_concepts.py`
+
+This script safely executes the `cleanup_guideline_concepts.sql` file in the Docker container environment:
+
+```bash
+python run_cleanup_guideline_concepts.py
+```
+
+Features:
+- Safely connects to the Docker container database
+- Provides interactive confirmation before deletion
+- Shows detailed progress and success/failure for each operation
+- Verifies the cleanup succeeded with before/after statistics
+- Works in both local and CodeSpace environments
 
 ## Database Structure Overview
 

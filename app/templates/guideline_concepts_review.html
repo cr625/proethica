@@ -19,21 +19,19 @@
   </nav>
 
   <div class="alert alert-info">
-    <h4 class="alert-heading">Two-Phase Analysis</h4>
-    <p>This page displays ethical and engineering concepts that have been extracted from the guideline document. These
-      concepts can be added to the world's knowledge graph as RDF triples.</p>
+    <h4 class="alert-heading">Three-Phase Analysis</h4>
+    <p>You are at step 2 of the guideline analysis process:</p>
     <ol>
-      <li><strong>Review extracted concepts</strong> - Select which concepts you want to include in the knowledge graph
-      </li>
-      <li><strong>Generate RDF triples</strong> - Save the selected concepts as RDF triples linked to this guideline
-      </li>
+      <li><strong>Extract concepts</strong> ✓ - Completed</li>
+      <li><strong>Review concepts</strong> - You are here</li>
+      <li><strong>Review and save triples</strong> - Next step</li>
     </ol>
     <hr>
     <p class="mb-0">Select the concepts that accurately represent important ethical principles in this guideline.
-      <strong>Checked concepts will be included</strong> when you submit the form.
+      <strong>Checked concepts will be used to generate triples</strong> in the next step.
     </p>
   </div>
-  
+
   {% if llm_unavailable %}
   <div class="alert alert-warning">
     <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Limited Functionality</h4>
@@ -42,7 +40,8 @@
       <li>Concept matching with ontology entities may not be available</li>
       <li>Triple generation preview may be limited</li>
     </ul>
-    <p class="mb-0">You can still review and save the extracted concepts, but some advanced features may not work fully.</p>
+    <p class="mb-0">You can still review and save the extracted concepts, but some advanced features may not work fully.
+    </p>
   </div>
   {% endif %}
 
@@ -88,8 +87,9 @@
     </div>
   </div>
 
-  <!-- Use the worlds.save_guideline_concepts route for saving extracted concepts -->
-  <form method="post" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
+  <!-- Use the worlds.generate_guideline_triples route for the next step in the workflow -->
+  <form method="post"
+    action="{{ url_for('worlds.generate_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
     <!-- Include concepts data as hidden field with proper JSON escaping -->
     <input type="hidden" name="concepts_data" id="concepts_data" />
@@ -212,7 +212,8 @@
                     </td>
                     <td><strong>{{ concept.label }}</strong></td>
                     <td>
-                      <span class="badge bg-secondary">{{ concept.category|capitalize if concept.category else (concept.type|capitalize if concept.type else "Concept") }}</span>
+                      <span class="badge bg-secondary">{{ concept.category|capitalize if concept.category else
+                        (concept.type|capitalize if concept.type else "Concept") }}</span>
                     </td>
                     <td>{{ concept.description }}</td>
                     <td>
@@ -254,7 +255,7 @@
 
       {% if concepts %}
       <button type="submit" class="btn btn-primary">
-        <i class="fas fa-save"></i> Save Selected Concepts
+        <i class="fas fa-arrow-right"></i> Generate Triples
       </button>
       {% else %}
       <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
@@ -277,22 +278,23 @@
     const conceptsDataField = document.getElementById('concepts_data');
 
     // Initialize concepts data field with properly formatted JSON
-    const conceptsData = {{ concepts|tojson|safe }};
-    conceptsDataField.value = JSON.stringify(conceptsData);
+    const conceptsData = {{ concepts| tojson | safe
+  }};
+  conceptsDataField.value = JSON.stringify(conceptsData);
 
-    // Select all concepts
-    selectAllBtn.addEventListener('click', function () {
-      checkboxes.forEach(checkbox => {
-        checkbox.checked = true;
-      });
+  // Select all concepts
+  selectAllBtn.addEventListener('click', function () {
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = true;
     });
+  });
 
-    // Deselect all concepts
-    deselectAllBtn.addEventListener('click', function () {
-      checkboxes.forEach(checkbox => {
-        checkbox.checked = false;
-      });
+  // Deselect all concepts
+  deselectAllBtn.addEventListener('click', function () {
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
     });
+  });
   });
 </script>
 {% endblock %}

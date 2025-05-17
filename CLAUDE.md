@@ -1,5 +1,103 @@
 AI Ethical DM - Development Log
 
+## May 17, 2025 (Update #29): Created Database Cleanup Utilities for Guideline Concepts Testing
+
+### Task Completed
+Created a comprehensive SQL cleanup utility and Python execution script to facilitate testing of the guideline concept extraction implementation. This utility provides a reliable way to reset the database to a clean state before testing guideline concept extraction functionality.
+
+### Key Improvements
+1. **SQL Cleanup Utility**:
+   - Created `sql/cleanup_guideline_concepts.sql` with comprehensive cleanup operations
+   - Implemented a three-phase process for proper reference handling:
+     - Delete all entity_triples related to guideline concepts
+     - Update document metadata to remove guideline references and flags
+     - Delete all guideline records
+   - Added pre-deletion queries to display what would be deleted
+   - Included verification queries to confirm successful cleanup
+
+2. **Python Execution Script**:
+   - Developed `run_cleanup_guideline_concepts.py` to safely execute SQL commands in Docker
+   - Implemented a reliable approach using direct psql commands through Docker exec
+   - Added detailed progress reporting and confirmation steps
+   - Included comprehensive error handling and verification of each operation
+   - Made the script work in the CodeSpace Docker container environment
+
+3. **Docker-Compatible Implementation**:
+   - Designed to work with the project's Docker container architecture
+   - Properly handles container communication and authentication
+   - Uses container-safe execution methods that respect Docker permissions
+   - Executes SQL commands in the proper sequence for reference integrity
+
+### Technical Details
+The cleanup utility solves several challenges:
+1. The two-level relationship between documents and guidelines requires careful cleanup order
+2. Metadata fields in JSONB format need specialized PostgreSQL operations to update
+3. Docker container execution requires proper command routing and authentication
+4. The verification process needs to validate multiple database objects
+
+The solution:
+1. Executes a series of targeted SQL commands to handle each aspect of cleanup
+2. Provides detailed reporting on what was found and what was deleted
+3. Verifies all operations completed successfully with proper reference integrity
+4. Runs safely in the Docker container with proper permissions
+
+### Next Steps
+1. **Automated Testing Integration**: Integrate this cleanup utility into automated testing workflows
+2. **Scheduled Reset Option**: Add option for scheduled reset after a testing period
+3. **Selective Cleanup**: Enhance the tool to allow selective cleanup of specific guideline entries
+4. **Interactive Mode**: Add interactive terminal mode for exploring the database state before cleanup
+
+This utility complements the existing SQL utilities for exploring guideline concept relationships (`document_guideline_relationship.sql` and `guideline_rdf_triples.sql`), providing a complete toolkit for working with the guideline concept extraction feature during development and testing.
+
+## May 17, 2025 (Update #28): Implemented Three-Phase Guideline Concept Extraction Workflow
+
+### Task Completed
+Refactored the guideline concept extraction process to use a three-phase workflow, giving users more granular control over the knowledge graph generation. The system now separates concept extraction, triple generation, and triple saving into distinct steps with user review at each stage.
+
+### Key Improvements
+1. **Enhanced User Control**:
+   - Separated concept extraction and triple generation into distinct steps
+   - Added a dedicated triple review page before saving to database
+   - Allows users to selectively include/exclude individual triples
+   - Provides clearer workflow with visual progress indicators
+
+2. **New Triple Review Interface**:
+   - Created `app/templates/guideline_triples_review.html` with triple selection UI
+   - Added clear formatting for subject, predicate, and object display
+   - Implemented select/deselect all functionality for convenient batch operations
+   - Shows triple counts and progress information
+
+3. **Updated Backend Processing**:
+   - Added `generate_guideline_triples` route to handle the intermediate step
+   - Modified `save_guideline_concepts` to save only selected triples
+   - Preserved existing metadata structure and relationships
+   - Maintained compatibility with existing database schemas
+
+4. **Improved Workflow Communication**:
+   - Updated text and button labels to clearly indicate the current step
+   - Added progress markers showing completed and pending steps
+   - Improved alert messages to explain the purpose of each phase
+   - Ensured consistent navigation between all phases
+
+### Technical Details
+The new workflow follows this sequence:
+1. **Extract Concepts**: Process guideline text to identify potential ethical concepts (unchanged)
+2. **Review Concepts**: User selects which concepts should be included for triple generation
+3. **Generate Triples**: System converts selected concepts into candidate RDF triples
+4. **Review Triples**: User reviews and selects which specific triples to save
+5. **Save to Database**: Only selected triples are saved to the knowledge graph
+
+This approach allows domain experts to have finer-grained control over what knowledge is added to the system, improving data quality and relevance. A guideline might contain many potential concepts, but now users can precisely control which semantic relationships are stored.
+
+### Next Steps
+1. **Advanced Filtering**: Add filtering capabilities to the triple review interface
+2. **Visual Relationship Display**: Create a graph visualization of triples before saving
+3. **Concept Grouping**: Group related triples by concept for easier review
+4. **Batch Operations**: Add batch selection tools for common triple patterns
+5. **Triple Editing**: Allow editing triple values before saving
+
+This improvement addresses the need for greater precision in knowledge graph construction identified in the requirements analysis, ensuring that only validated and reviewed semantic information is incorporated into the ethical decision-making system.
+
 ## May 17, 2025 (Update #27): Documented Guidelines Extraction Database Schema and Relationship
 
 ### Task Completed

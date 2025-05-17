@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Review Guideline Triples - {{ guideline.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Review Generated Triples</h1>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a>
+            </li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a>
+            </li>
+            <li class="breadcrumb-item"><a
+                    href="{{ url_for('worlds.view_guideline', id=world_id or world.id, document_id=document_id or guideline.id) }}">{{
+                    guideline.title }}</a></li>
+            <li class="breadcrumb-item active">Review Triples</li>
+        </ol>
+    </nav>
+
+    <div class="alert alert-info">
+        <h4 class="alert-heading">Three-Phase Analysis</h4>
+        <p>You are at step 3 of the guideline analysis process:</p>
+        <ol>
+            <li><strong>Extract concepts</strong> ✓ - Completed</li>
+            <li><strong>Review concepts</strong> ✓ - Completed</li>
+            <li><strong>Review and save triples</strong> - You are here</li>
+        </ol>
+        <hr>
+        <p class="mb-0">The triples below represent the semantic information that will be added to the knowledge graph.
+            <strong>Checked triples will be saved</strong> to the database when you submit the form.
+        </p>
+    </div>
+
+    <!-- Form for saving selected triples -->
+    <form method="post"
+        action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
+        <!-- Pass necessary data as hidden fields -->
+        <input type="hidden" name="concepts_data" value="{{ concepts_json|safe }}" />
+        <input type="hidden" name="selected_concepts_json" value="{{ selected_concepts_json|safe }}" />
+        <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
+        <input type="hidden" name="selected_concept_indices" value="{{ selected_concept_indices }}" />
+        <input type="hidden" name="triples_data" id="triples_data" value="{{ triples_json|safe }}" />
+
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card border-dark">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Generated RDF Triples ({{ triples|length }})</h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-light me-2" id="selectAllBtn">Select
+                                All</button>
+                            <button type="button" class="btn btn-sm btn-outline-light" id="deselectAllBtn">Deselect
+                                All</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 50px;">Select</th>
+                                        <th>Subject</th>
+                                        <th>Predicate</th>
+                                        <th>Object</th>
+                                        <th style="width: 100px;">Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if triples %}
+                                    {% for triple in triples %}
+                                    <tr>
+                                        <td class="text-center">
+                                            <div class="form-check">
+                                                <input class="form-check-input triple-checkbox" type="checkbox"
+                                                    name="selected_triples" value="{{ loop.index0 }}"
+                                                    id="triple{{ loop.index }}" checked>
+                                                <label class="form-check-label" for="triple{{ loop.index }}"></label>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="text-primary">{{ triple.subject_label or
+                                                triple.subject.split('/')[-1] }}</span>
+                                            <small class="d-block text-muted text-truncate" style="max-width: 250px;">{{
+                                                triple.subject }}</small>
+                                        </td>
+                                        <td>
+                                            <span>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</span>
+                                        </td>
+                                        <td>
+                                            {% if triple.is_literal or 'object_literal' in triple %}
+                                            <span class="text-success">{{ triple.object_literal or triple.object
+                                                }}</span>
+                                            {% else %}
+                                            <span class="text-info">{{ triple.object_label or
+                                                triple.object.split('/')[-1] }}</span>
+                                            <small class="d-block text-muted text-truncate" style="max-width: 250px;">{{
+                                                triple.object }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if triple.is_literal or 'object_literal' in triple %}
+                                            <span class="badge bg-success">Literal</span>
+                                            {% else %}
+                                            <span class="badge bg-info">URI</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            <div class="alert alert-warning mb-0">
+                                                No triples were generated from the selected concepts. This may indicate
+                                                a problem with the triple generation process.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
+                class="btn btn-secondary">Cancel</a>
+
+            {% if triples %}
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Selected Triples
+            </button>
+            {% else %}
+            <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
+                class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Return to Guideline
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get references to buttons and checkboxes
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        const checkboxes = document.querySelectorAll('.triple-checkbox');
+
+        // Select all triples
+        selectAllBtn.addEventListener('click', function () {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        });
+
+        // Deselect all triples
+        deselectAllBtn.addEventListener('click', function () {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+        });
+    });
+</script>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .table td {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}

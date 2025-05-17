@@ -884,10 +884,112 @@ def guideline_processing_error(world_id, document_id):
                           error_message=error_message,
                           error_details=error_details)
 
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
+def generate_guideline_triples(world_id, document_id):
+    """Generate triples from selected concepts but don't save them yet."""
+    logger.info(f"Generating triples for document {document_id} in world {world_id}")
+    
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Get selected concepts from form
+    selected_concept_indices = request.form.getlist('selected_concepts')
+    selected_indices = [int(idx) for idx in selected_concept_indices]
+    
+    if not selected_indices:
+        flash('No concepts selected', 'warning')
+        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+    
+    try:
+        # Get concepts data from the form
+        concepts_data = request.form.get('concepts_data', '[]')
+        ontology_source = request.form.get('ontology_source', '')
+        
+        try:
+            # Parse the JSON data from the form with our robust parser
+            concepts = robust_json_parse(concepts_data)
+        except Exception as json_error:
+            logger.error(f"Error parsing concepts JSON: {str(json_error)}")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world.id, 
+                                    document_id=document_id,
+                                    error_title='JSON Parsing Error',
+                                    error_message='Could not parse the concept data from the form submission.',
+                                    error_details=str(json_error)))
+        
+        if not concepts:
+            logger.error("No concepts found in parsed data")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world.id, 
+                                    document_id=document_id,
+                                    error_title='No Concepts Found',
+                                    error_message='No concepts were found in the analysis results.'))
+        
+        # Get only the selected concepts
+        selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
+        logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
+        
+        # Generate triples for selected concepts
+        triples_result = guideline_analysis_service.generate_triples(
+            concepts, 
+            selected_indices, 
+            ontology_source
+        )
+        
+        if "error" in triples_result:
+            logger.error(f"Error in triple generation: {triples_result['error']}")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world.id, 
+                                    document_id=document_id,
+                                    error_title='Triple Generation Error',
+                                    error_message=triples_result['error']))
+        
+        # Get the triples for review
+        triples = triples_result.get("triples", [])
+        if not triples:
+            flash('No triples were generated from the selected concepts', 'warning')
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+        
+        # Prepare data for the template
+        triples_json = json.dumps(triples)
+        selected_concepts_json = json.dumps(selected_concepts)
+        selected_concept_indices_str = ','.join(str(idx) for idx in selected_indices)
+        
+        # Render the triples review template
+        return render_template('guideline_triples_review.html',
+                              world=world,
+                              guideline=guideline,
+                              triples=triples,
+                              triples_json=triples_json,
+                              concepts_json=concepts_data,
+                              selected_concepts_json=selected_concepts_json,
+                              selected_concept_indices=selected_concept_indices_str,
+                              world_id=world.id,
+                              document_id=document_id,
+                              ontology_source=ontology_source)
+    
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Error generating triples: {str(e)}\n{error_trace}")
+        return redirect(url_for('worlds.guideline_processing_error', 
+                               world_id=world.id, 
+                               document_id=document_id,
+                               error_title='Unexpected Error',
+                               error_message=f'Error generating triples: {str(e)}',
+                               error_details=error_trace))
+
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts', methods=['POST'])
 def save_guideline_concepts(world_id, document_id):
-    """Save selected concepts from a guideline document to the ontology database."""
-    logger.info(f"Saving guideline concepts for document {document_id} in world {world_id}")
+    """Save selected triples from a guideline document to the ontology database."""
+    logger.info(f"Saving guideline triples for document {document_id} in world {world_id}")
     
     world = World.query.get_or_404(world_id)
     
@@ -938,20 +1040,36 @@ def save_guideline_concepts(world_id, document_id):
         
         logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
         
-        # Generate triples for selected concepts
-        triples_result = guideline_analysis_service.generate_triples(
-            concepts, 
-            selected_indices, 
-            ontology_source
-        )
+        # Get triples data from the form
+        triples_data_json = request.form.get('triples_data', '[]')
+        selected_triple_indices = request.form.getlist('selected_triples')
+        selected_triple_indices = [int(idx) for idx in selected_triple_indices]
         
-        if "error" in triples_result:
-            logger.error(f"Error in triple generation: {triples_result['error']}")
+        try:
+            # Parse the JSON data from the form with our robust parser
+            all_triples = robust_json_parse(triples_data_json)
+            
+            # Filter to only selected triples
+            if selected_triple_indices:
+                triples_data = [all_triples[i] for i in selected_triple_indices if i < len(all_triples)]
+            else:
+                # If no specific triples selected, use all of them (fall back behavior)
+                triples_data = all_triples
+                
+            triple_count = len(triples_data)
+            logger.info(f"Saving {triple_count} selected triples out of {len(all_triples)} total triples")
+            
+            if not triples_data:
+                flash('No triples were selected for saving', 'warning')
+                return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        except Exception as json_error:
+            logger.error(f"Error parsing triples JSON: {str(json_error)}")
             return redirect(url_for('worlds.guideline_processing_error', 
                                     world_id=world_id, 
                                     document_id=document_id,
-                                    error_title='Triple Generation Error',
-                                    error_message=triples_result['error']))
+                                    error_title='JSON Parsing Error',
+                                    error_message='Could not parse the triples data from the form submission.',
+                                    error_details=str(json_error)))
         
         # Save the guideline model with the triples
         try:
@@ -967,19 +1085,15 @@ def save_guideline_concepts(world_id, document_id):
                 guideline_metadata={
                     "document_id": document_id,
                     "analyzed": True,
-                    "concepts_extracted": len(concepts),
-                    "concepts_selected": len(selected_indices),
-                    "triple_count": triples_result.get("triple_count", 0),
-                    "analysis_date": datetime.utcnow().isoformat(),
-                    "ontology_source": ontology_source
+                "concepts_extracted": len(concepts),
+                "concepts_selected": len(selected_indices),
+                "triple_count": triple_count,
+                "analysis_date": datetime.utcnow().isoformat(),
+                "ontology_source": ontology_source
                 }
             )
             db.session.add(new_guideline)
             db.session.flush()  # Get the guideline ID
-            
-            # Get triples data
-            triples_data = triples_result.get("triples", [])
-            triple_count = len(triples_data)
             
             if triples_data:
                 # Log the number of triples to be saved
