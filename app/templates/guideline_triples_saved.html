@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Triples Saved - {{ guideline.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Triples Saved Successfully</h1>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a>
+            </li>
+            <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a>
+            </li>
+            <li class="breadcrumb-item"><a
+                    href="{{ url_for('worlds.view_guideline', id=world_id or world.id, document_id=document_id or guideline.id) }}">{{
+                    guideline.title }}</a></li>
+            <li class="breadcrumb-item active">Saved Triples</li>
+        </ol>
+    </nav>
+
+    <div class="alert alert-success">
+        <h4 class="alert-heading"><i class="fas fa-check-circle"></i> Triples Saved Successfully</h4>
+        <p>You have successfully saved {{ triple_count }} RDF triples for this guideline.</p>
+    </div>
+
+    <div class="alert alert-info">
+        <h4 class="alert-heading">Three-Phase Analysis</h4>
+        <p>You have completed all three steps of the guideline analysis process:</p>
+        <ol>
+            <li><strong>Extract concepts</strong> ✓ - Completed</li>
+            <li><strong>Review concepts</strong> ✓ - Completed</li>
+            <li><strong>Review and save triples</strong> ✓ - Completed</li>
+        </ol>
+        <hr>
+        <p class="mb-0">The selected RDF triples have been saved to the knowledge base and can now be used for
+            ethical reasoning and analysis.
+        </p>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Guideline Information</h5>
+        </div>
+        <div class="card-body">
+            <h4>{{ guideline.title }}</h4>
+            <p class="text-muted">
+                <strong>Source:</strong>
+                {% if guideline.source_url %}
+                <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
+                {% elif guideline.file_path %}
+                Uploaded file: {{ guideline.file_path.split('/')[-1] }}
+                {% else %}
+                Manual entry
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card border-dark">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Saved RDF Triples ({{ saved_triples|length }})</h5>
+                    <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#savedTriples">
+                        <i class="fas fa-eye"></i> Show/Hide Triples
+                    </button>
+                </div>
+                <div class="collapse" id="savedTriples">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>Predicate</th>
+                                        <th>Object</th>
+                                        <th style="width: 100px;">Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if saved_triples %}
+                                    {% for triple in saved_triples %}
+                                    <tr>
+                                        <td>
+                                            <span class="text-primary">{{ triple.subject_label or
+                                                triple.subject.split('/')[-1] }}</span>
+                                            <small class="d-block text-muted text-truncate" style="max-width: 250px;">{{
+                                                triple.subject }}</small>
+                                        </td>
+                                        <td>
+                                            <span>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</span>
+                                        </td>
+                                        <td>
+                                            {% if triple.is_literal or 'object_literal' in triple %}
+                                            <span class="text-success">{{ triple.object_literal or triple.object
+                                                }}</span>
+                                            {% else %}
+                                            <span class="text-info">{{ triple.object_label or
+                                                triple.object.split('/')[-1] }}</span>
+                                            <small class="d-block text-muted text-truncate" style="max-width: 250px;">{{
+                                                triple.object }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if triple.is_literal or 'object_literal' in triple %}
+                                            <span class="badge bg-success">Literal</span>
+                                            {% else %}
+                                            <span class="badge bg-info">URI</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4">
+                                            <div class="alert alert-warning mb-0">
+                                                No triples were saved.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if saved_triples|length > 100 %}
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <em>... and {{ saved_triples|length - 100 }} more triples (showing first 100
+                                                only)</em>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between">
+        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
+            class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Guideline
+        </a>
+        <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-primary">
+            <i class="fas fa-list"></i> View All Guidelines
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .table td {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}

@@ -36,7 +36,7 @@
 
     <!-- Form for saving selected triples -->
     <form method="post"
-        action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
+        action="{{ url_for('worlds.save_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
         <!-- Pass necessary data as hidden fields -->
         <input type="hidden" name="concepts_data" value="{{ concepts_json|safe }}" />
         <input type="hidden" name="selected_concepts_json" value="{{ selected_concepts_json|safe }}" />

@@ -1,5 +1,99 @@
 AI Ethical DM - Development Log
 
+## May 17, 2025 (Update #33): Fixed Triple Saving Functionality
+
+### Task Completed
+Implemented a complete fix for the guideline triple saving functionality by creating a dedicated route and success page, resolving an issue where the form in the triple review page was pointing to the wrong endpoint.
+
+### Key Improvements
+1. **Dedicated Save Triples Route**:
+   - Created a new `save_guideline_triples` route in worlds.py specifically for saving selected RDF triples
+   - Fixed the form action in guideline_triples_review.html to point to this new route
+   - Added proper error handling and validation for triple saving
+
+2. **Success Page Implementation**:
+   - Created a new template `guideline_triples_saved.html` to show successful triple saving
+   - Implemented comprehensive triple display with subject, predicate, object formatting
+   - Added proper navigation back to the guideline view or guidelines list
+   - Included summary information about the saved triples
+
+3. **Complete Three-Phase Workflow**:
+   - Ensured the entire three-phase workflow now functions properly:
+     1. Extract and review concepts
+     2. Generate and review triples
+     3. Save and view triples
+   - All phases have proper success pages and error handling
+   - Fixed database associations between guidelines, concepts, and triples
+
+### Technical Details
+The implementation fixes several key issues:
+1. The form in guideline_triples_review.html was incorrectly pointing to 'save_guideline_concepts' 
+   instead of a dedicated triple saving endpoint
+2. There was no proper success page showing saved triples
+3. The route for handling triple saving needed distinct logic from concept saving
+
+The solution:
+1. Creates a dedicated route for saving triples that handles the specific requirements of triple data
+2. Properly validates and processes the selected triples
+3. Saves them with the correct associations to the guideline_id
+4. Shows a comprehensive success page with all saved triples
+
+### Next Steps
+1. **UI Refinements**: Consider enhancing the triple display with grouping by concept
+2. **Bulk Operations**: Add more batch operations for triple management
+3. **Performance Testing**: Test with larger sets of triples to ensure scalability
+4. **Visual Representation**: Consider adding a graph visualization of saved triples
+
+## May 17, 2025 (Update #32): Rollback to Last Known Good State for Triple Generation
+
+### Task Completed
+Successfully rolled back to the last known good state where candidate generated triples could be successfully displayed for guidelines.
+
+### Current Git Hash
+76372503cebb0dd720d4c6ee355ffaad1914d7c2
+
+### Working Functionality
+- The route http://localhost:3333/worlds/1/guidelines/189/generate_triples successfully displays candidate generated triples
+- The concept extraction and association with guidelines is functioning correctly
+- The three-phase workflow for guideline concept extraction (extract, review concepts, generate triples) is working
+- Associated concepts are correctly displayed in the guideline view
+
+### Next Steps
+- Plan a comprehensive approach for saving the selected candidate triples
+- Test the complete workflow from concept extraction through triple generation and saving
+- Ensure proper database associations between guidelines, concepts, and triples
+
+## May 17, 2025 (Update #31): Successfully Fixed Guideline Concept Association Issue
+
+### Task Completed
+Verified that concepts extracted and saved from guidelines are now properly appearing in the "Associated Concepts" section when viewing a guideline.
+
+### Current Git Hash
+76372503cebb0dd720d4c6ee355ffaad1914d7c2
+
+### Fix Verification
+Successfully confirmed that the issue has been fixed:
+1. Navigated to http://localhost:3333/worlds/1/guidelines/189
+2. The Associated Concepts section now correctly displays all 10 concepts that were extracted and saved
+3. The server log shows "Extracted 10 concepts from 30 triples for display" indicating proper retrieval
+4. Concepts include principles (Confidentiality, Competence, Professional Development, Objectivity), roles (Engineer, Client), and other concepts from the guidelines
+
+### Fix Analysis
+The solution works by:
+1. Creating proper EntityTriple records in the `save_guideline_concepts` function for each selected concept
+2. Ensuring each triple is associated with the correct guideline_id
+3. Setting entity_type="guideline_concept" to ensure proper filtering when displaying concepts
+
+The implementation now correctly creates basic triples for each concept:
+- Type triple (rdf:type) indicating the concept's type (principle, role, or concept)
+- Label triple (rdfs:label) with the concept's name
+- Description triple when available
+
+### Next Steps
+1. Consider enhancing the concept display with better categorization or filtering
+2. Review triple generation for more complex semantic relationships
+3. Add more comprehensive test cases with different types of guideline content
+
 ## May 17, 2025 (Update #30): Fixed Guideline Concept Association Display Issue
 
 ### Task Completed
@@ -283,193 +377,3 @@ This approach ensures that:
 4. **Performance Analysis**: Use the debugging capability to profile and optimize the guideline concept extraction process
 
 ## May 16, 2025 (Update #24): Streamlined Debugging Configuration for Guideline Concept Extraction
-
-### Task Completed
-Implemented a robust, working debugging configuration for the guideline concept extraction feature after testing different approaches. The new configuration focuses on the most reliable method: running the MCP server and Flask application in separate terminals.
-
-### Key Improvements
-1. **VSCode Launch Configurations**:
-   - Updated `.vscode/launch.json` with working configurations:
-     - "Start MCP Server (Terminal)": Runs the MCP server in a terminal tab
-     - "Start Flask App (Terminal)": Runs the Flask app in a terminal tab
-     - "Full System (Terminals)": Compound configuration that launches both components
-     - Maintained debug configurations for both components for setting breakpoints
-
-2. **Simplified Database Setup**:
-   - Added task in `.vscode/tasks.json` for database setup with proper formatting
-   - Includes cleanup of existing containers, initialization of PostgreSQL with pgvector
-   - Fixes the embedding column issue in the guidelines table
-
-3. **Comprehensive Documentation**:
-   - Created `docs/debug_guideline_concept_extraction.md` with detailed instructions
-   - Included multiple debugging approaches with step-by-step guidance
-   - Added troubleshooting section for common issues and their fixes
-   - Documented key files and methods for setting breakpoints
-
-### Verification
-Tested the configuration and confirmed both components run successfully:
-1. MCP server starts properly with no 'claude_tools' attribute error
-2. Flask application connects to both PostgreSQL and the MCP server
-3. Navigation through the web interface works correctly
-
-The terminal-based approach proved more reliable than previous attempts at integrated debugging with preLaunchTask, avoiding issues with database initialization and proper script execution.
-
-### Next Steps
-1. **Extended Testing**: Test the guideline concept extraction feature with actual guidelines
-2. **User Interface Enhancement**: Improve the concept visualization and review interface
-3. **Documentation Updates**: Incorporate the debugging workflow into the main project documentation
-4. **Performance Optimization**: Profile and optimize the guideline concept extraction process
-
-## May 16, 2025 (Update #23): Verified Guideline Concept Extraction Fix Success
-
-### Task Completed
-Successfully fixed and verified both the GuidelineAnalysisModule initialization issue and the database schema issue for guideline concept extraction. Both fixes are now complete and have been tested working.
-
-### Key Verifications
-1. **MCP Server Initialization**: The MCP server now starts properly without the `'GuidelineAnalysisModule' object has no attribute 'claude_tools'` error. The server is properly initializing all required components and registers all tools correctly.
-
-2. **Database Schema Implementation**: The `embedding` column in the `guidelines` table is now properly defined as a FLOAT[] array type in PostgreSQL, allowing storage of vector embeddings.
-
-3. **End-to-End Testing**: Successfully verified the system by:
-   - Starting the MCP server
-   - Starting the Flask application
-   - Accessing the web interface
-   - Navigating to world details
-
-### Fixed Components
-1. **GuidelineAnalysisModule**: 
-   - Fixed initialization order to ensure claude_tools is defined before super().__init__() is called
-   - Properly implemented tool registration with correct attribute access
-   - Ensured the module loads correctly with all tools available
-
-2. **Database Schema**:
-   - Created SQL fix script (fix_embedding_column.sql) that:
-     - Checks for existing embedding column with wrong type
-     - Drops column if it exists with wrong type
-     - Adds column with correct FLOAT[] array type
-   - Updated ensure_schema.py to correctly define the embedding column
-   - Fixed SQL execution in ensure_schema.py using SQLAlchemy's text() method
-
-### Next Steps
-1. **Comprehensive Testing**: Conduct more thorough testing of guideline concept extraction with actual guidelines
-2. **User Interface Enhancement**: Improve the concepts review interface
-3. **Documentation**: Update technical documentation with details of the fixes and implementation
-4. **Performance Optimization**: Profile and optimize the guideline concept extraction process
-
-## May 16, 2025 (Update #22): Fixed Guidelines Table Schema Issue
-
-### Problem Identified & Fixed
-Fixed the database error `column "embedding" of relation "guidelines" does not exist` that occurred when saving extracted guideline concepts. The issue was:
-
-1. The Guidelines model in the application included an 'embedding' column for vector representations
-2. This column was properly defined in create_guidelines_table.sql but was missing in the database
-3. The schema validation script had two issues:
-   - The 'embedding' column was missing in the SQLAlchemy model definition
-   - The SQL execution was failing due to improper SQL statement execution
-
-The solution was to:
-1. Update the SQLAlchemy model in ensure_schema.py to include the 'embedding' column
-2. Add the column to the required_columns dictionary for validation
-3. Fix SQL execution by using SQLAlchemy's text() method for proper statement execution
-
-### Technical Implementation
-1. Modified the ensure_schema.py script to:
-   - Import SQLAlchemy's text function for proper SQL statement execution
-   - Update SQL execution in all methods to use text() to execute SQL statements
-   - Consistently handle all SQL statements with proper error handling
-
-2. Tested the fix by running the schema validation script, which:
-   - Successfully detected the missing 'embedding' column
-   - Added it to the guidelines table with the correct data type
-   - Verified all other required columns were present
-
-### Impact
-This fix ensures guideline concepts can be successfully extracted and saved with their vector embeddings, which are crucial for semantic similarity searches and ontology alignment. The embedding column supports:
-
-1. Semantic search capabilities for finding similar guidelines
-2. Improved concept alignment with existing ontology entities
-3. More accurate matching of extracted concepts to ontology structure
-
-Together with the previous GuidelineAnalysisModule initialization fix, the guideline concept extraction feature is now fully functional.
-
-## May 16, 2025 (Update #21): Fixed GuidelineAnalysisModule Claude Tools Initialization
-
-### Problem Identified & Fixed
-Fixed the `'GuidelineAnalysisModule' object has no attribute 'claude_tools'` error by properly ordering the initialization sequence in the GuidelineAnalysisModule class. The issue was occurring because:
-
-1. The parent class `__init__` method was calling `self._register_tools()` before `self.claude_tools` was defined
-2. When trying to access `self.claude_tools` in the tool registration process, the attribute didn't exist yet
-
-The solution was to:
-1. Move the `self.claude_tools` definition to the beginning of the `__init__` method, before calling `super().__init__()`
-2. Remove a duplicate definition of `self.claude_tools` later in the `__init__` method that was overriding the first definition
-
-These changes ensure the `claude_tools` attribute is available when the tool registration process needs it, allowing the MCP server to start properly with all tools registered correctly.
-
-### Testing
-Tested the changes by running the Enhanced MCP Server with Guidelines through the VSCode debugger and verified the server starts successfully without the previous error.
-
-## May 16, 2025 (Update #20): Analyzed GuidelineAnalysisModule Claude Tool Use Implementation
-
-### Analysis Summary
-Completed a comprehensive review of the GuidelineAnalysisModule implementation, focusing on the Claude tool use functionality. The recent implementation of `get_claude_tools()` and proper tool registration fixed the error where `'GuidelineAnalysisModule' object has no attribute 'claude_tools'`.
-
-### Key Implementation Details
-1. **Claude Tools Implementation**:
-   - Three core ontology tools have been implemented correctly:
-     - `query_ontology`: Searches the ontology for specific concepts with customizable filters for entity type and result limits
-     - `search_similar_concepts`: Finds similarity matches between extracted concepts and existing ontology entities
-     - `get_ontology_structure`: Retrieves a comprehensive view of the ontology structure to guide extraction
-   - Each tool follows the proper Anthropic Claude tool schema with type definitions and required parameters
-
-2. **Tool Registration Process**:
-   - The `_register_tools()` method properly registers all tools
-   - Each tool has a handler, description, and JSON schema for input validation
-   - The added `get_claude_tools()` method provides the tools to both Claude and the registration process
-
-3. **Tool Handler Implementation**:
-   - `handle_query_ontology`: Implements basic search functionality over the ontology entities
-   - `handle_search_similar_concepts`: Uses embeddings for semantic similarity when available, with fallback to text matching
-   - `handle_get_ontology_structure`: Provides a categorized view of the ontology
-
-4. **Concept Extraction Flow**:
-   - Uses Claude 3 Sonnet (claude-3-7-sonnet-20250219) model
-   - Implements proper tool choice and handling
-   - Processes Claude's tool calls and integrates the results back into the extraction
-   - Includes robust error handling and fallback mechanisms
-
-### Integration with Flask Application
-The Flask application's GuidelineAnalysisService communicates with the MCP server's GuidelineAnalysisModule through JSON-RPC calls, properly handling:
-- Tool call request formatting
-- Response parsing and error handling
-- Fallback to direct LLM calls when the MCP server is unavailable
-
-### Next Steps and Recommendations
-1. **Performance Optimization**:
-   - Consider caching frequently accessed ontology entities to reduce database queries
-   - Implement batched embedding calculations to improve similarity search efficiency
-
-2. **Enhanced Semantic Matching**:
-   - Expand the `search_similar_concepts` tool to include hierarchical relationships
-   - Add capability to suggest ontology placement for new concepts
-
-3. **Testing Improvements**:
-   - Create more comprehensive mock responses with realistic tool interactions
-   - Implement automated tests that verify the full tool calling flow
-
-4. **UI Enhancements**:
-   - Add visualization to show which ontology entities were referenced during extraction
-   - Show the tool reasoning process to users for better transparency
-
-5. **Documentation**:
-   - Create comprehensive documentation for the Claude tool use implementation
-   - Add example prompts and responses for each tool
-
-The implementation successfully addresses the immediate issue and lays a solid foundation for further ontology integration enhancements outlined in the guidelines_implementation_next_steps.md document.
-
-## May 16, 2025 (Update #19): Implemented Native Claude Tool Use for Guideline Concept Extraction
-
-### Task Completed
-Implemented native Claude tool use capability in the GuidelineAnalysisModule to allow dynamic ontology querying during concept extraction, improving the quality and ontology alignment of extracted concepts.
-
-### Key

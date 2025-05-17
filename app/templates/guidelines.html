@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mt-5">
   <h1>Guidelines for {{ world.name }}</h1>
-  
+
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
@@ -13,7 +13,7 @@
       <li class="breadcrumb-item active">Guidelines</li>
     </ol>
   </nav>
-  
+
   <div class="row mb-4">
     <div class="col">
       <div class="card border-primary">
@@ -35,133 +35,143 @@
       </div>
     </div>
   </div>
-  
+
   {% if error_message %}
-    <div class="alert alert-danger">
-      {{ error_message }}
-    </div>
+  <div class="alert alert-danger">
+    {{ error_message }}
+  </div>
   {% endif %}
-  
+
   {% if success_message %}
-    <div class="alert alert-success">
-      {{ success_message }}
-    </div>
+  <div class="alert alert-success">
+    {{ success_message }}
+  </div>
   {% endif %}
-  
+
   <div class="row">
     {% if guidelines %}
-      {% for guideline in guidelines %}
-        <div class="col-md-6 col-lg-4 mb-4">
-          <div class="card h-100">
-            <div class="card-header bg-light">
-              <h5 class="card-title mb-0">{{ guideline.title }}</h5>
+    {% for guideline in guidelines %}
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <h5 class="card-title mb-0">{{ guideline.title }}</h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text">{{ guideline.get_content_excerpt(150) }}</p>
+
+          <div class="small text-muted mb-3">
+            <div><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d') }}</div>
+            <div><strong>Concepts:</strong>
+              {% if guideline.doc_metadata and guideline.doc_metadata.triples_created %}
+              {{ guideline.doc_metadata.triples_created }}
+              {% elif guideline.entity_triples is defined %}
+              {{ guideline.entity_triples|length }}
+              {% else %}
+              0
+              {% endif %}
             </div>
-            <div class="card-body">
-              <p class="card-text">{{ guideline.get_content_excerpt(150) }}</p>
-              
-              <div class="small text-muted mb-3">
-                <div><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d') }}</div>
-                <div><strong>Concepts:</strong> 
-                  {% if guideline.doc_metadata and guideline.doc_metadata.triples_created %}
-                    {{ guideline.doc_metadata.triples_created }}
-                  {% elif guideline.entity_triples is defined %}
-                    {{ guideline.entity_triples|length }}
-                  {% else %}
-                    0
-                  {% endif %}
-                </div>
-                <div><strong>Source:</strong> 
-                  {% if guideline.source %}
-                    <a href="{{ guideline.source }}" target="_blank">External URL</a>
-                  {% elif guideline.source_url %}
-                    <a href="{{ guideline.source_url }}" target="_blank">External URL</a>
-                  {% elif guideline.file_path %}
-                    Uploaded file
-                  {% else %}
-                    Manual entry
-                  {% endif %}
-                </div>
-              </div>
-              
-              <div class="d-grid gap-2">
-                <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
-                  <i class="fas fa-book"></i> View
-                </a>
-                <div class="btn-group" role="group">
-                  <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" class="btn btn-outline-info">
-                    <i class="fas fa-brain"></i> Analyze
-                  </a>
-                  <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" class="btn btn-outline-success">
-                    <i class="fas fa-microscope"></i> Extract Concepts
-                  </a>
-                  <!-- Edit functionality not yet implemented -->
-                </div>
-              </div>
+            <div><strong>Source:</strong>
+              {% if guideline.source %}
+              <a href="{{ guideline.source }}" target="_blank">External URL</a>
+              {% elif guideline.source_url %}
+              <a href="{{ guideline.source_url }}" target="_blank">External URL</a>
+              {% elif guideline.file_path %}
+              Uploaded file
+              {% else %}
+              Manual entry
+              {% endif %}
             </div>
           </div>
-        </div>
-      {% endfor %}
-    {% else %}
-      <div class="col-12">
-        <div class="alert alert-info">
-          <h4 class="alert-heading">No Guidelines Found</h4>
-          <p>This world doesn't have any ethical guidelines yet. Guidelines help define ethical principles and rules that apply in this world.</p>
-          <hr>
-          <p class="mb-0">
-            Add your first guideline by clicking the "Add New Guideline" button. You can upload a file, provide a URL, or enter content manually.
-          </p>
+
+          <div class="d-grid gap-2">
+            <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
+              class="btn btn-primary">
+              <i class="fas fa-book"></i> View
+            </a>
+            {#
+            <div class="btn-group" role="group">
+              <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+                class="btn btn-outline-info">
+                <i class="fas fa-brain"></i> Analyze
+              </a>
+              <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+                class="btn btn-outline-success">
+                <i class="fas fa-microscope"></i> Extract Concepts
+              </a>
+              <!-- Edit functionality not yet implemented -->
+            </div>
+            #}
+          </div>
         </div>
       </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="col-12">
+      <div class="alert alert-info">
+        <h4 class="alert-heading">No Guidelines Found</h4>
+        <p>This world doesn't have any ethical guidelines yet. Guidelines help define ethical principles and rules that
+          apply in this world.</p>
+        <hr>
+        <p class="mb-0">
+          Add your first guideline by clicking the "Add New Guideline" button. You can upload a file, provide a URL, or
+          enter content manually.
+        </p>
+      </div>
+    </div>
     {% endif %}
   </div>
-  
+
   <!-- Pagination -->
   {% if pagination and pagination.pages > 1 %}
-    <nav aria-label="Guidelines pagination" class="mt-4">
-      <ul class="pagination justify-content-center">
-        {% if pagination.has_prev %}
-          <li class="page-item">
-            <a class="page-link" href="{{ url_for('worlds.world_guidelines', id=world.id, page=pagination.prev_num) }}">Previous</a>
-          </li>
-        {% else %}
-          <li class="page-item disabled">
-            <span class="page-link">Previous</span>
-          </li>
-        {% endif %}
-        
-        {% for page in pagination.iter_pages() %}
-          {% if page %}
-            {% if page == pagination.page %}
-              <li class="page-item active">
-                <span class="page-link">{{ page }} <span class="sr-only">(current)</span></span>
-              </li>
-            {% else %}
-              <li class="page-item">
-                <a class="page-link" href="{{ url_for('worlds.world_guidelines', id=world.id, page=page) }}">{{ page }}</a>
-              </li>
-            {% endif %}
-          {% else %}
-            <li class="page-item disabled">
-              <span class="page-link">...</span>
-            </li>
-          {% endif %}
-        {% endfor %}
-        
-        {% if pagination.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="{{ url_for('worlds.world_guidelines', id=world.id, page=pagination.next_num) }}">Next</a>
-          </li>
-        {% else %}
-          <li class="page-item disabled">
-            <span class="page-link">Next</span>
-          </li>
-        {% endif %}
-      </ul>
-    </nav>
+  <nav aria-label="Guidelines pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+      {% if pagination.has_prev %}
+      <li class="page-item">
+        <a class="page-link"
+          href="{{ url_for('worlds.world_guidelines', id=world.id, page=pagination.prev_num) }}">Previous</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">Previous</span>
+      </li>
+      {% endif %}
+
+      {% for page in pagination.iter_pages() %}
+      {% if page %}
+      {% if page == pagination.page %}
+      <li class="page-item active">
+        <span class="page-link">{{ page }} <span class="sr-only">(current)</span></span>
+      </li>
+      {% else %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('worlds.world_guidelines', id=world.id, page=page) }}">{{ page }}</a>
+      </li>
+      {% endif %}
+      {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">...</span>
+      </li>
+      {% endif %}
+      {% endfor %}
+
+      {% if pagination.has_next %}
+      <li class="page-item">
+        <a class="page-link"
+          href="{{ url_for('worlds.world_guidelines', id=world.id, page=pagination.next_num) }}">Next</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">Next</span>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
   {% endif %}
-  
+
   <!-- Upload Guidelines Modal -->
-  <div class="modal fade" id="uploadGuidelinesModal" tabindex="-1" aria-labelledby="uploadGuidelinesModalLabel" aria-hidden="true">
+  <div class="modal fade" id="uploadGuidelinesModal" tabindex="-1" aria-labelledby="uploadGuidelinesModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -172,88 +182,93 @@
           <!-- Tab navigation -->
           <ul class="nav nav-tabs" id="guidelineSourceTabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="true">Upload File</button>
+              <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload"
+                type="button" role="tab" aria-controls="upload" aria-selected="true">Upload File</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url" type="button" role="tab" aria-controls="url" aria-selected="false">From URL</button>
+              <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url" type="button" role="tab"
+                aria-controls="url" aria-selected="false">From URL</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab" aria-controls="manual" aria-selected="false">Manual Entry</button>
+              <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button"
+                role="tab" aria-controls="manual" aria-selected="false">Manual Entry</button>
             </li>
           </ul>
-          
+
           <!-- Tab content -->
           <div class="tab-content mt-3" id="guidelineSourceTabsContent">
             <!-- File Upload Tab -->
             <div class="tab-pane fade show active" id="upload" role="tabpanel" aria-labelledby="upload-tab">
-              <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='file') }}" method="post" enctype="multipart/form-data">
+              <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='file') }}" method="post"
+                enctype="multipart/form-data">
                 <!-- CSRF token removed due to configuration issue -->
-                
+
                 <div class="mb-3">
                   <label for="title" class="form-label">Title</label>
                   <input type="text" class="form-control" id="title" name="title" required>
                 </div>
-                
+
                 <div class="mb-3">
                   <label for="file" class="form-label">Guideline File</label>
-                  <input type="file" class="form-control" id="file" name="file" accept=".pdf,.doc,.docx,.txt,.md,.html" required>
+                  <input type="file" class="form-control" id="file" name="file" accept=".pdf,.doc,.docx,.txt,.md,.html"
+                    required>
                   <small class="form-text text-muted">Accepted file types: PDF, DOC, DOCX, TXT, MD, HTML</small>
                 </div>
-                
+
                 <div class="mb-3">
                   <label for="description" class="form-label">Description (Optional)</label>
                   <textarea class="form-control" id="description" name="description" rows="3"></textarea>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">Upload Guideline</button>
               </form>
             </div>
-            
+
             <!-- URL Tab -->
             <div class="tab-pane fade" id="url" role="tabpanel" aria-labelledby="url-tab">
               <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='url') }}" method="post">
                 <!-- CSRF token removed due to configuration issue -->
-                
+
                 <div class="mb-3">
                   <label for="title_url" class="form-label">Title</label>
                   <input type="text" class="form-control" id="title_url" name="title" required>
                 </div>
-                
+
                 <div class="mb-3">
                   <label for="url" class="form-label">URL</label>
                   <input type="url" class="form-control" id="url" name="url" required>
                   <small class="form-text text-muted">Enter the web address of the guideline document</small>
                 </div>
-                
+
                 <div class="mb-3">
                   <label for="description_url" class="form-label">Description (Optional)</label>
                   <textarea class="form-control" id="description_url" name="description" rows="3"></textarea>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">Import from URL</button>
               </form>
             </div>
-            
+
             <!-- Manual Entry Tab -->
             <div class="tab-pane fade" id="manual" role="tabpanel" aria-labelledby="manual-tab">
               <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='manual') }}" method="post">
                 <!-- CSRF token removed due to configuration issue -->
-                
+
                 <div class="mb-3">
                   <label for="title_manual" class="form-label">Title</label>
                   <input type="text" class="form-control" id="title_manual" name="title" required>
                 </div>
-                
+
                 <div class="mb-3">
                   <label for="content" class="form-label">Content</label>
                   <textarea class="form-control" id="content" name="content" rows="10" required></textarea>
                 </div>
-                
+
                 <div class="mb-3">
                   <label for="description_manual" class="form-label">Description (Optional)</label>
                   <textarea class="form-control" id="description_manual" name="description" rows="3"></textarea>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">Save Guideline</button>
               </form>
             </div>

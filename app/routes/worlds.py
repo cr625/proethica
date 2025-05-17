@@ -1227,6 +1227,166 @@ def save_guideline_concepts(world_id, document_id):
                                error_message=f'Error processing concepts: {str(e)}',
                                error_details=error_trace))
 
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_triples', methods=['POST'])
+def save_guideline_triples(world_id, document_id):
+    """Save the selected RDF triples to the database."""
+    logger.info(f"Saving selected RDF triples for guideline document {document_id} in world {world_id}")
+    
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    from app.models.guideline import Guideline
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    try:
+        # Get the selected triple indices from the form
+        selected_triple_indices = request.form.getlist('selected_triples')
+        
+        if not selected_triple_indices:
+            flash('No triples selected for saving', 'warning')
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+        
+        # Convert to integers
+        selected_indices = [int(idx) for idx in selected_triple_indices]
+        
+        # Get triples data from the form
+        triples_data = request.form.get('triples_data', '[]')
+        ontology_source = request.form.get('ontology_source', '')
+        
+        try:
+            # Parse the JSON data
+            all_triples = robust_json_parse(triples_data)
+        except Exception as json_error:
+            logger.error(f"Error parsing triples JSON: {str(json_error)}")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='JSON Parsing Error',
+                                    error_message='Could not parse the triple data from the form submission.',
+                                    error_details=str(json_error)))
+        
+        if not all_triples:
+            logger.error("No triples found in parsed data")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='No Triples Found',
+                                    error_message='No triples were found in the data.'))
+        
+        # Get only the selected triples
+        selected_triples = [all_triples[idx] for idx in selected_indices if idx < len(all_triples)]
+        
+        logger.info(f"Saving {len(selected_triples)} selected triples out of {len(all_triples)} total")
+        
+        # Get the related guideline record
+        guideline_id = None
+        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+            guideline_id = guideline.doc_metadata['guideline_id']
+        
+        if not guideline_id:
+            logger.error("No guideline_id found in document metadata")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='Missing Guideline Record',
+                                    error_message='The related guideline record was not found. Please extract and save concepts first.'))
+        
+        guideline_record = Guideline.query.get(guideline_id)
+        
+        if not guideline_record:
+            logger.error(f"Guideline record with ID {guideline_id} not found")
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                    world_id=world_id, 
+                                    document_id=document_id,
+                                    error_title='Missing Guideline Record',
+                                    error_message=f'The related guideline record with ID {guideline_id} was not found.'))
+        
+        # Save the selected triples to the database
+        saved_triples = []
+        
+        for triple_data in selected_triples:
+            # Check if triple has all required fields
+            if not all(key in triple_data for key in ['subject', 'predicate']):
+                logger.warning(f"Skipping triple due to missing required fields: {triple_data}")
+                continue
+            
+            # Determine if this is a literal or URI object
+            is_literal = triple_data.get('is_literal', False)
+            
+            if is_literal or 'object_literal' in triple_data:
+                object_literal = triple_data.get('object_literal', triple_data.get('object', ''))
+                object_uri = None
+            else:
+                object_literal = None
+                object_uri = triple_data.get('object', '')
+            
+            # Create the triple
+            triple = EntityTriple(
+                subject=triple_data.get('subject', ''),
+                subject_label=triple_data.get('subject_label', ''),
+                predicate=triple_data.get('predicate', ''),
+                predicate_label=triple_data.get('predicate_label', ''),
+                object_literal=object_literal,
+                object_uri=object_uri,
+                object_label=triple_data.get('object_label', ''),
+                is_literal=is_literal,
+                entity_type="guideline_concept",
+                entity_id=guideline_record.id,
+                guideline_id=guideline_record.id,
+                world_id=world_id,
+                graph=f"guideline_{guideline_record.id}"
+            )
+            
+            db.session.add(triple)
+            saved_triples.append(triple_data)
+        
+        # Update the guideline metadata
+        guideline_record.guideline_metadata = {
+            **(guideline_record.guideline_metadata or {}),
+            "ontology_source": ontology_source,
+            "updated_at": datetime.utcnow().isoformat(),
+            "triples_saved": len(saved_triples)
+        }
+        
+        # Update document metadata
+        guideline.doc_metadata = {
+            **(guideline.doc_metadata or {}),
+            "guideline_id": guideline_record.id,
+            "triples_saved": len(saved_triples),
+            "triples_generated": len(all_triples)
+        }
+        
+        # Commit changes
+        db.session.commit()
+        
+        logger.info(f"Successfully saved {len(saved_triples)} triples for guideline {guideline_record.id}")
+        
+        # Return the success page
+        return render_template('guideline_triples_saved.html',
+                               world=world,
+                               guideline=guideline,
+                               saved_triples=saved_triples,
+                               triple_count=len(saved_triples),
+                               world_id=world_id,
+                               document_id=document_id)
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Error saving triples: {str(e)}\n{error_trace}")
+        return redirect(url_for('worlds.guideline_processing_error', 
+                              world_id=world_id, 
+                              document_id=document_id,
+                              error_title='Unexpected Error',
+                              error_message=f'Error saving triples: {str(e)}',
+                              error_details=error_trace))
+
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 def delete_guideline(id, document_id):
     """Delete a guideline document."""
