@@ -4,6 +4,14 @@ This document tracks the implementation progress of the guidelines concept extra
 
 ## Recent Fixes
 
+### May 17, 2025: Database Connection and Live LLM Integration Fix
+- ✅ Fixed database connection issues with correct PostgreSQL password (PASS)
+- ✅ Updated all launch configurations to use consistent database connection strings
+- ✅ Fixed application initialization to use proper factory pattern
+- ✅ Enabled live LLM integration by turning off mock responses
+- ✅ Verified proper schema initialization with correct engine parameter
+- ✅ Last known good commit: Update after testing
+
 ### May 17, 2025: JSON Data Handling Fix
 - ✅ Fixed JSON double encoding issue in the triple saving functionality
 - ✅ Modified how JSON data is passed through HTML templates
@@ -19,6 +27,7 @@ This document tracks the implementation progress of the guidelines concept extra
 - ✅ User interface for reviewing extracted concepts
 - ✅ Triple generation for selected concepts
 - ✅ Saving concepts to the ontology database
+- ✅ Live LLM integration (Claude API) for guideline concept extraction
 
 ### Database Models
 - ✅ Guidelines table
@@ -30,11 +39,13 @@ This document tracks the implementation progress of the guidelines concept extra
 - ✅ Concept extraction button
 - ✅ Concept review page
 - ✅ Concept selection for saving
+- ✅ Triple review and saving interface
 
 ### Integration
 - ✅ MCP server integration with GuidelineAnalysisModule
 - ✅ Flask routes for guideline operations
 - ✅ Background processing for document extraction
+- ✅ Live Claude API integration for concept extraction
 
 ## In Progress
 
@@ -44,6 +55,7 @@ This document tracks the implementation progress of the guidelines concept extra
 - 🔄 Error handling improvements
 
 ### Integration Improvements
+- 🔄 Testing complete workflow with actual Claude API calls
 - 🔄 Better connection between guidelines and other world entities
 - 🔄 Optimizing database queries for performance
 
@@ -90,8 +102,10 @@ This document tracks the implementation progress of the guidelines concept extra
 
 ## Next Action Items
 
-1. Implement native Claude tool use for concept extraction
-2. Improve the concept review UI with interactive elements
-3. Add more comprehensive error handling
-4. Create automated tests for the guideline flow
-5. Enhance ontology alignment for extracted concepts
+1. Test the complete live LLM integration workflow with real documents
+2. Analyze quality of concepts extracted by live LLM vs mock responses
+3. Implement native Claude tool use for concept extraction
+4. Improve the concept review UI with interactive elements
+5. Add more comprehensive error handling
+6. Create automated tests for the guideline flow
+7. Enhance ontology alignment for extracted concepts

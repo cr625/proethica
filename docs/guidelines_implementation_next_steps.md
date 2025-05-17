@@ -4,34 +4,36 @@ This document outlines the planned improvements and next steps for the guideline
 
 ## Immediate Next Steps
 
-### 1. Test with Live LLM Integration
+### 1. ✅ Test with Live LLM Integration (Completed May 17, 2025)
 
 #### Current Status
-Currently, the guideline concept extraction feature is working with mock data. With the fix for the JSON double encoding issue in the triple saving functionality, we are now ready to test with the live LLM.
+The guideline concept extraction feature is now working with live LLM integration. The database connection issues have been fixed by updating all configuration files to use the correct PostgreSQL credentials (using 'PASS' instead of 'postgres' for the password). The application now properly initializes using the factory pattern, ensuring all routes and templates are registered correctly.
 
-#### Implementation Plan
-1. Modify environment variables to disable mock data:
-   ```bash
-   export USE_MOCK_GUIDELINE_RESPONSES=false
+#### Implementation Details
+1. Fixed database connection strings in all launch configurations:
+   ```
+   postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
    ```
 
-2. Test the complete workflow with the live LLM:
-   - Upload guideline document
-   - Extract concepts using Claude
-   - Review and select concepts
-   - Generate triples
-   - Review and save triples
-   - Verify saved triples in the database and UI
+2. Created multiple launch scripts for testing:
+   - `run_with_live_llm.sh` - Script to start both MCP server and Flask app with live LLM
+   - `test_flask_app_ui.sh` - Simplified script for testing the full Flask app UI
 
-3. Monitor performance and errors:
-   - Track Claude API response times
-   - Watch for any JSON encoding/decoding issues with real API responses
-   - Ensure all error handling works properly with actual LLM data
+3. Fixed schema verification by properly passing the database engine to initialization functions
 
-4. Analyze quality of extracted concepts:
-   - Compare quality of LLM-extracted concepts vs mock data
-   - Identify areas where prompt engineering could improve results
-   - Document any ontology mapping issues that may arise
+4. Verified the workflow functions with the live LLM integration:
+   - ✅ Upload guideline document
+   - ✅ Extract concepts using Claude API
+   - ✅ Review and select concepts
+   - ✅ Generate triples
+   - ✅ Review and save triples
+   - ✅ Display saved triples in the guideline view
+
+#### Next Steps for Live LLM Integration
+1. Conduct thorough testing with various guideline documents
+2. Analyze the quality of concepts extracted by the live Claude API
+3. Compare performance and results between mock data and live API
+4. Document any differences or issues discovered during testing
 
 ## 2. Upgrade to Native Claude Tool Use
 
@@ -78,7 +80,7 @@ Implement native Claude tool use to allow the model to:
 
 3. Implement tool handlers in the module to process Claude's tool calls
 
-## 2. Enhance Ontology Alignment
+## 3. Enhance Ontology Alignment
 
 ### Current Approach
 The current system extracts concepts but has limited ability to align them with the existing ontology structure.
@@ -94,7 +96,7 @@ Create better ontology alignment through:
 2. Implement hierarchical placement suggestions for new concepts
 3. Add UI components to show ontology alignment options
 
-## 3. Improve User Review Interface
+## 4. Improve User Review Interface
 
 ### Current Approach
 The current interface shows extracted concepts in a simple list for selection.
@@ -111,7 +113,7 @@ Enhance the user review interface to:
 2. Add concept editing capabilities to the review page
 3. Implement conflict detection and resolution UI
 
-## 4. Enable Batch Processing
+## 5. Enable Batch Processing
 
 ### Current Approach
 Guidelines can only be processed individually, which is inefficient for organizations with many documents.
@@ -127,7 +129,7 @@ Implement batch processing to:
 2. Create a batch processing queue in the background task system
 3. Implement a batch review interface
 
-## 5. Add Ontology Impact Analysis
+## 6. Add Ontology Impact Analysis
 
 ### Current Approach
 There's no way to preview how adding new concepts will impact the existing ontology.
@@ -143,7 +145,7 @@ Implement ontology impact analysis to:
 2. Implement consistency checking algorithms
 3. Add an impact preview step before saving
 
-## 6. Implement Concept Versioning
+## 7. Implement Concept Versioning
 
 ### Current Approach
 Concepts are saved without version history, making it difficult to track changes over time.
@@ -159,7 +161,7 @@ Add concept versioning to:
 2. Update the save flow to handle versioning
 3. Create a version history UI
 
-## 7. Integrate with Simulation System
+## 8. Integrate with Simulation System
 
 ### Current Approach
 Extracted concepts exist separately from the simulation system.

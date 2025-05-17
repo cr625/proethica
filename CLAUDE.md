@@ -1,5 +1,48 @@
 AI Ethical DM - Development Log
 
+## May 17, 2025 (Update #36): Fixed Database Connection for Live LLM Integration
+
+### Task Completed
+Fixed database connection issues in all launch configurations to ensure proper connectivity to the PostgreSQL database when using live LLM integration for guideline concept extraction.
+
+### Key Improvements
+1. **Database Connection Fixes**:
+   - Identified that the PostgreSQL password was incorrectly set to 'postgres' instead of 'PASS'
+   - Updated database connection strings in all launch configurations to use the correct credentials
+   - Verified connection to the PostgreSQL container running on port 5433
+   - Ensured consistent database configuration across all launch methods
+
+2. **Configuration Synchronization**:
+   - Updated `.vscode/launch.json` launch configurations with correct database credentials
+   - Fixed `run_debug_app.py` to use proper database URL
+   - Updated `test_flask_app_ui.sh` with correct database connection
+   - Modified `run_with_live_llm.sh` to use the right database password in all launch options
+
+### Technical Details
+The issue was identified by examining the `codespace_run_db.py` file, which showed the correct database configuration:
+```python
+DEFAULT_DB_URL = 'postgresql://postgres:PASS@localhost:5433/postgres'
+TARGET_DB_URL = 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm'
+```
+
+This conflicted with our launch configurations, which were using:
+```
+postgresql://postgres:postgres@localhost:5433/ai_ethical_dm
+```
+
+The fix ensures all launch methods use the correct connection string:
+```
+postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
+```
+
+This addresses the schema verification errors and database connection issues that were preventing proper application initialization.
+
+### Next Steps
+1. **Complete Live LLM Testing**: Test the complete guideline concept extraction workflow with live LLM integration
+2. **Document Workflow**: Update documentation on the three-phase concept extraction workflow
+3. **Performance Monitoring**: Monitor and optimize the performance of LLM API calls
+4. **Triple Generation Validation**: Validate the quality of triples generated from live LLM-extracted concepts
+
 ## May 17, 2025 (Update #35): Fixed Flask App UI by Restoring Proper App Initialization
 
 ### Task Completed
