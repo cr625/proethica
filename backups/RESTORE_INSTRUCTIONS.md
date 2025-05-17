@@ -2,20 +2,28 @@
 
 ## Recent Backup Information
 
-A backup of the current database has been created:
+Backups of the database are stored in the `backups/` directory with filenames following the pattern `ai_ethical_dm_backup_YYYYMMDD_HHMMSS.dump`.
 
-- **Backup filename**: `ai_ethical_dm_backup_20250407_171626.dump`
-- **Backup size**: 164K
-- **Backup date**: April 7, 2025, 5:16:26 PM
-- **Location**: `/home/chris/ai-ethical-dm/backups/`
+## How to Restore from a Backup
 
-## How to Restore from this Backup
+### In CodeSpace Environment
 
-To restore the database from this backup, run:
+To restore the database in a CodeSpace environment (with Docker containers):
 
 ```bash
-cd /home/chris/ai-ethical-dm
-bash backups/restore_database.sh backups/ai_ethical_dm_backup_20250407_171626.dump
+cd /workspaces/ai-ethical-dm
+bash backups/restore_codespace_db.sh backups/ai_ethical_dm_backup_YYYYMMDD_HHMMSS.dump
+```
+
+When prompted, type `y` to confirm the restoration.
+
+### In Local Development Environment
+
+To restore the database in a local development environment:
+
+```bash
+cd /path/to/ai-ethical-dm
+bash backups/restore_database.sh backups/ai_ethical_dm_backup_YYYYMMDD_HHMMSS.dump
 ```
 
 When prompted, type `y` to confirm the restoration.
@@ -24,35 +32,66 @@ When prompted, type `y` to confirm the restoration.
 
 1. The script will drop the existing `ai_ethical_dm` database
 2. Create a new empty database with the same name
-3. Restore all data from the backup file
+3. Restore all data from the backup file (using a Docker container in CodeSpace environment)
 4. Report success or any errors that occurred
 
-## Alternative Backups
+## Managing Backups
 
-If you need to use a different backup, you can:
+### View Available Backups
 
-1. View all available backups:
-   ```bash
-   ls -lh backups/ai_ethical_dm_backup_*.dump
-   ```
+To view all available backups:
 
-2. Restore from any backup by specifying its filename:
-   ```bash
-   bash backups/restore_database.sh backups/FILENAME.dump
-   ```
+```bash
+ls -lh backups/ai_ethical_dm_backup_*.dump
+```
+
+### Restore from a Specific Backup
+
+To restore from any backup, specify its filename:
+
+For CodeSpace environment:
+```bash
+bash backups/restore_codespace_db.sh backups/FILENAME.dump
+```
+
+For local environment:
+```bash
+bash backups/restore_database.sh backups/FILENAME.dump
+```
 
 ## Database Configuration
 
-The backup and restore scripts use these database settings:
+### CodeSpace Environment 
+
+The CodeSpace scripts use these settings:
+
+- **Container name**: `proethica-postgres`
+- **Database name**: `ai_ethical_dm`
+- **Database user**: `postgres`
+- **Database password**: `PASS` (default for CodeSpace)
+
+### Local Environment
+
+The local environment scripts use these settings:
 
 - **Database name**: `ai_ethical_dm`
 - **Database user**: `postgres`
 - **Database host**: `localhost`
-- **Database port**: `5432`
+- **Database port**: `5433` (CodeSpace) or `5432` (local)
 
 ## Creating Additional Backups
 
-To create a new backup at any time:
+### CodeSpace Environment
+
+To create a new backup in the CodeSpace environment:
+
+```bash
+bash backups/backup_codespace_db.sh
+```
+
+### Local Environment
+
+To create a new backup in a local environment:
 
 ```bash
 bash backups/backup_database.sh

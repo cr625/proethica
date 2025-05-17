@@ -1,5 +1,95 @@
 AI Ethical DM - Development Log
 
+## May 17, 2025 (Update #27): Documented Guidelines Extraction Database Schema and Relationship
+
+### Task Completed
+Analyzed and documented the database structure for guideline concept extraction, focusing on the relationship between documents, guidelines, and RDF triples. Created comprehensive SQL query utilities to help developers understand and troubleshoot the guideline processing flow.
+
+### Key Improvements
+1. **Comprehensive SQL Utilities Directory**:
+   - Created `sql/` directory with well-organized query files
+   - Developed `document_guideline_relationship.sql` for tracing connections between documents and guidelines
+   - Implemented `guideline_rdf_triples.sql` with queries for exploring concept triples
+   - Added detailed README.md with usage instructions
+
+2. **Document-Guideline-Triple Relationship Documentation**:
+   - Mapped the two-level relationship between documents (UI/URL level) and guidelines (database/triple level)
+   - Clarified how document ID 189 connects to guideline ID 4 via doc_metadata
+   - Documented how guideline ID 4 links to 41 RDF triples in entity_triples table
+   - Created queries showing the complete relationship path
+
+3. **RDF Triple Analysis Tools**:
+   - Created human-readable format conversions for RDF triples
+   - Added concept extraction queries for viewing distinct concepts
+   - Implemented predicate type counting for statistical analysis
+   - Developed queries for finding specific concepts across guidelines
+
+### Technical Details
+The analysis clarified the database schema design, which follows a two-level structure:
+1. **Documents Table**: Contains uploaded guideline content (text, PDF, URLs)
+   - Document records have a document_id that appears in the URL (e.g., /worlds/1/guidelines/189)
+   - References a guideline via doc_metadata->guideline_id
+
+2. **Guidelines Table**: Contains processed guideline records with metadata
+   - Created during concept extraction with a record per processed document
+   - Contains metadata about extracted concepts and processing dates
+   - Records have unique guideline_id (e.g., 4)
+
+3. **Entity_Triples Table**: Contains the RDF triples for concepts
+   - Links to guidelines via guideline_id foreign key
+   - Each concept has approximately 4 triples (type, label, description, definition source)
+   - Properly tagged with entity_type = 'guideline_concept'
+
+The document in the web interface (ID 189) is linked to guideline ID 4, which in turn has 41 associated RDF triples representing 10 extracted ethical concepts relevant to engineering ethics.
+
+### Next Steps
+1. **Enhanced Triple Visualization**: Create more user-friendly views for exploring the triples
+2. **Concept Relationship Queries**: Add more queries focusing on relationships between concepts
+3. **Duplicate Detection**: Implement queries to identify potential duplicate concepts
+4. **Data Validation**: Create validation queries to ensure data integrity across the tables
+5. **Performance Optimization**: Analyze query performance and add indexes as needed
+
+These SQL utilities and documentation provide a much clearer understanding of the database structure supporting the guideline concept extraction feature, aiding both development and troubleshooting efforts.
+
+## May 17, 2025 (Update #26): Enhanced Database Backup Solution for CodeSpace Environment
+
+### Task Completed
+Created a comprehensive database restore solution for the CodeSpace environment to complement the existing backup capabilities, ensuring a complete backup and restore workflow for the guideline concept extraction feature.
+
+### Key Improvements
+1. **CodeSpace-Specific Restore Script**:
+   - Created `backups/restore_codespace_db.sh` to restore PostgreSQL database backups in the Docker container environment
+   - Implemented proper Docker container interactions for database operations
+   - Added robust error handling and verification steps
+   - Ensured backup files are properly copied into the container for restoration
+
+2. **Comprehensive Documentation Updates**:
+   - Updated `backups/RESTORE_INSTRUCTIONS.md` with clear instructions for both local and CodeSpace environments
+   - Enhanced `backups/README.md` with detailed information about both environments
+   - Added examples and usage instructions for all scripts
+   - Included environment-specific database configuration details
+
+3. **Complete Backup/Restore Workflow**:
+   - Ensured compatibility between backup files from different environments
+   - Created a consistent interface between backup and restore operations
+   - Added proper verification steps for successful operations
+   - Implemented user confirmation to prevent accidental data loss
+
+### Technical Details
+The CodeSpace restore script implements a different approach from the local version because:
+1. Database operations must be executed inside the Docker container
+2. Backup files need to be copied into the container first
+3. Different command execution patterns are required for Docker exec operations
+4. Container-specific verification is needed for database operations
+
+These improvements complete the database backup solution, ensuring that developers can reliably save and restore database states during the guideline concept extraction implementation and debugging process.
+
+### Next Steps
+1. **Automated Pre-Shutdown Backups**: Consider implementing automated backup creation before CodeSpace shutdown
+2. **GitHub Integration**: Explore options for integrating backups with GitHub Actions for persistent storage
+3. **Restore Verification Tools**: Add tools to verify the integrity of restored databases
+4. **Selective Restore Capabilities**: Consider adding the ability to restore specific parts of the database
+
 ## May 16, 2025 (Update #25): Improved VSCode Debugging for Flask App with Background MCP
 
 ### Task Completed
@@ -242,323 +332,4 @@ The implementation successfully addresses the immediate issue and lays a solid f
 ### Task Completed
 Implemented native Claude tool use capability in the GuidelineAnalysisModule to allow dynamic ontology querying during concept extraction, improving the quality and ontology alignment of extracted concepts.
 
-### Key Improvements
-1. **Native Claude Tool Use Integration**:
-   - Implemented three core ontology tools for Claude to use during extraction:
-     - `query_ontology`: Searches ontology for specific concepts
-     - `search_similar_concepts`: Finds ontology entities similar to extracted concepts
-     - `get_ontology_structure`: Retrieves high-level ontology structure
-   - Added structured tool definitions with JSON schema validation
-   - Created tool handlers to process Claude's tool calls
-
-2. **Concept Extraction Enhancement**:
-   - Updated extract_guideline_concepts method to use tool calling API
-   - Improved system prompts to guide Claude in tool usage
-   - Added comprehensive response processing logic to handle tool results
-   - Enhanced JSON parsing and validation for improved reliability
-
-3. **Triple Generation Completion**:
-   - Implemented generate_concept_triples functionality to create RDF triples
-   - Added proper mapping of extracted concepts to ontology categories
-   - Created comprehensive URI generation for concepts using slug formatting
-   - Implemented multiple triple types for rich semantic representation
-
-4. **Robust Error Handling**:
-   - Added fallback paths for all key operations
-   - Enhanced logging throughout the extraction and triple generation flow
-   - Implemented mock response capability for testing
-   - Added debug functionality to trace execution flow
-
-### Technical Details
-The implementation follows a multi-step process:
-
-1. **Concept Extraction** now leverages Claude's tool-calling API:
-   - Claude analyzes guideline text and uses tools to query the ontology
-   - Tools provide real-time information about existing ontology entities
-   - Claude extracts concepts aligned with the ontology structure
-   - Results include concepts with type, confidence, and related concepts
-
-2. **Triple Generation** processes the selected concepts:
-   - Creates URIs for each concept with proper namespacing
-   - Generates type triples based on concept category
-   - Creates label and description triples
-   - Adds relationship triples between concepts
-   - Connects concepts to the guideline document
-
-3. **Saving to Ontology**:
-   - Generated triples are properly formatted for database storage
-   - Triples maintain references to their source guideline
-   - All necessary metadata is included for provenance tracking
-
-This implementation completes the first phase of the guidelines implementation next steps document, establishing native Claude tool use for improved concept extraction.
-
-### Next Steps
-1. **Enhance Ontology Alignment**: 
-   - Further improve matching between extracted concepts and existing ontology entities
-   - Add hierarchical placement of new concepts in the ontology
-   - Implement better relationship mapping between new and existing concepts
-
-2. **Improve User Review Interface**:
-   - Add visualization for concept relationships
-   - Show potential conflicts with existing concepts
-   - Enhance editing capabilities before saving
-
-3. **Add Batch Processing**:
-   - Implement processing of multiple guidelines simultaneously
-   - Add comparison of concepts across documents
-   - Create identification of common themes
-
-## May 16, 2025 (Update #18): Fixed Debug Environment for Guideline Concept Extraction
-
-### Task Completed
-Created a robust unified debug script that properly handles PostgreSQL container setup with pgvector support for VSCode debugging.
-
-### Key Improvements
-1. **Unified Debug Script**:
-   - Created `debug_unified_with_mock.sh` to provide a single script for testing guideline concept extraction
-   - Properly handles container setup, database schema verification, and mock response configuration
-   - Supports both standalone execution and VSCode integration through setup-only mode
-
-2. **Proper PostgreSQL + pgvector Setup**:
-   - Implemented thorough Docker container cleanup and setup procedures
-   - Added proper error handling for Docker operations with informative messages
-   - Added retries for pgvector extension initialization
-   - Ensured database connection parameters are properly set in .env file
-
-3. **VSCode Integration**:
-   - Updated `scripts/setup_debug_with_mock.sh` to use the new unified debug script
-   - Added fallback mechanism if the unified script fails
-   - Maintained compatibility with existing VSCode tasks and launch configurations
-
-### Technical Details
-The issues with the VSCode debug tasks were happening because:
-
-1. When Codespaces times out and shuts down, the Docker container for PostgreSQL isn't shut down properly
-2. Subsequent attempts to restart it failed due to partially removed containers
-3. The PostgreSQL container was being created without proper pgvector support
-
-The new workflow:
-1. Completely removes any existing PostgreSQL containers
-2. Cleans up Docker networks and volumes to avoid resource conflicts
-3. Creates a fresh pgvector-enabled PostgreSQL container using either:
-   - The project's postgres.Dockerfile if available
-   - The pgvector/pgvector:pg17 image from Docker Hub as a fallback
-4. Properly initializes the pgvector extension and verifies database connectivity
-5. Updates environment variables and database settings
-
-The improved workflow ensures reliable debugging of the guideline concept extraction feature by providing the correct PostgreSQL environment with pgvector support, which is required for ontology operations.
-
-## May 16, 2025 (Update #17): Improved Guideline Concept Extraction and Database Storage
-
-### Task Completed
-Enhanced the guideline concept extraction flow with proper verification, debugging tools, and comprehensive documentation.
-
-### Key Improvements
-1. **Database Verification Tools**:
-   - Created `verify_guideline_concepts.sql` to validate DB schema for guideline concepts
-   - Implemented `query_guideline_concepts.py` utility to inspect extracted concepts
-   - Added SQL functions to count and verify guideline triples by type
-
-2. **Schema Validation Framework**:
-   - Developed `scripts/ensure_schema.py` to verify and fix database schema issues
-   - Added auto-creation of missing columns for EntityTriple and Guideline models
-   - Implemented foreign key constraint verification for data integrity
-
-3. **Debug Environment Integration**:
-   - Created unified debug script (`debug_unified_with_mock.sh`) with mock Claude responses
-   - Added mock response capability for concept extraction and triple generation
-   - Provided clear testing instructions and workflow for developers
-
-4. **Comprehensive Documentation**:
-   - Added detailed `concept_extraction_implementation.md` to document current architecture
-   - Created `guidelines_implementation_next_steps.md` for planned improvements
-   - Updated `guidelines_implementation_progress.md` to track feature status
-
-### Technical Details
-The guideline concept extraction flow has been verified to correctly:
-
-1. **Extract Concepts**: The `GuidelineAnalysisService` correctly interfaces with the MCP server's `GuidelineAnalysisModule` to extract ethical concepts from guideline content using Claude API calls.
-
-2. **Review and Select Concepts**: The web UI properly displays extracted concepts for user review and allows selection of concepts to save.
-
-3. **Generate and Save Triples**: Selected concepts are properly converted into RDF triples and stored in the database with correct metadata.
-
-4. **Link to Ontology**: Concepts are saved as `EntityTriple` records with proper `guideline_id` and `entity_type='guideline_concept'` references.
-
-The system now correctly handles the full flow from guideline upload to concept extraction and storage in the ontology database, providing a solid foundation for the planned native Claude tool use implementation.
-
-### Next Steps
-1. **Implement Native Claude Tool Use**: Upgrade from simple prompts to native Claude tool use functionality to allow Claude to dynamically query the ontology as needed.
-
-2. **Enhance Ontology Alignment**: Improve matching between extracted concepts and existing ontology entities.
-
-3. **Improve Review Interface**: Enhance the concept review UI with interactive visualization.
-
-## May 16, 2025 (Update #16): Fixed PostgreSQL Container in Debug Environment
-
-### Task Completed
-Created a robust solution to fix PostgreSQL container issues in the debug environment that were preventing proper setup of the database for guideline concept extraction.
-
-### Key Improvements
-1. **Comprehensive Container Cleanup and Restart**:
-   - Created a new `fix_postgres_codespace.sh` script that thoroughly cleans up Docker resources
-   - Implemented proper container removal, image cleanup, and network/volume pruning
-   - Added robust error handling and fallback mechanisms for container startup
-   - Built in extensive logging to identify specific failure points
-
-2. **Enhanced Debug Setup Integration**:
-   - Integrated the fix into the `setup_debug_with_mock.sh` script used by VSCode
-   - Added graceful fallback to the original setup script if needed
-   - Ensured proper environment variable configuration for the debugging session
-   - Added improved error detection and reporting
-
-3. **Improved Database Initialization**:
-   - Added extended wait periods to ensure PostgreSQL fully initializes
-   - Implemented retry mechanisms for pgvector extension installation
-   - Added verification steps to confirm database readiness
-   - Enhanced error reporting for database initialization steps
-
-### Technical Details
-The VSCode debugging environment was failing because:
-
-1. The PostgreSQL container (`postgres17-pgvector-codespace`) had not shut down properly
-2. Subsequent attempts to start the container failed due to resource conflicts
-3. Docker was trying to create directories that already existed from previous container instances
-
-The new fix script systematically:
-1. Stops and removes any existing container with the target name
-2. Cleans up related Docker images, networks, and volumes
-3. Builds a fresh container from the Dockerfile or falls back to Docker Hub image
-4. Properly initializes the database with the pgvector extension
-5. Updates the .env file with the correct database connection information
-6. Provides detailed status information for easier troubleshooting
-
-This fix ensures the VSCode "Debug ProEthica with Mock Guidelines" configuration works correctly by providing a clean PostgreSQL environment for each debugging session.
-
-## May 16, 2025 (Update #15): Verified Guideline Concept Storage in Ontology Database
-
-### Task Completed
-Analyzed the concept extraction and storage flow in the AI Ethical DM system and verified that guideline concepts are properly stored in the ontology database.
-
-### Key Findings
-1. **Successful Concept Storage Verification**:
-   - Created a diagnostic script `query_guideline_concepts.py` to check the database directly
-   - Verified that 177 guideline concept triples are stored in the entity_triples table
-   - Confirmed the existence of ethical concepts like Honesty, Integrity, Competence
-   - Validated proper linking between guidelines and their associated concepts
-
-2. **Database Schema Analysis**:
-   - Confirmed all necessary tables exist: guidelines and entity_triples
-   - Verified proper foreign key relationships between tables
-   - Data structure supports 3 guidelines with 59 triples each
-
-3. **Full Implementation Flow Analysis**:
-   - Guideline modules have proper structure with the MCP server flow working correctly
-   - The Flask application successfully processes extracted guideline concepts
-   - Save functionality properly creates both guideline and entity_triple records
-   - Relationships between entities are correctly established in the database
-
-### Technical Details
-The implementation flow was verified step by step through the following components:
-
-1. **MCP Server Layer**:
-   - `GuidelineAnalysisModule` properly extracts concepts from guidelines via Claude
-   - The `generate_concept_triples` method creates well-formed RDF triples
-   - JSON-RPC interface correctly passes data between MCP server and Flask app
-
-2. **Flask Application Layer**:
-   - `GuidelineAnalysisService` successfully interfaces with the MCP server
-   - Template rendering correctly displays extracted concepts for review
-   - Form submission properly passes selected concepts for storage
-   - Bulk insert operations correctly store triples in the database
-
-3. **Database Layer**:
-   - Entity triples are correctly formatted with subject/predicate/object structure
-   - Proper metadata fields track the origin of each triple
-   - Foreign key relationships maintain data integrity
-
-### Next Steps Based on guidelines_implementation_next_steps.md
-1. **Implement Native Claude Tool Use** (Highest Priority):
-   - Update from simple prompts to native Claude tool use functionality
-   - Define structured JSON tools in the API calls to Anthropic
-   - Allow Claude to dynamically query the ontology during extraction
-   - Implement interactive reasoning with real-time tool calls
-
-2. **Enhance Triple Generation**:
-   - Create more complex relationship types between concepts
-   - Add support for temporal and provenance information
-   - Implement formal concept validation against upper ontologies
-
-3. **Improve UI Experience**:
-   - Add graph visualization for guideline concepts
-   - Create interactive network diagrams of concept relationships
-   - Enhance concept categorization and filtering
-
-The system is now proven to correctly extract concepts from guidelines and store them as RDF triples in the ontology database. This provides a solid foundation for further enhancements and integrations.
-
-## May 16, 2025 (Update #14): Added Missing World ID Column in Entity Triples
-
-### Task Completed
-Fixed the missing world_id column in the entity_triples table to support proper guideline concept storage.
-
-### Key Improvements
-1. **Missing Foreign Key Fix**: Added the critical world_id column:
-   - Added world_id column to entity_triples table with proper foreign key constraint
-   - Ensured proper CASCADE behavior for entity deletion
-   - Maintained referential integrity with the worlds table
-
-2. **Expanded Schema Validation Coverage**:
-   - Updated schema validation script to check for world_id column
-   - Added it to the required_columns dictionary in ensure_entity_triples_columns function
-   - Made validation robust against partial database migrations
-
-3. **Comprehensive SQL Script Enhancement**:
-   - Updated the create_guidelines_table.sql script to include world_id check
-   - Added idempotent checks for all columns (only adds column if missing)
-   - Added proper data type and constraint definitions for all columns
-
-### Technical Details
-The error "column 'world_id' of relation 'entity_triples' does not exist" was occurring because:
-
-1. The EntityTriple model requires a world_id to establish proper connection to a world
-2. The database migration had not added this column to the entity_triples table
-3. When inserting guideline concepts using the model, it failed trying to populate this column
-
-This fix completes the database schema alignment with the SQLAlchemy model, ensuring all columns required for the guideline concept extraction flow are present and properly constrained.
-
-## May 15, 2025 (Update #13): Enhanced Schema Validation for Entity Triples
-
-### Task Completed
-Extended database schema validation to ensure all required columns exist in the entity_triples table.
-
-### Key Improvements
-1. **Comprehensive Column Checking**: Enhanced schema validation to check for all required columns:
-   - Added validation for subject_label, predicate_label, and object_label columns
-   - Added validation for temporal_confidence and temporal_context columns
-   - Maintained existing validation for guideline_id column
-
-2. **Robust Schema Enforcement**: Created a more comprehensive schema validation system:
-   - Designed to detect and fix any missing columns in entity_triples table
-   - Implemented with proper error handling and logging
-   - Dynamically checks existing columns against required ones
-   - Integrated into application startup process
-
-3. **Easy Maintenance**: Refactored schema validation for better maintainability:
-   - Used a dictionary-based approach to define required columns and their types
-   - Added detailed logging of schema validation operations
-   - Made the solution extensible for future column additions
-
-### Technical Details
-The error "column 'subject_label' of relation 'entity_triples' does not exist" (along with other missing columns) was occurring because:
-
-1. The EntityTriple SQLAlchemy model was updated with new columns
-2. But the database schema wasn't updated to match the model
-3. When the system tried to insert triples with these columns, it failed
-
-The schema validation system now:
-1. Checks which columns actually exist in the database
-2. Compares against a list of required columns from the model
-3. Automatically adds any missing columns with the correct type
-4. Reports detailed information about what changes were made
-
-This approach ensures the database always matches the SQLAlchemy model, preventing similar errors in the future when columns are added to the model.
+### Key
