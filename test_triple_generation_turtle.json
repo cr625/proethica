@@ -234,5 +234,6 @@
   ],
   "triple_count": 27,
   "concept_count": 3,
-  "processing_time": 0.0433657169342041
+  "processing_time": 0.0433657169342041,
+  "output_format": "turtle"
 }
