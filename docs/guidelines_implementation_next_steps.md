@@ -176,3 +176,47 @@ Integrate with the simulation system to:
 1. Create bridge between guideline concepts and simulation models
 2. Implement guideline validation for simulations
 3. Add guideline reference in simulation reports
+
+## 9. Implement LLM-Enhanced Triple Generation (Phase 2)
+
+### Current Status
+The current triple generation system (Phase 1) successfully creates basic RDF triples from guideline concepts, handling type definitions, standard properties, related concepts, and domain-specific relations. However, it lacks the ability to identify implicit semantic relationships between concepts.
+
+### Planned Enhancement
+We will implement Phase 2 of the triple generation system, which adds LLM capabilities to:
+- Identify implicit semantic relationships between concepts
+- Create more meaningful connections based on concept descriptions
+- Generate richer triple contexts with confidence scores and explanations
+- Provide fallback to Phase 1 generation if LLM enhancement fails
+
+### Implementation Steps
+1. **Extended API Interface**:
+   - Add parameters to the `generate_concept_triples` tool:
+     - `use_llm_enhancement`: Boolean to enable/disable LLM features
+     - `confidence_threshold`: Minimum confidence score for including a triple
+     - `max_relationships`: Maximum number of LLM-generated relationships per concept
+
+2. **LLM-Enhanced Generator Method**:
+   - Implement `_generate_llm_enhanced_triples` in the GuidelineAnalysisModule
+   - Create specialized prompt templates for triple generation
+   - Handle proper integration with ontology entity information
+
+3. **Triple Merging and Quality Control**:
+   - Combine basic and LLM-generated triples with duplicate detection
+   - Implement confidence scoring and filtering system
+   - Add validation against ontology constraints
+
+4. **Performance Optimization**:
+   - Add caching for similar concept sets
+   - Implement batching of concepts for LLM processing
+   - Set appropriate timeouts with fallback mechanisms
+
+### Expected Timeline
+- Development: 2 weeks
+- Testing and refinement: 1 week
+- Documentation: 3 days
+
+### Technical Considerations
+- Token usage will increase with LLM-enhanced generation
+- Properly handle confidentiality of domain-specific guideline content
+- Ensure consistent URI generation between basic and enhanced methods

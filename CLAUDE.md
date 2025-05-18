@@ -23,6 +23,39 @@ When making code changes that involve Claude API:
 
 ---
 
+## May 18, 2025 (Update #51): Planned LLM-Enhanced Triple Generation (Phase 2)
+
+### Issue Analysis
+Analyzed and identified the cause of the "Error getting entities: 404" error in the triple generation workflow:
+- The error occurs when MCPClient attempts to access ontology entities at `/api/ontology/engineering-ethics/entities`
+- The issue is related to the URL path handling between the client and server
+- The server is configured to respond to this path but has internal confusion with file extension handling
+
+### Next Enhancement: LLM-Enhanced Triple Generation
+Developed implementation plan for Phase 2 of the triple generation system:
+
+1. **Current Status**: 
+   - Phase 1 is complete and working for basic triple generation
+   - Current system handles basic types, standard properties, and simple domain-specific relationships
+
+2. **Enhancement Goal**:
+   - Add LLM-enhanced capability to identify implicit semantic relationships
+   - Create more meaningful connections between concepts based on semantic understanding
+   - Generate richer triple contexts with confidence scores and explanations
+   - Provide fallback to basic generation for critical reliability
+
+3. **Implementation Approach**:
+   - Extend the API interface with new parameters for LLM enhancement
+   - Create a specialized prompt template for semantic triple generation
+   - Implement proper merging of basic and LLM-generated triples
+   - Add quality control with confidence thresholds
+
+4. **Technical Considerations**:
+   - Token usage will increase with LLM enhancement
+   - Performance optimizations including caching and batch processing
+   - Consistent URI handling between basic and enhanced methods
+   - Proper fallback mechanisms to ensure reliability
+
 ## May 18, 2025 (Update #50): Implemented Triple Generation for Guidelines in MCP Server
 
 ### Task Completed
