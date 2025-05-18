@@ -1,5 +1,48 @@
 AI Ethical DM - Development Log
 
+## May 19, 2025 (Update #53): Fixed Ontology Editor 404 Error
+
+### Task Completed
+Fixed the 404 error occurring when accessing the `/ontology-editor` route by properly registering the ontology_editor blueprint in the Flask application.
+
+### Key Improvements
+1. **Blueprint Registration Fix**:
+   - Added the import statement for the `create_ontology_editor_blueprint` function in `app/__init__.py`
+   - Created the ontology editor blueprint with appropriate configuration
+   - Added the registration of the blueprint with the Flask application
+   - Successfully restored access to the ontology editor functionality
+
+2. **Root Cause Analysis**:
+   - The ontology_editor module was implemented correctly with all necessary templates and routes
+   - All required code and assets were present in the ontology_editor directory
+   - The issue was simply that the blueprint was defined but never registered with the Flask application
+   - The registration step is essential for Flask to recognize and route requests to the blueprint's handlers
+
+3. **Verification**:
+   - Confirmed the ontology editor is working by accessing the route in a browser
+   - Successfully loaded the ontology list and editor interface
+   - Server logs showed proper 200 response codes for the `/ontology-editor/` endpoint and related assets
+
+### Technical Details
+- The fix required adding three sections to `app/__init__.py`:
+  ```python
+  # Import the blueprint creation function
+  from ontology_editor import create_ontology_editor_blueprint
+  
+  # Create the ontology editor blueprint with configuration
+  ontology_editor_bp = create_ontology_editor_blueprint(
+      config={
+          'require_auth': True,   # Enable authentication
+          'admin_only': False     # Allow all authenticated users to access
+      }
+  )
+  
+  # Register the blueprint with the Flask app
+  app.register_blueprint(ontology_editor_bp)
+  ```
+- The ontology editor now properly loads showing the available ontologies (Basic Formal Ontology, Engineering Ethics, ProEthica Intermediate Ontology)
+- The interface is fully functional with editing, validation, and visualization capabilities
+
 ## May 18, 2025 (Update #52): Fixed Cases Route 404 Error
 
 ### Task Completed
