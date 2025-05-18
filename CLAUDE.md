@@ -1,5 +1,32 @@
 AI Ethical DM - Development Log
 
+## May 18, 2025 (Update #45): Fixed ORM Property References in MCP Client
+
+### Task Completed
+Fixed an issue where the application was trying to access a non-existent 'source' property on the Ontology model. This was causing errors during entity loading with the message "Error checking ontology status: Entity namespace for 'ontologies' has no property 'source'".
+
+### Key Improvements
+1. **Fixed Database Property Reference**:
+   - Changed references from `source` to `domain_id` in the MCPClient class
+   - The Ontology model has a `domain_id` column but not a `source` column
+   - Updated the query in the `get_ontology_status` method to use the correct field name
+
+2. **Error Resolution**:
+   - Resolved the error: `Error checking ontology status: Entity namespace for "ontologies" has no property "source"`
+   - Improved error handling to provide more helpful messages when accessing database entities
+   - Added clearer logging to help diagnose similar issues in the future
+
+3. **Technical Details**:
+   - The issue was in `app/services/mcp_client.py` where it was using `Ontology.query.filter_by(source=ontology_source).first()`
+   - Changed to use `Ontology.query.filter_by(domain_id=ontology_source).first()` which matches the actual schema
+   - This allows proper lookup of ontologies by their domain identifier which is critical for guideline concept extraction
+
+### Next Steps
+1. **Database Schema Documentation**: Create comprehensive documentation of the database schema to prevent similar issues
+2. **Code Auditing**: Review other parts of the codebase for similar ORM property mismatches
+3. **Testing**: Implement additional tests to verify database entity access works correctly
+4. **Data Validation**: Add validation to ensure data consistency between the MCP server and Flask application
+
 ## May 18, 2025 (Update #44): Fixed Database Configuration Handling in MCP Server
 
 ### Task Completed
@@ -264,84 +291,3 @@ Both fixes work together to ensure the guideline concept extraction process can 
 2. **Test Complete Workflow**: Test the entire guideline concept extraction process with the fixed implementation
 3. **Monitor Production**: Monitor the production system for any related issues
 4. **Documentation**: Update technical documentation with details about the ontology client implementation pattern
-
-## May 18, 2025 (Update #38): Fixed Ontology Client Methods for Guideline Concept Extraction
-
-### Task Completed
-Implemented missing methods in the EnhancedOntologyServerWithGuidelines class to resolve errors encountered during guideline concept extraction.
-
-### Key Improvements
-1. **Added Missing Methods**:
-   - Implemented `get_ontology_sources()` method to return available ontology sources based on predefined namespaces
-   - Implemented `get_ontology_entities()` method to retrieve entities from specific ontology sources
-   - Both methods include proper error handling and fallback mechanisms
-
-2. **Error Resolution**:
-   - Fixed the error: `EnhancedOntologyServerWithGuidelines object has no attribute 'get_ontology_sources'`
-   - Corrected the workflow for retrieving default ontology entities
-   - Ensured proper integration between the GuidelineAnalysisModule and the EnhancedOntologyServerWithGuidelines
-
-3. **Implementation Details**:
-   - Used the existing namespaces configuration from the parent OntologyMCPServer class
-   - Integrated with existing `_load_graph_from_file` and `_extract_entities` methods
-   - Added comprehensive error handling and logging for debugging purposes
-   - Ensured backward compatibility with the existing codebase
-
-### Technical Details
-The implementation provides two critical methods for the guideline analysis workflow:
-1. `get_ontology_sources()` returns a structured list of available ontology sources with metadata
-2. `get_ontology_entities()` loads and processes a specific ontology to extract entities of all types
-
-This allows the workflow to properly:
-1. Retrieve the list of available ontology sources
-2. Select a default source if needed
-3. Extract entities from the selected source
-4. Use these entities to provide context for LLM-based concept extraction
-
-### Next Steps
-1. **Complete Testing**: Test the complete guideline concept extraction workflow with the fixed implementation
-2. **Performance Optimization**: Monitor the ontology loading process for any performance issues
-3. **Enhanced Entity Matching**: Consider improving the concept-to-entity matching process
-4. **Documentation**: Update development documentation with details about the ontology client implementation
-
-## May 18, 2025 (Update #37): Improved Error Handling for Guideline Concept Extraction
-
-### Task Completed
-Enhanced the error handling mechanism for guideline concept extraction to provide more detailed and user-friendly error feedback through a dedicated error page.
-
-### Key Improvements
-1. **Comprehensive Error Handling**:
-   - Updated `worlds_direct_concepts.py` to redirect all errors to a dedicated error page
-   - Included detailed error information including error title, message, and stack trace
-   - Improved the detection and classification of different error types
-   - Enhanced the guideline_processing_error route with better logging and error details
-
-2. **Error Categorization**:
-   - Added specific error types for different failure scenarios:
-     - Access errors (document belonging to wrong world)
-     - File reading errors
-     - Empty content errors
-     - JSON parsing errors
-     - Concept extraction errors
-     - Template rendering errors
-
-3. **API Improvements**:
-   - Enhanced the JSON API endpoint for concept extraction with more detailed error responses
-   - Added error_type, error_title, and error_details fields in JSON responses
-   - Improved error code handling to provide appropriate HTTP status codes
-   - Added proper stack trace logging for API errors
-
-4. **Error Presentation**:
-   - Utilized the existing `guideline_processing_error.html` template for consistent error display
-   - Errors now show in a dedicated, well-formatted page instead of flash messages
-   - Added proper error recovery suggestions and navigation options
-   - Included technical details section for developers (with error traces)
-
-### Technical Details
-The implementation creates a more robust error handling flow by:
-1. Capturing errors at the source and preserving the complete stack trace
-2. Categorizing errors by type to provide appropriate guidance
-3. Redirecting to a dedicated error page with comprehensive details
-4. Handling unexpected errors in a graceful manner with proper fallbacks
-
-This

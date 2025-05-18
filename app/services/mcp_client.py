@@ -25,7 +25,7 @@ class MCPClient:
     def __init__(self):
         """Initialize the MCP client."""
         # Get MCP server URL from environment variable or use default
-        self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5000')
+        self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')
         self.use_mock_fallback = os.environ.get('USE_MOCK_FALLBACK', 'true').lower() == 'true'
         
         # Normalize the URL to avoid escape sequence issues
@@ -247,8 +247,8 @@ class MCPClient:
             from app.models.ontology import Ontology
             from app import db
             
-            # Get the ontology from the database
-            ontology = Ontology.query.filter_by(source=ontology_source).first()
+            # Get the ontology from the database - using domain_id instead of source
+            ontology = Ontology.query.filter_by(domain_id=ontology_source).first()
             
             if ontology:
                 # Check if the ontology is deprecated
@@ -332,17 +332,24 @@ class MCPClient:
         Refresh all worlds using a specific ontology.
         
         Args:
-            ontology_source: Source of the ontology
+            ontology_source: Source of the ontology (domain_id)
             
         Returns:
             Dictionary with results of the refresh operation
         """
         try:
-            # Find all worlds using this ontology source
+            # First get the ontology by domain_id
+            from app.models.ontology import Ontology
             from app.models.world import World
             from app import db
             
-            worlds = World.query.filter_by(ontology_source=ontology_source).all()
+            ontology = Ontology.query.filter_by(domain_id=ontology_source).first()
+            
+            if not ontology:
+                return {'success': False, 'message': f'Ontology with domain_id {ontology_source} not found'}
+                
+            # Find all worlds using this ontology (by ontology_id)
+            worlds = World.query.filter_by(ontology_id=ontology.id).all()
             
             if not worlds:
                 return {'success': True, 'message': f'No worlds found using ontology {ontology_source}'}
@@ -380,17 +387,24 @@ class MCPClient:
         """
         try:
             from app.models.world import World
+            from app.models.ontology import Ontology
             
             # Get the world
             world = World.query.get(world_id)
-            if not world or not world.ontology_source:
-                print(f"World not found or no ontology source for world {world_id}")
+            if not world or not world.ontology_id:
+                print(f"World not found or no ontology ID for world {world_id}")
+                return False
+                
+            # Get the ontology to get its domain_id
+            ontology = Ontology.query.get(world.ontology_id)
+            if not ontology:
+                print(f"Ontology not found for world {world_id} (ontology_id: {world.ontology_id})")
                 return False
             
             # Make request to refresh entities
             response = self.session.post(
                 f"{self.mcp_url}/api/world/{world_id}/refresh_entities",
-                json={'ontology_source': world.ontology_source}
+                json={'ontology_source': ontology.domain_id}
             )
             
             if response.status_code == 200:
