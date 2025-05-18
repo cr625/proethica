@@ -24,13 +24,19 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         
         # Check if document belongs to this world
         if guideline.world_id != world.id:
-            flash('Document does not belong to this world', 'error')
-            return redirect(url_for('worlds.world_guidelines', id=world.id))
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                   world_id=world.id, 
+                                   document_id=document_id,
+                                   error_title='Access Error',
+                                   error_message='Document does not belong to this world'))
         
         # Check if document is a guideline
         if guideline.document_type != "guideline":
-            flash('Document is not a guideline', 'error')
-            return redirect(url_for('worlds.world_guidelines', id=world.id))
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                   world_id=world.id, 
+                                   document_id=document_id,
+                                   error_title='Document Type Error',
+                                   error_message='Document is not a guideline'))
         
         # Get guideline content - prefer content field but fall back to file content
         content = guideline.content
@@ -40,12 +46,20 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                     content = f.read()
             except Exception as e:
                 logger.error(f"Error reading file {guideline.file_path}: {str(e)}")
-                flash(f'Error reading guideline file: {str(e)}', 'error')
-                return redirect(url_for('worlds.world_guidelines', id=world.id))
+                error_details = traceback.format_exc()
+                return redirect(url_for('worlds.guideline_processing_error', 
+                                       world_id=world.id, 
+                                       document_id=document_id,
+                                       error_title='File Reading Error',
+                                       error_message=f'Error reading guideline file: {str(e)}',
+                                       error_details=error_details))
         
         if not content:
-            flash('No content available for analysis', 'error')
-            return redirect(url_for('worlds.world_guidelines', id=world.id))
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                   world_id=world.id, 
+                                   document_id=document_id,
+                                   error_title='Empty Content Error',
+                                   error_message='No content available for analysis'))
         
         # Get ontology source for this world
         ontology_source = None
@@ -65,14 +79,20 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
             logger.warning(f"Error during concept extraction: {concepts_result['error']}")
             # Check if we still have concepts despite the error
             if "concepts" not in concepts_result or not concepts_result["concepts"]:
-                flash(f'Error extracting concepts: {concepts_result["error"]}', 'error')
-                return redirect(url_for('worlds.world_guidelines', id=world.id))
+                return redirect(url_for('worlds.guideline_processing_error', 
+                                       world_id=world.id, 
+                                       document_id=document_id,
+                                       error_title='Concept Extraction Error',
+                                       error_message=f'Error extracting concepts: {concepts_result["error"]}'))
         
         # Get the extracted concepts
         concepts_list = concepts_result.get("concepts", [])
         if not concepts_list:
-            flash('No concepts were extracted from this guideline', 'warning')
-            return redirect(url_for('worlds.world_guidelines', id=world.id))
+            return redirect(url_for('worlds.guideline_processing_error', 
+                                   world_id=world.id, 
+                                   document_id=document_id,
+                                   error_title='No Concepts Found',
+                                   error_message='No concepts were extracted from this guideline'))
             
         # Don't store concepts in session, we'll include them in the form as hidden fields
         # and pass them directly through the form submission
@@ -106,14 +126,24 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                     world_id=world.id,
                                     document_id=document_id)
             except Exception as fallback_error:
-                # If both templates fail, redirect back to the guideline
+                # If both templates fail, redirect to error page
                 logger.error(f"Both templates failed. Error: {str(fallback_error)}")
-                flash("Successfully extracted concepts, but encountered an error displaying them.", "warning")
-                return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+                error_details = traceback.format_exc()
+                return redirect(url_for('worlds.guideline_processing_error', 
+                                       world_id=world.id, 
+                                       document_id=document_id,
+                                       error_title='Template Rendering Error',
+                                       error_message='Successfully extracted concepts, but encountered an error displaying them.',
+                                       error_details=error_details))
     except Exception as e:
         logger.exception(f"Error in direct_concept_extraction: {str(e)}")
-        flash(f'Unexpected error during concept extraction: {str(e)}', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
+        error_details = traceback.format_exc()
+        return redirect(url_for('worlds.guideline_processing_error', 
+                               world_id=world.id, 
+                               document_id=document_id,
+                               error_title='Unexpected Error',
+                               error_message=f'Unexpected error during concept extraction: {str(e)}',
+                               error_details=error_details))
 
 def get_extracted_concepts_json(id, document_id, world, guideline_analysis_service):
     """JSON endpoint to get extracted concepts for a guideline."""
@@ -122,11 +152,19 @@ def get_extracted_concepts_json(id, document_id, world, guideline_analysis_servi
         
         # Check if document belongs to this world
         if guideline.world_id != world.id:
-            return jsonify({"error": "Document does not belong to this world"}), 403
+            return jsonify({
+                "error": "Document does not belong to this world",
+                "error_type": "access_error",
+                "error_title": "Access Error"
+            }), 403
         
         # Check if document is a guideline
         if guideline.document_type != "guideline":
-            return jsonify({"error": "Document is not a guideline"}), 400
+            return jsonify({
+                "error": "Document is not a guideline",
+                "error_type": "document_type_error",
+                "error_title": "Document Type Error"
+            }), 400
         
         # Get guideline content
         content = guideline.content
@@ -136,10 +174,20 @@ def get_extracted_concepts_json(id, document_id, world, guideline_analysis_servi
                     content = f.read()
             except Exception as e:
                 logger.error(f"Error reading file {guideline.file_path}: {str(e)}")
-                return jsonify({"error": f"Error reading guideline file: {str(e)}"}), 500
+                error_details = traceback.format_exc()
+                return jsonify({
+                    "error": f"Error reading guideline file: {str(e)}",
+                    "error_type": "file_reading_error",
+                    "error_title": "File Reading Error",
+                    "error_details": error_details
+                }), 500
         
         if not content:
-            return jsonify({"error": "No content available for analysis"}), 400
+            return jsonify({
+                "error": "No content available for analysis",
+                "error_type": "empty_content_error",
+                "error_title": "Empty Content Error"
+            }), 400
         
         # Get ontology source for this world
         ontology_source = None
@@ -157,6 +205,8 @@ def get_extracted_concepts_json(id, document_id, world, guideline_analysis_servi
             logger.warning(f"Error during concept extraction API call: {concepts_result['error']}")
             return jsonify({
                 "error": concepts_result["error"],
+                "error_type": "concept_extraction_error",
+                "error_title": "Concept Extraction Error",
                 "concepts": concepts_result.get("concepts", [])
             })
         
@@ -167,7 +217,11 @@ def get_extracted_concepts_json(id, document_id, world, guideline_analysis_servi
         
     except Exception as e:
         logger.exception(f"Error in get_extracted_concepts_json: {str(e)}")
+        error_details = traceback.format_exc()
         return jsonify({
             "error": str(e),
+            "error_type": "unexpected_error",
+            "error_title": "Unexpected Error",
+            "error_details": error_details,
             "concepts": []
         }), 500

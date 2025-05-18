@@ -1,5 +1,53 @@
 AI Ethical DM - Development Log
 
+## May 18, 2025 (Update #37): Improved Error Handling for Guideline Concept Extraction
+
+### Task Completed
+Enhanced the error handling mechanism for guideline concept extraction to provide more detailed and user-friendly error feedback through a dedicated error page.
+
+### Key Improvements
+1. **Comprehensive Error Handling**:
+   - Updated `worlds_direct_concepts.py` to redirect all errors to a dedicated error page
+   - Included detailed error information including error title, message, and stack trace
+   - Improved the detection and classification of different error types
+   - Enhanced the guideline_processing_error route with better logging and error details
+
+2. **Error Categorization**:
+   - Added specific error types for different failure scenarios:
+     - Access errors (document belonging to wrong world)
+     - File reading errors
+     - Empty content errors
+     - JSON parsing errors
+     - Concept extraction errors
+     - Template rendering errors
+
+3. **API Improvements**:
+   - Enhanced the JSON API endpoint for concept extraction with more detailed error responses
+   - Added error_type, error_title, and error_details fields in JSON responses
+   - Improved error code handling to provide appropriate HTTP status codes
+   - Added proper stack trace logging for API errors
+
+4. **Error Presentation**:
+   - Utilized the existing `guideline_processing_error.html` template for consistent error display
+   - Errors now show in a dedicated, well-formatted page instead of flash messages
+   - Added proper error recovery suggestions and navigation options
+   - Included technical details section for developers (with error traces)
+
+### Technical Details
+The implementation creates a more robust error handling flow by:
+1. Capturing errors at the source and preserving the complete stack trace
+2. Categorizing errors by type to provide appropriate guidance
+3. Redirecting to a dedicated error page with comprehensive details
+4. Handling unexpected errors in a graceful manner with proper fallbacks
+
+This replaces the previous approach of using flash messages and redirecting to the guidelines list, which would cause errors to be displayed at the top of `http://localhost:3334/worlds/1/guidelines` without detailed context.
+
+### Next Steps
+1. **Error Analytics**: Consider adding error tracking to monitor common failure patterns
+2. **Extend Pattern**: Apply this improved error handling approach to other parts of the application
+3. **Client-Side Handling**: Add JavaScript error handling to complement server-side error handling
+4. **Error Recovery**: Implement more sophisticated error recovery mechanisms for common issues
+
 ## May 17, 2025 (Update #36): Fixed Database Connection for Live LLM Integration
 
 ### Task Completed

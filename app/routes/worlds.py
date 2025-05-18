@@ -884,31 +884,42 @@ def robust_json_parse(json_str):
         logger.error(f"All JSON parsing recovery methods failed for: {log_str}")
         raise
 
-# Add new route for displaying guideline processing errors
+# Comprehensive error handling for guideline processing
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/error', methods=['GET'])
 def guideline_processing_error(world_id, document_id):
     """Display error page for guideline processing problems."""
-    world = World.query.get_or_404(world_id)
-    
-    from app.models.document import Document
-    guideline = Document.query.get_or_404(document_id)
-    
-    # Check if document belongs to this world
-    if guideline.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Get error details from query parameters
-    error_title = request.args.get('error_title', 'Processing Error')
-    error_message = request.args.get('error_message', 'An error occurred while processing the guideline concepts.')
-    error_details = request.args.get('error_details', '')
-    
-    return render_template('guideline_processing_error.html', 
-                          world=world, 
-                          guideline=guideline,
-                          error_title=error_title,
-                          error_message=error_message,
-                          error_details=error_details)
+    try:
+        world = World.query.get_or_404(world_id)
+        
+        from app.models.document import Document
+        guideline = Document.query.get_or_404(document_id)
+        
+        # Check if document belongs to this world
+        if guideline.world_id != world.id:
+            flash('Document does not belong to this world', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Get error details from query parameters
+        error_title = request.args.get('error_title', 'Processing Error')
+        error_message = request.args.get('error_message', 'An error occurred while processing the guideline concepts.')
+        error_details = request.args.get('error_details', '')
+        
+        # Log the error for debugging purposes
+        logger.error(f"Guideline processing error: {error_title} - {error_message}")
+        if error_details:
+            logger.debug(f"Error details: {error_details[:500]}..." if len(error_details) > 500 else error_details)
+        
+        return render_template('guideline_processing_error.html', 
+                              world=world, 
+                              guideline=guideline,
+                              error_title=error_title,
+                              error_message=error_message,
+                              error_details=error_details)
+    except Exception as e:
+        # Fallback error handling if the error page itself has an error
+        logger.exception(f"Error in error handler: {str(e)}")
+        flash(f"An unexpected error occurred: {str(e)}", "error")
+        return redirect(url_for('worlds.list_worlds'))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_guideline_triples(world_id, document_id):
