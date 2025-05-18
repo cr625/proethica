@@ -78,6 +78,7 @@ def create_app(config_module='app.config'):
     from app.routes.debug import debug_bp
     from app.routes.documents import documents_bp
     from app.routes.cases import cases_bp
+    from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
     app.register_blueprint(worlds_bp, url_prefix='/worlds')
@@ -93,6 +94,15 @@ def create_app(config_module='app.config'):
     app.register_blueprint(debug_bp, url_prefix='/debug')
     app.register_blueprint(documents_bp, url_prefix='/documents')
     app.register_blueprint(cases_bp, url_prefix='/cases')
+    
+    # Create and register the ontology editor blueprint
+    ontology_editor_bp = create_ontology_editor_blueprint(
+        config={
+            'require_auth': True,   # Enable authentication
+            'admin_only': False     # Allow all authenticated users to access
+        }
+    )
+    app.register_blueprint(ontology_editor_bp)
     
     # Make db accessible at app level for imports in other modules
     app.db = db
