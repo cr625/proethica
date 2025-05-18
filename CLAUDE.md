@@ -1,5 +1,36 @@
 AI Ethical DM - Development Log
 
+## May 18, 2025 (Update #52): Fixed Cases Route 404 Error
+
+### Task Completed
+Fixed the 404 error occurring when accessing the `/cases` route by properly registering the cases blueprint in the Flask application.
+
+### Key Improvements
+1. **Blueprint Registration Fix**:
+   - Added the import statement for the cases blueprint in `app/__init__.py`  
+   - Added the registration of the cases blueprint with the correct URL prefix
+   - Successfully restored access to the cases functionality of the application
+
+2. **Root Cause Analysis**:
+   - The cases blueprint was implemented correctly in `app/routes/cases.py`
+   - All the necessary templates were already created
+   - The issue was simply that the blueprint was defined but never registered with the Flask application
+   - This registration step is essential for Flask to recognize and route requests to the blueprint's handlers
+
+3. **Verification**:
+   - Restarted the Flask development server
+   - Confirmed the route is working with a browser test
+   - Server logs showed successful 200 response codes for the `/cases` endpoint
+
+### Technical Details
+- The fix was straightforward - adding two lines to `app/__init__.py`:
+  ```python
+  from app.routes.cases import cases_bp
+  app.register_blueprint(cases_bp, url_prefix='/cases')
+  ```
+- This properly connects the cases blueprint implementation with the Flask application's routing system
+- The cases page now displays correctly, showing the list of engineering ethics cases stored in the system
+
 # ⚠️ IMPORTANT: Claude Model Version Requirements ⚠️
 
 ## Required Claude Model Versions
