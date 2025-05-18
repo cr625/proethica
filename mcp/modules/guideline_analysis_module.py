@@ -276,6 +276,44 @@ class GuidelineAnalysisModule(MCPBaseModule):
                 "additionalProperties": False
             }
         )
+        
+        self.register_tool(
+            name="generate_concept_triples",
+            handler=self.generate_concept_triples,
+            description="Generate RDF triples from guideline concepts",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "concepts": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Extracted concepts"
+                    },
+                    "selected_indices": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Indices of selected concepts"
+                    },
+                    "ontology_source": {
+                        "type": "string",
+                        "description": "Optional ontology source ID"
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Namespace for generated URIs",
+                        "default": "http://proethica.org/guidelines/"
+                    },
+                    "output_format": {
+                        "type": "string",
+                        "description": "Output format (json, turtle)",
+                        "enum": ["json", "turtle"],
+                        "default": "json"
+                    }
+                },
+                "required": ["concepts", "selected_indices"],
+                "additionalProperties": False
+            }
+        )
     
     async def extract_guideline_concepts(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -592,6 +630,401 @@ class GuidelineAnalysisModule(MCPBaseModule):
         # This is a placeholder to satisfy the interface
         return {"matches": []}
             
+    async def generate_concept_triples(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate RDF triples for selected guideline concepts.
+        
+        Args:
+            arguments: Dictionary with the following keys:
+                - concepts: List of concept dictionaries
+                - selected_indices: Indices of selected concepts
+                - ontology_source: Optional ontology source ID
+                - namespace: Namespace for generated URIs
+                - output_format: Output format (json, turtle)
+            
+        Returns:
+            Dictionary with generated triples and metadata
+        """
+        import time
+        start_time = time.time()
+        
+        try:
+            logger.info(f"Generating triples for guideline concepts")
+            
+            # Extract arguments
+            concepts = arguments.get("concepts", [])
+            selected_indices = arguments.get("selected_indices", [])
+            ontology_source = arguments.get("ontology_source")
+            namespace = arguments.get("namespace", "http://proethica.org/guidelines/")
+            output_format = arguments.get("output_format", "json")
+            
+            # Check if we have concepts and selected indices
+            if not concepts or not selected_indices:
+                logger.warning("No concepts or selected indices provided")
+                return {"triples": [], "triple_count": 0, "concept_count": 0}
+            
+            # Filter concepts to selected ones
+            selected_concepts = []
+            for idx in selected_indices:
+                if 0 <= idx < len(concepts):
+                    selected_concepts.append(concepts[idx])
+            
+            if not selected_concepts:
+                logger.warning("No valid selected concepts found")
+                return {"triples": [], "triple_count": 0, "concept_count": 0}
+            
+            logger.info(f"Generating triples for {len(selected_concepts)} selected concepts")
+            
+            # Prepare triples list
+            all_triples = []
+            
+            # Helper function to create URIs
+            def create_uri(label: str) -> str:
+                # Convert to slug format
+                slug = self._slugify(label)
+                return f"{namespace}{slug}"
+            
+            # Get ontology entities if source is provided
+            ontology_entities = {}
+            if ontology_source and self.ontology_client:
+                try:
+                    logger.info(f"Retrieving ontology entities from {ontology_source}")
+                    # Assuming the ontology client has a method to get entities
+                    if hasattr(self.ontology_client, 'get_ontology_entities'):
+                        entities_data = await self.ontology_client.get_ontology_entities(ontology_source)
+                        if entities_data:
+                            ontology_entities = entities_data
+                            logger.info(f"Retrieved ontology entities for concept enhancement")
+                    else:
+                        logger.warning("Ontology client does not support get_ontology_entities")
+                except Exception as e:
+                    logger.warning(f"Error getting ontology entities: {str(e)}")
+            
+            # Process each selected concept
+            for concept in selected_concepts:
+                # Get concept properties
+                concept_label = concept.get("label", "Unknown Concept")
+                concept_description = concept.get("description", "")
+                concept_type = concept.get("category", "concept").lower()
+                concept_id = concept.get("id", 0)
+                
+                # Create URI for the concept
+                concept_uri = create_uri(concept_label)
+                
+                # 1. Add rdf:type triple
+                type_uri = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+                
+                # Map concept type to ontology class
+                type_mapping = {
+                    "principle": "Principle",
+                    "obligation": "Obligation",
+                    "role": "Role",
+                    "action": "Action",
+                    "resource": "Resource",
+                    "capability": "Capability",
+                    "event": "Event",
+                    "stakeholder": "Stakeholder",
+                    "constraint": "Constraint",
+                    "value": "Value"
+                }
+                
+                # Use mapped type or default to general concept
+                ontology_type = type_mapping.get(concept_type.lower(), "Concept")
+                object_uri = f"http://proethica.org/ontology/{ontology_type}"
+                
+                all_triples.append({
+                    "subject": concept_uri,
+                    "predicate": type_uri,
+                    "object": object_uri,
+                    "subject_label": concept_label,
+                    "predicate_label": "is a",
+                    "object_label": ontology_type
+                })
+                
+                # 2. Add rdfs:label triple
+                all_triples.append({
+                    "subject": concept_uri,
+                    "predicate": "http://www.w3.org/2000/01/rdf-schema#label",
+                    "object": concept_label,
+                    "subject_label": concept_label,
+                    "predicate_label": "has label",
+                    "object_label": concept_label,
+                    "is_literal": True
+                })
+                
+                # 3. Add description if available
+                if concept_description:
+                    all_triples.append({
+                        "subject": concept_uri,
+                        "predicate": "http://purl.org/dc/elements/1.1/description",
+                        "object": concept_description,
+                        "subject_label": concept_label,
+                        "predicate_label": "has description",
+                        "object_label": concept_description[:50] + ("..." if len(concept_description) > 50 else ""),
+                        "is_literal": True
+                    })
+                
+                # 4. Add concept ID triple for reference
+                all_triples.append({
+                    "subject": concept_uri,
+                    "predicate": "http://proethica.org/ontology/hasConceptId",
+                    "object": str(concept_id),
+                    "subject_label": concept_label,
+                    "predicate_label": "has concept ID",
+                    "object_label": str(concept_id),
+                    "is_literal": True
+                })
+                
+                # 5. Add category/type information
+                all_triples.append({
+                    "subject": concept_uri,
+                    "predicate": "http://proethica.org/ontology/hasCategory",
+                    "object": concept_type,
+                    "subject_label": concept_label,
+                    "predicate_label": "has category",
+                    "object_label": concept_type,
+                    "is_literal": True
+                })
+                
+                # 6. Add triples for related concepts
+                related_concepts = concept.get("related_concepts", [])
+                for i, related in enumerate(related_concepts):
+                    if related:
+                        related_uri = create_uri(related)
+                        all_triples.append({
+                            "subject": concept_uri,
+                            "predicate": "http://proethica.org/ontology/relatedTo",
+                            "object": related_uri,
+                            "subject_label": concept_label,
+                            "predicate_label": "related to",
+                            "object_label": related
+                        })
+                
+                # 7. Add text references if available
+                text_refs = concept.get("text_references", [])
+                for i, ref in enumerate(text_refs):
+                    if ref:
+                        all_triples.append({
+                            "subject": concept_uri,
+                            "predicate": "http://proethica.org/ontology/hasTextReference",
+                            "object": ref,
+                            "subject_label": concept_label,
+                            "predicate_label": "has text reference",
+                            "object_label": ref[:50] + ("..." if len(ref) > 50 else ""),
+                            "is_literal": True
+                        })
+                
+                # 8. Add domain-specific triples based on concept type
+                if concept_type == "principle":
+                    # Principles guide professional behavior
+                    all_triples.append({
+                        "subject": concept_uri,
+                        "predicate": "http://proethica.org/ontology/guides",
+                        "object": "http://proethica.org/ontology/ProfessionalBehavior",
+                        "subject_label": concept_label,
+                        "predicate_label": "guides",
+                        "object_label": "Professional Behavior"
+                    })
+                    
+                elif concept_type == "obligation":
+                    # Obligations are required of professionals
+                    all_triples.append({
+                        "subject": concept_uri,
+                        "predicate": "http://proethica.org/ontology/requiredOf",
+                        "object": "http://proethica.org/ontology/Professional",
+                        "subject_label": concept_label,
+                        "predicate_label": "required of",
+                        "object_label": "Professional"
+                    })
+                    
+                elif concept_type == "role":
+                    # Roles have responsibilities
+                    all_triples.append({
+                        "subject": concept_uri,
+                        "predicate": "http://proethica.org/ontology/hasResponsibility",
+                        "object": "http://proethica.org/ontology/ProfessionalResponsibility",
+                        "subject_label": concept_label,
+                        "predicate_label": "has responsibility",
+                        "object_label": "Professional Responsibility"
+                    })
+                    
+                elif concept_type == "action":
+                    # Actions are guided by principles
+                    all_triples.append({
+                        "subject": concept_uri,
+                        "predicate": "http://proethica.org/ontology/guidedBy",
+                        "object": "http://proethica.org/ontology/EthicalPrinciples",
+                        "subject_label": concept_label,
+                        "predicate_label": "guided by",
+                        "object_label": "Ethical Principles"
+                    })
+            
+            # 9. Generate concept-to-concept relationships
+            # Create meaningful connections between the selected concepts
+            for i, concept1 in enumerate(selected_concepts):
+                for j, concept2 in enumerate(selected_concepts):
+                    if i != j:  # Don't connect a concept to itself
+                        c1_type = concept1.get("category", "").lower()
+                        c2_type = concept2.get("category", "").lower()
+                        c1_label = concept1.get("label", "")
+                        c2_label = concept2.get("label", "")
+                        
+                        # Skip if either concept doesn't have a label
+                        if not c1_label or not c2_label:
+                            continue
+                            
+                        c1_uri = create_uri(c1_label)
+                        c2_uri = create_uri(c2_label)
+                        
+                        # Create relationships based on concept types
+                        if c1_type == "principle" and c2_type == "action":
+                            # Principles guide actions
+                            all_triples.append({
+                                "subject": c1_uri,
+                                "predicate": "http://proethica.org/ontology/guides",
+                                "object": c2_uri,
+                                "subject_label": c1_label,
+                                "predicate_label": "guides",
+                                "object_label": c2_label
+                            })
+                        elif c1_type == "role" and c2_type == "obligation":
+                            # Roles have obligations
+                            all_triples.append({
+                                "subject": c1_uri,
+                                "predicate": "http://proethica.org/ontology/hasObligation",
+                                "object": c2_uri,
+                                "subject_label": c1_label,
+                                "predicate_label": "has obligation",
+                                "object_label": c2_label
+                            })
+                        elif c1_type == "role" and c2_type == "capability":
+                            # Roles require capabilities
+                            all_triples.append({
+                                "subject": c1_uri,
+                                "predicate": "http://proethica.org/ontology/requiresCapability",
+                                "object": c2_uri,
+                                "subject_label": c1_label,
+                                "predicate_label": "requires capability",
+                                "object_label": c2_label
+                            })
+            
+            # Prepare the result dictionary
+            result = {
+                "triples": all_triples,
+                "triple_count": len(all_triples),
+                "concept_count": len(selected_concepts),
+                "processing_time": time.time() - start_time
+            }
+            
+            # If turtle format requested, convert to turtle
+            if output_format == "turtle":
+                turtle_content = self._convert_to_turtle(all_triples, namespace)
+                result["turtle"] = turtle_content
+            
+            logger.info(f"Generated {len(all_triples)} triples for {len(selected_concepts)} concepts in {result['processing_time']:.2f} seconds")
+            return result
+            
+        except Exception as e:
+            logger.exception(f"Error generating concept triples: {str(e)}")
+            return {
+                "error": str(e),
+                "triples": [],
+                "triple_count": 0,
+                "concept_count": 0
+            }
+            
+    def _convert_to_turtle(self, triples: List[Dict[str, Any]], namespace: str) -> str:
+        """
+        Convert triples to Turtle RDF format.
+        
+        Args:
+            triples: List of triple dictionaries
+            namespace: The base namespace for the triples
+            
+        Returns:
+            Turtle formatted string
+        """
+        # Group triples by subject
+        by_subject = {}
+        for triple in triples:
+            subject = triple.get("subject", "")
+            if subject not in by_subject:
+                by_subject[subject] = []
+            by_subject[subject].append(triple)
+        
+        # Define prefixes
+        turtle = f"""@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix proethica: <http://proethica.org/ontology/> .
+@prefix guideline: <{namespace}> .
+
+"""
+        
+        # Add triples grouped by subject
+        for subject, subject_triples in by_subject.items():
+            turtle += f"{self._format_uri(subject)} \n"
+            
+            for i, triple in enumerate(subject_triples):
+                predicate = triple.get("predicate", "")
+                obj = triple.get("object", "")
+                is_literal = triple.get("is_literal", False)
+                
+                # Format the object based on whether it's a literal or URI
+                if is_literal:
+                    # Use quotes for literal values
+                    obj_formatted = f'"{obj}"'
+                else:
+                    obj_formatted = self._format_uri(obj)
+                
+                # Add predicate and object
+                if i < len(subject_triples) - 1:
+                    turtle += f"    {self._format_uri(predicate)} {obj_formatted} ;\n"
+                else:
+                    turtle += f"    {self._format_uri(predicate)} {obj_formatted} .\n\n"
+        
+        return turtle
+
+    def _format_uri(self, uri: str) -> str:
+        """Format a URI using prefixes when possible."""
+        # Common prefixes
+        prefixes = {
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf:",
+            "http://www.w3.org/2000/01/rdf-schema#": "rdfs:",
+            "http://purl.org/dc/elements/1.1/": "dc:",
+            "http://proethica.org/ontology/": "proethica:",
+            "http://proethica.org/guidelines/": "guideline:"
+        }
+        
+        # Check if the URI starts with any known prefix
+        for prefix_uri, prefix_abbr in prefixes.items():
+            if uri.startswith(prefix_uri):
+                return uri.replace(prefix_uri, prefix_abbr)
+        
+        # Return full URI in angle brackets
+        return f"<{uri}>"
+    
+    def _slugify(self, text: str) -> str:
+        """
+        Convert a string to a URL-friendly slug format.
+        
+        Args:
+            text: The text to slugify
+            
+        Returns:
+            Slugified string
+        """
+        import re
+        # Remove special characters and convert to lowercase
+        text = re.sub(r'[^\w\s-]', '', text.lower())
+        # Replace whitespace with hyphens
+        text = re.sub(r'[\s_]+', '-', text)
+        # Remove any leading/trailing hyphens
+        text = text.strip('-')
+        return text
+    
     def get_claude_tools(self):
         """
         Get the Claude tools definitions.

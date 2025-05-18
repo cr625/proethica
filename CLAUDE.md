@@ -23,6 +23,40 @@ When making code changes that involve Claude API:
 
 ---
 
+## May 18, 2025 (Update #50): Implemented Triple Generation for Guidelines in MCP Server
+
+### Task Completed
+Implemented the missing `generate_concept_triples` tool in the MCP server's GuidelineAnalysisModule, fixing the issue where triple generation was silently failing and returning 0 triples.
+
+### Key Improvements
+1. **Server-Side Triple Generation**:
+   - Added the proper tool registration in the MCP server for `generate_concept_triples`
+   - Implemented a comprehensive triple generation algorithm that creates RDF triples from extracted concepts
+   - Generated multiple relationship types based on concept categories (principles, roles, obligations, etc.)
+   - Added support for both JSON and Turtle output formats
+
+2. **Relationship Generation**:
+   - Created basic type and property triples for all concepts
+   - Generated domain-specific relationships based on concept types (e.g., principles guide actions)
+   - Implemented concept-to-concept relationship generation for meaningful connections
+   - Preserved text references and related concepts in the triple structure
+
+3. **Integration with Ontology**:
+   - Added code to retrieve and use ontology entities for better relationship mapping
+   - Created proper URI generation with slugification for consistent naming
+
+### Technical Details
+- Generated 135 triples for 13 concepts in less than 0.1 seconds
+- Implemented a comprehensive approach that creates 5-10 triples per concept plus inter-concept relationships
+- Each concept gets basic triples like rdf:type, rdfs:label, plus domain-specific relationships
+- Implemented careful URI management with proper namespace handling
+
+### Next Steps
+1. **LLM Enhancement**: In a future phase, enhance triple generation with LLM capabilities for more sophisticated semantic relationships
+2. **UI Improvements**: Add visualizations for the generated triples
+3. **Ontology Integration**: Improve the integration with the engineering ethics ontology for better semantic alignment
+4. **Export Formats**: Add support for additional export formats beyond JSON and Turtle
+
 ## May 18, 2025 (Update #49): Fixed Anthropic API JSON Response Format Issue with SDK Compatibility
 
 ### Task Completed
