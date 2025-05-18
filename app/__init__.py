@@ -43,25 +43,22 @@ def create_app(config_module='app.config'):
 
     db.init_app(app)
     
-    # Ensure database schema is properly setup (especially for models added after initial setup)
+    # Simply test database connection without schema verification
     with app.app_context():
         try:
             from sqlalchemy import create_engine
-            from scripts.ensure_schema import ensure_guidelines_table, ensure_entity_triples_columns
             
             # Create engine from app config
             engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
             
-            # Ensure guidelines table exists
-            ensure_guidelines_table(engine)
+            # Test connection only
+            connection = engine.connect()
+            connection.close()
             
-            # Ensure required columns exist in entity_triples
-            ensure_entity_triples_columns(engine)
-            
-            print("Database schema verification completed successfully.")
+            print("Database connection successful.")
         except Exception as e:
-            print(f"Warning: Schema verification encountered an error: {str(e)}")
-            print("The application will continue, but some features may not work correctly.")
+            print(f"Warning: Database connection error: {str(e)}")
+            print("The application may not function correctly without database access.")
     
     # Register template filters
     init_filters(app)
