@@ -1,0 +1,54 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Live LLM - Flask App with MCP",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_debug_app.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                "ENVIRONMENT": "development",
+                "MCP_SERVER_PORT": "5001",
+                "MCP_SERVER_URL": "http://localhost:5001",
+                "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
+            },
+            "preLaunchTask": "Start MCP Server with Live LLM"
+        },
+        {
+            "name": "Run Debug App",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_debug_app.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "USE_MOCK_GUIDELINE_RESPONSES": "true",
+                "ENVIRONMENT": "development",
+                "MCP_SERVER_PORT": "5001", 
+                "MCP_SERVER_URL": "http://localhost:5001",
+                "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
+            }
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                "ENVIRONMENT": "development",
+                "MCP_SERVER_PORT": "5001",
+                "MCP_SERVER_URL": "http://localhost:5001",
+                "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
+            }
+        }
+    ]
+}

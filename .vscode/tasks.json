@@ -1,0 +1,51 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start MCP Server with Live LLM",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "mcp/run_enhanced_mcp_server_with_guidelines.py"
+            ],
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "Server started at http://localhost:(\\d+)",
+                    "line": 1
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*Starting server.*$",
+                    "endsPattern": "^.*Server started at http://localhost:.*$"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "options": {
+                "env": {
+                    "USE_MOCK_GUIDELINE_RESPONSES": "false"
+                }
+            }
+        },
+        {
+            "label": "Run Live LLM Integration Tests",
+            "type": "shell",
+            "command": "./test_live_llm_integration.py",
+            "args": [
+                "--verbose"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "options": {
+                "env": {
+                    "USE_MOCK_GUIDELINE_RESPONSES": "false"
+                }
+            }
+        }
+    ]
+}
