@@ -4,10 +4,11 @@ Run the application in debug mode for GitHub Codespaces.
 
 import os
 import argparse
-import tempfile
 from dotenv import load_dotenv
-from werkzeug.serving import run_simple
 from app import create_app
+import tempfile
+from flask.sessions import SecureCookieSessionInterface
+from flask import Flask
 
 # Load environment variables from .env file if it exists
 if os.path.exists('.env'):
@@ -27,15 +28,10 @@ app = create_app('config')
 app.config['DEBUG'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Keep debug features but disable auto-reloader
 if __name__ == '__main__':
     print(f"Starting Flask debug server on port 3334...")
+    print(f"Debug mode enabled, but auto-reloader disabled to prevent restart cycle")
     
-    # Get the Flask session directory (default is in tempfile.gettempdir() + '/flask_session')
-    session_dir = app.config.get('SESSION_FILE_DIR', os.path.join(tempfile.gettempdir(), 'flask_session'))
-    print(f"Configuring reloader to ignore session directory: {session_dir}")
-    
-    # Use run_simple instead of app.run to configure exclude_patterns
-    run_simple('0.0.0.0', 3334, app,
-              use_reloader=True,
-              use_debugger=True,
-              exclude_patterns=[f"{session_dir}/*"])
+    # Run with debug=True for enhanced error pages but use_reloader=False to prevent restarts
+    app.run(host='0.0.0.0', port=3334, debug=True, use_reloader=False)

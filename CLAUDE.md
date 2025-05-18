@@ -1,5 +1,45 @@
 AI Ethical DM - Development Log
 
+## May 18, 2025 (Update #42): Fixed Flask Debug Server Restart Issue
+
+### Task Completed
+Fixed an issue where the Flask development server was unnecessarily restarting during initialization, causing a double-startup sequence that wasted time during development.
+
+### Key Improvements
+1. **Identified Root Cause**:
+   - Determined that the filesystem-based session storage (`SESSION_TYPE = 'filesystem'`) was triggering Flask's reloader
+   - When Flask created session files during initialization, the reloader detected these file changes
+   - This caused the "Restarting with stat" behavior we were seeing after every initial startup
+
+2. **Implemented Clean Solution**:
+   - Modified `run_debug_app.py` to disable the auto-reloader while keeping other debug features
+   - Used `app.run(debug=True, use_reloader=False)` to maintain enhanced error pages and other debug benefits
+   - Properly documented the change with clear comments explaining the reason
+
+3. **Verified Results**:
+   - The application now starts up cleanly without the unnecessary restart
+   - Debug features like enhanced error pages are still available
+   - Development workflow is more efficient with faster startup times
+
+### Technical Details
+The issue was in how Flask's development server works:
+
+1. When `debug=True` is set, Flask enables an auto-reloader that watches for file changes
+2. Our application was configured to use filesystem sessions (`SESSION_TYPE = 'filesystem'` in `app/config.py`)
+3. During initialization, Flask creates session files, which triggered file change events
+4. These events caused the reloader to restart the application, creating a wasteful cycle
+
+Our solution separates these concerns by:
+- Keeping `debug=True` for its development benefits (better error pages, console tracebacks)
+- Setting `use_reloader=False` to prevent the file change monitoring that caused the restart
+
+This approach is ideal for development in environments like GitHub Codespaces where you want debug features but don't need the auto-reloader (which can be problematic with filesystem sessions).
+
+### Next Steps
+1. **Consider Update to VSCode Launch Config**: Update launch configurations to use the same settings
+2. **Document in Development Guide**: Add a note about this in the development workflow documentation
+3. **Evaluate Session Storage**: Consider if filesystem sessions are necessary or if another storage mechanism might be better for development
+
 ## May 18, 2025 (Update #41): Optimized Application Startup by Removing Schema Verification
 
 ### Task Completed
