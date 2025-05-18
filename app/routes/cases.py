@@ -265,7 +265,6 @@ def manual_create_form():
     return render_template('create_case_manual.html', worlds=worlds)
 
 @cases_bp.route('/new/url', methods=['GET'])
-@login_required
 def url_form():
     """Display form to create a case from URL."""
     # Get all worlds for the dropdown
