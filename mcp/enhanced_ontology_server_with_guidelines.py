@@ -32,6 +32,58 @@ sys.path.insert(0, str(project_root))
 from mcp.http_ontology_mcp_server import OntologyMCPServer
 from mcp.modules.guideline_analysis_module import GuidelineAnalysisModule
 
+class OntologyClientWrapper:
+    """
+    Wrapper class for the ontology client to ensure method availability.
+    This provides a guaranteed interface to the ontology client methods.
+    """
+    
+    def __init__(self, server):
+        """
+        Initialize the wrapper with a server instance.
+        
+        Args:
+            server: The server instance to wrap
+        """
+        self.server = server
+    
+    async def get_ontology_sources(self):
+        """
+        Forward to the server's get_ontology_sources method.
+        
+        Returns:
+            Dictionary containing ontology sources information
+        """
+        try:
+            if hasattr(self.server, 'get_ontology_sources'):
+                return await self.server.get_ontology_sources()
+            else:
+                logger.error("Server does not have get_ontology_sources method")
+                return {"sources": [], "default": None}
+        except Exception as e:
+            logger.error(f"Error in get_ontology_sources wrapper: {str(e)}")
+            return {"sources": [], "default": None}
+    
+    async def get_ontology_entities(self, ontology_source):
+        """
+        Forward to the server's get_ontology_entities method.
+        
+        Args:
+            ontology_source: Identifier for the ontology source
+            
+        Returns:
+            Dictionary containing entities grouped by type
+        """
+        try:
+            if hasattr(self.server, 'get_ontology_entities'):
+                return await self.server.get_ontology_entities(ontology_source)
+            else:
+                logger.error("Server does not have get_ontology_entities method")
+                return {"entities": {}}
+        except Exception as e:
+            logger.error(f"Error in get_ontology_entities wrapper: {str(e)}")
+            return {"entities": {}}
+
 class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
     """
     Enhanced Ontology MCP Server with Guidelines Support
@@ -86,6 +138,9 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         
         # Set up embeddings client
         self._init_embeddings_client()
+        
+        # Create ontology client wrapper
+        self.ontology_client_wrapper = OntologyClientWrapper(self)
         
         # Initialize modules dict
         self.modules = {}
@@ -363,13 +418,76 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         
         return {"tools": tools}
     
+    async def get_ontology_sources(self):
+        """
+        Get available ontology sources.
+        
+        This method returns a list of available ontology sources based on the
+        namespaces defined in the parent class and the .ttl files in the 
+        ontology directory.
+        
+        Returns:
+            Dict containing list of available ontology sources
+        """
+        try:
+            # Get the list of namespaces from the parent class
+            sources = []
+            
+            # Only use the engineering_ethics source to avoid errors with non-existent sources
+            sources = [
+                {
+                    "id": "engineering_ethics",
+                    "uri": "http://proethica.org/ontology/engineering-ethics#",
+                    "label": "Engineering Ethics",
+                    "description": "Ontology source for Engineering Ethics domain"
+                }
+            ]
+            
+            return {
+                "sources": sources,
+                "default": sources[0]["id"] if sources else None
+            }
+        except Exception as e:
+            import traceback
+            logger.error(f"Error getting ontology sources: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {"sources": [], "default": None}
+            
+    async def get_ontology_entities(self, ontology_source):
+        """
+        Get entities from a specific ontology source.
+        
+        This method is called by the guideline analysis module to retrieve
+        entities from a specific ontology source for matching with
+        extracted guideline concepts.
+        
+        Args:
+            ontology_source: Identifier for the ontology source
+            
+        Returns:
+            Dict containing entities grouped by type
+        """
+        try:
+            # Load the ontology graph
+            g = self._load_graph_from_file(ontology_source)
+            
+            # Extract entities using the parent class method
+            entities = self._extract_entities(g, "all")
+            
+            return {"entities": entities}
+        except Exception as e:
+            import traceback
+            logger.error(f"Error getting ontology entities: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {"entities": {}, "error": str(e)}
+    
     def _register_guideline_analysis_module(self):
         """Register the guideline analysis module."""
         try:
             # Create the module
             guideline_module = GuidelineAnalysisModule(
                 llm_client=self.anthropic_client if self.anthropic_available else None,
-                ontology_client=self,
+                ontology_client=self.ontology_client_wrapper,
                 embedding_client=self.embeddings_client
             )
             

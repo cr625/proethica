@@ -31,24 +31,13 @@ def get_ontology_entities(ontology_source):
         from rdflib import Graph, Namespace, RDF, RDFS, URIRef
         from rdflib.namespace import OWL
 
-        # Define known namespaces
+        # Define only the engineering ethics namespace
         namespaces = {
-            "military-medical-triage": Namespace("http://proethica.org/ontology/military-medical-triage#"),
-            "engineering-ethics": Namespace("http://proethica.org/ontology/engineering-ethics#"),
-            "nj-legal-ethics": Namespace("http://proethica.org/ontology/nj-legal-ethics#"),
-            "tccc": Namespace("http://proethica.org/ontology/military-medical-triage#")  # Use military-medical-triage namespace for tccc.ttl
+            "engineering-ethics": Namespace("http://proethica.org/ontology/engineering-ethics#")
         }
 
-        # Determine the namespace to use based on the ontology source
-        namespace_key = None
-        if "engineering_ethics" in ontology_source:
-            namespace_key = "engineering-ethics"
-        elif "nj_legal_ethics" in ontology_source:
-            namespace_key = "nj-legal-ethics"
-        elif "tccc" in ontology_source:
-            namespace_key = "tccc"
-        else:
-            namespace_key = "military-medical-triage"
+        # Always use engineering-ethics as the namespace
+        namespace_key = "engineering-ethics"
 
         namespace = namespaces[namespace_key]
 

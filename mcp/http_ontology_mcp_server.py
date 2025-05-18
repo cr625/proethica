@@ -60,11 +60,14 @@ class OntologyMCPServer:
             print(f"Error: No ontology source specified", file=sys.stderr)
             return g
             
-        # Handle cleanup of file extension if present
+        # Standardize the ontology_source handling
+        # If it includes .ttl, extract the domain_id without it
         if ontology_source.endswith('.ttl'):
             domain_id = ontology_source[:-4]  # Remove .ttl extension
         else:
             domain_id = ontology_source
+            # Ensure we look for the file with extension if not specified
+            ontology_source = f"{ontology_source}.ttl"
             
         try:
             # First try to load from database
@@ -98,10 +101,18 @@ class OntologyMCPServer:
                 
             # Fall back to file (for backward compatibility)
             print(f"Falling back to filesystem for ontology '{domain_id}'", file=sys.stderr)
+            # Check both with and without extension
             ontology_path = os.path.join(ONTOLOGY_DIR, ontology_source)
             if not os.path.exists(ontology_path):
-                print(f"Error: Ontology file not found: {ontology_path}", file=sys.stderr)
-                return g
+                # Try without extension as fallback
+                fallback_path = os.path.join(ONTOLOGY_DIR, domain_id)
+                if os.path.exists(fallback_path):
+                    ontology_path = fallback_path
+                    print(f"Using fallback path: {ontology_path}", file=sys.stderr)
+                else:
+                    print(f"Error: Ontology file not found: {ontology_path}", file=sys.stderr)
+                    print(f"Also checked: {fallback_path}", file=sys.stderr)
+                    return g
 
             g.parse(ontology_path, format="turtle")
             print(f"Successfully loaded ontology from {ontology_path}", file=sys.stderr)

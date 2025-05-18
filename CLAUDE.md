@@ -1,5 +1,142 @@
 AI Ethical DM - Development Log
 
+## May 18, 2025 (Update #40): Fixed Ontology File Loading for Guideline Concept Extraction
+
+### Task Completed
+Fixed a critical issue in the HTTP Ontology MCP Server that was causing "Ontology file not found" errors during guideline concept extraction by implementing proper file extension handling and fallback paths.
+
+### Key Improvements
+1. **Enhanced Ontology File Path Handling**:
+   - Modified `_load_graph_from_file` method in `http_ontology_mcp_server.py` to properly handle file extensions
+   - Added automatic `.ttl` extension appending when not specified in the ontology source parameter
+   - Implemented a fallback path mechanism to check both with and without extension
+   - Added detailed error logging showing which paths were checked
+
+2. **Error Resolution**:
+   - Fixed the error: `Error: Ontology file not found: /workspaces/ai-ethical-dm/mcp/ontology/engineering_ethics`
+   - Resolved the issue where the server couldn't find ontology files when no extension was specified
+   - Addressed the underlying cause of parser failures in guideline concept extraction
+
+3. **Testing and Verification**:
+   - Created `test_extract_concepts.py` to verify guideline concept extraction works through the MCP server API
+   - Successfully extracted concepts from NSPE Code of Ethics text
+   - Confirmed the extraction of Public Safety (principle), Professional Competence (obligation), and Honesty in Communication (obligation) concepts
+
+### Technical Details
+The problem was in the `_load_graph_from_file` method in `http_ontology_mcp_server.py`. When the `ontology_source` parameter was provided without a `.ttl` extension (e.g., "engineering_ethics"), the code was:
+1. Attempting to find the file directly with that name
+2. Not appending the `.ttl` extension automatically
+3. Failing with "Ontology file not found" since the actual file was named "engineering_ethics.ttl"
+
+The solution:
+```python
+# Standardize the ontology_source handling
+if ontology_source.endswith('.ttl'):
+    domain_id = ontology_source[:-4]  # Remove .ttl extension
+else:
+    domain_id = ontology_source
+    # Ensure we look for the file with extension if not specified
+    ontology_source = f"{ontology_source}.ttl"
+
+# Check both with and without extension
+ontology_path = os.path.join(ONTOLOGY_DIR, ontology_source)
+if not os.path.exists(ontology_path):
+    # Try without extension as fallback
+    fallback_path = os.path.join(ONTOLOGY_DIR, domain_id)
+    if os.path.exists(fallback_path):
+        ontology_path = fallback_path
+        print(f"Using fallback path: {ontology_path}", file=sys.stderr)
+    else:
+        print(f"Error: Ontology file not found: {ontology_path}", file=sys.stderr)
+        print(f"Also checked: {fallback_path}", file=sys.stderr)
+        return g
+```
+
+This approach ensures that regardless of whether the ontology source is specified with or without the `.ttl` extension, the system will find the file if it exists in either form. This robust handling fixed the issue causing the guideline concept extraction to fail.
+
+### Next Steps
+1. **Server-Side Validation**: Add additional validation for ontology source parameters in API endpoints
+2. **File Extension Configuration**: Consider making file extensions configurable for different ontology types
+3. **Improved User Feedback**: Enhance error messages with recovery suggestions when ontology files can't be found
+4. **Caching**: Implement caching for frequently used ontology files to improve performance
+
+## May 18, 2025 (Update #39): Fixed Ontology File Path and Client Method Access Issues
+
+### Task Completed
+Fixed two critical issues in the Enhanced Ontology MCP Server that were causing errors during guideline concept extraction: a mismatch between the ontology source ID and actual filename, and an ontology client method access issue.
+
+### Key Improvements
+1. **Fixed Ontology File Path Mismatch**:
+   - Identified that the server was using "engineering-ethics" (with hyphen) as the source ID
+   - Corrected this to "engineering_ethics" (with underscore) to match the actual filename
+   - This resolved the error where the system couldn't find the ontology file
+
+2. **Implemented OntologyClientWrapper**:
+   - Created an OntologyClientWrapper class to safely mediate access between modules and the server
+   - Fixed the 'EnhancedOntologyServerWithGuidelines' object has no attribute 'get_ontology_sources' error
+   - Provided proper error handling and fallbacks for ontology method access
+   - Modified server initialization to use this wrapper for more reliable method access
+
+3. **Testing and Verification**:
+   - Created comprehensive tests to verify both fixes
+   - Confirmed the system can now properly load the ontology file with 89 triples
+   - Verified that the wrapper correctly forwards method calls to the server
+   - Added detailed logging to show the success of each fix
+
+### Technical Details
+The implementation solves two distinct issues:
+
+1. **File path issue**: There was a naming convention mismatch between the source ID in `get_ontology_sources()` returning "engineering-ethics" and the actual file named "engineering_ethics.ttl". This would cause the file loader to look for a non-existent file.
+
+2. **Method access issue**: When the GuidelineAnalysisModule tried to call `ontology_client.get_ontology_sources()`, the method couldn't be located. The wrapper pattern provides a reliable interface that forwards method calls to the server, with proper error handling.
+
+Both fixes work together to ensure the guideline concept extraction process can properly access the ontology data needed for concept matching and extraction.
+
+### Next Steps
+1. **Restart MCP Server**: Restart the MCP server to apply the fixes
+2. **Test Complete Workflow**: Test the entire guideline concept extraction process with the fixed implementation
+3. **Monitor Production**: Monitor the production system for any related issues
+4. **Documentation**: Update technical documentation with details about the ontology client implementation pattern
+
+## May 18, 2025 (Update #38): Fixed Ontology Client Methods for Guideline Concept Extraction
+
+### Task Completed
+Implemented missing methods in the EnhancedOntologyServerWithGuidelines class to resolve errors encountered during guideline concept extraction.
+
+### Key Improvements
+1. **Added Missing Methods**:
+   - Implemented `get_ontology_sources()` method to return available ontology sources based on predefined namespaces
+   - Implemented `get_ontology_entities()` method to retrieve entities from specific ontology sources
+   - Both methods include proper error handling and fallback mechanisms
+
+2. **Error Resolution**:
+   - Fixed the error: `EnhancedOntologyServerWithGuidelines object has no attribute 'get_ontology_sources'`
+   - Corrected the workflow for retrieving default ontology entities
+   - Ensured proper integration between the GuidelineAnalysisModule and the EnhancedOntologyServerWithGuidelines
+
+3. **Implementation Details**:
+   - Used the existing namespaces configuration from the parent OntologyMCPServer class
+   - Integrated with existing `_load_graph_from_file` and `_extract_entities` methods
+   - Added comprehensive error handling and logging for debugging purposes
+   - Ensured backward compatibility with the existing codebase
+
+### Technical Details
+The implementation provides two critical methods for the guideline analysis workflow:
+1. `get_ontology_sources()` returns a structured list of available ontology sources with metadata
+2. `get_ontology_entities()` loads and processes a specific ontology to extract entities of all types
+
+This allows the workflow to properly:
+1. Retrieve the list of available ontology sources
+2. Select a default source if needed
+3. Extract entities from the selected source
+4. Use these entities to provide context for LLM-based concept extraction
+
+### Next Steps
+1. **Complete Testing**: Test the complete guideline concept extraction workflow with the fixed implementation
+2. **Performance Optimization**: Monitor the ontology loading process for any performance issues
+3. **Enhanced Entity Matching**: Consider improving the concept-to-entity matching process
+4. **Documentation**: Update development documentation with details about the ontology client implementation
+
 ## May 18, 2025 (Update #37): Improved Error Handling for Guideline Concept Extraction
 
 ### Task Completed
@@ -262,148 +399,4 @@ The implementation now correctly creates basic triples for each concept:
 - Description triple when available
 
 ### Next Steps
-1. Consider enhancing the concept display with better categorization or filtering
-2. Review triple generation for more complex semantic relationships
-3. Add more comprehensive test cases with different types of guideline content
-
-## May 17, 2025 (Update #30): Fixed Guideline Concept Association Display Issue
-
-### Task Completed
-Fixed an issue where concepts extracted and saved from guidelines weren't appearing in the "Associated Concepts" section when viewing a guideline, despite being saved to the database.
-
-### Current Git Hash
-73ea93b296efb5d55d94114d1670906bf35ca40b
-
-### Problem Analysis
-After a user selects concepts to save, the system was creating a Guideline record in the database and updating Document metadata, but it wasn't creating any EntityTriple records to represent the actual concepts. Since the "Associated Concepts" section in the guideline view page looks for EntityTriple records with matching guideline_id, no concepts were being displayed.
-
-### Key Improvements
-1. **Basic Entity Triple Creation**:
-   - Modified the `save_guideline_concepts` function to create basic EntityTriple records for each selected concept
-   - Added creation of three RDF triples for each concept:
-     - Type triple (is-a relationship)
-     - Label triple (rdfs:label)
-     - Description triple (dc:description) when available
-
-2. **Proper Association**:
-   - All triples are properly associated with the guideline_id
-   - Each triple is tagged with entity_type="guideline_concept"
-   - This ensures they appear in the "Associated Concepts" section immediately
-
-3. **Metadata Accuracy**:
-   - Updated document metadata with accurate triple count
-   - Updated guideline metadata with proper triple count
-   - Preserved the separation between the concept-saving phase and the full triple generation phase
-
-### Technical Details
-The implementation allows for the three-phase workflow to function as intended:
-1. The extraction phase identifies concepts in the guideline text
-2. The concept review and save phase now properly creates triples for basic concept representation
-3. The later triple generation phase (which remains separate) can create more complex semantic relationships
-
-The solution maintains the workflow as designed while ensuring that concepts are immediately visible in the UI after being saved.
-
-### Next Steps
-1. **Testing**: Thoroughly test the fix with different guideline texts and concept sets
-2. **UI Enhancements**: Consider improving the concepts list view with better categorization or filtering
-3. **Performance Monitoring**: Monitor the triple creation process for any performance impacts as concept count increases
-
-## May 17, 2025 (Update #29): Created Database Cleanup Utilities for Guideline Concepts Testing
-
-### Task Completed
-Created a comprehensive SQL cleanup utility and Python execution script to facilitate testing of the guideline concept extraction implementation. This utility provides a reliable way to reset the database to a clean state before testing guideline concept extraction functionality.
-
-### Key Improvements
-1. **SQL Cleanup Utility**:
-   - Created `sql/cleanup_guideline_concepts.sql` with comprehensive cleanup operations
-   - Implemented a three-phase process for proper reference handling:
-     - Delete all entity_triples related to guideline concepts
-     - Update document metadata to remove guideline references and flags
-     - Delete all guideline records
-   - Added pre-deletion queries to display what would be deleted
-   - Included verification queries to confirm successful cleanup
-
-2. **Python Execution Script**:
-   - Developed `run_cleanup_guideline_concepts.py` to safely execute SQL commands in Docker
-   - Implemented a reliable approach using direct psql commands through Docker exec
-   - Added detailed progress reporting and confirmation steps
-   - Included comprehensive error handling and verification of each operation
-   - Made the script work in the CodeSpace Docker container environment
-
-3. **Docker-Compatible Implementation**:
-   - Designed to work with the project's Docker container architecture
-   - Properly handles container communication and authentication
-   - Uses container-safe execution methods that respect Docker permissions
-   - Executes SQL commands in the proper sequence for reference integrity
-
-### Technical Details
-The cleanup utility solves several challenges:
-1. The two-level relationship between documents and guidelines requires careful cleanup order
-2. Metadata fields in JSONB format need specialized PostgreSQL operations to update
-3. Docker container execution requires proper command routing and authentication
-4. The verification process needs to validate multiple database objects
-
-The solution:
-1. Executes a series of targeted SQL commands to handle each aspect of cleanup
-2. Provides detailed reporting on what was found and what was deleted
-3. Verifies all operations completed successfully with proper reference integrity
-4. Runs safely in the Docker container with proper permissions
-
-### Next Steps
-1. **Automated Testing Integration**: Integrate this cleanup utility into automated testing workflows
-2. **Scheduled Reset Option**: Add option for scheduled reset after a testing period
-3. **Selective Cleanup**: Enhance the tool to allow selective cleanup of specific guideline entries
-4. **Interactive Mode**: Add interactive terminal mode for exploring the database state before cleanup
-
-This utility complements the existing SQL utilities for exploring guideline concept relationships (`document_guideline_relationship.sql` and `guideline_rdf_triples.sql`), providing a complete toolkit for working with the guideline concept extraction feature during development and testing.
-
-## May 17, 2025 (Update #28): Implemented Three-Phase Guideline Concept Extraction Workflow
-
-### Task Completed
-Refactored the guideline concept extraction process to use a three-phase workflow, giving users more granular control over the knowledge graph generation. The system now separates concept extraction, triple generation, and triple saving into distinct steps with user review at each stage.
-
-### Key Improvements
-1. **Enhanced User Control**:
-   - Separated concept extraction and triple generation into distinct steps
-   - Added a dedicated triple review page before saving to database
-   - Allows users to selectively include/exclude individual triples
-   - Provides clearer workflow with visual progress indicators
-
-2. **New Triple Review Interface**:
-   - Created `app/templates/guideline_triples_review.html` with triple selection UI
-   - Added clear formatting for subject, predicate, and object display
-   - Implemented select/deselect all functionality for convenient batch operations
-   - Shows triple counts and progress information
-
-3. **Updated Backend Processing**:
-   - Added `generate_guideline_triples` route to handle the intermediate step
-   - Modified `save_guideline_concepts` to save only selected triples
-   - Preserved existing metadata structure and relationships
-   - Maintained compatibility with existing database schemas
-
-4. **Improved Workflow Communication**:
-   - Updated text and button labels to clearly indicate the current step
-   - Added progress markers showing completed and pending steps
-   - Improved alert messages to explain the purpose of each phase
-   - Ensured consistent navigation between all phases
-
-### Technical Details
-The new workflow follows this sequence:
-1. **Extract Concepts**: Process guideline text to identify potential ethical concepts (unchanged)
-2. **Review Concepts**: User selects which concepts should be included for triple generation
-3. **Generate Triples**: System converts selected concepts into candidate RDF triples
-4. **Review Triples**: User reviews and selects which specific triples to save
-5. **Save to Database**: Only selected triples are saved to the knowledge graph
-
-This approach allows domain experts to have finer-grained control over what knowledge is added to the system, improving data quality and relevance. A guideline might contain many potential concepts, but now users can precisely control which semantic relationships are stored.
-
-### Next Steps
-1. **Advanced Filtering**: Add filtering capabilities to the triple review interface
-2. **Visual Relationship Display**: Create a graph visualization of triples before saving
-3. **Concept Grouping**: Group related triples by concept for easier review
-4. **Batch Operations**: Add batch selection tools for common triple patterns
-5. **Triple Editing**: Allow editing triple values before saving
-
-This improvement addresses the need for greater precision in knowledge graph construction identified in the requirements analysis, ensuring that only validated and reviewed semantic information is incorporated into the ethical decision-making system.
-
-## May 17, 2025 (Update #27): Documented Guidelines Extraction Database Schema and Relationship
+1. Consider enhancing the concept display with

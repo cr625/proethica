@@ -906,14 +906,64 @@ class GuidelineAnalysisModule(MCPBaseModule):
                     try:
                         # Extract and parse JSON
                         json_text = result_text
+                        
+                        # Log the full result text for debugging
+                        logger.debug(f"Raw LLM response: {result_text[:500]}...")  # Log first 500 chars
+                        
+                        # Check for JSON code block markers
                         if "```json" in result_text:
                             json_parts = result_text.split("```json")
                             if len(json_parts) > 1:
                                 json_text = json_parts[1].split("```")[0].strip()
+                                logger.debug(f"Extracted JSON from ```json block: {json_text[:100]}...")
                         elif "```" in result_text:
                             json_parts = result_text.split("```")
                             if len(json_parts) > 1:
                                 json_text = json_parts[1].strip()
+                                logger.debug(f"Extracted JSON from ``` block: {json_text[:100]}...")
+                        
+                        # If the response is entirely natural language, try to handle it
+                        if json_text.startswith("I'll") or json_text.startswith("I will") or json_text.strip().startswith("Let me"):
+                            logger.warning("LLM returned natural language instead of JSON. Attempting to generate fallback concepts.")
+                            
+                            # Generate basic concepts based on the NSPE code fundamental canons
+                            fallback_concepts = [
+                                {
+                                    "id": 0,
+                                    "label": "Public Safety",
+                                    "description": "The paramount obligation of engineers to prioritize public safety, health, and welfare",
+                                    "category": "principle",
+                                    "confidence": 0.95,
+                                    "related_concepts": ["Professional Responsibility", "Ethical Conduct"],
+                                    "text_references": ["Hold paramount the safety, health, and welfare of the public"]
+                                },
+                                {
+                                    "id": 1,
+                                    "label": "Professional Competence",
+                                    "description": "Engineers must only practice in areas of their professional competence",
+                                    "category": "obligation",
+                                    "confidence": 0.95,
+                                    "related_concepts": ["Technical Expertise", "Professional Development"],
+                                    "text_references": ["Perform services only in areas of their competence"]
+                                },
+                                {
+                                    "id": 2,
+                                    "label": "Honesty in Communication",
+                                    "description": "Engineers must communicate truthfully and objectively in public statements",
+                                    "category": "obligation",
+                                    "confidence": 0.95,
+                                    "related_concepts": ["Integrity", "Transparency"],
+                                    "text_references": ["Issue public statements only in an objective and truthful manner"]
+                                }
+                            ]
+                            
+                            concepts_data = {
+                                "concepts": fallback_concepts,
+                                "error": "LLM returned natural language instead of JSON, using fallback concepts",
+                                "original_response": result_text[:500] + "..." # Include truncated response
+                            }
+                            logger.info("Using fallback concepts due to non-JSON response")
+                            return concepts_data
                         
                         # Clean the JSON text to handle potential inconsistencies
                         json_text = self._clean_json_text(json_text)

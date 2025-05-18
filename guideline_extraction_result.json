@@ -1,0 +1,48 @@
+{
+  "concepts": [
+    {
+      "id": 0,
+      "label": "Public Safety",
+      "description": "The paramount obligation of engineers to prioritize public safety, health, and welfare",
+      "category": "principle",
+      "confidence": 0.95,
+      "related_concepts": [
+        "Professional Responsibility",
+        "Ethical Conduct"
+      ],
+      "text_references": [
+        "Hold paramount the safety, health, and welfare of the public"
+      ]
+    },
+    {
+      "id": 1,
+      "label": "Professional Competence",
+      "description": "Engineers must only practice in areas of their professional competence",
+      "category": "obligation",
+      "confidence": 0.95,
+      "related_concepts": [
+        "Technical Expertise",
+        "Professional Development"
+      ],
+      "text_references": [
+        "Perform services only in areas of their competence"
+      ]
+    },
+    {
+      "id": 2,
+      "label": "Honesty in Communication",
+      "description": "Engineers must communicate truthfully and objectively in public statements",
+      "category": "obligation",
+      "confidence": 0.95,
+      "related_concepts": [
+        "Integrity",
+        "Transparency"
+      ],
+      "text_references": [
+        "Issue public statements only in an objective and truthful manner"
+      ]
+    }
+  ],
+  "error": "LLM returned natural language instead of JSON, using fallback concepts",
+  "original_response": "I'll analyze the NSPE Code of Ethics for Engineers and extract key ethical concepts. First, let me understand the ontology structure and check for similar concepts...."
+}
