@@ -436,7 +436,7 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
             # Only use the engineering_ethics source to avoid errors with non-existent sources
             sources = [
                 {
-                    "id": "engineering_ethics",
+                    "id": "engineering-ethics",
                     "uri": "http://proethica.org/ontology/engineering-ethics#",
                     "label": "Engineering Ethics",
                     "description": "Ontology source for Engineering Ethics domain"
