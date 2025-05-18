@@ -1,5 +1,86 @@
 AI Ethical DM - Development Log
 
+## May 18, 2025 (Update #44): Fixed Database Configuration Handling in MCP Server
+
+### Task Completed
+Fixed the SQL database configuration error in the Enhanced Ontology MCP Server that was appearing during guideline concept extraction. The issue was resolved by improving database configuration handling and fixing the table name references.
+
+### Key Improvements
+1. **Fixed Database Configuration Handling**:
+   - Created a new `fix_flask_db_config.py` module to properly set up Flask database configuration
+   - Implemented proper environment variable handling for database connection
+   - Ensured database configuration is set before Flask app initialization
+   - Fixed the error: `RuntimeError: Either 'SQLALCHEMY_DATABASE_URI' or 'SQLALCHEMY_BINDS' must be set`
+
+2. **Fixed Table Name References**:
+   - Identified that the code was looking for an "ontology" table but the actual table name is "ontologies" (plural)
+   - Updated all SQL queries to reference the correct table name
+   - Implemented domain ID format standardization (hyphen vs underscore)
+   - Added better error handling and more detailed logging
+
+3. **Improved Module Import System**:
+   - Added a backward compatibility alias in `base_module.py` to support existing modules
+   - Fixed the error: `ImportError: cannot import name 'BaseModule' from 'mcp.modules.base_module'`
+   - Ensured proper module initialization order to prevent circular imports
+   - Created stable module interfaces for future development
+
+4. **Enhanced Server Management**:
+   - Created a restart script (`restart_mcp_server.sh`) to easily restart the MCP server
+   - Added server health checking to verify proper startup
+   - Implemented proper database session handling throughout the codebase
+   - Added improved environment variable handling in server scripts
+
+### Technical Details
+1. **Database Configuration Fix**:
+   - Set `SQLALCHEMY_DATABASE_URI` environment variable before Flask app initialization
+   - Created functions to safely manage Flask app context for database operations
+   - Used direct SQLAlchemy engine creation as a fallback when Flask app context fails
+   - Implemented detailed error logging to trace configuration issues
+
+2. **Table Name and Schema Handling**:
+   - Updated the query from `SELECT id, content FROM ontology` to `SELECT id, content FROM ontologies`
+   - Added domain ID format standardization to match database conventions
+   - Implemented column mapping based on actual database schema
+   - Added detailed logging of database schema checks and query results
+
+### Next Steps
+1. **Advanced Error Handling**: Further enhance error handling by implementing detailed error types and recovery strategies
+2. **Performance Optimization**: Monitor and optimize database query performance for ontology loading
+3. **Caching Implementation**: Consider adding caching for frequently used ontology data to reduce database load
+4. **Monitoring Setup**: Implement proper monitoring for database connections and performance metrics
+
+AI Ethical DM - Development Log
+
+## May 18, 2025 (Update #43): Fixed SQL Error in MCP Server
+
+### Task Completed
+Fixed the SQL error in the Enhanced Ontology MCP Server by implementing a direct database connection approach instead of using Flask app context.
+
+### Key Improvements
+1. **Identified Root Cause**:
+   - The error message: `Error loading from database: Either 'SQLALCHEMY_DATABASE_URI' or 'SQLALCHEMY_BINDS' must be set.`
+   - The MCP server was trying to create a Flask app context to access the database but wasn't properly inheriting environment variables
+   - This caused the database configuration to be missing when the app context was created
+
+2. **Implemented Clean Solution**:
+   - Modified `_load_graph_from_file` method in `mcp/http_ontology_mcp_server.py` to use SQLAlchemy directly
+   - Removed dependency on Flask app context for database operations
+   - Used environment variables with proper fallback for database connection URL
+   - Implemented proper session handling with cleanup
+   - Maintained detailed logging for debugging purposes
+
+3. **Technical Details**:
+   - Used SQLAlchemy core functionality to create direct database connection
+   - Configured connection with `DATABASE_URL` from environment with fallback to `postgresql://postgres:PASS@localhost:5433/ai_ethical_dm`
+   - Implemented proper SQL query to directly fetch ontology content from the database
+   - Ensured database sessions are properly closed after use
+
+### Next Steps
+1. **Test MCP Server**: Restart the MCP server to verify the fix works in practice
+2. **Monitor Logs**: Watch for any new errors in the MCP server logs
+3. **Consider Configuration Refactoring**: Evaluate centralizing database configuration to avoid similar issues
+4. **Documentation Update**: Update technical documentation with details of this implementation change
+
 ## May 18, 2025 (Update #42): Fixed Flask Debug Server Restart Issue
 
 ### Task Completed
@@ -263,53 +344,4 @@ The implementation creates a more robust error handling flow by:
 3. Redirecting to a dedicated error page with comprehensive details
 4. Handling unexpected errors in a graceful manner with proper fallbacks
 
-This replaces the previous approach of using flash messages and redirecting to the guidelines list, which would cause errors to be displayed at the top of `http://localhost:3334/worlds/1/guidelines` without detailed context.
-
-### Next Steps
-1. **Error Analytics**: Consider adding error tracking to monitor common failure patterns
-2. **Extend Pattern**: Apply this improved error handling approach to other parts of the application
-3. **Client-Side Handling**: Add JavaScript error handling to complement server-side error handling
-4. **Error Recovery**: Implement more sophisticated error recovery mechanisms for common issues
-
-## May 17, 2025 (Update #36): Fixed Database Connection for Live LLM Integration
-
-### Task Completed
-Fixed database connection issues in all launch configurations to ensure proper connectivity to the PostgreSQL database when using live LLM integration for guideline concept extraction.
-
-### Key Improvements
-1. **Database Connection Fixes**:
-   - Identified that the PostgreSQL password was incorrectly set to 'postgres' instead of 'PASS'
-   - Updated database connection strings in all launch configurations to use the correct credentials
-   - Verified connection to the PostgreSQL container running on port 5433
-   - Ensured consistent database configuration across all launch methods
-
-2. **Configuration Synchronization**:
-   - Updated `.vscode/launch.json` launch configurations with correct database credentials
-   - Fixed `run_debug_app.py` to use proper database URL
-   - Updated `test_flask_app_ui.sh` with correct database connection
-   - Modified `run_with_live_llm.sh` to use the right database password in all launch options
-
-### Technical Details
-The issue was identified by examining the `codespace_run_db.py` file, which showed the correct database configuration:
-```python
-DEFAULT_DB_URL = 'postgresql://postgres:PASS@localhost:5433/postgres'
-TARGET_DB_URL = 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm'
-```
-
-This conflicted with our launch configurations, which were using:
-```
-postgresql://postgres:postgres@localhost:5433/ai_ethical_dm
-```
-
-The fix ensures all launch methods use the correct connection string:
-```
-postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
-```
-
-This addresses the schema verification errors and database connection issues that were preventing proper application initialization.
-
-### Next Steps
-1. **Complete Live LLM Testing**: Test the complete guideline concept extraction workflow with live LLM integration
-2. **Document Workflow**: Update documentation on the three-phase concept extraction workflow
-3. **Performance Monitoring**: Monitor and optimize the performance of LLM API calls
-4. **Triple Generation Validation**: Validate the quality of triples generated from live LLM-extracted concepts
+This

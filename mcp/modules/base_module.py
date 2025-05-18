@@ -163,3 +163,6 @@ class MCPBaseModule:
         except Exception as e:
             logger.error(f"Error accessing resource '{uri}': {str(e)}")
             raise
+
+# Alias for backward compatibility with existing modules
+BaseModule = MCPBaseModule

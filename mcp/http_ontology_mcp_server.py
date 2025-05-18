@@ -7,6 +7,7 @@ import rdflib
 from rdflib import Graph, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import OWL
 from aiohttp import web
+from mcp.fix_flask_db_config import fix_flask_database_config, get_flask_app, get_sqlalchemy_session
 
 # Add the parent directory to the path so we can import mcp as a package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -68,32 +69,46 @@ class OntologyMCPServer:
             domain_id = ontology_source
             # Ensure we look for the file with extension if not specified
             ontology_source = f"{ontology_source}.ttl"
+        
+        # Normalize domain_id format (convert underscores to hyphens if needed)
+        # This is to match the database storage convention (e.g., "engineering-ethics")
+        if domain_id == "engineering_ethics":
+            domain_id = "engineering-ethics"
             
         try:
-            # First try to load from database
-            # We need to import these here to avoid circular imports
+            # First try to load from database using direct SQLAlchemy connection
             try:
-                # Create a Flask app context for database access
                 import os
-                from app import create_app
-                from app.models.ontology import Ontology
+                from sqlalchemy import create_engine, text
+                from sqlalchemy.orm import sessionmaker
                 
-                app = create_app()
-                from app import db  # Import db after creating app context
-                with app.app_context():
-                    # Try to fetch from database
-                    print(f"Attempting to load ontology '{domain_id}' from database", file=sys.stderr)
-                    ontology = Ontology.query.filter_by(domain_id=domain_id).first()
+                # Get database URL from environment variable with fallback
+                database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm')
+                print(f"Using database URL: {database_url}", file=sys.stderr)
+                
+                # Create SQLAlchemy engine and session
+                engine = create_engine(database_url)
+                Session = sessionmaker(bind=engine)
+                session = Session()
+                
+                # Query the ontologies table directly (note: table name is plural)
+                print(f"Attempting to load ontology '{domain_id}' from database", file=sys.stderr)
+                result = session.execute(text("SELECT id, content FROM ontologies WHERE domain_id = :domain_id"), 
+                                      {"domain_id": domain_id})
+                row = result.fetchone()
+                
+                if row:
+                    ontology_id, content = row
+                    print(f"Found ontology '{domain_id}' (ID: {ontology_id}) in database", file=sys.stderr)
+                    print(f"Content length: {len(content)} bytes", file=sys.stderr)
                     
-                    if ontology:
-                        print(f"Found ontology '{domain_id}' (ID: {ontology.id}) in database", file=sys.stderr)
-                        print(f"Content length: {len(ontology.content)} bytes", file=sys.stderr)
-                        
-                        g.parse(data=ontology.content, format="turtle")
-                        print(f"Successfully parsed ontology content with {len(g)} triples", file=sys.stderr)
-                        return g
-                    else:
-                        print(f"Ontology '{domain_id}' not found in database", file=sys.stderr)
+                    g.parse(data=content, format="turtle")
+                    print(f"Successfully parsed ontology content with {len(g)} triples", file=sys.stderr)
+                    session.close()
+                    return g
+                else:
+                    print(f"Ontology '{domain_id}' not found in database", file=sys.stderr)
+                    session.close()
             except Exception as db_error:
                 print(f"Error loading from database: {str(db_error)}", file=sys.stderr)
                 import traceback
@@ -496,6 +511,9 @@ class OntologyMCPServer:
         return web.json_response({"status": "ok", "message": "Ontology MCP server is running"})
 
 async def run_server():
+    # Set up database configuration for Flask before importing modules
+    fix_flask_database_config()
+    
     server = OntologyMCPServer()
     app = web.Application()
     

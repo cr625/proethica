@@ -1,0 +1,41 @@
+=== Testing Direct Database Connection ===
+
+Using database URL: postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
+Connected to database: ai_ethical_dm as user: postgres
+Ontology table does not exist!
+Available tables:
+  - character_triples
+  - case_triples
+  - document
+  - condition_types
+  - conditions
+  - decisions
+  - document_chunks
+  - characters
+  - case_operationalization
+  - entities
+  - domains
+  - documents
+  - documents_content
+  - ontologies
+  - ontology_versions
+  - resource_types
+  - principle_instantiations
+  - evaluations
+  - principle_conflicts
+  - event_entity
+  - events
+  - worlds
+  - roles
+  - users
+  - resources
+  - simulation_sessions
+  - simulation_states
+  - actions
+  - scenarios
+  - ontology_imports
+  - entity_triples
+  - guidelines
+Database connection test completed successfully
+
+SUCCESS: Database connection working correctly!
