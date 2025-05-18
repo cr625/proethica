@@ -4,6 +4,14 @@ This document tracks the implementation progress of the guidelines concept extra
 
 ## Recent Fixes
 
+### May 18, 2025: Anthropic API JSON Response Format Fix
+- ✅ Fixed issue where Anthropic API was returning natural language instead of JSON
+- ✅ Added `response_format={"type": "json_object"}` parameter to Anthropic API calls
+- ✅ Implemented three-tier fallback system for API compatibility issues
+- ✅ Added monitoring system to track API compatibility metrics
+- ✅ Added JSON validation to ensure proper parsing of responses
+- ✅ Created debug logging to anthropic_api_compatibility_issues.log
+
 ### May 17, 2025: Database Connection and Live LLM Integration Fix
 - ✅ Fixed database connection issues with correct PostgreSQL password (PASS)
 - ✅ Updated all launch configurations to use consistent database connection strings

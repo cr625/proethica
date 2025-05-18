@@ -16,14 +16,14 @@ from typing import List, Dict, Optional, Any, Union
 # Add the project root to the path to import app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from mcp.modules.base_module import BaseModule
+from mcp.modules.base_module import MCPBaseModule
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("TemporalModule")
 
-class TemporalModule(BaseModule):
+class TemporalModule(MCPBaseModule):
     """
     Module for temporal functionality in the Unified Ontology Server.
 
@@ -32,11 +32,10 @@ class TemporalModule(BaseModule):
     Unified Ontology Server.
     """
 
-    @property
-    def name(self) -> str:
-        """Get the name of this module."""
-        return "temporal"
-
+    def __init__(self):
+        """Initialize the temporal module."""
+        super().__init__(name="temporal")
+        
     @property
     def description(self) -> str:
         """Get the description of this module."""
@@ -48,7 +47,7 @@ class TemporalModule(BaseModule):
             name="get_timeline",
             description="Get a complete timeline for a scenario",
             handler=self.get_timeline,
-            schema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "scenario_id": {
@@ -64,7 +63,7 @@ class TemporalModule(BaseModule):
             name="get_temporal_context",
             description="Get formatted temporal context for Claude",
             handler=self.get_temporal_context,
-            schema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "scenario_id": {
@@ -80,7 +79,7 @@ class TemporalModule(BaseModule):
             name="get_events_in_timeframe",
             description="Get events within a specific timeframe",
             handler=self.get_events_in_timeframe,
-            schema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "start_time": {
@@ -108,7 +107,7 @@ class TemporalModule(BaseModule):
             name="get_temporal_sequence",
             description="Get a sequence of events in temporal order",
             handler=self.get_temporal_sequence,
-            schema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "scenario_id": {
@@ -132,7 +131,7 @@ class TemporalModule(BaseModule):
             name="get_temporal_relation",
             description="Get triples with a specific temporal relation to a given triple",
             handler=self.get_temporal_relation,
-            schema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "triple_id": {
@@ -152,7 +151,7 @@ class TemporalModule(BaseModule):
             name="create_temporal_relation",
             description="Create a temporal relation between two triples",
             handler=self.create_temporal_relation,
-            schema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "from_triple_id": {

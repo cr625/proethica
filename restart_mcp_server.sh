@@ -12,12 +12,12 @@ sleep 2
 
 # Set database-related environment variables
 export DATABASE_URL="postgresql://postgres:PASS@localhost:5433/ai_ethical_dm"
+export USE_MOCK_GUIDELINE_RESPONSES=false
 
 # Make sure the database config is set for Flask
 echo "Starting new MCP server..."
 cd /workspaces/ai-ethical-dm
-chmod +x run_http_mcp_server.sh
-./run_http_mcp_server.sh
+python mcp/run_enhanced_mcp_server_with_guidelines.py &
 
 # Verify server is running
 echo "Checking server health..."

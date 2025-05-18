@@ -1,1 +1,86 @@
-{"jsonrpc": "2.0", "result": {"concepts": [{"id": 0, "label": "Public Safety", "description": "The paramount obligation of engineers to prioritize public safety, health, and welfare", "category": "principle", "confidence": 0.95, "related_concepts": ["Professional Responsibility", "Ethical Conduct"], "text_references": ["Hold paramount the safety, health, and welfare of the public"]}, {"id": 1, "label": "Professional Competence", "description": "Engineers must only practice in areas of their professional competence", "category": "obligation", "confidence": 0.95, "related_concepts": ["Technical Expertise", "Professional Development"], "text_references": ["Perform services only in areas of their competence"]}, {"id": 2, "label": "Honesty in Communication", "description": "Engineers must communicate truthfully and objectively in public statements", "category": "obligation", "confidence": 0.95, "related_concepts": ["Integrity", "Transparency"], "text_references": ["Issue public statements only in an objective and truthful manner"]}], "error": "LLM returned natural language instead of JSON, using fallback concepts", "original_response": "I'll analyze the NSPE Code of Ethics for Engineers and extract key ethical concepts. First, let me understand the ontology structure and check for similar concepts...."}, "id": 1}
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "concepts": [
+      {
+        "label": "Public Safety",
+        "description": "The paramount obligation of engineers to protect the safety, health, and welfare of the public in their professional activities.",
+        "category": "Ethical Principle",
+        "related_concepts": [
+          "Professional Responsibility",
+          "Risk Management",
+          "Public Welfare"
+        ],
+        "text_references": [
+          "Engineers shall hold paramount the safety, health, and welfare of the public."
+        ]
+      },
+      {
+        "label": "Professional Competence",
+        "description": "The requirement that engineers only practice within their areas of expertise and technical capability.",
+        "category": "Professional Standard",
+        "related_concepts": [
+          "Qualification",
+          "Expertise",
+          "Professional Development"
+        ],
+        "text_references": [
+          "Engineers shall perform services only in areas of their competence."
+        ]
+      },
+      {
+        "label": "Truthful Communication",
+        "description": "The obligation for engineers to make public statements that are objective, factual, and honest.",
+        "category": "Communication Ethics",
+        "related_concepts": [
+          "Transparency",
+          "Honesty",
+          "Public Disclosure"
+        ],
+        "text_references": [
+          "Engineers shall issue public statements only in an objective and truthful manner."
+        ]
+      },
+      {
+        "label": "Fiduciary Duty",
+        "description": "The responsibility of engineers to act as faithful agents or trustees for their employers or clients, prioritizing their interests within ethical boundaries.",
+        "category": "Professional Relationship",
+        "related_concepts": [
+          "Loyalty",
+          "Client Interests",
+          "Confidentiality"
+        ],
+        "text_references": [
+          "Engineers shall act for each employer or client as faithful agents or trustees."
+        ]
+      },
+      {
+        "label": "Honesty",
+        "description": "The ethical requirement to avoid deceptive acts or misrepresentations in professional practice.",
+        "category": "Ethical Principle",
+        "related_concepts": [
+          "Integrity",
+          "Transparency",
+          "Truthfulness"
+        ],
+        "text_references": [
+          "Engineers shall avoid deceptive acts."
+        ]
+      },
+      {
+        "label": "Professional Conduct",
+        "description": "The obligation for engineers to conduct themselves honorably, responsibly, ethically, and lawfully to uphold the reputation of the engineering profession.",
+        "category": "Professional Standard",
+        "related_concepts": [
+          "Professional Reputation",
+          "Ethical Behavior",
+          "Legal Compliance"
+        ],
+        "text_references": [
+          "Engineers shall conduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession."
+        ]
+      }
+    ]
+  },
+  "id": 1
+}

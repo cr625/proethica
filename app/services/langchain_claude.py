@@ -8,6 +8,7 @@ for structured prompting and chain-based workflows.
 import os
 from typing import Dict, List, Any, Optional
 import logging
+import anthropic
 from langchain_anthropic import ChatAnthropic
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -44,6 +45,10 @@ class LangChainClaudeService:
         self.model = model
         
         try:
+            # Initialize direct Anthropic client for fallback
+            self.anthropic_client = anthropic.Anthropic(api_key=self.api_key)
+            
+            # Initialize LangChain integration
             self.llm = ChatAnthropic(
                 model=model,
                 anthropic_api_key=self.api_key,
@@ -52,6 +57,7 @@ class LangChainClaudeService:
             logger.info(f"Initialized LangChain Claude service with model: {model}")
         except Exception as e:
             logger.error(f"Error initializing LangChain Claude service: {str(e)}")
+            logger.error(f"Consider checking compatibility between langchain-anthropic and anthropic package versions")
             raise
     
     def create_chain(self, template: str, input_variables: List[str]) -> LLMChain:

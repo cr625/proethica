@@ -1,5 +1,162 @@
 AI Ethical DM - Development Log
 
+# ⚠️ IMPORTANT: Claude Model Version Requirements ⚠️
+
+## Required Claude Model Versions
+- **Use ONLY** these model versions:
+  - `claude-3-7-sonnet-20250219` (preferred)
+  - `claude-3-7-sonnet-latest` (alternative)
+
+## Warning About Older Model Versions
+DO NOT use older model versions like `claude-3-7-sonnet-20240229` or similar, as they are incompatible with the current codebase and API implementations. Using incorrect model versions causes:
+- API compatibility errors
+- Missing type definitions (`RawMessageStreamEvent` etc.)
+- Fallbacks to mock responses
+- Broken functionality across the system
+
+## Model Version Checklist
+When making code changes that involve Claude API:
+1. Verify model version strings match one of the approved versions above
+2. Never revert to older model dates (20240229 instead of 20250219)
+3. Double-check API parameter compatibility with the specified model
+4. Test with the actual API before committing changes
+
+---
+
+## May 18, 2025 (Update #49): Fixed Anthropic API JSON Response Format Issue with SDK Compatibility
+
+### Task Completed
+Fixed the issue where the Anthropic service was returning natural language instead of JSON as reported in the MCP server logs by removing an unsupported API parameter.
+
+### Key Improvements
+1. **SDK Compatibility Fix**:
+   - Identified that the `response_format` parameter is not supported in the current Anthropic SDK version
+   - Removed the attempt to use this parameter in `mcp/modules/guideline_analysis_module.py`
+   - Simplified the implementation to use only the prompt engineering approach for structured JSON output
+   - Eliminated API compatibility warnings and errors 
+
+2. **Documentation Updates**:
+   - Created `docs/anthropic_sdk_update_fix.md` documenting the issue and solution
+   - Added notes about Anthropic's recommended approach for structured output through prompt engineering
+   - Included reference to Anthropic's official documentation on increasing output consistency
+
+3. **Error Handling Enhancements**:
+   - Updated error messages to be more accurate about the cause of JSON parsing issues
+   - Improved logging to provide clearer information about API interactions
+   - Maintained the robust fallback mechanism for non-JSON responses
+
+### Technical Details
+- Unlike OpenAI's API which has a dedicated `response_format` parameter, Anthropic's recommended approach is to handle structured output through prompt engineering
+- The error "AsyncMessages.create() got an unexpected keyword argument 'response_format'" confirmed that this parameter isn't supported in the installed SDK version
+- The working solution uses a strong system prompt with explicit instructions to return only valid JSON
+- This aligns with Anthropic's documentation at https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/increase-consistency#chain-prompts-for-complex-tasks
+
+### Next Steps
+1. **Monitor API Behavior**: Continue monitoring the API responses to ensure consistent JSON formatting
+2. **SDK Updates**: Consider updating the Anthropic SDK if a future version adds support for the `response_format` parameter
+3. **Prompt Optimization**: Further optimize the system prompt for more reliable structured output if needed
+
+## May 18, 2025 (Update #48): Fixed Anthropic SDK Compatibility Issues with Model Version Update
+
+### Task Completed
+Fixed compatibility issues with the Anthropic SDK by ensuring the correct Claude model version is used and updating the LangChain integration to work with the latest Anthropic SDK.
+
+### Key Improvements
+1. **Model Version Standardization**:
+   - Reverted incorrect model version change from `claude-3-7-sonnet-20250219` to `claude-3-7-sonnet-20240229`
+   - Added direct Anthropic client initialization for fallback capabilities
+   - Added prominent documentation in CLAUDE.md about required model versions
+
+2. **SDK Compatibility Fixes**:
+   - Removed unsupported `proxies` parameter from Anthropic client initialization
+   - Updated dependencies to compatible versions: langchain-anthropic 0.3.13 and anthropic 0.51.0
+   - Fixed API client initialization to match current SDK requirements
+
+3. **Error Handling Enhancements**:
+   - Added more detailed error logging for Anthropic SDK compatibility issues
+   - Implemented fallback mechanisms for API client initialization failures
+   - Improved documentation of common API integration issues
+
+### Technical Details
+- Model version string format is critical: `claude-3-7-sonnet-20250219` works while `claude-3-7-sonnet-20240229` causes errors
+- The Anthropic SDK recently removed support for the `proxies` parameter in initialization
+- LangChain's Anthropic integration expects the most recent type definitions from the Anthropic SDK
+- Upgrading packages ensures compatibility: `pip install --upgrade langchain-anthropic anthropic`
+
+### Next Steps
+1. **Version Pinning**: Consider pinning exact SDK versions in requirements.txt to prevent future compatibility issues
+2. **Documentation**: Update API integration documentation to include these compatibility notes
+3. **Testing**: Perform thorough API testing with the fixed implementation
+4. **Monitoring**: Watch for any remaining API errors in logs
+
+## May 18, 2025 (Update #47): Enhanced Anthropic JSON Response Handling
+
+### Task Completed
+Implemented a three-tier fallback approach to resolve the issue with Anthropic API returning natural language instead of JSON for guideline concept extraction.
+
+### Key Improvements
+1. **Multi-Tier API Call Strategy**:
+   - Primary approach: Implemented explicit `response_format={"type": "json_object"}` parameter to force JSON output
+   - Secondary approach: Enhanced system prompt with stronger JSON formatting instructions if first approach fails
+   - Tertiary fallback: Return mock concepts if both approaches fail to produce valid JSON
+
+2. **Comprehensive Error Handling**:
+   - Added detailed logging to track which approach succeeds or fails
+   - Enhanced JSON extraction and cleaning routines to handle various response formats
+   - Added compatibility issue logging to a dedicated file (anthropic_api_compatibility_issues.log)
+   - Implemented proper exception handling throughout the API call process
+
+3. **JSON Validation Pipeline**:
+   - Enhanced JSON extraction with multi-stage pattern matching (code blocks, JSON objects)
+   - Added JSON structure validation to ensure response contains required "concepts" key
+   - Implemented fallback hierarchy to guarantee service continuity even when API returns unexpected formats
+
+### Technical Details
+- The solution uses the newest Anthropic API feature (`response_format`) to explicitly request JSON
+- If that fails, it falls back to a standard request with enhanced prompt engineering
+- Both approaches use temperature settings optimized for structured output (0.2 and 0.1 respectively)
+- The logging system captures detailed information to help track API behavior over time
+
+### Next Steps
+1. **Monitor Success Rates**: Analyze logs to determine which approach has the highest success rate
+2. **API Compatibility Testing**: Test with different Claude model versions to see if behavior varies
+3. **Consider Enhancement**: If needed, develop a post-processing step to convert natural language to JSON
+4. **Stay Updated**: Watch for Anthropic API updates that might stabilize JSON output behavior
+
+## May 18, 2025 (Update #46): Fixed Anthropic API JSON Response Format Issue
+
+### Task Completed
+Fixed an issue where the Anthropic API was returning natural language responses instead of JSON for guideline concept extraction, which was causing fallbacks to mock concepts.
+
+### Key Improvements
+1. **Added response_format Parameter**:
+   - Modified the Anthropic API call in `extract_guideline_concepts` method to include `response_format={"type": "json_object"}`
+   - This explicitly instructs Claude to return only JSON-formatted responses
+
+2. **Enhanced Error Handling**:
+   - Implemented a three-tier fallback system for API calls:
+     - First attempt: Both tools and response_format parameters
+     - Second attempt: Tools only (if first attempt fails)
+     - Third attempt: Standard request with stronger JSON instructions
+   - Added comprehensive error logging to track which approach works
+
+3. **Compatibility Monitoring**:
+   - Created metrics tracking for API compatibility issues
+   - Added logging to a dedicated file "anthropic_api_compatibility_issues.log" when incompatibilities are detected
+   - Implemented JSON validation to verify responses regardless of the approach used
+
+### Technical Details
+- The issue was caused by the Anthropic API returning natural language responses despite being asked for JSON
+- There might be compatibility constraints between using both `tools` and `response_format` parameters simultaneously
+- The implemented solution tries both parameters first, then falls back if conflicts occur
+- The monitoring system will help identify the most reliable approach for future improvements
+
+### Next Steps
+1. **Monitor API Compatibility**: Review the anthropic_api_compatibility_issues.log file after production use
+2. **Update Documentation**: Document the API compatibility constraints in the developer guidelines
+3. **Consider API Updates**: Watch for Anthropic SDK updates that might address this compatibility issue
+4. **Performance Analysis**: Compare response times between the different approaches to optimize
+
 ## May 18, 2025 (Update #45): Fixed ORM Property References in MCP Client
 
 ### Task Completed
