@@ -1,5 +1,58 @@
 AI Ethical DM - Development Log
 
+## May 19, 2025 (Update #57): Enhanced NSPE Case Extraction to Preserve Links and References
+
+### Implementation Completed
+Enhanced the NSPE case extraction step to better handle embedded links and references in case content, ensuring these valuable connections between cases are preserved in the extracted output.
+
+### Key Improvements
+1. **Link Preservation and Enhancement**:
+   - Modified the extraction process to preserve HTML anchor tags while cleaning content
+   - Added functionality to convert relative URLs to absolute URLs using the base URL of the case
+   - Implemented detection and special handling for links to other NSPE cases 
+   - Created a new `linked_cases` field in the extraction output that catalogs all referenced cases
+
+2. **Case Reference Detection**:
+   - Added regex-based detection of case references in text (e.g., "Case 20-1") even when not hyperlinked
+   - Implemented a `_mark_case_references` method that wraps these references in span elements with a special class
+   - Enhanced the extraction to identify both linked and text-based references to other cases
+
+3. **HTML Handling Improvements**:
+   - Added more sophisticated HTML cleaning that preserves link structure while removing unnecessary elements
+   - Implemented context-aware HTML extraction that maintains the document structure
+   - Created a base URL handling system to ensure all links remain functional in extracted content
+   - Added special handling to unwrap unnecessary div elements while preserving their content
+
+### Technical Details
+- **New Methods Added**:
+  - `_clean_html_preserve_links`: Cleans HTML while preserving anchor tags and their attributes
+  - `_mark_case_references`: Identifies and marks textual references to other cases 
+  - Several helper methods to handle different HTML structural patterns
+
+- **Output Enhancements**:
+  - Added a new `linked_cases` array in the extraction result with both link text and URLs
+  - Preserved HTML formatting in all sections, particularly in the Discussion section where case references are common
+
+### Verification
+Tested with the NSPE case "23-4: Acknowledging Errors in Design" to confirm that:
+1. All hyperlinks in the Discussion section are properly preserved
+2. Text-based references to other cases are now identified and marked
+3. All section extraction continues to work correctly with the enhanced HTML handling
+
+### Next Steps
+1. **Reference Normalization**:
+   - Develop a consistent format for case references (standardize formats like "Case 20-1" vs "BER Case 20-1")
+   - Create a mapping system to correlate case references with their full details
+
+2. **User Interface Enhancement**:
+   - Improve the display of linked cases in the UI
+   - Add tooltips or preview functionality for referenced cases
+   - Implement navigation between related cases
+
+3. **Triple Generation Integration**:
+   - Use the identified links between cases to generate semantic triples
+   - Create "references" or "cites" relationships between cases in the knowledge graph
+
 ## May 19, 2025 (Update #56): Implemented Phase 2 - NSPE Case Content Extraction
 
 ### Implementation Completed
@@ -451,112 +504,4 @@ Fixed an issue where the Anthropic API was returning natural language responses 
 1. **Monitor API Compatibility**: Review the anthropic_api_compatibility_issues.log file after production use
 2. **Update Documentation**: Document the API compatibility constraints in the developer guidelines
 3. **Consider API Updates**: Watch for Anthropic SDK updates that might address this compatibility issue
-4. **Performance Analysis**: Compare response times between the different approaches to optimize
-
-## May 18, 2025 (Update #45): Fixed ORM Property References in MCP Client
-
-### Task Completed
-Fixed an issue where the application was trying to access a non-existent 'source' property on the Ontology model. This was causing errors during entity loading with the message "Error checking ontology status: Entity namespace for 'ontologies' has no property 'source'".
-
-### Key Improvements
-1. **Fixed Database Property Reference**:
-   - Changed references from `source` to `domain_id` in the MCPClient class
-   - The Ontology model has a `domain_id` column but not a `source` column
-   - Updated the query in the `get_ontology_status` method to use the correct field name
-
-2. **Error Resolution**:
-   - Resolved the error: `Error checking ontology status: Entity namespace for "ontologies" has no property "source"`
-   - Improved error handling to provide more helpful messages when accessing database entities
-   - Added clearer logging to help diagnose similar issues in the future
-
-3. **Technical Details**:
-   - The issue was in `app/services/mcp_client.py` where it was using `Ontology.query.filter_by(source=ontology_source).first()`
-   - Changed to use `Ontology.query.filter_by(domain_id=ontology_source).first()` which matches the actual schema
-   - This allows proper lookup of ontologies by their domain identifier which is critical for guideline concept extraction
-
-### Next Steps
-1. **Database Schema Documentation**: Create comprehensive documentation of the database schema to prevent similar issues
-2. **Code Auditing**: Review other parts of the codebase for similar ORM property mismatches
-3. **Testing**: Implement additional tests to verify database entity access works correctly
-4. **Data Validation**: Add validation to ensure data consistency between the MCP server and Flask application
-
-## May 18, 2025 (Update #44): Fixed Database Configuration Handling in MCP Server
-
-### Task Completed
-Fixed the SQL database configuration error in the Enhanced Ontology MCP Server that was appearing during guideline concept extraction. The issue was resolved by improving database configuration handling and fixing the table name references.
-
-### Key Improvements
-1. **Fixed Database Configuration Handling**:
-   - Created a new `fix_flask_db_config.py` module to properly set up Flask database configuration
-   - Implemented proper environment variable handling for database connection
-   - Ensured database configuration is set before Flask app initialization
-   - Fixed the error: `RuntimeError: Either 'SQLALCHEMY_DATABASE_URI' or 'SQLALCHEMY_BINDS' must be set`
-
-2. **Fixed Table Name References**:
-   - Identified that the code was looking for an "ontology" table but the actual table name is "ontologies" (plural)
-   - Updated all SQL queries to reference the correct table name
-   - Implemented domain ID format standardization (hyphen vs underscore)
-   - Added better error handling and more detailed logging
-
-3. **Improved Module Import System**:
-   - Added a backward compatibility alias in `base_module.py` to support existing modules
-   - Fixed the error: `ImportError: cannot import name 'BaseModule' from 'mcp.modules.base_module'`
-   - Ensured proper module initialization order to prevent circular imports
-   - Created stable module interfaces for future development
-
-4. **Enhanced Server Management**:
-   - Created a restart script (`restart_mcp_server.sh`) to easily restart the MCP server
-   - Added server health checking to verify proper startup
-   - Implemented proper database session handling throughout the codebase
-   - Added improved environment variable handling in server scripts
-
-### Technical Details
-1. **Database Configuration Fix**:
-   - Set `SQLALCHEMY_DATABASE_URI` environment variable before Flask app initialization
-   - Created functions to safely manage Flask app context for database operations
-   - Used direct SQLAlchemy engine creation as a fallback when Flask app context fails
-   - Implemented detailed error logging to trace configuration issues
-
-2. **Table Name and Schema Handling**:
-   - Updated the query from `SELECT id, content FROM ontology` to `SELECT id, content FROM ontologies`
-   - Added domain ID format standardization to match database conventions
-   - Implemented column mapping based on actual database schema
-   - Added detailed logging of database schema checks and query results
-
-### Next Steps
-1. **Advanced Error Handling**: Further enhance error handling by implementing detailed error types and recovery strategies
-2. **Performance Optimization**: Monitor and optimize database query performance for ontology loading
-3. **Caching Implementation**: Consider adding caching for frequently used ontology data to reduce database load
-4. **Monitoring Setup**: Implement proper monitoring for database connections and performance metrics
-
-AI Ethical DM - Development Log
-
-## May 18, 2025 (Update #43): Fixed SQL Error in MCP Server
-
-### Task Completed
-Fixed the SQL error in the Enhanced Ontology MCP Server by implementing a direct database connection approach instead of using Flask app context.
-
-### Key Improvements
-1. **Identified Root Cause**:
-   - The error message: `Error loading from database: Either 'SQLALCHEMY_DATABASE_URI' or 'SQLALCHEMY_BINDS' must be set.`
-   - The MCP server was trying to create a Flask app context to access the database but wasn't properly inheriting environment variables
-   - This caused the database configuration to be missing when the app context was created
-
-2. **Implemented Clean Solution**:
-   - Modified `_load_graph_from_file` method in `mcp/http_ontology_mcp_server.py` to use SQLAlchemy directly
-   - Removed dependency on Flask app context for database operations
-   - Used environment variables with proper fallback for database connection URL
-   - Implemented proper session handling with cleanup
-   - Maintained detailed logging for debugging purposes
-
-3. **Technical Details**:
-   - Used SQLAlchemy core functionality to create direct database connection
-   - Configured connection with `DATABASE_URL` from environment with fallback to `postgresql://postgres:PASS@localhost:5433/ai_ethical_dm`
-   - Implemented proper SQL query to directly fetch ontology content from the database
-   - Ensured database sessions are properly closed after use
-
-### Next Steps
-1. **Test MCP Server**: Restart the MCP server to verify the fix works in practice
-2. **Monitor Logs**: Watch for any new errors in the MCP server logs
-3. **Consider Configuration Refactoring**: Evaluate centralizing database configuration to avoid similar issues
-4. **Documentation Update**: Update technical documentation with details of this implementation change
+4. **Performance Analysis**: Compare

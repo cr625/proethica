@@ -61,23 +61,35 @@
                                     <h5 class="mb-0">Facts</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.facts|nl2br }}</p>
+                                    <p class="mb-0">{{ result.sections.facts|safe }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                     {% endif %}
 
-                    <!-- Question Section -->
-                    {% if result.sections.question %}
+                    <!-- Questions Section -->
+                    {% if result.questions_list or result.sections.question %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-header bg-light">
+                                    {% if result.questions_list|length > 1 %}
+                                    <h5 class="mb-0">Questions</h5>
+                                    {% else %}
                                     <h5 class="mb-0">Question</h5>
+                                    {% endif %}
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.question|nl2br }}</p>
+                                    {% if result.questions_list %}
+                                    <ol>
+                                        {% for question in result.questions_list %}
+                                        <li>{{ question }}</li>
+                                        {% endfor %}
+                                    </ol>
+                                    {% else %}
+                                    <p class="mb-0">{{ result.sections.question|safe }}</p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -93,7 +105,7 @@
                                     <h5 class="mb-0">NSPE Code of Ethics References</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.references|nl2br }}</p>
+                                    <p class="mb-0">{{ result.sections.references|safe }}</p>
                                 </div>
                             </div>
                         </div>
@@ -109,7 +121,7 @@
                                     <h5 class="mb-0">Discussion</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.discussion|nl2br }}</p>
+                                    <p class="mb-0">{{ result.sections.discussion|safe }}</p>
                                 </div>
                             </div>
                         </div>
@@ -125,7 +137,7 @@
                                     <h5 class="mb-0">Conclusion</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.conclusion|nl2br }}</p>
+                                    <p class="mb-0">{{ result.sections.conclusion|safe }}</p>
                                 </div>
                             </div>
                         </div>
