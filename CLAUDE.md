@@ -1,5 +1,43 @@
 # ProEthica Project Development Log
 
+## 2025-05-19: Python Environment Package Resolution Fix
+
+Fixed an issue with Python module imports when accessing the codespace from a different system:
+
+**Issue**: When accessing the codespace from a different system, the application was experiencing module import errors - first `ModuleNotFoundError: No module named 'langchain_core'` and then `ModuleNotFoundError: No module named 'langchain_anthropic'` despite these packages being included in requirements.txt.
+
+**Analysis**: 
+- The ProEthica application's Python dependencies are installed in the user site-packages directory (`/home/codespace/.local/lib/python3.12/site-packages`)
+- When accessing the codespace from a different system, VSCode's debugger was using the conda Python environment (`/opt/conda/bin/python`)
+- While some packages like langchain-core and langchain-anthropic were installed in the conda environment, they weren't installed in the user Python environment
+
+**Solution**:
+1. Manually installed the missing packages in the user Python environment:
+   ```bash
+   pip install --user langchain-core langchain-anthropic
+   ```
+2. Created a shell script (`fix_dependencies.sh`) to fix similar issues in the future:
+   ```bash
+   # Set Python to ignore the conda environment
+   export USE_CONDA="false"
+   
+   # Add user site-packages to PYTHONPATH
+   export PYTHONPATH="/home/codespace/.local/lib/python3.12/site-packages:$PYTHONPATH"
+   
+   # Force reinstall packages to user site-packages
+   pip install --user --force-reinstall <package-name>
+   ```
+
+**Prevention**:
+For future development, make sure to:
+- Use the VSCode debugging configurations in launch.json which correctly set up the Python path
+- Run the `scripts/ensure_python_path.sh` script before debugging
+- For any new import errors, install the package directly to the user site-packages:
+  ```bash
+  pip install --user <package-name>
+  ```
+- If necessary, force reinstall packages to ensure they're in the correct location
+
 ## 2025-05-19: Ontology Enhancements
 
 Updated the proethica-intermediate.ttl ontology with the following:
