@@ -30,8 +30,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Keep debug features but disable auto-reloader
 if __name__ == '__main__':
-    print(f"Starting Flask debug server on port 3334...")
+    print(f"Starting Flask debug server on port 3333...")
     print(f"Debug mode enabled, but auto-reloader disabled to prevent restart cycle")
     
     # Run with debug=True for enhanced error pages but use_reloader=False to prevent restarts
-    app.run(host='0.0.0.0', port=3334, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=3333, debug=True, use_reloader=False)

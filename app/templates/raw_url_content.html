@@ -47,11 +47,21 @@
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('cases.url_form') }}" class="btn btn-secondary">Back to URL Form</a>
-                    {% if not error %}
-                    <a href="{{ url_for('cases.create_from_url') }}" class="btn btn-primary float-right">Process as
-                        Case</a>
-                    {% endif %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('cases.url_form') }}" class="btn btn-secondary">Back to URL Form</a>
+
+                        {% if not error %}
+                        <div>
+                            <form method="post" action="{{ url_for('cases.process_url_pipeline') }}" class="d-inline">
+                                <input type="hidden" name="url" value="{{ url }}">
+                                <input type="hidden" name="process_extraction" value="true">
+                                <button type="submit" class="btn btn-info mr-2">Process as NSPE Case</button>
+                            </form>
+
+                            <a href="{{ url_for('cases.create_from_url') }}" class="btn btn-primary">Save as Case</a>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>

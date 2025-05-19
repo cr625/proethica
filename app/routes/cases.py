@@ -272,11 +272,21 @@ def url_form():
     
     return render_template('create_case_from_url.html', worlds=worlds)
 
-@cases_bp.route('/process/url', methods=['POST'])
+@cases_bp.route('/process/url', methods=['GET', 'POST'])
 def process_url_pipeline():
     """Process a URL through the case processing pipeline."""
-    # Get URL from form
+    # Handle GET requests (typically from back button)
+    if request.method == 'GET':
+        url = request.args.get('url')
+        if not url:
+            return redirect(url_for('cases.url_form'))
+        
+        # Re-submit as POST to process the URL
+        return render_template('process_url_form.html', url=url)
+    
+    # Process POST requests
     url = request.form.get('url')
+    process_extraction = request.form.get('process_extraction') == 'true'
     
     if not url:
         return render_template('raw_url_content.html', 
@@ -286,12 +296,17 @@ def process_url_pipeline():
     # Initialize pipeline
     from app.services.case_processing.pipeline_manager import PipelineManager
     from app.services.case_processing.pipeline_steps.url_retrieval_step import URLRetrievalStep
+    from app.services.case_processing.pipeline_steps.nspe_extraction_step import NSPECaseExtractionStep
     
     pipeline = PipelineManager()
     pipeline.register_step('url_retrieval', URLRetrievalStep())
+    pipeline.register_step('nspe_extraction', NSPECaseExtractionStep())
     
-    # Run pipeline with only the URL retrieval step
-    result = pipeline.run_pipeline({'url': url}, ['url_retrieval'])
+    # Determine which steps to run based on process_extraction
+    steps_to_run = ['url_retrieval', 'nspe_extraction'] if process_extraction else ['url_retrieval']
+    
+    # Run pipeline
+    result = pipeline.run_pipeline({'url': url}, steps_to_run)
     
     # Get the final result (output from the last step)
     final_result = result.get('final_result', {})
@@ -303,7 +318,12 @@ def process_url_pipeline():
                                error_details=final_result,
                                url=url)
     
-    # Success - display the retrieved content
+    # If extraction was requested, show the extracted content
+    if process_extraction:
+        return render_template('case_extracted_content.html',
+                              result=final_result)
+    
+    # Otherwise, just show the raw content
     return render_template('raw_url_content.html',
                           url=final_result.get('url'),
                           content=final_result.get('content'),

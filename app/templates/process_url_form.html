@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Process URL{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Process URL</h4>
+                </div>
+                <div class="card-body">
+                    <p>Please select how you would like to process this URL:</p>
+                    <p class="text-muted">URL: {{ url }}</p>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">View Raw Content</h5>
+                                    <p class="card-text">View the unprocessed content from the URL.</p>
+                                    <form method="post" action="{{ url_for('cases.process_url_pipeline') }}">
+                                        <input type="hidden" name="url" value="{{ url }}">
+                                        <button type="submit" class="btn btn-primary btn-block">View Raw
+                                            Content</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Extract NSPE Case</h5>
+                                    <p class="card-text">Process the URL as an NSPE case and extract structured content.
+                                    </p>
+                                    <form method="post" action="{{ url_for('cases.process_url_pipeline') }}">
+                                        <input type="hidden" name="url" value="{{ url }}">
+                                        <input type="hidden" name="process_extraction" value="true">
+                                        <button type="submit" class="btn btn-success btn-block">Extract Case</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{{ url_for('cases.url_form') }}" class="btn btn-secondary">Back to URL Form</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

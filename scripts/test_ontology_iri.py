@@ -12,7 +12,7 @@ import json
 from urllib.parse import quote
 
 # Configuration
-BASE_URL = "http://localhost:3334"  # Change this to your server URL
+BASE_URL = "http://localhost:3333"  # Change this to your server URL
 TEST_ENTITY = "http://proethica.org/ontology/engineering-ethics#ProjectEngineerRole"
 
 def print_separator():

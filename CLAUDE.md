@@ -1,5 +1,65 @@
 AI Ethical DM - Development Log
 
+## May 19, 2025 (Update #56): Implemented Phase 2 - NSPE Case Content Extraction
+
+### Implementation Completed
+Implemented the second phase of the case processing pipeline - NSPE case extraction that parses raw HTML content into structured case components.
+
+### Key Components Implemented
+1. **NSPECaseExtractionStep Class**:
+   - Created a new pipeline step for extracting structured content from NSPE cases
+   - Implemented HTML parsing using BeautifulSoup
+   - Added extraction logic for all standard NSPE case components:
+     - PDF URL (first PDF link in document)
+     - Case Number (using pattern matching)
+     - Year/Date 
+     - Facts section
+     - Questions section
+     - References section (NSPE Code of Ethics)
+     - Discussion section 
+     - Conclusion section
+   - Implemented comprehensive error handling and fallbacks
+
+2. **Template for Displaying Extracted Content**:
+   - Created case_extracted_content.html for displaying structured case content
+   - Implemented card-based layout with sections for each case component
+   - Added metadata display for case number, year, and PDF link
+   - Included form for saving the extracted content as a case
+
+3. **Process Flow Improvements**:
+   - Updated the URL processing route to support both raw content and case extraction
+   - Added a process_url_form.html template for choosing processing options
+   - Enhanced raw_url_content.html with additional extraction options
+   - Implemented clear user flow between different processing steps
+
+### Technical Enhancements
+- **Robust Extraction Logic**:
+   - Used multiple extraction methods with fallbacks for each component
+   - Implemented regex pattern matching to identify section boundaries
+   - Added text cleaning routines to improve output quality
+   - Developed flexible section identification that works with different formats
+
+- **User Experience Improvements**:
+   - Added clear navigation between raw content and extracted content views
+   - Implemented responsive design for all templates
+   - Added helpful messages when sections are not found
+   - Preserved original content for reference
+
+### Verification
+The implementation was tested with the URL https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/acknowledging-errors-design and successfully extracted all the key sections.
+
+### Next Steps
+1. **Phase 3: Content Cleaning & Enhanced Extraction**:
+   - Improve quality of extracted content 
+   - Add support for non-NSPE case formats
+   - Implement noise removal from extracted text
+   - Add document structure identification for various document types
+
+2. **Testing & Documentation**:
+   - Create comprehensive tests for extraction algorithms
+   - Document extraction patterns for different case formats
+   - Add examples for extending extraction to other document types
+
 ## May 19, 2025 (Update #55): Implemented Phase 1 of Case Processing Pipeline
 
 ### Implementation Completed
