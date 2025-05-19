@@ -52,7 +52,11 @@
                 </div>
 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="submit" class="btn btn-success">Process URL</button>
+                    <button type="submit" class="btn btn-success me-2">Process URL</button>
+                    <button type="submit" class="btn btn-primary"
+                        formaction="{{ url_for('cases.process_url_pipeline') }}">
+                        <i class="bi bi-file-text"></i> View Raw Content First
+                    </button>
                 </div>
             </form>
         </div>

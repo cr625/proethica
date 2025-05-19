@@ -272,6 +272,46 @@ def url_form():
     
     return render_template('create_case_from_url.html', worlds=worlds)
 
+@cases_bp.route('/process/url', methods=['POST'])
+def process_url_pipeline():
+    """Process a URL through the case processing pipeline."""
+    # Get URL from form
+    url = request.form.get('url')
+    
+    if not url:
+        return render_template('raw_url_content.html', 
+                               error="URL is required",
+                               error_details="Please provide a valid URL to process.")
+    
+    # Initialize pipeline
+    from app.services.case_processing.pipeline_manager import PipelineManager
+    from app.services.case_processing.pipeline_steps.url_retrieval_step import URLRetrievalStep
+    
+    pipeline = PipelineManager()
+    pipeline.register_step('url_retrieval', URLRetrievalStep())
+    
+    # Run pipeline with only the URL retrieval step
+    result = pipeline.run_pipeline({'url': url}, ['url_retrieval'])
+    
+    # Get the final result (output from the last step)
+    final_result = result.get('final_result', {})
+    
+    # Check for errors
+    if final_result.get('status') == 'error':
+        return render_template('raw_url_content.html',
+                               error=final_result.get('message'),
+                               error_details=final_result,
+                               url=url)
+    
+    # Success - display the retrieved content
+    return render_template('raw_url_content.html',
+                          url=final_result.get('url'),
+                          content=final_result.get('content'),
+                          content_type=final_result.get('content_type'),
+                          content_length=final_result.get('content_length'),
+                          status_code=final_result.get('status_code'),
+                          encoding=final_result.get('encoding'))
+
 @cases_bp.route('/new/document', methods=['GET'])
 def upload_document_form():
     """Display form to create a case from document upload."""
