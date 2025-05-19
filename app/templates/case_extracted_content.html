@@ -53,7 +53,7 @@
                     </div>
 
                     <!-- Facts Section -->
-                    {% if result.sections.facts %}
+                    {% if (result.sections and result.sections.facts) or result.facts %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
@@ -61,7 +61,8 @@
                                     <h5 class="mb-0">Facts</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.facts|safe }}</p>
+                                    <p class="mb-0">{{ (result.sections.facts if result.sections else result.facts)|safe
+                                        }}</p>
                                 </div>
                             </div>
                         </div>
@@ -69,12 +70,13 @@
                     {% endif %}
 
                     <!-- Questions Section -->
-                    {% if result.questions_list or result.sections.question %}
+                    {% if result.questions_list or (result.sections and result.sections.question) or
+                    result.question_html %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-header bg-light">
-                                    {% if result.questions_list|length > 1 %}
+                                    {% if result.questions_list and result.questions_list|length > 1 %}
                                     <h5 class="mb-0">Questions</h5>
                                     {% else %}
                                     <h5 class="mb-0">Question</h5>
@@ -88,7 +90,8 @@
                                         {% endfor %}
                                     </ol>
                                     {% else %}
-                                    <p class="mb-0">{{ result.sections.question|safe }}</p>
+                                    <p class="mb-0">{{ (result.sections.question if result.sections else
+                                        result.question_html)|safe }}</p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -97,7 +100,7 @@
                     {% endif %}
 
                     <!-- References Section -->
-                    {% if result.sections.references %}
+                    {% if (result.sections and result.sections.references) or result.references %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
@@ -105,7 +108,8 @@
                                     <h5 class="mb-0">NSPE Code of Ethics References</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.references|safe }}</p>
+                                    <p class="mb-0">{{ (result.sections.references if result.sections else
+                                        result.references)|safe }}</p>
                                 </div>
                             </div>
                         </div>
@@ -113,7 +117,7 @@
                     {% endif %}
 
                     <!-- Discussion Section -->
-                    {% if result.sections.discussion %}
+                    {% if (result.sections and result.sections.discussion) or result.discussion %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
@@ -121,7 +125,8 @@
                                     <h5 class="mb-0">Discussion</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.discussion|safe }}</p>
+                                    <p class="mb-0">{{ (result.sections.discussion if result.sections else
+                                        result.discussion)|safe }}</p>
                                 </div>
                             </div>
                         </div>
@@ -129,7 +134,7 @@
                     {% endif %}
 
                     <!-- Conclusion Section -->
-                    {% if result.sections.conclusion %}
+                    {% if (result.sections and result.sections.conclusion) or result.conclusion %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
@@ -137,7 +142,8 @@
                                     <h5 class="mb-0">Conclusion</h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="mb-0">{{ result.sections.conclusion|safe }}</p>
+                                    <p class="mb-0">{{ (result.sections.conclusion if result.sections else
+                                        result.conclusion)|safe }}</p>
                                 </div>
                             </div>
                         </div>

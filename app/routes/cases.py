@@ -320,6 +320,19 @@ def process_url_pipeline():
     
     # If extraction was requested, show the extracted content
     if process_extraction:
+        # Ensure the result has the structure the template expects
+        if 'sections' not in final_result and final_result.get('status') == 'success':
+            # If the sections key isn't at the top level but we have individual section data,
+            # restructure it to match what the template expects
+            sections_data = {
+                'facts': final_result.get('facts', ''),
+                'question': final_result.get('question_html', ''),
+                'references': final_result.get('references', ''),
+                'discussion': final_result.get('discussion', ''),
+                'conclusion': final_result.get('conclusion', '')
+            }
+            final_result['sections'] = sections_data
+            
         return render_template('case_extracted_content.html',
                               result=final_result)
     

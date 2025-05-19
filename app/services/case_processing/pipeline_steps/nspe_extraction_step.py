@@ -160,6 +160,234 @@ class NSPECaseExtractionStep(BaseStep):
         
         # Fall back to more generic extraction if specific pattern not found
         return None
+
+    def extract_references_section(self, soup, base_url=None):
+        """
+        Extract NSPE Code of Ethics References section with special handling for code references.
+        
+        Args:
+            soup: BeautifulSoup object of the full page content
+            base_url: Base URL for converting relative links to absolute
+            
+        Returns:
+            str: Extracted and cleaned references section HTML
+        """
+        # First try the specific div structure for modern NSPE cases
+        references_div = soup.find('div', class_='field--name-field-code-of-ethics')
+        if not references_div:
+            references_div = soup.find('div', class_='field-name-field-case-references')
+        if not references_div:
+            # Try to find by field label
+            field_labels = soup.find_all('div', class_='field__label')
+            for label in field_labels:
+                if 'nspe code of ethics references' in label.get_text().lower():
+                    references_div = label.parent
+                    break
+        
+        if references_div:
+            # Find the field__items or field__item which contains the actual content
+            field_items = references_div.find('div', class_='field__items')
+            if field_items:
+                # Process the content for links and formatting
+                return self._process_references_html(str(field_items), base_url)
+            
+            field_item = references_div.find('div', class_='field__item')
+            if field_item:
+                return self._process_references_html(str(field_item), base_url)
+        
+        # Fall back to general section extraction method if specialized methods fail
+        return None
+    
+    def _process_references_html(self, html, base_url=None):
+        """
+        Process references section HTML to properly handle code references and links.
+        
+        Args:
+            html: Raw HTML content of references section
+            base_url: Base URL for converting relative links to absolute
+            
+        Returns:
+            str: Processed HTML with proper link handling
+        """
+        if not html:
+            return ""
+            
+        # Create a BeautifulSoup object from the HTML
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+            
+        # Process links to make them absolute if needed
+        if base_url:
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                if not href.startswith(('http://', 'https://', 'mailto:', 'tel:')):
+                    link['href'] = urljoin(base_url, href)
+        
+        # Keep essential attributes for code references and links
+        for tag in soup.find_all(True):
+            if tag.name == 'a':
+                # For anchor tags, preserve href and target attributes
+                href = tag.get('href', '')
+                target = tag.get('target', '_blank')
+                title = tag.get('title', '')
+                tag.attrs = {}  # Clear all attributes
+                tag['href'] = href
+                tag['target'] = target
+                if title:
+                    tag['title'] = title
+            elif tag.name in ['h2']:
+                # Preserve h2 tags which often contain code section numbers
+                pass
+            else:
+                # For other tags, clean up attributes but preserve structure
+                classes = tag.get('class', [])
+                if 'field__item' in classes or 'field__items' in classes:
+                    tag.attrs = {'class': classes}
+                else:
+                    tag.attrs = {}
+        
+        # Get the cleaned HTML
+        cleaned_html = str(soup)
+        
+        # Fix excessive whitespace but preserve formatting
+        cleaned_html = re.sub(r'\n\s*\n', '\n\n', cleaned_html)
+        
+        return cleaned_html
+        
+    def extract_discussion_section(self, soup, base_url=None):
+        """
+        Extract discussion section with special handling for links and references.
+        The discussion section often contains links to other cases and complex formatting.
+        
+        Args:
+            soup: BeautifulSoup object of the full page content
+            base_url: Base URL for converting relative links to absolute
+            
+        Returns:
+            str: Extracted and cleaned discussion section HTML with links preserved
+        """
+        # First try the specific div structure for modern NSPE cases
+        discussion_div = soup.find('div', class_='field--name-field-case-discussion')
+        if discussion_div:
+            # Find the field__item which contains the actual content
+            field_item = discussion_div.find('div', class_='field__item')
+            if field_item:
+                # Process the content for links and formatting
+                return self._process_discussion_html(str(field_item), base_url)
+                
+        # Next, try to find the discussion section by its label
+        discussion_divs = soup.find_all('div', class_='field__label')
+        for div in discussion_divs:
+            if div.get_text().strip().lower() == 'discussion':
+                # Found the discussion label, get the content from the nearest field__item
+                parent = div.parent
+                if parent:
+                    field_item = parent.find('div', class_='field__item')
+                    if field_item:
+                        return self._process_discussion_html(str(field_item), base_url)
+                        
+        # Fall back to general section extraction method if specialized methods fail
+        return None
+    
+    def extract_conclusion_section(self, soup, base_url=None):
+        """
+        Extract conclusion section with special handling.
+        
+        Args:
+            soup: BeautifulSoup object of the full page content
+            base_url: Base URL for converting relative links to absolute
+            
+        Returns:
+            str: Extracted and cleaned conclusion section HTML
+        """
+        # First try the specific div structure for modern NSPE cases
+        conclusion_div = soup.find('div', class_='field--name-field-case-conclusion')
+        if conclusion_div:
+            # Find the field__item which contains the actual content
+            field_item = conclusion_div.find('div', class_='field__item')
+            if field_item:
+                # Extract and clean the conclusion content
+                return self._clean_minimal_html(str(field_item))
+        
+        # Next, try to find by field label
+        field_labels = soup.find_all('div', class_='field__label')
+        for label in field_labels:
+            if label.get_text().strip().lower() == 'conclusion' or label.get_text().strip().lower() == 'conclusions':
+                # Found the conclusion label, get the content from the nearest field__item
+                parent = label.parent
+                if parent:
+                    field_item = parent.find('div', class_='field__item')
+                    if field_item:
+                        return self._clean_minimal_html(str(field_item))
+        
+        # Fall back to general section extraction method if specialized methods fail
+        return None
+    
+    def _process_discussion_html(self, html, base_url=None):
+        """
+        Process discussion section HTML to properly handle links and formatting.
+        
+        Args:
+            html: Raw HTML content of discussion section
+            base_url: Base URL for converting relative links to absolute
+            
+        Returns:
+            str: Processed HTML with proper link handling
+        """
+        if not html:
+            return ""
+            
+        # Create a BeautifulSoup object from the HTML
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+            
+        # Process links to make them absolute if needed
+        if base_url:
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                if not href.startswith(('http://', 'https://', 'mailto:', 'tel:')):
+                    link['href'] = urljoin(base_url, href)
+                    
+                # Mark links to other cases with a special class
+                if 'case' in href.lower() or 'ethics' in href.lower():
+                    link['class'] = link.get('class', []) + ['case-link']
+        
+        # Process BER case references in text that aren't already links
+        self._mark_case_references(soup)
+        
+        # Remove all divs but keep their content
+        for div in soup.find_all('div'):
+            div.unwrap()
+            
+        # Keep essential attributes for anchors, but clean other tags
+        for tag in soup.find_all(True):
+            if tag.name == 'a':
+                # For anchor tags, preserve href and target attributes
+                href = tag.get('href', '')
+                target = tag.get('target', '_blank')
+                title = tag.get('title', '')
+                tag.attrs = {}  # Clear all attributes
+                tag['href'] = href
+                tag['target'] = target
+                if title:
+                    tag['title'] = title
+            elif tag.name not in ['span']:
+                # For other tags, remove all attributes except for spans (might have case-reference class)
+                tag.attrs = {}
+        
+        # Get the cleaned HTML
+        cleaned_html = str(soup)
+        
+        # Fix excessive whitespace but preserve paragraph structure
+        cleaned_html = re.sub(r'\n\s*\n', '\n\n', cleaned_html)
+        
+        return cleaned_html
         
     def _extract_individual_questions(self, html):
         """
@@ -495,27 +723,27 @@ class NSPECaseExtractionStep(BaseStep):
                 # Try to extract individual questions from the generic extraction result
                 if question_html:
                     questions_list = self._extract_individual_questions(question_html)
-                
-            # Extract references section with specific targeting
-            references_div = soup.find('div', class_='field--name-field-case-references')
-            if references_div and references_div.find('div', class_='field__item'):
-                references = self._clean_minimal_html(str(references_div.find('div', class_='field__item')))
-            else:
-                references = self.extract_section(soup, "Reference:", ["Discussion:", "Conclusion:", "Conclusions:"], base_url)
+            
+            # Extract references section with specialized handling
+            references = self.extract_references_section(soup, base_url)
+            if not references:
+                # Fall back to generic extraction
+                references = self.extract_section(soup, "NSPE Code of Ethics References:", ["Discussion:", "Conclusion:", "Conclusions:"], base_url)
                 if not references:
-                    references = self.extract_section(soup, "References:", ["Discussion:", "Conclusion:", "Conclusions:"], base_url)
+                    references = self.extract_section(soup, "Reference:", ["Discussion:", "Conclusion:", "Conclusions:"], base_url)
+                    if not references:
+                        references = self.extract_section(soup, "References:", ["Discussion:", "Conclusion:", "Conclusions:"], base_url)
                 
-            # Extract discussion section with specific targeting
-            discussion_div = soup.find('div', class_='field--name-field-case-discussion')
-            if discussion_div and discussion_div.find('div', class_='field__item'):
-                discussion = self._clean_minimal_html(str(discussion_div.find('div', class_='field__item')))
-            else:
+            # Extract discussion section with specialized handling
+            discussion = self.extract_discussion_section(soup, base_url)
+            if not discussion:
+                # Fall back to the general extraction method
                 discussion = self.extract_section(soup, "Discussion:", ["Conclusion:", "Conclusions:"], base_url)
-            # Extract conclusion section with specific targeting
-            conclusion_div = soup.find('div', class_='field--name-field-case-conclusion')
-            if conclusion_div and conclusion_div.find('div', class_='field__item'):
-                conclusion = self._clean_minimal_html(str(conclusion_div.find('div', class_='field__item')))
-            else:
+                
+            # Extract conclusion section with specialized handling
+            conclusion = self.extract_conclusion_section(soup, base_url)
+            if not conclusion:
+                # Fall back to the general extraction method
                 conclusion = self.extract_section(soup, "Conclusion:", [], base_url)
                 if not conclusion:
                     conclusion = self.extract_section(soup, "Conclusions:", [], base_url)
@@ -545,50 +773,26 @@ class NSPECaseExtractionStep(BaseStep):
                     else:
                         title = title_text
             
-            if not title:
-                # Try to get from the first heading
-                heading = soup.find(['h1', 'h2'])
-                if heading:
-                    title = heading.get_text().strip()
-                    
-            # Extract linked case references from the discussion section
-            linked_cases = []
-            if discussion and '<a ' in discussion:
-                # Create temporary soup to extract links
-                disc_soup = BeautifulSoup(discussion, 'html.parser')
-                for link in disc_soup.find_all('a', href=True):
-                    link_text = link.get_text().strip()
-                    link_url = link['href']
-                    
-                    # If the link appears to be to another case, add it to the linked cases
-                    if 'case' in link_url.lower() or 'ethics' in link_url.lower():
-                        linked_cases.append({
-                            'text': link_text,
-                            'url': link_url
-                        })
-            
-            # Return structured result
-            return {
+            # Prepare result with all extracted components
+            result = {
                 'status': 'success',
-                'url': url,
                 'title': title,
                 'case_number': case_number,
                 'year': year,
                 'pdf_url': pdf_url,
+                'questions_list': questions_list,  # List of individual questions
+                'url': url,
                 'sections': {
                     'facts': facts,
                     'question': question_html,
                     'references': references,
                     'discussion': discussion,
                     'conclusion': conclusion
-                },
-                'questions_list': questions_list,
-                'linked_cases': linked_cases,
-                'raw_content': html_content  # Include the original content
+                }
             }
-                
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error extracting NSPE case content: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
+            logger.error(f"Error processing HTML content: {str(e)}")
             return self.get_error_result(f"Error extracting case content: {str(e)}")

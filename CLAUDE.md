@@ -1,5 +1,108 @@
 AI Ethical DM - Development Log
 
+## May 19, 2025 (Update #59): Fixed Multiple Questions Extraction in NSPE Pipeline
+
+### Implementation Completed
+Fixed and enhanced the NSPE case extraction pipeline to properly handle multiple questions in case content. Previously, the extraction was incomplete and would truncate when trying to extract multiple questions, but now it properly recognizes ordered and unordered lists of questions and extracts each question as a separate item.
+
+### Key Improvements
+1. **Multiple Questions Extraction**:
+   - Enhanced the existing question extraction logic to handle structured question lists
+   - Properly implemented the `_extract_individual_questions` method to parse both ordered (`ol`) and unordered (`ul`) lists
+   - Added support for traditional question formats used in NSPE cases like:
+     ```html
+     <div class="field__item"><ol><li>Question 1</li><li>Question 2</li><li>Question 3</li></ol></div>
+     ```
+   - Fixed the HTML processing to properly handle the DOM structure of question sections
+
+2. **Error Handling**:
+   - Fixed the incomplete try/except block in the process method
+   - Added proper exception handling and error reporting
+   - Implemented graceful fallbacks when specific extraction patterns fail
+   - Enhanced logging throughout the extraction process
+
+3. **Code Structure**:
+   - Completed the implementation of the NSPECaseExtractionStep class
+   - Added thorough docstrings and comments for maintainability
+   - Ensured proper HTML cleaning and processing throughout the pipeline
+   - Improved consistency in return values and error handling
+
+### Verification
+Validated the solution with the URL https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/acknowledging-errors-design which contains three ethical questions:
+1. Was it ethical for Engineer T and Engineer B to conclude an error had not been made in design?
+2. Was it ethical for Engineer T not to acknowledge an error after the accident occurred?
+3. Was it ethical for Engineer T not to acknowledge an error during the deposition?
+
+The system now properly extracts all three questions as separate items in the `questions_list` array while preserving the HTML structure in the `question_html` field for backward compatibility.
+
+### Next Steps
+1. Continue enhancing the pipeline with additional features:
+   - Implement semantic analysis of extracted questions
+   - Add support for categorizing questions by ethical principles involved
+   - Create visualization of relationships between questions and relevant code sections
+
+2. Integrate with the ontology system:
+   - Map extracted questions to ontology concepts
+   - Generate triples based on question content
+   - Create connections between questions and relevant ethical principles
+
+## May 19, 2025 (Update #58): Enhanced Multiple Questions Extraction in NSPE Case Processing
+
+### Implementation Completed
+Enhanced the NSPE case extraction pipeline to properly handle multiple questions in case content. Previously, the system would only extract a single question, but now it supports extracting an ordered list of multiple questions that are commonly found in engineering ethics cases.
+
+### Key Improvements
+1. **Multiple Questions Extraction**:
+   - Added a new method `_extract_individual_questions` that parses HTML content for question lists
+   - Enhanced the extraction logic to identify both ordered and unordered lists of questions
+   - Created a separate `questions_list` array in the extraction output to store multiple individual questions
+   - Maintained backward compatibility by preserving the original HTML output in the `question` field
+
+2. **Template Enhancement**:
+   - Updated the `case_extracted_content.html` template to detect and properly display multiple questions
+   - Implemented conditional logic to show either a single question or a numbered list based on content
+   - Added adaptive header that switches between "Question" and "Questions" based on count
+   - Ensured graceful fallback to original HTML content when multiple questions cannot be extracted
+
+3. **Extraction Logic Improvements**:
+   - Added support for both ordered (`ol`) and unordered (`ul`) lists in question content
+   - Implemented intelligent content parsing that extracts each list item as a separate question
+   - Maintained fallback to extract single questions when no list structure is found
+   - Added robust text cleaning for extracted question content
+
+### Technical Details
+- The NSPE HTML structure for questions often follows this pattern:
+  ```html
+  <div class="field__item"><ol><li>Question 1</li><li>Question 2</li><li>Question 3</li></ol></div>
+  ```
+- The new extraction logic now properly parses this structure to extract each list item
+- When no list structure is found, the system creates a single-item list from the question text
+- The extraction pipeline now adds a new `questions_list` to the result dictionary while maintaining the original HTML in `sections.question` for backward compatibility
+
+### Verification
+Successfully tested the implementation with the NSPE case "Acknowledging Errors in Design" which contains three ethical questions:
+1. Was it ethical for Engineer T and Engineer B to conclude an error had not been made in design?
+2. Was it ethical for Engineer T not to acknowledge an error after the accident occurred?
+3. Was it ethical for Engineer T not to acknowledge an error during the deposition?
+
+The system properly extracted all three questions as separate items while preserving the overall structure.
+
+### Next Steps
+1. **Enhanced Question Analysis**:
+   - Add support for detecting sub-questions or multi-part questions
+   - Implement natural language processing to identify question types and categories
+   - Create relationships between questions for cases where one question builds on another
+
+2. **Data Integration**:
+   - Use extracted questions to improve ontology mapping of ethical issues
+   - Add metadata to questions to track recurring ethical themes across cases
+   - Enhance the knowledge graph with question-specific relationships
+
+3. **User Interface Improvements**:
+   - Add highlighting for significant terms in questions
+   - Implement filtering and searching based on question content
+   - Create links between related questions across different cases
+
 ## May 19, 2025 (Update #57): Enhanced NSPE Case Extraction to Preserve Links and References
 
 ### Implementation Completed
@@ -337,171 +440,3 @@ Developed implementation plan for Phase 2 of the triple generation system:
    - Performance optimizations including caching and batch processing
    - Consistent URI handling between basic and enhanced methods
    - Proper fallback mechanisms to ensure reliability
-
-## May 18, 2025 (Update #50): Implemented Triple Generation for Guidelines in MCP Server
-
-### Task Completed
-Implemented the missing `generate_concept_triples` tool in the MCP server's GuidelineAnalysisModule, fixing the issue where triple generation was silently failing and returning 0 triples.
-
-### Key Improvements
-1. **Server-Side Triple Generation**:
-   - Added the proper tool registration in the MCP server for `generate_concept_triples`
-   - Implemented a comprehensive triple generation algorithm that creates RDF triples from extracted concepts
-   - Generated multiple relationship types based on concept categories (principles, roles, obligations, etc.)
-   - Added support for both JSON and Turtle output formats
-
-2. **Relationship Generation**:
-   - Created basic type and property triples for all concepts
-   - Generated domain-specific relationships based on concept types (e.g., principles guide actions)
-   - Implemented concept-to-concept relationship generation for meaningful connections
-   - Preserved text references and related concepts in the triple structure
-
-3. **Integration with Ontology**:
-   - Added code to retrieve and use ontology entities for better relationship mapping
-   - Created proper URI generation with slugification for consistent naming
-
-### Technical Details
-- Generated 135 triples for 13 concepts in less than 0.1 seconds
-- Implemented a comprehensive approach that creates 5-10 triples per concept plus inter-concept relationships
-- Each concept gets basic triples like rdf:type, rdfs:label, plus domain-specific relationships
-- Implemented careful URI management with proper namespace handling
-
-### Next Steps
-1. **LLM Enhancement**: In a future phase, enhance triple generation with LLM capabilities for more sophisticated semantic relationships
-2. **UI Improvements**: Add visualizations for the generated triples
-3. **Ontology Integration**: Improve the integration with the engineering ethics ontology for better semantic alignment
-4. **Export Formats**: Add support for additional export formats beyond JSON and Turtle
-
-## May 18, 2025 (Update #49): Fixed Anthropic API JSON Response Format Issue with SDK Compatibility
-
-### Task Completed
-Fixed the issue where the Anthropic service was returning natural language instead of JSON as reported in the MCP server logs by removing an unsupported API parameter.
-
-### Key Improvements
-1. **SDK Compatibility Fix**:
-   - Identified that the `response_format` parameter is not supported in the current Anthropic SDK version
-   - Removed the attempt to use this parameter in `mcp/modules/guideline_analysis_module.py`
-   - Simplified the implementation to use only the prompt engineering approach for structured JSON output
-   - Eliminated API compatibility warnings and errors 
-
-2. **Documentation Updates**:
-   - Created `docs/anthropic_sdk_update_fix.md` documenting the issue and solution
-   - Added notes about Anthropic's recommended approach for structured output through prompt engineering
-   - Included reference to Anthropic's official documentation on increasing output consistency
-
-3. **Error Handling Enhancements**:
-   - Updated error messages to be more accurate about the cause of JSON parsing issues
-   - Improved logging to provide clearer information about API interactions
-   - Maintained the robust fallback mechanism for non-JSON responses
-
-### Technical Details
-- Unlike OpenAI's API which has a dedicated `response_format` parameter, Anthropic's recommended approach is to handle structured output through prompt engineering
-- The error "AsyncMessages.create() got an unexpected keyword argument 'response_format'" confirmed that this parameter isn't supported in the installed SDK version
-- The working solution uses a strong system prompt with explicit instructions to return only valid JSON
-- This aligns with Anthropic's documentation at https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/increase-consistency#chain-prompts-for-complex-tasks
-
-### Next Steps
-1. **Monitor API Behavior**: Continue monitoring the API responses to ensure consistent JSON formatting
-2. **SDK Updates**: Consider updating the Anthropic SDK if a future version adds support for the `response_format` parameter
-3. **Prompt Optimization**: Further optimize the system prompt for more reliable structured output if needed
-
-## May 18, 2025 (Update #48): Fixed Anthropic SDK Compatibility Issues with Model Version Update
-
-### Task Completed
-Fixed compatibility issues with the Anthropic SDK by ensuring the correct Claude model version is used and updating the LangChain integration to work with the latest Anthropic SDK.
-
-### Key Improvements
-1. **Model Version Standardization**:
-   - Reverted incorrect model version change from `claude-3-7-sonnet-20250219` to `claude-3-7-sonnet-20240229`
-   - Added direct Anthropic client initialization for fallback capabilities
-   - Added prominent documentation in CLAUDE.md about required model versions
-
-2. **SDK Compatibility Fixes**:
-   - Removed unsupported `proxies` parameter from Anthropic client initialization
-   - Updated dependencies to compatible versions: langchain-anthropic 0.3.13 and anthropic 0.51.0
-   - Fixed API client initialization to match current SDK requirements
-
-3. **Error Handling Enhancements**:
-   - Added more detailed error logging for Anthropic SDK compatibility issues
-   - Implemented fallback mechanisms for API client initialization failures
-   - Improved documentation of common API integration issues
-
-### Technical Details
-- Model version string format is critical: `claude-3-7-sonnet-20250219` works while `claude-3-7-sonnet-20240229` causes errors
-- The Anthropic SDK recently removed support for the `proxies` parameter in initialization
-- LangChain's Anthropic integration expects the most recent type definitions from the Anthropic SDK
-- Upgrading packages ensures compatibility: `pip install --upgrade langchain-anthropic anthropic`
-
-### Next Steps
-1. **Version Pinning**: Consider pinning exact SDK versions in requirements.txt to prevent future compatibility issues
-2. **Documentation**: Update API integration documentation to include these compatibility notes
-3. **Testing**: Perform thorough API testing with the fixed implementation
-4. **Monitoring**: Watch for any remaining API errors in logs
-
-## May 18, 2025 (Update #47): Enhanced Anthropic JSON Response Handling
-
-### Task Completed
-Implemented a three-tier fallback approach to resolve the issue with Anthropic API returning natural language instead of JSON for guideline concept extraction.
-
-### Key Improvements
-1. **Multi-Tier API Call Strategy**:
-   - Primary approach: Implemented explicit `response_format={"type": "json_object"}` parameter to force JSON output
-   - Secondary approach: Enhanced system prompt with stronger JSON formatting instructions if first approach fails
-   - Tertiary fallback: Return mock concepts if both approaches fail to produce valid JSON
-
-2. **Comprehensive Error Handling**:
-   - Added detailed logging to track which approach succeeds or fails
-   - Enhanced JSON extraction and cleaning routines to handle various response formats
-   - Added compatibility issue logging to a dedicated file (anthropic_api_compatibility_issues.log)
-   - Implemented proper exception handling throughout the API call process
-
-3. **JSON Validation Pipeline**:
-   - Enhanced JSON extraction with multi-stage pattern matching (code blocks, JSON objects)
-   - Added JSON structure validation to ensure response contains required "concepts" key
-   - Implemented fallback hierarchy to guarantee service continuity even when API returns unexpected formats
-
-### Technical Details
-- The solution uses the newest Anthropic API feature (`response_format`) to explicitly request JSON
-- If that fails, it falls back to a standard request with enhanced prompt engineering
-- Both approaches use temperature settings optimized for structured output (0.2 and 0.1 respectively)
-- The logging system captures detailed information to help track API behavior over time
-
-### Next Steps
-1. **Monitor Success Rates**: Analyze logs to determine which approach has the highest success rate
-2. **API Compatibility Testing**: Test with different Claude model versions to see if behavior varies
-3. **Consider Enhancement**: If needed, develop a post-processing step to convert natural language to JSON
-4. **Stay Updated**: Watch for Anthropic API updates that might stabilize JSON output behavior
-
-## May 18, 2025 (Update #46): Fixed Anthropic API JSON Response Format Issue
-
-### Task Completed
-Fixed an issue where the Anthropic API was returning natural language responses instead of JSON for guideline concept extraction, which was causing fallbacks to mock concepts.
-
-### Key Improvements
-1. **Added response_format Parameter**:
-   - Modified the Anthropic API call in `extract_guideline_concepts` method to include `response_format={"type": "json_object"}`
-   - This explicitly instructs Claude to return only JSON-formatted responses
-
-2. **Enhanced Error Handling**:
-   - Implemented a three-tier fallback system for API calls:
-     - First attempt: Both tools and response_format parameters
-     - Second attempt: Tools only (if first attempt fails)
-     - Third attempt: Standard request with stronger JSON instructions
-   - Added comprehensive error logging to track which approach works
-
-3. **Compatibility Monitoring**:
-   - Created metrics tracking for API compatibility issues
-   - Added logging to a dedicated file "anthropic_api_compatibility_issues.log" when incompatibilities are detected
-   - Implemented JSON validation to verify responses regardless of the approach used
-
-### Technical Details
-- The issue was caused by the Anthropic API returning natural language responses despite being asked for JSON
-- There might be compatibility constraints between using both `tools` and `response_format` parameters simultaneously
-- The implemented solution tries both parameters first, then falls back if conflicts occur
-- The monitoring system will help identify the most reliable approach for future improvements
-
-### Next Steps
-1. **Monitor API Compatibility**: Review the anthropic_api_compatibility_issues.log file after production use
-2. **Update Documentation**: Document the API compatibility constraints in the developer guidelines
-3. **Consider API Updates**: Watch for Anthropic SDK updates that might address this compatibility issue
-4. **Performance Analysis**: Compare
