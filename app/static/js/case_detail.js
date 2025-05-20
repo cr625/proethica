@@ -213,27 +213,27 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (contentHeight > maxHeight) {
                             console.log('Adding show more/less toggle for description');
                             
-                            // Set initial height
-                            descriptionContent.style.maxHeight = maxHeight + 'px';
+                            // Set initial height to full height (expanded by default)
+                            descriptionContent.style.maxHeight = contentHeight + 'px';
                             descriptionContent.style.overflow = 'hidden';
                             descriptionContent.style.transition = 'max-height 0.3s ease-out';
                             
-                            // Create the show more button
-                            const showMoreBtn = document.createElement('button');
-                            if (!showMoreBtn) {
-                                console.warn('Failed to create show more button');
+                            // Create the toggle button (initially "Show Less")
+                            const toggleBtn = document.createElement('button');
+                            if (!toggleBtn) {
+                                console.warn('Failed to create toggle button');
                                 return;
                             }
                             
-                            showMoreBtn.classList.add('btn', 'btn-link', 'mt-2', 'p-0');
-                            showMoreBtn.textContent = 'Show More';
+                            toggleBtn.classList.add('btn', 'btn-link', 'mt-2', 'p-0');
+                            toggleBtn.textContent = 'Show Less';
                             
                             // Append button only if container exists and isn't null
                             if (descriptionContainer) {
-                                descriptionContainer.appendChild(showMoreBtn);
+                                descriptionContainer.appendChild(toggleBtn);
                                 
                                 // Add click event listener to button with null check
-                                safeAddEventListener(showMoreBtn, 'click', function() {
+                                safeAddEventListener(toggleBtn, 'click', function() {
                                     if (descriptionContent.style.maxHeight === maxHeight + 'px') {
                                         descriptionContent.style.maxHeight = contentHeight + 'px';
                                         this.textContent = 'Show Less';

@@ -1,5 +1,56 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Modified Case Detail Description to Start Expanded
+
+Modified the case description in the case detail view to start fully expanded with a "Show Less" button:
+
+**Issue**:
+When viewing long case descriptions, the content would be initially truncated to 300 pixels in height with a "Show More" button at the bottom. This required users to click an extra button to see the full content of cases.
+
+**Analysis**:
+The `setupShowMoreLessToggle()` function in `case_detail.js` was automatically limiting the height of description content and adding a "Show More" button when content exceeded 300 pixels in height. This created an additional interaction step for users trying to read case content.
+
+**Solution**:
+Modified the `setupShowMoreLessToggle()` function in `app/static/js/case_detail.js` to:
+1. Start with content fully expanded (no height restriction) by default
+2. Initially create a "Show Less" button instead of "Show More"
+3. Maintain the toggle functionality to allow collapsing long content if desired
+
+**Implementation Details**:
+```javascript
+// Set initial height to full height (expanded by default)
+descriptionContent.style.maxHeight = contentHeight + 'px';
+descriptionContent.style.overflow = 'hidden';
+descriptionContent.style.transition = 'max-height 0.3s ease-out';
+
+// Create the toggle button (initially "Show Less")
+const toggleBtn = document.createElement('button');
+toggleBtn.classList.add('btn', 'btn-link', 'mt-2', 'p-0');
+toggleBtn.textContent = 'Show Less';
+```
+
+**Results**:
+- Case descriptions now display their full content immediately upon page load
+- Users can still collapse long descriptions if they wish by using the "Show Less" button
+- The change improves readability and reduces unnecessary clicks
+- The existing conditional check that skips this toggle for extraction-style cases is maintained
+
+## 2025-05-20: Performed Database Backup
+
+Successfully performed a database backup for the ProEthica system.
+
+**Details**:
+- Created a fresh PostgreSQL database backup using the backup script
+- Had to start the PostgreSQL container first since it wasn't running
+- Successfully generated backup file: `ai_ethical_dm_backup_20250520_190620.dump` (236K)
+- Backup is stored in the `/backups` directory
+- This joins previous backups from May 2025
+
+**Technical Notes**:
+- The backup process uses Docker's `pg_dump` command inside the `proethica-postgres` container
+- Backup script automatically extracts the database password from the `.env` file
+- The database container uses pgvector extension for vector embeddings support
+
 ## 2025-05-20: Streamlined URL Processing Workflow
 
 Simplified the URL processing workflow by eliminating the intermediate steps:
