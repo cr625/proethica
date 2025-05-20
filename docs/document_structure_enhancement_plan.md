@@ -118,6 +118,7 @@ The goal is to extend the ProEthica ontology to include document structure conce
 *This section will be updated as implementation progresses*
 
 ### Date: May 20, 2025
-- Initial planning document created
+- Initial planning document created (Git commit: e4335a01d6925eca96db3ae31c8dc80d44adefde)
 - Document structure ontology design completed
 - Implementation phases and tracking system established
+- Starting point established for Phase 1.1: Define document structure classes in ontology

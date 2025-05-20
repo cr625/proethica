@@ -423,3 +423,221 @@
     rdfs:range :EthicalAgent ;
     rdfs:label "involves ethical agent"@en ;
     rdfs:comment "Indicates that an ethical context involves a particular ethical agent"@en .
+
+#################################################################
+#    Document Structure Classes (Enhancement Group 4)           
+#################################################################
+
+# Document element (base class for document structure)
+:DocumentElement rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant 
+    rdfs:label "Document Element"@en ;
+    rdfs:comment "A basic structural element of a document that can be semantically annotated"@en .
+
+# Document section (container for document content)
+:DocumentSection rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :DocumentElement ;
+    rdfs:label "Document Section"@en ;
+    rdfs:comment "A major division of a document with a specific semantic role"@en .
+
+# Document metadata
+:DocumentMetadata rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :DocumentElement ;
+    rdfs:label "Document Metadata"@en ;
+    rdfs:comment "Descriptive information about a document, such as title, date, or identifier"@en .
+
+# Structured content
+:StructuredContent rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :DocumentElement ;
+    rdfs:label "Structured Content"@en ;
+    rdfs:comment "A specific item of structured content within a document section, such as a list item or a specific point"@en .
+
+# Document section subclasses
+:FactsSection rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentSection ;
+    rdfs:label "Facts Section"@en ;
+    rdfs:comment "The section of a case document that provides factual background information"@en .
+
+:QuestionsSection rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentSection ;
+    rdfs:label "Questions Section"@en ;
+    rdfs:comment "The section of a case document that presents the ethical questions being considered"@en .
+
+:ReferencesSection rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentSection ;
+    rdfs:label "References Section"@en ;
+    rdfs:comment "The section of a case document that cites relevant external sources or standards"@en .
+
+:DiscussionSection rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentSection ;
+    rdfs:label "Discussion Section"@en ;
+    rdfs:comment "The section of a case document that provides analysis and reasoning about the ethical issues"@en .
+
+:ConclusionSection rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentSection ;
+    rdfs:label "Conclusion Section"@en ;
+    rdfs:comment "The section of a case document that presents the final determination or findings"@en .
+
+# Document metadata subclasses
+:CaseNumber rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentMetadata ;
+    rdfs:label "Case Number"@en ;
+    rdfs:comment "The unique identifier assigned to a case, such as 'Case 23-4'"@en .
+
+:CaseYear rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentMetadata ;
+    rdfs:label "Case Year"@en ;
+    rdfs:comment "The year in which a case was published or decided"@en .
+
+:CaseTitle rdf:type owl:Class ;
+    rdfs:subClassOf :DocumentMetadata ;
+    rdfs:label "Case Title"@en ;
+    rdfs:comment "The title or heading of a case document"@en .
+
+# Structured content subclasses
+:QuestionItem rdf:type owl:Class ;
+    rdfs:subClassOf :StructuredContent ;
+    rdfs:label "Question Item"@en ;
+    rdfs:comment "A specific ethical question posed within a case"@en .
+
+:ConclusionItem rdf:type owl:Class ;
+    rdfs:subClassOf :StructuredContent ;
+    rdfs:label "Conclusion Item"@en ;
+    rdfs:comment "A specific determination or finding within the conclusion of a case"@en .
+
+:CodeReferenceItem rdf:type owl:Class ;
+    rdfs:subClassOf :StructuredContent ;
+    rdfs:label "Code Reference Item"@en ;
+    rdfs:comment "A specific reference to a code of ethics or professional standard"@en .
+
+#################################################################
+#    Document Structure Properties (Enhancement Group 4)        
+#################################################################
+
+# Basic document structure properties
+:hasTextContent rdf:type owl:DatatypeProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range xsd:string ;
+    rdfs:label "has text content"@en ;
+    rdfs:comment "The textual content of a document element"@en .
+
+:hasHtmlContent rdf:type owl:DatatypeProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range xsd:string ;
+    rdfs:label "has HTML content"@en ;
+    rdfs:comment "The HTML-formatted content of a document element"@en .
+
+:hasEmbedding rdf:type owl:DatatypeProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range rdf:List ;
+    rdfs:label "has embedding"@en ;
+    rdfs:comment "The vector embedding representation of a document element's content"@en .
+
+# Structural relationships
+:isPartOf rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :DocumentElement ;
+    rdfs:label "is part of"@en ;
+    rdfs:comment "Indicates that one document element is part of another"@en .
+
+:hasPart rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :DocumentElement ;
+    rdfs:label "has part"@en ;
+    rdfs:comment "Indicates that a document element contains another document element"@en .
+
+:precedesInDocument rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :DocumentElement ;
+    rdfs:label "precedes in document"@en ;
+    rdfs:comment "Indicates that one document element comes before another in the document order"@en .
+
+:followsInDocument rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :DocumentElement ;
+    rdfs:label "follows in document"@en ;
+    rdfs:comment "Indicates that one document element comes after another in the document order"@en .
+
+# Document-case relationships
+:documentDescribesCase rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :EthicalContext ;
+    rdfs:label "document describes case"@en ;
+    rdfs:comment "Indicates that a document element describes an ethical case scenario"@en .
+
+:representsEthicalDecision rdf:type owl:ObjectProperty ;
+    rdfs:domain :ConclusionItem ;
+    rdfs:range :Decision ;
+    rdfs:label "represents ethical decision"@en ;
+    rdfs:comment "Indicates that a conclusion item in a document represents an ethical decision"@en .
+
+:posesEthicalQuestion rdf:type owl:ObjectProperty ;
+    rdfs:domain :QuestionItem ;
+    rdfs:range :EthicalDecisionPoint ;
+    rdfs:label "poses ethical question"@en ;
+    rdfs:comment "Indicates that a question item in a document poses an ethical question"@en .
+
+# Semantic content relationships
+:mentions rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:label "mentions"@en ;
+    rdfs:comment "Indicates that a document element mentions some entity"@en .
+
+:describesEvent rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :Event ;
+    rdfs:label "describes event"@en ;
+    rdfs:comment "Indicates that a document element describes an event"@en .
+
+:mentionsAgent rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :Agent ;
+    rdfs:label "mentions agent"@en ;
+    rdfs:comment "Indicates that a document element mentions an agent"@en .
+
+:concernsPrinciple rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :EthicalPrinciple ;
+    rdfs:label "concerns principle"@en ;
+    rdfs:comment "Indicates that a document element concerns a particular ethical principle"@en .
+
+:citesReference rdf:type owl:ObjectProperty ;
+    rdfs:domain :DocumentElement ;
+    rdfs:range :CodeReferenceItem ;
+    rdfs:label "cites reference"@en ;
+    rdfs:comment "Indicates that a document element cites a reference to a code or standard"@en .
+
+# Section-specific semantic relationships
+:factsDescribeContext rdf:type owl:ObjectProperty ;
+    rdfs:domain :FactsSection ;
+    rdfs:range :EthicalContext ;
+    rdfs:label "facts describe context"@en ;
+    rdfs:comment "Indicates that a facts section describes the context of an ethical scenario"@en .
+
+:discussionAnalyzesPrinciples rdf:type owl:ObjectProperty ;
+    rdfs:domain :DiscussionSection ;
+    rdfs:range :EthicalPrinciple ;
+    rdfs:label "discussion analyzes principles"@en ;
+    rdfs:comment "Indicates that a discussion section analyzes ethical principles"@en .
+
+:conclusionPresentsFinding rdf:type owl:ObjectProperty ;
+    rdfs:domain :ConclusionSection ;
+    rdfs:range :ConclusionItem ;
+    rdfs:label "conclusion presents finding"@en ;
+    rdfs:comment "Indicates that a conclusion section presents specific findings"@en .
+
+:questionPosesEthicalIssue rdf:type owl:ObjectProperty ;
+    rdfs:domain :QuestionsSection ;
+    rdfs:range :QuestionItem ;
+    rdfs:label "question poses ethical issue"@en ;
+    rdfs:comment "Indicates that a questions section poses specific ethical issues"@en .
+
+:referenceCitesAuthority rdf:type owl:ObjectProperty ;
+    rdfs:domain :ReferencesSection ;
+    rdfs:range :CodeReferenceItem ;
+    rdfs:label "reference cites authority"@en ;
+    rdfs:comment "Indicates that a references section cites authoritative sources"@en .
