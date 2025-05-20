@@ -1,5 +1,65 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Fixed Database Schema for Case Deletion
+
+Resolved an issue that was causing errors when deleting cases:
+
+**Issue**:
+When attempting to delete a case (e.g., http://127.0.0.1:3333/cases/210/delete), the system would encounter a database schema error:
+```
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column document_chunks.content does not exist
+```
+
+**Analysis**:
+1. The SQLAlchemy model for `DocumentChunk` defined columns that were missing in the actual database schema:
+   - `content` column (TEXT)
+   - `updated_at` column (TIMESTAMP)
+2. There was also a type mismatch with the `embedding` column, which needed to be FLOAT[] for SQLAlchemy
+
+**Solution**:
+1. Created a SQL script `fix_document_chunks_content_column.sql` to:
+   - Add the missing `content` column to the `document_chunks` table
+   - Add the missing `updated_at` column
+   - Fix the `embedding` column type to be FLOAT[]
+2. The script ensured the pgvector extension was properly installed
+3. Created a Python script `fix_document_chunks_column.py` to execute the SQL fix
+
+**Implementation Details**:
+```sql
+-- Fix document_chunks table columns and extensions
+DO $$
+BEGIN
+    -- Ensure pgvector extension is installed
+    CREATE EXTENSION IF NOT EXISTS vector;
+    
+    -- Add missing content column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'document_chunks' AND column_name = 'content') THEN
+        ALTER TABLE document_chunks ADD COLUMN content TEXT;
+        UPDATE document_chunks SET content = '';
+        ALTER TABLE document_chunks ALTER COLUMN content SET NOT NULL;
+    END IF;
+
+    -- Add missing updated_at column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'document_chunks' AND column_name = 'updated_at') THEN
+        ALTER TABLE document_chunks ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+    
+    -- Fix embedding column type
+    BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'document_chunks' AND column_name = 'embedding') THEN
+            ALTER TABLE document_chunks DROP COLUMN embedding;
+        END IF;
+        ALTER TABLE document_chunks ADD COLUMN embedding FLOAT[];
+    END;
+END $$;
+```
+
+**Result**:
+The fix successfully resolved the database schema issue, allowing cases to be deleted without errors.
+
 ## 2025-05-20: Added Question and Conclusion List Parsing for Legacy Cases
 
 Fixed an issue where legacy cases (like #206) had concatenated questions and conclusions that weren't displaying as proper lists:

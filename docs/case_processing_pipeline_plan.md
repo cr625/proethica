@@ -167,6 +167,44 @@ Final phase focusing on:
    - Implement semantic analysis of case components
    - Create tools for comparative case analysis
 
+## Database Schema Considerations
+
+### Schema Migrations and Data Integrity
+
+When enhancing the case processing pipeline, it's important to ensure database schema compatibility with all components. As the system evolves, we need to maintain proper schema synchronization and data integrity.
+
+#### Key Considerations:
+
+1. **Model-Schema Alignment**
+   - Ensure SQLAlchemy models properly align with actual database tables
+   - Use migrations for schema changes rather than manual alterations
+   - Test model operations against the actual database
+
+2. **Schema Validation**
+   - Implement regular schema validation checks
+   - Detect and resolve potential schema discrepancies early
+   - Document all schema requirements for each component
+
+3. **Backup Procedures**
+   - Always create backups before schema modifications
+   - Use the `backup_before_db_fix.py` script for easy database backups
+   - Follow a "backup, test, implement" workflow for all schema changes
+
+#### Lessons from Recent Issues (May 2025)
+
+A critical finding during development was the mismatch between SQLAlchemy models and actual database schema for the `document_chunks` table:
+
+- Required columns like `content` and `updated_at` were missing from database tables
+- The `embedding` column had incorrect data type (was using pgvector's vector type while SQLAlchemy expected FLOAT[])
+- These misalignments caused errors when attempting case deletion operations
+
+The fix involved:
+- Creating SQL scripts to add missing columns
+- Converting vector type to FLOAT arrays
+- Proper error handling and validation in scripts
+
+This experience reinforced the importance of schema validation checks and proper migration procedures for all future database changes.
+
 ## Conclusion
 
-The implementation of the case processing pipeline has successfully progressed through the initial phases. The URL retrieval and NSPE case extraction steps provide a solid foundation for more advanced processing. The modular design ensures we can extend the pipeline with additional capabilities in future phases.
+The implementation of the case processing pipeline has successfully progressed through the initial phases. The URL retrieval and NSPE case extraction steps provide a solid foundation for more advanced processing. The modular design ensures we can extend the pipeline with additional capabilities in future phases. As we continue development, proper attention to database schema alignment will be essential to maintain system integrity and stability.
