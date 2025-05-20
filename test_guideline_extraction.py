@@ -1,115 +1,135 @@
 #!/usr/bin/env python3
 """
-Test script for guideline concept extraction using the enhanced ontology MCP server.
-This script verifies that the get_ontology_sources() and get_ontology_entities() methods
-are working correctly.
+Test script for guideline concept extraction with fixed Anthropic SDK.
 """
 
 import os
 import sys
 import json
-import asyncio
-import logging
 from pathlib import Path
+from flask import Flask
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Add project root to path
+# Set up paths
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# Import server and module classes
-from mcp.enhanced_ontology_server_with_guidelines import EnhancedOntologyServerWithGuidelines
-from mcp.modules.guideline_analysis_module import GuidelineAnalysisModule
+print("===============================================")
+print("Testing Guideline Concept Extraction")
+print("===============================================")
 
-# Sample guideline text for testing
-SAMPLE_GUIDELINE = """
-NSPE Code of Ethics for Engineers
+# Load environment variables from .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Loaded environment variables from .env")
+except ImportError:
+    print("⚠️ python-dotenv not installed, skipping .env loading")
+    
+# Check for API key
+api_key = os.environ.get('ANTHROPIC_API_KEY')
+if not api_key:
+    print("❌ ANTHROPIC_API_KEY not found in environment variables")
+    print("Make sure to add your API key to the .env file")
+    sys.exit(1)
+else:
+    print("✅ Found ANTHROPIC_API_KEY in environment variables")
 
-Preamble
-Engineering is an important and learned profession. As members of this profession, engineers are expected to exhibit the highest standards of honesty and integrity. Engineering has a direct and vital impact on the quality of life for all people. Accordingly, the services provided by engineers require honesty, impartiality, fairness, and equity, and must be dedicated to the protection of the public health, safety, and welfare. Engineers must perform under a standard of professional behavior that requires adherence to the highest principles of ethical conduct.
+# Create a sample guideline for testing
+sample_guideline = """
+# Engineering Ethics Guidelines
 
-I. Fundamental Canons
-Engineers, in the fulfillment of their professional duties, shall:
-1. Hold paramount the safety, health, and welfare of the public.
-2. Perform services only in areas of their competence.
-3. Issue public statements only in an objective and truthful manner.
-4. Act for each employer or client as faithful agents or trustees.
-5. Avoid deceptive acts.
-6. Conduct themselves honorably, responsibly, ethically, and lawfully so as to enhance the honor, reputation, and usefulness of the profession.
+## Professional Responsibility
+Engineers shall hold paramount the safety, health, and welfare of the public.
+
+## Honesty and Integrity
+Engineers shall be objective and truthful in professional reports, statements, or testimony.
+
+## Confidentiality
+Engineers shall not disclose confidential information without proper consent.
+
+## Competence
+Engineers shall perform services only in areas of their competence.
+
+## Conflicts of Interest
+Engineers shall avoid conflicts of interest and disclose unavoidable conflicts.
 """
 
-async def test_guideline_extraction():
-    """Test guideline concept extraction with the enhanced ontology server."""
-    # Create server instance
-    logger.info("Creating EnhancedOntologyServerWithGuidelines instance")
-    server = EnhancedOntologyServerWithGuidelines()
+try:
+    # Create a minimal Flask application for testing
+    app = Flask(__name__)
+    app.config['TESTING'] = True
+    app.config['ANTHROPIC_API_KEY'] = api_key
+
+    # Set up database URI to avoid connection attempts
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    try:
-        # Configure environment for mock mode - set this BEFORE creating any modules
-        os.environ["USE_MOCK_GUIDELINE_RESPONSES"] = "true"
+    # Import app and initialize
+    import app as app_module
+    
+    # Run within application context
+    with app.app_context():
+        # Import the guideline analysis service
+        from app.services.guideline_analysis_service import GuidelineAnalysisService
+        print("✅ Successfully imported GuidelineAnalysisService")
         
-        # Test get_ontology_sources method
-        logger.info("Testing get_ontology_sources()")
-        sources = await server.get_ontology_sources()
-        logger.info(f"Found {len(sources.get('sources', []))} ontology sources")
+        # Create service instance
+        service = GuidelineAnalysisService()
+        print("✅ Created GuidelineAnalysisService instance")
         
-        for i, source in enumerate(sources.get('sources', [])):
-            logger.info(f"Source {i+1}: {source.get('id')} - {source.get('label')}")
+        # Mock MCP client for testing
+        service.mcp_client.mcp_url = None  # Force direct LLM route
         
-        # Use the correct source ID format without .ttl extension
-        default_source = "engineering-ethics"
-        logger.info(f"Using source: {default_source}")
+        # Temporarily enable mock response mode to avoid API calls in case of issues
+        print("\nStep 1: Testing with mock response mode")
+        os.environ['USE_MOCK_GUIDELINE_RESPONSES'] = 'true'
+        mock_result = service.extract_concepts(sample_guideline)
+        print(f"✅ Mock extraction returned {len(mock_result.get('concepts', []))} concepts")
         
-        if default_source:
-            # Test get_ontology_entities method
-            logger.info(f"Testing get_ontology_entities() with source '{default_source}'")
-            entities = await server.get_ontology_entities(default_source)
+        # Print sample mock concepts
+        if mock_result.get('concepts'):
+            print("\nSample mock concepts:")
+            for i, concept in enumerate(mock_result.get('concepts')[:3]):
+                print(f"  - {concept.get('label')}: {concept.get('type')} ({concept.get('confidence')})")
+        
+        # Test with actual LLM
+        print("\nStep 2: Testing with real Anthropic API")
+        os.environ['USE_MOCK_GUIDELINE_RESPONSES'] = 'false'
+        
+        try:
+            # Try to extract concepts
+            result = service.extract_concepts(sample_guideline)
             
-            # Check if entities were loaded
-            entity_types = entities.get('entities', {}).keys()
-            logger.info(f"Loaded entity types: {', '.join(entity_types)}")
-            
-            total_entities = sum(len(e) for e in entities.get('entities', {}).values())
-            logger.info(f"Total entities loaded: {total_entities}")
-        
-        # Create guideline analysis module with mock mode - no need to pass use_mock parameter
-        logger.info("Creating GuidelineAnalysisModule with mock mode enabled via environment variable")
-        module = GuidelineAnalysisModule(
-            ontology_client=server,
-            embedding_client=server.embeddings_client
-        )
-        
-        # Test extracting concepts
-        logger.info("Testing concept extraction with mock responses")
-        
-        result = await module.extract_guideline_concepts({
-            "content": SAMPLE_GUIDELINE,
-            "ontology_source": default_source
-        })
-        
-        # Check result
-        if "error" in result:
-            logger.error(f"Error extracting concepts: {result['error']}")
-        else:
-            concepts = result.get("concepts", [])
-            logger.info(f"Successfully extracted {len(concepts)} concepts")
-            
-            # Print some example concepts
-            for i, concept in enumerate(concepts[:5]):  # Show first 5 concepts
-                logger.info(f"Concept {i+1}: {concept.get('label')} - {concept.get('category')}")
+            if 'error' in result:
+                print(f"⚠️ Warning: {result.get('error')}")
+                if 'concepts' in result:
+                    print(f"✅ Despite error, received {len(result.get('concepts', []))} fallback concepts")
+                else:
+                    print("❌ No concepts returned in response")
+            else:
+                print(f"✅ Successfully extracted {len(result.get('concepts', []))} concepts")
                 
-        logger.info("Test completed successfully")
-        
-    except Exception as e:
-        logger.error(f"Test failed with error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+                # Print a few sample concepts
+                if result.get('concepts'):
+                    print("\nSample extracted concepts:")
+                    for i, concept in enumerate(result.get('concepts')[:5]):
+                        print(f"  - {concept.get('label')}: {concept.get('type')} ({concept.get('confidence')})")
+                
+                # Save results to file for inspection
+                with open('test_concepts_output.json', 'w') as f:
+                    json.dump(result, f, indent=2)
+                print("\n✅ Full results saved to test_concepts_output.json")
+                
+        except Exception as e:
+            print(f"❌ Error during concept extraction: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
-if __name__ == "__main__":
-    asyncio.run(test_guideline_extraction())
+except Exception as e:
+    print(f"❌ Setup error: {str(e)}")
+    import traceback
+    traceback.print_exc()
+
+print("\n===============================================")
+print("Test complete!")
+print("===============================================")

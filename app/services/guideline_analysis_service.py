@@ -178,40 +178,51 @@ class GuidelineAnalysisService:
                 llm_client_type = type(llm_client).__name__
                 logger.info(f"LLM client type: {llm_client_type}")
                 
-                # Try newer Anthropic API format (v2.0+)
+                # Try API based on detected version/capabilities
                 try:
-                    if hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
-                        logger.info("Using Anthropic v2+ API format")
-                        # Get preferred model from environment or config
-                        preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
-                        # Use preferred model if available, otherwise select best available model
-                        if hasattr(llm_client, 'available_models'):
-                            if preferred_model in llm_client.available_models:
-                                model_name = preferred_model
-                            elif "claude-3-7-sonnet-latest" in llm_client.available_models:
-                                model_name = "claude-3-7-sonnet-latest"
-                            elif len(llm_client.available_models) > 0:
-                                model_name = llm_client.available_models[0]  # Use first available model
-                            else:
-                                model_name = preferred_model  # Fallback to preferred model
+                    # Get preferred model from environment or config
+                    preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+                    
+                    # Use preferred model if available, otherwise select best available model
+                    if hasattr(llm_client, 'available_models'):
+                        if preferred_model in llm_client.available_models:
+                            model_name = preferred_model
+                        elif "claude-3-7-sonnet-latest" in llm_client.available_models:
+                            model_name = "claude-3-7-sonnet-latest"
+                        elif len(llm_client.available_models) > 0:
+                            model_name = llm_client.available_models[0]  # Use first available model
                         else:
                             model_name = preferred_model  # Fallback to preferred model
-                        
-                        logger.info(f"Using model: {model_name}")
-                        
-                        response = llm_client.chat.completions.create(
+                    else:
+                        model_name = preferred_model  # Fallback to preferred model
+                    
+                    logger.info(f"Using model: {model_name}")
+                    
+                    # For Anthropic SDK v0.51.0, prioritize messages.create API
+                    if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
+                        logger.info("Using Anthropic messages API (v0.5x)")
+                        response = llm_client.messages.create(
+                            system=system_prompt,
                             messages=[
-                                {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": user_prompt}
                             ],
                             model=model_name,
-                            response_format={"type": "json_object"},
                             max_tokens=4000,
                             temperature=0.2
                         )
-                        response_text = response.choices[0].message.content
+                        
+                        # Handle the response content structure
+                        if hasattr(response, 'content'):
+                            if isinstance(response.content, list) and len(response.content) > 0:
+                                response_text = response.content[0].text
+                            else:
+                                response_text = str(response.content)
+                        else:
+                            logger.warning("Unexpected response format - no content attribute")
+                            response_text = str(response)
+                            
                     # Try OpenAI format
-                    elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+                    elif not llm_client_type.startswith("Anthropic") and hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
                         logger.info("Using OpenAI API format")
                         response = llm_client.chat.completions.create(
                             messages=[
@@ -224,7 +235,23 @@ class GuidelineAnalysisService:
                             temperature=0.2
                         )
                         response_text = response.choices[0].message.content
-                    # Try older Anthropic API format (v1.x)
+                        
+                    # Try newer unified API format (v2.0+) with chat.completions
+                    elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+                        logger.info("Using Anthropic v2+ unified API format")
+                        response = llm_client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            model=model_name,
+                            # response_format removed for compatibility with Anthropic SDK v0.51.0
+                            max_tokens=4000,
+                            temperature=0.2
+                        )
+                        response_text = response.choices[0].message.content
+                        
+                    # Try older Anthropic API format (v1.x) with completion
                     elif hasattr(llm_client, 'completion'):
                         logger.info("Using Anthropic v1 completion API format")
                         prompt = f"{system_prompt}\n\nHuman: {user_prompt}\n\nAssistant:"
@@ -235,19 +262,7 @@ class GuidelineAnalysisService:
                             temperature=0.2
                         )
                         response_text = response.completion
-                    # Try older Anthropic API format (v1.x, messages version)
-                    elif hasattr(llm_client, 'messages'):
-                        logger.info("Using Anthropic v1 messages API format")
-                        response = llm_client.messages.create(
-                            system=system_prompt,
-                            messages=[
-                                {"role": "user", "content": user_prompt}
-                            ],
-                            model="claude-3-7-sonnet-latest",
-                            max_tokens=4000,
-                            temperature=0.2
-                        )
-                        response_text = response.content[0].text
+                    
                     else:
                         logger.error("Unsupported LLM client type")
                         raise ValueError(f"Unsupported LLM client type: {llm_client_type}. Cannot generate concepts.")
@@ -627,7 +642,8 @@ class GuidelineAnalysisService:
             # Get response from LLM
             try:
                 # Try newer Anthropic API format (v2.0+)
-                if hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+                # For Anthropic SDK v0.51.0, prioritize messages.create API
+                if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
                     # Get preferred model from environment or config
                     preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
                     # Use preferred model if available, otherwise select best available model
@@ -645,19 +661,42 @@ class GuidelineAnalysisService:
                     
                     logger.info(f"Using model for concept matching: {model_name}")
                     
+                    response = llm_client.messages.create(
+                        system=system_prompt,
+                        messages=[
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        model=model_name,
+                        max_tokens=4000,
+                        temperature=0.2
+                    )
+                    
+                    # Handle the response content structure
+                    if hasattr(response, 'content'):
+                        if isinstance(response.content, list) and len(response.content) > 0:
+                            response_text = response.content[0].text
+                        else:
+                            response_text = str(response.content)
+                    else:
+                        logger.warning("Unexpected response format - no content attribute")
+                        response_text = str(response)
+                        
+                # Try newer unified API format (v2.0+) with chat.completions
+                elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
                     response = llm_client.chat.completions.create(
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
                         model=model_name,
-                        response_format={"type": "json_object"},
+                        # response_format removed for compatibility
                         max_tokens=4000,
                         temperature=0.2
                     )
                     response_text = response.choices[0].message.content
+                    
                 # Try OpenAI format
-                elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+                elif not hasattr(llm_client, 'messages') and hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
                     response = llm_client.chat.completions.create(
                         messages=[
                             {"role": "system", "content": system_prompt},
@@ -669,6 +708,7 @@ class GuidelineAnalysisService:
                         temperature=0.2
                     )
                     response_text = response.choices[0].message.content
+                    
                 # Try older Anthropic API format (v1.x)
                 elif hasattr(llm_client, 'completion'):
                     prompt = f"{system_prompt}\n\nHuman: {user_prompt}\n\nAssistant:"
@@ -679,18 +719,6 @@ class GuidelineAnalysisService:
                         temperature=0.2
                     )
                     response_text = response.completion
-                # Try older Anthropic API format (v1.x, messages version)
-                elif hasattr(llm_client, 'messages'):
-                    response = llm_client.messages.create(
-                        system=system_prompt,
-                        messages=[
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        model="claude-3-7-sonnet-latest",
-                        max_tokens=4000,
-                        temperature=0.2
-                    )
-                    response_text = response.content[0].text
                 else:
                     raise ValueError("Unsupported LLM client. Cannot match concepts to entities.")
                 
