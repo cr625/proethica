@@ -1,5 +1,40 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Created Document Structure Enhancement Plan
+
+Created a comprehensive plan for enhancing the case processing pipeline with ontology-based document structure markup and section-specific embeddings.
+
+**Approach**:
+- Analyzed current implementation of case processing pipeline and entity triple system
+- Identified opportunities to extend the proethica-intermediate ontology with document structure concepts
+- Designed an extension to the ontology following BFO (Basic Formal Ontology) principles
+- Created a detailed implementation plan with tracked milestones and incremental steps
+
+**Key Components**:
+1. **Document Structure Ontology Extension**: 
+   - Model document sections as BFO "generically dependent continuants"
+   - Define DocumentSection subclasses for Facts, Questions, References, Discussion, and Conclusion
+   - Create semantic properties connecting document structure to ethical concepts
+
+2. **Pipeline Enhancement Implementation**:
+   - New DocumentStructureAnnotationStep to process and annotate document sections
+   - Integration with existing URL pipeline and database storage
+   - Backward compatibility with existing cases
+
+3. **Section Embedding Strategy**:
+   - Section-level embeddings for more granular case comparison
+   - Enhanced similarity search capabilities on specific document sections
+
+**Documentation**:
+- Created `/docs/document_structure_enhancement_plan.md` with detailed tracking
+- Established a progress log for recording implementation milestones
+- Organized implementation tasks into discrete, testable steps
+
+**Next Steps**:
+- Implement the document structure ontology extension in proethica-intermediate.ttl
+- Create and test a prototype document structure annotation pipeline step
+- Enhance database schema to support section-level embeddings
+
 ## 2025-05-20: Modified Case Detail Description to Start Expanded
 
 Modified the case description in the case detail view to start fully expanded with a "Show Less" button:

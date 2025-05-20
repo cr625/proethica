@@ -10,6 +10,7 @@ This document outlines the plan for implementing a step-by-step case processing 
 2. Implement each processing step independently to allow incremental development
 3. Create a system that can be extended with advanced ontology-based analysis
 4. Minimize changes to the main Flask application files
+5. Enhance case representation with ontology-based document structure markup
 
 ## Architecture
 
@@ -152,17 +153,25 @@ Final phase focusing on:
 
 ## Next Steps
 
-1. **Refine NSPE Extraction**
+1. **Document Structure Ontology Enhancement** (Current Focus)
+   - Extend proethica-intermediate ontology with document structure concepts
+   - Add classes for document sections (Facts, Questions, References, Discussion, Conclusion)
+   - Define properties that relate document structure to ethical concepts
+   - Create pipeline step for document structure annotation
+   - Implement section-level embeddings for more granular similarity search
+   - See detailed plan in [Document Structure Enhancement Plan](document_structure_enhancement_plan.md)
+
+2. **Refine NSPE Extraction**
    - Improve extraction of embedded links and references to other cases
    - Add support for footnotes and special annotations
    - Enhance handling of cases with non-standard section organization
 
-2. **Extend to Other Case Sources**
+3. **Extend to Other Case Sources**
    - Add support for other engineering ethics case sources
    - Implement a more general case extraction framework
    - Create adapters for different source formats
 
-3. **Ontology Integration**
+4. **Enhanced Ontology Integration**
    - Develop methods to map extracted case content to engineering ethics ontology
    - Implement semantic analysis of case components
    - Create tools for comparative case analysis
