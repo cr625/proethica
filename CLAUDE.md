@@ -1,5 +1,77 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Added Question and Conclusion List Parsing for Legacy Cases
+
+Fixed an issue where legacy cases (like #206) had concatenated questions and conclusions that weren't displaying as proper lists:
+
+**Issue**:
+Some older case entries in the database, particularly case #206 ("Acknowledging Errors in Design", Case #23-4), had questions and conclusions stored as concatenated strings rather than structured arrays. This resulted in poor readability when viewing these cases, as the questions and conclusions appeared as a single block of text without proper formatting.
+
+**Analysis**:
+1. Examination revealed that case #206 had three distinct questions, but they were stored as a single string without proper separation.
+2. Similarly, the conclusion section contained three distinct items that should be displayed as a list.
+3. The database had multiple duplicate entries (13 instances) of this case with IDs ranging from #188 to #209, with varying levels of metadata completeness.
+4. Case #206 had the most complete metadata with case_number "23-4" and year "2023".
+
+**Solution**:
+
+1. Enhanced the `save_and_view_case` route in `cases.py` to automatically parse questions from concatenated text:
+   ```python
+   # If the questions_list is empty but we have question_html, attempt to parse them
+   if not questions_list and question_html:
+       # Split by question mark followed by a capital letter (likely new question)
+       # or split by question mark at end of string
+       import re
+       splits = re.split(r'\?((?=[A-Z][a-z])|$)', questions_raw)
+       
+       # Process the splits to form complete questions
+       if len(splits) > 1:  # If we found at least one question mark
+           temp_questions = []
+           for i in range(0, len(splits) - 1, 2):
+               if i + 1 < len(splits):
+                   # Rejoin the question with its question mark
+                   q = splits[i] + "?"
+                   temp_questions.append(q.strip())
+           
+           # If we successfully parsed multiple questions, use them
+           if temp_questions:
+               questions_list = temp_questions
+   ```
+
+2. Created specific fix scripts for case #206 to correct both questions and conclusions:
+   - `fix_case_206_questions.py`: Parsed the questions and updated the HTML content
+   - `fix_case_206_conclusion.py`: Parsed the conclusion items and updated the HTML content
+
+3. For conclusion parsing, used a regex pattern to detect items starting with "It was" or "Engineer":
+   ```python
+   # Pattern for conclusion items: Complete sentence ending with period, followed by another
+   # that begins with "It was ethical" or similar beginning pattern
+   splits = re.split(r'\.(?=It was|Engineer)', conclusion_html)
+   ```
+
+4. Created a verification script `verify_case_206_formatting.py` to confirm proper formatting in HTML output:
+   - Confirmed 3 properly formatted question items in an ordered list
+   - Confirmed 3 properly formatted conclusion items in an ordered list
+   - Verified that heading was updated from "Conclusion" to "Conclusions" (plural)
+
+**Results**:
+- Case #206 now displays its three questions as a properly formatted numbered list:
+  1. "Was it ethical for Engineer T and Engineer B to conclude an error had not been made in design?"
+  2. "Was it ethical for Engineer T not to acknowledge an error after the accident occurred?"
+  3. "Was it ethical for Engineer T not to acknowledge an error during the deposition?"
+
+- The conclusion section now displays as a properly formatted numbered list:
+  1. "It was ethical for Engineer T and Engineer B to conclude no error had been made in design..."
+  2. "It was ethical for Engineer T not to acknowledge an error after the accident occurred..."
+  3. "It was ethical for Engineer T to refrain from acknowledging an error during the deposition..."
+
+- This fix improves readability and navigation of legacy cases without requiring manual editing of each case.
+
+**Future Improvements**:
+- Consider consolidating duplicate case entries in the database to prevent confusion
+- Apply similar parsing logic to other legacy cases that may have the same formatting issues
+- Add question and conclusion parsing to the case import pipeline to handle future imports consistently
+
 ## 2025-05-20: Fixed Question List Display and Removed "Show More" Link in Case Detail View
 
 Fixed two issues with the case detail view that affected cases imported via the "Save and View Case" feature:
@@ -235,3 +307,20 @@ Implemented a comprehensive enhancement to the case extraction pipeline to prope
 4. Modified the case detail template to check for the display format flag and render accordingly:
    ```html
    {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
+   <div data-extraction-style="true">
+       {{ case.description|safe }}
+   </div>
+   {% endif %}
+   ```
+
+**Results**:
+- Cases are now displayed exactly as they appear during extraction with proper formatting
+- Lists in questions and conclusions are properly formatted as HTML ordered lists
+- The card-based layout with proper headers is preserved in the saved case view
+- Users can save cases in one click, bypassing the edit step entirely
+- The original workflow is still available for users who need to edit before saving
+
+**Future Improvements**:
+- Enhance extraction to support more complex HTML structures in case content
+- Add options to customize the display format based on user preferences
+- Improve the export functionality to preserve formatting in exported documents
