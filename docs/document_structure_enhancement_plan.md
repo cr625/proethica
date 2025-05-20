@@ -40,12 +40,17 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [x] Implement triple generation for document structure
   - [x] Add semantic property assignment based on content analysis
 
-- [ ] **2.2. Integrate new pipeline step**
-  - [ ] Register step with pipeline manager
-  - [ ] Update process_url_pipeline route to include the new step
-  - [ ] Add configuration options for ontology-based annotation
+- [x] **2.2. Prepare integration files**
+  - [x] Create integration test for pipeline manager
+  - [x] Prepare route update implementation guide
+  - [x] Define configuration approach for pipeline with document structure
 
-- [ ] **2.3. Update document storage for structure triples**
+- [ ] **2.3. Complete integration**
+  - [ ] Register step in production pipeline manager
+  - [ ] Update actual process_url route with document structure annotation
+  - [ ] Test integration with live system
+
+- [ ] **2.4. Update document storage for structure triples**
   - [ ] Modify document storage to include structure triples
   - [ ] Update doc_metadata schema to include structure information
   - [ ] Ensure backward compatibility with existing documents
@@ -142,3 +147,11 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Verified correct RDF generation (82 triples generated for test case)
   - Added support for individual question and conclusion items
   - Implemented document section sequence relationships
+
+### Date: May 20, 2025 (Night)
+- Completed Phase 2.2: Prepare integration files
+  - Created test_integrate_document_structure_step.py for testing integration with PipelineManager
+  - Developed app/routes/update_pipeline_route.py as an example implementation guide
+  - Defined approach for integrating with existing routes and pipeline
+  - Documented the implementation path in the enhancement plan
+  - Ready for production integration in Phase 2.3
