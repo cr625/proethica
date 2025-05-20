@@ -51,5 +51,58 @@
     "timestamp": 1747707993.3059878,
     "last_accessed": 1747711795.8127136,
     "user_id": null
+  },
+  "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/post-public-employment-city-engineer-transitioning": {
+    "result": {
+      "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/post-public-employment-city-engineer-transitioning",
+      "title": "Post-Public Employment - City Engineer Transitioning to Consultant",
+      "content": "Content extraction failed. Please visit the original URL: https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/post-public-employment-city-engineer-transitioning",
+      "metadata": {
+        "title": null,
+        "ethical_questions": [],
+        "ethical_principles": [],
+        "involved_parties": [],
+        "summary": "No content was provided in the input. The article or resource appears to be empty.",
+        "engineering_disciplines": [],
+        "year": null,
+        "potential_triples": [],
+        "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/post-public-employment-city-engineer-transitioning",
+        "related_cases": []
+      },
+      "pattern_metadata": {
+        "url": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/post-public-employment-city-engineer-transitioning",
+        "title": "Post Public Employment City Engineer Transitioning",
+        "related_cases": [],
+        "outcome": null,
+        "board_analysis": null
+      },
+      "triples": [
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "rdf:type",
+          "object": "proethica:EngineeringEthicsCase",
+          "is_literal": false
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:description",
+          "object": "No content was provided in the input. The article or resource appears to be empty.",
+          "is_literal": true
+        },
+        {
+          "subject": "http://proethica.org/case/unnamed_case",
+          "predicate": "dc:source",
+          "object": "https://www.nspe.org/career-growth/ethics/board-ethical-review-cases/post-public-employment-city-engineer-transitioning",
+          "is_literal": true
+        }
+      ],
+      "processing_time": 1747738133.2178197,
+      "processing_method": "automatic",
+      "world_id": 1,
+      "cached": false
+    },
+    "timestamp": 1747738133.2179096,
+    "last_accessed": 1747738525.9950666,
+    "user_id": null
   }
 }
