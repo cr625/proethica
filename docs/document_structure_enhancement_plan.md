@@ -27,10 +27,10 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [x] Add document-case relationship properties
   - [x] Verify property domains and ranges are properly set
 
-- [ ] **1.3. Test ontology extensions**
-  - [ ] Create sample triples using new classes and properties
-  - [ ] Verify compatibility with existing ontology concepts
-  - [ ] Test with SPARQL queries to ensure retrievability
+- [x] **1.3. Test ontology extensions**
+  - [x] Create sample triples using new classes and properties
+  - [x] Verify compatibility with existing ontology concepts
+  - [x] Test with SPARQL queries to ensure retrievability
 
 ### Phase 2: Pipeline Enhancement Implementation
 
