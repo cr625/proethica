@@ -193,6 +193,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            // Skip show more/less toggle for extraction style formatted cases
+            if (document.querySelector('[data-extraction-style="true"]')) {
+                console.log('Skipping show more/less toggle for extraction style case');
+                return;
+            }
+            
             try {
                 // Need to make sure the element has been rendered to get accurate height
                 // Use setTimeout with a longer delay to ensure proper rendering

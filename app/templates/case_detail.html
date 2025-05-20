@@ -53,7 +53,33 @@
             {% endif %}
 
             {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
-            {{ case.description|safe }}
+            <div data-extraction-style="true">
+                {{ case.description|safe }}
+            </div>
+
+            <!-- Questions list from metadata if available -->
+            {% if case.doc_metadata.questions_list %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            {% if case.doc_metadata.questions_list|length > 1 %}
+                            <h5 class="mb-0">Questions</h5>
+                            {% else %}
+                            <h5 class="mb-0">Question</h5>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                {% for question in case.doc_metadata.questions_list %}
+                                <li>{{ question }}</li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             {% else %}
             <h4>Description</h4>
             <div class="mb-4">

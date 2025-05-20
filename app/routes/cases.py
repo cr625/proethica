@@ -906,6 +906,48 @@ def save_and_view_case():
                 conclusion_items = json.loads(request.form.get('conclusion_items'))
         except Exception as e:
             print(f"Warning: Error parsing JSON lists: {str(e)}")
+            
+        # If the questions_list is empty but we have question_html, attempt to parse them
+        # This ensures backwards compatibility with older extraction code that might not populate questions_list
+        if not questions_list and question_html:
+            print("Attempting to parse questions from question_html")
+            
+            # Check if there are multiple questions in the HTML by looking for question marks
+            # This handles cases where multiple questions are concatenated into a single string
+            questions_raw = question_html
+            
+            # Split by question mark followed by a capital letter (likely new question)
+            # or split by question mark at end of string
+            import re
+            splits = re.split(r'\?((?=[A-Z][a-z])|$)', questions_raw)
+            
+            # Process the splits to form complete questions
+            if len(splits) > 1:  # If we found at least one question mark
+                temp_questions = []
+                for i in range(0, len(splits) - 1, 2):
+                    if i + 1 < len(splits):
+                        # Rejoin the question with its question mark
+                        q = splits[i] + "?"
+                        temp_questions.append(q.strip())
+                
+                # If we successfully parsed multiple questions, use them
+                if temp_questions:
+                    print(f"Successfully parsed {len(temp_questions)} questions from text")
+                    questions_list = temp_questions
+            
+            # If still no questions_list, try looking for line breaks or numbered items
+            if not questions_list:
+                # Try to find numbered questions (e.g., "1. Question", "2. Question", etc.)
+                numbered_questions = re.findall(r'(\d+\.\s*[^.;?!]*[.;?!])', questions_raw)
+                if numbered_questions:
+                    questions_list = [q.strip() for q in numbered_questions]
+                    print(f"Found {len(questions_list)} numbered questions")
+                else:
+                    # Try to split by line breaks
+                    line_splits = re.split(r'[\r\n]+', questions_raw)
+                    if len(line_splits) > 1:
+                        questions_list = [q.strip() for q in line_splits if q.strip()]
+                        print(f"Split into {len(questions_list)} questions by line breaks")
         
         # Generate HTML content that exactly matches the extraction page display format
         # Create a structured HTML representation with the same cards and layout as case_extracted_content.html
@@ -941,9 +983,13 @@ def save_and_view_case():
             <div class="card-body">
 """
             if questions_list:
-                html_content += "<ol>\n"
+                html_content += "<ol class=\"mb-0\">\n"
+                # Add proper spacing and formatting for each question
                 for q in questions_list:
-                    html_content += f"<li>{q}</li>\n"
+                    # Ensure each question is on its own line with proper spacing
+                    # and remove any trailing/leading whitespace
+                    clean_question = q.strip()
+                    html_content += f"    <li>{clean_question}</li>\n"
                 html_content += "</ol>\n"
             else:
                 html_content += f"<p class=\"mb-0\">{question_html}</p>\n"
@@ -1002,9 +1048,12 @@ def save_and_view_case():
             <div class="card-body">
 """
             if conclusion_items:
-                html_content += "<ol>\n"
+                html_content += "<ol class=\"mb-0\">\n"
+                # Add proper spacing and formatting for each conclusion item
                 for c in conclusion_items:
-                    html_content += f"<li>{c}</li>\n"
+                    # Clean up the conclusion text
+                    clean_conclusion = c.strip()
+                    html_content += f"    <li>{clean_conclusion}</li>\n"
                 html_content += "</ol>\n"
             else:
                 html_content += f"<p class=\"mb-0\">{conclusion}</p>\n"
