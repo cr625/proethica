@@ -1,5 +1,47 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Streamlined Case Processing Workflow for URL Import
+
+Modified the URL import process to skip the raw view when users click "Process URL":
+
+**Issue**:
+When importing cases from a URL, the workflow required:
+1. Enter URL at `/cases/new/url`
+2. Click "Process URL" (which went to the edit form)
+3. OR click "View Raw Content First" (to see the raw HTML) 
+4. From the raw content view, click "Process as NSPE Case" to see the extracted content
+5. Then click "Save and View Case" to finalize
+
+This workflow required too many steps when users simply wanted to process the URL directly.
+
+**Solution**:
+1. Modified `create_case_from_url.html` template to change the behavior of the "Process URL" button:
+   - Changed the primary form action from `cases.create_from_url` to `cases.process_url_pipeline` 
+   - Added a hidden input field `process_extraction=true` to trigger NSPE case extraction directly
+   - Updated the "View Raw Content First" button to set `process_extraction=false` before submitting
+
+**Implementation Details**:
+```html
+<form method="post" action="{{ url_for('cases.process_url_pipeline') }}">
+    <input type="hidden" name="process_extraction" value="true">
+    <!-- form fields -->
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <button type="submit" class="btn btn-success me-2">Process URL</button>
+        <button type="submit" class="btn btn-primary"
+            formaction="{{ url_for('cases.process_url_pipeline') }}"
+            onclick="document.querySelector('[name=process_extraction]').value='false';">
+            <i class="bi bi-file-text"></i> View Raw Content First
+        </button>
+    </div>
+</form>
+```
+
+**Results**:
+- Clicking "Process URL" now directly runs the NSPE case extraction step
+- The raw content view option is still available through "View Raw Content First"
+- The workflow is more streamlined while maintaining all functionality
+- This change eliminates unnecessary steps for the most common use case
+
 ## 2025-05-20: Fixed Database Schema for Case Deletion
 
 Resolved an issue that was causing errors when deleting cases:
