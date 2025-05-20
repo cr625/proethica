@@ -4,14 +4,15 @@
 
 ### Current Status (May 20, 2025)
 - **Phase 1 Complete**: Extended ontology with document structure classes and properties
-- **Phase 2.1-2.2 Complete**: 
+- **Phase 2.1-2.3 Complete**: 
   - Implemented DocumentStructureAnnotationStep pipeline component
   - Created integration files and example implementation
-  - Successfully tested with mock case data
+  - Completed production integration with UI access
+  - Successfully tested with both mock and real case data
 - **Next Steps**:
-  - Complete pipeline integration in production code
-  - Update document storage schema for structure triples
-  - Implement section-level embeddings
+  - Phase 2.4: Update document storage schema for structure triples
+  - Phase 3: Implement section-level embeddings
+  - Phase 4: Enhance UI to visualize and utilize structure annotations
 
 ### Implementation Details
 
@@ -58,4 +59,7 @@ This will allow us to answer queries like:
 
 ### Next Phase
 
-Ready to implement Phase 2.3: Complete production integration
+Ready to implement:
+- Phase 2.4: Update document storage schema for structure triples
+- Phase 3: Enhance EmbeddingService for section-level embeddings
+- Phase 4: UI and visualization updates for structure annotations
