@@ -1,5 +1,51 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: MCP Server Environment Variables Fix
+
+Fixed an issue with environment variables not being passed to the MCP server:
+
+**Issue**: When accessing the codespace from a different computer, the guideline concept extraction process was failing with the error "LLM client not available" despite the API keys being properly set in the .env file.
+
+**Analysis**:
+- The Flask app was correctly loading environment variables from .env
+- The MCP server logs showed "ANTHROPIC_API_KEY not found in environment" warnings
+- The issue was in how VS Code's tasks.json launches the MCP server through preLaunch task
+- Child processes started through tasks.json don't automatically inherit environment variables from .env
+
+**Solution**:
+1. Created a helper shell script (`start_mcp_server_with_env.sh`) to properly source the .env file:
+   ```bash
+   #!/bin/bash
+   # Load environment variables from .env file
+   if [ -f .env ]; then
+     export $(grep -v '^#' .env | xargs)
+     echo "Loaded environment variables from .env file"
+   fi
+   
+   # Start the MCP server
+   python mcp/run_enhanced_mcp_server_with_guidelines.py
+   ```
+
+2. Updated `.vscode/tasks.json` to use this script:
+   ```json
+   {
+       "label": "Start MCP Server with Live LLM",
+       "type": "shell",
+       "command": "./start_mcp_server_with_env.sh",
+       "args": [],
+   }
+   ```
+
+3. Created full documentation in `docs/anthropic_sdk_fix_2025_05_20.md`
+
+4. Created a database backup (`ai_ethical_dm_backup_20250520_005033.dump`) as a precaution
+
+**Prevention**:
+For future development, ensure that:
+- Use the helper script when starting the MCP server manually
+- Environment variables are explicitly passed to child processes
+- VSCode launch and task configurations are tested when accessing from different computers
+
 ## 2025-05-19: Python Environment Package Resolution Fix
 
 Fixed an issue with Python module imports when accessing the codespace from a different system:
