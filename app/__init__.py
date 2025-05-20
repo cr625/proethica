@@ -78,6 +78,7 @@ def create_app(config_module='app.config'):
     from app.routes.debug import debug_bp
     from app.routes.documents import documents_bp
     from app.routes.cases import cases_bp
+    from app.routes.cases_structure_update import cases_structure_bp
     from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
@@ -94,6 +95,7 @@ def create_app(config_module='app.config'):
     app.register_blueprint(debug_bp, url_prefix='/debug')
     app.register_blueprint(documents_bp, url_prefix='/documents')
     app.register_blueprint(cases_bp, url_prefix='/cases')
+    app.register_blueprint(cases_structure_bp, url_prefix='/cases_enhanced')
     
     # Create and register the ontology editor blueprint
     ontology_editor_bp = create_ontology_editor_blueprint(
