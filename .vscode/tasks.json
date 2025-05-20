@@ -4,10 +4,8 @@
         {
             "label": "Start MCP Server with Live LLM",
             "type": "shell",
-            "command": "python",
-            "args": [
-                "mcp/run_enhanced_mcp_server_with_guidelines.py"
-            ],
+            "command": "./start_mcp_server_with_env.sh",
+            "args": [],
             "isBackground": true,
             "problemMatcher": {
                 "pattern": {

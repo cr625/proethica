@@ -1,117 +1,82 @@
-# Anthropic SDK 0.51.0 Update - LLM Integration Fix
+# Anthropic SDK Environment Variables Fix
 
-**Date:** May 20, 2025  
-**Author:** Claude AI  
-**Issue:** Concept extraction error with Anthropic SDK v0.51.0
+## Problem Overview
 
-## Problem Description
-
-After updating the proethica-intermediate ontology, the guidelines concept extraction process began failing with error:
+When accessing the codespace from a different computer, the guideline concept extraction process began returning errors:
 
 ```
-2025-05-20 00:03:31,691 - app.routes.worlds - ERROR - Guideline processing error: Concept Extraction Error - Error extracting concepts: LLM client not available
+2025-05-20 00:33:11,735 - app.routes.worlds - ERROR - Guideline processing error: Concept Extraction Error - Error extracting concepts: LLM client not available
 ```
 
-This error was occurring due to two main issues:
+The MCP server logs revealed the root cause:
 
-1. Incompatibility with the latest Anthropic SDK (v0.51.0) which changed its response structure format
-2. Environment configuration issues with Python path and dependency conflicts
+```
+2025-05-20 00:32:40,599 - __main__ - WARNING - ANTHROPIC_API_KEY not found in environment - LLM calls may fail
+2025-05-20 00:32:40,600 - mcp.enhanced_ontology_server_with_guidelines - WARNING - ANTHROPIC_API_KEY not found in environment. Anthropic client not available.
+```
 
-## Changes Made
+## Investigation
 
-We implemented the following fixes:
+After analyzing the logs and configuration files, we determined:
 
-### 1. Dependency Consolidation
+1. The `.env` file correctly contained the `ANTHROPIC_API_KEY`.
+2. The Flask app was successfully loading environment variables from `.env`.
+3. The MCP server was starting but not receiving the environment variables from `.env`.
+4. The issue was in how VS Code's `tasks.json` launches the MCP server through the preLaunch task.
 
-- Created a consolidated requirements file with explicit version pinning for Anthropic SDK
-- Set Anthropic SDK to version 0.51.0 (exact pinning to avoid future breaking changes)
-- Consolidated all requirements into a single file for easier maintenance
+## Solution Implemented
 
-### 2. Environment Configuration
+We created a helper shell script to properly source the `.env` file before starting the MCP server:
 
-- Created `setup_environment.sh` script that:
-  - Disables Conda environment to avoid conflicts
-  - Sets proper Python path to user site-packages
-  - Installs dependencies with proper versioning
-  - Verifies installations work correctly
-
-### 3. Code Updates to Support v0.51.0
-
-- Updated `app/utils/llm_utils.py`:
-  - Added version detection for Anthropic SDK
-  - Improved client initialization with robust error handling
-  - Added support for different API versions (v1, v1.5, v2)
-
-- Updated `app/services/guideline_analysis_service.py`:
-  - Prioritized the use of `messages.create` API for Anthropic v0.51.0
-  - Added proper handling for the new content structure (list format)
-  - Removed deprecated `response_format` parameter
-  - Fixed variable name consistency issues
-
-### 4. Testing
-
-- Created `test_anthropic_integration.py` test script to verify:
-  - SDK installation and version
-  - API key availability
-  - Client initialization
-  - Successful API calls with the new response format
-  - Integration with the application's LLM utilities
-
-## How to Apply the Fix
-
-1. First, revert to a clean state:
+1. Created `start_mcp_server_with_env.sh`:
    ```bash
-   git reset --hard HEAD && git clean -fd
+   #!/bin/bash
+   
+   # Load environment variables from .env file
+   if [ -f .env ]; then
+     export $(grep -v '^#' .env | xargs)
+     echo "Loaded environment variables from .env file"
+     
+     # Verify that key variables are present
+     if [ -n "$ANTHROPIC_API_KEY" ]; then
+       echo "✓ ANTHROPIC_API_KEY is set"
+     else
+       echo "⚠ WARNING: ANTHROPIC_API_KEY is not set in .env file"
+     fi
+   else
+     echo "Warning: .env file not found"
+   fi
+
+   # Set USE_MOCK_GUIDELINE_RESPONSES to false explicitly
+   export USE_MOCK_GUIDELINE_RESPONSES=false
+   
+   # Start the MCP server
+   echo "Starting MCP server with environment variables..."
+   python mcp/run_enhanced_mcp_server_with_guidelines.py
    ```
 
-2. Run the setup script:
-   ```bash
-   ./setup_environment.sh
+2. Updated `.vscode/tasks.json` to use this script:
+   ```json
+   {
+       "label": "Start MCP Server with Live LLM",
+       "type": "shell",
+       "command": "./start_mcp_server_with_env.sh",
+       "args": [],
+       // ...rest of the configuration remains unchanged
+   }
    ```
 
-3. Verify the installation works:
-   ```bash
-   python test_anthropic_integration.py
-   ```
+## Manual Alternative Solution
 
-4. Test guideline concept extraction:
-   ```bash
-   python -m app.test.test_live_guideline_extraction
-   ```
+If the automated solution ever fails, you can manually export the environment variables before starting the MCP server:
 
-## Technical Details
-
-### Response Format Changes
-
-With Anthropic SDK v0.51.0, the response format changed significantly:
-
-**Old Format (pre-v0.5x.x):**
-```python
-response = client.completion(...)
-text = response.completion
+```bash
+export $(grep -v '^#' .env | xargs)
+python mcp/run_enhanced_mcp_server_with_guidelines.py
 ```
 
-**New Format (v0.5x.x):**
-```python
-response = client.messages.create(...)
-# Content is now a list of content blocks
-text = response.content[0].text
-```
+## Root Cause Analysis
 
-### Key Code Changes
+The issue was that in VS Code, child processes started through tasks.json don't automatically inherit environment variables from the parent process or from the `.env` file unless explicitly configured to do so. This became apparent when accessing the codespace from a different computer, as the previous configuration might have had the environment variables set up differently.
 
-The most important change was in how we handle the response content structure:
-
-```python
-# Handle the response content structure
-if hasattr(response, 'content'):
-    if isinstance(response.content, list) and len(response.content) > 0:
-        response_text = response.content[0].text
-    else:
-        response_text = str(response.content)
-else:
-    logger.warning("Unexpected response format - no content attribute")
-    response_text = str(response)
-```
-
-This allows the code to be backward compatible with older SDK versions while properly handling the new format.
+By using a shell script that explicitly sources the `.env` file, we ensure that the MCP server has access to all the necessary API keys regardless of the host environment.
