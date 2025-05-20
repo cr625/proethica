@@ -50,10 +50,10 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [x] Update actual process_url route with document structure annotation
   - [x] Test integration with live system
 
-- [ ] **2.4. Update document storage for structure triples**
-  - [ ] Modify document storage to include structure triples
-  - [ ] Update doc_metadata schema to include structure information
-  - [ ] Ensure backward compatibility with existing documents
+- [x] **2.4. Update document storage for structure triples**
+  - [x] Modify document storage to include structure triples
+  - [x] Update doc_metadata schema to include structure information
+  - [x] Ensure backward compatibility with existing documents
 
 ### Phase 3: Section Embedding Implementation
 
@@ -74,9 +74,11 @@ The goal is to extend the ProEthica ontology to include document structure conce
 
 ### Phase 4: UI and Visualization Updates
 
-- [ ] **4.1. Enhance case detail view**
-  - [ ] Update case_detail.html to display structure annotations
-  - [ ] Add visual indicators for semantic properties
+- [x] **4.1. Enhance case detail view** (Partially Complete)
+  - [x] Update case_detail.html with "View Structure" button replacing non-functional "Edit Triples" button
+  - [x] Create document_structure.html template to display structure annotations
+  - [x] Create document_structure.py routes for structure visualization
+  - [ ] Add visual indicators for semantic properties directly in case view
   - [ ] Implement toggles for showing/hiding annotations
 
 - [ ] **4.2. Add section-based similarity search**
@@ -163,4 +165,22 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Registered cases_structure_bp blueprint in app/__init__.py
   - Added test_document_structure_integration.py for full integration testing
   - Both standard and enhanced pipelines now accessible through the UI
-  - Next steps: Phase 2.4 to improve document storage for structure triples and Phase 3 for section embeddings
+
+### Date: May 20, 2025 (End of Day)
+- Completed Phase 2.4: Update document storage for structure triples
+  - Created update_document_structure_storage.py script to annotate existing cases
+  - Implemented formatted document structure storage in doc_metadata
+  - Successfully tested and verified with Case 222 (generated 127 triples)
+  - Ensured backward compatibility with existing document retrieval code
+  - Enhanced schema documentation for doc_metadata structure
+  - Ready to implement Phase 3: Section Embedding Implementation
+
+### Date: May 20, 2025 (Late Night)
+- Partially Completed Phase 4.1: UI Case Detail View Enhancements
+  - Created document_structure.py routes for structure visualization
+  - Created document_structure.html template to display document structure details
+  - Added "View Structure" button to case detail page, replacing non-functional "Edit Triples" button
+  - Implemented display of structure triples and section metadata
+  - Created documentation for structure viewing functionality
+  - Registered doc_structure_bp blueprint in app/__init__.py
+  - Ready for Phase 3 implementation while continuing UI enhancements

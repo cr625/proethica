@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Document Structure - {{ document.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="mb-4">
+        <div class="d-flex justify-content-end mb-2">
+            <a href="{{ url_for('cases.view_case', id=document.id) }}" class="btn btn-secondary me-2">Back to Case</a>
+        </div>
+        <h2>Document Structure: {{ document.title }}</h2>
+    </div>
+
+    {% if not has_structure %}
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">No Document Structure Found</h4>
+        <p>This document does not have ontology-based structure annotations.</p>
+        <hr>
+        <p class="mb-0">You can add document structure annotations by running the document structure update script:</p>
+        <pre class="mt-2"><code>python update_document_structure_storage.py --case-id {{ document.id }}</code></pre>
+    </div>
+    {% else %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>Document Information</h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Document ID:</strong> {{ document.id }}</p>
+            <p><strong>Document URI:</strong> {{ document_uri }}</p>
+            {% if document.doc_metadata.get('case_number') %}
+            <p><strong>Case Number:</strong> {{ document.doc_metadata.get('case_number') }}</p>
+            {% endif %}
+            {% if document.doc_metadata.get('year') %}
+            <p><strong>Year:</strong> {{ document.doc_metadata.get('year') }}</p>
+            {% endif %}
+            {% if document.doc_metadata.get('document_structure', {}).get('annotation_timestamp') %}
+            <p><strong>Structure Annotation Timestamp:</strong> {{ document.doc_metadata.get('document_structure',
+                {}).get('annotation_timestamp') }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if section_metadata %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Section Metadata</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Section</th>
+                            <th>Type</th>
+                            <th>URI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, data in section_metadata.items() %}
+                        <tr>
+                            <td>{{ key.split('/')[-1] }}</td>
+                            <td>{{ data.get('type') }}</td>
+                            <td><code>{{ key }}</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if structure_triples %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3>Structure Triples</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                Structure triples represent the document's organization in ontology-based format,
+                following the ProEthica intermediate ontology.
+            </div>
+            <pre class="bg-light p-3 rounded"><code>{{ structure_triples }}</code></pre>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

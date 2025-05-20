@@ -9,10 +9,18 @@
   - Created integration files and example implementation
   - Completed production integration with UI access
   - Successfully tested with both mock and real case data
+- **Phase 2.4 Complete**:
+  - Implemented document storage schema updates for structure triples
+  - Created update script for existing cases (`update_document_structure_storage.py`)
+  - Successfully tested and verified with Case 222
+  - Each case now has formal document structure RDF triples in doc_metadata
+- **Phase 4.1 (Partial) Complete**:
+  - Added "View Structure" button to case detail page (replacing non-functional "Edit Triples" button)
+  - Created document structure visualization template and routes
+  - Implemented display of structure triples and section metadata
 - **Next Steps**:
-  - Phase 2.4: Update document storage schema for structure triples
   - Phase 3: Implement section-level embeddings
-  - Phase 4: Enhance UI to visualize and utilize structure annotations
+  - Complete Phase 4: Further enhance UI with visual indicators and section-based search
 
 ### Implementation Details
 
@@ -60,6 +68,11 @@ This will allow us to answer queries like:
 ### Next Phase
 
 Ready to implement:
-- Phase 2.4: Update document storage schema for structure triples
 - Phase 3: Enhance EmbeddingService for section-level embeddings
+  - Add methods to generate embeddings for individual sections
+  - Create storage schema for section embeddings
+  - Implement section-to-section similarity functions
 - Phase 4: UI and visualization updates for structure annotations
+  - Enhance case detail view to display structure annotations
+  - Add section-based similarity search
+  - Add visual indicators for semantic properties
