@@ -14,18 +14,18 @@ The goal is to extend the ProEthica ontology to include document structure conce
 
 ### Phase 1: Ontology Extension Implementation
 
-- [ ] **1.1. Define document structure classes in proethica-intermediate.ttl**
-  - [ ] Create DocumentElement as base class (subclass of BFO generically dependent continuant)
-  - [ ] Define DocumentSection and its subclasses (Facts, Questions, References, Discussion, Conclusion)
-  - [ ] Define DocumentMetadata classes (CaseNumber, Year, Title)
-  - [ ] Define StructuredContent classes (QuestionItem, ConclusionItem)
-  - [ ] Verify ontology consistency after additions
+- [x] **1.1. Define document structure classes in proethica-intermediate.ttl**
+  - [x] Create DocumentElement as base class (subclass of BFO generically dependent continuant)
+  - [x] Define DocumentSection and its subclasses (Facts, Questions, References, Discussion, Conclusion)
+  - [x] Define DocumentMetadata classes (CaseNumber, Year, Title)
+  - [x] Define StructuredContent classes (QuestionItem, ConclusionItem)
+  - [x] Verify ontology consistency after additions
 
-- [ ] **1.2. Define document structure properties in proethica-intermediate.ttl**
-  - [ ] Add basic properties (hasTextContent, isPartOf, mentions)
-  - [ ] Add section-specific semantic properties (describesEvent, concernsPrinciple, etc.)
-  - [ ] Add document-case relationship properties
-  - [ ] Verify property domains and ranges are properly set
+- [x] **1.2. Define document structure properties in proethica-intermediate.ttl**
+  - [x] Add basic properties (hasTextContent, isPartOf, mentions)
+  - [x] Add section-specific semantic properties (describesEvent, concernsPrinciple, etc.)
+  - [x] Add document-case relationship properties
+  - [x] Verify property domains and ranges are properly set
 
 - [ ] **1.3. Test ontology extensions**
   - [ ] Create sample triples using new classes and properties
