@@ -86,10 +86,10 @@ The goal is to extend the ProEthica ontology to include document structure conce
 
 ## Testing Milestones
 
-- [ ] **M1: Verify ontology extension**
-  - [ ] Validate consistency with BFO principles
-  - [ ] Test triple generation with sample cases
-  - [ ] Verify querying capabilities
+- [x] **M1: Verify ontology extension**
+  - [x] Validate consistency with BFO principles
+  - [x] Test triple generation with sample cases
+  - [x] Verify querying capabilities
 
 - [ ] **M2: Test document structure pipeline**
   - [ ] Process test cases through enhanced pipeline
