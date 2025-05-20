@@ -68,9 +68,14 @@ class CaseUrlProcessor:
         Returns:
             Dictionary with processing results
         """
-        # Use Flask current_user if available and user_id not provided
-        if user_id is None and current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
-            user_id = current_user.id
+        # Safe way to get user_id from current_user if not provided
+        if user_id is None:
+            try:
+                if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+                    user_id = current_user.id
+            except Exception:
+                # If there's any error accessing current_user, just use None
+                pass
             
         # Check cache first if enabled
         if self.cache and self.cache.has_url(url):

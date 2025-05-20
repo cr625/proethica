@@ -97,6 +97,15 @@ This step extracts structured content from NSPE case HTML pages by:
    - Uses a combination of regular expressions and text analysis to identify section boundaries
    - Preserves internal formatting and links to other cases within the discussion section
 
+6. **Structured Content Parsing (Enhanced - May 2025)**
+   - Added ability to extract individual questions as separate items within ordered lists
+   - Enhanced conclusion handling to parse multiple conclusion items when present in numbered lists
+   - Added pattern matching to detect numbered statements even when not in HTML list format
+   - Implemented dynamic UI presentation that adapts based on content structure:
+     - Shows single conclusion/question as paragraph
+     - Shows multiple items as ordered lists
+     - Dynamically adjusts headings (singular/plural) based on content
+
 #### Technical Details:
 
 - Section identification uses both HTML structure and content markers
@@ -104,6 +113,7 @@ This step extracts structured content from NSPE case HTML pages by:
 - Proper error handling for cases where sections cannot be found
 - Standardized input validation and error reporting
 - Clean, consistent output structure that can be used for further processing
+- Structured content extraction preserves both HTML representation and structured items
 
 ### Phase 3: Metadata & Structure Analysis (Future)
 

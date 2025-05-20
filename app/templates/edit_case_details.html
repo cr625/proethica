@@ -8,7 +8,8 @@
         <h1>Edit Case Details</h1>
         <div>
             <a href="{{ url_for('cases.view_case', id=document.id) }}" class="btn btn-secondary me-2">Back to Case</a>
-            <a href="{{ url_for('cases_triple.edit_triples', id=document.id) }}" class="btn btn-primary">Edit Triples</a>
+            <!-- Edit Triples button removed to fix routing error -->
+            <!-- <a href="{{ url_for('cases_triple.edit_triples', id=document.id) }}" class="btn btn-primary">Edit Triples</a> -->
         </div>
     </div>
 
@@ -20,11 +21,13 @@
             <form method="post" action="{{ url_for('cases.edit_case', id=document.id) }}">
                 <div class="mb-3">
                     <label for="title" class="form-label">Title</label>
-                    <input type="text" class="form-control" id="title" name="title" value="{{ document.title }}" required>
+                    <input type="text" class="form-control" id="title" name="title" value="{{ document.title }}"
+                        required>
                 </div>
                 <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
-                    <textarea class="form-control" id="description" name="description" rows="10" required>{{ document.content }}</textarea>
+                    <textarea class="form-control" id="description" name="description" rows="10"
+                        required>{{ document.content }}</textarea>
                 </div>
                 <div class="d-flex justify-content-end">
                     <a href="{{ url_for('cases.view_case', id=document.id) }}" class="btn btn-secondary me-2">Cancel</a>
@@ -52,7 +55,9 @@
                     <p><strong>World:</strong> {{ world.name }}</p>
                     {% endif %}
                     {% if document.source %}
-                    <p><strong>Source:</strong> <a href="{{ document.source if document.source.startswith('http') else '#' }}" target="_blank">{{ document.source }}</a></p>
+                    <p><strong>Source:</strong> <a
+                            href="{{ document.source if document.source.startswith('http') else '#' }}"
+                            target="_blank">{{ document.source }}</a></p>
                     {% endif %}
                 </div>
             </div>

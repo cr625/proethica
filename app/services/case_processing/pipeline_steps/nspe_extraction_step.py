@@ -295,14 +295,18 @@ class NSPECaseExtractionStep(BaseStep):
     def extract_conclusion_section(self, soup, base_url=None):
         """
         Extract conclusion section with special handling.
+        Returns both the raw HTML and a list of individual conclusion items if available.
         
         Args:
             soup: BeautifulSoup object of the full page content
             base_url: Base URL for converting relative links to absolute
             
         Returns:
-            str: Extracted and cleaned conclusion section HTML
+            dict: Dictionary containing the HTML content and list of individual conclusion items
+                 or str: Just the HTML content for backward compatibility
         """
+        conclusion_html = None
+        
         # First try the specific div structure for modern NSPE cases
         conclusion_div = soup.find('div', class_='field--name-field-case-conclusion')
         if conclusion_div:
@@ -310,21 +314,40 @@ class NSPECaseExtractionStep(BaseStep):
             field_item = conclusion_div.find('div', class_='field__item')
             if field_item:
                 # Extract and clean the conclusion content
-                return self._clean_minimal_html(str(field_item))
+                conclusion_html = self._clean_minimal_html(str(field_item))
         
         # Next, try to find by field label
-        field_labels = soup.find_all('div', class_='field__label')
-        for label in field_labels:
-            if label.get_text().strip().lower() == 'conclusion' or label.get_text().strip().lower() == 'conclusions':
-                # Found the conclusion label, get the content from the nearest field__item
-                parent = label.parent
-                if parent:
-                    field_item = parent.find('div', class_='field__item')
-                    if field_item:
-                        return self._clean_minimal_html(str(field_item))
+        if not conclusion_html:
+            field_labels = soup.find_all('div', class_='field__label')
+            for label in field_labels:
+                if label.get_text().strip().lower() == 'conclusion' or label.get_text().strip().lower() == 'conclusions':
+                    # Found the conclusion label, get the content from the nearest field__item
+                    parent = label.parent
+                    if parent:
+                        field_item = parent.find('div', class_='field__item')
+                        if field_item:
+                            conclusion_html = self._clean_minimal_html(str(field_item))
         
         # Fall back to general section extraction method if specialized methods fail
-        return None
+        if not conclusion_html:
+            conclusion_html = self.extract_section(soup, "Conclusion:", [], base_url)
+            if not conclusion_html:
+                conclusion_html = self.extract_section(soup, "Conclusions:", [], base_url)
+                
+        # If we have conclusion HTML, extract individual items
+        if conclusion_html:
+            # Parse the cleaned HTML to extract individual conclusions from ordered lists
+            conclusion_items = self._extract_individual_conclusions(conclusion_html)
+            
+            # If we found individual items, return both HTML and items
+            if conclusion_items:
+                return {
+                    'html': conclusion_html,
+                    'conclusions': conclusion_items
+                }
+        
+        # Return just the HTML for backward compatibility
+        return conclusion_html
     
     def _process_discussion_html(self, html, base_url=None):
         """
@@ -428,6 +451,56 @@ class NSPECaseExtractionStep(BaseStep):
             questions.append(text_content)
             
         return questions
+        
+    def _extract_individual_conclusions(self, html):
+        """
+        Extract individual conclusion items from HTML content.
+        Handles ordered lists, unordered lists, and text with numbered items.
+        
+        Args:
+            html: HTML content containing conclusion
+            
+        Returns:
+            list: List of individual conclusion items as strings
+        """
+        if not html:
+            return []
+            
+        # Parse the HTML
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        conclusions = []
+        
+        # Look for ordered lists first (most common format for multiple conclusion items)
+        ordered_list = soup.find('ol')
+        if ordered_list:
+            # Extract each list item as a separate conclusion item
+            for item in ordered_list.find_all('li'):
+                conclusions.append(item.get_text().strip())
+            return conclusions
+        
+        # If no ordered list is found, check for unordered lists
+        unordered_list = soup.find('ul')
+        if unordered_list:
+            for item in unordered_list.find_all('li'):
+                conclusions.append(item.get_text().strip())
+            return conclusions
+        
+        # If no list is found, try to find numbered items in the text
+        # This handles cases where numbers are used but not in HTML list format
+        text_content = soup.get_text().strip()
+        if text_content:
+            # Look for patterns like "1.", "2.", "(1)", "(2)" at the beginning of lines or sentences
+            numbered_items = re.findall(r'(?:^|\n|\.\s+)(\(\d+\)|\d+\.)\s+([^\(\d\n\.]+?)(?=\n\s*\(\d+\)|\n\s*\d+\.|\Z)', text_content)
+            if numbered_items:
+                for _, item_text in numbered_items:
+                    conclusions.append(item_text.strip())
+                return conclusions
+            
+            # If no numbered items found, use the entire content as a single conclusion
+            conclusions.append(text_content)
+            
+        return conclusions
         
     def _clean_minimal_html(self, html):
         """
@@ -740,20 +813,24 @@ class NSPECaseExtractionStep(BaseStep):
                 # Fall back to the general extraction method
                 discussion = self.extract_section(soup, "Discussion:", ["Conclusion:", "Conclusions:"], base_url)
                 
-            # Extract conclusion section with specialized handling
-            conclusion = self.extract_conclusion_section(soup, base_url)
-            if not conclusion:
-                # Fall back to the general extraction method
-                conclusion = self.extract_section(soup, "Conclusion:", [], base_url)
-                if not conclusion:
-                    conclusion = self.extract_section(soup, "Conclusions:", [], base_url)
+            # Extract conclusion section with specialized handling that may return a dict or string
+            conclusion_data = self.extract_conclusion_section(soup, base_url)
+            conclusion_html = None
+            conclusion_items = []
+            
+            # Handle the result which may be a dict or string depending on if individual items were found
+            if isinstance(conclusion_data, dict):
+                conclusion_html = conclusion_data.get('html')
+                conclusion_items = conclusion_data.get('conclusions', [])
+            else:
+                conclusion_html = conclusion_data
                 
             # Clean sections while preserving links
             facts = self.clean_section_text(facts)
             question_html = self.clean_section_text(question_html)
             references = self.clean_section_text(references)
             discussion = self.clean_section_text(discussion)
-            conclusion = self.clean_section_text(conclusion)
+            conclusion_html = self.clean_section_text(conclusion_html)
             
             # Extract title
             title = None
@@ -781,13 +858,14 @@ class NSPECaseExtractionStep(BaseStep):
                 'year': year,
                 'pdf_url': pdf_url,
                 'questions_list': questions_list,  # List of individual questions
+                'conclusion_items': conclusion_items,  # List of individual conclusion items
                 'url': url,
                 'sections': {
                     'facts': facts,
                     'question': question_html,
                     'references': references,
                     'discussion': discussion,
-                    'conclusion': conclusion
+                    'conclusion': conclusion_html
                 }
             }
             

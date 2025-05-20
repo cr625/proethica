@@ -134,16 +134,29 @@
                     {% endif %}
 
                     <!-- Conclusion Section -->
-                    {% if (result.sections and result.sections.conclusion) or result.conclusion %}
+                    {% if result.conclusion_items or (result.sections and result.sections.conclusion) or
+                    result.conclusion %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-header bg-light">
+                                    {% if result.conclusion_items and result.conclusion_items|length > 1 %}
+                                    <h5 class="mb-0">Conclusions</h5>
+                                    {% else %}
                                     <h5 class="mb-0">Conclusion</h5>
+                                    {% endif %}
                                 </div>
                                 <div class="card-body">
+                                    {% if result.conclusion_items %}
+                                    <ol>
+                                        {% for item in result.conclusion_items %}
+                                        <li>{{ item }}</li>
+                                        {% endfor %}
+                                    </ol>
+                                    {% else %}
                                     <p class="mb-0">{{ (result.sections.conclusion if result.sections else
                                         result.conclusion)|safe }}</p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -161,6 +174,7 @@
                             <input type="hidden" name="title" value="{{ result.title }}">
                             <input type="hidden" name="case_number" value="{{ result.case_number }}">
                             <input type="hidden" name="year" value="{{ result.year }}">
+                            <input type="hidden" name="world_id" value="1">
                             <button type="submit" class="btn btn-primary">Save as Case</button>
                         </form>
                     </div>

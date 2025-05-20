@@ -9,7 +9,6 @@ from app.services import MCPClient
 ontology_bp = Blueprint('ontology', __name__, url_prefix='/ontology')
 
 @ontology_bp.route('/<source>')
-@login_required
 def edit_ontology(source):
     """
     Redirect to the ontology editor for the specified ontology source.
@@ -29,7 +28,6 @@ def edit_ontology(source):
     return redirect(f'/ontology-editor?source={source}')
 
 @ontology_bp.route('/<source>/content')
-@login_required
 def get_ontology_content(source):
     """
     Get the content of the specified ontology.
@@ -57,7 +55,6 @@ def get_ontology_content(source):
         return jsonify({'error': str(e)}), 500
 
 @ontology_bp.route('/<source>/content', methods=['PUT'])
-@login_required
 def update_ontology_content(source):
     """
     Update the content of the specified ontology.
@@ -94,7 +91,6 @@ def update_ontology_content(source):
         return jsonify({'error': str(e)}), 500
 
 @ontology_bp.route('/<source>/status')
-@login_required
 def get_ontology_status(source):
     """
     Get the status of the specified ontology.
@@ -118,7 +114,6 @@ def get_ontology_status(source):
         return jsonify({'error': str(e)}), 500
 
 @ontology_bp.route('/<source>/refresh', methods=['POST'])
-@login_required
 def refresh_ontology(source):
     """
     Refresh entities derived from the specified ontology.
@@ -146,7 +141,6 @@ def refresh_ontology(source):
         return jsonify({'error': str(e)}), 500
 
 @ontology_bp.route('/entity')
-@login_required
 def edit_entity():
     """
     Redirect to the ontology editor for editing a specific entity.

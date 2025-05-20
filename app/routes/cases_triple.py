@@ -177,7 +177,7 @@ def create_case_triple():
         embedding_service.process_document(document.id)
         
         flash('Document uploaded and processing started. You will be able to add triples once processing completes.', 'success')
-        return redirect(url_for('cases_triple.edit_triples', id=document.id))
+        return redirect(url_for('cases.dummy_edit_triples', id=document.id))
     
     elif source_type == 'url':
         # Get URL
@@ -202,7 +202,7 @@ def create_case_triple():
                 db.session.commit()
             
             flash('URL processed successfully. You will be able to add triples once processing completes.', 'success')
-            return redirect(url_for('cases_triple.edit_triples', id=document_id))
+            return redirect(url_for('cases.dummy_edit_triples', id=document_id))
         except Exception as e:
             flash(f'Error processing URL: {str(e)}', 'danger')
             return redirect(url_for('cases_triple.new_case_triple'))

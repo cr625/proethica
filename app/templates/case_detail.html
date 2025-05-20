@@ -10,26 +10,26 @@
 
 {% block content %}
 <div class="container">
-<div class="mb-4">
-    <div class="d-flex justify-content-end mb-2">
-        <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary me-2">Back to Cases</a>
-        {% if case.document_id %}
-        <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-success me-2">
-            <i class="bi bi-pencil"></i> Edit Details
-        </a>
-        <a href="/cases/triple/{{ case.document_id }}/edit" class="btn btn-primary me-2">
-            <i class="bi bi-diagram-3"></i> Edit Triples
-        </a>
-        <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
-            <i class="bi bi-trash"></i> Delete Case
-        </button>
-        {% endif %}
-        {% if case.source %}
-        <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
-        {% endif %}
+    <div class="mb-4">
+        <div class="d-flex justify-content-end mb-2">
+            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary me-2">Back to Cases</a>
+            {% if case.document_id %}
+            <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-success me-2">
+                <i class="bi bi-pencil"></i> Edit Details
+            </a>
+            <a href="{{ url_for('cases.dummy_edit_triples', id=case.document_id) }}" class="btn btn-primary me-2">
+                <i class="bi bi-diagram-3"></i> Edit Triples
+            </a>
+            <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="bi bi-trash"></i> Delete Case
+            </button>
+            {% endif %}
+            {% if case.source %}
+            <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
+            {% endif %}
+        </div>
+        <h2>{{ case.title }}</h2>
     </div>
-    <h2>{{ case.title }}</h2>
-</div>
 
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -81,7 +81,7 @@
                 {{ case.ethical_analysis|safe|nl2br }}
             </div>
             {% endif %}
-            
+
             <!-- Display ontology information if available -->
             {% if case.doc_metadata and case.doc_metadata.ontology_info %}
             <h4>Ontology Integration</h4>
@@ -98,7 +98,7 @@
                         {% else %}
                         <p class="text-muted">No principles have been identified for this case.</p>
                         {% endif %}
-                        
+
                         {% if case.doc_metadata.ontology_info.principle_instantiations %}
                         <h5 class="card-title">Principle Instantiations</h5>
                         <table class="table table-sm table-striped">
@@ -142,7 +142,8 @@
         </div>
         <div class="card-body">
             <p class="text-muted small mb-3">
-                <i class="bi bi-info-circle"></i> Click on any property to see related cases. Select multiple properties to find cases matching all selected criteria.
+                <i class="bi bi-info-circle"></i> Click on any property to see related cases. Select multiple properties
+                to find cases matching all selected criteria.
             </p>
             <div class="triple-labels">
                 <div class="mb-3">
@@ -152,14 +153,13 @@
                     </small>
                 </div>
                 {% for triple in entity_triples %}
-                <span class="badge bg-info text-dark me-2 mb-2 triple-label" 
-                      data-predicate="{{ triple.predicate }}"
-                      data-object="{{ triple.object_literal if triple.is_literal else triple.object_uri }}"
-                      data-is-literal="{{ 'true' if triple.is_literal else 'false' }}"
-                      data-metadata="{{ triple.triple_metadata|tojson }}"
-                      style="cursor: pointer;">
-                    {{ triple.predicate.split('/')[-1].split('#')[-1] }}: 
-                    {{ triple.object_literal if triple.is_literal else triple.object_uri.split('/')[-1].split('#')[-1] }}
+                <span class="badge bg-info text-dark me-2 mb-2 triple-label" data-predicate="{{ triple.predicate }}"
+                    data-object="{{ triple.object_literal if triple.is_literal else triple.object_uri }}"
+                    data-is-literal="{{ 'true' if triple.is_literal else 'false' }}"
+                    data-metadata="{{ triple.triple_metadata|tojson }}" style="cursor: pointer;">
+                    {{ triple.predicate.split('/')[-1].split('#')[-1] }}:
+                    {{ triple.object_literal if triple.is_literal else triple.object_uri.split('/')[-1].split('#')[-1]
+                    }}
                 </span>
                 {% endfor %}
             </div>
@@ -265,13 +265,13 @@
 <script src="{{ url_for('static', filename='js/case_detail.js') }}"></script>
 <!-- Pass case ID to JS -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Add document ID to page for JS to use
-    const docIdEl = document.createElement('input');
-    docIdEl.type = 'hidden';
-    docIdEl.id = 'document-id';
-    docIdEl.value = '{{ case.id }}';
-    document.body.appendChild(docIdEl);
-});
+    document.addEventListener('DOMContentLoaded', function () {
+        // Add document ID to page for JS to use
+        const docIdEl = document.createElement('input');
+        docIdEl.type = 'hidden';
+        docIdEl.id = 'document-id';
+        docIdEl.value = '{{ case.id }}';
+        document.body.appendChild(docIdEl);
+    });
 </script>
 {% endblock %}
