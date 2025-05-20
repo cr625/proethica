@@ -1,5 +1,156 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Streamlined URL Processing Workflow
+
+Simplified the URL processing workflow by eliminating the intermediate steps:
+
+**Issue**:
+When importing cases from a URL, the workflow required multiple steps:
+1. Enter URL at `/cases/new/url` 
+2. Click "Process URL" to see the extraction result
+3. Then click "Save and View Case" to save the data and view the case
+
+This workflow was inefficient and required redundant processing of the same data.
+
+**Solution**:
+Modified the `process_url_pipeline` function to automatically save the extracted data directly to the database:
+
+```python
+# If extraction was requested, save the case and redirect
+if process_extraction:
+    # Ensure the result has the structure the template expects
+    # ...existing code to structure the data...
+    
+    # Extract relevant data for saving
+    title = final_result.get('title', 'Case from URL')
+    case_number = final_result.get('case_number', '')
+    # ...other data extraction...
+    
+    # Generate HTML content that matches the extraction page display format
+    html_content = ""
+    
+    # ...generate HTML for all sections...
+    
+    # Store original sections in metadata for future reference
+    metadata = {
+        'case_number': case_number,
+        'year': year,
+        # ...other metadata...
+        'questions_list': questions_list,
+        'conclusion_items': conclusion_items,
+        'extraction_method': 'direct_process',
+        'display_format': 'extraction_style'
+    }
+    
+    # Create document record
+    document = Document(
+        title=title,
+        content=html_content,
+        document_type='case_study',
+        world_id=world_id,
+        source=url,
+        file_type='url',
+        doc_metadata=metadata,
+        processing_status=PROCESSING_STATUS['COMPLETED']
+    )
+    
+    # Save the document
+    db.session.add(document)
+    db.session.commit()
+    
+    # Redirect to view the case
+    flash('Case extracted and saved successfully', 'success')
+    return redirect(url_for('cases.view_case', id=document.id))
+```
+
+**Results**:
+- Clicking "Process URL" now directly processes the URL, saves the result to the database, and redirects to the case view
+- The intermediate step of viewing the extraction result and then manually saving it has been eliminated
+- Conclusion items and question lists are properly preserved in their structured format
+- The workflow is now more efficient and requires fewer clicks
+- Raw content view option is still available through "View Raw Content First" button
+
+## 2025-05-20: Fixed Conclusion Items Processing in URL Pipeline
+
+Fixed an issue where conclusion items were not properly preserved as a list when processing URLs directly:
+
+**Issue**:
+When using the "Process URL" button on the URL form, conclusion items were rendered correctly in the extraction view with proper list formatting, but after clicking "Save and View Case," the conclusions appeared as a single block of text without list formatting in the saved case view.
+
+**Analysis**:
+1. The NSPECaseExtractionStep correctly extracts and structures conclusion items as an array
+2. However, in the process_url_pipeline function, this structured data wasn't being properly passed to the template
+3. The structured data was lost when converting from the extraction result to the final template data
+
+**Solution**:
+Modified the `process_url_pipeline` function to:
+```python
+# If conclusion_items are not explicitly included, but we have structured conclusion data
+# in the extraction result, make sure we include it in the final_result
+if 'conclusion_items' not in final_result and isinstance(final_result.get('conclusion'), dict):
+    conclusion_data = final_result.get('conclusion', {})
+    if 'conclusions' in conclusion_data:
+        final_result['conclusion_items'] = conclusion_data['conclusions']
+    elif isinstance(conclusion_data, dict) and 'html' in conclusion_data and 'conclusions' in conclusion_data:
+        final_result['conclusion_items'] = conclusion_data['conclusions']
+        final_result['sections']['conclusion'] = conclusion_data['html']
+```
+
+**Results**:
+- The URL processing pipeline now correctly preserves conclusion items as a structured array
+- This ensures the data is properly passed to the save_and_view_case route
+- Conclusion items are now consistently displayed as properly formatted lists throughout the workflow
+- The fix is backward compatible with existing case data
+
+## 2025-05-20: Fixed Conclusion List Items Display in Case Detail View
+
+Fixed an issue where conclusion items were not being displayed as a proper list in the case detail view when using "Save and View Case":
+
+**Issue**:
+When viewing extracted cases with multiple conclusion items, the conclusion section was properly formatted as a numbered list in the extraction view. However, after clicking "Save and View Case," the conclusions were not being displayed as separate list items in the case detail view, resulting in poor readability.
+
+**Analysis**:
+1. The `save_and_view_case` route in `cases.py` correctly stored the conclusion items as an array in the document metadata
+2. The HTML generation properly created the ordered list (ol) with list items (li) in the document content
+3. However, the case_detail.html template did not have a dedicated section for rendering conclusion items from metadata
+
+**Solution**:
+Added a new section in the case_detail.html template to specifically render conclusion items stored in document metadata:
+
+```html
+<!-- Conclusion items list from metadata if available -->
+{% if case.doc_metadata.conclusion_items %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                {% if case.doc_metadata.conclusion_items|length > 1 %}
+                <h5 class="mb-0">Conclusions</h5>
+                {% else %}
+                <h5 class="mb-0">Conclusion</h5>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    {% for conclusion in case.doc_metadata.conclusion_items %}
+                    <li>{{ conclusion }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+```
+
+This addition follows the same pattern as the existing section for question items, ensuring a consistent layout and formatting.
+
+**Results**:
+- Conclusion items now display as properly formatted numbered lists in the saved case view
+- The formatting matches exactly how conclusions appear on the extraction page
+- Singular/plural heading ("Conclusion"/"Conclusions") is dynamically adjusted based on the number of items
+- All changes maintain backward compatibility with existing cases
+
 ## 2025-05-20: Streamlined Case Processing Workflow for URL Import
 
 Modified the URL import process to skip the raw view when users click "Process URL":

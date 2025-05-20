@@ -274,7 +274,7 @@ def url_form():
 
 @cases_bp.route('/process/url', methods=['GET', 'POST'])
 def process_url_pipeline():
-    """Process a URL through the case processing pipeline."""
+    """Process a URL through the case processing pipeline and save directly to database."""
     # Handle GET requests (typically from back button)
     if request.method == 'GET':
         url = request.args.get('url')
@@ -287,6 +287,7 @@ def process_url_pipeline():
     # Process POST requests
     url = request.form.get('url')
     process_extraction = request.form.get('process_extraction') == 'true'
+    world_id = request.form.get('world_id', type=int, default=1)  # Default to Engineering world (ID=1)
     
     if not url:
         return render_template('raw_url_content.html', 
@@ -318,7 +319,7 @@ def process_url_pipeline():
                                error_details=final_result,
                                url=url)
     
-    # If extraction was requested, show the extracted content
+    # If extraction was requested, save the case and redirect
     if process_extraction:
         # Ensure the result has the structure the template expects
         if 'sections' not in final_result and final_result.get('status') == 'success':
@@ -332,9 +333,191 @@ def process_url_pipeline():
                 'conclusion': final_result.get('conclusion', '')
             }
             final_result['sections'] = sections_data
+        
+        # If conclusion_items are not explicitly included, but we have structured conclusion data
+        # in the extraction result, make sure we include it in the final_result
+        if 'conclusion_items' not in final_result and isinstance(final_result.get('conclusion'), dict):
+            conclusion_data = final_result.get('conclusion', {})
+            if 'conclusions' in conclusion_data:
+                final_result['conclusion_items'] = conclusion_data['conclusions']
+            elif isinstance(conclusion_data, dict) and 'html' in conclusion_data and 'conclusions' in conclusion_data:
+                final_result['conclusion_items'] = conclusion_data['conclusions']
+                final_result['sections']['conclusion'] = conclusion_data['html']
+        
+        # Extract relevant data for saving
+        title = final_result.get('title', 'Case from URL')
+        case_number = final_result.get('case_number', '')
+        year = final_result.get('year', '')
+        pdf_url = final_result.get('pdf_url', '')
+        facts = final_result.get('sections', {}).get('facts', '')
+        question_html = final_result.get('sections', {}).get('question', '')
+        references = final_result.get('sections', {}).get('references', '')
+        discussion = final_result.get('sections', {}).get('discussion', '')
+        conclusion = final_result.get('sections', {}).get('conclusion', '')
+        
+        # Get structured list data
+        questions_list = final_result.get('questions_list', [])
+        conclusion_items = final_result.get('conclusion_items', [])
             
-        return render_template('case_extracted_content.html',
-                              result=final_result)
+        # Generate HTML content that matches the extraction page display format
+        html_content = ""
+        
+        # Facts section
+        if facts:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Facts</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{facts}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Questions section
+        if question_html or questions_list:
+            question_heading = "Questions" if questions_list and len(questions_list) > 1 else "Question"
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{question_heading}</h5>
+            </div>
+            <div class="card-body">
+"""
+            if questions_list:
+                html_content += "<ol class=\"mb-0\">\n"
+                for q in questions_list:
+                    clean_question = q.strip()
+                    html_content += f"    <li>{clean_question}</li>\n"
+                html_content += "</ol>\n"
+            else:
+                html_content += f"<p class=\"mb-0\">{question_html}</p>\n"
+            
+            html_content += """
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # References section
+        if references:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">NSPE Code of Ethics References</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{references}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Discussion section
+        if discussion:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Discussion</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{discussion}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Conclusion section
+        if conclusion or conclusion_items:
+            conclusion_heading = "Conclusions" if conclusion_items and len(conclusion_items) > 1 else "Conclusion"
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{conclusion_heading}</h5>
+            </div>
+            <div class="card-body">
+"""
+            if conclusion_items:
+                html_content += "<ol class=\"mb-0\">\n"
+                for c in conclusion_items:
+                    clean_conclusion = c.strip()
+                    html_content += f"    <li>{clean_conclusion}</li>\n"
+                html_content += "</ol>\n"
+            else:
+                html_content += f"<p class=\"mb-0\">{conclusion}</p>\n"
+            
+            html_content += """
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Store original sections in metadata for future reference
+        metadata = {
+            'case_number': case_number,
+            'year': year,
+            'pdf_url': pdf_url,
+            'sections': {
+                'facts': facts,
+                'question': question_html,
+                'references': references,
+                'discussion': discussion,
+                'conclusion': conclusion
+            },
+            'questions_list': questions_list,
+            'conclusion_items': conclusion_items,
+            'extraction_method': 'direct_process',
+            'display_format': 'extraction_style'  # Flag to indicate special display format
+        }
+        
+        # Safe way to get user_id without relying on Flask-Login being initialized
+        user_id = None
+        try:
+            if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+                user_id = current_user.id
+                metadata['created_by_user_id'] = user_id
+        except Exception:
+            # If there's any error accessing current_user, just use None
+            pass
+        
+        # Create document record
+        from app.models.document import Document, PROCESSING_STATUS
+        
+        document = Document(
+            title=title,
+            content=html_content,
+            document_type='case_study',
+            world_id=world_id,
+            source=url,
+            file_type='url',
+            doc_metadata=metadata,
+            processing_status=PROCESSING_STATUS['COMPLETED']
+        )
+        
+        # Save the document
+        db.session.add(document)
+        db.session.commit()
+        
+        # Redirect to view the case
+        flash('Case extracted and saved successfully', 'success')
+        return redirect(url_for('cases.view_case', id=document.id))
     
     # Otherwise, just show the raw content
     return render_template('raw_url_content.html',
@@ -1051,11 +1234,13 @@ def save_and_view_case():
                 html_content += "<ol class=\"mb-0\">\n"
                 # Add proper spacing and formatting for each conclusion item
                 for c in conclusion_items:
-                    # Clean up the conclusion text
+                    # Clean up the conclusion text, removing any leading/trailing whitespace
                     clean_conclusion = c.strip()
+                    # Ensure proper HTML formatting with clear indentation for better readability
                     html_content += f"    <li>{clean_conclusion}</li>\n"
                 html_content += "</ol>\n"
             else:
+                # Only use the conclusion text if no structured items are available
                 html_content += f"<p class=\"mb-0\">{conclusion}</p>\n"
             
             html_content += """

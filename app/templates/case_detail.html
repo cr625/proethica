@@ -80,6 +80,30 @@
                 </div>
             </div>
             {% endif %}
+
+            <!-- Conclusion items list from metadata if available -->
+            {% if case.doc_metadata.conclusion_items %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            {% if case.doc_metadata.conclusion_items|length > 1 %}
+                            <h5 class="mb-0">Conclusions</h5>
+                            {% else %}
+                            <h5 class="mb-0">Conclusion</h5>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                {% for conclusion in case.doc_metadata.conclusion_items %}
+                                <li>{{ conclusion }}</li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             {% else %}
             <h4>Description</h4>
             <div class="mb-4">
