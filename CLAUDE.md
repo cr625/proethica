@@ -1,5 +1,200 @@
 # ProEthica Project Development Log
 
+## 2025-05-20: Implemented "Save and View Case" Button in Extraction Template
+
+Added the previously documented "Save and View Case" button to the case extraction template to allow direct saving and viewing of cases without going through the edit step:
+
+**Implementation**:
+1. Added a new "Save and View Case" button to the extraction template that:
+   - Submits directly to the `/cases/save-and-view` route
+   - Passes all extracted content sections as hidden form fields
+   - Includes structured data for questions and conclusions
+   - Uses a green button to distinguish it from the regular save button
+
+2. Positioned the new button next to the original "Save as Case" button, maintaining both workflows:
+   - "Save and View Case" (green) - Bypasses the edit step and displays the case with the same formatting
+   - "Save as Case" (blue) - Original workflow that goes to the edit form first
+
+**How It Works**:
+- When a user clicks "Save and View Case", the form submits all extracted content to the `save_and_view_case` route
+- This route generates HTML that matches the extraction page format with the same cards and styling
+- It also sets a special `display_format: 'extraction_style'` metadata flag
+- The case_detail template checks for this flag and renders the case in the same style as the extraction page
+- No further processing or editing step is required
+
+**Benefits**:
+- Cases are now displayed exactly as they appear during extraction, with identical formatting and Bootstrap styling
+- The card-based layout with proper headers is preserved in the saved view
+- Numbered lists in conclusions are properly preserved with ordered list HTML
+- Users can save and view cases in one click without going through an edit step
+- The original "Save as Case" option is still available for users who need the edit step
+
+## 2025-05-20: Case Extraction Pipeline Enhancement (Updated)
+
+Implemented a comprehensive enhancement to the case extraction pipeline to properly preserve formatting and layout in NSPE cases and streamline the user workflow:
+
+**Issue**: When a user processed a URL to extract NSPE case content:
+1. The content was displayed correctly on the extraction page after clicking "Process as NSPE Case"
+2. When clicking "Save as Case" and redirected to the edit page, proper formatting (especially numbered lists in conclusions) was lost
+3. Users had to go through an unnecessary edit step even when no edits were needed
+4. After saving with the initial "Save and View" implementation, the content display format was still different from how it appeared on the extraction page
+
+**Analysis**:
+- NSPE case conclusions often contain numbered lists that should be preserved in the saved document
+- The existing pipeline reprocessed the content during the save operation, causing format loss
+- The nl2br Jinja filter in the template was converting newlines to <br> tags, breaking HTML formatting
+- The workflow required clicking through an edit page even when no edits were needed
+- The first version of the solution preserved content but not the card-based Bootstrap layout/styling
+
+**Solution**:
+1. Added individual conclusion item extraction in NSPECaseExtractionStep:
+   ```python
+   def _extract_individual_conclusions(self, html):
+       """
+       Extract individual conclusion items from HTML content.
+       Handles ordered lists, unordered lists, and text with numbered items.
+       """
+       # Implementation extracts list items into a structured array
+   ```
+
+2. Added a new "Save and View Case" button to `case_extracted_content.html`:
+   ```html
+   <form method="post" action="{{ url_for('cases.save_and_view_case') }}" class="me-2">
+       <input type="hidden" name="url" value="{{ result.url }}">
+       <input type="hidden" name="title" value="{{ result.title }}">
+       <!-- Other metadata fields -->
+       <input type="hidden" name="world_id" value="1">
+
+       <!-- Include all extracted content sections -->
+       <input type="hidden" name="extracted_content" value="true">
+       <input type="hidden" name="facts" value="{{ result.sections.facts|e }}">
+       <!-- Other content sections -->
+       
+       <!-- Structured list data as JSON -->
+       {% if result.questions_list %}
+       <input type="hidden" name="questions_list" value="{{ result.questions_list|tojson|e }}">
+       {% endif %}
+       {% if result.conclusion_items %}
+       <input type="hidden" name="conclusion_items" value="{{ result.conclusion_items|tojson|e }}">
+       {% endif %}
+
+       <button type="submit" class="btn btn-primary">Save and View Case</button>
+   </form>
+   ```
+
+3. Enhanced the `save_and_view_case` route in `cases.py` to generate HTML that exactly matches the extraction page format:
+   ```python
+   @cases_bp.route('/save-and-view', methods=['POST'])
+   def save_and_view_case():
+       """Save case with extracted content and view it directly (no edit step)."""
+       # Code to get form data...
+       
+       # Generate HTML content that exactly matches the extraction page display format
+       # with the same cards and layout as case_extracted_content.html
+       html_content = ""
+       
+       # Facts section
+       if facts:
+           html_content += f"""
+   <div class="row mb-4">
+       <div class="col-12">
+           <div class="card">
+               <div class="card-header bg-light">
+                   <h5 class="mb-0">Facts</h5>
+               </div>
+               <div class="card-body">
+                   <p class="mb-0">{facts}</p>
+               </div>
+           </div>
+       </div>
+   </div>
+   """
+       
+       # Questions section with similar card structure
+       # References section with similar card structure
+       # Discussion section with similar card structure
+       # Conclusion section with similar card structure
+       
+       # Store display format flag in metadata
+       metadata = {
+           # Other metadata fields...
+           'display_format': 'extraction_style' # Flag to indicate special display format
+       }
+   ```
+
+4. Modified the case detail template to check for the display format flag and render accordingly:
+   ```html
+   {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
+       {{ case.description|safe }}
+   {% else %}
+       <h4>Description</h4>
+       <div class="mb-4">
+           <div id="description-container">
+               <div id="description-content">
+                   {{ case.description|safe }}
+               </div>
+           </div>
+       </div>
+   {% endif %}
+   ```
+
+5. Added `world_id` hidden field with default value of 1 (Engineering Ethics) to both forms:
+   ```html
+   <input type="hidden" name="world_id" value="1">
+   ```
+
+**Benefits**:
+- Cases are now displayed exactly as they appear during extraction, with identical formatting and Bootstrap styling
+- The card-based layout with proper headers is preserved in the saved view
+- Numbered lists in conclusions are properly preserved with ordered list HTML
+- Users can save and view cases in one click without going through an edit step
+- The original "Save as Case" option is still available for users who need the edit step
+- Improved workflow reduces redundant reprocessing of URLs
+
+**Technical Implementation Details**:
+- Uses hidden form fields to preserve pre-extracted content without reprocessing
+- Generates HTML with matching Bootstrap card components and styling to ensure visual consistency
+- Special metadata flag enables conditional rendering in the case detail template
+- Handles both structured list data (as JSON) and raw HTML content
+- Maintains backward compatibility with existing code paths
+- Implements safe error handling for JSON parsing
+- Properly sets document processing status to completed
+
+## 2025-05-20: Fixed "Edit Triples" Button Error in Case Edit Form
+
+Fixed a routing error in the case edit form that occurred after successfully saving a case:
+
+**Issue**: After successfully saving a case from the URL processor, the application would redirect to `/cases/<id>/edit` but then display an error:
+```
+BuildError: Could not build url for endpoint 'cases_triple.edit_triples' with values ['id']. 
+Did you mean 'cases.edit_case' instead?
+```
+
+**Analysis**:
+- The error occurred in the `edit_case_details.html` template
+- The template tried to generate a URL for the `cases_triple.edit_triples` endpoint
+- This endpoint exists but expects a different URL pattern than what the template was providing
+- The "Edit Triples" button was causing the routing error even though the case was saving correctly
+
+**Solution**:
+- Commented out the problematic "Edit Triples" button in the template:
+```html
+<!-- Edit Triples button removed to fix routing error -->
+<!-- <a href="{{ url_for('cases_triple.edit_triples', id=document.id) }}" class="btn btn-primary">Edit Triples</a> -->
+```
+- Added a comment explaining why the button was removed
+- Preserved all other functionality of the edit case form
+
+**Benefits**:
+- Eliminates the routing error when editing cases
+- Allows users to view and edit case details without errors
+- Maintains core functionality while removing a non-critical feature
+- No changes to route functions or backend code required
+
+**Next Steps**:
+- If the "Edit Triples" functionality is needed, proper routes should be implemented in the `cases_triple` blueprint
+- URL patterns between templates and routes should be standardized
+
 ## 2025-05-20: Fixed BuildError for Cases Triple Edit Routes
 
 Fixed issues where accessing case triple editing URLs was causing BuildErrors:
@@ -51,41 +246,6 @@ werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'cases_
 - Consider properly registering the `cases_triple_bp` in `app/__init__.py` for a more permanent solution
 - Standardize URL patterns for triple editing functionality
 - Fully implement triple editing functionality if it's a required feature
-
-## 2025-05-20: Fixed "Edit Triples" Button Error in Case Edit Form
-
-Fixed a routing error in the case edit form that occurred after successfully saving a case:
-
-**Issue**: After successfully saving a case from the URL processor, the application would redirect to `/cases/<id>/edit` but then display an error:
-```
-BuildError: Could not build url for endpoint 'cases_triple.edit_triples' with values ['id']. 
-Did you mean 'cases.edit_case' instead?
-```
-
-**Analysis**:
-- The error occurred in the `edit_case_details.html` template
-- The template tried to generate a URL for the `cases_triple.edit_triples` endpoint
-- This endpoint exists but expects a different URL pattern than what the template was providing
-- The "Edit Triples" button was causing the routing error even though the case was saving correctly
-
-**Solution**:
-- Commented out the problematic "Edit Triples" button in the template:
-```html
-<!-- Edit Triples button removed to fix routing error -->
-<!-- <a href="{{ url_for('cases_triple.edit_triples', id=document.id) }}" class="btn btn-primary">Edit Triples</a> -->
-```
-- Added a comment explaining why the button was removed
-- Preserved all other functionality of the edit case form
-
-**Benefits**:
-- Eliminates the routing error when editing cases
-- Allows users to view and edit case details without errors
-- Maintains core functionality while removing a non-critical feature
-- No changes to route functions or backend code required
-
-**Next Steps**:
-- If the "Edit Triples" functionality is needed, proper routes should be implemented in the `cases_triple` blueprint
-- URL patterns between templates and routes should be standardized
 
 ## 2025-05-20: Fixed Additional Login Manager Error in CaseUrlProcessor
 

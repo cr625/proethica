@@ -52,14 +52,18 @@
             </div>
             {% endif %}
 
+            {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
+            {{ case.description|safe }}
+            {% else %}
             <h4>Description</h4>
             <div class="mb-4">
                 <div id="description-container">
                     <div id="description-content">
-                        {{ case.description|safe|nl2br }}
+                        {{ case.description|safe }}
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             {% if case.decision %}
             <h4>Decision</h4>

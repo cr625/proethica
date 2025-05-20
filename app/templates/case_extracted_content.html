@@ -169,14 +169,50 @@
                         <a href="{{ url_for('cases.process_url_pipeline') }}?url={{ result.url }}"
                             class="btn btn-secondary">Back to Raw Content</a>
 
-                        <form method="post" action="{{ url_for('cases.create_from_url') }}">
-                            <input type="hidden" name="url" value="{{ result.url }}">
-                            <input type="hidden" name="title" value="{{ result.title }}">
-                            <input type="hidden" name="case_number" value="{{ result.case_number }}">
-                            <input type="hidden" name="year" value="{{ result.year }}">
-                            <input type="hidden" name="world_id" value="1">
-                            <button type="submit" class="btn btn-primary">Save as Case</button>
-                        </form>
+                        <div class="d-flex">
+                            <!-- Save and View Case button - bypasses edit step -->
+                            <form method="post" action="{{ url_for('cases.save_and_view_case') }}" class="me-2">
+                                <input type="hidden" name="url" value="{{ result.url }}">
+                                <input type="hidden" name="title" value="{{ result.title }}">
+                                <input type="hidden" name="case_number" value="{{ result.case_number }}">
+                                <input type="hidden" name="year" value="{{ result.year }}">
+                                <input type="hidden" name="world_id" value="1">
+
+                                <!-- Include all extracted content sections -->
+                                <input type="hidden" name="facts"
+                                    value="{{ (result.sections.facts if result.sections else result.facts)|e }}">
+                                <input type="hidden" name="question_html"
+                                    value="{{ (result.sections.question if result.sections else result.question_html)|e }}">
+                                <input type="hidden" name="references"
+                                    value="{{ (result.sections.references if result.sections else result.references)|e }}">
+                                <input type="hidden" name="discussion"
+                                    value="{{ (result.sections.discussion if result.sections else result.discussion)|e }}">
+                                <input type="hidden" name="conclusion"
+                                    value="{{ (result.sections.conclusion if result.sections else result.conclusion)|e }}">
+                                <input type="hidden" name="pdf_url" value="{{ result.pdf_url|default('') }}">
+
+                                <!-- Structured list data as JSON -->
+                                {% if result.questions_list %}
+                                <input type="hidden" name="questions_list" value="{{ result.questions_list|tojson|e }}">
+                                {% endif %}
+                                {% if result.conclusion_items %}
+                                <input type="hidden" name="conclusion_items"
+                                    value="{{ result.conclusion_items|tojson|e }}">
+                                {% endif %}
+
+                                <button type="submit" class="btn btn-success">Save and View Case</button>
+                            </form>
+
+                            <!-- Original Save as Case button - goes to edit form -->
+                            <form method="post" action="{{ url_for('cases.create_from_url') }}">
+                                <input type="hidden" name="url" value="{{ result.url }}">
+                                <input type="hidden" name="title" value="{{ result.title }}">
+                                <input type="hidden" name="case_number" value="{{ result.case_number }}">
+                                <input type="hidden" name="year" value="{{ result.year }}">
+                                <input type="hidden" name="world_id" value="1">
+                                <button type="submit" class="btn btn-primary">Save as Case</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

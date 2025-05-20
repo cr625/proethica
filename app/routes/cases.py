@@ -518,6 +518,9 @@ def create_from_url():
     # Get form data
     url = request.form.get('url')
     world_id = request.form.get('world_id', type=int)
+    title = request.form.get('title')
+    case_number = request.form.get('case_number')
+    year = request.form.get('year')
     
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
@@ -544,45 +547,146 @@ def create_from_url():
         return redirect(url_for('cases.url_form'))
     
     try:
-        # Use new case_url_processor instead of embedding_service
-        processor = CaseUrlProcessor()
+        # Check if we have pre-extracted content from the form
+        using_extracted_content = request.form.get('extracted_content') == 'true'
         
-        # Process the URL
-        result = processor.process_url(url, world_id, user_id)
+        if using_extracted_content:
+            # Use pre-extracted content sections from the form
+            facts = request.form.get('facts', '')
+            question_html = request.form.get('question_html', '')
+            references = request.form.get('references', '')
+            discussion = request.form.get('discussion', '')
+            conclusion = request.form.get('conclusion', '')
+            pdf_url = request.form.get('pdf_url', '')
+            
+            # Try to parse JSON lists if available
+            questions_list = []
+            conclusion_items = []
+            
+            try:
+                import json
+                if request.form.get('questions_list'):
+                    questions_list = json.loads(request.form.get('questions_list'))
+                if request.form.get('conclusion_items'):
+                    conclusion_items = json.loads(request.form.get('conclusion_items'))
+            except Exception as e:
+                print(f"Warning: Error parsing JSON lists: {str(e)}")
+            
+            # Combine sections into a structured content for display
+            combined_content = f"<h2>Facts</h2>\n{facts}\n\n"
+            
+            if question_html:
+                if questions_list and len(questions_list) > 1:
+                    combined_content += f"<h2>Questions</h2>\n"
+                else:
+                    combined_content += f"<h2>Question</h2>\n"
+                    
+                if questions_list:
+                    combined_content += "<ol>\n"
+                    for q in questions_list:
+                        combined_content += f"<li>{q}</li>\n"
+                    combined_content += "</ol>\n\n"
+                else:
+                    combined_content += f"{question_html}\n\n"
+            
+            if references:
+                combined_content += f"<h2>NSPE Code of Ethics References</h2>\n{references}\n\n"
+                
+            if discussion:
+                combined_content += f"<h2>Discussion</h2>\n{discussion}\n\n"
+                
+            if conclusion:
+                if conclusion_items and len(conclusion_items) > 1:
+                    combined_content += f"<h2>Conclusions</h2>\n"
+                else:
+                    combined_content += f"<h2>Conclusion</h2>\n"
+                    
+                if conclusion_items:
+                    combined_content += "<ol>\n"
+                    for c in conclusion_items:
+                        combined_content += f"<li>{c}</li>\n"
+                    combined_content += "</ol>\n\n"
+                else:
+                    combined_content += f"{conclusion}\n\n"
+            
+            # Prepare metadata with the extracted sections
+            metadata = {
+                'case_number': case_number,
+                'year': year,
+                'pdf_url': pdf_url,
+                'sections': {
+                    'facts': facts,
+                    'question': question_html,
+                    'references': references,
+                    'discussion': discussion,
+                    'conclusion': conclusion
+                },
+                'questions_list': questions_list,
+                'conclusion_items': conclusion_items,
+                'extraction_method': 'pipeline_preserved'
+            }
+            
+            # Create document record using the extracted sections
+            document = Document(
+                title=title or 'Case from URL',
+                content=combined_content,
+                document_type='case_study',
+                world_id=world_id,
+                source=url,
+                file_type='url',
+                doc_metadata=metadata
+            )
+            
+            # Set processing status to completed since we already have the content
+            document.processing_status = PROCESSING_STATUS['COMPLETED']
+            document.processing_progress = 100
+            
+        else:
+            # If no extracted content provided, use the URL processor to extract it
+            processor = CaseUrlProcessor()
+            
+            # Process the URL
+            result = processor.process_url(url, world_id, user_id)
+            
+            # Check for errors in the result
+            if 'status' in result and result['status'] == 'error':
+                flash(result['message'], 'danger')
+                return redirect(url_for('cases.url_form'))
+            
+            # Create document record
+            document = Document(
+                title=result.get('title', 'Case from URL'),
+                content=result.get('content', ''),
+                document_type='case_study',
+                world_id=world_id,
+                source=url,
+                file_type='url',
+                doc_metadata=result.get('metadata', {})
+            )
+            
+            # If we have embedding data, set the processing status to completed
+            if result.get('content'):
+                document.processing_status = PROCESSING_STATUS['COMPLETED']
+                document.processing_progress = 100
+                
+            # Add any extracted triples if they exist
+            if 'triples' in result and result['triples']:
+                # Store triples in metadata for processing after commit
+                document.doc_metadata['triples_to_process'] = result['triples']
         
-        # Check for errors in the result
-        if 'status' in result and result['status'] == 'error':
-            flash(result['message'], 'danger')
-            return redirect(url_for('cases.url_form'))
-        
-        # Create document record
-        document = Document(
-            title=result.get('title', 'Case from URL'),
-            content=result.get('content', ''),
-            document_type='case_study',
-            world_id=world_id,
-            source=url,
-            file_type='url',
-            doc_metadata=result.get('metadata', {})
-        )
-        
-        # Store user_id in metadata instead since Document doesn't have creator_id field
+        # Store user_id in metadata (common for both paths)
         if user_id and document.doc_metadata:
             document.doc_metadata['created_by_user_id'] = user_id
         
-        # If we have embedding data, set the processing status to completed
-        if result.get('content'):
-            document.processing_status = PROCESSING_STATUS['COMPLETED']
-            document.processing_progress = 100
-        
+        # Save the document
         db.session.add(document)
         db.session.commit()
         
-        # Add any extracted triples
-        if 'triples' in result and result['triples']:
+        # Process triples if we have them in metadata
+        if document.doc_metadata and document.doc_metadata.get('triples_to_process'):
             triple_service = EntityTripleService()
             
-            for triple in result['triples']:
+            for triple in document.doc_metadata['triples_to_process']:
                 try:
                     # Create entity triple record using the add_triple method with valid entity_type
                     triple_service.add_triple(
@@ -595,8 +699,12 @@ def create_from_url():
                     )
                 except Exception as e:
                     flash(f'Warning: Error creating triple: {str(e)}', 'warning')
+            
+            # Remove temporary triples data from metadata
+            document.doc_metadata.pop('triples_to_process', None)
+            db.session.commit()
         
-        flash('URL processed and case created successfully', 'success')
+        flash('Case created successfully from URL', 'success')
         return redirect(url_for('cases.edit_case_form', id=document.id))
         
     except Exception as e:
@@ -742,6 +850,222 @@ def dummy_edit_triples(id):
     return redirect(url_for('cases.edit_case_form', id=id))
 
 # Add specific route for the URL that's causing the error
+@cases_bp.route('/save-and-view', methods=['POST'])
+def save_and_view_case():
+    """Save case with extracted content and view it directly (no edit step)."""
+    # Get form data
+    url = request.form.get('url')
+    world_id = request.form.get('world_id', type=int)
+    title = request.form.get('title')
+    case_number = request.form.get('case_number')
+    year = request.form.get('year')
+    
+    # Safe way to get user_id without relying on Flask-Login being initialized
+    user_id = None
+    try:
+        if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+            user_id = current_user.id
+    except Exception:
+        # If there's any error accessing current_user, just use None
+        pass
+    
+    # Validate required fields
+    if not url:
+        flash('URL is required', 'danger')
+        return redirect(url_for('cases.url_form'))
+    
+    # Validate world_id (required)
+    if not world_id:
+        flash('World selection is required', 'danger')
+        return redirect(url_for('cases.url_form'))
+        
+    world = World.query.get(world_id)
+    if not world:
+        flash(f'World with ID {world_id} not found', 'danger')
+        return redirect(url_for('cases.url_form'))
+    
+    try:
+        # Extract content sections from the form
+        # We always use the pre-extracted content for this route
+        facts = request.form.get('facts', '')
+        question_html = request.form.get('question_html', '')
+        references = request.form.get('references', '')
+        discussion = request.form.get('discussion', '')
+        conclusion = request.form.get('conclusion', '')
+        pdf_url = request.form.get('pdf_url', '')
+        
+        # Try to parse JSON lists if available
+        questions_list = []
+        conclusion_items = []
+        
+        try:
+            import json
+            if request.form.get('questions_list'):
+                questions_list = json.loads(request.form.get('questions_list'))
+            if request.form.get('conclusion_items'):
+                conclusion_items = json.loads(request.form.get('conclusion_items'))
+        except Exception as e:
+            print(f"Warning: Error parsing JSON lists: {str(e)}")
+        
+        # Generate HTML content that exactly matches the extraction page display format
+        # Create a structured HTML representation with the same cards and layout as case_extracted_content.html
+        html_content = ""
+        
+        # Facts section
+        if facts:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Facts</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{facts}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Questions section
+        if question_html or questions_list:
+            question_heading = "Questions" if questions_list and len(questions_list) > 1 else "Question"
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{question_heading}</h5>
+            </div>
+            <div class="card-body">
+"""
+            if questions_list:
+                html_content += "<ol>\n"
+                for q in questions_list:
+                    html_content += f"<li>{q}</li>\n"
+                html_content += "</ol>\n"
+            else:
+                html_content += f"<p class=\"mb-0\">{question_html}</p>\n"
+            
+            html_content += """
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # References section
+        if references:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">NSPE Code of Ethics References</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{references}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Discussion section
+        if discussion:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Discussion</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{discussion}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Conclusion section
+        if conclusion or conclusion_items:
+            conclusion_heading = "Conclusions" if conclusion_items and len(conclusion_items) > 1 else "Conclusion"
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{conclusion_heading}</h5>
+            </div>
+            <div class="card-body">
+"""
+            if conclusion_items:
+                html_content += "<ol>\n"
+                for c in conclusion_items:
+                    html_content += f"<li>{c}</li>\n"
+                html_content += "</ol>\n"
+            else:
+                html_content += f"<p class=\"mb-0\">{conclusion}</p>\n"
+            
+            html_content += """
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
+        # Store original sections in metadata for future reference
+        metadata = {
+            'case_number': case_number,
+            'year': year,
+            'pdf_url': pdf_url,
+            'sections': {
+                'facts': facts,
+                'question': question_html,
+                'references': references,
+                'discussion': discussion,
+                'conclusion': conclusion
+            },
+            'questions_list': questions_list,
+            'conclusion_items': conclusion_items,
+            'extraction_method': 'direct_view',
+            'display_format': 'extraction_style' # Flag to indicate special display format
+        }
+        
+        # Create document record
+        document = Document(
+            title=title or 'Case from URL',
+            content=html_content,
+            document_type='case_study',
+            world_id=world_id,
+            source=url,
+            file_type='url',
+            doc_metadata=metadata
+        )
+        
+        # Set processing status to completed since we already have the content
+        document.processing_status = PROCESSING_STATUS['COMPLETED']
+        document.processing_progress = 100
+        
+        # Store user_id in metadata
+        if user_id and document.doc_metadata:
+            document.doc_metadata['created_by_user_id'] = user_id
+        
+        # Save the document
+        db.session.add(document)
+        db.session.commit()
+        
+        flash('Case saved successfully', 'success')
+        return redirect(url_for('cases.view_case', id=document.id))
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        flash(f'Error saving case: {str(e)}', 'danger')
+        return redirect(url_for('cases.url_form'))
+
 @cases_bp.route('/<int:id>/triple/edit', methods=['GET', 'POST'])
 def dummy_edit_triples_alt(id):
     """Alternative temporary route to fix BuildError for cases_triple.edit_triples."""
