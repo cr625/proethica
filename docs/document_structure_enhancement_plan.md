@@ -34,11 +34,11 @@ The goal is to extend the ProEthica ontology to include document structure conce
 
 ### Phase 2: Pipeline Enhancement Implementation
 
-- [ ] **2.1. Create Document Structure Annotation pipeline step**
-  - [ ] Create DocumentStructureAnnotationStep class
-  - [ ] Implement section extraction and classification
-  - [ ] Implement triple generation for document structure
-  - [ ] Add semantic property assignment based on content analysis
+- [x] **2.1. Create Document Structure Annotation pipeline step**
+  - [x] Create DocumentStructureAnnotationStep class
+  - [x] Implement section extraction and classification
+  - [x] Implement triple generation for document structure
+  - [x] Add semantic property assignment based on content analysis
 
 - [ ] **2.2. Integrate new pipeline step**
   - [ ] Register step with pipeline manager
@@ -132,3 +132,13 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Verified compatibility with existing ontology concepts
   - Successfully ran the application to confirm backward compatibility
 - The ontology extension follows BFO principles by modeling document parts as generically dependent continuants, which is appropriate since document sections depend on the document but are not tied to a specific physical implementation
+
+### Date: May 20, 2025 (Evening)
+- Completed Phase 2.1: Document Structure Annotation pipeline step
+  - Created DocumentStructureAnnotationStep class that implements BaseStep
+  - Implemented document structure triple generation
+  - Added section-level embedding metadata preparation
+  - Successfully tested the pipeline step with mock case data
+  - Verified correct RDF generation (82 triples generated for test case)
+  - Added support for individual question and conclusion items
+  - Implemented document section sequence relationships
