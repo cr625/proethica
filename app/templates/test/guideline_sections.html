@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Guideline Section Associations - Document {{ document.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h2>Document Information</h2>
+        </div>
+        <div class="card-body">
+            <h3>{{ document.title }}</h3>
+            <p><strong>ID:</strong> {{ document.id }}</p>
+            <p><strong>Type:</strong> {{ document.document_type }}</p>
+            
+            {% if guideline_metadata %}
+            <div class="alert alert-info">
+                <h4>Guideline Association Summary</h4>
+                <p><strong>Sections Processed:</strong> {{ guideline_metadata.sections_processed }}</p>
+                <p><strong>Total Associations:</strong> {{ guideline_metadata.count }}</p>
+                <p><strong>Last Updated:</strong> {{ guideline_metadata.updated_at }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mb-3">
+        <h3>Sections with Guideline Associations</h3>
+        <form action="{{ url_for('test.regenerate_guideline_sections', document_id=document.id) }}" method="POST">
+            <button type="submit" class="btn btn-warning">Regenerate Associations</button>
+        </form>
+    </div>
+    
+    {% for section in sections %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Section: {{ section.section_type }} (ID: {{ section.section_id }})</h4>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h5>Content Preview:</h5>
+                <div class="bg-light p-3 rounded">
+                    <pre style="white-space: pre-wrap;">{{ section.content_preview }}</pre>
+                </div>
+            </div>
+            
+            <h5>Guideline Associations:</h5>
+            {% if section.guideline_associations %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Guideline</th>
+                            <th>Relationship</th>
+                            <th>Confidence</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assoc in section.guideline_associations %}
+                        <tr>
+                            <td>{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else "Unknown URI" }}</td>
+                            <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else "related" }}</td>
+                            <td>
+                                <div class="progress">
+                                    <div class="progress-bar 
+                                        {% if assoc.confidence >= 0.8 %}bg-success
+                                        {% elif assoc.confidence >= 0.5 %}bg-info
+                                        {% else %}bg-warning{% endif %}"
+                                        role="progressbar" 
+                                        style="width: {{ (assoc.confidence * 100)|round }}%"
+                                        aria-valuenow="{{ (assoc.confidence * 100)|round }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100">
+                                        {{ (assoc.confidence * 100)|round }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if assoc.details %}
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#details-{{ section.id }}-{{ loop.index }}" 
+                                        aria-expanded="false">
+                                    Show Details
+                                </button>
+                                <div class="collapse mt-2" id="details-{{ section.id }}-{{ loop.index }}">
+                                    <div class="card card-body">
+                                        {{ assoc.details|safe }}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">No details available</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4">
+                                <pre>{{ assoc | tojson(indent=2) }}</pre>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="alert alert-warning">No guideline associations found for this section.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% if not sections %}
+    <div class="alert alert-warning">
+        <h4>No Sections Found</h4>
+        <p>This document doesn't have any sections with guideline associations.</p>
+    </div>
+    {% endif %}
+    
+    <div class="mb-4">
+        <a href="{{ url_for('test.view_guideline_sections', document_id=251) }}" class="btn btn-primary">
+            View Document 251 (Competence in Design Services)
+        </a>
+    </div>
+</div>
+{% endblock %}

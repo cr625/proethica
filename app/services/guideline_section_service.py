@@ -95,8 +95,9 @@ class GuidelineSectionService:
             List of guideline triples
         """
         try:
-            # Primary approach: Get directly from database - query both direct world associations
-            # and guideline associations
+            # Primary approach: Get directly from database with optimized filtering
+            # Only include the relevant guideline triples with IDs in the specified range (3096-3222)
+            # as identified in guideline_section_integration_enhancement.md
             query = """
             SELECT 
                 et.subject, 
@@ -109,16 +110,8 @@ class GuidelineSectionService:
             FROM 
                 entity_triples et
             WHERE 
-                (et.world_id = :world_id OR et.guideline_id IN (
-                    SELECT id FROM guidelines WHERE world_id = :world_id
-                ))
-                AND (
-                    et.entity_type = 'guideline_concept' 
-                    OR et.subject LIKE '%guideline%'
-                    OR et.subject LIKE '%principle%'
-                    OR et.subject LIKE '%code%'
-                )
-            LIMIT 500
+                et.id BETWEEN 3096 AND 3222
+                AND et.entity_type = 'guideline_concept'
             """
             
             results = db.session.execute(text(query), {'world_id': world_id}).fetchall()
@@ -301,11 +294,11 @@ class GuidelineSectionService:
                     # Handle SQLAlchemy MetaData object carefully
                     current_metadata = {}
                     
-                    # Check if metadata exists and determine its type
-                    if section.metadata is not None:
+                    # Check if section_metadata exists and determine its type
+                    if section.section_metadata is not None:
                         # Try to get metadata as a JSON string and parse it
                         try:
-                            metadata_str = str(section.metadata)
+                            metadata_str = str(section.section_metadata)
                             if '{' in metadata_str and '}' in metadata_str:
                                 # Extract the JSON part if it exists
                                 json_start = metadata_str.find('{')
@@ -328,7 +321,7 @@ class GuidelineSectionService:
                     }
                     
                     # Set the new metadata
-                    section.metadata = new_metadata
+                    section.section_metadata = new_metadata
                     
                     # Add to our result map
                     section_guideline_map[section.id] = {
@@ -416,7 +409,7 @@ class GuidelineSectionService:
                 }
             
             # Check if section has guideline associations
-            if not section.metadata or 'guideline_associations' not in section.metadata:
+            if not section.section_metadata or 'guideline_associations' not in section.section_metadata:
                 logger.warning(f"Section {section_id} has no guideline associations")
                 return {
                     'success': False,
@@ -424,10 +417,10 @@ class GuidelineSectionService:
                 }
             
             # Get guidelines from section
-            guidelines = section.metadata.get('guideline_associations', [])
+            guidelines = section.section_metadata.get('guideline_associations', [])
             
             # Check if these are enhanced guidelines
-            is_enhanced = section.metadata.get('guideline_association_type') == 'enhanced_multi_metric'
+            is_enhanced = section.section_metadata.get('guideline_association_type') == 'enhanced_multi_metric'
             
             # Get the document for context
             document = Document.query.get(section.document_id)
@@ -490,7 +483,7 @@ class GuidelineSectionService:
             
             # Check if any section has guideline associations
             for section in sections:
-                if section.metadata and isinstance(section.metadata, dict) and 'guideline_associations' in section.metadata:
+                if section.section_metadata and isinstance(section.section_metadata, dict) and 'guideline_associations' in section.section_metadata:
                     has_section_associations = True
                     break
             
@@ -515,11 +508,11 @@ class GuidelineSectionService:
             guideline_count = 0
             
             for section in sections:
-                if section.metadata and 'guideline_associations' in section.metadata:
-                    guidelines = section.metadata['guideline_associations']
+                if section.section_metadata and 'guideline_associations' in section.section_metadata:
+                    guidelines = section.section_metadata['guideline_associations']
                     if guidelines:
                         # Check if these are enhanced guidelines
-                        is_enhanced = section.metadata.get('guideline_association_type') == 'enhanced_multi_metric'
+                        is_enhanced = section.section_metadata.get('guideline_association_type') == 'enhanced_multi_metric'
                         
                         section_guideline_map[section.id] = {
                             'section_type': section.section_type,
@@ -580,7 +573,7 @@ class GuidelineSectionService:
                 }
             
             # Check if section has guideline associations
-            if not section.metadata or 'guideline_associations' not in section.metadata:
+            if not section.section_metadata or 'guideline_associations' not in section.section_metadata:
                 return {
                     'success': False,
                     'error': f"Section {section_id} has no guideline associations"
@@ -588,7 +581,7 @@ class GuidelineSectionService:
             
             # Find the guideline with matching URI
             guideline = None
-            for g in section.metadata['guideline_associations']:
+            for g in section.section_metadata['guideline_associations']:
                 if g.get('uri') == guideline_uri:
                     guideline = g
                     break
@@ -1205,7 +1198,7 @@ class GuidelineSectionService:
                 ds.document_id,
                 ds.section_type,
                 ds.content,
-                ds.metadata,
+                ds.section_metadata,
                 d.title as document_title
             FROM 
                 document_sections ds
@@ -1224,11 +1217,11 @@ class GuidelineSectionService:
                 document_id = row[1]
                 section_type = row[2]
                 content = row[3]
-                metadata = row[4]
+                section_metadata = row[4]
                 document_title = row[5]
                 
                 # Get guideline associations
-                guideline_associations = metadata.get('guideline_associations', [])
+                guideline_associations = section_metadata.get('guideline_associations', [])
                 
                 # Find matching guideline
                 matching_guidelines = []
