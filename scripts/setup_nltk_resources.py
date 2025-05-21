@@ -10,7 +10,7 @@ import sys
 print("Setting up NLTK resources...")
 
 # Define resources needed
-resources = ['punkt', 'stopwords']
+resources = ['punkt', 'stopwords', 'punkt_tab']
 
 # Try to download each resource
 success = True
@@ -23,6 +23,10 @@ for resource in resources:
             nltk.data.find('tokenizers/punkt')
         elif resource == 'stopwords':
             nltk.data.find('corpora/stopwords')
+        elif resource == 'punkt_tab':
+            # For punkt_tab, we need to verify it for a specific language
+            # Typically, English ('english') would be the default
+            nltk.data.find('tokenizers/punkt_tab/english/')
         print(f"✓ Successfully set up {resource}")
     except Exception as e:
         print(f"✗ Failed to set up {resource}: {str(e)}", file=sys.stderr)

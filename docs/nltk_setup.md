@@ -6,6 +6,7 @@ The ProEthica application requires certain NLTK (Natural Language Toolkit) resou
 
 - `punkt`: Used for tokenization of text
 - `stopwords`: Used for filtering common words from text analysis
+- `punkt_tab`: Used for language-specific tokenization features
 
 ## Setup Process
 
@@ -34,6 +35,7 @@ If the setup script isn't working for some reason, you can manually download the
 import nltk
 nltk.download('punkt')
 nltk.download('stopwords')
+nltk.download('punkt_tab')
 ```
 
 ## Troubleshooting

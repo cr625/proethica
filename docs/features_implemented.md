@@ -62,6 +62,12 @@ The technical infrastructure has been enhanced to support these features:
 - **GuidelineSectionService**: Service to manage the association of guidelines with document sections
 - **Pipeline Integration**: Integrated document structure annotation into the case processing pipeline
 
+### Dependency Management
+
+- **NLTK Resource Setup**: Created a dedicated setup script for NLTK resources (punkt, stopwords, punkt_tab)
+- **Dependency Verification**: Implemented verification of required NLTK resources at application startup
+- **Error Handling**: Added clear error messages for missing dependencies with instructions for resolution
+
 ### Testing
 
 - **Unit Tests**: Created unit tests for section embedding and guideline association services

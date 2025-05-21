@@ -21,6 +21,8 @@ We've implemented a comprehensive solution that uses a "fail fast" approach to d
 
 4. **Documentation**: Added comprehensive documentation (`docs/nltk_setup.md`) explaining the NLTK setup process and troubleshooting steps.
 
+5. **Added punkt_tab Resource**: Updated setup script and verification utility to include the `punkt_tab` resource which is needed for language-specific tokenization features. This fixed the error: `LookupError: Resource punkt_tab not found`.
+
 ## Code Changes
 
 ### 1. Created setup script: `scripts/setup_nltk_resources.py`
@@ -52,14 +54,17 @@ The setup script was tested and successfully downloaded both the `punkt` tokeniz
 ```
 Setting up NLTK resources...
 Checking/downloading NLTK resource: punkt
-[nltk_data] Downloading package punkt to /home/codespace/nltk_data...
+[nltk_data] Downloading package punkt to /home/chris/nltk_data...
 [nltk_data]   Package punkt is already up-to-date!
 ✓ Successfully set up punkt
 Checking/downloading NLTK resource: stopwords
-[nltk_data] Downloading package stopwords to
-[nltk_data]     /home/codespace/nltk_data...
+[nltk_data] Downloading package stopwords to /home/chris/nltk_data...
 [nltk_data]   Package stopwords is already up-to-date!
 ✓ Successfully set up stopwords
+Checking/downloading NLTK resource: punkt_tab
+[nltk_data] Downloading package punkt_tab to /home/chris/nltk_data...
+[nltk_data]   Unzipping tokenizers/punkt_tab.zip.
+✓ Successfully set up punkt_tab
 
 All NLTK resources successfully installed!
 ```

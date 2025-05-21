@@ -15,7 +15,8 @@ def verify_nltk_resources():
     """
     required_resources = {
         'punkt': 'tokenizers/punkt',
-        'stopwords': 'corpora/stopwords'
+        'stopwords': 'corpora/stopwords',
+        'punkt_tab': 'tokenizers/punkt_tab/english/'
     }
     
     missing = []

@@ -1,0 +1,48 @@
+BEGIN
+SELECT 1
+SELECT 127
+SELECT 1
+SELECT 1
+SELECT 1
+ id |       title        | referenced_guideline_id 
+----+--------------------+-------------------------
+ 43 | Engineering Ethics | 190
+(1 row)
+
+ Total Guideline Concept Triples 
+---------------------------------
+                             127
+(1 row)
+
+ Guideline Triples to Keep 
+---------------------------
+                       127
+(1 row)
+
+ Guideline Triples to Delete 
+-----------------------------
+                           0
+(1 row)
+
+ id |       title        | referenced_guideline_id 
+----+--------------------+-------------------------
+ 43 | Engineering Ethics | 190
+(1 row)
+
+DELETE 0
+ Remaining Guideline Concept Triples 
+-------------------------------------
+                                 127
+(1 row)
+
+ id |       title        | Remaining Guidelines 
+----+--------------------+----------------------
+ 43 | Engineering Ethics |                  127
+(1 row)
+
+ Documents still having guideline references 
+---------------------------------------------
+                                           1
+(1 row)
+
+COMMIT
