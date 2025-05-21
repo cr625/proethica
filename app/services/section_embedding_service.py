@@ -260,6 +260,10 @@ class SectionEmbeddingService(EmbeddingService):
         """
         from app import db
         from app.models.document import Document
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"Processing document sections for document ID: {document_id}")
         
         try:
             # Retrieve the document
@@ -271,27 +275,90 @@ class SectionEmbeddingService(EmbeddingService):
             # Get document metadata
             doc_metadata = document.doc_metadata or {}
             
-            # Check if document has structure metadata
-            if 'document_structure' not in doc_metadata:
-                logger.error(f"Document {document_id} has no structure metadata")
-                return {'success': False, 'error': "Document has no structure metadata"}
+            # Log metadata structure for debugging
+            logger.info(f"Document metadata keys: {list(doc_metadata.keys())}")
             
-            # Get section embedding metadata if available
-            if 'section_embeddings_metadata' in doc_metadata:
-                section_metadata = doc_metadata['section_embeddings_metadata']
-            else:
-                # Try to get from document_structure
-                section_metadata = {}
-                doc_structure = doc_metadata.get('document_structure', {})
-                sections = doc_structure.get('sections', {})
+            # Get the structure data - might be missing if using legacy format
+            doc_structure = doc_metadata.get('document_structure', {})
+            
+            # Prepare section metadata
+            section_metadata = {}
+            
+            # Strategy 1: Try to get sections from document_structure.sections
+            if 'sections' in doc_structure and doc_structure['sections']:
+                logger.info(f"Found sections in document_structure.sections")
                 
-                for section_id, section_data in sections.items():
-                    if 'content' in section_data:
+                for section_id, section_data in doc_structure['sections'].items():
+                    # Extract the content from the section data or from the main sections if available
+                    if 'content' not in section_data and 'sections' in doc_metadata:
+                        # Try to find the content in the top-level sections
+                        if section_id in doc_metadata['sections']:
+                            section_content = doc_metadata['sections'][section_id]
+                        else:
+                            logger.warning(f"No content found for section {section_id}")
+                            continue
+                    else:
+                        section_content = section_data.get('content', '')
+                    
+                    if section_content:
+                        section_uri = f"http://proethica.org/document/case_{document_id}/{section_id}"
+                        section_metadata[section_uri] = {
+                            'type': section_data.get('type', section_id),
+                            'content': section_content
+                        }
+            
+            # Strategy 2: Try to get from section_embeddings_metadata
+            elif 'section_embeddings_metadata' in doc_metadata and doc_metadata['section_embeddings_metadata']:
+                logger.info(f"Found sections in section_embeddings_metadata")
+                section_metadata = doc_metadata['section_embeddings_metadata']
+                
+                # Validate each entry has content
+                for section_uri, data in list(section_metadata.items()):
+                    if 'content' not in data or not data['content']:
+                        logger.warning(f"Section {section_uri} has no content, attempting to find it elsewhere")
+                        
+                        # Try to extract section id from URI
+                        section_id = section_uri.split('/')[-1]
+                        
+                        # Check if content exists in top-level sections
+                        if 'sections' in doc_metadata and section_id in doc_metadata['sections']:
+                            section_metadata[section_uri]['content'] = doc_metadata['sections'][section_id]
+                            logger.info(f"Found content for {section_id} in top-level sections")
+                        else:
+                            # Remove sections without content
+                            del section_metadata[section_uri]
+            
+            # Strategy 3: Try to use legacy structure format with top-level structure_triples
+            elif 'document_uri' in doc_metadata and 'structure_triples' in doc_metadata:
+                logger.info(f"Found legacy structure format (top-level structure_triples)")
+                
+                # Create minimal document_structure to ensure storage works properly
+                if 'document_structure' not in doc_metadata:
+                    doc_metadata['document_structure'] = {
+                        'document_uri': doc_metadata['document_uri'],
+                        'structure_triples': doc_metadata['structure_triples'],
+                        'sections': {}
+                    }
+                    # Update document to format structure properly for future use
+                    document.doc_metadata = doc_metadata
+                    db.session.commit()
+                    logger.info(f"Reorganized document metadata to standard format")
+                
+                # Then fall through to Strategy 4 to use top-level sections
+                
+            # Strategy 4: Try to get from top-level sections
+            if 'sections' in doc_metadata and doc_metadata['sections']:
+                logger.info(f"Using top-level sections")
+                for section_id, content in doc_metadata['sections'].items():
+                    if content:  # Skip empty sections
                         section_uri = f"http://proethica.org/document/case_{document_id}/{section_id}"
                         section_metadata[section_uri] = {
                             'type': section_id,
-                            'content': section_data['content']
+                            'content': content
                         }
+            
+            # Log what we found
+            logger.info(f"Prepared {len(section_metadata)} sections for embedding generation")
             
             # If still no section metadata, fail
             if not section_metadata:

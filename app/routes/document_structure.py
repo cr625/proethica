@@ -120,18 +120,46 @@ def generate_embeddings(id):
         # Initialize section embedding service
         section_embedding_service = SectionEmbeddingService()
         
+        # Log that we're starting the embedding generation process
+        current_app.logger.info(f"Starting section embedding generation for document {id}")
+        
+        # Log the document metadata structure
+        metadata = document.doc_metadata or {}
+        current_app.logger.info(f"Document metadata keys: {list(metadata.keys())}")
+        if 'document_structure' in metadata:
+            current_app.logger.info(f"Document structure keys: {list(metadata['document_structure'].keys())}")
+            if 'sections' in metadata['document_structure']:
+                current_app.logger.info(f"Found {len(metadata['document_structure']['sections'])} sections in document_structure")
+                
+                # Log the first section to understand structure
+                first_section_id = list(metadata['document_structure']['sections'].keys())[0] if metadata['document_structure']['sections'] else None
+                if first_section_id:
+                    current_app.logger.info(f"First section ({first_section_id}) keys: {list(metadata['document_structure']['sections'][first_section_id].keys())}")
+        
+        if 'sections' in metadata:
+            current_app.logger.info(f"Top-level sections found: {list(metadata['sections'].keys())}")
+        
+        if 'section_embeddings_metadata' in metadata:
+            current_app.logger.info(f"Section embeddings metadata contains {len(metadata['section_embeddings_metadata'])} sections")
+        
         # Process document sections
         result = section_embedding_service.process_document_sections(document.id)
         
         if result.get('success'):
             flash(f"Successfully generated embeddings for {result.get('sections_embedded')} sections", 'success')
+            # Force refresh the document to update with new embeddings
+            db.session.refresh(document)
         else:
-            flash(f"Error generating embeddings: {result.get('error')}", 'danger')
+            error_msg = result.get('error', 'Unknown error')
+            current_app.logger.error(f"Error generating embeddings: {error_msg}")
+            flash(f"Error generating embeddings: {error_msg}", 'danger')
     
     except Exception as e:
+        current_app.logger.exception(f"Exception during section embedding generation: {str(e)}")
         flash(f"Error processing section embeddings: {str(e)}", 'danger')
     
-    return redirect(url_for('doc_structure.view_structure', id=id))
+    # Add timestamp to prevent caching
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 
 @doc_structure_bp.route('/search_similar', methods=['GET', 'POST'])
 def search_similar_sections():

@@ -16,10 +16,14 @@
   - Each case now has formal document structure RDF triples in doc_metadata
 - **Phase 3 Complete**:
   - Created SectionEmbeddingService extending EmbeddingService
-  - Implemented section-to-section similarity calculation
+  - Implemented section-to-section similarity calculation with cosine similarity
   - Added storage for section embeddings in document_metadata
   - Created UI for section similarity searches and comparisons
   - Developed utility script (update_section_embeddings.py) for batch processing
+  - Enhanced section embedding generation with robust content finding strategies
+  - Added support for multiple document structure formats
+  - Fixed compatibility issue with legacy metadata structures
+  - Implemented automatic metadata reorganization during embedding generation
 - **Phase 4.1 (Partial) Complete**:
   - Added "View Structure" button to case detail page (replacing non-functional "Edit Triples" button)
   - Created document structure visualization template and routes

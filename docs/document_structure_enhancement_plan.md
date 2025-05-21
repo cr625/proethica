@@ -246,3 +246,21 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Enabled proper display of structure triples regardless of storage format
   - Improved error handling with detailed debug information
   - Added resilience to different document metadata structures
+
+### Date: May 21, 2025 (12:31 AM)
+- Fixed Section Embedding Generation
+  - Implemented robust multi-strategy approach for finding section content
+  - Enhanced content extraction from different metadata structures
+  - Added detailed logging for troubleshooting embedding generation issues
+  - Improved error handling with comprehensive debug information
+  - Fixed capability to generate and store section embeddings 
+  - Added support for both legacy and standard document structure formats
+
+### Date: May 21, 2025 (12:37 AM)
+- Enhanced Section Embedding Generation Compatibility
+  - Removed early check for document_structure presence that was causing failures
+  - Added explicit strategy for legacy format documents with top-level structure_triples
+  - Implemented automatic reorganization of metadata during embedding generation
+  - Enhanced fallthrough to allow consecutive strategy attempts
+  - Added detailed debug logging to trace metadata structure
+  - Fixed conditional logic to better handle varying document structures
