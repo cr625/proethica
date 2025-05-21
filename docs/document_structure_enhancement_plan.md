@@ -9,6 +9,7 @@ The goal is to extend the ProEthica ontology to include document structure conce
 1. Mark up case documents with semantic structure based on the ontology
 2. Generate section-specific embeddings for more granular case comparison
 3. Improve case similarity searching with section-level comparisons
+4. Connect document sections with ethical principles and guidelines for advanced semantic reasoning
 
 ## Implementation Tracking
 
@@ -55,22 +56,29 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [x] Update doc_metadata schema to include structure information
   - [x] Ensure backward compatibility with existing documents
 
+- [ ] **2.5. Guideline-Section Association** (To be implemented after Phase 3)
+  - [ ] Create mapping between document sections and guideline triples
+  - [ ] Identify ethical principles relevant to each document section
+  - [ ] Generate new triples linking sections to guideline concepts
+  - [ ] Update metadata schema to store section-guideline associations 
+  - [ ] Enhance structure visualization to display guideline associations
+
 ### Phase 3: Section Embedding Implementation
 
-- [ ] **3.1. Enhance EmbeddingService for section-level embeddings**
-  - [ ] Add methods to generate embeddings for individual sections
-  - [ ] Create storage schema for section embeddings
-  - [ ] Implement section-to-section similarity functions
+- [x] **3.1. Enhance EmbeddingService for section-level embeddings**
+  - [x] Add methods to generate embeddings for individual sections
+  - [x] Create storage schema for section embeddings
+  - [x] Implement section-to-section similarity functions
 
-- [ ] **3.2. Update Database Schema**
-  - [ ] Create migration for section_embeddings table if needed
-  - [ ] Update document_chunks schema if necessary
-  - [ ] Add indexing for efficient section similarity search
+- [x] **3.2. Update Database Schema**
+  - [x] Leverage existing document_metadata JSON structure for section embeddings
+  - [x] Store embeddings alongside section content in document structure
+  - [x] Ensure backward compatibility with existing documents
 
-- [ ] **3.3. Integrate section embeddings with case processing**
-  - [ ] Update case processing to include section embedding generation
-  - [ ] Ensure section embeddings are stored with section identifiers
-  - [ ] Add API endpoints for section-based similarity search
+- [x] **3.3. Integrate section embeddings with case processing**
+  - [x] Create utility script for processing existing documents
+  - [x] Add routes for section-based similarity search
+  - [x] Implement visual interface for section comparison
 
 ### Phase 4: UI and Visualization Updates
 
@@ -108,6 +116,11 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [ ] Test similarity between related sections
   - [ ] Benchmark performance against full-document embeddings
 
+- [ ] **M2.5: Validate guideline-section associations**
+  - [ ] Verify accurate mapping between sections and ethical principles
+  - [ ] Test retrieval of cases based on section-guideline combinations
+  - [ ] Validate visualization of guideline associations
+
 - [ ] **M4: End-to-end system testing**
   - [ ] Import case and verify all enhancements work together
   - [ ] Test UI features with real case data
@@ -119,6 +132,8 @@ The goal is to extend the ProEthica ontology to include document structure conce
 - Each phase should be implemented incrementally with validation after each step
 - Database migrations should be carefully tested before application
 - Performance impact of additional triples and embeddings should be monitored
+- Record Git commit hashes after each major change to enable precise version tracking and potential rollbacks
+- Phase 2.5 (Guideline-Section Association) will be implemented chronologically after Phase 3, despite its logical placement in the document structure phases
 
 ## Progress Log
 
@@ -184,3 +199,23 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Created documentation for structure viewing functionality
   - Registered doc_structure_bp blueprint in app/__init__.py
   - Ready for Phase 3 implementation while continuing UI enhancements
+
+### Date: May 20, 2025 (Before Midnight)
+- Plan Enhancement: Added Phase 2.5 for Guideline-Section Association
+  - Extended implementation plan to include mapping between document sections and guideline triples
+  - Revised implementation sequence to place Phase 2.5 after Phase 3
+  - Added new Testing Milestone M2.5 for guideline-section associations
+  - Enhanced implementation notes with Git commit tracking guidance
+  - Emphasized logical relationship of document markup to ethical principles
+  - Set up technical pathway for advanced semantic reasoning capabilities
+
+### Date: May 21, 2025 (Just After Midnight)
+- Completed Phase 3: Section Embedding Implementation
+  - Created SectionEmbeddingService as an extension of the existing EmbeddingService
+  - Implemented section-to-section similarity calculation with cosine similarity
+  - Added functionality to store section embeddings within document_metadata
+  - Created utility script (update_section_embeddings.py) for batch processing existing cases
+  - Enhanced document_structure.py routes with section embedding generation and searching
+  - Added UI templates for section similarity searches (section_search.html)
+  - Added UI for comparing similar sections across cases (section_comparison.html)
+  - Wrote unit tests for section embedding functionality (test_section_embeddings.py)

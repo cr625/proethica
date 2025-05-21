@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Section Similarity Search{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>Section Similarity Search</h2>
+            <a href="{{ url_for('doc_structure.view_structure', id=request.args.get('source_id', 0)) if request.args.get('source_id') else url_for('cases.list_cases') }}"
+                class="btn btn-secondary">
+                Back
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>Search Query</h3>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('doc_structure.search_similar_sections') }}">
+                <div class="mb-3">
+                    <label for="query" class="form-label">Search Text</label>
+                    <textarea id="query" name="query" class="form-control" rows="4"
+                        required>{{ query or '' }}</textarea>
+                    <div class="form-text">
+                        Enter text to find similar document sections. More specific queries yield better results.
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="section_type" class="form-label">Section Type (Optional)</label>
+                        <select id="section_type" name="section_type" class="form-select">
+                            <option value="">Any Section Type</option>
+                            <option value="facts" {% if section_type=='facts' %}selected{% endif %}>Facts</option>
+                            <option value="questions" {% if section_type=='questions' %}selected{% endif %}>Questions
+                            </option>
+                            <option value="references" {% if section_type=='references' %}selected{% endif %}>References
+                            </option>
+                            <option value="discussion" {% if section_type=='discussion' %}selected{% endif %}>Discussion
+                            </option>
+                            <option value="conclusion" {% if section_type=='conclusion' %}selected{% endif %}>Conclusion
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="limit" class="form-label">Results Limit</label>
+                        <select id="limit" name="limit" class="form-select">
+                            <option value="5" {% if limit==5 %}selected{% endif %}>5 results</option>
+                            <option value="10" {% if limit==10 %}selected{% endif %}>10 results</option>
+                            <option value="20" {% if limit==20 %}selected{% endif %}>20 results</option>
+                            <option value="50" {% if limit==50 %}selected{% endif %}>50 results</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if results is not none %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Search Results</h3>
+        </div>
+        <div class="card-body">
+            {% if results|length == 0 %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                No matching sections found. Try modifying your search query or selecting a different section type.
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i>
+                <strong>Found {{ results|length }} similar sections</strong>
+            </div>
+
+            <div class="list-group mt-3">
+                {% for result in results %}
+                <div class="list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="mb-1">
+                            <a href="{{ url_for('cases.view_case', id=result.document_id) }}">
+                                {{ result.document_title }}
+                            </a>
+                            <span class="badge bg-secondary ms-2">{{ result.section_type }}</span>
+                        </h5>
+                        <small class="text-muted">
+                            Similarity: <span class="badge bg-primary">{{ "%.2f"|format(result.similarity * 100)
+                                }}%</span>
+                        </small>
+                    </div>
+                    <div class="mt-2">
+                        <p class="text-muted">Section: {{ result.section_id }}</p>
+                        <div class="card bg-light p-2 mt-2">
+                            <div class="card-body p-2">
+                                {{ result.content[:500] }}{% if result.content|length > 500 %}...{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <a href="{{ url_for('doc_structure.view_structure', id=result.document_id) }}"
+                            class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-diagram-3"></i> View Structure
+                        </a>
+                        <a href="{{ url_for('doc_structure.compare_sections', doc_id=result.document_id, section_id=result.section_id) }}"
+                            class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-arrows-angle-expand"></i> Find Similar Sections
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

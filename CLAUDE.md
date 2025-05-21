@@ -2,7 +2,7 @@
 
 ## Case Document Structure Enhancement Project
 
-### Current Status (May 20, 2025)
+### Current Status (May 21, 2025)
 - **Phase 1 Complete**: Extended ontology with document structure classes and properties
 - **Phase 2.1-2.3 Complete**: 
   - Implemented DocumentStructureAnnotationStep pipeline component
@@ -14,12 +14,22 @@
   - Created update script for existing cases (`update_document_structure_storage.py`)
   - Successfully tested and verified with Case 222
   - Each case now has formal document structure RDF triples in doc_metadata
+- **Phase 3 Complete**:
+  - Created SectionEmbeddingService extending EmbeddingService
+  - Implemented section-to-section similarity calculation
+  - Added storage for section embeddings in document_metadata
+  - Created UI for section similarity searches and comparisons
+  - Developed utility script (update_section_embeddings.py) for batch processing
 - **Phase 4.1 (Partial) Complete**:
   - Added "View Structure" button to case detail page (replacing non-functional "Edit Triples" button)
   - Created document structure visualization template and routes
   - Implemented display of structure triples and section metadata
+- **Plan Enhancement**:
+  - Added Phase 2.5: Guideline-Section Association (to be implemented after Phase 3)
+  - Created pathway for connecting document sections with ethical principles
+  - Added testing milestone for guideline-section associations
 - **Next Steps**:
-  - Phase 3: Implement section-level embeddings
+  - Phase 2.5: Implement guideline-section associations
   - Complete Phase 4: Further enhance UI with visual indicators and section-based search
 
 ### Implementation Details
@@ -68,11 +78,12 @@ This will allow us to answer queries like:
 ### Next Phase
 
 Ready to implement:
-- Phase 3: Enhance EmbeddingService for section-level embeddings
-  - Add methods to generate embeddings for individual sections
-  - Create storage schema for section embeddings
-  - Implement section-to-section similarity functions
-- Phase 4: UI and visualization updates for structure annotations
-  - Enhance case detail view to display structure annotations
-  - Add section-based similarity search
-  - Add visual indicators for semantic properties
+- Phase 2.5: Guideline-Section Association
+  - Map document sections to ethical principles and guidelines
+  - Create visualization for guideline associations
+  - Generate new triples linking sections to guideline concepts 
+  - Update metadata schema to store section-guideline associations
+- Remaining Phase 4 Tasks: UI and visualization updates
+  - Add visual indicators for semantic properties directly in case view
+  - Enhance existing section-based similarity search with additional filters
+  - Complete user documentation and tooltips for structure features
