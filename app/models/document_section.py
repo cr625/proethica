@@ -61,7 +61,7 @@ class DocumentSection(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Define relationship to document
-    document = db.relationship('Document', backref='document_sections')
+    document = db.relationship('Document', backref=db.backref('document_sections', cascade='all, delete-orphan'))
     
     # Add unique constraint for document_id + section_id
     __table_args__ = (
