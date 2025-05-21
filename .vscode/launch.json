@@ -50,5 +50,19 @@
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
             }
         }
+    ],
+    "tasks": [
+        {
+            "label": "Start MCP Server with Live LLM",
+            "type": "shell",
+            "command": "pkill -f mcp/run_enhanced_mcp_server_with_guidelines.py; ./start_mcp_server_with_env.sh",
+            "args": [],
+            "isBackground": true,
+            "options": {
+                "env": {
+                    "USE_MOCK_GUIDELINE_RESPONSES": "false"
+                }
+            }
+        }
     ]
 }
