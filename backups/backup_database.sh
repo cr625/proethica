@@ -42,12 +42,20 @@ BACKUP_FILE="${BACKUP_DIR}/${DB_NAME}_backup_${TIMESTAMP}.dump"
 echo "Starting backup of database '${DB_NAME}' to ${BACKUP_FILE}"
 
 # Run pg_dump inside the Docker container to create the backup
-docker exec -u postgres "$CONTAINER" pg_dump -Fc -d "$DB_NAME" -U "$DB_USER" -f /tmp/backup.dump
+# Use a directory with proper permissions for the postgres user
+BACKUP_PATH_IN_CONTAINER="/var/lib/postgresql/backup"
+BACKUP_FILE_IN_CONTAINER="$BACKUP_PATH_IN_CONTAINER/backup.dump"
+
+echo "Ensuring backup directory exists in container..."
+docker exec -u postgres "$CONTAINER" mkdir -p "$BACKUP_PATH_IN_CONTAINER"
+
+echo "Running pg_dump in container..."
+docker exec -u postgres "$CONTAINER" pg_dump -Fc -d "$DB_NAME" -U "$DB_USER" -f "$BACKUP_FILE_IN_CONTAINER"
 
 # Copy the backup file from the container to the host
 echo "Copying backup file from container..."
-docker cp "$CONTAINER":/tmp/backup.dump "$BACKUP_FILE"
-docker exec -u postgres "$CONTAINER" rm /tmp/backup.dump
+docker cp "$CONTAINER":"$BACKUP_FILE_IN_CONTAINER" "$BACKUP_FILE"
+docker exec -u postgres "$CONTAINER" rm "$BACKUP_FILE_IN_CONTAINER"
 
 # Check if backup was successful
 if [ $? -eq 0 ]; then
