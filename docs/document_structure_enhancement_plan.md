@@ -86,6 +86,7 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [x] Update case_detail.html with "View Structure" button replacing non-functional "Edit Triples" button
   - [x] Create document_structure.html template to display structure annotations
   - [x] Create document_structure.py routes for structure visualization
+  - [x] Add direct UI button for generating document structure
   - [ ] Add visual indicators for semantic properties directly in case view
   - [ ] Implement toggles for showing/hiding annotations
 
@@ -219,3 +220,29 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Added UI templates for section similarity searches (section_search.html)
   - Added UI for comparing similar sections across cases (section_comparison.html)
   - Wrote unit tests for section embedding functionality (test_section_embeddings.py)
+
+### Date: May 21, 2025 (12:10 AM)
+- Enhanced UI for Document Structure Generation
+  - Added direct "Generate Document Structure" button to document_structure.html
+  - Implemented generate_structure route in document_structure.py
+  - Integrated DocumentStructureAnnotationStep with web interface
+  - Eliminated need to run command-line script for structure generation
+  - Improved user experience for cases created via standard pipeline
+
+### Date: May 21, 2025 (12:17 AM)
+- Fixed Document Structure UI Bug
+  - Resolved issue where structure was successfully generated but not displayed
+  - Added proper database flush/commit/refresh cycle to ensure structure persists
+  - Enhanced storage of sections from pipeline result
+  - Added cache-busting parameter to prevent stale page cache
+  - Implemented debugging panel to help troubleshoot metadata issues
+  - Fixed logging implementation to use Flask's current_app
+
+### Date: May 21, 2025 (12:23 AM)
+- Enhanced Document Structure Format Compatibility
+  - Fixed JSON serialization error with dict_keys in logging
+  - Added support for detecting legacy structure format (top-level metadata)
+  - Implemented automatic reorganization of legacy format to standard format
+  - Enabled proper display of structure triples regardless of storage format
+  - Improved error handling with detailed debug information
+  - Added resilience to different document metadata structures

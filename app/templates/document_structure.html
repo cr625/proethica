@@ -16,8 +16,40 @@
         <h4 class="alert-heading">No Document Structure Found</h4>
         <p>This document does not have ontology-based structure annotations.</p>
         <hr>
-        <p class="mb-0">You can add document structure annotations by running the document structure update script:</p>
-        <pre class="mt-2"><code>python update_document_structure_storage.py --case-id {{ document.id }}</code></pre>
+        <p class="mb-0">You can generate document structure annotations directly:</p>
+        <form action="{{ url_for('doc_structure.generate_structure', id=document.id) }}" method="post" class="mt-3">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-diagram-3"></i> Generate Document Structure
+            </button>
+        </form>
+        <p class="mt-3 small text-muted">Alternatively, you can run the document structure update script from the
+            command line:</p>
+        <pre
+            class="mt-1 small"><code>python update_document_structure_storage.py --case-id {{ document.id }}</code></pre>
+
+        {% if debug_info %}
+        <div class="card mt-3">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Debug Information</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Document Metadata Keys:</strong> {{ debug_info.get('metadata_keys', []) }}</p>
+                <p><strong>Has document_structure:</strong> {{ debug_info.get('has_document_structure', False) }}</p>
+
+                {% if debug_info.get('document_structure_keys') %}
+                <p><strong>Document Structure Keys:</strong> {{ debug_info.get('document_structure_keys', []) }}</p>
+                {% endif %}
+
+                {% if debug_info.get('incomplete_structure') %}
+                <div class="alert alert-danger">
+                    <h6>Incomplete Structure Data:</h6>
+                    <p>Has URI: {{ debug_info.get('incomplete_structure', {}).get('has_uri', False) }}</p>
+                    <p>Has Triples: {{ debug_info.get('incomplete_structure', {}).get('has_triples', False) }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
     {% else %}
     <div class="card mb-4">

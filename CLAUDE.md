@@ -24,6 +24,9 @@
   - Added "View Structure" button to case detail page (replacing non-functional "Edit Triples" button)
   - Created document structure visualization template and routes
   - Implemented display of structure triples and section metadata
+  - Added "Generate Document Structure" button for direct UI access to structure generation
+  - Enhanced error handling and format compatibility for structure generation
+  - Added support for legacy document structure formats with automatic reorganization
 - **Plan Enhancement**:
   - Added Phase 2.5: Guideline-Section Association (to be implemented after Phase 3)
   - Created pathway for connecting document sections with ethical principles
