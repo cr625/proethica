@@ -164,22 +164,100 @@
             {% if section_guideline_associations %}
             {% for section_id, guidelines in section_guideline_associations.items() %}
             <div class="mb-4">
-                <h4>Section: {{ section_id }}</h4>
+                <h4>Section: {{ guidelines.section_type if guidelines.section_type is defined else section_id }}</h4>
                 <table class="table table-sm">
                     <thead>
                         <tr>
                             <th>Guideline</th>
                             <th>Relationship</th>
                             <th>Confidence</th>
+                            <th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for guideline in guidelines %}
+                        {% for assoc in guidelines.guidelines %}
+                        {% if assoc is mapping %}
                         <tr>
-                            <td>{{ guideline.label }}</td>
-                            <td>{{ guideline.relationship }}</td>
-                            <td>{{ "%.2f"|format(guideline.confidence) }}</td>
+                            <td>{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else "Unknown URI" }}</td>
+                            <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else "related" }}</td>
+                            <td>
+                                <div class="progress">
+                                    <div class="progress-bar 
+                                        {% if assoc.confidence >= 0.8 %}bg-success
+                                        {% elif assoc.confidence >= 0.5 %}bg-info
+                                        {% else %}bg-warning{% endif %}"
+                                        role="progressbar" 
+                                        style="width: {{ (assoc.confidence * 100)|round }}%"
+                                        aria-valuenow="{{ (assoc.confidence * 100)|round }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100">
+                                        {{ (assoc.confidence * 100)|round }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if assoc.details %}
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#details-{{ section_id }}-{{ loop.index }}" 
+                                        aria-expanded="false">
+                                    Show Details
+                                </button>
+                                <div class="collapse mt-2" id="details-{{ section_id }}-{{ loop.index }}">
+                                    <div class="card card-body">
+                                        {{ assoc.details|safe }}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">No details available</span>
+                                {% endif %}
+                            </td>
                         </tr>
+                        <tr>
+                            <td colspan="4">
+                                <table class="table table-bordered table-sm mb-2" style="background:#f8f9fa;">
+                                    <tr>
+                                        <th style="width:120px;">Label</th>
+                                        <td>{{ assoc.label if assoc.label is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>URI</th>
+                                        <td style="word-break:break-all;">{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Description</th>
+                                        <td>{{ assoc.description if assoc.description is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Confidence</th>
+                                        <td>{{ assoc.confidence if assoc.confidence is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Relationship</th>
+                                        <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else 'related' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Reasoning</th>
+                                        <td>
+                                            {% if assoc.reasoning is defined %}
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#reasoning-{{ section_id }}-{{ loop.index }}" aria-expanded="false">Show Reasoning</button>
+                                                <div class="collapse mt-2" id="reasoning-{{ section_id }}-{{ loop.index }}">
+                                                    <pre style="background:#fff; border:1px solid #eee; border-radius:4px; padding:8px; font-size:0.95em; color:#222; max-height:300px; overflow:auto;">{{ assoc.reasoning | tojson(indent=2) }}</pre>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">No reasoning available</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-danger">Warning: Association is not a dictionary (type={{ assoc.__class__.__name__ }}): {{ assoc }}</td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>

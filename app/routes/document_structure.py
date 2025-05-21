@@ -184,6 +184,19 @@ def view_structure(id):
         except Exception as e:
             current_app.logger.warning(f"Error loading guideline associations: {str(e)}")
     
+    # Always load guideline associations from the service for up-to-date results
+    guideline_service = GuidelineSectionService()
+    section_guideline_associations = None
+    has_guideline_associations = False
+    try:
+        guidelines_result = guideline_service.get_document_section_guidelines(id)
+        if guidelines_result.get('success') and guidelines_result.get('sections'):
+            section_guideline_associations = guidelines_result.get('sections')
+            has_guideline_associations = True
+            current_app.logger.info(f"Loaded {len(section_guideline_associations)} sections with guideline associations (forced refresh)")
+    except Exception as e:
+        current_app.logger.warning(f"Error loading guideline associations: {str(e)}")
+
     # Add a timestamp query parameter to prevent browser caching
     no_cache = request.args.get('_', '')
     
