@@ -19,7 +19,9 @@ class SimulationSession(db.Model):
     
     # Relationships
     scenario = db.relationship('Scenario', backref=db.backref('simulation_sessions', lazy=True))
-    user = db.relationship('User', backref=db.backref('simulation_sessions', lazy=True))
+    # TODO: Fix circular import issue with User model
+    # Temporarily commented out for testing section embeddings
+    # user = db.relationship('User', backref=db.backref('simulation_sessions', lazy=True))
     
     def __repr__(self):
         return f'<SimulationSession {self.id} for Scenario {self.scenario_id}>'

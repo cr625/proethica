@@ -11,6 +11,9 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine, text
 from flask import Flask
 
+# Define the embedding dimension to match our model (all-MiniLM-L6-v2)
+DEFAULT_EMBEDDING_DIM = 384
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -53,7 +56,7 @@ def create_pgvector_extension(conn_string):
         logger.error(f"Error creating pgvector extension: {str(e)}")
         raise
 
-def create_document_sections_table(engine):
+def create_document_sections_table(engine, embedding_dim=DEFAULT_EMBEDDING_DIM):
     """Create the document_sections table if it doesn't exist."""
     try:
         # Check if table exists
@@ -71,7 +74,8 @@ def create_document_sections_table(engine):
             
             if not table_exists:
                 logger.info("Creating document_sections table...")
-                conn.execute(text("""
+                # Format the SQL string with the embedding dimension
+                sql = """
                 CREATE TABLE document_sections (
                     id SERIAL PRIMARY KEY,
                     document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -79,13 +83,15 @@ def create_document_sections_table(engine):
                     section_type VARCHAR(50) NOT NULL,
                     position INTEGER,
                     content TEXT NOT NULL,
-                    embedding vector(1536),
+                    embedding vector({}),
                     section_metadata JSONB,
                     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT document_section_unique UNIQUE(document_id, section_id)
                 );
-                """))
+                """.format(embedding_dim)
+                
+                conn.execute(text(sql))
                 
                 # Create indexes for better performance
                 conn.execute(text("CREATE INDEX idx_document_sections_document_id ON document_sections(document_id);"))

@@ -39,6 +39,7 @@ def parse_args():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--case-id', type=int, help='Process a specific case by ID')
     group.add_argument('--all', action='store_true', help='Process all cases with document structure')
+    group.add_argument('--test', action='store_true', help='Run a test with mock data to verify functionality')
     
     # Additional options
     parser.add_argument('--limit', type=int, default=None, help='Limit the number of cases to process')
@@ -165,6 +166,76 @@ def find_cases_with_structure(limit=None):
         logger.exception(f"Error finding cases with structure: {str(e)}")
         return []
 
+def run_test(verbose=False, dry_run=False):
+    """Run a test with mock data to verify section embedding functionality.
+    This function tests only the core embedding generation functionality without database connections.
+    """
+    from unittest.mock import MagicMock, patch
+    from app.services.section_embedding_service import SectionEmbeddingService
+
+    logger.info("Running embedding generation test with mock data")
+    
+    # Initialize the section embedding service
+    section_embedding_service = SectionEmbeddingService()
+    
+    # Define test data - all we need is section content
+    test_sections = {
+        "http://proethica.org/document/case_999/facts": {
+            "type": "facts",
+            "content": "These are test facts for the section embedding test."
+        },
+        "http://proethica.org/document/case_999/questions": {
+            "type": "questions",
+            "content": "These are test questions for the section embedding test?"
+        },
+        "http://proethica.org/document/case_999/discussion": {
+            "type": "discussion",
+            "content": "This is a test discussion about section embeddings."
+        }
+    }
+    
+    # If this is a dry run, just show what would be processed
+    if dry_run:
+        logger.info(f"DRY RUN: Would generate embeddings for {len(test_sections)} sections")
+        for uri, data in test_sections.items():
+            content_excerpt = data.get('content', '')[:50].replace('\n', ' ')
+            logger.info(f"  Section {data['type']}: {content_excerpt}...")
+        return True
+    
+    # Generate embeddings directly
+    logger.info(f"Generating embeddings for {len(test_sections)} sections")
+    try:
+        embeddings = section_embedding_service.generate_section_embeddings(test_sections)
+        
+        # Verify the embeddings
+        if len(embeddings) != 3:
+            logger.error(f"Expected 3 embeddings, got {len(embeddings)}")
+            return False
+            
+        # Verify embedding dimension
+        first_embedding = list(embeddings.values())[0]
+        if len(first_embedding) != 384:  # MiniLM-L6-v2 has 384 dimensions
+            logger.error(f"Incorrect embedding dimension: got {len(first_embedding)}, expected 384")
+            return False
+            
+        logger.info(f"Successfully generated embeddings for 3 sections")
+        logger.info(f"Embedding dimension: {len(first_embedding)}")
+        
+        # Verify we can calculate similarity between sections
+        section_uris = list(embeddings.keys())
+        embedding_a = embeddings[section_uris[0]]
+        embedding_b = embeddings[section_uris[1]]
+        
+        similarity = section_embedding_service.calculate_similarity(embedding_a, embedding_b)
+        logger.info(f"Similarity between facts and questions sections: {similarity:.4f}")
+        
+        # Success! We have verified the core embedding functionality
+        logger.info("Embedding generation and similarity calculation tests passed")
+        return True
+    except Exception as e:
+        logger.exception(f"Error in embedding test: {str(e)}")
+        return False
+
 def main():
     """Main entry point for the script."""
     args = parse_args()
@@ -173,10 +244,26 @@ def main():
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled")
     
-    # Create Flask app context
+    # Handle test mode separately - no need for real database connections
+    if args.test:
+        logger.info("Running in test mode with mock data")
+        # For test mode, we directly import and instantiate without app context
+        from app.services.section_embedding_service import SectionEmbeddingService
+        section_embedding_service = SectionEmbeddingService()
+        
+        success = run_test(verbose=args.verbose, dry_run=args.dry_run)
+        if success:
+            logger.info("Section embedding test completed successfully")
+        else:
+            logger.error("Section embedding test failed")
+        return
+    
+    # Create Flask app context for real database operations
     app = create_app()
     
+    # Use app context for database operations
     with app.app_context():
+        # Import section embedding service
         from app.services.section_embedding_service import SectionEmbeddingService
         
         # Initialize the section embedding service
