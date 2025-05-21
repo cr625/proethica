@@ -64,7 +64,7 @@ class DevelopmentConfig:
     DEBUG = True
     TESTING = False
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key')
-    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ai_ethical_dm')
+    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm')
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SESSION_TYPE = 'filesystem'

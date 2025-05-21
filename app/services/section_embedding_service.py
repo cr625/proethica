@@ -1,11 +1,15 @@
 """
 Section Embedding Service - Extension of EmbeddingService for document section embeddings.
+Uses the DocumentSection model for storage and retrieval, leveraging pgvector.
 """
 import logging
 import json
 import time
+from datetime import datetime
 from typing import Dict, List, Any, Optional
 from .embedding_service import EmbeddingService
+from app.models.document_section import DocumentSection
+from sqlalchemy import text
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -75,7 +79,7 @@ class SectionEmbeddingService(EmbeddingService):
     
     def store_section_embeddings(self, document_id: int, section_embeddings: Dict[str, List[float]]) -> Dict[str, Any]:
         """
-        Store section embeddings in the database.
+        Store section embeddings in the DocumentSection table using pgvector.
         
         Args:
             document_id: ID of the document
@@ -101,35 +105,86 @@ class SectionEmbeddingService(EmbeddingService):
             if 'document_structure' not in doc_metadata:
                 doc_metadata['document_structure'] = {}
                 
-            # Add the section embeddings
+            # Add the section embeddings flag in metadata (for UI compatibility)
             doc_metadata['document_structure']['section_embeddings'] = {
                 'count': len(section_embeddings),
-                'updated_at': time.strftime('%Y-%m-%d %H:%M:%S')
+                'updated_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'storage_type': 'pgvector'  # Indicate we're using pgvector storage
             }
             
-            # Store the actual embeddings in the sections data
-            if 'sections' not in doc_metadata['document_structure']:
-                doc_metadata['document_structure']['sections'] = {}
-                
+            logger.info(f"Adding {len(section_embeddings)} sections to DocumentSection table")
+            
+            # Store section content and embeddings in DocumentSection table
+            sections_added = 0
             for section_uri, embedding in section_embeddings.items():
-                # Get the section ID from the URI
+                # Extract section_id from URI
                 section_id = section_uri.split('/')[-1]
                 
-                # Initialize section if needed
-                if section_id not in doc_metadata['document_structure']['sections']:
-                    doc_metadata['document_structure']['sections'][section_id] = {}
-                    
-                # Store the embedding
-                doc_metadata['document_structure']['sections'][section_id]['embedding'] = embedding
+                # Get section content and type from metadata
+                section_type = section_id  # Default to section_id as type
+                section_content = ""
+                
+                # Try to find content in document_structure.sections
+                if ('sections' in doc_metadata['document_structure'] and 
+                    section_id in doc_metadata['document_structure']['sections']):
+                    section_data = doc_metadata['document_structure']['sections'][section_id]
+                    section_type = section_data.get('type', section_id)
+                    section_content = section_data.get('content', '')
+                
+                # If not found, try top-level sections
+                if not section_content and 'sections' in doc_metadata and section_id in doc_metadata['sections']:
+                    section_content = doc_metadata['sections'][section_id]
+                
+                # Skip if no content
+                if not section_content:
+                    logger.warning(f"No content found for section {section_id}, skipping")
+                    continue
+                
+                # Check if section already exists
+                existing_section = DocumentSection.query.filter_by(
+                    document_id=document_id, 
+                    section_id=section_id
+                ).first()
+                
+                if existing_section:
+                    # Update existing section
+                    existing_section.section_type = section_type
+                    existing_section.content = section_content
+                    # Convert embedding list to pgvector format
+                    embedding_str = f"[{','.join(str(x) for x in embedding)}]"
+                    existing_section.embedding = embedding_str
+                    existing_section.updated_at = datetime.utcnow()
+                    logger.info(f"Updated existing section {section_id}")
+                else:
+                    # Create new section
+                    # Convert embedding list to pgvector format
+                    embedding_str = f"[{','.join(str(x) for x in embedding)}]"
+                    new_section = DocumentSection(
+                        document_id=document_id,
+                        section_id=section_id,
+                        section_type=section_type,
+                        content=section_content,
+                        embedding=embedding_str,
+                        section_metadata={'uri': section_uri}
+                    )
+                    db.session.add(new_section)
+                    logger.info(f"Added new section {section_id}")
+                
+                sections_added += 1
             
-            # Update the document metadata
-            document.doc_metadata = doc_metadata
+            # Save both metadata update and new sections
+            document.doc_metadata = json.loads(json.dumps(doc_metadata))
+            db.session.flush()
             db.session.commit()
+            
+            # Verify sections were stored
+            count = DocumentSection.query.filter_by(document_id=document_id).count()
+            logger.info(f"Verified {count} sections stored in DocumentSection table")
             
             return {
                 'success': True,
                 'document_id': document_id,
-                'sections_embedded': len(section_embeddings)
+                'sections_embedded': sections_added
             }
             
         except Exception as e:
@@ -140,7 +195,7 @@ class SectionEmbeddingService(EmbeddingService):
     def find_similar_sections(self, query_text: str, document_id: Optional[int] = None, 
                              section_type: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Find document sections similar to the query text.
+        Find document sections similar to the query text using pgvector.
         
         Args:
             query_text: The query text to compare with document sections
@@ -153,6 +208,7 @@ class SectionEmbeddingService(EmbeddingService):
         """
         from app import db
         from app.models.document import Document
+        from datetime import datetime
         
         similar_sections = []
         
@@ -160,56 +216,109 @@ class SectionEmbeddingService(EmbeddingService):
             # Generate embedding for the query text
             query_embedding = self.get_embedding(query_text)
             
-            # Query documents with section embeddings
-            query = Document.query
+            # Start query with DocumentSection
+            query = DocumentSection.query.join(Document)
             
-            # Filter by document ID if provided
+            # Add filters
             if document_id:
-                query = query.filter(Document.id == document_id)
-            
-            # Filter documents with document_structure.section_embeddings
-            documents = query.all()
-            
-            for doc in documents:
-                if not doc.doc_metadata or 'document_structure' not in doc.doc_metadata:
-                    continue
-                    
-                doc_structure = doc.doc_metadata.get('document_structure', {})
-                if 'sections' not in doc_structure:
-                    continue
+                query = query.filter(DocumentSection.document_id == document_id)
                 
-                sections = doc_structure.get('sections', {})
+            if section_type:
+                query = query.filter(DocumentSection.section_type == section_type)
+            
+            # Try using native pgvector similarity if available
+            try:
+                # For pgvector's native cosine similarity
+                # This is more efficient than calculating similarity in Python
+                query_sql = """
+                SELECT 
+                    ds.id, 
+                    ds.document_id, 
+                    ds.section_id, 
+                    ds.section_type, 
+                    ds.content,
+                    ds.embedding <=> :query_embedding AS similarity,
+                    d.title AS document_title
+                FROM 
+                    document_sections ds
+                JOIN 
+                    documents d ON ds.document_id = d.id
+                WHERE 
+                    ds.embedding IS NOT NULL
+                """
                 
-                for section_id, section_data in sections.items():
-                    # Skip if no embedding
-                    if 'embedding' not in section_data:
-                        continue
-                        
-                    # Filter by section type if provided
-                    if section_type and section_data.get('type') != section_type:
-                        continue
-                        
-                    # Get the section embedding
-                    section_embedding = section_data.get('embedding')
+                # Dynamically add filters based on parameters
+                params = {'query_embedding': query_embedding}
+                
+                if document_id is not None:
+                    query_sql += " AND ds.document_id = :document_id"
+                    params['document_id'] = document_id
+                
+                if section_type is not None:
+                    query_sql += " AND ds.section_type = :section_type"
+                    params['section_type'] = section_type
+                
+                # Add order and limit
+                query_sql += """
+                ORDER BY 
+                    similarity ASC
+                LIMIT :limit
+                """
+                params['limit'] = limit
+                
+                sections = db.session.execute(
+                    text(query_sql),
+                    params
+                )
+                
+                for row in sections:
+                    # Convert to 0-1 scale where 1 is most similar
+                    # pgvector returns distance where 0 is identical
+                    normalized_similarity = max(0.0, 1.0 - float(row.similarity))
                     
-                    # Calculate cosine similarity
-                    similarity = self.calculate_similarity(query_embedding, section_embedding)
-                    
-                    # Add to results
                     similar_sections.append({
-                        'document_id': doc.id,
-                        'document_title': doc.title,
-                        'section_id': section_id,
-                        'section_type': section_data.get('type', 'unknown'),
-                        'similarity': similarity,
-                        'content': section_data.get('content', '')
+                        'document_id': row.document_id,
+                        'document_title': row.document_title,
+                        'section_id': row.section_id,
+                        'section_type': row.section_type,
+                        'similarity': normalized_similarity,
+                        'content': row.content
                     })
-            
-            # Sort by similarity (descending)
-            similar_sections.sort(key=lambda x: x['similarity'], reverse=True)
-            
-            # Limit results
-            similar_sections = similar_sections[:limit]
+                
+                logger.info(f"Found {len(similar_sections)} similar sections using pgvector")
+                return similar_sections
+                
+            except Exception as e:
+                # If pgvector native query fails, fall back to Python similarity calculation
+                logger.warning(f"Native pgvector similarity query failed: {str(e)}")
+                logger.info("Falling back to Python similarity calculation")
+                
+                # Get all sections
+                sections = query.all()
+                
+                for section in sections:
+                    if section.embedding is None:
+                        continue
+                    
+                    # Calculate similarity in Python
+                    similarity = self.calculate_similarity(query_embedding, section.embedding)
+                    
+                    similar_sections.append({
+                        'document_id': section.document_id,
+                        'document_title': section.document.title,
+                        'section_id': section.section_id,
+                        'section_type': section.section_type,
+                        'similarity': similarity,
+                        'content': section.content
+                    })
+                
+                # Sort by similarity (descending)
+                similar_sections.sort(key=lambda x: x['similarity'], reverse=True)
+                
+                # Limit results
+                similar_sections = similar_sections[:limit]
+                
+                logger.info(f"Found {len(similar_sections)} similar sections using Python calculation")
             
             return similar_sections
             

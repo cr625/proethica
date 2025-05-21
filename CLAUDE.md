@@ -1,96 +1,79 @@
-# AI Ethical DM Development Progress
+# AI Ethical DM Project Progress
 
-## Case Document Structure Enhancement Project
+## Phase 2.4 Progress: Document Storage for Structure Triples
 
-### Current Status (May 21, 2025)
-- **Phase 1 Complete**: Extended ontology with document structure classes and properties
-- **Phase 2.1-2.3 Complete**: 
-  - Implemented DocumentStructureAnnotationStep pipeline component
-  - Created integration files and example implementation
-  - Completed production integration with UI access
-  - Successfully tested with both mock and real case data
-- **Phase 2.4 Complete**:
-  - Implemented document storage schema updates for structure triples
-  - Created update script for existing cases (`update_document_structure_storage.py`)
-  - Successfully tested and verified with Case 222
-  - Each case now has formal document structure RDF triples in doc_metadata
-- **Phase 3 Complete**:
-  - Created SectionEmbeddingService extending EmbeddingService
-  - Implemented section-to-section similarity calculation with cosine similarity
-  - Added storage for section embeddings in document_metadata
-  - Created UI for section similarity searches and comparisons
-  - Developed utility script (update_section_embeddings.py) for batch processing
-  - Enhanced section embedding generation with robust content finding strategies
-  - Added support for multiple document structure formats
-  - Fixed compatibility issue with legacy metadata structures
-  - Implemented automatic metadata reorganization during embedding generation
-- **Phase 4.1 (Partial) Complete**:
-  - Added "View Structure" button to case detail page (replacing non-functional "Edit Triples" button)
-  - Created document structure visualization template and routes
-  - Implemented display of structure triples and section metadata
-  - Added "Generate Document Structure" button for direct UI access to structure generation
-  - Enhanced error handling and format compatibility for structure generation
-  - Added support for legacy document structure formats with automatic reorganization
-- **Plan Enhancement**:
-  - Added Phase 2.5: Guideline-Section Association (to be implemented after Phase 3)
-  - Created pathway for connecting document sections with ethical principles
-  - Added testing milestone for guideline-section associations
-- **Next Steps**:
-  - Phase 2.5: Implement guideline-section associations
-  - Complete Phase 4: Further enhance UI with visual indicators and section-based search
+We've implemented the following enhancements to the document storage system:
 
-### Implementation Details
+1. Created a `DocumentSection` model with pgvector support for efficient section-based similarity searches
+2. Created migration scripts to set up the database table and add the pgvector extension
+3. Enhanced the `SectionEmbeddingService` to store section embeddings in the new table
+4. Added section-level similarity search functionality
 
-We've successfully implemented the document structure annotation step for the case processing pipeline. This enhancement:
+## Technical Implementation Details
 
-1. **Creates semantic markup** of case documents using our ontology
-2. **Structures case content** into well-defined sections (Facts, Questions, Discussion, References, Conclusion)
-3. **Prepares for section-level embeddings** to enable more granular similarity search
-4. **Establishes relationships** between document parts following BFO principles
+### Database Extensions
 
-The implementation includes:
+- Added pgvector extension to PostgreSQL for vector similarity operations
+- Created a `document_sections` table with the following structure:
+  - `id`: Primary key
+  - `document_id`: Foreign key to documents table
+  - `section_id`: Section identifier (e.g., 'facts', 'discussion')
+  - `section_type`: Type of section (for categorization)
+  - `content`: The section text content
+  - `embedding`: Vector representation for similarity searches (pgvector type)
+  - `section_metadata`: JSON metadata for the section
 
-- New pipeline step class: `DocumentStructureAnnotationStep`
-- Integration test: `test_document_structure_step.py` (standalone test)
-- Pipeline integration test: `test_integrate_document_structure_step.py`
-- Integration guide: `app/routes/update_pipeline_route.py`
+### Key Components
 
-### Testing Results
+1. **DocumentSection Model**: 
+   - Maps to the `document_sections` table
+   - Provides ORM access to section data and embeddings
 
-Our mock test case (with 82 generated triples) successfully:
-- Creates a document entity with proper URI
-- Identifies and classifies all document sections
-- Extracts and associates individual questions and conclusions
-- Establishes document sequence relationships
-- Prepares metadata for section-level embeddings
+2. **SectionEmbeddingService**: 
+   - Extends the EmbeddingService to handle section-level embeddings
+   - Provides methods to generate, store, and query section embeddings
 
-### Ontological Approach
+3. **Migration Scripts**:
+   - `migration_document_sections.py`: Creates the pgvector extension and document_sections table
+   - `migrate_section_data.py`: Migrates existing section data from document metadata to the new table
 
-We've modeled document sections as generically dependent continuants in the BFO framework. This means:
-- Sections are entities that depend on the document but aren't tied to a specific physical manifestation
-- They maintain identity across different representations (HTML, text, etc.)
-- They can have complex relationships to other entities in our ontology
+### Current Issues
 
-### Embedding Strategy
+1. **Embedding Format Compatibility**: We're facing an issue with pgvector where it expects embeddings in a specific format that differs from how we're currently storing them.
+   Error: "operator does not exist: vector <=> numeric[]" indicates incompatibility with pgvector's expected data type.
 
-We're implementing a dual embedding approach:
-1. **Document-level embeddings** (existing): For overall case similarity
-2. **Section-level embeddings** (new): For more granular comparison
+2. **Transaction Handling**: Some SQL transaction issues are occurring during similarity searches.
 
-This will allow us to answer queries like:
-- "Find cases with similar facts but different conclusions"
-- "Find cases with similar ethical questions addressed"
-- "Compare discussions between related cases"
+3. **Flask App Context**: The migration script needs better handling of the Flask app context to avoid SQLAlchemy instance errors.
 
-### Next Phase
+## Next Steps
 
-Ready to implement:
-- Phase 2.5: Guideline-Section Association
-  - Map document sections to ethical principles and guidelines
-  - Create visualization for guideline associations
-  - Generate new triples linking sections to guideline concepts 
-  - Update metadata schema to store section-guideline associations
-- Remaining Phase 4 Tasks: UI and visualization updates
-  - Add visual indicators for semantic properties directly in case view
-  - Enhance existing section-based similarity search with additional filters
-  - Complete user documentation and tooltips for structure features
+1. Fix the pgvector compatibility issues:
+   - Research proper PostgreSQL pgvector type handling
+   - Update both storage and query methods to match pgvector's expected format
+
+2. Improve transaction handling:
+   - Implement better error handling and transaction rollback
+   - Ensure tests properly clean up after themselves
+
+3. Enhance the section embedding services:
+   - Complete the section-based search functionality
+   - Add new API endpoints for section-level similarity searches
+
+4. Update the UI to display section-level structure and enable section-level searches
+
+## Phase 3 Planning: Section-Level Embeddings
+
+Once the current issues are resolved, we'll be ready to move on to Phase 3:
+
+1. Enhance the EmbeddingService for section-level embeddings
+2. Create search and comparison functions for section-to-section similarity
+3. Develop visualization components for section relationships
+4. Implement UI elements for section-based similarity searches
+
+## Implementation Timeline
+
+- **Phase 2.4**: Storage schema updates - In progress
+- **Phase 3.0**: Section-level embeddings - Next milestone
+- **Phase 3.1**: Section similarity functions - Pending
+- **Phase 4.0**: UI enhancements - Future work

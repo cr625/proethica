@@ -264,3 +264,30 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Enhanced fallthrough to allow consecutive strategy attempts
   - Added detailed debug logging to trace metadata structure
   - Fixed conditional logic to better handle varying document structures
+
+### Date: May 21, 2025 (12:47 AM)
+- Fixed Section Embedding UI Display Issue
+  - Added auto-detection of sections with embeddings in view_structure route
+  - Implemented automatic addition of missing section_embeddings key
+  - Added detailed logging of document structure for troubleshooting
+  - Enhanced logging in SectionEmbeddingService to better track embedding storage
+  - Fixed UI display so embeddings are properly recognized after generation
+  - Added self-healing capability for metadata with missing section_embeddings key
+
+### Date: May 21, 2025 (12:52 AM)
+- Fixed Embedding Persistence Issues
+  - Added explicit database session management with flush/commit/refresh cycle
+  - Implemented JSON serialization/deserialization to prevent reference issues
+  - Added verification step to confirm embeddings were properly saved
+  - Enhanced route handler to perform post-save verification and correction
+  - Added double-check for section_embeddings key after reload
+  - Implemented explicit db.session.close() to ensure clean transaction state
+
+### Date: May 21, 2025 (1:13 AM)
+- Beginning Section Embedding Storage Redesign
+  - **Rollback commit hash: 6414fecbe706bdbabaa0e6412d6e563a6c6ff32**
+  - Identified limitations of JSONB storage for section embeddings
+  - Planned migration to dedicated DocumentSection model with pgvector
+  - Creating direct pgvector implementation for better performance and reliability
+  - Will enable more efficient section similarity search
+  - Maintaining UI compatibility during transition

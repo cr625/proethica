@@ -1,5 +1,6 @@
 """
 Routes for document structure visualization and section embeddings.
+Uses DocumentSection model with pgvector for section embedding storage and retrieval.
 """
 
 import os
@@ -9,6 +10,7 @@ import logging
 from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, current_app
 from flask_sqlalchemy import SQLAlchemy
 from app.models.document import Document
+from app.models.document_section import DocumentSection
 from app.services.section_embedding_service import SectionEmbeddingService
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
 from datetime import datetime
@@ -92,9 +94,39 @@ def view_structure(id):
     has_section_embeddings = False
     section_embeddings_info = None
     
+    # Add detailed logging for debugging section embeddings
+    current_app.logger.info(f"Checking for section embeddings in document {id}")
+    if 'document_structure' in metadata:
+        current_app.logger.info(f"document_structure keys: {list(metadata['document_structure'].keys())}")
+        
+        # Check if any section has embeddings
+        if 'sections' in metadata['document_structure']:
+            sections = metadata['document_structure']['sections']
+            sections_with_embeddings = [s for s in sections if 'embedding' in sections[s]]
+            current_app.logger.info(f"Found {len(sections_with_embeddings)} sections with embeddings")
+            
+            # If sections have embeddings but section_embeddings key is missing, add it
+            if sections_with_embeddings and 'section_embeddings' not in metadata['document_structure']:
+                current_app.logger.info("Fixing: Sections have embeddings but section_embeddings key is missing")
+                
+                # Add the section_embeddings key
+                metadata['document_structure']['section_embeddings'] = {
+                    'count': len(sections_with_embeddings),
+                    'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                
+                # Save the updated metadata
+                document.doc_metadata = metadata
+                db.session.commit()
+                current_app.logger.info("Added missing section_embeddings key to document metadata")
+    
+    # Now check if section_embeddings exists
     if 'document_structure' in metadata and 'section_embeddings' in metadata['document_structure']:
         has_section_embeddings = True
         section_embeddings_info = metadata['document_structure']['section_embeddings']
+        current_app.logger.info(f"Section embeddings info: {section_embeddings_info}")
+    else:
+        current_app.logger.info("No section_embeddings key found in document_structure")
     
     # Add a timestamp query parameter to prevent browser caching
     no_cache = request.args.get('_', '')
@@ -147,8 +179,44 @@ def generate_embeddings(id):
         
         if result.get('success'):
             flash(f"Successfully generated embeddings for {result.get('sections_embedded')} sections", 'success')
-            # Force refresh the document to update with new embeddings
-            db.session.refresh(document)
+            
+            # Force reload the document from the database to ensure we have the latest data
+            db.session.close()
+            document = Document.query.get(id)
+            
+            # Double-check that the embeddings data was saved correctly
+            current_app.logger.info(f"Verifying embeddings were saved - reloaded document from database")
+            metadata = document.doc_metadata or {}
+            if 'document_structure' in metadata:
+                if 'section_embeddings' in metadata['document_structure']:
+                    current_app.logger.info(f"Found section_embeddings with count: {metadata['document_structure']['section_embeddings'].get('count')}")
+                else:
+                    current_app.logger.warning(f"section_embeddings key is still missing after reload!")
+                    
+                # If there are sections with embeddings but no section_embeddings, fix it
+                if 'sections' in metadata['document_structure']:
+                    sections_with_embeddings = [s for s in metadata['document_structure']['sections'] 
+                                             if 'embedding' in metadata['document_structure']['sections'][s]]
+                    
+                    current_app.logger.info(f"Found {len(sections_with_embeddings)} sections with embeddings after reload")
+                    
+                    if sections_with_embeddings and 'section_embeddings' not in metadata['document_structure']:
+                        current_app.logger.info("Still fixing missing section_embeddings key after reload")
+                        
+                        # Add the section_embeddings key
+                        metadata['document_structure']['section_embeddings'] = {
+                            'count': len(sections_with_embeddings),
+                            'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        
+                        # Force an explicit update and commit
+                        document.doc_metadata = json.loads(json.dumps(metadata))
+                        db.session.commit()
+                        current_app.logger.info("Fixed missing section_embeddings key and committed changes")
+                        
+                        # Finally reload the document again to confirm
+                        db.session.close()
+                        document = Document.query.get(id)
         else:
             error_msg = result.get('error', 'Unknown error')
             current_app.logger.error(f"Error generating embeddings: {error_msg}")
