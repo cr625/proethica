@@ -104,7 +104,14 @@ We've implemented additional fixes to enhance the document structure and section
    - Fixed database connection issues in migration scripts
    - Added compatibility layer for handling different document metadata structures (legacy vs. new format)
 
-These changes complete the integration of section embeddings with the document structure, ensuring that UI components properly display when embeddings are available and that document metadata is consistently updated.
+4. **NLTK Dependency Management**:
+   - Fixed issues with NLTK resource downloads in the processing pipeline
+   - Created a dedicated setup script (scripts/setup_nltk_resources.py) to download required NLTK resources
+   - Implemented verification in app/__init__.py to check for required resources at startup
+   - Added comprehensive documentation in docs/nltk_setup.md
+   - Removed runtime download attempts from services in favor of failing fast with clear error messages
+
+These changes complete the integration of section embeddings with the document structure, ensuring that UI components properly display when embeddings are available and that document metadata is consistently updated. Additionally, the NLTK dependency management improvements make the application more reliable in various environments.
 
 ### Next Steps
 

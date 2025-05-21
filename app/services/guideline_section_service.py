@@ -20,17 +20,7 @@ from app.models.document_section import DocumentSection
 from app.services.mcp_client import MCPClient
 from app.services.section_embedding_service import SectionEmbeddingService
 from app.utils.llm_utils import get_llm_client
-
-# Ensure NLTK resources are downloaded
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
-    
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
+from app.utils.nltk_verification import verify_nltk_resources
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -71,28 +61,32 @@ class GuidelineSectionService:
             if not document:
                 return None
             
-            # Check if document has a case_id
-            if not hasattr(document, 'case_id') or not document.case_id:
-                return None
+            # First try to get world_id directly from document
+            if hasattr(document, 'world_id') and document.world_id is not None:
+                return document.world_id
             
-            # Try to get the world ID from the case
-            query = """
-            SELECT world_id FROM cases WHERE id = :case_id
-            """
+            # Only if direct world_id fails, try the case_id approach
+            if hasattr(document, 'case_id') and document.case_id:
+                # Try to get the world ID from the case
+                query = """
+                SELECT world_id FROM cases WHERE id = :case_id
+                """
+                
+                result = db.session.execute(text(query), {'case_id': document.case_id}).first()
+                
+                if result and result[0]:
+                    return result[0]
             
-            result = db.session.execute(text(query), {'case_id': document.case_id}).first()
-            
-            if result and result[0]:
-                return result[0]
-            
-            return None
+            # If all else fails, use default world
+            return 1  # Default to engineering ethics world
         except Exception as e:
             logger.exception(f"Error getting world ID for document {document_id}: {str(e)}")
-            return None
+            return 1  # Default to world 1 on error
     
     def _get_guideline_triples_for_world(self, world_id: int) -> List[Dict[str, Any]]:
         """
-        Get guideline triples for a specific world.
+        Get guideline triples for a specific world from the database.
+        Includes triples directly linked to the world and triples linked to guidelines in that world.
         
         Args:
             world_id: ID of the world
@@ -101,7 +95,55 @@ class GuidelineSectionService:
             List of guideline triples
         """
         try:
-            # Try to get triples from the MCP client
+            # Primary approach: Get directly from database - query both direct world associations
+            # and guideline associations
+            query = """
+            SELECT 
+                et.subject, 
+                et.subject_label,
+                et.predicate,
+                et.object_literal,
+                et.object_uri,
+                et.is_literal,
+                et.entity_type
+            FROM 
+                entity_triples et
+            WHERE 
+                (et.world_id = :world_id OR et.guideline_id IN (
+                    SELECT id FROM guidelines WHERE world_id = :world_id
+                ))
+                AND (
+                    et.entity_type = 'guideline_concept' 
+                    OR et.subject LIKE '%guideline%'
+                    OR et.subject LIKE '%principle%'
+                    OR et.subject LIKE '%code%'
+                )
+            LIMIT 500
+            """
+            
+            results = db.session.execute(text(query), {'world_id': world_id}).fetchall()
+            
+            if results:
+                triples = []
+                for row in results:
+                    triple = {
+                        'subject_uri': row[0],
+                        'subject_label': row[1] or row[0].split('/')[-1].replace('_', ' ').title(),
+                        'predicate': row[2],
+                        'entity_type': row[6] or 'guideline'
+                    }
+                    
+                    if row[5]:  # is_literal
+                        triple['object_literal'] = row[3]
+                    else:
+                        triple['object_uri'] = row[4]
+                        
+                    triples.append(triple)
+                
+                logger.info(f"Found {len(triples)} guideline triples in database for world {world_id}")
+                return triples
+            
+            # Fallback: Try to get from MCP client
             try:
                 world_data = self.mcp_client.get_world_entities(f"world_{world_id}")
                 if world_data and 'entities' in world_data:
@@ -120,53 +162,13 @@ class GuidelineSectionService:
                                         'entity_type': entity_type
                                     })
                     
+                    logger.info(f"Found {len(guidelines)} guideline entities via MCP for world {world_id}")
                     return guidelines
             except Exception as e:
                 logger.warning(f"Error getting guideline triples from MCP client: {str(e)}")
             
-            # Fallback: Try to get from database
-            query = """
-            SELECT 
-                e.subject_uri, 
-                e.subject_label,
-                e.predicate,
-                e.object_literal,
-                e.object_uri,
-                e.is_literal
-            FROM 
-                entity_triples e
-            JOIN 
-                documents d ON e.document_id = d.id
-            JOIN 
-                cases c ON d.case_id = c.id
-            WHERE 
-                c.world_id = :world_id
-                AND e.subject_uri LIKE '%guideline%'
-            LIMIT 100
-            """
-            
-            results = db.session.execute(text(query), {'world_id': world_id}).fetchall()
-            
-            if results:
-                triples = []
-                for row in results:
-                    triple = {
-                        'subject_uri': row[0],
-                        'subject_label': row[1],
-                        'predicate': row[2],
-                        'entity_type': 'guideline'
-                    }
-                    
-                    if row[5]:  # is_literal
-                        triple['object_literal'] = row[3]
-                    else:
-                        triple['object_uri'] = row[4]
-                        
-                    triples.append(triple)
-                
-                return triples
-            
-            # If still nothing, return empty list
+            # If no triples found, return empty list
+            logger.warning(f"No guideline triples found for world {world_id}")
             return []
             
         except Exception as e:
@@ -268,19 +270,10 @@ class GuidelineSectionService:
                                 }
                                 enhanced_guidelines.append(guideline)
                 
-                # If we couldn't get or process ontology guidelines, fall back to MCP or mock
+                # If we couldn't get or process ontology guidelines, fall back to mock implementation
                 if not enhanced_guidelines:
-                    try:
-                        # Try to use the MCP server's guideline extraction
-                        guideline_result = self.mcp_client.extract_guidelines_from_text(
-                            section.content, 
-                            section_type=section.section_type,
-                            context=document.title
-                        )
-                    except Exception as extraction_error:
-                        logger.warning(f"Error using MCP server for guideline extraction: {str(extraction_error)}")
-                        # Fall back to mock implementation
-                        guideline_result = self._generate_mock_guidelines(section.content, section.section_type)
+                    logger.warning(f"No enhanced guidelines for section {section.id}, using mock implementation")
+                    guideline_result = self._generate_mock_guidelines(section.content, section.section_type)
                     
                     if not guideline_result.get('success'):
                         logger.warning(f"Failed to extract guidelines for section {section.id}: {guideline_result.get('error', 'Unknown error')}")

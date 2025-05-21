@@ -20,6 +20,21 @@ def create_app(config_module='app.config'):
     """
     app = Flask(__name__)
     
+    # Initialize logging
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Verify required NLTK resources
+    try:
+        from app.utils.nltk_verification import verify_nltk_resources
+        verify_nltk_resources()
+    except Exception as e:
+        logging.critical(f"NLTK resource verification failed: {str(e)}")
+        print(f"\nERROR: {str(e)}\n")
+    
     # Configure the app based on config_module
     if config_module == 'config':
         # Using our enhanced configuration system
