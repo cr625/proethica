@@ -84,6 +84,28 @@ All the major technical issues with the section embedding functionality have bee
 - Process document sections and generate embeddings
 - Perform similarity searches between sections
 
+### Latest Updates (May 21, 2025)
+
+We've implemented additional fixes to enhance the document structure and section embeddings functionality:
+
+1. **Enhanced Metadata Update**:
+   - Updated the SectionEmbeddingService to properly update document metadata when storing section embeddings
+   - Added section_embeddings metadata information to record count, storage type, and dimensions
+   - Created a migration script to update existing cases with proper section embeddings metadata
+   - Fixed section URI normalization and deduplication in the embedding process
+
+2. **Improved UI Integration**:
+   - Added fallback mechanism in document_structure.py to check for sections in DocumentSection table even when metadata is missing
+   - Enhanced the case detail template to visually indicate when section embeddings are available for a case
+   - Added section count badge to the View Structure button for cases with embedded sections
+
+3. **Migration & Compatibility**:
+   - Created migrate_section_embeddings_metadata.py to update document metadata for cases with existing section embeddings
+   - Fixed database connection issues in migration scripts
+   - Added compatibility layer for handling different document metadata structures (legacy vs. new format)
+
+These changes complete the integration of section embeddings with the document structure, ensuring that UI components properly display when embeddings are available and that document metadata is consistently updated.
+
 ### Next Steps
 
 1. **UI Implementation**:

@@ -96,6 +96,8 @@ def view_structure(id):
     
     # Add detailed logging for debugging section embeddings
     current_app.logger.info(f"Checking for section embeddings in document {id}")
+    
+    # First, check in document metadata (normal path)
     if 'document_structure' in metadata:
         current_app.logger.info(f"document_structure keys: {list(metadata['document_structure'].keys())}")
         
@@ -120,13 +122,46 @@ def view_structure(id):
                 db.session.commit()
                 current_app.logger.info("Added missing section_embeddings key to document metadata")
     
-    # Now check if section_embeddings exists
+    # Now check if section_embeddings exists in document_structure
     if 'document_structure' in metadata and 'section_embeddings' in metadata['document_structure']:
         has_section_embeddings = True
         section_embeddings_info = metadata['document_structure']['section_embeddings']
         current_app.logger.info(f"Section embeddings info: {section_embeddings_info}")
     else:
-        current_app.logger.info("No section_embeddings key found in document_structure")
+        # Fallback: Check directly in the DocumentSection table
+        from app.models.document_section import DocumentSection
+        
+        # Count sections for this document in the DocumentSection table
+        doc_sections_count = DocumentSection.query.filter_by(document_id=id).count()
+        current_app.logger.info(f"Fallback check: Found {doc_sections_count} sections in DocumentSection table")
+        
+        if doc_sections_count > 0:
+            # We found sections in the table, but they're not reflected in the metadata
+            # Update the document metadata and set has_section_embeddings
+            has_section_embeddings = True
+            
+            # Create section_embeddings_info for the template
+            section_embeddings_info = {
+                'count': doc_sections_count,
+                'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                'storage_type': 'pgvector',
+                'note': 'Detected from database (metadata updated)'
+            }
+            
+            # Update the document metadata if needed
+            if 'document_structure' not in metadata:
+                metadata['document_structure'] = {}
+            
+            # Add the section_embeddings info
+            metadata['document_structure']['section_embeddings'] = section_embeddings_info
+            
+            # Save the updated metadata
+            try:
+                document.doc_metadata = json.loads(json.dumps(metadata))
+                db.session.commit()
+                current_app.logger.info("Updated document metadata with section embeddings information from database")
+            except Exception as e:
+                current_app.logger.warning(f"Failed to update metadata with section embeddings info: {str(e)}")
     
     # Add a timestamp query parameter to prevent browser caching
     no_cache = request.args.get('_', '')

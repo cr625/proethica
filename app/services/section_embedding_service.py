@@ -203,6 +203,22 @@ class SectionEmbeddingService(EmbeddingService):
                         logger.error(f"Error processing section {section_id}: {str(section_error)}")
                         # Continue with other sections rather than failing the entire batch
                 
+                # Ensure section_embeddings metadata is properly updated in document_structure
+                if 'document_structure' not in doc_metadata:
+                    doc_metadata['document_structure'] = {}
+                
+                # Update the section_embeddings metadata with current information
+                count = DocumentSection.query.filter_by(document_id=document_id).count()
+                doc_metadata['document_structure']['section_embeddings'] = {
+                    'count': count,
+                    'updated_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'storage_type': 'pgvector',
+                    'embedding_dimension': 384
+                }
+                
+                # Log metadata update
+                logger.info(f"Updating document metadata with section_embeddings information: {count} sections")
+                
                 # Save metadata update
                 document.doc_metadata = json.loads(json.dumps(doc_metadata))
                 
@@ -216,7 +232,8 @@ class SectionEmbeddingService(EmbeddingService):
                 return {
                     'success': True,
                     'document_id': document_id,
-                    'sections_embedded': sections_added
+                    'sections_embedded': sections_added,
+                    'metadata_updated': True
                 }
             
         except Exception as e:
