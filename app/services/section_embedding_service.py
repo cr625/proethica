@@ -121,11 +121,30 @@ class SectionEmbeddingService(EmbeddingService):
                 sections_added = 0
                 
                 # Process each section
+                # First, deduplicate sections to avoid unique constraint violations
+                processed_section_ids = set()
+                deduplicated_embeddings = {}
+                
                 for section_uri, embedding in section_embeddings.items():
                     # Extract section_id from URI
                     section_id = section_uri.split('/')[-1]
                     
-                    # Get section content and type from metadata
+                    # Skip if we've already processed this section ID
+                    if section_id in processed_section_ids:
+                        logger.warning(f"Skipping duplicate section ID: {section_id} from URI {section_uri}")
+                        continue
+                        
+                    # Use normalized URI with current document ID
+                    normalized_uri = f"http://proethica.org/document/case_{document_id}/{section_id}"
+                    deduplicated_embeddings[normalized_uri] = embedding
+                    processed_section_ids.add(section_id)
+                
+                # Process each deduplicated section
+                for section_uri, embedding in deduplicated_embeddings.items():
+                    # Extract section_id from URI
+                    section_id = section_uri.split('/')[-1]
+                    
+                # Get section content and type from metadata
                     section_type = section_id  # Default to section_id as type
                     section_content = ""
                     
@@ -159,15 +178,11 @@ class SectionEmbeddingService(EmbeddingService):
                             section_id=section_id
                         ).first()
                         
-                        # Format embedding as a string to be converted by pgvector
-                        # Use a simple array format that pgvector can interpret
-                        embedding_str = f"[{','.join(str(x) for x in embedding)}]"
-                        
                         if existing_section:
                             # Update existing section
                             existing_section.section_type = section_type
                             existing_section.content = section_content
-                            existing_section.embedding = embedding_str
+                            existing_section.embedding = embedding  # Pass the list directly to our Vector type
                             existing_section.updated_at = datetime.utcnow()
                             logger.info(f"Updated existing section {section_id}")
                         else:
@@ -177,7 +192,7 @@ class SectionEmbeddingService(EmbeddingService):
                                 section_id=section_id,
                                 section_type=section_type,
                                 content=section_content,
-                                embedding=embedding_str,
+                                embedding=embedding,  # Pass the list directly to our Vector type
                                 section_metadata={'uri': section_uri}
                             )
                             db.session.add(new_section)
@@ -249,9 +264,12 @@ class SectionEmbeddingService(EmbeddingService):
             
             # Try using native pgvector similarity if available
             try:
-                # Format the query embedding for pgvector
-                # Use an array string format that pgvector can interpret
-                embedding_str = f"[{','.join(str(x) for x in query_embedding)}]"
+                # Create an instance of our Vector type for proper type handling
+                from app.models.document_section import Vector
+                vector_type = Vector(384)
+                
+                # Let our Vector type handle the conversion
+                embedding_param = vector_type.bind_processor(None)(query_embedding)
                 
                 # Use with to ensure transaction consistency
                 with db.session.begin():
@@ -264,7 +282,7 @@ class SectionEmbeddingService(EmbeddingService):
                         ds.section_id, 
                         ds.section_type, 
                         ds.content,
-                        ds.embedding <=> :query_embedding AS similarity,
+                        ds.embedding <=> :query_embedding::vector(384) AS similarity,
                         d.title AS document_title
                     FROM 
                         document_sections ds
@@ -275,7 +293,7 @@ class SectionEmbeddingService(EmbeddingService):
                     """
                     
                     # Dynamically add filters based on parameters
-                    params = {'query_embedding': embedding_str}
+                    params = {'query_embedding': embedding_param}
                     
                     if document_id is not None:
                         query_sql += " AND ds.document_id = :document_id"
@@ -447,7 +465,27 @@ class SectionEmbeddingService(EmbeddingService):
             # Strategy 2: Try to get from section_embeddings_metadata
             elif 'section_embeddings_metadata' in doc_metadata and doc_metadata['section_embeddings_metadata']:
                 logger.info(f"Found sections in section_embeddings_metadata")
-                section_metadata = doc_metadata['section_embeddings_metadata']
+                section_metadata_dict = {}
+                seen_section_ids = set()  # Track section IDs we've already processed
+                
+                # Process and deduplicate sections
+                for section_uri, data in doc_metadata['section_embeddings_metadata'].items():
+                    section_id = section_uri.split('/')[-1]
+                    
+                    # Skip if we already processed this section ID to avoid duplicates
+                    if section_id in seen_section_ids:
+                        logger.warning(f"Skipping duplicate section ID: {section_id} from URI {section_uri}")
+                        continue
+                    
+                    # Mark this section ID as processed
+                    seen_section_ids.add(section_id)
+                    
+                    # Use current case's URI format consistently
+                    normalized_uri = f"http://proethica.org/document/case_{document_id}/{section_id}"
+                    section_metadata_dict[normalized_uri] = data.copy()
+                    
+                # Use the deduplicated dictionary
+                section_metadata = section_metadata_dict
                 
                 # Validate each entry has content
                 for section_uri, data in list(section_metadata.items()):

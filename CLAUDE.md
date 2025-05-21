@@ -50,6 +50,18 @@ We've successfully resolved several key issues with the document structure embed
    - Verified embedding dimensions before insertion to prevent type errors
    - Added more robust error handling for embedding generation and storage
 
+3. **Fixed pgvector Type Mismatch Issue**:
+   - Implemented custom Vector SQLAlchemy type to handle pgvector compatibility
+   - Updated the embedding column to properly map between Python lists and PostgreSQL vector types
+   - Fixed datatype mismatch error ("column 'embedding' is of type vector but expression is of type character varying")
+   - Modified the embedding storage method to pass embedding vectors directly to the Vector type handler
+   
+4. **Fixed Duplicate Section ID Error**:
+   - Implemented section deduplication logic to prevent unique constraint violations
+   - Created fix script to safely patch the section_embedding_service.py file
+   - Added URI normalization to ensure consistent section identifiers
+   - Added detection and handling of duplicate section IDs from different URI sources
+
 3. **Enhanced Transaction Management**:
    - Added session.no_autoflush blocks to prevent premature flushing of db operations
    - Improved transaction boundary management to ensure atomic operations
