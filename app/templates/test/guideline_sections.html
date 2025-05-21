@@ -96,7 +96,41 @@
                         </tr>
                         <tr>
                             <td colspan="4">
-                                <pre>{{ assoc | tojson(indent=2) }}</pre>
+                                <table class="table table-bordered table-sm mb-2" style="background:#f8f9fa;">
+                                    <tr>
+                                        <th style="width:120px;">Label</th>
+                                        <td>{{ assoc.label if assoc.label is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>URI</th>
+                                        <td style="word-break:break-all;">{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Description</th>
+                                        <td>{{ assoc.description if assoc.description is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Confidence</th>
+                                        <td>{{ assoc.confidence if assoc.confidence is defined else '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Relationship</th>
+                                        <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else 'related' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Reasoning</th>
+                                        <td>
+                                            {% if assoc.reasoning is defined %}
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#reasoning-{{ section.id }}-{{ loop.index }}" aria-expanded="false">Show Reasoning</button>
+                                                <div class="collapse mt-2" id="reasoning-{{ section.id }}-{{ loop.index }}">
+                                                    <pre style="background:#fff; border:1px solid #eee; border-radius:4px; padding:8px; font-size:0.95em; color:#222; max-height:300px; overflow:auto;">{{ assoc.reasoning | tojson(indent=2) }}</pre>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">No reasoning available</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
                         {% endfor %}
