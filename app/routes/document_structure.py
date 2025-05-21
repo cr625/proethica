@@ -12,6 +12,7 @@ from flask_sqlalchemy import SQLAlchemy
 from app.models.document import Document
 from app.models.document_section import DocumentSection
 from app.services.section_embedding_service import SectionEmbeddingService
+from app.services.guideline_section_service import GuidelineSectionService 
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
 from datetime import datetime
 from app import db
@@ -163,6 +164,26 @@ def view_structure(id):
             except Exception as e:
                 current_app.logger.warning(f"Failed to update metadata with section embeddings info: {str(e)}")
     
+    # Check for guideline associations
+    has_guideline_associations = False
+    section_guideline_associations = None
+    
+    # Check if document has guideline associations in metadata
+    if 'document_structure' in metadata and 'guideline_associations' in metadata['document_structure']:
+        has_guideline_associations = True
+        guideline_associations_info = metadata['document_structure']['guideline_associations']
+        current_app.logger.info(f"Guideline associations info: {guideline_associations_info}")
+        
+        # Try to load guideline associations
+        try:
+            guideline_service = GuidelineSectionService()
+            guidelines_result = guideline_service.get_document_section_guidelines(id)
+            if guidelines_result.get('success') and guidelines_result.get('sections'):
+                section_guideline_associations = guidelines_result.get('sections')
+                current_app.logger.info(f"Loaded {len(section_guideline_associations)} sections with guideline associations")
+        except Exception as e:
+            current_app.logger.warning(f"Error loading guideline associations: {str(e)}")
+    
     # Add a timestamp query parameter to prevent browser caching
     no_cache = request.args.get('_', '')
     
@@ -174,6 +195,8 @@ def view_structure(id):
                           section_metadata=section_metadata,
                           has_section_embeddings=has_section_embeddings,
                           section_embeddings_info=section_embeddings_info,
+                          has_guideline_associations=has_guideline_associations,
+                          section_guideline_associations=section_guideline_associations,
                           debug_info=debug_info,
                           no_cache=no_cache)
 
@@ -410,6 +433,31 @@ def generate_structure(id):
         flash(f"Error generating document structure: {str(e)}", "danger")
     
     # Force a new database fetch on redirect
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
+@doc_structure_bp.route('/associate_guidelines/<int:id>', methods=['POST'])
+def associate_guidelines(id):
+    """Associate ethical guidelines with document sections."""
+    # Get the document
+    document = Document.query.get_or_404(id)
+    
+    try:
+        # Create the guideline service
+        guideline_service = GuidelineSectionService()
+        
+        # Process document sections
+        result = guideline_service.associate_guidelines_with_sections(document.id)
+        
+        if result.get('success'):
+            flash(f"Successfully created {result.get('associations_created', 0)} guideline associations across {result.get('sections_processed', 0)} sections", 'success')
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            flash(f"Error associating guidelines: {error_msg}", 'danger')
+    
+    except Exception as e:
+        flash(f"Error processing section guideline associations: {str(e)}", 'danger')
+    
+    # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 
 @doc_structure_bp.route('/compare_sections/<int:doc_id>/<section_id>', methods=['GET'])

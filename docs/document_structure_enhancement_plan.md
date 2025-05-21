@@ -56,12 +56,12 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [x] Update doc_metadata schema to include structure information
   - [x] Ensure backward compatibility with existing documents
 
-- [ ] **2.5. Guideline-Section Association** (To be implemented after Phase 3)
-  - [ ] Create mapping between document sections and guideline triples
-  - [ ] Identify ethical principles relevant to each document section
-  - [ ] Generate new triples linking sections to guideline concepts
-  - [ ] Update metadata schema to store section-guideline associations 
-  - [ ] Enhance structure visualization to display guideline associations
+- [x] **2.5. Guideline-Section Association**
+  - [x] Create mapping between document sections and guideline triples
+  - [x] Identify ethical principles relevant to each document section
+  - [x] Generate new triples linking sections to guideline concepts
+  - [x] Update metadata schema to store section-guideline associations 
+  - [x] Enhance structure visualization to display guideline associations
 
 ### Phase 3: Section Embedding Implementation
 
@@ -117,10 +117,10 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - [ ] Test similarity between related sections
   - [ ] Benchmark performance against full-document embeddings
 
-- [ ] **M2.5: Validate guideline-section associations**
-  - [ ] Verify accurate mapping between sections and ethical principles
-  - [ ] Test retrieval of cases based on section-guideline combinations
-  - [ ] Validate visualization of guideline associations
+- [x] **M2.5: Validate guideline-section associations**
+  - [x] Verify accurate mapping between sections and ethical principles
+  - [x] Test retrieval of cases based on section-guideline combinations
+  - [x] Validate visualization of guideline associations
 
 - [ ] **M4: End-to-end system testing**
   - [ ] Import case and verify all enhancements work together
@@ -135,6 +135,45 @@ The goal is to extend the ProEthica ontology to include document structure conce
 - Performance impact of additional triples and embeddings should be monitored
 - Record Git commit hashes after each major change to enable precise version tracking and potential rollbacks
 - Phase 2.5 (Guideline-Section Association) will be implemented chronologically after Phase 3, despite its logical placement in the document structure phases
+
+### Phase 5: Enhanced Guideline Association with Explainable Reasoning
+
+- [x] **5.1. Core Service Enhancement (Backend)**
+  - [x] Update GuidelineSectionService with multi-metric relevance calculation
+  - [x] Implement vector similarity using existing SectionEmbeddingService
+  - [x] Create term overlap analysis functionality
+  - [x] Develop structural relevance scoring logic
+  - [x] Integrate with LLM for pattern analysis and explanation
+  - [x] Implement agreement score calculation
+  - [x] Build final weighted score calculation
+  - [x] Design metadata schema for storing complete reasoning chain
+
+- [ ] **5.2. Route & Controller Updates**
+  - [ ] Update associate_guidelines route to use enhanced association
+  - [ ] Add view_guideline_reasoning route for detailed reasoning display
+  - [ ] Create API endpoint for retrieving reasoning data
+  - [ ] Extend DocumentSection.metadata schema for reasoning chain storage
+
+- [ ] **5.3. Basic UI Implementation**
+  - [ ] Enhance existing guideline display to show scores with progress bars
+  - [ ] Implement "View Reasoning" links for each association
+  - [ ] Create guideline_reasoning.html template for reasoning display
+  - [ ] Show component scores with explanations
+  - [ ] Display LLM analysis results
+
+- [ ] **5.4. Enhanced UI & Visualization**
+  - [ ] Add toggle for summary/detailed views
+  - [ ] Implement client-side filtering options
+  - [ ] Create expandable explanation sections
+  - [ ] Add progress bars for component scores
+  - [ ] Implement highlighting of matching terms
+  - [ ] Create visual formula representation
+
+- [ ] **5.5. Case Detail Integration**
+  - [ ] Add guideline association summary section to case_detail.html
+  - [ ] Show top guidelines preview
+  - [ ] Link to detailed document structure view
+  - [ ] Create comprehensive documentation for the enhanced functionality
 
 ## Progress Log
 
@@ -291,3 +330,34 @@ The goal is to extend the ProEthica ontology to include document structure conce
   - Creating direct pgvector implementation for better performance and reliability
   - Will enable more efficient section similarity search
   - Maintaining UI compatibility during transition
+
+### Date: May 21, 2025 (1:40 PM)
+- Completed Phase 2.5: Guideline-Section Association
+  - Created GuidelineSectionService to manage guideline associations with document sections
+  - Implemented routes for generating guideline associations in document_structure.py
+  - Updated the document_structure.html template with guideline association display
+  - Created test_guideline_section_service.py for verification testing
+  - Added documentation in guideline_section_integration.md
+  - Created search capabilities for finding sections by guideline
+  - Integrated with existing DocumentSection model and ontology-based guidelines
+
+### Date: May 21, 2025 (2:33 PM)
+- Planning Phase 5: Enhanced Guideline Association with Explainable Reasoning
+  - Added new Phase 5 to the implementation plan
+  - Created detailed breakdown of sub-phases 5.1 through 5.5
+  - Planned for multi-metric relevance calculation approach
+  - Designed integration with LLM for pattern analysis and explanation
+  - Outlined UI enhancements for displaying reasoning chains
+  - Established checkpoints and rollback points for implementation tracking
+
+### Date: May 21, 2025 (3:20 PM)
+- Completed Phase 5.1: Core Service Enhancement (Backend)
+  - Implemented GuidelineSectionService with multi-metric relevance calculation
+  - Created comprehensive relevance analysis using vector similarity, term overlap, and structural relevance 
+  - Integrated LLM-based pattern analysis for deeper semantic understanding
+  - Implemented agreement score calculation to measure consensus between metrics
+  - Built final weighted score calculation with complete reasoning chain
+  - Added metadata schema for storing detailed explanation of guideline associations
+  - Implemented search_guideline_associations method for finding sections by guideline
+  - Added get_section_guidelines method for retrieving guideline associations for specific sections
+  - Fixed get_document_section_guidelines to properly handle enhanced guideline associations

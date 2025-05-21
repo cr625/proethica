@@ -149,6 +149,60 @@
         </div>
     </div>
 
+    <!-- Ethical Guideline Associations -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Ethical Guideline Associations</h3>
+        </div>
+        <div class="card-body">
+            {% if has_guideline_associations %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i>
+                <strong>Ethical guideline associations are available.</strong>
+            </div>
+
+            {% if section_guideline_associations %}
+            {% for section_id, guidelines in section_guideline_associations.items() %}
+            <div class="mb-4">
+                <h4>Section: {{ section_id }}</h4>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Guideline</th>
+                            <th>Relationship</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for guideline in guidelines %}
+                        <tr>
+                            <td>{{ guideline.label }}</td>
+                            <td>{{ guideline.relationship }}</td>
+                            <td>{{ "%.2f"|format(guideline.confidence) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p>No specific guideline associations found for sections.</p>
+            {% endif %}
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>No ethical guideline associations available for this document.</strong>
+            </div>
+            <p>Guideline associations connect document sections with ethical principles and guidelines.</p>
+            <form action="{{ url_for('doc_structure.associate_guidelines', id=document.id) }}" method="post">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-link"></i> Generate Guideline Associations
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
     {% if structure_triples %}
     <div class="card mb-4">
         <div class="card-header bg-info text-white">

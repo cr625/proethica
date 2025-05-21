@@ -159,6 +159,15 @@ class SectionEmbeddingService(EmbeddingService):
                     if not section_content and 'sections' in doc_metadata and section_id in doc_metadata['sections']:
                         section_content = doc_metadata['sections'][section_id]
                     
+                    # If still not found, try to find in section_embeddings_metadata
+                    if not section_content and 'section_embeddings_metadata' in doc_metadata:
+                        # Look for this section URI or a matching one
+                        for uri, metadata in doc_metadata['section_embeddings_metadata'].items():
+                            if section_id in uri and 'content' in metadata:
+                                section_content = metadata['content']
+                                logger.info(f"Found content for {section_id} in section_embeddings_metadata")
+                                break
+                    
                     # Skip if no content
                     if not section_content:
                         logger.warning(f"No content found for section {section_id}, skipping")
@@ -480,13 +489,22 @@ class SectionEmbeddingService(EmbeddingService):
                         }
             
             # Strategy 2: Try to get from section_embeddings_metadata
-            elif 'section_embeddings_metadata' in doc_metadata and doc_metadata['section_embeddings_metadata']:
+            elif 'section_embeddings_metadata' in doc_metadata and doc_metadata['section_embeddings_metadata'] or 'document_structure' in doc_metadata and 'section_embeddings_metadata' in doc_structure:
                 logger.info(f"Found sections in section_embeddings_metadata")
                 section_metadata_dict = {}
                 seen_section_ids = set()  # Track section IDs we've already processed
                 
                 # Process and deduplicate sections
-                for section_uri, data in doc_metadata['section_embeddings_metadata'].items():
+                section_embeddings_data = {}
+                
+                # Check top-level section_embeddings_metadata first
+                if 'section_embeddings_metadata' in doc_metadata:
+                    section_embeddings_data = doc_metadata['section_embeddings_metadata']
+                # Next check document_structure.section_embeddings_metadata if needed
+                elif 'section_embeddings_metadata' in doc_structure:
+                    section_embeddings_data = doc_structure['section_embeddings_metadata']
+                
+                for section_uri, data in section_embeddings_data.items():
                     section_id = section_uri.split('/')[-1]
                     
                     # Skip if we already processed this section ID to avoid duplicates
