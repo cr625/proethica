@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-05-22T18:54:33.363671",
+  "document": {
+    "id": 252,
+    "title": "Acknowledging Errors in Design",
+    "document_type": "case_study"
+  },
+  "ontology_entities_summary": {
+    "facts": 3,
+    "question": 2,
+    "references": 3,
+    "discussion": 2
+  },
+  "prompt_preview": "\n        You are an AI assistant with expertise in engineering ethics, tasked with predicting the conclusion for an engineering ethics case from the National Society of Professional Engineers (NSPE) Board of Ethical Review.\n        \n        CASE INFORMATION:\n        Title: Acknowledging Errors in Design\n        \n\n# FACTS:\n\nRelevant factual concepts:\n- Engineer hasRole Professional\n- Design requiresAttribute Accuracy\n- Engineer hasResponsibility PublicSafety\n\n# QUESTION:\n\nRelevant ethical issues:...",
+  "prediction_preview": "The Board of Ethical Review concludes that an engineer who discovers errors in their design has an ethical obligation to promptly disclose such errors to all relevant parties. Failure to acknowledge and disclose known errors would be unethical under the NSPE Code of Ethics. Section II.1 of the Code explicitly states that \"Engineers shall hold paramount the safety, health, and welfare of the public\" and further specifies that \"Engineers shall disclose all known or discovered adverse consequences ...",
+  "validation_metrics": {
+    "entity_mentions": 3,
+    "total_entities": 20,
+    "mention_ratio": 0.15,
+    "mentioned_entities": [
+      "Engineer",
+      "Engineer",
+      "Engineer"
+    ],
+    "validation_status": "passed"
+  },
+  "analysis": {
+    "success": true,
+    "entity_mentions": 3,
+    "total_entities": 20,
+    "mention_ratio": 0.15,
+    "mentioned_entities": [
+      "Engineer",
+      "Engineer",
+      "Engineer"
+    ],
+    "validation_metrics_match": true,
+    "message": "Ontology entities successfully integrated into prediction"
+  }
+}

@@ -598,15 +598,20 @@ class PredictionService:
                     continue
                     
                 section_type = section.section_type.lower() if section.section_type else ''
+
+                # Query associated triples using get_section_associations
+                associations_result = self.triple_association_service.get_section_associations(section_id)
                 
-                # Query associated triples
-                triples = self.triple_association_service.get_section_triples(section_id)
-                
+                # Extract triples from associations result
+                triples = []
+                if associations_result and 'associations' in associations_result:
+                    triples = associations_result['associations']
+
                 # Process and group triples
                 if triples:
                     if section_type not in ontology_entities:
                         ontology_entities[section_type] = []
-                        
+
                     for triple in triples:
                         # Extract and process triple components
                         entity = {
