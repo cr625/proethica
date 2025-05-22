@@ -12,18 +12,19 @@
 - [x] 2.2. Create `_construct_conclusion_prediction_prompt` function
 - [x] 2.3. Implement `_extract_conclusion` method for parsing responses
 - [x] 2.4. Develop `_validate_conclusion` method for quality checks
-- [ ] 2.5. Test ontology entity integration in prompts
-- [ ] 2.6. Optimize context window usage in prompts
+- [x] 2.5. Fix AIMessage handling in prediction methods
+- [ ] 2.6. Test ontology entity integration in prompts
+- [ ] 2.7. Optimize context window usage in prompts
 
 ## 3. Experiment Interface Extensions
 - [ ] 3.1. Add `conclusion_prediction_setup` route to `app/routes/experiment.py`
 - [ ] 3.2. Create `predict_conclusions` endpoint in `app/routes/experiment.py`
 - [ ] 3.3. Implement `conclusion_results` route for viewing predictions
 - [ ] 3.4. Add `conclusion_comparison` route for side-by-side comparison
-- [ ] 3.5. Create template `templates/experiment/conclusion_setup.html`
-- [ ] 3.6. Create template `templates/experiment/conclusion_results.html`
-- [ ] 3.7. Create template `templates/experiment/conclusion_comparison.html`
-- [ ] 3.8. Add JavaScript for progress tracking during prediction generation
+- [x] 3.5. Create template `templates/experiment/conclusion_setup.html`
+- [x] 3.6. Create template `templates/experiment/conclusion_results.html`
+- [x] 3.7. Create template `templates/experiment/conclusion_comparison.html`
+- [x] 3.8. Create template `templates/experiment/conclusion_run.html`
 
 ## 4. Standalone Script Development
 - [ ] 4.1. Create `run_conclusion_predictions.py` script
@@ -56,8 +57,8 @@
 
 ## Current Progress
 
-- Total tasks: 9/34 complete (26%)
-- Current focus: Prediction Service Enhancements (Phase 2)
+- Total tasks: 14/36 complete (39%)
+- Current focus: Experiment Interface Extensions (Phase 3)
 
 ## Implementation Timeline Estimate
 

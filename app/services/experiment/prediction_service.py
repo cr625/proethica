@@ -412,7 +412,7 @@ class PredictionService:
         
         return prompt
     
-    def _extract_conclusion(self, response: str) -> str:
+    def _extract_conclusion(self, response_obj) -> str:
         """
         Extract just the conclusion part from the LLM response.
         
@@ -420,14 +420,19 @@ class PredictionService:
         to isolate just the conclusion section from the full response.
         
         Args:
-            response: The full LLM response
+            response_obj: The full LLM response (may be a string or AIMessage object)
             
         Returns:
             Extracted conclusion text
         """
-        # For now, use a simple approach - either rely on formatting or return the entire response
-        # Could be enhanced with more sophisticated extraction methods
-        
+        # Handle different response types
+        if hasattr(response_obj, 'content'):
+            response = response_obj.content
+        elif isinstance(response_obj, dict) and 'content' in response_obj:
+            response = response_obj['content']
+        else:
+            response = str(response_obj)
+            
         # Try to extract text between "CONCLUSION" and next heading
         import re
         conclusion_match = re.search(r'(?i)#*\s*CONCLUSION:?\s*(.*?)(?=#|\Z)', response, re.DOTALL)
@@ -736,7 +741,7 @@ class PredictionService:
         
         return prompt
         
-    def _validate_prediction(self, prediction: str, 
+    def _validate_prediction(self, prediction_obj, 
                            ontology_entities: Dict[str, List[Dict]]) -> Dict[str, Any]:
         """
         Validate prediction against ontology constraints.
@@ -755,6 +760,14 @@ class PredictionService:
         # 3. Verify logical consistency between sections
         # 4. Calculate confidence metrics
         
+        # Handle different response types
+        if hasattr(prediction_obj, 'content'):
+            prediction = prediction_obj.content
+        elif isinstance(prediction_obj, dict) and 'content' in prediction_obj:
+            prediction = prediction_obj['content']
+        else:
+            prediction = str(prediction_obj)
+            
         # Extract all entity subjects and objects for basic validation
         all_entities = []
         for section_type, entities in ontology_entities.items():
