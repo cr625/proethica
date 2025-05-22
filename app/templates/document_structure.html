@@ -149,6 +149,76 @@
         </div>
     </div>
 
+    <!-- Ontology Concept Associations -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3>Ontology Concept Associations</h3>
+        </div>
+        <div class="card-body">
+            {% if has_triple_associations %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i>
+                <strong>Ontology concept associations are available.</strong>
+            </div>
+
+            {% if section_triple_associations %}
+            {% for section_id, associations in section_triple_associations.items() %}
+            <div class="mb-4">
+                <h4>Section: {{ section_id }}</h4>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Concept</th>
+                            <th>Label</th>
+                            <th>Match Score</th>
+                            <th>Match Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assoc in associations %}
+                        <tr>
+                            <td style="word-break:break-all;"><code>{{ assoc.concept_uri }}</code></td>
+                            <td>{{ assoc.concept_label }}</td>
+                            <td>
+                                <div class="progress">
+                                    <div class="progress-bar 
+                                        {% if assoc.match_score >= 0.8 %}bg-success
+                                        {% elif assoc.match_score >= 0.5 %}bg-info
+                                        {% else %}bg-warning{% endif %}"
+                                        role="progressbar" 
+                                        style="width: {{ (assoc.match_score * 100)|round }}%"
+                                        aria-valuenow="{{ (assoc.match_score * 100)|round }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100">
+                                        {{ (assoc.match_score * 100)|round }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ assoc.match_type }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p>No specific ontology concept associations found for sections.</p>
+            {% endif %}
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>No ontology concept associations available for this document.</strong>
+            </div>
+            <p>Ontology concept associations connect document sections with concepts from the engineering ethics ontology.</p>
+            <form action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-link"></i> Generate Ontology Concept Associations
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Ethical Guideline Associations -->
     <div class="card mb-4">
         <div class="card-header bg-success text-white">

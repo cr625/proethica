@@ -17,6 +17,10 @@ from app.services.case_processing.pipeline_steps.document_structure_annotation_s
 from datetime import datetime
 from app import db
 
+# Import the section triple association service
+from ttl_triple_association.section_triple_association_service import SectionTripleAssociationService
+from ttl_triple_association.section_triple_association_storage import SectionTripleAssociationStorage
+
 # Create blueprint
 doc_structure_bp = Blueprint('doc_structure', __name__, url_prefix='/structure')
 
@@ -196,6 +200,24 @@ def view_structure(id):
             current_app.logger.info(f"Loaded {len(section_guideline_associations)} sections with guideline associations (forced refresh)")
     except Exception as e:
         current_app.logger.warning(f"Error loading guideline associations: {str(e)}")
+        
+    # Check for section-triple associations
+    has_triple_associations = False
+    section_triple_associations = None
+    
+    try:
+        # Create the triple association storage
+        triple_storage = SectionTripleAssociationStorage()
+        
+        # Get document sections and their associated triples
+        document_associations = triple_storage.get_document_associations(id)
+        
+        if document_associations:
+            has_triple_associations = True
+            section_triple_associations = document_associations
+            current_app.logger.info(f"Loaded section-triple associations for {len(document_associations)} sections")
+    except Exception as e:
+        current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
     # Add a timestamp query parameter to prevent browser caching
     no_cache = request.args.get('_', '')
@@ -210,6 +232,8 @@ def view_structure(id):
                           section_embeddings_info=section_embeddings_info,
                           has_guideline_associations=has_guideline_associations,
                           section_guideline_associations=section_guideline_associations,
+                          has_triple_associations=has_triple_associations,
+                          section_triple_associations=section_triple_associations,
                           debug_info=debug_info,
                           no_cache=no_cache)
 
@@ -469,6 +493,84 @@ def associate_guidelines(id):
     
     except Exception as e:
         flash(f"Error processing section guideline associations: {str(e)}", 'danger')
+    
+    # Add timestamp to prevent caching
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
+@doc_structure_bp.route('/associate_ontology_concepts/<int:id>', methods=['POST'])
+def associate_ontology_concepts(id):
+    """Associate ontology concepts with document sections."""
+    # Get the document
+    document = Document.query.get_or_404(id)
+    
+    try:
+        # Create the triple association service and storage
+        # Use a lower similarity threshold to get more matches (0.5 instead of default 0.6)
+        ttl_service = SectionTripleAssociationService(similarity_threshold=0.5)
+        triple_storage = SectionTripleAssociationStorage()
+        
+        # Ensure tables exist
+        triple_storage.create_table()
+        
+        # Get all section IDs for this document
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            query = text("""
+                SELECT id FROM document_sections 
+                WHERE document_id = :document_id
+            """)
+            
+            result = conn.execute(query, {"document_id": id})
+            section_ids = [row[0] for row in result]
+        
+        if not section_ids:
+            flash("No sections found for this document", "warning")
+            return redirect(url_for('doc_structure.view_structure', id=id))
+            
+        # Process each section
+        associations_created = 0
+        sections_processed = 0
+        
+        for section_id in section_ids:
+            try:
+                # Process section and get matches
+                result = ttl_service.associate_section_with_concepts(section_id)
+                
+                if result and result.get('success') and result.get('matches'):
+                    # Store matches in the database
+                    matches = result.get('matches')
+                    associations_created += triple_storage.store_associations(section_id, matches)
+                    sections_processed += 1
+            except Exception as e:
+                current_app.logger.warning(f"Error processing section {section_id}: {str(e)}")
+        
+        # Update document metadata to reflect the associations
+        if associations_created > 0:
+            metadata = document.doc_metadata or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+                
+            if 'document_structure' not in metadata:
+                metadata['document_structure'] = {}
+                
+            # Add the ontology concept associations info
+            metadata['document_structure']['ontology_concept_associations'] = {
+                'count': associations_created,
+                'sections_processed': sections_processed,
+                'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            # Save the updated metadata
+            document.doc_metadata = json.loads(json.dumps(metadata))
+            db.session.commit()
+            
+            flash(f"Successfully created {associations_created} ontology concept associations across {sections_processed} sections", "success")
+        else:
+            flash("No associations were created. Check if document sections have embeddings.", "warning")
+            
+    except Exception as e:
+        current_app.logger.exception(f"Error associating ontology concepts: {str(e)}")
+        flash(f"Error associating ontology concepts: {str(e)}", "danger")
     
     # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
