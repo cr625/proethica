@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Setup Experiment{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">Setup New Experiment</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('experiment.setup') }}">
+                {{ form.csrf_token }}
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label">{{ form.name.label }}</label>
+                    {{ form.name(class="form-control", placeholder="Enter a descriptive name") }}
+                    {% if form.name.errors %}
+                    <div class="text-danger">
+                        {% for error in form.name.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">{{ form.description.label }}</label>
+                    {{ form.description(class="form-control", rows=3, placeholder="Enter experiment description, purpose, and notes") }}
+                    {% if form.description.errors %}
+                    <div class="text-danger">
+                        {% for error in form.description.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3 form-check">
+                    {{ form.leave_out_conclusion(class="form-check-input") }}
+                    <label for="leave_out_conclusion" class="form-check-label">{{ form.leave_out_conclusion.label }}</label>
+                    <div class="form-text text-muted">
+                        If checked, conclusions will be removed from case documents during prediction.
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    {{ form.submit(class="btn btn-primary") }}
+                    <a href="{{ url_for('experiment.index') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">About Experiment Setup</h3>
+        </div>
+        <div class="card-body">
+            <p>This form allows you to configure the basic parameters for your ProEthica experiment:</p>
+            
+            <h4>Configuration Options</h4>
+            <ul>
+                <li><strong>Name:</strong> A descriptive name for your experiment to help you identify it later.</li>
+                <li><strong>Description:</strong> Notes about the purpose, hypothesis, or other details about this experiment run.</li>
+                <li><strong>Leave Out Conclusion:</strong> When enabled, the conclusion section of cases will be withheld from the prompts, allowing the system to predict what the conclusion should be.</li>
+            </ul>
+            
+            <h4>Next Steps</h4>
+            <p>After creating the experiment, you'll be prompted to select which engineering ethics cases to include in the experiment run.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

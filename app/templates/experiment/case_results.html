@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Case Results - {{ document.title }}{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .diff-highlight {
+        background-color: #fffacd;
+        padding: 2px;
+        border-radius: 3px;
+    }
+    
+    .conclusion-card {
+        border-left: 5px solid #0d6efd;
+    }
+    
+    .prediction-card {
+        height: 100%;
+    }
+    
+    .prediction-header {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+    
+    .text-area-container {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+        border-bottom: 3px solid #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('experiment.index') }}">Experiments</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('experiment.results', id=experiment.id) }}">Results</a></li>
+                    <li class="breadcrumb-item active">Case Results</li>
+                </ol>
+            </nav>
+            <h2>{{ document.title }}</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Case information panel -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Case Information</h3>
+                </div>
+                <div class="card-body">
+                    <h4>{{ document.title }}</h4>
+                    <p class="text-muted">Document ID: {{ document.id }}</p>
+                    
+                    <ul class="nav nav-tabs" id="sectionTabs" role="tablist">
+                        {% for section_type, content in sections.items() %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if loop.first %}active{% endif %}" 
+                                    id="{{ section_type }}-tab" 
+                                    data-bs-toggle="tab" 
+                                    data-bs-target="#{{ section_type }}" 
+                                    type="button" 
+                                    role="tab" 
+                                    aria-controls="{{ section_type }}" 
+                                    aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                                {{ section_type|title }}
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <div class="tab-content mt-3" id="sectionTabsContent">
+                        {% for section_type, content in sections.items() %}
+                        <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+                             id="{{ section_type }}" 
+                             role="tabpanel" 
+                             aria-labelledby="{{ section_type }}-tab">
+                            <div class="text-area-container border p-3 bg-light">
+                                {{ content|replace('\n', '<br>')|safe }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            {% if sections.conclusion %}
+            <div class="card mb-4 conclusion-card">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Original Conclusion</h3>
+                </div>
+                <div class="card-body">
+                    <div class="text-area-container">
+                        {{ sections.conclusion|replace('\n', '<br>')|safe }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Predictions comparison panel -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Prediction Results</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Baseline prediction -->
+                        <div class="col-md-6">
+                            <div class="card prediction-card">
+                                <div class="card-header bg-secondary text-white">
+                                    <h4 class="mb-0">Baseline Prediction</h4>
+                                </div>
+                                <div class="card-body">
+                                    {% if predictions.baseline %}
+                                    <div class="text-area-container">
+                                        {{ predictions.baseline.prediction_text|replace('\n', '<br>')|safe }}
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-warning">
+                                        No baseline prediction available.
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ProEthica prediction -->
+                        <div class="col-md-6">
+                            <div class="card prediction-card">
+                                <div class="card-header bg-primary text-white">
+                                    <h4 class="mb-0">ProEthica Prediction</h4>
+                                </div>
+                                <div class="card-body">
+                                    {% if predictions.proethica %}
+                                    <div class="text-area-container">
+                                        {{ predictions.proethica.prediction_text|replace('\n', '<br>')|safe }}
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-warning">
+                                        No ProEthica prediction available.
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Evaluation</h3>
+                </div>
+                <div class="card-body">
+                    {% if predictions.baseline or predictions.proethica %}
+                    <form id="evaluationForm">
+                        <input type="hidden" name="experiment_id" value="{{ experiment.id }}">
+                        <input type="hidden" name="document_id" value="{{ document.id }}">
+                        
+                        <h4 class="mb-3">Discussion Analysis Evaluation</h4>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Reasoning Quality (0-10)</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label>Baseline</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="baseline_reasoning_quality" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Poor</span>
+                                        <span>Excellent</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>ProEthica</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="proethica_reasoning_quality" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Poor</span>
+                                        <span>Excellent</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Persuasiveness (0-10)</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label>Baseline</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="baseline_persuasiveness" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Not persuasive</span>
+                                        <span>Very persuasive</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>ProEthica</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="proethica_persuasiveness" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Not persuasive</span>
+                                        <span>Very persuasive</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Coherence (0-10)</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label>Baseline</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="baseline_coherence" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Incoherent</span>
+                                        <span>Very coherent</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>ProEthica</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="proethica_coherence" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Incoherent</span>
+                                        <span>Very coherent</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h4 class="mb-3 mt-4">Conclusion Prediction Evaluation</h4>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Accuracy (Match with original NSPE conclusion)</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="baseline_accuracy" id="baselineAccuracy">
+                                        <label class="form-check-label" for="baselineAccuracy">
+                                            Baseline matches NSPE conclusion
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="proethica_accuracy" id="proethicaAccuracy">
+                                        <label class="form-check-label" for="proethicaAccuracy">
+                                            ProEthica matches NSPE conclusion
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Support Quality (0-10)</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label>Baseline</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="baseline_support_quality" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Poor support</span>
+                                        <span>Excellent support</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>ProEthica</label>
+                                    <input type="range" class="form-range" min="0" max="10" step="1" name="proethica_support_quality" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Poor support</span>
+                                        <span>Excellent support</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h4 class="mb-3 mt-4">Overall Comparison</h4>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Which approach do you prefer overall?</label>
+                            <select class="form-select" name="preference">
+                                <option value="">-- Select --</option>
+                                <option value="baseline">Baseline</option>
+                                <option value="proethica">ProEthica</option>
+                                <option value="neither">Neither</option>
+                                <option value="both_equally">Both Equally</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="comments" class="form-label">Comments</label>
+                            <textarea class="form-control" id="comments" name="comments" rows="3" placeholder="Add any additional comments or observations..."></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Submit Evaluation</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <h4 class="alert-heading">No Predictions Available</h4>
+                        <p>No predictions have been generated for this case yet. Run the experiment to generate predictions.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const evaluationForm = document.getElementById('evaluationForm');
+        
+        if (evaluationForm) {
+            evaluationForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Collect form data
+                const formData = new FormData(evaluationForm);
+                const jsonData = {};
+                
+                for (const [key, value] of formData.entries()) {
+                    jsonData[key] = value;
+                }
+                
+                // AJAX submission would go here
+                alert('Evaluation submitted! (This is a placeholder - actual submission would be implemented in production)');
+                console.log('Evaluation data:', jsonData);
+                
+                // Redirect back to results page
+                // window.location.href = "{{ url_for('experiment.results', id=experiment.id) }}";
+            });
+        }
+    });
+</script>
+{% endblock %}

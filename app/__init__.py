@@ -96,6 +96,7 @@ def create_app(config_module='app.config'):
     from app.routes.cases_structure_update import cases_structure_bp
     from app.routes.document_structure import doc_structure_bp
     from app.routes.test_routes import test_bp
+    from app.routes.experiment import experiment_bp
     from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
@@ -114,6 +115,7 @@ def create_app(config_module='app.config'):
     app.register_blueprint(cases_bp, url_prefix='/cases')
     app.register_blueprint(cases_structure_bp, url_prefix='/cases_enhanced')
     app.register_blueprint(doc_structure_bp)
+    app.register_blueprint(experiment_bp, url_prefix='/experiment')
     app.register_blueprint(test_bp)
     
     # Create and register the ontology editor blueprint

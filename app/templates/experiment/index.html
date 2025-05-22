@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}ProEthica Experiment Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>ProEthica Experiment Dashboard</h2>
+            <a href="{{ url_for('experiment.setup') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Experiment
+            </a>
+        </div>
+    </div>
+
+    {% if experiments %}
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Experiment Runs</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Cases</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for experiment in experiments %}
+                        <tr>
+                            <td>{{ experiment.id }}</td>
+                            <td>{{ experiment.name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if experiment.status == 'created' %}bg-secondary
+                                    {% elif experiment.status == 'configured' %}bg-info
+                                    {% elif experiment.status == 'running' %}bg-warning
+                                    {% elif experiment.status == 'completed' %}bg-success
+                                    {% elif experiment.status == 'failed' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ experiment.status }}
+                                </span>
+                            </td>
+                            <td>{{ experiment.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if experiment.config and experiment.config.case_ids %}
+                                {{ experiment.config.case_ids|length }}
+                                {% else %}
+                                0
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if experiment.status == 'created' %}
+                                <a href="{{ url_for('experiment.cases', id=experiment.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-list-check"></i> Select Cases
+                                </a>
+                                {% elif experiment.status == 'configured' %}
+                                <a href="{{ url_for('experiment.run', id=experiment.id) }}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-play"></i> Run
+                                </a>
+                                {% elif experiment.status == 'completed' %}
+                                <a href="{{ url_for('experiment.results', id=experiment.id) }}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-bar-chart"></i> Results
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h4 class="alert-heading">No Experiments Found</h4>
+        <p>You haven't created any experiments yet. Click the "New Experiment" button to get started.</p>
+    </div>
+    {% endif %}
+
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">About ProEthica Experiments</h3>
+        </div>
+        <div class="card-body">
+            <p>The ProEthica experiment interface allows you to evaluate engineering ethics cases using different analysis conditions:</p>
+            
+            <h4>Experiment Conditions</h4>
+            <ul>
+                <li><strong>Baseline Condition:</strong> Plain prompt with standard embedding-based retrieval and basic precedent matching</li>
+                <li><strong>ProEthica Enhanced:</strong> Multi-metric relevance scoring, ontology-constrained FIRAC prompting, bidirectional validation, and professional framework grounding</li>
+            </ul>
+            
+            <h4>Leave-One-Out Procedure</h4>
+            <p>The leave-one-out procedure removes the conclusion section from the case and tasks the system with predicting the decision that would be made by the NSPE Board of Ethical Review.</p>
+            
+            <h4>Evaluation Metrics</h4>
+            <p>Experiments are evaluated based on multiple criteria, including reasoning quality, persuasiveness, coherence, accuracy, and alignment with the original NSPE conclusions.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

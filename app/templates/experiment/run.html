@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Run Experiment{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('experiment.index') }}">Experiments</a></li>
+                    <li class="breadcrumb-item active">Run Experiment</li>
+                </ol>
+            </nav>
+            <h2>Run Experiment: {{ experiment.name }}</h2>
+            <p class="text-muted">{{ experiment.description }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Experiment Configuration</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <strong>Experiment ID:</strong> {{ experiment.id }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Name:</strong> {{ experiment.name }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Status:</strong>
+                            <span class="badge 
+                                {% if experiment.status == 'created' %}bg-secondary
+                                {% elif experiment.status == 'configured' %}bg-info
+                                {% elif experiment.status == 'running' %}bg-warning
+                                {% elif experiment.status == 'completed' %}bg-success
+                                {% elif experiment.status == 'failed' %}bg-danger
+                                {% else %}bg-secondary{% endif %}">
+                                {{ experiment.status }}
+                            </span>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Created:</strong> {{ experiment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Leave-Out-Conclusion:</strong> 
+                            {% if experiment.config and experiment.config.leave_out_conclusion %}
+                                <span class="badge bg-success">Enabled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Disabled</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Cases Selected:</strong> 
+                            {% if experiment.config and experiment.config.case_ids %}
+                                {{ experiment.config.case_ids|length }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Run Options</h3>
+                </div>
+                <div class="card-body">
+                    <p>You're about to generate predictions for {{ experiment.config.case_ids|length if experiment.config and experiment.config.case_ids else 0 }} cases using both the baseline and ProEthica enhanced methods.</p>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> <strong>Important:</strong> This process may take several minutes depending on the number of cases selected. Please do not close this page while the experiment is running.
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirmCheck">
+                        <label class="form-check-label" for="confirmCheck">
+                            I understand that this process will generate LLM predictions for each case, which may take time and consume resources.
+                        </label>
+                    </div>
+                    
+                    <button id="runButton" class="btn btn-success btn-lg" disabled>
+                        <i class="bi bi-play-circle"></i> Run Experiment
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card d-none" id="progressCard">
+                <div class="card-header bg-warning text-white">
+                    <h3 class="mb-0">Experiment Progress</h3>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="progressBar"></div>
+                    </div>
+                    <p id="progressText">Initializing experiment...</p>
+                    <div id="progressLog" class="mt-3 border rounded p-2 bg-light" style="height: 200px; overflow-y: auto;">
+                        <div class="text-muted">Progress log will appear here...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card d-none" id="completionCard">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Experiment Complete</h3>
+                </div>
+                <div class="card-body">
+                    <p>The experiment has completed successfully.</p>
+                    <a href="{{ url_for('experiment.results', id=experiment.id) }}" class="btn btn-primary">
+                        <i class="bi bi-bar-chart"></i> View Results
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card d-none" id="errorCard">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0">Error</h3>
+                </div>
+                <div class="card-body">
+                    <p id="errorMessage">An error occurred while running the experiment.</p>
+                    <button class="btn btn-secondary" onclick="location.reload()">
+                        <i class="bi bi-arrow-repeat"></i> Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmCheck = document.getElementById('confirmCheck');
+        const runButton = document.getElementById('runButton');
+        const progressCard = document.getElementById('progressCard');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressLog = document.getElementById('progressLog');
+        const completionCard = document.getElementById('completionCard');
+        const errorCard = document.getElementById('errorCard');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Enable or disable run button based on checkbox
+        confirmCheck.addEventListener('change', function() {
+            runButton.disabled = !confirmCheck.checked;
+        });
+        
+        // Handle run button click
+        runButton.addEventListener('click', function() {
+            // Disable button and show progress
+            runButton.disabled = true;
+            runButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Running...';
+            progressCard.classList.remove('d-none');
+            
+            // Add log entry
+            addLogEntry('Starting experiment run...');
+            
+            // Call API to run experiment
+            fetch('{{ url_for("experiment.predict", id=experiment.id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show completion card
+                    progressCard.classList.add('d-none');
+                    completionCard.classList.remove('d-none');
+                    
+                    // Add log entries
+                    addLogEntry('Experiment completed successfully.');
+                    addLogEntry(data.message);
+                } else {
+                    // Show error
+                    progressCard.classList.add('d-none');
+                    errorCard.classList.remove('d-none');
+                    errorMessage.textContent = data.error || 'An unknown error occurred.';
+                    
+                    // Add log entry
+                    addLogEntry('Error: ' + (data.error || 'An unknown error occurred.'));
+                }
+            })
+            .catch(error => {
+                // Show error
+                progressCard.classList.add('d-none');
+                errorCard.classList.remove('d-none');
+                errorMessage.textContent = error.toString();
+                
+                // Add log entry
+                addLogEntry('Error: ' + error.toString());
+            });
+            
+            // Simulate progress updates for UX
+            simulateProgress();
+        });
+        
+        // Function to add log entry
+        function addLogEntry(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.innerHTML = `<small class="text-muted">[${timestamp}]</small> ${message}`;
+            progressLog.appendChild(entry);
+            progressLog.scrollTop = progressLog.scrollHeight;
+        }
+        
+        // Simulate progress for better UX
+        function simulateProgress() {
+            let progress = 0;
+            const numCases = {{ experiment.config.case_ids|length if experiment.config and experiment.config.case_ids else 0 }};
+            const interval = setInterval(() => {
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    return;
+                }
+                
+                progress += 5;
+                progressBar.style.width = `${Math.min(progress, 100)}%`;
+                
+                // Add some realistic-looking progress messages
+                if (progress === 5) {
+                    addLogEntry('Initializing LLM services...');
+                } else if (progress === 15) {
+                    addLogEntry('Loading case documents...');
+                } else if (progress === 25) {
+                    addLogEntry(`Processing ${numCases} case(s)...`);
+                } else if (progress === 50) {
+                    addLogEntry('Generating baseline predictions...');
+                } else if (progress === 75) {
+                    addLogEntry('Generating ProEthica predictions...');
+                }
+                
+                progressText.textContent = `Progress: ${Math.min(progress, 100)}%`;
+            }, 1000);
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Experiment Results{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('experiment.index') }}">Experiments</a></li>
+                    <li class="breadcrumb-item active">Results</li>
+                </ol>
+            </nav>
+            <h2>Experiment Results: {{ experiment.name }}</h2>
+            <p class="text-muted">{{ experiment.description }}</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Experiment Summary</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">
+                                    <strong>Experiment ID:</strong> {{ experiment.id }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Status:</strong>
+                                    <span class="badge 
+                                        {% if experiment.status == 'created' %}bg-secondary
+                                        {% elif experiment.status == 'configured' %}bg-info
+                                        {% elif experiment.status == 'running' %}bg-warning
+                                        {% elif experiment.status == 'completed' %}bg-success
+                                        {% elif experiment.status == 'failed' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ experiment.status }}
+                                    </span>
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Created:</strong> {{ experiment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">
+                                    <strong>Cases Processed:</strong> {{ grouped_predictions|length }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Baseline Predictions:</strong> 
+                                    {{ grouped_predictions.values()|map(attribute='predictions.baseline')|select|list|length }}
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>ProEthica Predictions:</strong>
+                                    {{ grouped_predictions.values()|map(attribute='predictions.proethica')|select|list|length }}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">Case Results</h3>
+                        <div>
+                            <div class="input-group">
+                                <input type="text" id="caseSearch" class="form-control" placeholder="Search cases...">
+                                <button type="button" class="btn btn-light" id="searchButton">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if grouped_predictions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Case ID</th>
+                                    <th>Title</th>
+                                    <th>Baseline</th>
+                                    <th>ProEthica</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc_id, data in grouped_predictions.items() %}
+                                <tr>
+                                    <td>{{ doc_id }}</td>
+                                    <td>{{ data.document.title }}</td>
+                                    <td>
+                                        {% if data.predictions.baseline %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Generated
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="bi bi-x-circle"></i> Not Generated
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if data.predictions.proethica %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Generated
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="bi bi-x-circle"></i> Not Generated
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('experiment.case_results', id=experiment.id, doc_id=doc_id) }}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-eye"></i> View Results
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <h4 class="alert-heading">No Results Available</h4>
+                        <p>No predictions have been generated for this experiment yet. Run the experiment to generate predictions.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Export Options</h3>
+                </div>
+                <div class="card-body">
+                    <p>Export the results of this experiment for further analysis or reporting.</p>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" id="exportCSV">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Export as CSV
+                        </button>
+                        <button class="btn btn-outline-primary" id="exportJSON">
+                            <i class="bi bi-file-earmark-code"></i> Export as JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle search functionality
+        const searchInput = document.getElementById('caseSearch');
+        const searchButton = document.getElementById('searchButton');
+        const resultsTable = document.getElementById('resultsTable');
+        
+        function performSearch() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const rows = resultsTable.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const title = row.cells[1].textContent.toLowerCase();
+                
+                if (title.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        
+        searchButton.addEventListener('click', performSearch);
+        searchInput.addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        // Handle export buttons
+        document.getElementById('exportCSV').addEventListener('click', function() {
+            // Simple CSV export logic (would be replaced with server-side export in production)
+            const rows = Array.from(resultsTable.querySelectorAll('tbody tr')).filter(row => row.style.display !== 'none');
+            let csv = 'Case ID,Title,Baseline,ProEthica\n';
+            
+            rows.forEach(row => {
+                const caseId = row.cells[0].textContent.trim();
+                const title = '"' + row.cells[1].textContent.trim().replace(/"/g, '""') + '"';
+                const baseline = row.cells[2].textContent.trim();
+                const proethica = row.cells[3].textContent.trim();
+                
+                csv += `${caseId},${title},${baseline},${proethica}\n`;
+            });
+            
+            // Create download link
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'experiment_{{ experiment.id }}_results.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+        
+        document.getElementById('exportJSON').addEventListener('click', function() {
+            // Redirect to a hypothetical JSON export endpoint
+            window.location.href = `{{ url_for('experiment.results', id=experiment.id) }}?format=json`;
+        });
+    });
+</script>
+{% endblock %}

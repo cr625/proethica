@@ -6,3 +6,4 @@ from app.routes.entities import entities_bp
 from app.routes.worlds import worlds_bp
 from app.routes.mcp_api import mcp_api_bp
 from app.routes.documents import documents_bp
+from app.routes.experiment import experiment_bp
