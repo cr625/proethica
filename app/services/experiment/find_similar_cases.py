@@ -134,8 +134,14 @@ def get_document_sections(document_id: int, leave_out_conclusion: bool = False) 
         doc_sections = metadata['document_structure']['sections']
         
         for section_id, section_data in doc_sections.items():
-            section_type = section_data.get('type', '').lower()
-            content = section_data.get('content', '')
+            # Check if section_data is a dictionary
+            if isinstance(section_data, dict):
+                section_type = section_data.get('type', '').lower()
+                content = section_data.get('content', '')
+            else:
+                # Handle case where section_data is a string
+                section_type = 'text'
+                content = str(section_data)
             
             # Skip conclusion if leave_out_conclusion is True
             if leave_out_conclusion and section_type == 'conclusion':
@@ -150,8 +156,14 @@ def get_document_sections(document_id: int, leave_out_conclusion: bool = False) 
     # Case 2: Legacy format with top-level sections
     elif 'sections' in metadata:
         for section_id, section_data in metadata['sections'].items():
-            section_type = section_data.get('type', '').lower()
-            content = section_data.get('content', '')
+            # Check if section_data is a dictionary
+            if isinstance(section_data, dict):
+                section_type = section_data.get('type', '').lower()
+                content = section_data.get('content', '')
+            else:
+                # Handle case where section_data is a string
+                section_type = 'text'
+                content = str(section_data)
             
             # Skip conclusion if leave_out_conclusion is True
             if leave_out_conclusion and section_type == 'conclusion':
@@ -205,14 +217,24 @@ def get_document_conclusion(document_id: int) -> Optional[str]:
         doc_sections = metadata['document_structure']['sections']
         
         for section_id, section_data in doc_sections.items():
-            if section_data.get('type', '').lower() == 'conclusion':
-                return section_data.get('content', '')
+            # Check if section_data is a dictionary
+            if isinstance(section_data, dict):
+                if section_data.get('type', '').lower() == 'conclusion':
+                    return section_data.get('content', '')
+            # If section_data is a string and section_id indicates it's a conclusion
+            elif section_id.lower() == 'conclusion':
+                return str(section_data)
     
     # Case 2: Legacy format with top-level sections
     elif 'sections' in metadata:
         for section_id, section_data in metadata['sections'].items():
-            if section_data.get('type', '').lower() == 'conclusion':
-                return section_data.get('content', '')
+            # Check if section_data is a dictionary
+            if isinstance(section_data, dict):
+                if section_data.get('type', '').lower() == 'conclusion':
+                    return section_data.get('content', '')
+            # If section_data is a string and section_id indicates it's a conclusion
+            elif section_id.lower() == 'conclusion':
+                return str(section_data)
     
     # Case 3: Check for DocumentSection records
     conclusion_section = DocumentSection.query.filter_by(

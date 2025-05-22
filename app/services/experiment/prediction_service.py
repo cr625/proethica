@@ -70,8 +70,14 @@ class PredictionService:
             doc_sections = metadata['document_structure']['sections']
             
             for section_id, section_data in doc_sections.items():
-                section_type = section_data.get('type', '').lower()
-                content = section_data.get('content', '')
+                # Check if section_data is a dictionary
+                if isinstance(section_data, dict):
+                    section_type = section_data.get('type', '').lower()
+                    content = section_data.get('content', '')
+                else:
+                    # Handle case where section_data is a string
+                    section_type = 'text'
+                    content = str(section_data)
                 
                 # Skip conclusion if leave_out_conclusion is True
                 if leave_out_conclusion and section_type == 'conclusion':
@@ -86,8 +92,14 @@ class PredictionService:
         # Case 2: Legacy format with top-level sections
         elif 'sections' in metadata:
             for section_id, section_data in metadata['sections'].items():
-                section_type = section_data.get('type', '').lower()
-                content = section_data.get('content', '')
+                # Check if section_data is a dictionary
+                if isinstance(section_data, dict):
+                    section_type = section_data.get('type', '').lower()
+                    content = section_data.get('content', '')
+                else:
+                    # Handle case where section_data is a string
+                    section_type = 'text'
+                    content = str(section_data)
                 
                 # Skip conclusion if leave_out_conclusion is True
                 if leave_out_conclusion and section_type == 'conclusion':
