@@ -43,10 +43,10 @@ This document outlines the implementation plan for the ProEthica experiment inte
 - [x] Fix database model column naming (metadata -> meta_data)
 - [x] Create run script for experiment interface
 - [x] Fix class name conflict (Evaluation -> ExperimentEvaluation)
-- [ ] Implement ProEthica enhanced prediction service
-   - [ ] Retrieve ontology entities associated with case sections
-   - [ ] Generate ontology-constrained FIRAC prompts
-   - [ ] Implement bidirectional validation
+- [x] Implement ProEthica enhanced prediction service
+   - [x] Retrieve ontology entities associated with case sections
+   - [x] Generate ontology-constrained FIRAC prompts
+   - [x] Implement bidirectional validation
 - [ ] Add API endpoints for evaluation submission
 - [ ] Create data export functionality
 - [ ] Implement admin interface for experiment management

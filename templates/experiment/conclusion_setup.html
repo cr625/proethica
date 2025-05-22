@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Setup Conclusion Prediction Experiment{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Setup Conclusion Prediction Experiment</h3>
+        </div>
+        <div class="card-body">
+            <p class="lead">
+                Create a new experiment to predict case conclusions using the ProEthica system.
+            </p>
+            
+            <div class="alert alert-info">
+                <h5>About Conclusion Prediction</h5>
+                <p>
+                    This specialized experiment focuses on predicting the conclusion section of ethics cases.
+                    The system will use all other sections of the case to generate a predicted conclusion that
+                    follows the NSPE Board of Ethical Review's format and reasoning style.
+                </p>
+                <p class="mb-0">
+                    <strong>Note:</strong> This feature uses the ontology-enhanced approach to generate 
+                    conclusions that incorporate relevant ethical principles and concepts.
+                </p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('experiment.conclusion_prediction_setup') }}">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                    {% if form.name.errors %}
+                    <div class="text-danger">
+                        {% for error in form.name.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control", rows=4) }}
+                </div>
+                
+                <div class="mb-3 form-check">
+                    {{ form.use_ontology(class="form-check-input") }}
+                    {{ form.use_ontology.label(class="form-check-label") }}
+                    <small class="form-text text-muted d-block">
+                        When enabled, the system will incorporate ontology concepts and principles in the prediction process.
+                    </small>
+                </div>
+                
+                <div class="mb-3">
+                    {{ form.submit(class="btn btn-primary") }}
+                    <a href="{{ url_for('experiment.index') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

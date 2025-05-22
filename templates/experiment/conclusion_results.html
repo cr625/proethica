@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block title %}Conclusion Prediction Results{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Conclusion Prediction Results: {{ experiment.name }}</h3>
+        </div>
+        <div class="card-body">
+            <p class="lead">
+                Results for the conclusion prediction experiment.
+            </p>
+            
+            <div class="alert alert-info">
+                <h5>Experiment Information</h5>
+                <p><strong>Description:</strong> {{ experiment.description }}</p>
+                <p><strong>Created:</strong> {{ experiment.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p><strong>Status:</strong> <span class="badge {% if experiment.status == 'completed' %}bg-success{% elif experiment.status == 'running' %}bg-warning{% elif experiment.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">{{ experiment.status }}</span></p>
+                <p><strong>Use Ontology:</strong> {{ "Yes" if experiment.config.get('use_ontology', True) else "No" }}</p>
+                <p><strong>Total Cases:</strong> {{ grouped_predictions|length }}</p>
+            </div>
+            
+            {% if grouped_predictions|length > 0 %}
+            <div class="table-responsive mt-4">
+                <table class="table table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Case</th>
+                            <th>Generated At</th>
+                            <th>Validation Status</th>
+                            <th>Entity Coverage</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc_id, data in grouped_predictions.items() %}
+                        <tr>
+                            <td>{{ data.document.title }}</td>
+                            <td>{{ data.prediction.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <span class="badge {% if data.prediction.meta_data.get('validation_metrics', {}).get('validation_status') == 'passed' %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ data.prediction.meta_data.get('validation_metrics', {}).get('validation_status', 'unknown')|title }}
+                                </span>
+                            </td>
+                            <td>
+                                {% set mention_ratio = data.prediction.meta_data.get('validation_metrics', {}).get('mention_ratio', 0) %}
+                                {{ (mention_ratio * 100)|round(1) }}%
+                                <div class="progress mt-1" style="height: 5px;">
+                                    <div class="progress-bar {% if mention_ratio > 0.3 %}bg-success{% elif mention_ratio > 0.1 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ (mention_ratio * 100)|round(1) }}%" 
+                                        aria-valuenow="{{ (mention_ratio * 100)|round(1) }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100"></div>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('experiment.conclusion_comparison', id=experiment.id, doc_id=data.document.id) }}" class="btn btn-sm btn-primary">Compare</a>
+                                <button class="btn btn-sm btn-info view-prediction" data-bs-toggle="modal" data-bs-target="#predictionModal" 
+                                  data-title="{{ data.document.title }}"
+                                  data-prediction="{{ data.prediction.prediction_text|e }}">View</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Prediction Modal -->
+            <div class="modal fade" id="predictionModal" tabindex="-1" aria-labelledby="predictionModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="predictionModalLabel">Predicted Conclusion</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <h6 id="prediction-title" class="mb-3"></h6>
+                            <div id="prediction-content" class="border p-3 bg-light"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('experiment.index') }}" class="btn btn-secondary">Back to Experiments</a>
+                <a href="{{ url_for('experiment.run_conclusion_predictions', id=experiment.id) }}" class="btn btn-primary">Run More Predictions</a>
+            </div>
+            {% else %}
+            <div class="alert alert-warning mt-4">
+                <p>No conclusion predictions have been generated yet.</p>
+                <a href="{{ url_for('experiment.run_conclusion_predictions', id=experiment.id) }}" class="btn btn-primary">Generate Predictions</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">Aggregate Statistics</h4>
+        </div>
+        <div class="card-body">
+            {% if grouped_predictions|length > 0 %}
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Validation Status</h5>
+                        </div>
+                        <div class="card-body">
+                            {% set passed_count = 0 %}
+                            {% set failed_count = 0 %}
+                            
+                            {% for doc_id, data in grouped_predictions.items() %}
+                                {% if data.prediction.meta_data.get('validation_metrics', {}).get('validation_status') == 'passed' %}
+                                    {% set passed_count = passed_count + 1 %}
+                                {% else %}
+                                    {% set failed_count = failed_count + 1 %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <div class="d-flex justify-content-center">
+                                <div class="text-center me-4">
+                                    <h2 class="text-success">{{ passed_count }}</h2>
+                                    <p>Passed</p>
+                                </div>
+                                <div class="text-center ms-4">
+                                    <h2 class="text-danger">{{ failed_count }}</h2>
+                                    <p>Failed</p>
+                                </div>
+                            </div>
+                            
+                            <div class="progress mt-3">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ (passed_count / grouped_predictions|length * 100)|round(1) }}%" 
+                                    aria-valuenow="{{ (passed_count / grouped_predictions|length * 100)|round(1) }}" aria-valuemin="0" aria-valuemax="100">
+                                    {{ (passed_count / grouped_predictions|length * 100)|round(1) }}%
+                                </div>
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: {{ (failed_count / grouped_predictions|length * 100)|round(1) }}%" 
+                                    aria-valuenow="{{ (failed_count / grouped_predictions|length * 100)|round(1) }}" aria-valuemin="0" aria-valuemax="100">
+                                    {{ (failed_count / grouped_predictions|length * 100)|round(1) }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Entity Coverage</h5>
+                        </div>
+                        <div class="card-body">
+                            {% set total_mention_ratio = 0 %}
+                            {% for doc_id, data in grouped_predictions.items() %}
+                                {% set mention_ratio = data.prediction.meta_data.get('validation_metrics', {}).get('mention_ratio', 0) %}
+                                {% set total_mention_ratio = total_mention_ratio + mention_ratio %}
+                            {% endfor %}
+                            
+                            {% set avg_mention_ratio = total_mention_ratio / grouped_predictions|length %}
+                            
+                            <div class="text-center mb-3">
+                                <h2 class="{% if avg_mention_ratio > 0.3 %}text-success{% elif avg_mention_ratio > 0.1 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ (avg_mention_ratio * 100)|round(1) }}%
+                                </h2>
+                                <p>Average Entity Coverage</p>
+                            </div>
+                            
+                            <div class="progress">
+                                <div class="progress-bar {% if avg_mention_ratio > 0.3 %}bg-success{% elif avg_mention_ratio > 0.1 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                    role="progressbar" style="width: {{ (avg_mention_ratio * 100)|round(1) }}%" 
+                                    aria-valuenow="{{ (avg_mention_ratio * 100)|round(1) }}" aria-valuemin="0" aria-valuemax="100">
+                                    {{ (avg_mention_ratio * 100)|round(1) }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <p>No statistics available yet. Generate predictions first.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // View prediction button click handler
+        $('.view-prediction').click(function() {
+            const title = $(this).data('title');
+            const prediction = $(this).data('prediction');
+            
+            $('#prediction-title').text(title);
+            $('#prediction-content').html(prediction.replace(/\n/g, '<br>'));
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}Run Conclusion Prediction Experiment{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Run Conclusion Prediction Experiment: {{ experiment.name }}</h3>
+        </div>
+        <div class="card-body">
+            <p class="lead">
+                This experiment will generate predicted conclusions for the selected cases.
+            </p>
+            
+            <div class="alert alert-info">
+                <h5>Experiment Information</h5>
+                <p><strong>Description:</strong> {{ experiment.description }}</p>
+                <p><strong>Created:</strong> {{ experiment.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p><strong>Status:</strong> <span id="status-badge" class="badge {% if experiment.status == 'completed' %}bg-success{% elif experiment.status == 'running' %}bg-warning{% elif experiment.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">{{ experiment.status }}</span></p>
+                <p><strong>Use Ontology:</strong> {{ "Yes" if experiment.config.get('use_ontology', True) else "No" }}</p>
+                <p><strong>Selected Cases:</strong> {{ experiment.config.get('case_ids', [])|length }}</p>
+            </div>
+            
+            {% if experiment.status == 'running' %}
+            <div class="alert alert-warning">
+                <h5>Experiment In Progress</h5>
+                <p>This experiment is currently running. Please wait for completion.</p>
+                <div class="progress">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p id="progress-text" class="text-center mt-2">Initializing...</p>
+            </div>
+            {% elif experiment.status == 'completed' %}
+            <div class="alert alert-success">
+                <h5>Experiment Completed</h5>
+                <p>This experiment has already been completed.</p>
+                <a href="{{ url_for('experiment.conclusion_results', id=experiment.id) }}" class="btn btn-primary">View Results</a>
+            </div>
+            {% elif experiment.status == 'failed' %}
+            <div class="alert alert-danger">
+                <h5>Experiment Failed</h5>
+                <p>This experiment encountered an error during execution.</p>
+                <button id="run-btn" class="btn btn-warning">Retry Experiment</button>
+            </div>
+            {% else %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Selected Cases</h5>
+                </div>
+                <div class="card-body">
+                    <p>The following cases will be used for prediction:</p>
+                    <ul class="list-group">
+                        {% set case_ids = experiment.config.get('case_ids', []) %}
+                        {% for case in cases if case.id|string in case_ids %}
+                        <li class="list-group-item">{{ case.title }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button id="run-btn" class="btn btn-primary">Run Prediction Experiment</button>
+                <a href="{{ url_for('experiment.index') }}" class="btn btn-secondary">Back to Experiments</a>
+            </div>
+            {% endif %}
+            
+            <div id="result-area" style="display: none;" class="mt-4">
+                <div class="alert alert-success">
+                    <h5>Experiment Completed</h5>
+                    <p id="result-message"></p>
+                    <a href="{{ url_for('experiment.conclusion_results', id=experiment.id) }}" class="btn btn-primary">View Results</a>
+                </div>
+            </div>
+            
+            <div id="error-area" style="display: none;" class="mt-4">
+                <div class="alert alert-danger">
+                    <h5>Error</h5>
+                    <p id="error-message"></p>
+                    <button id="retry-btn" class="btn btn-warning">Retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Run button click handler
+        $('#run-btn, #retry-btn').click(function() {
+            // Hide result/error areas
+            $('#result-area').hide();
+            $('#error-area').hide();
+            
+            // Show progress bar
+            if ($('#progress-bar').length === 0) {
+                // Add progress bar if not present
+                $('.card-body').prepend(`
+                    <div class="alert alert-warning">
+                        <h5>Experiment In Progress</h5>
+                        <p>This experiment is currently running. Please wait for completion.</p>
+                        <div class="progress">
+                            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <p id="progress-text" class="text-center mt-2">Initializing...</p>
+                    </div>
+                `);
+            }
+            
+            // Update status badge
+            $('#status-badge').removeClass('bg-success bg-danger bg-secondary').addClass('bg-warning').text('running');
+            
+            // Disable button during execution
+            $(this).prop('disabled', true);
+            
+            // Make AJAX request to start prediction
+            $.ajax({
+                url: "{{ url_for('experiment.predict_conclusions', id=experiment.id) }}",
+                type: 'POST',
+                success: function(data) {
+                    // Enable button
+                    $('#run-btn, #retry-btn').prop('disabled', false);
+                    
+                    if (data.success) {
+                        // Update progress bar to 100%
+                        $('#progress-bar').css('width', '100%');
+                        $('#progress-text').text('Completed!');
+                        
+                        // Update status badge
+                        $('#status-badge').removeClass('bg-warning bg-danger bg-secondary').addClass('bg-success').text('completed');
+                        
+                        // Show result area
+                        $('#result-message').text(data.message);
+                        $('#result-area').show();
+                    } else {
+                        // Update status badge
+                        $('#status-badge').removeClass('bg-warning bg-success bg-secondary').addClass('bg-danger').text('failed');
+                        
+                        // Show error area
+                        $('#error-message').text(data.error);
+                        $('#error-area').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // Enable button
+                    $('#run-btn, #retry-btn').prop('disabled', false);
+                    
+                    // Update status badge
+                    $('#status-badge').removeClass('bg-warning bg-success bg-secondary').addClass('bg-danger').text('failed');
+                    
+                    // Show error area
+                    $('#error-message').text('Server error: ' + error);
+                    $('#error-area').show();
+                }
+            });
+            
+            // Simulate progress bar updates (since we don't have real-time progress)
+            let progress = 0;
+            const totalCases = {{ experiment.config.get('case_ids', [])|length }};
+            const interval = setInterval(function() {
+                if (progress < 90) {
+                    progress += Math.random() * 5;
+                    $('#progress-bar').css('width', progress + '%');
+                    
+                    // Calculate estimated cases processed
+                    const casesProcessed = Math.floor((progress / 100) * totalCases);
+                    $('#progress-text').text(`Processing cases: ${casesProcessed}/${totalCases}`);
+                } else {
+                    clearInterval(interval);
+                }
+            }, 3000);
+        });
+        
+        // Check if experiment is already running
+        if ($('#status-badge').text() === 'running') {
+            // Disable run button
+            $('#run-btn, #retry-btn').prop('disabled', true);
+            
+            // Simulate progress bar updates
+            let progress = 30; // Start from 30% since it's already running
+            const totalCases = {{ experiment.config.get('case_ids', [])|length }};
+            const interval = setInterval(function() {
+                if (progress < 90) {
+                    progress += Math.random() * 5;
+                    $('#progress-bar').css('width', progress + '%');
+                    
+                    // Calculate estimated cases processed
+                    const casesProcessed = Math.floor((progress / 100) * totalCases);
+                    $('#progress-text').text(`Processing cases: ${casesProcessed}/${totalCases}`);
+                } else {
+                    clearInterval(interval);
+                }
+            }, 3000);
+        }
+    });
+</script>
+{% endblock %}

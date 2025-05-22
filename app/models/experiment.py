@@ -30,6 +30,23 @@ class ExperimentRun(db.Model):
         return f"<ExperimentRun {self.id}: {self.name}>"
 
 
+class PredictionTarget(db.Model):
+    """Model for tracking specific prediction targets in experiments."""
+    
+    __tablename__ = 'prediction_targets'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=False)
+    name = db.Column(db.String(50), nullable=False)  # e.g., 'conclusion', 'discussion'
+    description = db.Column(db.Text)
+    
+    # Relationships
+    experiment_run = db.relationship('ExperimentRun')
+    
+    def __repr__(self):
+        return f"<PredictionTarget {self.id}: {self.name}>"
+
+
 class Prediction(db.Model):
     """Model for storing predictions generated under experimental conditions."""
     
@@ -39,11 +56,12 @@ class Prediction(db.Model):
     experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=False)
     document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
     condition = db.Column(db.String(50), nullable=False)  # 'baseline' or 'proethica'
+    target = db.Column(db.String(50), nullable=False, default='full')  # 'full', 'conclusion', 'discussion'
     prediction_text = db.Column(db.Text)
     reasoning = db.Column(db.Text)
     prompt = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    meta_data = db.Column(JSON)  # Additional metadata (e.g., concepts used)
+    meta_info = db.Column(JSON)  # Additional metadata (e.g., concepts used)
     
     # Relationships
     experiment_run = db.relationship('ExperimentRun', back_populates='predictions')
@@ -84,7 +102,7 @@ class ExperimentEvaluation(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Metadata
-    meta_data = db.Column(JSON)  # Additional metadata
+    meta_info = db.Column(JSON)  # Additional metadata
     
     # Relationships
     experiment_run = db.relationship('ExperimentRun', back_populates='evaluations')

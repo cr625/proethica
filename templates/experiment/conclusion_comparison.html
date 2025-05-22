@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block title %}Conclusion Comparison{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Conclusion Comparison: {{ document.title }}</h3>
+        </div>
+        <div class="card-body">
+            <p class="lead">
+                Compare the original conclusion with the AI-generated conclusion.
+            </p>
+            
+            <!-- Case Information -->
+            <div class="alert alert-info">
+                <h5>Case Information</h5>
+                <p><strong>Title:</strong> {{ document.title }}</p>
+                <p><strong>Document Type:</strong> {{ document.document_type|title }}</p>
+                <p><strong>Document ID:</strong> {{ document.id }}</p>
+                <p><strong>Prediction generated on:</strong> {{ prediction.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+            
+            <!-- Validation Metrics -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">Validation Metrics</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Validation Status</h5>
+                                    <h3 class="mt-3">
+                                        <span class="badge {% if prediction.meta_data.get('validation_metrics', {}).get('validation_status') == 'passed' %}bg-success{% else %}bg-warning{% endif %}">
+                                            {{ prediction.meta_data.get('validation_metrics', {}).get('validation_status', 'unknown')|title }}
+                                        </span>
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Entity Coverage</h5>
+                                    {% set mention_ratio = prediction.meta_data.get('validation_metrics', {}).get('mention_ratio', 0) %}
+                                    <h3 class="mt-3 {% if mention_ratio > 0.3 %}text-success{% elif mention_ratio > 0.1 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ (mention_ratio * 100)|round(1) }}%
+                                    </h3>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar {% if mention_ratio > 0.3 %}bg-success{% elif mention_ratio > 0.1 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                            role="progressbar" style="width: {{ (mention_ratio * 100)|round(1) }}%" 
+                                            aria-valuenow="{{ (mention_ratio * 100)|round(1) }}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Entity Mentions</h5>
+                                    <h3 class="mt-3">
+                                        {{ prediction.meta_data.get('validation_metrics', {}).get('entity_mentions', 0) }} / 
+                                        {{ prediction.meta_data.get('validation_metrics', {}).get('total_entities', 0) }}
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mentioned Entities -->
+                    {% set mentioned_entities = prediction.meta_data.get('validation_metrics', {}).get('mentioned_entities', []) %}
+                    {% if mentioned_entities|length > 0 %}
+                    <div class="mt-3">
+                        <h5>Top Mentioned Entities</h5>
+                        <div class="d-flex flex-wrap">
+                            {% for entity in mentioned_entities %}
+                            <span class="badge bg-info m-1 p-2">{{ entity }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Side-by-Side Comparison -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Original Conclusion</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="original-conclusion p-3 border-start border-5 border-secondary">
+                                {{ original_conclusion|replace('\n', '<br>')|safe }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">ProEthica Generated Conclusion</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="predicted-conclusion p-3 border-start border-5 border-success" id="predicted-conclusion">
+                                {{ prediction.prediction_text|replace('\n', '<br>')|safe }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Full Response (Reasoning) -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Full Response with Reasoning</h5>
+                    <button class="btn btn-sm btn-light float-end" id="toggle-reasoning">Show/Hide</button>
+                </div>
+                <div class="card-body" id="reasoning-content" style="display: none;">
+                    <div class="p-3 border rounded bg-light">
+                        {{ prediction.reasoning|replace('\n', '<br>')|safe }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ontology Entities Used -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Ontology Entities Used</h5>
+                    <button class="btn btn-sm btn-light float-end" id="toggle-entities">Show/Hide</button>
+                </div>
+                <div class="card-body" id="entities-content" style="display: none;">
+                    {% set entities_by_section = prediction.meta_data.get('ontology_entities', {}) %}
+                    {% if entities_by_section.keys()|length > 0 %}
+                        <div class="accordion" id="entitiesAccordion">
+                            {% for section_type in entities_by_section.keys() if section_type != 'total' %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading-{{ section_type }}">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                                data-bs-target="#collapse-{{ section_type }}" aria-expanded="false" 
+                                                aria-controls="collapse-{{ section_type }}">
+                                            {{ section_type|title }} ({{ entities_by_section[section_type] }} entities)
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-{{ section_type }}" class="accordion-collapse collapse" 
+                                         aria-labelledby="heading-{{ section_type }}" data-bs-parent="#entitiesAccordion">
+                                        <div class="accordion-body">
+                                            <p class="text-muted">Entity details would be displayed here in a full implementation.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3 text-end">
+                            <span class="badge bg-primary">Total entities: {{ entities_by_section.get('total', 0) }}</span>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No ontology entities available for this prediction.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('experiment.conclusion_results', id=experiment.id) }}" class="btn btn-secondary">Back to Results</a>
+                <button class="btn btn-primary" id="highlight-relevant">Highlight Key Concepts</button>
+                <button class="btn btn-success" id="export-pdf">Export as PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Toggle reasoning content
+        $('#toggle-reasoning').click(function() {
+            $('#reasoning-content').toggle();
+        });
+        
+        // Toggle entities content
+        $('#toggle-entities').click(function() {
+            $('#entities-content').toggle();
+        });
+        
+        // Highlight key concepts (placeholder functionality)
+        $('#highlight-relevant').click(function() {
+            // Get mentioned entities
+            const mentionedEntities = {{ prediction.meta_data.get('validation_metrics', {}).get('mentioned_entities', [])|tojson }};
+            
+            if (mentionedEntities.length > 0) {
+                let predictedConclusion = $('#predicted-conclusion').html();
+                
+                // Highlight each entity
+                mentionedEntities.forEach(entity => {
+                    const regex = new RegExp('(' + entity + ')', 'gi');
+                    predictedConclusion = predictedConclusion.replace(regex, '<mark class="bg-warning">$1</mark>');
+                });
+                
+                // Update the content
+                $('#predicted-conclusion').html(predictedConclusion);
+                
+                // Disable the button after use
+                $(this).prop('disabled', true);
+            } else {
+                alert('No entities to highlight.');
+            }
+        });
+        
+        // Export as PDF (placeholder functionality)
+        $('#export-pdf').click(function() {
+            alert('PDF export functionality would be implemented here.');
+        });
+    });
+</script>
+{% endblock %}
