@@ -20,6 +20,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ttl_triple_association.ontology_triple_loader import OntologyTripleLoader
 from ttl_triple_association.embedding_service import EmbeddingService
 from ttl_triple_association.section_triple_associator import SectionTripleAssociator
+from ttl_triple_association.llm_section_triple_associator import LLMSectionTripleAssociator
 from ttl_triple_association.section_triple_association_storage import SectionTripleAssociationStorage
 
 # Configure logging
@@ -37,7 +38,8 @@ class SectionTripleAssociationService:
     
     def __init__(self, db_url: Optional[str] = None, 
                 similarity_threshold: float = 0.6, 
-                max_matches: int = 10):
+                max_matches: int = 10,
+                use_llm: bool = False):
         """
         Initialize the section triple association service.
         
@@ -45,6 +47,7 @@ class SectionTripleAssociationService:
             db_url: Database connection URL
             similarity_threshold: Minimum similarity score for matches (0-1)
             max_matches: Maximum number of matches to return per section
+            use_llm: Whether to use LLM-based association instead of embeddings
         """
         # Database settings
         self.db_url = db_url or os.environ.get(
@@ -65,13 +68,15 @@ class SectionTripleAssociationService:
         # Component settings
         self.similarity_threshold = similarity_threshold
         self.max_matches = max_matches
+        self.use_llm = use_llm
         
-        # Lazily initialize the associator when needed
-        self._associator = None
+        # Lazily initialize the associators when needed
+        self._embedding_associator = None
+        self._llm_associator = None
         
-    def _get_associator(self) -> SectionTripleAssociator:
+    def _get_embedding_associator(self) -> SectionTripleAssociator:
         """
-        Get or initialize the SectionTripleAssociator.
+        Get or initialize the embedding-based SectionTripleAssociator.
         
         This is done lazily to avoid loading the ontology and generating 
         embeddings until they are actually needed.
@@ -79,8 +84,8 @@ class SectionTripleAssociationService:
         Returns:
             Initialized SectionTripleAssociator
         """
-        if self._associator is None:
-            logger.info("Initializing section triple associator...")
+        if self._embedding_associator is None:
+            logger.info("Initializing embedding-based section triple associator...")
             
             # Load ontology if not already loaded
             if not hasattr(self.ontology_loader, 'concepts') or not self.ontology_loader.concepts:
@@ -88,14 +93,40 @@ class SectionTripleAssociationService:
                 self.ontology_loader.load()
                 
             # Initialize associator
-            self._associator = SectionTripleAssociator(
+            self._embedding_associator = SectionTripleAssociator(
                 self.ontology_loader,
                 self.embedding_service,
                 self.similarity_threshold,
                 self.max_matches
             )
             
-        return self._associator
+        return self._embedding_associator
+        
+    def _get_llm_associator(self) -> LLMSectionTripleAssociator:
+        """
+        Get or initialize the LLM-based SectionTripleAssociator.
+        
+        This is done lazily to avoid loading the ontology until actually needed.
+        
+        Returns:
+            Initialized LLMSectionTripleAssociator
+        """
+        if self._llm_associator is None:
+            logger.info("Initializing LLM-based section triple associator...")
+            
+            # Load ontology if not already loaded
+            if not hasattr(self.ontology_loader, 'concepts') or not self.ontology_loader.concepts:
+                logger.info("Loading ontology...")
+                self.ontology_loader.load()
+                
+            # Initialize associator
+            self._llm_associator = LLMSectionTripleAssociator(
+                self.ontology_loader,
+                self.embedding_service,
+                self.max_matches
+            )
+            
+        return self._llm_associator
     
     def get_section_embedding(self, section_id: int) -> Optional[np.ndarray]:
         """
@@ -245,7 +276,7 @@ class SectionTripleAssociationService:
         finally:
             session.close()
     
-    def associate_section_with_concepts(self, section_id: int) -> Dict[str, Any]:
+    def associate_section_with_concepts(self, section_id: int, override_use_llm: Optional[bool] = None) -> Dict[str, Any]:
         """
         Associate a document section with relevant ontology concepts.
         
@@ -254,24 +285,15 @@ class SectionTripleAssociationService:
         
         Args:
             section_id: ID of the section to process
+            override_use_llm: Override the service's use_llm setting (optional)
             
         Returns:
             Result dictionary with success flag and matches
         """
-        # Get section embedding and metadata
-        section_embedding = self.get_section_embedding(section_id)
-        if section_embedding is None:
-            logger.warning(f"No embedding found for section {section_id}")
-            return {
-                "success": False,
-                "error": f"No embedding found for section {section_id}",
-                "matches": []
-            }
-            
-        # Log embedding size and shape for debugging
-        logger.info(f"Section {section_id} embedding shape: {section_embedding.shape}")
-        logger.info(f"Section {section_id} embedding sample: {section_embedding[:5]}")
+        # Determine whether to use LLM
+        use_llm = override_use_llm if override_use_llm is not None else self.use_llm
         
+        # Get section metadata first (needed for both approaches)
         section_metadata = self.get_section_metadata(section_id)
         if not section_metadata:
             return {
@@ -280,52 +302,111 @@ class SectionTripleAssociationService:
                 "matches": []
             }
         
-        try:
-            # Get associator (lazy initialization)
-            associator = self._get_associator()
+        # If using LLM-based association
+        if use_llm:
+            logger.info(f"Using LLM-based association for section {section_id}")
             
-            # Perform association
-            logger.info(f"Associating section {section_id} with concepts...")
-            matches = associator.associate_section(section_embedding, section_metadata)
+            # We need section content for LLM association
+            section_content = section_metadata.get("content", "")
+            if not section_content:
+                return {
+                    "success": False,
+                    "error": f"No content found for section {section_id}",
+                    "matches": []
+                }
+                
+            try:
+                # Get LLM associator (lazy initialization)
+                associator = self._get_llm_associator()
+                
+                # Add embedding to metadata if available (optional for LLM associator)
+                section_embedding = self.get_section_embedding(section_id)
+                if section_embedding is not None:
+                    section_metadata["embedding"] = section_embedding
+                
+                # Perform association
+                logger.info(f"Associating section {section_id} with concepts using LLM...")
+                matches = associator.associate_section(section_content, section_metadata)
+                
+                # Ensure consistent match_score field
+                for match in matches:
+                    if "combined_score" in match and "match_score" not in match:
+                        match["match_score"] = match["combined_score"]
+                    
+            except Exception as e:
+                logger.error(f"Error in LLM-based association: {str(e)}")
+                return {
+                    "success": False,
+                    "error": f"LLM association error: {str(e)}",
+                    "section_id": section_id,
+                    "matches": []
+                }
+                
+        # If using embedding-based association
+        else:
+            logger.info(f"Using embedding-based association for section {section_id}")
             
-            # Map vector_similarity to match_score if necessary
-            for match in matches:
-                if "vector_similarity" in match and "match_score" not in match:
-                    match["match_score"] = match["vector_similarity"]
+            # Get section embedding
+            section_embedding = self.get_section_embedding(section_id)
+            if section_embedding is None:
+                logger.warning(f"No embedding found for section {section_id}")
+                return {
+                    "success": False,
+                    "error": f"No embedding found for section {section_id}",
+                    "matches": []
+                }
+                
+            # Log embedding size and shape for debugging
+            logger.info(f"Section {section_id} embedding shape: {section_embedding.shape}")
+            logger.info(f"Section {section_id} embedding sample: {section_embedding[:5]}")
             
-            if not matches:
-                logger.info(f"No matches found for section {section_id}")
+            try:
+                # Get embedding-based associator (lazy initialization)
+                associator = self._get_embedding_associator()
+                
+                # Perform association
+                logger.info(f"Associating section {section_id} with concepts using embeddings...")
+                matches = associator.associate_section(section_embedding, section_metadata)
+                
+                # Map vector_similarity to match_score if necessary
+                for match in matches:
+                    if "vector_similarity" in match and "match_score" not in match:
+                        match["match_score"] = match["vector_similarity"]
+                        
+                # Check if we found any matches
+                if not matches:
+                    logger.info(f"No matches found for section {section_id}")
+                    return {
+                        "success": True,
+                        "matches": [],
+                        "section_id": section_id,
+                        "count": 0
+                    }
+                
+                # Store associations
+                stored_count = self.storage.store_associations(section_id, matches)
+                
+                # Return result
                 return {
                     "success": True,
-                    "matches": [],
+                    "matches": matches,
                     "section_id": section_id,
-                    "count": 0
+                    "count": stored_count,
+                    "timestamp": datetime.utcnow().isoformat()
                 }
-            
-            # Store associations
-            stored_count = self.storage.store_associations(section_id, matches)
-            
-            # Return result
-            return {
-                "success": True,
-                "matches": matches,
-                "section_id": section_id,
-                "count": stored_count,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
-        except Exception as e:
-            logger.error(f"Error associating section with concepts: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e),
-                "section_id": section_id,
-                "matches": []
-            }
+            except Exception as e:
+                logger.error(f"Error in embedding-based association: {str(e)}")
+                return {
+                    "success": False,
+                    "error": f"Embedding association error: {str(e)}",
+                    "section_id": section_id,
+                    "matches": []
+                }
     
     def batch_associate_sections(self, section_ids: Optional[List[int]] = None,
                                 document_id: Optional[int] = None,
-                                batch_size: int = 10) -> Dict[str, Any]:
+                                batch_size: int = 10,
+                                use_llm: Optional[bool] = None) -> Dict[str, Any]:
         """
         Process multiple sections in batch.
         
@@ -388,7 +469,7 @@ class SectionTripleAssociationService:
                 logger.info(f"Processing batch {i//batch_size + 1} with {len(batch)} sections")
                 
                 for section_id in batch:
-                    result = self.associate_section_with_concepts(section_id)
+                    result = self.associate_section_with_concepts(section_id, override_use_llm=use_llm)
                     results["processed"] += 1
                     
                     if result["success"]:

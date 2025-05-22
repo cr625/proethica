@@ -503,10 +503,20 @@ def associate_ontology_concepts(id):
     # Get the document
     document = Document.query.get_or_404(id)
     
+    # Get association method from form
+    association_method = request.form.get('association_method', 'embedding')
+    use_llm = (association_method == 'llm')
+    
     try:
         # Create the triple association service and storage
         # Use a lower similarity threshold to get more matches (0.5 instead of default 0.6)
-        ttl_service = SectionTripleAssociationService(similarity_threshold=0.5)
+        ttl_service = SectionTripleAssociationService(
+            similarity_threshold=0.5,
+            use_llm=use_llm
+        )
+        
+        # Log which method we're using
+        current_app.logger.info(f"Using {'LLM-based' if use_llm else 'embedding-based'} association method")
         triple_storage = SectionTripleAssociationStorage()
         
         # Ensure tables exist
@@ -564,7 +574,7 @@ def associate_ontology_concepts(id):
             document.doc_metadata = json.loads(json.dumps(metadata))
             db.session.commit()
             
-            flash(f"Successfully created {associations_created} ontology concept associations across {sections_processed} sections", "success")
+            flash(f"Successfully created {associations_created} ontology concept associations across {sections_processed} sections using {'LLM-based' if use_llm else 'embedding-based'} method", "success")
         else:
             flash("No associations were created. Check if document sections have embeddings.", "warning")
             

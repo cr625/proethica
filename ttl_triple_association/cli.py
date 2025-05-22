@@ -60,6 +60,8 @@ def parse_args():
                            help='Maximum matches per section')
     assoc_group.add_argument('--batch-size', type=int, default=10,
                            help='Batch size for processing')
+    assoc_group.add_argument('--use-llm', action='store_true',
+                           help='Use LLM-based association instead of embeddings')
     
     # Output options
     output_group = parser.add_argument_group('Output Options')
@@ -133,8 +135,15 @@ def main():
         service = SectionTripleAssociationService(
             db_url=args.db_url,
             similarity_threshold=args.similarity,
-            max_matches=args.max_matches
+            max_matches=args.max_matches,
+            use_llm=args.use_llm
         )
+        
+        # Log which association method we're using
+        if args.use_llm:
+            logger.info("Using LLM-based association approach")
+        else:
+            logger.info("Using embedding-based association approach")
         
         # Determine sections to process
         section_ids = None
@@ -157,12 +166,14 @@ def main():
         if document_id:
             results = service.batch_associate_sections(
                 document_id=document_id,
-                batch_size=args.batch_size
+                batch_size=args.batch_size,
+                use_llm=args.use_llm
             )
         else:
             results = service.batch_associate_sections(
                 section_ids=section_ids,
-                batch_size=args.batch_size
+                batch_size=args.batch_size,
+                use_llm=args.use_llm
             )
         
         # Display results
@@ -171,6 +182,7 @@ def main():
         else:
             # Pretty print summary
             print("\n===== Section-Triple Association Results =====")
+            print(f"Method: {'LLM-based' if args.use_llm else 'Embedding-based'}")
             print(f"Total sections: {results.get('total_sections', 0)}")
             print(f"Processed: {results.get('processed', 0)}")
             print(f"Successful: {results.get('successful', 0)}")

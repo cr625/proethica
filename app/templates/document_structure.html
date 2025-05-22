@@ -194,8 +194,49 @@
                                     </div>
                                 </div>
                             </td>
-                            <td>{{ assoc.match_type }}</td>
+                            <td>
+                                <span class="badge {% if assoc.match_type == 'llm_semantic' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                    {{ assoc.match_type }}
+                                </span>
+                            </td>
                         </tr>
+                        <!-- If there's metadata with LLM reasoning, display it -->
+                        {% if assoc.metadata and (assoc.metadata.explanation or assoc.metadata.patterns) %}
+                        <tr>
+                            <td colspan="4">
+                                <div class="card card-body bg-light mb-2">
+                                    {% if assoc.metadata.explanation %}
+                                    <div class="mb-2">
+                                        <strong>Explanation:</strong>
+                                        <p class="mb-1">{{ assoc.metadata.explanation }}</p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if assoc.metadata.patterns and assoc.metadata.patterns|length > 0 %}
+                                    <div>
+                                        <strong>Key Patterns:</strong>
+                                        <ul class="mb-0">
+                                            {% for pattern in assoc.metadata.patterns %}
+                                            <li>{{ pattern }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if assoc.metadata.shared_terms and assoc.metadata.shared_terms|length > 0 %}
+                                    <div class="mt-2">
+                                        <strong>Shared Terms:</strong>
+                                        <div>
+                                            {% for term in assoc.metadata.shared_terms %}
+                                            <span class="badge bg-info me-1">{{ term }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -211,6 +252,18 @@
             </div>
             <p>Ontology concept associations connect document sections with concepts from the engineering ethics ontology.</p>
             <form action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="association_method" class="form-label">Association Method:</label>
+                        <select name="association_method" id="association_method" class="form-select">
+                            <option value="embedding">Embedding-based (Vector Similarity)</option>
+                            <option value="llm">LLM-based (Semantic Analysis)</option>
+                        </select>
+                        <small class="text-muted d-block mt-1">
+                            LLM-based method provides better reasoning but may be slower.
+                        </small>
+                    </div>
+                </div>
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-link"></i> Generate Ontology Concept Associations
                 </button>
