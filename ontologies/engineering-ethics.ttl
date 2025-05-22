@@ -1,7 +1,8 @@
  @prefix : <http://proethica.org/ontology/engineering-ethics#> .                                                                                               
  @prefix bfo: <http://purl.obolibrary.org/obo/> .                                                                                                              
  @prefix dc: <http://purl.org/dc/elements/1.1/> .                                                                                                              
- @prefix owl: <http://www.w3.org/2002/07/owl#> .                                                                                                               
+ @prefix owl: <http://www.w3.org/2002/07/owl#> .
+ @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .                                                                                                               
  @prefix proeth: <http://proethica.org/ontology/intermediate#> .                                                                                               
  @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .                                                                                                       
  @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .                                                                                                            
@@ -471,8 +472,7 @@
  :ApprovalAction a owl:Class ;                                                                                                                                 
      rdfs:label "Approval Action" ;                                                                                                                            
      rdfs:comment "Actions related to approving engineering work" ;                                                                                            
-     rdfs:subClassOf :ApprovalAction,                                                                                                                          
-         :EngineeringAction .                                                                                                                                  
+     rdfs:subClassOf :EngineeringAction .                                                                                                                                  
                                                                                                                                                                
  :ComplianceCapability a owl:Class ;                                                                                                                           
      rdfs:label "Compliance Capability" ;                                                                                                                      
@@ -486,11 +486,10 @@
      rdfs:comment "A condition where an engineer has competing interests that may compromise professional judgment"@en ;                                       
      rdfs:subClassOf proeth:ResourceType .                                                                                                                     
                                                                                                                                                                
- :ConsultationAction a owl:Class ;                                                                                                                             
-     rdfs:label "Consultation Action" ;                                                                                                                        
-     rdfs:comment "Actions related to engineering consultation" ;                                                                                              
-     rdfs:subClassOf :ConsultationAction,                                                                                                                      
-         :EngineeringAction .                                                                                                                                  
+ :ConsultationAction a owl:Class ;                                                                                                             
+     rdfs:label "Consultation Action" ;                                                                                                        
+     rdfs:comment "Actions related to engineering consultation" ;                                                                              
+     rdfs:subClassOf :EngineeringAction .                                                                                                                  
                                                                                                                                                                
  :ConsultationCapability a owl:Class ;                                                                                                                         
      rdfs:label "Consultation Capability" ;                                                                                                                    
@@ -569,8 +568,7 @@
  :ReviewAction a owl:Class ;                                                                                                                                   
      rdfs:label "Review Action" ;                                                                                                                              
      rdfs:comment "Actions related to reviewing engineering work" ;                                                                                            
-     rdfs:subClassOf :EngineeringAction,                                                                                                                       
-         :ReviewAction .                                                                                                                                       
+     rdfs:subClassOf :EngineeringAction .                                                                                                                                       
                                                                                                                                                                
  :SafetyVsConfidentialityDecision a proeth:ActionType,                                                                                                         
          proeth:EntityType,                                                                                                                                    
@@ -597,20 +595,18 @@
  :DeliveryEvent a owl:Class ;                                                                                                                                  
      rdfs:label "Delivery Event" ;                                                                                                                             
      rdfs:comment "Events related to delivery of documents or reports" ;                                                                                       
-     rdfs:subClassOf :DeliveryEvent,                                                                                                                           
-         :EngineeringEvent .                                                                                                                                   
+     rdfs:subClassOf :EngineeringEvent .                                                                                                                                   
                                                                                                                                                                
  :DiscoveryEvent a owl:Class ;                                                                                                                                 
      rdfs:label "Discovery Event" ;                                                                                                                            
      rdfs:comment "Events related to discoveries or findings" ;                                                                                                
-     rdfs:subClassOf :DiscoveryEvent,                                                                                                                          
-         :EngineeringEvent .                                                                                                                                   
+     rdfs:subClassOf :EngineeringEvent .                                                                                                                                   
                                                                                                                                                                
  :EngineeringDecision a owl:Class ;                                                                                                                            
      rdfs:label "Engineering Decision"@en ;                                                                                                                    
      rdfs:comment "A decision made in engineering practice"@en ;                                                                                               
      rdfs:subClassOf :DecisionAction,                                                                                                                          
-         proeth:EthicalDecision .                                                                                                                              
+         proeth:ConditionType .                                                                                                                              
                                                                                                                                                                
  :EngineeringReport a proeth:EntityType,                                                                                                                       
          proeth:ResourceType,                                                                                                                                  
@@ -619,31 +615,27 @@
      rdfs:comment "A report documenting engineering findings or analysis"@en ;                                                                                 
      rdfs:subClassOf :EngineeringDocument .                                                                                                                    
                                                                                                                                                                
- :InspectionEvent a proeth:EntityType,                                                                                                                         
-         proeth:EventType,                                                                                                                                     
-         owl:Class ;                                                                                                                                           
-     rdfs:label "Inspection Event"@en ;                                                                                                                        
-     rdfs:comment "An event where an engineered structure or system is inspected"@en ;                                                                         
-     rdfs:subClassOf :EngineeringEvent,                                                                                                                        
-         :InspectionEvent .                                                                                                                                    
+ :InspectionEvent a proeth:EntityType,                                                                                                         
+         proeth:EventType,                                                                                                                     
+         owl:Class ;                                                                                                                           
+     rdfs:label "Inspection Event"@en ;                                                                                                        
+     rdfs:comment "An event where an engineered structure or system is inspected"@en ;                                                         
+     rdfs:subClassOf :EngineeringEvent .                                                                                                        
                                                                                                                                                                
  :MeetingEvent a owl:Class ;                                                                                                                                   
      rdfs:label "Meeting Event" ;                                                                                                                              
      rdfs:comment "Events related to meetings and discussions" ;                                                                                               
-     rdfs:subClassOf :EngineeringEvent,                                                                                                                        
-         :MeetingEvent .                                                                                                                                       
+     rdfs:subClassOf :EngineeringEvent .                                                                                                                                       
                                                                                                                                                                
  :ReportingEvent a owl:Class ;                                                                                                                                 
      rdfs:label "Reporting Event" ;                                                                                                                            
      rdfs:comment "Events related to report delivery or publication" ;                                                                                         
-     rdfs:subClassOf :EngineeringEvent,                                                                                                                        
-         :ReportingEvent .                                                                                                                                     
+     rdfs:subClassOf :EngineeringEvent .                                                                                                                        
                                                                                                                                                                
  :SafetyAction a owl:Class ;                                                                                                                                   
      rdfs:label "Safety Action" ;                                                                                                                              
      rdfs:comment "Actions related to safety in engineering" ;                                                                                                 
-     rdfs:subClassOf :EngineeringAction,                                                                                                                       
-         :SafetyAction .                                                                                                                                       
+     rdfs:subClassOf :EngineeringAction .                                                                                                                                       
                                                                                                                                                                
  :SafetyPrinciple a owl:Class ;                                                                                                                                
      rdfs:label "Safety Principle" ;                                                                                                                           
@@ -653,8 +645,7 @@
  :DesignAction a owl:Class ;                                                                                                                                   
      rdfs:label "Design Action" ;                                                                                                                              
      rdfs:comment "Actions related to engineering design activities" ;                                                                                         
-     rdfs:subClassOf :DesignAction,                                                                                                                            
-         :EngineeringAction .                                                                                                                                  
+     rdfs:subClassOf :EngineeringAction .                                                                                                                                  
                                                                                                                                                                
  :DesignCapability a owl:Class ;                                                                                                                               
      rdfs:label "Design Capability" ;                                                                                                                          
@@ -664,14 +655,12 @@
  :DisclosureEvent a owl:Class ;                                                                                                                                
      rdfs:label "Disclosure Event" ;                                                                                                                           
      rdfs:comment "Events related to disclosure of information" ;                                                                                              
-     rdfs:subClassOf :DisclosureEvent,                                                                                                                         
-         :EngineeringEvent .                                                                                                                                   
+     rdfs:subClassOf :EngineeringEvent .                                                                                                                                   
                                                                                                                                                                
  :ReportAction a owl:Class ;                                                                                                                                   
      rdfs:label "Report Action" ;                                                                                                                              
      rdfs:comment "Actions related to creating, delivering, or handling reports" ;                                                                             
-     rdfs:subClassOf :EngineeringAction,                                                                                                                       
-         :ReportAction .                                                                                                                                       
+     rdfs:subClassOf :EngineeringAction .                                                                                                                                       
                                                                                                                                                                
  :EngineeringDocument a owl:Class ;                                                                                                                            
      rdfs:label "Engineering Document"@en ;                                                                                                                    
@@ -681,8 +670,7 @@
  :SafetyEvent a owl:Class ;                                                                                                                                    
      rdfs:label "Safety Event" ;                                                                                                                               
      rdfs:comment "Events related to safety incidents and discoveries" ;                                                                                       
-     rdfs:subClassOf :EngineeringEvent,                                                                                                                        
-         :SafetyEvent .                                                                                                                                        
+     rdfs:subClassOf :EngineeringEvent .                                                                                                                        
                                                                                                                                                                
  :BuildingCode a proeth:EntityType,                                                                                                                            
          proeth:ResourceType,                                                                                                                                  
@@ -694,8 +682,7 @@
  :DecisionAction a owl:Class ;                                                                                                                                 
      rdfs:label "Decision Action" ;                                                                                                                            
      rdfs:comment "Actions involving engineering decisions" ;                                                                                                  
-     rdfs:subClassOf :DecisionAction,                                                                                                                          
-         :EngineeringAction .                                                                                                                                  
+     rdfs:subClassOf :EngineeringAction .                                                                                                                                  
                                                                                                                                                                
  :EngineeringCapability a owl:Class ;                                                                                                                          
      rdfs:label "Engineering Capability"@en ;                                                                                                                  
@@ -739,24 +726,93 @@
      rdfs:subClassOf :EngineeringEvent,                                                                                                                        
          bfo:BFO_0000002 .                                                                                                                                     
                                                                                                                                                                
- :EngineeringAction a owl:Class ;                                                                                                                              
-     rdfs:label "Engineering Action"@en ;                                                                                                                      
-     rdfs:comment "An action performed in engineering practice"@en ;                                                                                           
-     rdfs:subClassOf :EngineeringAction,                                                                                                                       
-         proeth:ActionType .                                                                                                                                   
+ :EngineeringAction a owl:Class ;                                                                                                              
+     rdfs:label "Engineering Action"@en ;                                                                                                      
+     rdfs:comment "An action performed in engineering practice"@en ;                                                                           
+     rdfs:subClassOf proeth:ActionType .                                                                                                                   
                                                                                                                                                                
  :EngineeringEvent a owl:Class ;                                                                                                                               
      rdfs:label "Engineering Event"@en ;                                                                                                                       
      rdfs:comment "An event related to engineering practice"@en ;                                                                                              
-     rdfs:subClassOf :EngineeringEvent,                                                                                                                        
-         proeth:EventType .                                                                                                                                    
+     rdfs:subClassOf proeth:EventType .                                                                                                                                    
                                                                                                                                                                
  :Principle a owl:Class ;                                                                                                                                      
      rdfs:label "Principle" ;                                                                                                                                  
      rdfs:comment "A fundamental ethical principle that guides decision-making" ;                                                                              
      rdfs:subClassOf proeth:ConditionType .                                                                                                                    
-                                                                                                                                                               
- proeth:ResourceType a owl:Class ;                                                                                                                             
+ 
+ :ProfessionalIntegrityPrinciple a owl:Class ;
+     rdf:type proeth:EntityType ;
+     rdf:type proeth:ConditionType ;
+     rdfs:label "Professional Integrity Principle"@en ;
+     rdfs:comment "Engineers must maintain honesty, ethical conduct, and avoid deceptive practices in all professional activities"@en ;
+     rdfs:subClassOf :Principle ;
+     proeth:hasCategory "core ethical principle" ;
+     proeth:hasMatchingTerm "professional integrity" ;
+     proeth:hasMatchingTerm "honesty" ;
+     proeth:hasMatchingTerm "ethical conduct" ;
+     proeth:hasTextReference "Engineers shall be guided by honesty and integrity" ;
+     proeth:hasTextReference "Avoid deceptive acts" ;
+     proeth:hasTextReference "Do not misrepresent qualifications or responsibilities" ;
+     proeth:hasRelevanceScore "0.9"^^xsd:float ;
+     proeth:hasRelevanceToSectionType proeth:DiscussionSection .
+
+ :FiduciaryDutyPrinciple a owl:Class ;
+     rdf:type proeth:EntityType ;
+     rdf:type proeth:ConditionType ;
+     rdfs:label "Fiduciary Duty Principle"@en ;
+     rdfs:comment "Engineers must act as faithful agents or trustees for their employers or clients"@en ;
+     rdfs:subClassOf :Principle ;
+     proeth:hasCategory "professional relationship" ;
+     proeth:hasMatchingTerm "fiduciary duty" ;
+     proeth:hasMatchingTerm "faithful agent" ;
+     proeth:hasMatchingTerm "trustee" ;
+     proeth:hasTextReference "Act for each employer or client as faithful agents or trustees" ;
+     proeth:hasTextReference "Disclose actual or potential conflicts of interest" ;
+     proeth:hasRelevanceScore "0.8"^^xsd:float ;
+     proeth:hasRelevanceToSectionType proeth:DiscussionSection .
+
+ :ProfessionalAccountabilityPrinciple a owl:Class ;
+     rdf:type proeth:EntityType ;
+     rdf:type proeth:ConditionType ;
+     rdfs:label "Professional Accountability Principle"@en ;
+     rdfs:comment "Engineers must take responsibility for their professional actions and decisions"@en ;
+     rdfs:subClassOf :Principle ;
+     proeth:hasCategory "professional responsibility" ;
+     proeth:hasMatchingTerm "professional accountability" ;
+     proeth:hasMatchingTerm "responsibility" ;
+     proeth:hasMatchingTerm "professional actions" ;
+     proeth:hasRelevanceScore "0.85"^^xsd:float ;
+     proeth:hasRelevanceToSectionType proeth:DiscussionSection .
+
+ :PublicInterestServicePrinciple a owl:Class ;
+     rdf:type proeth:EntityType ;
+     rdf:type proeth:ConditionType ;
+     rdfs:label "Public Interest Service Principle"@en ;
+     rdfs:comment "Engineers must serve the broader public interest through their professional work"@en ;
+     rdfs:subClassOf :PublicSafetyPrinciple ;
+     proeth:hasCategory "core ethical principle" ;
+     proeth:hasMatchingTerm "public interest" ;
+     proeth:hasMatchingTerm "service" ;
+     proeth:hasMatchingTerm "societal benefit" ;
+     proeth:hasRelevanceScore "0.85"^^xsd:float ;
+     proeth:hasRelevanceToSectionType proeth:DiscussionSection .
+
+ :IntellectualPropertyRespectPrinciple a owl:Class ;
+     rdf:type proeth:EntityType ;
+     rdf:type proeth:ConditionType ;
+     rdfs:label "Intellectual Property Respect Principle"@en ;
+     rdfs:comment "Engineers must properly credit others' work and respect proprietary rights"@en ;
+     rdfs:subClassOf :Principle ;
+     proeth:hasCategory "professional ethics" ;
+     proeth:hasMatchingTerm "intellectual property" ;
+     proeth:hasMatchingTerm "proprietary rights" ;
+     proeth:hasMatchingTerm "credit" ;
+     proeth:hasMatchingTerm "attribution" ;
+     proeth:hasRelevanceScore "0.75"^^xsd:float ;
+     proeth:hasRelevanceToSectionType proeth:DiscussionSection .
+                                                                                                                                                              
+ proeth:ResourceType a owl:Class ;
      rdfs:label "Resource Type" ;                                                                                                                              
      rdfs:comment "Base class for all resource types in the ontology" ;                                                                                        
      rdfs:subClassOf bfo:BFO_0000002 .                                                                                                                         
@@ -764,5 +820,4 @@
  proeth:ConditionType a owl:Class ;                                                                                                                            
      rdfs:label "Condition Type" ;                                                                                                                             
      rdfs:comment "Base class for all condition types in the ontology" ;                                                                                       
-     rdfs:subClassOf proeth:ResourceType .                                                                                                                     
-                                                                                                                                                               
+     rdfs:subClassOf proeth:ResourceType .

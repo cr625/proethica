@@ -518,6 +518,47 @@
 #    Document Structure Properties (Enhancement Group 4)        
 #################################################################
 
+#################################################################
+#    Semantic Matching Properties (Enhancement Group 5)        
+#################################################################
+
+# For semantic matching between classes and document sections
+:hasMatchingTerm rdf:type owl:DatatypeProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range xsd:string ;
+    rdfs:label "has matching term"@en ;
+    rdfs:comment "Key term that can be used to match this concept in text"@en .
+
+:hasMatchingPattern rdf:type owl:DatatypeProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range xsd:string ;
+    rdfs:label "has matching pattern"@en ;
+    rdfs:comment "Regex pattern that can be used to identify this concept in text"@en .
+
+:hasRelevanceScore rdf:type owl:DatatypeProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range xsd:float ;
+    rdfs:label "has relevance score"@en ;
+    rdfs:comment "A score from 0.0 to 1.0 indicating the concept's relevance for section matching"@en .
+
+:hasRelevanceToSectionType rdf:type owl:ObjectProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range :DocumentSection ;
+    rdfs:label "has relevance to section type"@en ;
+    rdfs:comment "Indicates which document section types this concept is most relevant to"@en .
+
+:hasCategory rdf:type owl:DatatypeProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range xsd:string ;
+    rdfs:label "has category"@en ;
+    rdfs:comment "The category this concept belongs to (e.g., 'core ethical principle', 'professional obligation')"@en .
+
+:hasTextReference rdf:type owl:DatatypeProperty ;
+    rdfs:domain owl:Class ;
+    rdfs:range xsd:string ;
+    rdfs:label "has text reference"@en ;
+    rdfs:comment "A textual reference or example of this concept, often from codes or standards"@en .
+
 # Basic document structure properties
 :hasTextContent rdf:type owl:DatatypeProperty ;
     rdfs:domain :DocumentElement ;
