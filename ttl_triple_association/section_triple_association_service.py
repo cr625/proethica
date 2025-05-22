@@ -107,27 +107,76 @@ class SectionTripleAssociationService:
         Returns:
             Numpy array containing the embedding, or None if not found
         """
+        # Use a new session for each attempt to avoid transaction conflicts
+        
+        # First attempt: Try to get the raw embedding value and convert it directly
         try:
             session = self.Session()
-            # Try directly from document_sections table first (new schema)
-            query = text("""
-                SELECT embedding 
-                FROM document_sections 
-                WHERE id = :section_id
-                LIMIT 1
-            """)
+            with session.begin():
+                query = text("""
+                    SELECT embedding 
+                    FROM document_sections 
+                    WHERE id = :section_id
+                    LIMIT 1
+                """)
+                
+                result = session.execute(query, {"section_id": section_id}).fetchone()
+                if result and result[0] is not None:
+                    # Success! Got the embedding directly
+                    if isinstance(result[0], str):
+                        # Handle string case - might be a serialized vector
+                        try:
+                            embedding_text = result[0]
+                            if embedding_text.startswith('[') and embedding_text.endswith(']'):
+                                # Parse vector format [x,y,z,...] to numpy array
+                                values = embedding_text[1:-1].split(',')
+                                embedding_array = np.array([float(v.strip()) for v in values], dtype=np.float32)
+                                logger.info(f"Successfully parsed embedding from string for section {section_id}")
+                                return embedding_array
+                        except Exception as e:
+                            logger.warning(f"Failed to parse string embedding: {str(e)}")
+                    elif hasattr(result[0], '__array__'):
+                        # This might be a numpy array or something convertible
+                        return np.array(result[0], dtype=np.float32)
+        except Exception as e:
+            logger.warning(f"First embedding retrieval attempt failed: {str(e)}")
+        finally:
+            session.close()
             
-            result = session.execute(query, {"section_id": section_id}).fetchone()
-            
-            if result and result[0]:
-                # Convert from database format to numpy array
-                embedding_bytes = result[0]
-                if isinstance(embedding_bytes, str):
-                    return None
-                return np.frombuffer(embedding_bytes, dtype=np.float32)
-            
-            # Fall back to document_section_embeddings if exists
-            try:
+        # Second attempt: Try to extract as text explicitly
+        try:
+            session = self.Session()
+            with session.begin():
+                query = text("""
+                    SELECT embedding::text 
+                    FROM document_sections 
+                    WHERE id = :section_id
+                    LIMIT 1
+                """)
+                
+                result = session.execute(query, {"section_id": section_id}).fetchone()
+                if result and result[0]:
+                    # Parse vector format [x,y,z,...] to numpy array
+                    embedding_text = result[0]
+                    if embedding_text.startswith('[') and embedding_text.endswith(']'):
+                        try:
+                            # Remove brackets and split by comma
+                            values = embedding_text[1:-1].split(',')
+                            # Convert to float and create numpy array
+                            embedding_array = np.array([float(v.strip()) for v in values], dtype=np.float32)
+                            logger.info(f"Successfully retrieved embedding as text for section {section_id}")
+                            return embedding_array
+                        except Exception as e:
+                            logger.warning(f"Failed to parse vector text: {str(e)}")
+        except Exception as e:
+            logger.warning(f"Text extraction attempt failed: {str(e)}")
+        finally:
+            session.close()
+        
+        # Third attempt: Fall back to document_section_embeddings table if it exists
+        try:
+            session = self.Session()
+            with session.begin():
                 query = text("""
                     SELECT embedding 
                     FROM document_section_embeddings 
@@ -136,23 +185,23 @@ class SectionTripleAssociationService:
                 """)
                 
                 result = session.execute(query, {"section_id": section_id}).fetchone()
-                
                 if result and result[0]:
                     # Convert from database format to numpy array
                     embedding_bytes = result[0]
-                    return np.frombuffer(embedding_bytes, dtype=np.float32)
-            except:
-                # Table might not exist, just continue
-                pass
-            
-            logger.warning(f"No embedding found for section {section_id}")
-            return None
-            
+                    if isinstance(embedding_bytes, str):
+                        logger.warning(f"Unexpected string embedding in document_section_embeddings for section {section_id}")
+                    else:
+                        logger.info(f"Retrieved embedding from document_section_embeddings for section {section_id}")
+                        return np.frombuffer(embedding_bytes, dtype=np.float32)
         except Exception as e:
-            logger.error(f"Error retrieving section embedding: {str(e)}")
-            return None
+            # Table might not exist or other error
+            logger.warning(f"Fallback table retrieval failed: {str(e)}")
         finally:
             session.close()
+        
+        # All attempts failed
+        logger.warning(f"No embedding found for section {section_id} after all attempts")
+        return None
             
     def get_section_metadata(self, section_id: int) -> Dict[str, Any]:
         """
