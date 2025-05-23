@@ -19,9 +19,23 @@ os.environ['ENVIRONMENT'] = 'development'
 os.environ['MCP_SERVER_PORT'] = '5001'
 os.environ['MCP_SERVER_URL'] = 'http://localhost:5001'
 
+# FORCE ALL LLM SERVICES TO USE ENGINEERING ETHICS CONTENT
+os.environ['USE_MOCK_GUIDELINE_RESPONSES'] = 'true'
+os.environ['FORCE_MOCK_LLM'] = 'true'
+
 # Set database URL
 db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm')
 os.environ['SQLALCHEMY_DATABASE_URI'] = db_url
+
+# Apply comprehensive fix to eliminate military medical triage content
+print("Applying comprehensive fix to eliminate military medical triage content...")
+try:
+    from force_mock_llm_fix import apply_comprehensive_fix
+    apply_comprehensive_fix()
+    print("✓ Fix applied successfully")
+except Exception as e:
+    print(f"⚠️  Warning: Could not apply comprehensive fix: {e}")
+    print("   Application will still run but may show military content")
 
 # Create app instance with proper configuration
 app = create_app('config')

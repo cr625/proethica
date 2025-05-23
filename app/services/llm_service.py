@@ -130,7 +130,7 @@ class LLMService:
             llm: Language model instance (optional)
         """
         self.model_name = model_name
-        self.llm = llm or self._create_mock_llm()
+        self.llm = llm or self._create_llm()
         
         # Get MCP client for accessing guidelines
         self.mcp_client = MCPClient.get_instance()
@@ -180,6 +180,43 @@ class LLMService:
             {"id": 2, "text": "What ethical principles apply here?"},
             {"id": 3, "text": "How should I approach this decision?"}
         ]
+    
+    def _create_llm(self) -> BaseLLM:
+        """Create LLM based on environment configuration."""
+        # Check if we should use mock LLM
+        use_mock = os.environ.get('USE_MOCK_GUIDELINE_RESPONSES', 'false').lower() == 'true'
+        force_mock = os.environ.get('FORCE_MOCK_LLM', 'false').lower() == 'true'
+        
+        # If explicitly forcing mock, use mock
+        if force_mock:
+            return self._create_mock_llm()
+        
+        # If not using mock and we have API key, use live Claude
+        if not use_mock and os.environ.get('ANTHROPIC_API_KEY'):
+            try:
+                from langchain_anthropic import ChatAnthropic
+                
+                # Get model name from environment or use default
+                model_name = os.environ.get('ANTHROPIC_MODEL', 'claude-3-7-sonnet-20250219')
+                
+                print(f"Initializing live Claude with model: {model_name}")
+                
+                return ChatAnthropic(
+                    model=model_name,
+                    api_key=os.environ.get('ANTHROPIC_API_KEY'),
+                    temperature=0.7,
+                    max_tokens=1024
+                )
+                
+            except ImportError:
+                print("Warning: langchain_anthropic not available, falling back to mock LLM")
+                return self._create_mock_llm()
+            except Exception as e:
+                print(f"Warning: Error initializing Claude ({e}), falling back to mock LLM")
+                return self._create_mock_llm()
+        
+        # Default to mock LLM
+        return self._create_mock_llm()
     
     def _create_mock_llm(self) -> BaseLLM:
         """Create a mock LLM for development and testing."""

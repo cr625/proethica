@@ -10,6 +10,7 @@
             "justMyCode": true,
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                "FORCE_MOCK_LLM": "false",
                 "ENVIRONMENT": "development",
                 "MCP_SERVER_PORT": "5001",
                 "MCP_SERVER_URL": "http://localhost:5001",
@@ -26,7 +27,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "USE_MOCK_GUIDELINE_RESPONSES": "true",
+                "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "ENVIRONMENT": "development",
                 "MCP_SERVER_PORT": "5001", 
                 "MCP_SERVER_URL": "http://localhost:5001",
