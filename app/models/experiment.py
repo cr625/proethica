@@ -14,7 +14,7 @@ class ExperimentRun(db.Model):
     __tablename__ = 'experiment_runs'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(255), nullable=True)
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -36,8 +36,8 @@ class PredictionTarget(db.Model):
     __tablename__ = 'prediction_targets'
     
     id = db.Column(db.Integer, primary_key=True)
-    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=False)
-    name = db.Column(db.String(50), nullable=False)  # e.g., 'conclusion', 'discussion'
+    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=True)
+    name = db.Column(db.String(50), nullable=True)  # e.g., 'conclusion', 'discussion'
     description = db.Column(db.Text)
     
     # Relationships
@@ -53,10 +53,10 @@ class Prediction(db.Model):
     __tablename__ = 'experiment_predictions'
     
     id = db.Column(db.Integer, primary_key=True)
-    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=False)
-    document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
-    condition = db.Column(db.String(50), nullable=False)  # 'baseline' or 'proethica'
-    target = db.Column(db.String(50), nullable=False, default='full')  # 'full', 'conclusion', 'discussion'
+    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=True)
+    condition = db.Column(db.String(50), nullable=True)  # 'baseline' or 'proethica'
+    target = db.Column(db.String(50), nullable=True, default='full')  # 'full', 'conclusion', 'discussion'
     prediction_text = db.Column(db.Text)
     reasoning = db.Column(db.Text)
     prompt = db.Column(db.Text)
@@ -78,8 +78,8 @@ class ExperimentEvaluation(db.Model):
     __tablename__ = 'experiment_evaluations'
     
     id = db.Column(db.Integer, primary_key=True)
-    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=False)
-    prediction_id = db.Column(db.Integer, db.ForeignKey('experiment_predictions.id'), nullable=False)
+    experiment_run_id = db.Column(db.Integer, db.ForeignKey('experiment_runs.id'), nullable=True)
+    prediction_id = db.Column(db.Integer, db.ForeignKey('experiment_predictions.id'), nullable=True)
     evaluator_id = db.Column(db.String(255))  # Could be a user ID or anonymous identifier
     
     # Core evaluation metrics

@@ -208,9 +208,6 @@ def conclusion_prediction_setup():
     
     if form.validate_on_submit():
         try:
-            # Get selected cases from the form
-            selected_cases = request.form.getlist('selected_cases')
-            
             # Create new experiment
             experiment = ExperimentRun(
                 name=form.name.data,
@@ -219,10 +216,9 @@ def conclusion_prediction_setup():
                 created_by=request.remote_addr,  # Simple user tracking
                 config={
                     'prediction_type': 'conclusion',
-                    'use_ontology': form.use_ontology.data,
-                    'case_ids': selected_cases  # Store selected cases immediately
+                    'use_ontology': form.use_ontology.data
                 },
-                status='configured' if selected_cases else 'created'  # Mark as configured if cases selected
+                status='created'
             )
             
             # Save to database
@@ -240,13 +236,7 @@ def conclusion_prediction_setup():
             db.session.commit()
             
             flash(f"Conclusion prediction experiment '{experiment.name}' created successfully", "success")
-            
-            # If cases were selected, go directly to execution
-            if selected_cases:
-                return redirect(url_for('experiment.run_conclusion_predictions', id=experiment.id))
-            else:
-                # Otherwise, redirect to case selection
-                return redirect(url_for('experiment.cases', id=experiment.id))
+            return redirect(url_for('experiment.cases', id=experiment.id))
             
         except Exception as e:
             db.session.rollback()
@@ -338,7 +328,6 @@ def run_conclusion_predictions(id):
     return render_template('experiment/conclusion_run.html',
                           experiment=experiment)
 
-# Rest of the routes remain the same...
 @experiment_bp.route('/<int:id>/predict', methods=['POST'])
 def predict(id):
     """Generate baseline and ProEthica predictions for experiment cases."""
