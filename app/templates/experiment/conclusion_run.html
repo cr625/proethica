@@ -78,7 +78,7 @@
                     {% for case_id in experiment.config.case_ids %}
                     <div class="mb-2">
                         <span class="badge bg-light text-dark">Case {{ case_id }}</span>
-                        <a href="{{ url_for('cases.view', id=case_id) }}" target="_blank" class="ms-2">
+                        <a href="{{ url_for('cases.view_case', id=case_id) }}" target="_blank" class="ms-2">
                             View Case <i class="bi bi-box-arrow-up-right"></i>
                         </a>
                     </div>
