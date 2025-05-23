@@ -95,9 +95,9 @@ class EnhancedDecisionEngine(DecisionEngine):
                 rules_chain = self.domain_chains[domain]["rules"]
                 ethics_chain = self.domain_chains[domain]["ethics"]
             else:
-                # Default to military medical triage
-                rules_chain = self.domain_chains["military-medical-triage"]["rules"]
-                ethics_chain = self.domain_chains["military-medical-triage"]["ethics"]
+                # Default to engineering ethics
+                rules_chain = self.domain_chains["engineering-ethics"]["rules"]
+                ethics_chain = self.domain_chains["engineering-ethics"]["ethics"]
             
             # Format scenario for LLM
             scenario_text = self._format_scenario(scenario_data)

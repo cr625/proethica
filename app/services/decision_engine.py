@@ -43,8 +43,8 @@ class DecisionEngine:
         """Create a fake LLM for development and testing."""
         # This would be replaced with a real LLM in production
         responses = [
-            "The decision complies with medical triage protocols. Priority is given to patients with life-threatening conditions that can be treated with available resources.",
-            "The decision raises ethical concerns regarding resource allocation. While it follows utilitarian principles of maximizing lives saved, it may neglect individual rights and dignity."
+            "The decision complies with engineering ethics standards. The engineer has appropriately prioritized public safety and professional integrity in accordance with the NSPE Code of Ethics. The decision demonstrates proper acknowledgment of design limitations and commitment to corrective action.",
+            "The decision raises important engineering ethics considerations regarding professional responsibility. While the engineer has followed proper protocols for addressing design errors, there may be additional considerations regarding stakeholder communication and long-term safety implications that warrant further analysis."
         ]
         return FakeListLLM(responses=responses)
     
@@ -291,8 +291,8 @@ class DecisionEngine:
                     elif 'law' in world_name or 'legal' in world_name:
                         return 'us-law-practice'
         
-        # Default to military medical triage
-        return "military-medical-triage"
+        # Default to engineering ethics
+        return "engineering-ethics"
     
     def evaluate_decision(self, scenario: Dict[str, Any], decision: str) -> Dict[str, Any]:
         """
@@ -316,9 +316,9 @@ class DecisionEngine:
             rules_chain = self.domain_chains[domain]["rules"]
             ethics_chain = self.domain_chains[domain]["ethics"]
         else:
-            # Default to military medical triage
-            rules_chain = self.domain_chains["military-medical-triage"]["rules"]
-            ethics_chain = self.domain_chains["military-medical-triage"]["ethics"]
+            # Default to engineering ethics
+            rules_chain = self.domain_chains["engineering-ethics"]["rules"]
+            ethics_chain = self.domain_chains["engineering-ethics"]["ethics"]
         
         # Get guidelines from MCP server
         try:
