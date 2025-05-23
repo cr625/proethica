@@ -48,10 +48,125 @@ class ConclusionPredictionForm(FlaskForm):
 def index():
     """Experiment dashboard."""
     # Get all experiments
-    experiments = ExperimentRun.query.order_by(ExperimentRun.created_at.desc()).all()
+    experiments = ExperimentRun.query.order_by(ExperimentRun.created_at.desc()).limit(10).all()
+    
+    # Get all cases for quick prediction
+    cases = Document.query.filter(Document.document_type.in_(['case', 'case_study'])).order_by(Document.title).all()
+    
+    # Add prediction status to cases
+    for case in cases:
+        # Check if case has any conclusion predictions
+        case.has_prediction = Prediction.query.filter_by(
+            document_id=case.id,
+            target='conclusion'
+        ).first() is not None
+    
+    # Calculate statistics
+    total_cases = Document.query.filter(Document.document_type.in_(['case', 'case_study'])).count()
+    total_experiments = ExperimentRun.query.count()
+    completed_predictions = Prediction.query.filter_by(target='conclusion').count()
     
     return render_template('experiment/index.html', 
-                          experiments=experiments)
+                          experiments=experiments,
+                          cases=cases,
+                          total_cases=total_cases,
+                          total_experiments=total_experiments,
+                          completed_predictions=completed_predictions)
+
+@experiment_bp.route('/quick_predict/<int:case_id>', methods=['POST'])
+def quick_predict(case_id):
+    """Generate a quick conclusion prediction for a single case."""
+    try:
+        # Get the document
+        document = Document.query.get_or_404(case_id)
+        
+        # Get prediction service
+        prediction_service = PredictionService()
+        
+        # Check if prediction already exists
+        existing_prediction = Prediction.query.filter_by(
+            document_id=case_id,
+            target='conclusion'
+        ).first()
+        
+        if not existing_prediction:
+            # Generate conclusion prediction
+            logger.info(f"Generating quick conclusion prediction for document {case_id}")
+            conclusion_result = prediction_service.generate_conclusion_prediction(
+                document_id=case_id
+            )
+            
+            if conclusion_result.get('success'):
+                # Store conclusion prediction (without experiment context)
+                prediction = Prediction(
+                    experiment_run_id=None,  # No experiment context for quick predictions
+                    document_id=case_id,
+                    condition='proethica',
+                    target='conclusion',
+                    prediction_text=conclusion_result.get('prediction', ''),
+                    prompt=conclusion_result.get('prompt', ''),
+                    reasoning=conclusion_result.get('full_response', ''),
+                    created_at=datetime.utcnow(),
+                    meta_info={
+                        'sections_included': conclusion_result.get('metadata', {}).get('sections_included', []),
+                        'ontology_entities': conclusion_result.get('metadata', {}).get('ontology_entities', {}),
+                        'similar_cases': conclusion_result.get('metadata', {}).get('similar_cases', []),
+                        'validation_metrics': conclusion_result.get('metadata', {}).get('validation_metrics', {})
+                    }
+                )
+                
+                db.session.add(prediction)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message': f"Conclusion prediction generated for '{document.title}'"
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': conclusion_result.get('error', 'Unknown error occurred')
+                })
+        else:
+            return jsonify({
+                'success': True,
+                'message': f"Prediction already exists for '{document.title}'"
+            })
+            
+    except Exception as e:
+        logger.exception(f"Error in quick prediction for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f"Error generating prediction: {str(e)}"
+        })
+
+@experiment_bp.route('/case_comparison/<int:case_id>')
+def case_comparison(case_id):
+    """Compare original conclusion with predicted conclusion for a case."""
+    # Get the document
+    document = Document.query.get_or_404(case_id)
+    
+    # Get the prediction (any conclusion prediction for this case)
+    prediction = Prediction.query.filter_by(
+        document_id=case_id,
+        target='conclusion'
+    ).first()
+    
+    if not prediction:
+        flash(f"No prediction found for '{document.title}'. Please generate a prediction first.", "warning")
+        return redirect(url_for('experiment.index'))
+    
+    # Get document sections to retrieve original conclusion
+    prediction_service = PredictionService()
+    sections = prediction_service.get_document_sections(case_id, leave_out_conclusion=False)
+    
+    original_conclusion = sections.get('conclusion', 'No conclusion section found')
+    
+    # Create a minimal case comparison template context
+    return render_template('experiment/case_comparison.html',
+                          document=document,
+                          prediction=prediction,
+                          original_conclusion=original_conclusion)
 
 @experiment_bp.route('/setup', methods=['GET', 'POST'])
 def setup():
@@ -266,7 +381,7 @@ def predict(id):
                         prediction_text=baseline_result.get('prediction', ''),
                         prompt=baseline_result.get('prompt', ''),
                         created_at=datetime.utcnow(),
-                        meta_data={
+                        meta_info={
                             'sections_included': baseline_result.get('metadata', {}).get('sections_included', []),
                             'similar_cases': baseline_result.get('metadata', {}).get('similar_cases', []),
                             'leave_out_conclusion': leave_out_conclusion
@@ -293,7 +408,7 @@ def predict(id):
                         prediction_text=proethica_result.get('prediction', ''),
                         prompt=proethica_result.get('prompt', ''),
                         created_at=datetime.utcnow(),
-                        meta_data={
+                        meta_info={
                             'sections_included': proethica_result.get('metadata', {}).get('sections_included', []),
                             'ontology_entities': proethica_result.get('metadata', {}).get('ontology_entities', {}),
                             'similar_cases': proethica_result.get('metadata', {}).get('similar_cases', []),
@@ -393,7 +508,7 @@ def predict_conclusions(id):
                         prompt=conclusion_result.get('prompt', ''),
                         reasoning=conclusion_result.get('full_response', ''),
                         created_at=datetime.utcnow(),
-                        meta_data={
+                        meta_info={
                             'sections_included': conclusion_result.get('metadata', {}).get('sections_included', []),
                             'ontology_entities': conclusion_result.get('metadata', {}).get('ontology_entities', {}),
                             'similar_cases': conclusion_result.get('metadata', {}).get('similar_cases', []),

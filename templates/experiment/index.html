@@ -25,7 +25,7 @@
   }
   .case-item {
     display: flex;
-    justify-content: space-between;
+    justify-content: between;
     align-items: center;
     padding: 15px;
     margin-bottom: 10px;
@@ -114,41 +114,6 @@
   .stat-label {
     color: #6c757d;
     margin-top: 5px;
-  }
-  .loading-modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-  }
-  .loading-modal.show {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .loading-content {
-    background-color: white;
-    padding: 30px;
-    border-radius: 8px;
-    text-align: center;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  }
-  .spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #0066cc;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 20px;
-  }
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
   }
 </style>
 {% endblock %}
@@ -251,21 +216,24 @@
 </div>
 
 <!-- Loading Modal -->
-<div class="loading-modal" id="loadingModal">
-  <div class="loading-content">
-    <div class="spinner"></div>
-    <p>Generating conclusion prediction...</p>
-    <p class="text-muted">This may take a few moments.</p>
+<div class="modal fade" id="loadingModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-body text-center">
+        <div class="spinner-border text-primary" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <p class="mt-3">Generating conclusion prediction...</p>
+        <p class="text-muted">This may take a few moments.</p>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
 function predictConclusion(caseId) {
   // Show loading modal
-  const loadingModal = document.getElementById('loadingModal');
-  if (loadingModal) {
-    loadingModal.classList.add('show');
-  }
+  $('#loadingModal').modal('show');
   
   // Make AJAX request to predict conclusion
   fetch(`/experiment/quick_predict/${caseId}`, {
@@ -276,10 +244,7 @@ function predictConclusion(caseId) {
   })
   .then(response => response.json())
   .then(data => {
-    // Hide loading modal
-    if (loadingModal) {
-      loadingModal.classList.remove('show');
-    }
+    $('#loadingModal').modal('hide');
     
     if (data.success) {
       // Redirect to comparison view
@@ -289,10 +254,7 @@ function predictConclusion(caseId) {
     }
   })
   .catch(error => {
-    // Hide loading modal
-    if (loadingModal) {
-      loadingModal.classList.remove('show');
-    }
+    $('#loadingModal').modal('hide');
     alert('Error predicting conclusion: ' + error.message);
   });
 }

@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "puppeteer": "^24.7.2"
+  },
+  "devDependencies": {
+    "install-chrome-dependencies": "^1.1.2"
   }
 }
