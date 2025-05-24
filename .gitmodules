@@ -1,4 +1,0 @@
-[submodule "app/agent_module"]
-	path = app/agent_module
-	url = https://github.com/cr625/agent_module.git
-	branch = proethica-integration
