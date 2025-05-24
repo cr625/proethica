@@ -7,8 +7,8 @@ echo "ProEthica MCP Server Setup"
 echo "=========================="
 
 # Variables - update these for your setup
-REPO_PATH="/path/to/your/ai-ethical-dm"  # Update this!
-VENV_PATH="/path/to/your/venv"           # Update this!
+REPO_PATH="/var/www/proethica"
+VENV_PATH="/var/www/proethica/venv"
 NGINX_CONF="/etc/nginx/sites-available/proethica.org"  # Update if different
 
 # Colors for output
@@ -24,8 +24,8 @@ sudo chown www-data:www-data /var/log/proethica
 
 echo -e "${YELLOW}Step 2: Installing Python dependencies...${NC}"
 cd $REPO_PATH
-source $VENV_PATH/bin/activate
-pip install -r requirements-mcp.txt
+# Use the virtual environment's pip directly
+$VENV_PATH/bin/pip install -r requirements-mcp.txt
 
 echo -e "${YELLOW}Step 3: Setting up environment file...${NC}"
 if [ ! -f /etc/proethica/mcp.env ]; then
