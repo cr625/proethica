@@ -1,8 +1,13 @@
-# MCP Server for Ontology Access
+# MCP Server Directory
 
-This directory contains the Model Context Protocol (MCP) server implementation for the AI Ethical Decision Making application.
+This directory contains the Model Context Protocol (MCP) server implementation for ProEthica.
 
-## Ontology MCP Server
+## Current Active Implementation
+
+### Primary Server
+- **`enhanced_ontology_server_with_guidelines.py`** - Main MCP server with guideline analysis support
+- **`run_enhanced_mcp_server_with_guidelines.py`** - Runner script for the main server (used by launch.json)
+- **`http_ontology_mcp_server.py`** - Base HTTP JSON-RPC server class
 
 The MCP server provides access to ontology data through the Model Context Protocol, allowing LLMs and the application to query information about ethical domains, guidelines, and world entities.
 
@@ -116,3 +121,71 @@ The MCP server extracts the following entity types from ontologies:
 4. **Events**: Occurrences in the timeline (e.g., Meeting, Accident)
 5. **Actions**: Activities that can be performed (e.g., Approve, Review)
 6. **Capabilities**: Skills or abilities (e.g., StructuralAnalysis)
+
+## Core Modules
+
+### Active Modules (`/modules/`)
+- **`guideline_analysis_module.py`** - Extract concepts from ethical guidelines using LLM
+- **`query_module.py`** - Query ontology entities
+- **`relationship_module.py`** - Handle entity relationships
+- **`temporal_module.py`** - Time-based relationships
+- **`base_module.py`** - Base class for all modules
+
+### Support Files
+- **`enhanced_debug_logging.py`** - Debug logging utilities
+- **`fix_flask_db_config.py`** - Database configuration helpers
+- **`load_from_db.py`** - Load ontologies from database
+
+## Integration with Claude API
+
+The MCP server can be accessed by Claude via the Anthropic API using the MCP connector (beta):
+
+### Requirements
+- Beta header: `"anthropic-beta": "mcp-client-2025-04-04"`
+- Server must be publicly accessible (not localhost)
+- Authentication token (optional but recommended)
+
+### Example Usage
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# Configure MCP server connection
+mcp_servers = [{
+    "url": "https://your-mcp-server.com",
+    "authorization_token": "your-bearer-token"  # Optional
+}]
+
+# Use in Messages API request
+response = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    messages=[{"role": "user", "content": "Query the engineering ethics ontology"}],
+    mcp_servers=mcp_servers,
+    headers={"anthropic-beta": "mcp-client-2025-04-04"}
+)
+```
+
+### Current Limitation
+The server currently runs on localhost:5001, so for API integration you need to:
+1. Deploy to a public endpoint (AWS, Heroku, ngrok, etc.)
+2. Implement proper authentication
+3. Ensure HTTPS is enabled
+
+## Directory Structure
+
+### Documentation (`/docs/`)
+- MCP implementation guides and references
+- Ontology integration documentation
+
+### Ontology Files (`/ontology/`)
+- Fallback TTL files when database unavailable
+- `bfo.ttl`, `engineering-ethics.ttl`, `proethica-intermediate.ttl`
+
+### Mock Responses (`/mock_responses/`)
+- Test responses for development without LLM
+
+### Experimental/Archived
+- `/mseo/` - Materials Science ontology (experimental)
+- `/hosted_llm_mcp/` - Multi-model LLM service (not active)
+- Alternative server implementations (consider archiving)

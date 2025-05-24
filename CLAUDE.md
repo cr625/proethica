@@ -39,5 +39,48 @@ This project models professional domains ("worlds") and supports ethical decisio
 - Generate section embeddings and guideline associations as needed.
 - Run LLM experiments as described in the project plan.
 
+## MCP Server Status (Updated 2025-01-24)
+
+### Current Implementation
+The project uses an HTTP-based MCP (Model Context Protocol) server that provides ontology and guideline analysis capabilities:
+
+- **Server**: `mcp/enhanced_ontology_server_with_guidelines.py` (launched via `start_mcp_server_with_env.sh`)
+- **Port**: 5001 (configured in launch.json)
+- **Architecture**: HTTP JSON-RPC server extending `OntologyMCPServer`
+- **Key Modules**:
+  - Guideline Analysis Module: Extract concepts from ethical guidelines using LLM
+  - Ontology Query Module: Access ontology entities and relationships
+  - Temporal Module: Handle time-based relationships (if enabled)
+
+### Key Capabilities
+1. **Ontology Access**: Load ontologies from database (with file fallback)
+2. **Guideline Analysis**: Extract concepts and generate RDF triples from text
+3. **Entity Matching**: Match guideline concepts to ontology entities
+4. **LLM Integration**: Uses Claude/OpenAI for semantic analysis (with mock fallback)
+
+### Integration with Claude via Anthropic API
+**Good News**: MCP is available through the Anthropic API using the "MCP connector (beta)" feature:
+- Requires beta header: `"anthropic-beta": "mcp-client-2025-04-04"`
+- Connect to remote MCP servers directly from Messages API
+- Currently supports only tool calls (not resources)
+- Server must be publicly exposed via HTTP
+
+**Current Limitation**: The MCP server runs locally on port 5001, so it would need to be:
+1. Exposed publicly (e.g., via ngrok, cloud deployment)
+2. Secured with proper authentication (OAuth Bearer tokens supported)
+
+### Next Steps for API Integration
+1. Deploy MCP server to a public endpoint (AWS, Heroku, etc.)
+2. Implement authentication (OAuth or API keys)
+3. Use Anthropic API's MCP connector to access the server's tools
+4. Claude can then directly call guideline analysis and ontology query functions
+
+### MCP Folder Structure
+- `/mcp/` - Main MCP server implementations
+- `/mcp/modules/` - Pluggable modules (guideline analysis, query, etc.)
+- `/mcp/docs/` - MCP documentation and guides
+- `/mcp/ontology/` - Ontology TTL files (fallback when DB unavailable)
+- `/mcp/mseo/` - Materials science ontology integration (experimental)
+
 ## Archived Documentation
 Legacy and outdated documentation has been moved to `docs/archived/` for reference.
