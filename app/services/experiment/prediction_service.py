@@ -163,12 +163,13 @@ class PredictionService:
         
         return sections
     
-    def generate_conclusion_prediction(self, document_id: int) -> Dict[str, Any]:
+    def generate_conclusion_prediction(self, document_id: int, use_ontology: bool = True) -> Dict[str, Any]:
         """
-        Generate a prediction for the conclusion section using ontology-enhanced approach.
+        Generate a prediction for the conclusion section.
         
         Args:
             document_id: ID of the document
+            use_ontology: Whether to use ontology enhancement (default: True)
             
         Returns:
             Dictionary with prediction results
@@ -191,14 +192,18 @@ class PredictionService:
                     'error': "No sections found for document"
                 }
                 
-            # Get ontology entities associated with document sections
-            ontology_entities = self.get_section_ontology_entities(document_id, sections)
-            
-            # Find similar cases with ontology-enhanced matching
-            similar_cases = self._find_similar_cases(document_id, limit=3)
+            # Get ontology entities and similar cases only if using ontology
+            if use_ontology:
+                ontology_entities = self.get_section_ontology_entities(document_id, sections)
+                similar_cases = self._find_similar_cases(document_id, limit=3)
+                condition = 'proethica'
+            else:
+                ontology_entities = {}
+                similar_cases = []
+                condition = 'baseline'
 
             # Construct specialized conclusion prediction prompt
-            prompt = self._construct_conclusion_prediction_prompt(document, sections, ontology_entities, similar_cases)
+            prompt = self._construct_conclusion_prediction_prompt(document, sections, ontology_entities, similar_cases, use_ontology)
 
             # Generate prediction using LLM
             logger.info(f"Generating conclusion prediction for document {document_id}")
@@ -214,7 +219,7 @@ class PredictionService:
             return {
                 'success': True,
                 'document_id': document_id,
-                'condition': 'proethica',
+                'condition': condition,
                 'target': 'conclusion',
                 'prediction': conclusion,
                 'full_response': response,
@@ -238,7 +243,8 @@ class PredictionService:
     def _construct_conclusion_prediction_prompt(self, document: Document, 
                                             sections: Dict[str, str],
                                             ontology_entities: Dict[str, List[Dict]],
-                                            similar_cases: List[Dict[str, Any]]) -> str:
+                                            similar_cases: List[Dict[str, Any]],
+                                            use_ontology: bool = True) -> str:
         """
         Construct a specialized prompt for conclusion prediction.
         
