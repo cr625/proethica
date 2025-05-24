@@ -11,8 +11,8 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SelectField, BooleanField, SubmitField
-from wtforms.validators import DataRequired
+from wtforms import StringField, TextAreaField, SelectField, BooleanField, SubmitField, FloatField
+from wtforms.validators import DataRequired, NumberRange
 
 from app import db
 from app.models.document import Document
@@ -43,6 +43,20 @@ class ConclusionPredictionForm(FlaskForm):
     description = TextAreaField('Description')
     use_ontology = BooleanField('Use Ontology Enhancement', default=True)
     submit = SubmitField('Create Conclusion Prediction Experiment')
+
+# Form for evaluating predictions
+class EvaluationForm(FlaskForm):
+    """Form for evaluating prediction quality."""
+    reasoning_quality = FloatField('Reasoning Quality (0-10)', validators=[NumberRange(min=0, max=10)])
+    persuasiveness = FloatField('Persuasiveness (0-10)', validators=[NumberRange(min=0, max=10)])
+    coherence = FloatField('Coherence (0-10)', validators=[NumberRange(min=0, max=10)])
+    accuracy = BooleanField('Matches Original Conclusion')
+    agreement = BooleanField('Agrees with Original Conclusion')
+    support_quality = FloatField('Support Quality (0-10)', validators=[NumberRange(min=0, max=10)])
+    preference_score = FloatField('Overall Preference (0-10)', validators=[NumberRange(min=0, max=10)])
+    alignment_score = FloatField('Ethical Alignment (0-10)', validators=[NumberRange(min=0, max=10)])
+    comments = TextAreaField('Comments')
+    submit = SubmitField('Submit Evaluation')
 
 @experiment_bp.route('/')
 def index():
@@ -168,10 +182,99 @@ def case_comparison(case_id):
                           prediction=prediction,
                           original_conclusion=original_conclusion)
 
-@experiment_bp.route('/setup', methods=['GET', 'POST'])
-def setup():
-    """Setup a new experiment."""
-    form = ExperimentForm()
+# NEW EVALUATION ROUTES
+
+@experiment_bp.route('/evaluate_prediction/<int:prediction_id>', methods=['GET', 'POST'])
+def evaluate_prediction(prediction_id):
+    """Evaluate a specific prediction."""
+    # Get the prediction
+    prediction = Prediction.query.get_or_404(prediction_id)
+    
+    # Get the experiment
+    experiment = prediction.experiment_run
+    if not experiment:
+        flash("This prediction is not associated with an experiment", "warning")
+        return redirect(url_for('experiment.index'))
+    
+    # Create evaluation form
+    form = EvaluationForm()
+    
+    # Check if evaluation already exists
+    existing_evaluation = Evaluation.query.filter_by(
+        prediction_id=prediction_id,
+        evaluator_id=request.remote_addr  # Simple evaluator tracking
+    ).first()
+    
+    if existing_evaluation and request.method == 'GET':
+        # Pre-populate form with existing evaluation
+        form.reasoning_quality.data = existing_evaluation.reasoning_quality
+        form.persuasiveness.data = existing_evaluation.persuasiveness
+        form.coherence.data = existing_evaluation.coherence
+        form.accuracy.data = existing_evaluation.accuracy
+        form.agreement.data = existing_evaluation.agreement
+        form.support_quality.data = existing_evaluation.support_quality
+        form.preference_score.data = existing_evaluation.preference_score
+        form.alignment_score.data = existing_evaluation.alignment_score
+        form.comments.data = existing_evaluation.comments
+    
+    if form.validate_on_submit():
+        try:
+            if existing_evaluation:
+                # Update existing evaluation
+                evaluation = existing_evaluation
+                evaluation.updated_at = datetime.utcnow()
+            else:
+                # Create new evaluation
+                evaluation = Evaluation(
+                    experiment_run_id=experiment.id,
+                    prediction_id=prediction_id,
+                    evaluator_id=request.remote_addr,
+                    created_at=datetime.utcnow()
+                )
+            
+            # Update evaluation fields
+            evaluation.reasoning_quality = form.reasoning_quality.data
+            evaluation.persuasiveness = form.persuasiveness.data
+            evaluation.coherence = form.coherence.data
+            evaluation.accuracy = form.accuracy.data
+            evaluation.agreement = form.agreement.data
+            evaluation.support_quality = form.support_quality.data
+            evaluation.preference_score = form.preference_score.data
+            evaluation.alignment_score = form.alignment_score.data
+            evaluation.comments = form.comments.data
+            
+            if not existing_evaluation:
+                db.session.add(evaluation)
+            
+            db.session.commit()
+            
+            flash("Evaluation submitted successfully", "success")
+            return redirect(url_for('experiment.results', id=experiment.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.exception(f"Error saving evaluation: {str(e)}")
+            flash(f"Error saving evaluation: {str(e)}", "danger")
+    
+    # Get document sections to retrieve original conclusion for comparison
+    prediction_service = PredictionService()
+    sections = prediction_service.get_document_sections(prediction.document_id, leave_out_conclusion=False)
+    original_conclusion = sections.get('conclusion', 'No conclusion section found')
+    
+    return render_template('experiment/evaluate_prediction.html',
+                          prediction=prediction,
+                          experiment=experiment,
+                          form=form,
+                          original_conclusion=original_conclusion,
+                          existing_evaluation=existing_evaluation)
+
+@experiment_bp.route('/conclusion_setup', methods=['GET', 'POST'])
+def conclusion_prediction_setup():
+    """Setup a new conclusion prediction experiment."""
+    form = ConclusionPredictionForm()
+    
+    # Get all available cases
+    cases = Document.query.filter(Document.document_type.in_(['case', 'case_study'])).order_by(Document.title).all()
     
     if form.validate_on_submit():
         try:
@@ -179,15 +282,15 @@ def setup():
             experiment = ExperimentRun(
                 name=form.name.data,
                 description=form.description.data,
+                experiment_type='conclusion_prediction',
+                status='created',
                 created_at=datetime.utcnow(),
-                created_by=request.remote_addr,  # Simple user tracking
                 config={
-                    'leave_out_conclusion': form.leave_out_conclusion.data
-                },
-                status='created'
+                    'use_ontology': form.use_ontology.data,
+                    'target': 'conclusion'
+                }
             )
             
-            # Save to database
             db.session.add(experiment)
             db.session.commit()
             
@@ -199,481 +302,272 @@ def setup():
             logger.exception(f"Error creating experiment: {str(e)}")
             flash(f"Error creating experiment: {str(e)}", "danger")
     
-    return render_template('experiment/setup.html', form=form)
-
-@experiment_bp.route('/conclusion_setup', methods=['GET', 'POST'])
-def conclusion_prediction_setup():
-    """Setup a new conclusion prediction experiment."""
-    form = ConclusionPredictionForm()
-    
-    if form.validate_on_submit():
-        try:
-            # Get selected cases from the form
-            selected_cases = request.form.getlist('selected_cases')
-            
-            # Create new experiment
-            experiment = ExperimentRun(
-                name=form.name.data,
-                description=form.description.data,
-                created_at=datetime.utcnow(),
-                created_by=request.remote_addr,  # Simple user tracking
-                config={
-                    'prediction_type': 'conclusion',
-                    'use_ontology': form.use_ontology.data,
-                    'case_ids': selected_cases  # Store selected cases immediately
-                },
-                status='configured' if selected_cases else 'created'  # Mark as configured if cases selected
-            )
-            
-            # Save to database
-            db.session.add(experiment)
-            db.session.commit()
-            
-            # Create prediction target for conclusion
-            target = PredictionTarget(
-                experiment_run_id=experiment.id,
-                name='conclusion',
-                description='Predict the conclusion section of the case'
-            )
-            
-            db.session.add(target)
-            db.session.commit()
-            
-            flash(f"Conclusion prediction experiment '{experiment.name}' created successfully", "success")
-            
-            # If cases were selected, go directly to execution
-            if selected_cases:
-                return redirect(url_for('experiment.run_conclusion_predictions', id=experiment.id))
-            else:
-                # Otherwise, redirect to case selection
-                return redirect(url_for('experiment.cases', id=experiment.id))
-            
-        except Exception as e:
-            db.session.rollback()
-            logger.exception(f"Error creating conclusion prediction experiment: {str(e)}")
-            flash(f"Error creating experiment: {str(e)}", "danger")
-    
-    # Get all cases for the template
-    cases = Document.query.filter(Document.document_type.in_(['case', 'case_study'])).order_by(Document.title).all()
     return render_template('experiment/conclusion_setup.html', form=form, cases=cases)
 
 @experiment_bp.route('/<int:id>/cases', methods=['GET', 'POST'])
 def cases(id):
-    """Select cases for an experiment."""
-    # Get the experiment
+    """Select cases for the experiment."""
     experiment = ExperimentRun.query.get_or_404(id)
     
     if request.method == 'POST':
-        # Get selected case IDs
-        case_ids = request.form.getlist('case_ids')
+        selected_cases = request.form.getlist('selected_cases')
         
-        if not case_ids:
-            flash("No cases selected", "warning")
+        if not selected_cases:
+            flash("Please select at least one case", "warning")
             return redirect(url_for('experiment.cases', id=id))
         
-        # Update experiment config
-        config = experiment.config or {}
-        config['case_ids'] = case_ids
-        experiment.config = config
-        
-        # Update status
-        experiment.status = 'configured'
-        experiment.updated_at = datetime.utcnow()
-        
-        # Save to database
-        db.session.commit()
-        
-        flash(f"{len(case_ids)} cases selected for experiment", "success")
-        
-        # Redirect based on experiment type
-        if config.get('prediction_type') == 'conclusion':
-            return redirect(url_for('experiment.run_conclusion_predictions', id=id))
-        else:
-            return redirect(url_for('experiment.run', id=id))
+        try:
+            # Store selected cases in experiment config
+            experiment.config = experiment.config or {}
+            experiment.config['selected_cases'] = [int(case_id) for case_id in selected_cases]
+            experiment.status = 'configured'
+            
+            db.session.commit()
+            
+            flash(f"Selected {len(selected_cases)} cases for experiment", "success")
+            return redirect(url_for('experiment.run_conclusion_predictions', experiment_id=id))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.exception(f"Error updating experiment: {str(e)}")
+            flash(f"Error updating experiment: {str(e)}", "danger")
     
-    # Get all cases
+    # Get all available cases
     cases = Document.query.filter(Document.document_type.in_(['case', 'case_study'])).order_by(Document.title).all()
     
-    # Check if cases already selected
-    selected_cases = []
-    if experiment.config and 'case_ids' in experiment.config:
-        selected_case_ids = [int(case_id) for case_id in experiment.config['case_ids']]
-        selected_cases = Document.query.filter(Document.id.in_(selected_case_ids)).all()
-    
-    return render_template('experiment/cases.html',
-                          experiment=experiment,
-                          cases=cases,
-                          selected_cases=selected_cases)
+    return render_template('experiment/cases.html', experiment=experiment, cases=cases)
 
-@experiment_bp.route('/<int:id>/run')
-def run(id):
-    """Run an experiment."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
+@experiment_bp.route('/<int:experiment_id>/run_conclusion_predictions', methods=['GET', 'POST'])
+def run_conclusion_predictions(experiment_id):
+    """Run conclusion predictions for selected cases."""
+    experiment = ExperimentRun.query.get_or_404(experiment_id)
     
-    # Check if cases are selected
-    if not experiment.config or 'case_ids' not in experiment.config:
-        flash("No cases selected for experiment", "warning")
-        return redirect(url_for('experiment.cases', id=id))
-    
-    return render_template('experiment/run.html',
-                          experiment=experiment)
-
-@experiment_bp.route('/<int:id>/run_conclusion_predictions')
-def run_conclusion_predictions(id):
-    """Run a conclusion prediction experiment."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
-    
-    # Check if cases are selected
-    if not experiment.config or 'case_ids' not in experiment.config:
-        flash("No cases selected for experiment", "warning")
-        return redirect(url_for('experiment.cases', id=id))
-    
-    # Check if this is a conclusion prediction experiment
-    if experiment.config.get('prediction_type') != 'conclusion':
-        flash("This is not a conclusion prediction experiment", "warning")
-        return redirect(url_for('experiment.index'))
-    
-    return render_template('experiment/conclusion_run.html',
-                          experiment=experiment)
-
-# Rest of the routes remain the same...
-@experiment_bp.route('/<int:id>/predict', methods=['POST'])
-def predict(id):
-    """Generate baseline and ProEthica predictions for experiment cases."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
-    
-    try:
-        # Get prediction service
-        prediction_service = PredictionService()
-        
-        # Get case IDs from config
-        if not experiment.config or 'case_ids' not in experiment.config:
-            return jsonify({
-                'success': False,
-                'error': 'No cases selected for experiment'
-            })
-        
-        case_ids = experiment.config['case_ids']
-        leave_out_conclusion = experiment.config.get('leave_out_conclusion', True)
-        
-        # Get total count for progress tracking
-        total_cases = len(case_ids)
-        case_processed = 0
-        
-        # Update experiment status
-        experiment.status = 'running'
-        db.session.commit()
-        
-        # Process each case
-        for case_id in case_ids:
-            # Convert to integer
-            case_id = int(case_id)
+    if request.method == 'POST':
+        try:
+            selected_cases = experiment.config.get('selected_cases', [])
+            use_ontology = experiment.config.get('use_ontology', True)
             
-            # Skip cases that already have predictions for this experiment
-            existing_prediction = Prediction.query.filter_by(
-                experiment_run_id=id,
-                document_id=case_id
-            ).first()
+            if not selected_cases:
+                flash("No cases selected for this experiment", "warning")
+                return redirect(url_for('experiment.cases', id=experiment_id))
             
-            if not existing_prediction:
-                # Generate baseline prediction
-                baseline_result = prediction_service.generate_baseline_prediction(
-                    document_id=case_id,
-                    leave_out_conclusion=leave_out_conclusion
-                )
+            # Update experiment status
+            experiment.status = 'running'
+            db.session.commit()
+            
+            # Get prediction service
+            prediction_service = PredictionService()
+            
+            # Generate predictions for each selected case
+            for case_id in selected_cases:
+                logger.info(f"Generating predictions for case {case_id} in experiment {experiment_id}")
                 
-                if baseline_result.get('success'):
-                    # Store baseline prediction
-                    prediction = Prediction(
-                        experiment_run_id=id,
-                        document_id=case_id,
-                        condition='baseline',
-                        prediction_text=baseline_result.get('prediction', ''),
-                        prompt=baseline_result.get('prompt', ''),
-                        created_at=datetime.utcnow(),
-                        meta_info={
-                            'sections_included': baseline_result.get('metadata', {}).get('sections_included', []),
-                            'similar_cases': baseline_result.get('metadata', {}).get('similar_cases', []),
-                            'leave_out_conclusion': leave_out_conclusion
-                        }
-                    )
-                    
-                    db.session.add(prediction)
-                    db.session.commit()
-                    
-                # ProEthica prediction will be added in a future implementation
-            
-                # Generate ProEthica-enhanced prediction
-                proethica_result = prediction_service.generate_proethica_prediction(
+                # Generate ProEthica prediction
+                proethica_result = prediction_service.generate_conclusion_prediction(
                     document_id=case_id,
-                    leave_out_conclusion=leave_out_conclusion
+                    use_ontology=use_ontology
                 )
                 
                 if proethica_result.get('success'):
                     # Store ProEthica prediction
-                    prediction = Prediction(
-                        experiment_run_id=id,
+                    proethica_prediction = Prediction(
+                        experiment_run_id=experiment.id,
                         document_id=case_id,
                         condition='proethica',
+                        target='conclusion',
                         prediction_text=proethica_result.get('prediction', ''),
                         prompt=proethica_result.get('prompt', ''),
+                        reasoning=proethica_result.get('full_response', ''),
                         created_at=datetime.utcnow(),
                         meta_info={
                             'sections_included': proethica_result.get('metadata', {}).get('sections_included', []),
                             'ontology_entities': proethica_result.get('metadata', {}).get('ontology_entities', {}),
                             'similar_cases': proethica_result.get('metadata', {}).get('similar_cases', []),
                             'validation_metrics': proethica_result.get('metadata', {}).get('validation_metrics', {}),
-                            'leave_out_conclusion': leave_out_conclusion
+                            'mentioned_entities': proethica_result.get('metadata', {}).get('mentioned_entities', [])
                         }
                     )
                     
-                    db.session.add(prediction)
-                    db.session.commit()
-            
-            case_processed += 1
-        
-        # Update experiment status
-        experiment.status = 'completed'
-        experiment.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': f"Predictions generated for {case_processed} cases"
-        })
-        
-    except Exception as e:
-        # Update experiment status
-        experiment.status = 'failed'
-        db.session.commit()
-        
-        logger.exception(f"Error generating predictions: {str(e)}")
-        
-        return jsonify({
-            'success': False,
-            'error': f"Error generating predictions: {str(e)}"
-        })
-
-@experiment_bp.route('/<int:id>/predict_conclusions', methods=['POST'])
-def predict_conclusions(id):
-    """Generate conclusion predictions for experiment cases."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
-    
-    try:
-        # Verify this is a conclusion prediction experiment
-        if experiment.config.get('prediction_type') != 'conclusion':
-            return jsonify({
-                'success': False,
-                'error': 'This is not a conclusion prediction experiment'
-            })
-        
-        # Get prediction service
-        prediction_service = PredictionService()
-        
-        # Get case IDs from config
-        if not experiment.config or 'case_ids' not in experiment.config:
-            return jsonify({
-                'success': False,
-                'error': 'No cases selected for experiment'
-            })
-        
-        case_ids = experiment.config['case_ids']
-        use_ontology = experiment.config.get('use_ontology', True)
-        
-        # Get total count for progress tracking
-        total_cases = len(case_ids)
-        case_processed = 0
-        
-        # Update experiment status
-        experiment.status = 'running'
-        db.session.commit()
-        
-        # Process each case
-        for case_id in case_ids:
-            # Convert to integer
-            case_id = int(case_id)
-            
-            # Skip cases that already have predictions for this experiment
-            existing_prediction = Prediction.query.filter_by(
-                experiment_run_id=id,
-                document_id=case_id,
-                target='conclusion'
-            ).first()
-            
-            if not existing_prediction:
-                # Generate conclusion prediction
-                conclusion_result = prediction_service.generate_conclusion_prediction(
-                    document_id=case_id
+                    db.session.add(proethica_prediction)
+                
+                # Generate baseline prediction (without ontology)
+                baseline_result = prediction_service.generate_conclusion_prediction(
+                    document_id=case_id,
+                    use_ontology=False
                 )
                 
-                if conclusion_result.get('success'):
-                    # Store conclusion prediction
-                    prediction = Prediction(
-                        experiment_run_id=id,
+                if baseline_result.get('success'):
+                    # Store baseline prediction
+                    baseline_prediction = Prediction(
+                        experiment_run_id=experiment.id,
                         document_id=case_id,
-                        condition='proethica',
+                        condition='baseline',
                         target='conclusion',
-                        prediction_text=conclusion_result.get('prediction', ''),
-                        prompt=conclusion_result.get('prompt', ''),
-                        reasoning=conclusion_result.get('full_response', ''),
+                        prediction_text=baseline_result.get('prediction', ''),
+                        prompt=baseline_result.get('prompt', ''),
+                        reasoning=baseline_result.get('full_response', ''),
                         created_at=datetime.utcnow(),
                         meta_info={
-                            'sections_included': conclusion_result.get('metadata', {}).get('sections_included', []),
-                            'ontology_entities': conclusion_result.get('metadata', {}).get('ontology_entities', {}),
-                            'similar_cases': conclusion_result.get('metadata', {}).get('similar_cases', []),
-                            'validation_metrics': conclusion_result.get('metadata', {}).get('validation_metrics', {})
+                            'sections_included': baseline_result.get('metadata', {}).get('sections_included', []),
+                            'validation_metrics': baseline_result.get('metadata', {}).get('validation_metrics', {})
                         }
                     )
                     
-                    db.session.add(prediction)
-                    db.session.commit()
+                    db.session.add(baseline_prediction)
             
-            case_processed += 1
-        
-        # Update experiment status
-        experiment.status = 'completed'
-        experiment.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': f"Conclusion predictions generated for {case_processed} cases"
-        })
-        
-    except Exception as e:
-        # Update experiment status
-        experiment.status = 'failed'
-        db.session.commit()
-        
-        logger.exception(f"Error generating conclusion predictions: {str(e)}")
-        
-        return jsonify({
-            'success': False,
-            'error': f"Error generating conclusion predictions: {str(e)}"
-        })
+            # Update experiment status
+            experiment.status = 'completed'
+            db.session.commit()
+            
+            flash("Experiment completed successfully", "success")
+            return redirect(url_for('experiment.results', id=experiment.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            experiment.status = 'failed'
+            db.session.commit()
+            logger.exception(f"Error running experiment: {str(e)}")
+            flash(f"Error running experiment: {str(e)}", "danger")
+    
+    return render_template('experiment/conclusion_run.html', experiment=experiment)
 
 @experiment_bp.route('/<int:id>/results')
 def results(id):
     """View experiment results."""
-    # Get the experiment
     experiment = ExperimentRun.query.get_or_404(id)
     
-    # Get predictions
+    # Get all predictions for this experiment
     predictions = Prediction.query.filter_by(experiment_run_id=id).all()
     
     # Group predictions by document
-    grouped_predictions = {}
+    predictions_by_case = {}
+    documents = {}
     
     for prediction in predictions:
-        if prediction.document_id not in grouped_predictions:
-            grouped_predictions[prediction.document_id] = {
-                'document': prediction.document,
-                'predictions': {}
-            }
+        if prediction.document_id not in predictions_by_case:
+            predictions_by_case[prediction.document_id] = []
+            documents[prediction.document_id] = prediction.document
         
-        if prediction.target == 'full' or not prediction.target:
-            grouped_predictions[prediction.document_id]['predictions'][prediction.condition] = prediction
-        else:
-            target_key = f"{prediction.condition}_{prediction.target}"
-            grouped_predictions[prediction.document_id]['predictions'][target_key] = prediction
+        predictions_by_case[prediction.document_id].append(prediction)
     
-    return render_template('experiment/results.html',
-                          experiment=experiment,
-                          grouped_predictions=grouped_predictions)
-
-@experiment_bp.route('/<int:id>/case/<int:doc_id>')
-def case_results(id, doc_id):
-    """View results for a specific case."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
+    # Get evaluation count
+    evaluation_count = Evaluation.query.filter_by(experiment_run_id=id).count()
     
-    # Get the document
-    document = Document.query.get_or_404(doc_id)
+    # Calculate completion percentage
+    total_expected = len(experiment.config.get('selected_cases', [])) * 2  # 2 predictions per case
+    completed_predictions = len(predictions)
+    completed_percentage = int((completed_predictions / max(total_expected, 1)) * 100)
     
-    # Get predictions
-    predictions = Prediction.query.filter_by(
-        experiment_run_id=id,
-        document_id=doc_id
-    ).all()
-    
-    # Create dictionary of predictions by condition and target
-    prediction_dict = {}
-    for p in predictions:
-        if p.target == 'full' or not p.target:
-            prediction_dict[p.condition] = p
-        else:
-            key = f"{p.condition}_{p.target}"
-            prediction_dict[key] = p
-    
-    # Get document sections
-    prediction_service = PredictionService()
-    sections = prediction_service.get_document_sections(doc_id, leave_out_conclusion=False)
-    
-    return render_template('experiment/case_results.html',
-                          experiment=experiment,
-                          document=document,
-                          predictions=prediction_dict,
-                          sections=sections)
-
-@experiment_bp.route('/<int:id>/conclusion_results')
-def conclusion_results(id):
-    """View conclusion prediction results."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
-    
-    # Check if this is a conclusion prediction experiment
-    if experiment.config.get('prediction_type') != 'conclusion':
-        flash("This is not a conclusion prediction experiment", "warning")
-        return redirect(url_for('experiment.index'))
-    
-    # Get conclusion predictions
-    predictions = Prediction.query.filter_by(
-        experiment_run_id=id,
-        target='conclusion'
-    ).all()
-    
-    # Group predictions by document
-    grouped_predictions = {}
-    
-    for prediction in predictions:
-        if prediction.document_id not in grouped_predictions:
-            grouped_predictions[prediction.document_id] = {
-                'document': prediction.document,
-                'prediction': prediction
-            }
+    # Pagination setup (simplified)
+    current_page = 1
+    total_pages = 1
     
     return render_template('experiment/conclusion_results.html',
                           experiment=experiment,
-                          grouped_predictions=grouped_predictions)
+                          predictions=predictions_by_case,
+                          documents=documents,
+                          evaluation_count=evaluation_count,
+                          completed_percentage=completed_percentage,
+                          current_page=current_page,
+                          total_pages=total_pages,
+                          filtered_results=False)
 
-@experiment_bp.route('/<int:id>/conclusion_comparison/<int:doc_id>')
-def conclusion_comparison(id, doc_id):
-    """Compare original conclusion with predicted conclusion for a case."""
-    # Get the experiment
-    experiment = ExperimentRun.query.get_or_404(id)
+@experiment_bp.route('/<int:experiment_id>/compare/<int:case_id>')
+def compare_predictions(experiment_id, case_id):
+    """Compare baseline vs ProEthica predictions for a specific case."""
+    experiment = ExperimentRun.query.get_or_404(experiment_id)
+    document = Document.query.get_or_404(case_id)
     
-    # Get the document
-    document = Document.query.get_or_404(doc_id)
+    # Get predictions for this case in this experiment
+    baseline_prediction = Prediction.query.filter_by(
+        experiment_run_id=experiment_id,
+        document_id=case_id,
+        condition='baseline'
+    ).first()
     
-    # Get the prediction
-    prediction = Prediction.query.filter_by(
-        experiment_run_id=id,
-        document_id=doc_id,
-        target='conclusion'
-    ).first_or_404()
+    proethica_prediction = Prediction.query.filter_by(
+        experiment_run_id=experiment_id,
+        document_id=case_id,
+        condition='proethica'
+    ).first()
     
-    # Get document sections to retrieve original conclusion
+    # Get original conclusion
     prediction_service = PredictionService()
-    sections = prediction_service.get_document_sections(doc_id, leave_out_conclusion=False)
-    
+    sections = prediction_service.get_document_sections(case_id, leave_out_conclusion=False)
     original_conclusion = sections.get('conclusion', 'No conclusion section found')
     
     return render_template('experiment/conclusion_comparison.html',
                           experiment=experiment,
                           document=document,
-                          prediction=prediction,
+                          baseline_prediction=baseline_prediction,
+                          proethica_prediction=proethica_prediction,
                           original_conclusion=original_conclusion)
+
+@experiment_bp.route('/<int:experiment_id>/export')
+def export_results(experiment_id):
+    """Export experiment results as JSON."""
+    experiment = ExperimentRun.query.get_or_404(experiment_id)
+    
+    # Get all predictions and evaluations
+    predictions = Prediction.query.filter_by(experiment_run_id=experiment_id).all()
+    evaluations = Evaluation.query.filter_by(experiment_run_id=experiment_id).all()
+    
+    # Build export data
+    export_data = {
+        'experiment': {
+            'id': experiment.id,
+            'name': experiment.name,
+            'description': experiment.description,
+            'type': experiment.experiment_type,
+            'status': experiment.status,
+            'created_at': experiment.created_at.isoformat(),
+            'config': experiment.config
+        },
+        'predictions': [],
+        'evaluations': []
+    }
+    
+    # Add predictions
+    for prediction in predictions:
+        export_data['predictions'].append({
+            'id': prediction.id,
+            'document_id': prediction.document_id,
+            'document_title': prediction.document.title if prediction.document else None,
+            'condition': prediction.condition,
+            'target': prediction.target,
+            'prediction_text': prediction.prediction_text,
+            'prompt': prediction.prompt,
+            'reasoning': prediction.reasoning,
+            'created_at': prediction.created_at.isoformat(),
+            'meta_info': prediction.meta_info
+        })
+    
+    # Add evaluations
+    for evaluation in evaluations:
+        export_data['evaluations'].append({
+            'id': evaluation.id,
+            'prediction_id': evaluation.prediction_id,
+            'evaluator_id': evaluation.evaluator_id,
+            'reasoning_quality': evaluation.reasoning_quality,
+            'persuasiveness': evaluation.persuasiveness,
+            'coherence': evaluation.coherence,
+            'accuracy': evaluation.accuracy,
+            'agreement': evaluation.agreement,
+            'support_quality': evaluation.support_quality,
+            'preference_score': evaluation.preference_score,
+            'alignment_score': evaluation.alignment_score,
+            'comments': evaluation.comments,
+            'created_at': evaluation.created_at.isoformat()
+        })
+    
+    # Return as JSON download
+    response = jsonify(export_data)
+    response.headers['Content-Disposition'] = f'attachment; filename=experiment_{experiment_id}_results.json'
+    response.headers['Content-Type'] = 'application/json'
+    
+    return response
+
+@experiment_bp.route('/setup_conclusion_prediction')
+def setup_conclusion_prediction():
+    """Alternative route for conclusion prediction setup."""
+    return redirect(url_for('experiment.conclusion_prediction_setup'))

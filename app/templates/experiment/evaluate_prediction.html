@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluate Prediction{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+  .evaluation-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .comparison-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+  }
+  .comparison-card {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .comparison-header {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: bold;
+  }
+  .comparison-content {
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .evaluation-form-section {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 20px;
+  }
+  .form-group-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .prediction-meta {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  .evaluation-scale {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-top: 5px;
+  }
+  .existing-evaluation-alert {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+    margin-bottom: 20px;
+  }
+  .footer-actions {
+    margin-top: 30px;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="evaluation-container">
+  <h1>Evaluate Prediction</h1>
+  
+  <div class="mb-4">
+    <h2>{{ experiment.name }}</h2>
+    <p class="text-muted">{{ experiment.description }}</p>
+    <div class="mt-2">
+      <span class="badge badge-primary">Document: {{ prediction.document.title }}</span>
+      <span class="badge badge-info ml-2">Condition: {{ prediction.condition.title() }}</span>
+      <span class="badge badge-secondary ml-2">Target: {{ prediction.target.title() }}</span>
+    </div>
+  </div>
+  
+  {% if existing_evaluation %}
+  <div class="alert existing-evaluation-alert">
+    <h4>Existing Evaluation Found</h4>
+    <p>You have already evaluated this prediction. You can update your evaluation by modifying the scores below.</p>
+  </div>
+  {% endif %}
+  
+  <div class="comparison-section">
+    <div class="comparison-card">
+      <div class="comparison-header">
+        Original Conclusion
+      </div>
+      <div class="comparison-content">
+        {{ original_conclusion|safe }}
+      </div>
+    </div>
+    
+    <div class="comparison-card">
+      <div class="comparison-header">
+        {{ prediction.condition.title() }} Prediction
+      </div>
+      <div class="comparison-content">
+        {{ prediction.prediction_text|safe }}
+        
+        {% if prediction.condition == 'proethica' and prediction.meta_info and prediction.meta_info.get('mentioned_entities') %}
+        <div class="prediction-meta">
+          <strong>Ontology Entities Mentioned:</strong>
+          {% for entity in prediction.meta_info.get('mentioned_entities', []) %}
+            <span class="badge badge-light">{{ entity }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% if prediction.meta_info and prediction.meta_info.get('validation_metrics') %}
+        <div class="prediction-meta">
+          <strong>Validation Status:</strong> 
+          <span class="badge {% if prediction.meta_info.validation_metrics.get('validation_status') == 'passed' %}badge-success{% else %}badge-warning{% endif %}">
+            {{ prediction.meta_info.validation_metrics.get('validation_status', 'Unknown') }}
+          </span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <form method="POST" class="evaluation-form-section">
+    {{ form.hidden_tag() }}
+    
+    <h3>Evaluation Criteria</h3>
+    <p class="text-muted">Please rate the prediction on the following criteria using a scale of 0-10 (where 10 is excellent).</p>
+    
+    <div class="form-group-row">
+      <div class="form-group">
+        {{ form.reasoning_quality.label(class="form-label") }}
+        {{ form.reasoning_quality(class="form-control", step="0.1") }}
+        <div class="evaluation-scale">Quality and logical flow of ethical reasoning presented</div>
+      </div>
+      
+      <div class="form-group">
+        {{ form.persuasiveness.label(class="form-label") }}
+        {{ form.persuasiveness(class="form-control", step="0.1") }}
+        <div class="evaluation-scale">How convincing and compelling the argument is</div>
+      </div>
+    </div>
+    
+    <div class="form-group-row">
+      <div class="form-group">
+        {{ form.coherence.label(class="form-label") }}
+        {{ form.coherence(class="form-control", step="0.1") }}
+        <div class="evaluation-scale">Internal consistency and clarity of the prediction</div>
+      </div>
+      
+      <div class="form-group">
+        {{ form.support_quality.label(class="form-label") }}
+        {{ form.support_quality(class="form-control", step="0.1") }}
+        <div class="evaluation-scale">Quality of evidence and examples provided</div>
+      </div>
+    </div>
+    
+    <div class="form-group-row">
+      <div class="form-group">
+        {{ form.preference_score.label(class="form-label") }}
+        {{ form.preference_score(class="form-control", step="0.1") }}
+        <div class="evaluation-scale">Overall preference compared to alternatives</div>
+      </div>
+      
+      <div class="form-group">
+        {{ form.alignment_score.label(class="form-label") }}
+        {{ form.alignment_score(class="form-control", step="0.1") }}
+        <div class="evaluation-scale">Alignment with engineering ethics principles</div>
+      </div>
+    </div>
+    
+    <hr>
+    
+    <div class="form-group-row">
+      <div class="form-group">
+        <div class="form-check">
+          {{ form.accuracy(class="form-check-input") }}
+          {{ form.accuracy.label(class="form-check-label") }}
+        </div>
+        <div class="evaluation-scale">Does the prediction match the original conclusion?</div>
+      </div>
+      
+      <div class="form-group">
+        <div class="form-check">
+          {{ form.agreement(class="form-check-input") }}
+          {{ form.agreement.label(class="form-check-label") }}
+        </div>
+        <div class="evaluation-scale">Do you agree with the prediction's conclusion?</div>
+      </div>
+    </div>
+    
+    <div class="form-group">
+      {{ form.comments.label(class="form-label") }}
+      {{ form.comments(class="form-control", rows="4", placeholder="Additional comments about the prediction quality, reasoning, or areas for improvement...") }}
+    </div>
+    
+    <div class="footer-actions">
+      <button type="button" class="btn btn-light" onclick="history.back()">Cancel</button>
+      <button type="submit" class="btn btn-primary">{{ 'Update' if existing_evaluation else 'Submit' }} Evaluation</button>
+    </div>
+  </form>
+  
+  {% if prediction.prompt %}
+  <div class="mt-4">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#prompt-details" aria-expanded="false">
+            Show Prompt Details
+          </button>
+        </h5>
+      </div>
+      <div id="prompt-details" class="collapse">
+        <div class="card-body">
+          <pre class="p-3 bg-light"><code>{{ prediction.prompt }}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    }
+    
+    // Auto-save functionality could be added here
+    const form = document.querySelector('form');
+    const inputs = form.querySelectorAll('input, textarea, select');
+    
+    inputs.forEach(input => {
+      input.addEventListener('change', function() {
+        // Could implement auto-save to localStorage here
+        console.log('Form field changed:', this.name, this.value);
+      });
+    });
+  });
+</script>
+{% endblock %}

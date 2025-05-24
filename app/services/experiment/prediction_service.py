@@ -5,15 +5,12 @@ This service extends the LLM service to support the ProEthica experiment,
 implementing both baseline and enhanced prompting strategies for case prediction.
 
 CRITICAL FIX: Ensures Facts section is always included when available in DocumentSection records.
-ENHANCEMENT: Includes HTML cleaning to remove markup from prompts.
 """
 
 import logging
 import json
-import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-from bs4 import BeautifulSoup
 
 from app.models.document import Document
 from app.models.document_section import DocumentSection
@@ -43,66 +40,11 @@ class PredictionService:
         self.guideline_service = GuidelineSectionService()
         self.triple_association_service = SectionTripleAssociationService()
         
-    def clean_html_content(self, content: str) -> str:
-        """
-        Clean HTML content to produce clean text suitable for LLM prompts.
-        
-        Args:
-            content: Raw content that may contain HTML
-            
-        Returns:
-            Clean text content
-        """
-        if not content:
-            return content
-            
-        # If no HTML tags detected, return as-is
-        if '<' not in content and '>' not in content:
-            return content
-            
-        try:
-            # Use BeautifulSoup to parse and extract text
-            soup = BeautifulSoup(content, 'html.parser')
-            
-            # Handle specific elements for better formatting
-            # Replace <p> tags with double newlines for paragraph separation
-            for p in soup.find_all('p'):
-                p.replace_with('\n\n' + p.get_text() + '\n\n')
-            
-            # Replace <br> tags with single newlines
-            for br in soup.find_all('br'):
-                br.replace_with('\n')
-            
-            # Replace list items with bullet points
-            for li in soup.find_all('li'):
-                li.replace_with('\n• ' + li.get_text())
-            
-            # Replace headers with formatted text
-            for i in range(1, 7):  # h1 through h6
-                for h in soup.find_all(f'h{i}'):
-                    h.replace_with(f'\n\n## {h.get_text()}\n\n')
-            
-            # Extract clean text
-            clean_text = soup.get_text()
-            
-            # Clean up excessive whitespace
-            clean_text = re.sub(r'\n\s*\n\s*\n', '\n\n', clean_text)  # Max 2 consecutive newlines
-            clean_text = re.sub(r'[ \t]+', ' ', clean_text)  # Collapse spaces and tabs
-            clean_text = clean_text.strip()
-            
-            logger.info(f"Cleaned HTML content: {len(content)} chars → {len(clean_text)} chars")
-            return clean_text
-            
-        except Exception as e:
-            logger.warning(f"Failed to clean HTML content: {str(e)}, returning original")
-            return content
-        
     def get_document_sections(self, document_id: int, leave_out_conclusion: bool = True) -> Dict[str, str]:
         """
         Get document sections for a case, optionally excluding the conclusion.
         
-        ENHANCED: Prioritizes clean metadata sections from import process, falls back to DocumentSection records.
-        STRATEGY: Uses the cleanest available text source for each section type.
+        FIXED: Always checks DocumentSection records as primary source or fallback.
         
         Args:
             document_id: ID of the document
@@ -120,123 +62,102 @@ class PredictionService:
         # Initialize sections dictionary
         sections = {}
         
-        # STRATEGY 1: Try metadata sections first (often cleaner from import process)
-        logger.info(f"Checking metadata sections for document {document_id}")
-        
-        metadata_sections = {}
-        if document.doc_metadata and isinstance(document.doc_metadata, dict):
-            metadata = document.doc_metadata
-            
-            # Check for sections in metadata
-            if 'sections' in metadata and isinstance(metadata['sections'], dict):
-                logger.info(f"Found metadata sections for document {document_id}")
-                
-                for section_key, section_content in metadata['sections'].items():
-                    if isinstance(section_content, str) and section_content.strip():
-                        section_type = section_key.lower()
-                        
-                        # Skip conclusion if leave_out_conclusion is True
-                        if leave_out_conclusion and section_type == 'conclusion':
-                            continue
-                            
-                        # Check if this section is already clean (no HTML tags)
-                        if '<' not in section_content and '>' not in section_content:
-                            # Use directly - it's already clean!
-                            metadata_sections[section_type] = section_content.strip()
-                            logger.info(f"✅ Using clean metadata section '{section_type}' ({len(section_content)} chars)")
-                        else:
-                            # Store for potential cleaning if DocumentSection fallback isn't available
-                            metadata_sections[section_type + '_html'] = section_content
-                            logger.info(f"🟡 Metadata section '{section_type}' contains HTML, may need cleaning")
-                            
-            # Check document_structure format as well
-            elif 'document_structure' in metadata and 'sections' in metadata['document_structure']:
-                logger.info(f"Found document_structure sections for document {document_id}")
-                doc_sections = metadata['document_structure']['sections']
-                
-                for section_id, section_data in doc_sections.items():
-                    if isinstance(section_data, dict):
-                        section_type = section_data.get('type', '').lower()
-                        content = section_data.get('content', '')
-                    else:
-                        section_type = 'text'
-                        content = str(section_data)
-                    
-                    if content.strip():
-                        # Skip conclusion if leave_out_conclusion is True
-                        if leave_out_conclusion and section_type == 'conclusion':
-                            continue
-                        
-                        # Check if clean
-                        if '<' not in content and '>' not in content:
-                            metadata_sections[section_type] = content.strip()
-                            logger.info(f"✅ Using clean document_structure section '{section_type}' ({len(content)} chars)")
-                        else:
-                            metadata_sections[section_type + '_html'] = content
-                            logger.info(f"🟡 Document_structure section '{section_type}' contains HTML")
-        
-        # STRATEGY 2: Get DocumentSection records for fallback and HTML sections
-        logger.info(f"Checking DocumentSection records for document {document_id}")
+        # CRITICAL FIX: Always try DocumentSection records first
+        logger.info(f"Getting sections for document {document_id} from DocumentSection records")
         doc_sections = DocumentSection.query.filter_by(document_id=document_id).all()
         
-        docrecord_sections = {}
         if doc_sections:
             logger.info(f"Found {len(doc_sections)} DocumentSection records for document {document_id}")
-            
             for section in doc_sections:
                 section_type = section.section_type.lower() if section.section_type else ''
+                
+                # Skip conclusion if leave_out_conclusion is True
+                if leave_out_conclusion and section_type == 'conclusion':
+                    logger.info(f"Skipping conclusion section for document {document_id}")
+                    continue
+                
+                # Ensure we have content
                 content = section.content or ''
+                
+                # Add or merge section content
+                if section_type in sections:
+                    sections[section_type] += "\n\n" + content
+                else:
+                    sections[section_type] = content
+                    
+                logger.info(f"Added section '{section_type}' with {len(content)} characters")
+        
+        # If we found sections from DocumentSection records, use them
+        if sections:
+            logger.info(f"Retrieved sections from DocumentSection records: {list(sections.keys())}")
+            return sections
+        
+        # Fallback: Try metadata if DocumentSection records are empty
+        logger.warning(f"No DocumentSection records found for document {document_id}, trying metadata")
+        
+        # Get document metadata
+        if not document.doc_metadata or not isinstance(document.doc_metadata, dict):
+            logger.error(f"Document {document_id} has no valid metadata and no DocumentSection records")
+            return {}
+            
+        metadata = document.doc_metadata
+        
+        # Case 1: New format with document_structure
+        if 'document_structure' in metadata and 'sections' in metadata['document_structure']:
+            logger.info(f"Using document_structure format for document {document_id}")
+            doc_sections = metadata['document_structure']['sections']
+            
+            for section_id, section_data in doc_sections.items():
+                # Check if section_data is a dictionary
+                if isinstance(section_data, dict):
+                    section_type = section_data.get('type', '').lower()
+                    content = section_data.get('content', '')
+                else:
+                    # Handle case where section_data is a string
+                    section_type = 'text'
+                    content = str(section_data)
                 
                 # Skip conclusion if leave_out_conclusion is True
                 if leave_out_conclusion and section_type == 'conclusion':
                     continue
-                
-                if content.strip():
-                    # Clean HTML content
-                    clean_content = self.clean_html_content(content)
                     
-                    # Merge with existing content if needed
-                    if section_type in docrecord_sections:
-                        docrecord_sections[section_type] += "\n\n" + clean_content
-                    else:
-                        docrecord_sections[section_type] = clean_content
-                        
-                    logger.info(f"Processed DocumentSection '{section_type}' ({len(clean_content)} clean chars)")
+                # Add or merge section content
+                if section_type in sections:
+                    sections[section_type] += "\n\n" + content
+                else:
+                    sections[section_type] = content
         
-        # STRATEGY 3: Combine the best sources
-        logger.info(f"Combining best sources for document {document_id}")
+        # Case 2: Legacy format with top-level sections
+        elif 'sections' in metadata:
+            logger.info(f"Using legacy sections format for document {document_id}")
+            for section_key, section_data in metadata['sections'].items():
+                # Handle direct string content (Case 252's format)
+                if isinstance(section_data, str):
+                    section_type = section_key.lower()  # Use the key as section type
+                    content = section_data              # Content is the string directly
+                elif isinstance(section_data, dict):
+                    # Handle dictionary format
+                    section_type = section_data.get('type', section_key).lower()
+                    content = section_data.get('content', '')
+                else:
+                    # Handle other formats
+                    section_type = section_key.lower()
+                    content = str(section_data)
+                
+                # Skip conclusion if leave_out_conclusion is True
+                if leave_out_conclusion and section_type == 'conclusion':
+                    continue
+                    
+                # Add or merge section content
+                if section_type in sections:
+                    sections[section_type] += "\n\n" + content
+                else:
+                    sections[section_type] = content
         
-        # Start with clean metadata sections (highest priority)
-        for section_type, content in metadata_sections.items():
-            if not section_type.endswith('_html'):  # Only clean sections
-                sections[section_type] = content
-                logger.info(f"🎯 PRIORITY: Using clean metadata for '{section_type}'")
-        
-        # Add DocumentSection records for sections not in clean metadata
-        for section_type, content in docrecord_sections.items():
-            if section_type not in sections:
-                sections[section_type] = content
-                logger.info(f"📄 FALLBACK: Using DocumentSection for '{section_type}'")
-        
-        # Final fallback: Clean HTML metadata sections if no other source available
-        for section_key, content in metadata_sections.items():
-            if section_key.endswith('_html'):
-                section_type = section_key.replace('_html', '')
-                if section_type not in sections:
-                    clean_content = self.clean_html_content(content)
-                    sections[section_type] = clean_content
-                    logger.info(f"🧹 CLEANED: Using cleaned metadata for '{section_type}'")
-        
-        # Log final results
-        logger.info(f"✅ Final sections for document {document_id}: {list(sections.keys())}")
-        
+        # Log what sections we found for debugging
+        logger.info(f"Final sections for document {document_id}: {list(sections.keys())}")
         if 'facts' in sections:
             logger.info(f"✓ Facts section found with {len(sections['facts'])} characters")
-            # Log source of facts section
-            if 'facts' in metadata_sections and not 'facts'.endswith('_html'):
-                logger.info(f"  📊 Facts source: Clean metadata (no HTML cleaning needed)")
-            else:
-                logger.info(f"  📄 Facts source: DocumentSection records or cleaned metadata")
         else:
             logger.warning(f"❌ Facts section NOT found for document {document_id}")
         
@@ -261,7 +182,7 @@ class PredictionService:
                     'error': f"Document with ID {document_id} not found"
                 }
                 
-            # Get document sections (excluding conclusion) - already HTML cleaned
+            # Get document sections (excluding conclusion)
             sections = self.get_document_sections(document_id, leave_out_conclusion=True)
             
             if not sections:
@@ -276,7 +197,7 @@ class PredictionService:
             # Find similar cases with ontology-enhanced matching
             similar_cases = self._find_similar_cases(document_id, limit=3)
 
-            # Construct specialized conclusion prediction prompt (sections are already clean)
+            # Construct specialized conclusion prediction prompt
             prompt = self._construct_conclusion_prediction_prompt(document, sections, ontology_entities, similar_cases)
 
             # Generate prediction using LLM
@@ -323,17 +244,19 @@ class PredictionService:
         
         Args:
             document: Document object
-            sections: Dictionary of section types to content (already HTML cleaned)
+            sections: Dictionary of section types to content
             ontology_entities: Dictionary of section types to ontology entities
             similar_cases: List of similar cases for precedent
         
         Returns:
             Enhanced prompt string
         """
-        prompt = f"""You are an AI assistant with expertise in engineering ethics, tasked with predicting the conclusion for an engineering ethics case from the National Society of Professional Engineers (NSPE) Board of Ethical Review.
-
-CASE INFORMATION:
-Title: {document.title}"""
+        prompt = f"""
+        You are an AI assistant with expertise in engineering ethics, tasked with predicting the conclusion for an engineering ethics case from the National Society of Professional Engineers (NSPE) Board of Ethical Review.
+        
+        CASE INFORMATION:
+        Title: {document.title}
+        """
         
         # Add FACTS section
         prompt += "\n\n# FACTS:"
@@ -347,12 +270,12 @@ Title: {document.title}"""
         # Add relevant ontology concepts for facts
         fact_entities = ontology_entities.get('facts', [])
         if fact_entities:
-            prompt += "\nRelevant factual concepts:"
+            prompt += "\n\nRelevant factual concepts:"
             # Include up to 5 most relevant fact entities
             for entity in fact_entities[:5]:
                 prompt += f"\n- {entity['subject']} {entity['predicate']} {entity['object']}"
         
-        # Add QUESTION section
+        # Add ISSUES section
         prompt += "\n\n# QUESTION:"
         if 'question' in sections:
             prompt += f"\n{sections['question']}"
@@ -362,7 +285,7 @@ Title: {document.title}"""
         # Add relevant ontology concepts for issues
         issue_entities = ontology_entities.get('question', [])
         if issue_entities:
-            prompt += "\nRelevant ethical issues:"
+            prompt += "\n\nRelevant ethical issues:"
             # Include up to 5 most relevant issue entities
             for entity in issue_entities[:5]:
                 prompt += f"\n- {entity['subject']} {entity['predicate']} {entity['object']}"
@@ -404,17 +327,18 @@ Title: {document.title}"""
         
         # Add conclusion prediction request
         prompt += """
-
-# TASK:
-Based on the information provided, generate the conclusion section for this engineering ethics case.
-
-Your conclusion should:
-1. Clearly state whether the conduct described is ethical or unethical according to the NSPE Code of Ethics
-2. Provide a detailed justification for this determination
-3. Reference specific sections of the NSPE Code of Ethics that support your conclusion
-4. Use formal language appropriate for an official ethics review board decision
-
-Format your conclusion as an official NSPE Board of Ethical Review conclusion paragraph."""
+        
+        # TASK:
+        Based on the information provided, generate the conclusion section for this engineering ethics case.
+        
+        Your conclusion should:
+        1. Clearly state whether the conduct described is ethical or unethical according to the NSPE Code of Ethics
+        2. Provide a detailed justification for this determination
+        3. Reference specific sections of the NSPE Code of Ethics that support your conclusion
+        4. Use formal language appropriate for an official ethics review board decision
+        
+        Format your conclusion as an official NSPE Board of Ethical Review conclusion paragraph.
+        """
         
         return prompt
     
@@ -544,21 +468,13 @@ Format your conclusion as an official NSPE Board of Ethical Review conclusion pa
                         ontology_entities[section_type] = []
 
                     for triple in triples:
-                        # FIXED: Map storage field names to RDF-style format
-                        # Storage returns: concept_uri, concept_label, match_score, created_at
-                        # We need: subject, predicate, object, score, source
-                        
-                        concept_uri = triple.get('concept_uri', '')
-                        concept_label = triple.get('concept_label', '')
-                        match_score = triple.get('match_score', 0.0)
-                        
-                        # Map to expected RDF format
+                        # Extract and process triple components
                         entity = {
-                            'subject': concept_label or concept_uri,  # Use label as subject
-                            'predicate': 'relates_to',  # Generic predicate
-                            'object': concept_uri,  # URI as object
-                            'score': float(match_score) if match_score else 0.0,
-                            'source': 'ontology_association'
+                            'subject': triple.get('subject', ''),
+                            'predicate': triple.get('predicate', ''),
+                            'object': triple.get('object', ''),
+                            'score': triple.get('score', 0.0),
+                            'source': triple.get('source', '')
                         }
                         
                         # Add to section entities
@@ -571,17 +487,6 @@ Format your conclusion as an official NSPE Board of Ethical Review conclusion pa
                     key=lambda x: x.get('score', 0.0),
                     reverse=True
                 )
-                
-            # Log results for debugging
-            total_entities = sum(len(entities) for entities in ontology_entities.values())
-            logger.info(f"✅ ONTOLOGY FIX: Retrieved {total_entities} entities with content")
-            
-            for section_type, entities in ontology_entities.items():
-                if entities:
-                    logger.info(f"   Section '{section_type}': {len(entities)} entities")
-                    # Log first entity as example
-                    first_entity = entities[0]
-                    logger.info(f"     Example: '{first_entity['subject']}' → '{first_entity['object']}' (score: {first_entity['score']})")
                 
             return ontology_entities
                 

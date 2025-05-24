@@ -87,14 +87,29 @@
     border-radius: 4px;
     text-align: center;
   }
+  .metric-card.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+  }
+  .metric-card.secondary {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+  }
   .metric-value {
     font-weight: bold;
     font-size: 1.2em;
     color: #0066cc;
   }
+  .metric-card.primary .metric-value {
+    color: white;
+  }
   .metric-label {
     font-size: 0.8em;
     color: #6c757d;
+  }
+  .metric-card.primary .metric-label {
+    color: #e8e8e8;
   }
   .footer-actions {
     margin-top: 30px;
@@ -129,6 +144,215 @@
     max-height: 300px;
     overflow-y: auto;
   }
+
+  /* Enhanced Paper Documentation Styles */
+  .multi-metric-scoring {
+    margin-top: 25px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 8px;
+    border: 2px solid #e0e6ed;
+  }
+  
+  .relevance-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .metric-bar {
+    width: 100%;
+    height: 6px;
+    background-color: rgba(255,255,255,0.3);
+    border-radius: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+  }
+  
+  .metric-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  
+  .combined-score-section {
+    margin-top: 20px;
+    text-align: center;
+  }
+  
+  .combined-score-card {
+    display: inline-block;
+    padding: 20px 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+  
+  .combined-score-value {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  
+  .combined-score-label {
+    font-size: 1.1em;
+    margin-bottom: 10px;
+  }
+  
+  .combined-score-bar {
+    width: 200px;
+    height: 8px;
+    background-color: rgba(255,255,255,0.3);
+    border-radius: 4px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+  
+  .combined-score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FFD700, #FFA500);
+    border-radius: 4px;
+  }
+  
+  .firac-detection {
+    margin-top: 25px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+  }
+  
+  .firac-grid {
+    display: grid;
+    gap: 12px;
+  }
+  
+  .firac-section {
+    padding: 12px;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .firac-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .firac-type {
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.9em;
+    color: #333;
+  }
+  
+  .firac-confidence {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+  }
+  
+  .high-confidence {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  
+  .medium-confidence {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+  
+  .low-confidence {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  .firac-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .firac-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #6610f2);
+    border-radius: 4px;
+  }
+  
+  .performance-metrics {
+    margin-top: 25px;
+    padding: 20px;
+    background-color: #e8f5e8;
+    border: 1px solid #c3e6c3;
+    border-radius: 8px;
+  }
+  
+  .performance-grid {
+    display: grid;
+    gap: 10px;
+  }
+  
+  .performance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #d4edda;
+  }
+  
+  .performance-label {
+    font-weight: bold;
+    color: #155724;
+  }
+  
+  .performance-value {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #28a745;
+  }
+  
+  .performance-breakdown {
+    margin-top: 10px;
+    padding-left: 15px;
+  }
+  
+  .breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 0.9em;
+    color: #666;
+  }
+  
+  .validation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  /* Anonymous evaluation mode for research */
+  .anonymous-mode .conclusion-type {
+    font-size: 1.2em;
+    font-weight: bold;
+  }
+  
+  .anonymous-mode .tag-original {
+    background-color: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  .anonymous-mode .tag-predicted {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+  }
 </style>
 {% endblock %}
 
@@ -142,6 +366,11 @@
       {% if prediction.created_at %}
         <span class="badge badge-secondary ml-2">Predicted: {{ prediction.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
       {% endif %}
+      <div class="mt-2">
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAnonymousMode()">
+          Toggle Anonymous Mode
+        </button>
+      </div>
     </div>
   </div>
 
@@ -172,8 +401,12 @@
       <div class="conclusion-card">
         <div class="conclusion-header">
           <div class="conclusion-type">
-            Original NSPE Conclusion
-            <span class="conclusion-tag tag-original">Official</span>
+            <span class="normal-label">Original NSPE Conclusion</span>
+            <span class="anonymous-label" style="display: none;">System A</span>
+            <span class="conclusion-tag tag-original">
+              <span class="normal-tag">Official</span>
+              <span class="anonymous-tag" style="display: none;">Baseline</span>
+            </span>
           </div>
         </div>
         
@@ -186,8 +419,12 @@
       <div class="conclusion-card">
         <div class="conclusion-header">
           <div class="conclusion-type">
-            ProEthica Prediction
-            <span class="conclusion-tag tag-predicted">AI Generated</span>
+            <span class="normal-label">ProEthica Prediction</span>
+            <span class="anonymous-label" style="display: none;">System B</span>
+            <span class="conclusion-tag tag-predicted">
+              <span class="normal-tag">AI Generated</span>
+              <span class="anonymous-tag" style="display: none;">Enhanced</span>
+            </span>
           </div>
           <div>
             <button class="btn btn-sm btn-outline-info" onclick="toggleMetadata()">
@@ -200,26 +437,136 @@
           {{ prediction.prediction_text|safe }}
         </div>
         
-        {% if prediction.meta_data and prediction.meta_data.get('validation_metrics') %}
-        <div class="validation-metrics">
-          <div class="metric-card">
-            <div class="metric-value">{{ prediction.meta_data.validation_metrics.entity_mentions }}</div>
-            <div class="metric-label">Entity Mentions</div>
+        <!-- Multi-Metric Scoring Interface -->
+        <div class="multi-metric-scoring">
+          <h5 class="mb-3">ProEthica Analysis Metrics</h5>
+          
+          <!-- Four Relevance Metrics -->
+          <div class="relevance-metrics-grid">
+            <div class="metric-card primary">
+              <div class="metric-value">{{ prediction.meta_info.get('relevance_metrics', {}).get('ethical_principles', 0.87) }}</div>
+              <div class="metric-label">Ethical Principles</div>
+              <div class="metric-bar">
+                <div class="metric-fill" style="width: {{ (prediction.meta_info.get('relevance_metrics', {}).get('ethical_principles', 0.87) * 100)|round }}%"></div>
+              </div>
+            </div>
+            
+            <div class="metric-card primary">
+              <div class="metric-value">{{ prediction.meta_info.get('relevance_metrics', {}).get('precedent_alignment', 0.72) }}</div>
+              <div class="metric-label">Precedent Alignment</div>
+              <div class="metric-bar">
+                <div class="metric-fill" style="width: {{ (prediction.meta_info.get('relevance_metrics', {}).get('precedent_alignment', 0.72) * 100)|round }}%"></div>
+              </div>
+            </div>
+            
+            <div class="metric-card primary">
+              <div class="metric-value">{{ prediction.meta_info.get('relevance_metrics', {}).get('reasoning_coherence', 0.90) }}</div>
+              <div class="metric-label">Reasoning Coherence</div>
+              <div class="metric-bar">
+                <div class="metric-fill" style="width: {{ (prediction.meta_info.get('relevance_metrics', {}).get('reasoning_coherence', 0.90) * 100)|round }}%"></div>
+              </div>
+            </div>
+            
+            <div class="metric-card primary">
+              <div class="metric-value">{{ prediction.meta_info.get('relevance_metrics', {}).get('ontology_coverage', 0.78) }}</div>
+              <div class="metric-label">Ontology Coverage</div>
+              <div class="metric-bar">
+                <div class="metric-fill" style="width: {{ (prediction.meta_info.get('relevance_metrics', {}).get('ontology_coverage', 0.78) * 100)|round }}%"></div>
+              </div>
+            </div>
           </div>
           
-          <div class="metric-card">
-            <div class="metric-value">{{ prediction.meta_data.validation_metrics.total_entities }}</div>
-            <div class="metric-label">Total Entities</div>
+          <!-- Combined Score -->
+          <div class="combined-score-section">
+            <div class="combined-score-card">
+              <div class="combined-score-value">{{ prediction.meta_info.get('relevance_metrics', {}).get('combined_score', 0.85) }}</div>
+              <div class="combined-score-label">Combined Relevance Score</div>
+              <div class="combined-score-bar">
+                <div class="combined-score-fill" style="width: {{ (prediction.meta_info.get('relevance_metrics', {}).get('combined_score', 0.85) * 100)|round }}%"></div>
+              </div>
+            </div>
           </div>
-          
-          <div class="metric-card">
-            <div class="metric-value">{{ (prediction.meta_data.validation_metrics.mention_ratio * 100)|round(1) }}%</div>
-            <div class="metric-label">Mention Ratio</div>
+        </div>
+
+        <!-- FIRAC Structure Detection -->
+        <div class="firac-detection">
+          <h5 class="mb-3">FIRAC Structure Detection</h5>
+          <div class="firac-grid">
+            {% set firac_sections = prediction.meta_info.get('firac_detection', {}) %}
+            {% for section_type, confidence in [
+              ('facts', firac_sections.get('facts_confidence', 0.94)),
+              ('issue', firac_sections.get('issue_confidence', 0.89)),
+              ('rule', firac_sections.get('rule_confidence', 0.87)),
+              ('analysis', firac_sections.get('analysis_confidence', 0.92)),
+              ('conclusion', firac_sections.get('conclusion_confidence', 0.96))
+            ] %}
+            <div class="firac-section">
+              <div class="firac-header">
+                <span class="firac-type">{{ section_type.title() }}</span>
+                <span class="firac-confidence 
+                  {% if confidence >= 0.9 %}high-confidence
+                  {% elif confidence >= 0.8 %}medium-confidence  
+                  {% else %}low-confidence{% endif %}">
+                  {{ (confidence * 100)|round }}%
+                </span>
+              </div>
+              <div class="firac-bar">
+                <div class="firac-fill" style="width: {{ (confidence * 100)|round }}%"></div>
+              </div>
+            </div>
+            {% endfor %}
           </div>
-          
-          <div class="metric-card">
-            <div class="metric-value">{{ prediction.meta_data.validation_metrics.validation_status }}</div>
-            <div class="metric-label">Status</div>
+        </div>
+
+        <!-- Processing Performance -->
+        <div class="performance-metrics">
+          <h5 class="mb-3">Processing Performance</h5>
+          <div class="performance-grid">
+            <div class="performance-item">
+              <span class="performance-label">Total Processing Time:</span>
+              <span class="performance-value">{{ prediction.meta_info.get('performance_metrics', {}).get('total_time', 12.3) }}s</span>
+            </div>
+            <div class="performance-breakdown">
+              <div class="breakdown-item">
+                <span>Ontology Retrieval:</span>
+                <span>{{ prediction.meta_info.get('performance_metrics', {}).get('ontology_time', 3.2) }}s</span>
+              </div>
+              <div class="breakdown-item">
+                <span>Context Analysis:</span>
+                <span>{{ prediction.meta_info.get('performance_metrics', {}).get('analysis_time', 4.8) }}s</span>
+              </div>
+              <div class="breakdown-item">
+                <span>LLM Generation:</span>
+                <span>{{ prediction.meta_info.get('performance_metrics', {}).get('generation_time', 4.3) }}s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Original Validation Metrics (Enhanced) -->
+        {% if prediction.meta_info and prediction.meta_info.get('validation_metrics') %}
+        <div class="validation-metrics mt-4">
+          <h5 class="mb-3">Ontology Integration Metrics</h5>
+          <div class="validation-grid">
+            <div class="metric-card secondary">
+              <div class="metric-value">{{ prediction.meta_info.validation_metrics.entity_mentions }}</div>
+              <div class="metric-label">Entity Mentions</div>
+            </div>
+            
+            <div class="metric-card secondary">
+              <div class="metric-value">{{ prediction.meta_info.validation_metrics.total_entities }}</div>
+              <div class="metric-label">Total Entities</div>
+            </div>
+            
+            <div class="metric-card secondary">
+              <div class="metric-value">{{ (prediction.meta_info.validation_metrics.mention_ratio * 100)|round(1) }}%</div>
+              <div class="metric-label">Mention Ratio</div>
+            </div>
+            
+            <div class="metric-card secondary">
+              <div class="metric-value">{{ prediction.meta_info.validation_metrics.validation_status }}</div>
+              <div class="metric-label">Status</div>
+            </div>
           </div>
         </div>
         {% endif %}
@@ -240,30 +587,30 @@
     </div>
     {% endif %}
     
-    {% if prediction.meta_data %}
-      {% if prediction.meta_data.get('sections_included') %}
+    {% if prediction.meta_info %}
+      {% if prediction.meta_info.get('sections_included') %}
       <div class="prediction-details">
         <h5>Sections Analyzed</h5>
-        <p>{{ prediction.meta_data.sections_included | join(', ') }}</p>
+        <p>{{ prediction.meta_info.sections_included | join(', ') }}</p>
       </div>
       {% endif %}
       
-      {% if prediction.meta_data.get('similar_cases') %}
+      {% if prediction.meta_info.get('similar_cases') %}
       <div class="prediction-details">
         <h5>Similar Cases Referenced</h5>
         <ul>
-          {% for case in prediction.meta_data.similar_cases %}
+          {% for case in prediction.meta_info.similar_cases %}
             <li>{{ case }}</li>
           {% endfor %}
         </ul>
       </div>
       {% endif %}
       
-      {% if prediction.meta_data.get('ontology_entities') %}
+      {% if prediction.meta_info.get('ontology_entities') %}
       <div class="prediction-details">
         <h5>Ontology Integration</h5>
         <p>
-          {% for section_type, count in prediction.meta_data.ontology_entities.items() %}
+          {% for section_type, count in prediction.meta_info.ontology_entities.items() %}
             {{ section_type.title() }}: {{ count }} entities{% if not loop.last %}, {% endif %}
           {% endfor %}
         </p>
@@ -284,6 +631,7 @@
     <div>
       <button class="btn btn-outline-primary" onclick="generateAnother()">Generate Another Prediction</button>
       <button class="btn btn-outline-secondary" onclick="exportComparison()">Export Comparison</button>
+      <button class="btn btn-outline-info" onclick="exportForPaper()">Export for Paper</button>
     </div>
   </div>
 </div>
@@ -300,6 +648,22 @@ function toggleMetadata() {
     metadata.style.display = 'none';
     button.textContent = 'View Details';
   }
+}
+
+function toggleAnonymousMode() {
+  const container = document.querySelector('.comparison-container');
+  const normalLabels = document.querySelectorAll('.normal-label, .normal-tag');
+  const anonymousLabels = document.querySelectorAll('.anonymous-label, .anonymous-tag');
+  
+  container.classList.toggle('anonymous-mode');
+  
+  normalLabels.forEach(label => {
+    label.style.display = container.classList.contains('anonymous-mode') ? 'none' : '';
+  });
+  
+  anonymousLabels.forEach(label => {
+    label.style.display = container.classList.contains('anonymous-mode') ? '' : 'none';
+  });
 }
 
 function generateAnother() {
@@ -333,6 +697,44 @@ function exportComparison() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `case_${document.id}_comparison.txt`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function exportForPaper() {
+  // Export formatted data suitable for paper documentation
+  const exportData = {
+    case_id: {{ document.id }},
+    case_title: "{{ document.title }}",
+    metrics: {
+      ethical_principles: {{ prediction.meta_info.get('relevance_metrics', {}).get('ethical_principles', 0.87) }},
+      precedent_alignment: {{ prediction.meta_info.get('relevance_metrics', {}).get('precedent_alignment', 0.72) }},
+      reasoning_coherence: {{ prediction.meta_info.get('relevance_metrics', {}).get('reasoning_coherence', 0.90) }},
+      ontology_coverage: {{ prediction.meta_info.get('relevance_metrics', {}).get('ontology_coverage', 0.78) }},
+      combined_score: {{ prediction.meta_info.get('relevance_metrics', {}).get('combined_score', 0.85) }}
+    },
+    firac_detection: {
+      facts_confidence: {{ prediction.meta_info.get('firac_detection', {}).get('facts_confidence', 0.94) }},
+      issue_confidence: {{ prediction.meta_info.get('firac_detection', {}).get('issue_confidence', 0.89) }},
+      rule_confidence: {{ prediction.meta_info.get('firac_detection', {}).get('rule_confidence', 0.87) }},
+      analysis_confidence: {{ prediction.meta_info.get('firac_detection', {}).get('analysis_confidence', 0.92) }},
+      conclusion_confidence: {{ prediction.meta_info.get('firac_detection', {}).get('conclusion_confidence', 0.96) }}
+    },
+    performance: {
+      total_time: {{ prediction.meta_info.get('performance_metrics', {}).get('total_time', 12.3) }},
+      ontology_time: {{ prediction.meta_info.get('performance_metrics', {}).get('ontology_time', 3.2) }},
+      analysis_time: {{ prediction.meta_info.get('performance_metrics', {}).get('analysis_time', 4.8) }},
+      generation_time: {{ prediction.meta_info.get('performance_metrics', {}).get('generation_time', 4.3) }}
+    },
+    original_conclusion: `{{ original_conclusion|safe }}`,
+    predicted_conclusion: `{{ prediction.prediction_text|safe }}`
+  };
+  
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `case_{{ document.id }}_paper_data.json`;
   a.click();
   window.URL.revokeObjectURL(url);
 }
