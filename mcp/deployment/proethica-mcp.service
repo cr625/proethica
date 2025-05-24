@@ -1,0 +1,21 @@
+[Unit]
+Description=ProEthica MCP Server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/your/ai-ethical-dm
+Environment="PATH=/path/to/your/venv/bin"
+Environment="MCP_SERVER_PORT=5001"
+Environment="USE_MOCK_GUIDELINE_RESPONSES=false"
+EnvironmentFile=/etc/proethica/mcp.env
+ExecStart=/path/to/your/venv/bin/python mcp/run_enhanced_mcp_server_with_guidelines.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/proethica/mcp-server.log
+StandardError=append:/var/log/proethica/mcp-server-error.log
+
+[Install]
+WantedBy=multi-user.target
