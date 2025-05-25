@@ -36,6 +36,17 @@
                                             <th scope="row">Year</th>
                                             <td>{{ result.year|default('Not found') }}</td>
                                         </tr>
+                                        {% if result.full_date %}
+                                        <tr>
+                                            <th scope="row">Date</th>
+                                            <td>
+                                                {{ result.full_date }}
+                                                {% if result.date_parts and result.date_parts.iso_date %}
+                                                <small class="text-muted">({{ result.date_parts.iso_date }})</small>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endif %}
                                         <tr>
                                             <th scope="row">PDF Link</th>
                                             <td>
@@ -193,6 +204,12 @@
                                 <input type="hidden" name="title" value="{{ result.title }}">
                                 <input type="hidden" name="case_number" value="{{ result.case_number }}">
                                 <input type="hidden" name="year" value="{{ result.year }}">
+                                {% if result.full_date %}
+                                <input type="hidden" name="full_date" value="{{ result.full_date }}">
+                                {% endif %}
+                                {% if result.date_parts %}
+                                <input type="hidden" name="date_parts" value="{{ result.date_parts|tojson|e }}">
+                                {% endif %}
                                 <input type="hidden" name="world_id" value="1">
 
                                 <!-- Include all extracted content sections -->

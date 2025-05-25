@@ -46,6 +46,7 @@ The case processing pipeline transforms engineering ethics cases (primarily NSPE
 - **Extracts**:
   - Case number (e.g., "23-4")
   - Year (derived from case number or page content)
+  - Full date (e.g., "Wednesday, June 14, 2023" with parsed components)
   - Title
   - Facts section
   - Questions (as list if multiple)

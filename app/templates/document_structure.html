@@ -69,6 +69,13 @@
             {% if document.doc_metadata.get('year') %}
             <p><strong>Year:</strong> {{ document.doc_metadata.get('year') }}</p>
             {% endif %}
+            {% if document.doc_metadata.get('full_date') %}
+            <p><strong>Date:</strong> {{ document.doc_metadata.get('full_date') }}
+                {% if document.doc_metadata.get('date_parts', {}).get('iso_date') %}
+                <small class="text-muted">({{ document.doc_metadata.get('date_parts', {}).get('iso_date') }})</small>
+                {% endif %}
+            </p>
+            {% endif %}
             {% if document.doc_metadata.get('document_structure', {}).get('annotation_timestamp') %}
             <p><strong>Structure Annotation Timestamp:</strong> {{ document.doc_metadata.get('document_structure',
                 {}).get('annotation_timestamp') }}</p>

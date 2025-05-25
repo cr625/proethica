@@ -358,6 +358,8 @@ def process_url_pipeline():
         title = final_result.get('title', 'Case from URL')
         case_number = final_result.get('case_number', '')
         year = final_result.get('year', '')
+        full_date = final_result.get('full_date')
+        date_parts = final_result.get('date_parts')
         pdf_url = final_result.get('pdf_url', '')
         facts = final_result.get('sections', {}).get('facts', '')
         question_html = final_result.get('sections', {}).get('question', '')
@@ -501,6 +503,8 @@ def process_url_pipeline():
         metadata = {
             'case_number': case_number,
             'year': year,
+            'full_date': full_date,
+            'date_parts': date_parts,
             'pdf_url': pdf_url,
             'sections': {
                 'facts': facts,
@@ -1103,6 +1107,17 @@ def save_and_view_case():
     title = request.form.get('title')
     case_number = request.form.get('case_number')
     year = request.form.get('year')
+    full_date = request.form.get('full_date')
+    
+    # Try to parse date_parts if provided
+    date_parts = None
+    try:
+        import json
+        date_parts_str = request.form.get('date_parts')
+        if date_parts_str:
+            date_parts = json.loads(date_parts_str)
+    except Exception as e:
+        print(f"Warning: Error parsing date_parts: {str(e)}")
     
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
@@ -1333,6 +1348,8 @@ def save_and_view_case():
         metadata = {
             'case_number': case_number,
             'year': year,
+            'full_date': full_date,
+            'date_parts': date_parts,
             'pdf_url': pdf_url,
             'sections': {
                 'facts': facts,

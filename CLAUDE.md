@@ -122,6 +122,55 @@ Added comprehensive support for "Dissenting Opinion" sections found in some NSPE
 - **README**: Updated case processing pipeline documentation
 - **CLAUDE.md**: Added dissenting opinion to case parsing description
 
+## Full Date Extraction Support (2025-01-24)
+
+### Enhancement Overview
+Added comprehensive support for extracting and storing full dates from NSPE cases:
+
+### 1. Date Extraction Logic
+- **New Method**: `extract_full_date()` in NSPECaseExtractionStep
+- **Field Detection**: Looks for `field--name-field-year` div structure
+- **Multiple Formats Supported**:
+  - "Wednesday, June 14, 2023" (full weekday format)
+  - "June 14, 2023" (standard US format)
+  - "14 June 2023" (international format)
+  - "2023-06-14" (ISO format)
+- **Fallback**: Extracts year even if full date parsing fails
+
+### 2. Date Storage Structure
+- **full_date**: Original date string as displayed on page
+- **date_parts**: Parsed components including:
+  - `year`: Integer year value
+  - `month`: Integer month (1-12)
+  - `month_name`: Full month name (e.g., "June")
+  - `day`: Day of month
+  - `weekday`: Day name if available (e.g., "Wednesday")
+  - `iso_date`: Standard ISO format (YYYY-MM-DD)
+
+### 3. Display Integration
+- **Template Updates**: Shows full date in case metadata table
+- **ISO Format**: Displays standardized date in small text
+- **Form Integration**: Passes full date and date_parts through save forms
+
+### 4. Route Updates
+- **process_url_pipeline**: Extracts and stores full date in metadata
+- **save_and_view_case**: Handles full_date and date_parts from form submission
+- **Metadata Storage**: Both fields stored in case doc_metadata
+
+### 5. Benefits
+- **Better Temporal Context**: Full dates provide complete temporal information
+- **Standardized Storage**: ISO format enables date-based queries and sorting
+- **Preserved Original**: Keeps original format for display fidelity
+- **Backward Compatible**: Still extracts year if full date unavailable
+
+### 6. Template Updates (2025-01-24)
+- **case_detail.html**: Added full date display as info badge with calendar icon
+- **document_structure.html**: Shows full date with ISO format in Document Information card
+- **Note**: Found that `case_extracted_content.html` is not currently attached to any route
+  - Template appears designed to preview extracted content before saving
+  - Currently, the system directly saves cases without preview step
+  - Could be connected to improve user experience in future
+
 ## Next Steps
 - Process remaining cases with enhanced pipeline
 - Test similarity search with granular fact/discussion items

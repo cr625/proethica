@@ -122,6 +122,102 @@ class NSPECaseExtractionStep(BaseStep):
             return year_match.group(1)
             
         return None
+    
+    def extract_full_date(self, soup):
+        """
+        Extract full date from the page, typically found in Year field.
+        Handles formats like "Wednesday, June 14, 2023" or "June 14, 2023".
+        
+        Args:
+            soup: BeautifulSoup object of the page
+            
+        Returns:
+            dict: Contains 'full_date' string and parsed 'date_parts' or None
+        """
+        # First, try to find the Year field in the modern NSPE case structure
+        year_div = soup.find('div', class_='field--name-field-year')
+        if year_div:
+            field_item = year_div.find('div', class_='field__item')
+            if field_item:
+                date_text = field_item.get_text().strip()
+                
+                # Try to parse the date
+                import re
+                from datetime import datetime
+                
+                # Common date patterns in NSPE cases
+                patterns = [
+                    # "Wednesday, June 14, 2023"
+                    (r'(\w+),\s+(\w+)\s+(\d{1,2}),\s+(\d{4})', '%A, %B %d, %Y'),
+                    # "June 14, 2023"
+                    (r'(\w+)\s+(\d{1,2}),\s+(\d{4})', '%B %d, %Y'),
+                    # "14 June 2023"
+                    (r'(\d{1,2})\s+(\w+)\s+(\d{4})', '%d %B %Y'),
+                    # "2023-06-14"
+                    (r'(\d{4})-(\d{2})-(\d{2})', '%Y-%m-%d'),
+                ]
+                
+                for pattern, date_format in patterns:
+                    match = re.search(pattern, date_text)
+                    if match:
+                        try:
+                            # Try to parse with datetime to validate
+                            parsed_date = datetime.strptime(match.group(0), date_format)
+                            
+                            return {
+                                'full_date': date_text,
+                                'formatted_date': match.group(0),
+                                'date_parts': {
+                                    'year': parsed_date.year,
+                                    'month': parsed_date.month,
+                                    'month_name': parsed_date.strftime('%B'),
+                                    'day': parsed_date.day,
+                                    'weekday': parsed_date.strftime('%A') if '%A' in date_format else None,
+                                    'iso_date': parsed_date.strftime('%Y-%m-%d')
+                                }
+                            }
+                        except ValueError:
+                            # Date didn't parse correctly, continue trying other patterns
+                            continue
+                
+                # If no patterns matched but we have text, return it as-is
+                if date_text:
+                    # Try to extract just the year as fallback
+                    year_match = re.search(r'\b(19\d{2}|20\d{2})\b', date_text)
+                    if year_match:
+                        return {
+                            'full_date': date_text,
+                            'formatted_date': None,
+                            'date_parts': {
+                                'year': int(year_match.group(1)),
+                                'month': None,
+                                'month_name': None,
+                                'day': None,
+                                'weekday': None,
+                                'iso_date': None
+                            }
+                        }
+                    return {
+                        'full_date': date_text,
+                        'formatted_date': None,
+                        'date_parts': None
+                    }
+        
+        # Try to find date in other common locations
+        # Look for "Year:" label pattern
+        field_labels = soup.find_all('div', class_='field__label')
+        for label in field_labels:
+            if 'year' in label.get_text().strip().lower():
+                parent = label.parent
+                if parent:
+                    field_item = parent.find('div', class_='field__item')
+                    if field_item:
+                        date_text = field_item.get_text().strip()
+                        # Recursively call with a mini soup to reuse the parsing logic
+                        mini_soup = BeautifulSoup(f'<div class="field--name-field-year"><div class="field__item">{date_text}</div></div>', 'html.parser')
+                        return self.extract_full_date(mini_soup)
+        
+        return None
         
     def extract_facts_section(self, soup):
         """Extract the facts section using specific HTML structure."""
@@ -875,6 +971,18 @@ class NSPECaseExtractionStep(BaseStep):
             case_number = self.extract_case_number(soup)
             year = self.extract_year(soup, case_number)
             
+            # Extract full date information if available
+            date_info = self.extract_full_date(soup)
+            full_date = None
+            date_parts = None
+            
+            if date_info:
+                full_date = date_info.get('full_date')
+                date_parts = date_info.get('date_parts')
+                # If we got a better year from the full date, use it
+                if date_parts and date_parts.get('year'):
+                    year = str(date_parts['year'])
+            
             # Extract major sections with links preserved
             facts = self.extract_facts_section(soup)
             if not facts:
@@ -996,6 +1104,8 @@ class NSPECaseExtractionStep(BaseStep):
                 'title': title,
                 'case_number': case_number,
                 'year': year,
+                'full_date': full_date,  # Full date string if available
+                'date_parts': date_parts,  # Parsed date components
                 'pdf_url': pdf_url,
                 'questions_list': questions_list,  # List of individual questions
                 'conclusion_items': conclusion_items,  # List of individual conclusion items
