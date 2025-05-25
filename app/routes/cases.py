@@ -60,6 +60,30 @@ def list_cases():
                     # and log the issue
                     print(f"Warning: doc_metadata for document {doc.id} is not a dictionary: {type(doc.doc_metadata)}")
             
+            # Extract year from metadata or case number
+            year = metadata.get('year', '')
+            if not year and metadata.get('case_number'):
+                # Try to extract year from case number (e.g., "23-4" -> "2023")
+                case_num = metadata.get('case_number', '')
+                if '-' in case_num:
+                    year_prefix = case_num.split('-')[0]
+                    if len(year_prefix) == 2:
+                        century = "20" if int(year_prefix) < 50 else "19"
+                        year = century + year_prefix
+            
+            # Extract questions and conclusions
+            questions_list = metadata.get('questions_list', [])
+            conclusion_items = metadata.get('conclusion_items', [])
+            
+            # If lists are empty, try to extract from sections
+            if not questions_list and metadata.get('sections', {}).get('question'):
+                # Simple extraction - just use the HTML content as a single question
+                questions_list = [metadata['sections']['question']]
+            
+            if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
+                # Simple extraction - just use the HTML content as a single conclusion
+                conclusion_items = [metadata['sections']['conclusion']]
+            
             # Create case object
             case = {
                 'id': doc.id,
@@ -70,7 +94,12 @@ def list_cases():
                 'ethical_analysis': metadata.get('ethical_analysis', ''),
                 'source': doc.source,
                 'document_id': doc.id,
-                'is_document': True
+                'is_document': True,
+                'year': year,
+                'questions_list': questions_list,
+                'conclusion_items': conclusion_items,
+                'case_number': metadata.get('case_number', ''),
+                'full_date': metadata.get('full_date', '')
             }
             
             cases.append(case)
@@ -78,12 +107,32 @@ def list_cases():
     except Exception as e:
         error = str(e)
     
+    # Group cases by year
+    from collections import defaultdict
+    cases_by_year = defaultdict(list)
+    
+    for case in cases:
+        year = case.get('year', 'Unknown')
+        if not year:
+            year = 'Unknown'
+        cases_by_year[year].append(case)
+    
+    # Sort years in descending order (most recent first)
+    sorted_years = sorted(cases_by_year.keys(), reverse=True, key=lambda x: x if x != 'Unknown' else '0')
+    
+    # Create ordered dictionary to maintain sort order
+    from collections import OrderedDict
+    grouped_cases = OrderedDict()
+    for year in sorted_years:
+        grouped_cases[year] = sorted(cases_by_year[year], key=lambda x: x.get('case_number', ''))
+    
     # Get all worlds for the filter dropdown
     worlds = World.query.all()
     
     return render_template(
         'cases.html',
         cases=cases,
+        grouped_cases=grouped_cases,
         worlds=worlds,
         selected_world_id=world_id,
         query=query,
@@ -142,6 +191,28 @@ def search_cases():
                         # and log the issue
                         print(f"Warning: doc_metadata for document {document.id} is not a dictionary: {type(document.doc_metadata)}")
                 
+                # Extract year from metadata or case number
+                year = metadata.get('year', '')
+                if not year and metadata.get('case_number'):
+                    # Try to extract year from case number (e.g., "23-4" -> "2023")
+                    case_num = metadata.get('case_number', '')
+                    if '-' in case_num:
+                        year_prefix = case_num.split('-')[0]
+                        if len(year_prefix) == 2:
+                            century = "20" if int(year_prefix) < 50 else "19"
+                            year = century + year_prefix
+                
+                # Extract questions and conclusions
+                questions_list = metadata.get('questions_list', [])
+                conclusion_items = metadata.get('conclusion_items', [])
+                
+                # If lists are empty, try to extract from sections
+                if not questions_list and metadata.get('sections', {}).get('question'):
+                    questions_list = [metadata['sections']['question']]
+                
+                if not conclusion_items and metadata.get('sections', {}).get('conclusion'):
+                    conclusion_items = [metadata['sections']['conclusion']]
+                
                 # Create case object
                 case = {
                     'id': document.id,
@@ -154,7 +225,12 @@ def search_cases():
                     'document_id': document.id,
                     'is_document': True,
                     'similarity_score': 1.0 - chunk.get('distance', 0.0),
-                    'matching_chunk': chunk.get('chunk_text', '')
+                    'matching_chunk': chunk.get('chunk_text', ''),
+                    'year': year,
+                    'questions_list': questions_list,
+                    'conclusion_items': conclusion_items,
+                    'case_number': metadata.get('case_number', ''),
+                    'full_date': metadata.get('full_date', '')
                 }
                 
                 cases.append(case)
@@ -163,16 +239,38 @@ def search_cases():
     except Exception as e:
         error = str(e)
     
+    # Group cases by year
+    from collections import defaultdict, OrderedDict
+    grouped_by_year = defaultdict(list)
+    unknown_year_cases = []
+    
+    for case in cases:
+        year = case.get('year')
+        if year:
+            grouped_by_year[year].append(case)
+        else:
+            unknown_year_cases.append(case)
+    
+    # Sort years in descending order and create ordered dict
+    grouped_cases = OrderedDict()
+    for year in sorted(grouped_by_year.keys(), reverse=True):
+        grouped_cases[year] = grouped_by_year[year]
+    
+    # Add unknown year cases at the end if any
+    if unknown_year_cases:
+        grouped_cases['Unknown Year'] = unknown_year_cases
+    
     # Get all worlds for the filter dropdown
     worlds = World.query.all()
     
     return render_template(
         'cases.html',
-        cases=cases,
+        grouped_cases=grouped_cases,
         worlds=worlds,
         selected_world_id=world_id,
         query=query,
-        error=error
+        error=error,
+        search_results=True
     )
 
 @cases_bp.route('/<int:id>', methods=['GET'])
