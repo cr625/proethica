@@ -364,6 +364,7 @@ def process_url_pipeline():
         references = final_result.get('sections', {}).get('references', '')
         discussion = final_result.get('sections', {}).get('discussion', '')
         conclusion = final_result.get('sections', {}).get('conclusion', '')
+        dissenting_opinion = final_result.get('sections', {}).get('dissenting_opinion', '')
         
         # Get structured list data
         questions_list = final_result.get('questions_list', [])
@@ -479,6 +480,23 @@ def process_url_pipeline():
 </div>
 """
         
+        # Dissenting Opinion section
+        if dissenting_opinion:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">Dissenting Opinion</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{dissenting_opinion}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
         # Store original sections in metadata for future reference
         metadata = {
             'case_number': case_number,
@@ -489,7 +507,8 @@ def process_url_pipeline():
                 'question': question_html,
                 'references': references,
                 'discussion': discussion,
-                'conclusion': conclusion
+                'conclusion': conclusion,
+                'dissenting_opinion': dissenting_opinion
             },
             'questions_list': questions_list,
             'conclusion_items': conclusion_items,
@@ -1117,6 +1136,7 @@ def save_and_view_case():
         references = request.form.get('references', '')
         discussion = request.form.get('discussion', '')
         conclusion = request.form.get('conclusion', '')
+        dissenting_opinion = request.form.get('dissenting_opinion', '')
         pdf_url = request.form.get('pdf_url', '')
         
         # Try to parse JSON lists if available
@@ -1292,6 +1312,23 @@ def save_and_view_case():
 </div>
 """
         
+        # Dissenting Opinion section
+        if dissenting_opinion:
+            html_content += f"""
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">Dissenting Opinion</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{dissenting_opinion}</p>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        
         # Store original sections in metadata for future reference
         metadata = {
             'case_number': case_number,
@@ -1302,7 +1339,8 @@ def save_and_view_case():
                 'question': question_html,
                 'references': references,
                 'discussion': discussion,
-                'conclusion': conclusion
+                'conclusion': conclusion,
+                'dissenting_opinion': dissenting_opinion
             },
             'questions_list': questions_list,
             'conclusion_items': conclusion_items,

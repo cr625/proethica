@@ -349,6 +349,46 @@ class NSPECaseExtractionStep(BaseStep):
         # Return just the HTML for backward compatibility
         return conclusion_html
     
+    def extract_dissenting_opinion_section(self, soup, base_url=None):
+        """
+        Extract dissenting opinion section using specific HTML structure.
+        Some NSPE cases include dissenting opinions from board members.
+        
+        Args:
+            soup: BeautifulSoup object of the full page content
+            base_url: Base URL for converting relative links to absolute
+            
+        Returns:
+            str: Extracted dissenting opinion HTML content or None if not found
+        """
+        # First try the specific div structure for modern NSPE cases
+        dissenting_div = soup.find('div', class_='field--name-field-dissenting-opinion')
+        if dissenting_div:
+            # Find the field__item which contains the actual content
+            field_item = dissenting_div.find('div', class_='field__item')
+            if field_item:
+                # Process the content for links and formatting
+                return self._process_discussion_html(str(field_item), base_url)
+        
+        # Next, try to find by field label
+        field_labels = soup.find_all('div', class_='field__label')
+        for label in field_labels:
+            label_text = label.get_text().strip().lower()
+            if 'dissenting opinion' in label_text:
+                # Found the dissenting opinion label, get the content from the nearest field__item
+                parent = label.parent
+                if parent:
+                    field_item = parent.find('div', class_='field__item')
+                    if field_item:
+                        return self._process_discussion_html(str(field_item), base_url)
+        
+        # Fall back to general section extraction method if specialized methods fail
+        dissenting_html = self.extract_section(soup, "Dissenting Opinion:", [], base_url)
+        if not dissenting_html:
+            dissenting_html = self.extract_section(soup, "DISSENTING OPINION:", [], base_url)
+            
+        return dissenting_html
+    
     def _process_discussion_html(self, html, base_url=None):
         """
         Process discussion section HTML to properly handle links and formatting.
@@ -885,12 +925,24 @@ class NSPECaseExtractionStep(BaseStep):
             else:
                 conclusion_html = conclusion_data
                 
+            # Extract dissenting opinion section (if present)
+            dissenting_opinion = self.extract_dissenting_opinion_section(soup, base_url)
+                
+            # Store raw content for text extraction before cleaning
+            raw_facts = facts
+            raw_question_html = question_html
+            raw_references = references
+            raw_discussion = discussion
+            raw_conclusion_html = conclusion_html
+            raw_dissenting_opinion = dissenting_opinion
+            
             # Clean sections while preserving links
             facts = self.clean_section_text(facts)
             question_html = self.clean_section_text(question_html)
             references = self.clean_section_text(references)
             discussion = self.clean_section_text(discussion)
             conclusion_html = self.clean_section_text(conclusion_html)
+            dissenting_opinion = self.clean_section_text(dissenting_opinion)
             
             # Extract title
             title = None
@@ -915,23 +967,27 @@ class NSPECaseExtractionStep(BaseStep):
             sections_dual = {
                 'facts': {
                     'html': facts,
-                    'text': self.extract_text_only(facts) if facts else ''
+                    'text': self.extract_text_only(raw_facts) if raw_facts else ''
                 },
                 'question': {
                     'html': question_html,
-                    'text': self.extract_text_only(question_html) if question_html else ''
+                    'text': self.extract_text_only(raw_question_html) if raw_question_html else ''
                 },
                 'references': {
                     'html': references,
-                    'text': self.extract_text_only(references) if references else ''
+                    'text': self.extract_text_only(raw_references) if raw_references else ''
                 },
                 'discussion': {
                     'html': discussion,
-                    'text': self.extract_text_only(discussion) if discussion else ''
+                    'text': self.extract_text_only(raw_discussion) if raw_discussion else ''
                 },
                 'conclusion': {
                     'html': conclusion_html,
-                    'text': self.extract_text_only(conclusion_html) if conclusion_html else ''
+                    'text': self.extract_text_only(raw_conclusion_html) if raw_conclusion_html else ''
+                },
+                'dissenting_opinion': {
+                    'html': dissenting_opinion,
+                    'text': self.extract_text_only(raw_dissenting_opinion) if raw_dissenting_opinion else ''
                 }
             }
             
@@ -949,7 +1005,8 @@ class NSPECaseExtractionStep(BaseStep):
                     'question': question_html,
                     'references': references,
                     'discussion': discussion,
-                    'conclusion': conclusion_html
+                    'conclusion': conclusion_html,
+                    'dissenting_opinion': dissenting_opinion
                 },
                 'sections_dual': sections_dual,  # New dual format
                 'sections_text': {  # Convenience access to text versions
@@ -957,7 +1014,8 @@ class NSPECaseExtractionStep(BaseStep):
                     'question': sections_dual['question']['text'],
                     'references': sections_dual['references']['text'],
                     'discussion': sections_dual['discussion']['text'],
-                    'conclusion': sections_dual['conclusion']['text']
+                    'conclusion': sections_dual['conclusion']['text'],
+                    'dissenting_opinion': sections_dual['dissenting_opinion']['text']
                 }
             }
             

@@ -162,6 +162,23 @@
                         </div>
                     </div>
                     {% endif %}
+
+                    <!-- Dissenting Opinion Section -->
+                    {% if (result.sections and result.sections.dissenting_opinion) or result.dissenting_opinion %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-warning">
+                                    <h5 class="mb-0">Dissenting Opinion</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ (result.sections.dissenting_opinion if result.sections else
+                                        result.dissenting_opinion)|safe }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% endif %}
                 </div>
                 <div class="card-footer">
@@ -189,6 +206,8 @@
                                     value="{{ (result.sections.discussion if result.sections else result.discussion)|e }}">
                                 <input type="hidden" name="conclusion"
                                     value="{{ (result.sections.conclusion if result.sections else result.conclusion)|e }}">
+                                <input type="hidden" name="dissenting_opinion"
+                                    value="{{ (result.sections.dissenting_opinion if result.sections else result.dissenting_opinion)|e }}">
                                 <input type="hidden" name="pdf_url" value="{{ result.pdf_url|default('') }}">
 
                                 <!-- Structured list data as JSON -->

@@ -6,7 +6,7 @@ This project models professional domains ("worlds") and supports ethical decisio
 
 ### 1. Case Import and Parsing
 - Cases (e.g., NSPE) are imported via URL or file upload.
-- Each case is parsed into sections (facts, discussion, conclusion, etc.).
+- Each case is parsed into sections (facts, discussion, conclusion, dissenting opinion, etc.).
 
 ### 2. Document Structure Generation
 - For each case, run the document structure pipeline (via UI or script).
@@ -88,6 +88,39 @@ Created comprehensive LLM documentation in `/llm/` directory:
 
 ### Archived Documentation
 Moved legacy LLM docs to `/llm/docs/archived/` for reference.
+
+## Dissenting Opinion Support (2025-01-24)
+
+### Enhancement Overview
+Added comprehensive support for "Dissenting Opinion" sections found in some NSPE ethics cases:
+
+### 1. Extraction Enhancement
+- **NSPECaseExtractionStep**: Added `extract_dissenting_opinion_section()` method
+- **Pattern Recognition**: Handles both field-based and label-based HTML patterns
+- **Field Detection**: Targets `field--name-field-dissenting-opinion` div structure
+- **Fallback Pattern**: Searches for "Dissenting Opinion" field labels
+
+### 2. RDF Triple Generation
+- **DocumentStructureAnnotationStep**: Enhanced to create dissenting opinion triples
+- **New Ontology Classes**: 
+  - `DissentingOpinionSection`: Main section container
+  - `DissentingArgument`: Individual arguments within dissenting opinion
+- **Content Storage**: Both HTML and clean text versions stored
+- **Semantic Segmentation**: Breaks dissenting opinions into individual arguments
+
+### 3. Display Integration
+- **Template Updates**: Added dissenting opinion cards to `case_extracted_content.html`
+- **Visual Distinction**: Uses warning-colored header (`bg-warning`) to distinguish from majority opinion
+- **Form Integration**: Includes dissenting opinion in case saving forms
+
+### 4. Route Updates
+- **URL Processing**: Both `process_url_pipeline` and `save_and_view_case` routes handle dissenting opinions
+- **Metadata Storage**: Dissenting opinions stored in case metadata sections
+- **HTML Generation**: Creates structured card display for dissenting opinions
+
+### 5. Documentation Updates
+- **README**: Updated case processing pipeline documentation
+- **CLAUDE.md**: Added dissenting opinion to case parsing description
 
 ## Next Steps
 - Process remaining cases with enhanced pipeline

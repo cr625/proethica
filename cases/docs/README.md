@@ -5,7 +5,7 @@ This document describes the complete case import and processing pipeline in the 
 ## Overview
 
 The case processing pipeline transforms engineering ethics cases (primarily NSPE cases) from URLs into structured documents with:
-- Parsed sections (facts, questions, references, discussion, conclusion)
+- Parsed sections (facts, questions, references, discussion, conclusion, dissenting opinion)
 - Document structure annotations (RDF triples)
 - Section embeddings for semantic search
 - Guideline associations linking sections to ethical principles
@@ -52,6 +52,7 @@ The case processing pipeline transforms engineering ethics cases (primarily NSPE
   - NSPE Code references
   - Discussion
   - Conclusions (as list if multiple)
+  - Dissenting Opinion (if present)
   - PDF URL if available
 - **Uses**: BeautifulSoup for HTML parsing with NSPE-specific patterns
 

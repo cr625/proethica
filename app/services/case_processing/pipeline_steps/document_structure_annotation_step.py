@@ -42,7 +42,7 @@ class DocumentStructureAnnotationStep(BaseStep):
             return False
         
         # Check if at least some of the expected sections exist
-        expected_sections = ['facts', 'question', 'references', 'discussion', 'conclusion']
+        expected_sections = ['facts', 'question', 'references', 'discussion', 'conclusion', 'dissenting_opinion']
         if not any(section in sections for section in expected_sections):
             logger.error("Invalid input: No valid document sections found")
             return False
@@ -299,8 +299,33 @@ class DocumentStructureAnnotationStep(BaseStep):
                 g.add((conclusion_item_uri, PROETHICA.isPartOf, conclusion_uri))
                 g.add((conclusion_uri, PROETHICA.hasPart, conclusion_item_uri))
         
+        # Dissenting Opinion section (if present)
+        if sections.get('dissenting_opinion'):
+            dissenting_uri = URIRef(f"{document_uri}/dissenting_opinion")
+            g.add((dissenting_uri, RDF.type, OWL.NamedIndividual))
+            g.add((dissenting_uri, RDF.type, PROETHICA.DissentingOpinionSection))
+            # Use clean text for hasTextContent if available
+            text_content = sections_text.get('dissenting_opinion', sections['dissenting_opinion']) if sections_text else sections['dissenting_opinion']
+            g.add((dissenting_uri, PROETHICA.hasTextContent, Literal(text_content)))
+            g.add((dissenting_uri, PROETHICA.hasHtmlContent, Literal(sections['dissenting_opinion'])))
+            g.add((dissenting_uri, PROETHICA.isPartOf, document))
+            g.add((document, PROETHICA.hasPart, dissenting_uri))
+            section_uris['dissenting_opinion'] = dissenting_uri
+            
+            # Extract dissenting opinion arguments/points
+            dissenting_segments = self.extract_discussion_segments(sections['dissenting_opinion'])
+            for i, segment in enumerate(dissenting_segments):
+                segment_uri = URIRef(f"{document_uri}/dissenting_argument_{i+1}")
+                g.add((segment_uri, RDF.type, OWL.NamedIndividual))
+                g.add((segment_uri, RDF.type, PROETHICA.DissentingArgument))
+                g.add((segment_uri, PROETHICA.hasTextContent, Literal(segment['content'])))
+                g.add((segment_uri, PROETHICA.hasSegmentType, Literal(segment['type'])))
+                g.add((segment_uri, PROETHICA.hasSequenceNumber, Literal(segment['position'])))
+                g.add((segment_uri, PROETHICA.isPartOf, dissenting_uri))
+                g.add((dissenting_uri, PROETHICA.hasPart, segment_uri))
+        
         # Add document section sequence relationships
-        section_order = ['facts', 'questions', 'references', 'discussion', 'conclusion']
+        section_order = ['facts', 'questions', 'references', 'discussion', 'conclusion', 'dissenting_opinion']
         previous_section = None
         
         for section_name in section_order:
