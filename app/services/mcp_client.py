@@ -25,15 +25,17 @@ class MCPClient:
     def __init__(self):
         """Initialize the MCP client."""
         # Get MCP server URL from environment variable or use default
-        self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')
+        self.mcp_url = os.environ.get('MCP_SERVER_URL', 'http://localhost:5002')
         self.use_mock_fallback = os.environ.get('USE_MOCK_FALLBACK', 'true').lower() == 'true'
         
         # Normalize the URL to avoid escape sequence issues
         if '\\x3a' in self.mcp_url:
             self.mcp_url = self.mcp_url.replace('\\x3a', ':')
             
-        print(f"MCPClient initialized with MCP_SERVER_URL: {self.mcp_url}")
-        print(f"Mock data fallback is {'ENABLED' if self.use_mock_fallback else 'DISABLED'}")
+        # Only print in debug mode
+        if os.environ.get('DEBUG', '').lower() == 'true':
+            print(f"MCPClient initialized with MCP_SERVER_URL: {self.mcp_url}")
+            print(f"Mock data fallback is {'ENABLED' if self.use_mock_fallback else 'DISABLED'}")
         
         # Initialize session with longer timeout
         self.session = requests.Session()
@@ -57,12 +59,18 @@ class MCPClient:
         if '\\' in clean_url:
             clean_url = clean_url.replace('\\x3a', ':')
             
-        print(f"Testing connection to MCP server at {clean_url}...")
+        # Only show connection details in debug mode
+        debug_mode = os.environ.get('DEBUG', '').lower() == 'true'
+        
+        if debug_mode:
+            print(f"Testing connection to MCP server at {clean_url}...")
         
         # Try JSON-RPC endpoint with proper POST request
         jsonrpc_endpoint = f"{clean_url}/jsonrpc"
         try:
-            print(f"  Checking JSON-RPC endpoint: {jsonrpc_endpoint}")
+            if debug_mode:
+                print(f"  Checking JSON-RPC endpoint: {jsonrpc_endpoint}")
+            
             # Use POST with proper JSON-RPC request format
             response = self.session.post(
                 jsonrpc_endpoint, 
@@ -76,16 +84,21 @@ class MCPClient:
             )
             
             if response.status_code == 200:
-                print(f"Successfully connected to MCP server at {jsonrpc_endpoint}")
+                if debug_mode:
+                    print(f"Successfully connected to MCP server at {jsonrpc_endpoint}")
                 return True
             else:
-                print(f"  JSON-RPC endpoint returned status code {response.status_code}")
+                if debug_mode:
+                    print(f"  JSON-RPC endpoint returned status code {response.status_code}")
         except requests.exceptions.ConnectionError:
-            print(f"  Could not connect to {jsonrpc_endpoint}")
+            if debug_mode:
+                print(f"  Could not connect to {jsonrpc_endpoint}")
         except Exception as e:
-            print(f"  Error checking JSON-RPC endpoint: {str(e)}")
+            if debug_mode:
+                print(f"  Error checking JSON-RPC endpoint: {str(e)}")
         
-        print(f"All connection attempts to MCP server failed")
+        if debug_mode:
+            print(f"All connection attempts to MCP server failed")
         return False
     
     def get_guidelines(self, world_name: str) -> Dict[str, Any]:

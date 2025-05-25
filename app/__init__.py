@@ -42,7 +42,9 @@ def create_app(config_module='app.config'):
         # Update app.config with our dictionary values
         for key, value in app_config.items():
             app.config[key] = value
-        print(f"Using enhanced config: Database URL = {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
+        # Only show config details in debug mode
+        if os.environ.get('DEBUG', '').lower() == 'true':
+            print(f"Using enhanced config: Database URL = {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
     else:
         # Using original configuration approach
         app.config.from_object(config_module)
@@ -70,7 +72,8 @@ def create_app(config_module='app.config'):
             connection = engine.connect()
             connection.close()
             
-            print("Database connection successful.")
+            if os.environ.get('DEBUG', '').lower() == 'true':
+                print("Database connection successful.")
         except Exception as e:
             print(f"Warning: Database connection error: {str(e)}")
             print("The application may not function correctly without database access.")

@@ -45,8 +45,9 @@ class ClaudeService:
             try:
                 # Initialize the client with the API key, but don't fail if it doesn't work
                 self.client = Anthropic(api_key=self.api_key)
-                print(f"Claude service initialized with model {self.model}" +
-                      (", using mock mode" if self.use_mock else ""))
+                if os.environ.get('DEBUG', '').lower() == 'true':
+                    print(f"Claude service initialized with model {self.model}" +
+                          (", using mock mode" if self.use_mock else ""))
             except Exception as e:
                 print(f"Failed to initialize Anthropic client: {str(e)}")
                 print("Falling back to mock mode")

@@ -2,8 +2,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Live LLM - Flask App with MCP",
-            "type": "python",
+            "name": "Flask App - Local MCP",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run_debug_app.py",
             "console": "integratedTerminal",
@@ -12,32 +12,32 @@
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "FORCE_MOCK_LLM": "false",
                 "ENVIRONMENT": "development",
-                "MCP_SERVER_PORT": "5001",
-                "MCP_SERVER_URL": "http://localhost:5001",
+                "MCP_SERVER_PORT": "5002",
+                "MCP_SERVER_URL": "http://localhost:5002",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
-            },
-            "preLaunchTask": "Start MCP Server with Live LLM"
+            }
         },
         {
-            "name": "Run Debug App",
-            "type": "python",
+            "name": "Flask App - Production MCP",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run_debug_app.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                "FORCE_MOCK_LLM": "false",
                 "ENVIRONMENT": "development",
-                "MCP_SERVER_PORT": "5001", 
-                "MCP_SERVER_URL": "http://localhost:5001",
+                "MCP_SERVER_URL": "https://mcp.proethica.org",
+                "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
             }
         },
         {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
@@ -45,24 +45,10 @@
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "ENVIRONMENT": "development",
-                "MCP_SERVER_PORT": "5001",
-                "MCP_SERVER_URL": "http://localhost:5001",
+                "MCP_SERVER_URL": "https://mcp.proethica.org",
+                "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
-            }
-        }
-    ],
-    "tasks": [
-        {
-            "label": "Start MCP Server with Live LLM",
-            "type": "shell",
-            "command": "pkill -f mcp/run_enhanced_mcp_server_with_guidelines.py; ./start_mcp_server_with_env.sh",
-            "args": [],
-            "isBackground": true,
-            "options": {
-                "env": {
-                    "USE_MOCK_GUIDELINE_RESPONSES": "false"
-                }
             }
         }
     ]

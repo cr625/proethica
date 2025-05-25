@@ -16,7 +16,9 @@ def get_app_config():
         dict: Configuration dictionary for the current environment
     """
     environment = os.environ.get('ENVIRONMENT', 'development')
-    print(f"Loading configuration for environment: {environment}")
+    # Only show config loading in debug mode
+    if os.environ.get('DEBUG', '').lower() == 'true':
+        print(f"Loading configuration for environment: {environment}")
     
     # Create a dictionary to hold all configuration values
     config_dict = {}
@@ -36,7 +38,8 @@ def get_app_config():
             if not key.startswith('__'):
                 config_dict[key] = value
                 
-        print(f"Successfully loaded configuration for '{environment}' environment")
+        if os.environ.get('DEBUG', '').lower() == 'true':
+            print(f"Successfully loaded configuration for '{environment}' environment")
     except (ImportError, AttributeError) as e:
         print(f"Warning: Error loading specific configuration for environment '{environment}': {e}")
         print("Using base configuration")
