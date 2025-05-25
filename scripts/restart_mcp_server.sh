@@ -1,61 +1,25 @@
 #!/bin/bash
-# Environment-aware wrapper for MCP server management
-# This script detects the environment and uses the appropriate configuration
+# Restart script for the MCP Server
 
-# Determine the script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "Restarting MCP Server..."
 
-# Define colors for output
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# Kill any existing MCP server processes
+echo "Stopping any existing MCP servers..."
+pkill -f "python.*mcp.*server" || echo "No matching processes found"
 
-# Check if running in development or production
-if [ -f "${SCRIPT_DIR}/../.env" ]; then
-    # Source environment variables from .env file if it exists
-    # This ensures ENVIRONMENT is set if defined there
-    if grep -q "ENVIRONMENT=" "${SCRIPT_DIR}/../.env"; then
-        source "${SCRIPT_DIR}/../.env"
-        echo -e "${BLUE}Loaded ENVIRONMENT from .env file: ${ENVIRONMENT:-development}${NC}"
-    fi
-fi
+# Wait a moment for ports to be freed
+sleep 2
 
-# Set default environment if not already set
-if [ -z "$ENVIRONMENT" ]; then
-    # Default to development environment
-    ENVIRONMENT="development"
-    echo -e "${YELLOW}No ENVIRONMENT variable found. Defaulting to: ${ENVIRONMENT}${NC}"
-else
-    echo -e "${BLUE}Using ENVIRONMENT: ${ENVIRONMENT}${NC}"
-fi
+# Set database-related environment variables
+export DATABASE_URL="postgresql://postgres:PASS@localhost:5433/ai_ethical_dm"
+export USE_MOCK_GUIDELINE_RESPONSES=false
 
-# Export the environment variable for the Python script
-export ENVIRONMENT
+# Make sure the database config is set for Flask
+echo "Starting new MCP server..."
+cd /workspaces/ai-ethical-dm
+python mcp/run_enhanced_mcp_server_with_guidelines.py &
 
-# Ensure the Python script is executable
-if [ ! -x "${SCRIPT_DIR}/env_mcp_server.py" ]; then
-    echo -e "${YELLOW}Making env_mcp_server.py executable...${NC}"
-    chmod +x "${SCRIPT_DIR}/env_mcp_server.py"
-fi
-
-# Check if MCP server is already running via environment variable
-if [ "$MCP_SERVER_ALREADY_RUNNING" = "true" ]; then
-    echo -e "${GREEN}Unified Ontology MCP server is already running. No need to start another server.${NC}"
-    exit 0
-fi
-
-# Run the environment-aware Python script
-echo -e "${GREEN}Starting MCP server with ${ENVIRONMENT} environment configuration...${NC}"
-python3 "${SCRIPT_DIR}/env_mcp_server.py"
-
-# Check the exit status
-STATUS=$?
-if [ $STATUS -ne 0 ]; then
-    echo -e "${RED}Failed to start MCP server. See logs for details.${NC}"
-    exit $STATUS
-else
-    echo -e "${GREEN}MCP server successfully started.${NC}"
-    exit 0
-fi
+# Verify server is running
+echo "Checking server health..."
+sleep 2
+curl -s http://localhost:5001/health || echo "Server health check failed"
