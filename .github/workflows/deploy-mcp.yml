@@ -1,0 +1,171 @@
+name: Deploy MCP Server
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mcp/**'
+      - 'requirements-mcp.txt'
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment regardless of changes'
+        required: false
+        default: 'false'
+
+jobs:
+  deploy-mcp:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2  # Need previous commit for change detection
+    
+    - name: Check for MCP changes
+      id: changes
+      run: |
+        if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "Force deployment requested"
+        else
+          # Check if MCP files changed
+          if git diff --name-only HEAD^ HEAD | grep -E '^mcp/|^requirements-mcp.txt'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "MCP files changed, deployment needed"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No MCP changes detected"
+          fi
+        fi
+    
+    - name: Set up Python
+      if: steps.changes.outputs.changed == 'true'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Validate MCP server
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        pip install -r requirements-mcp.txt
+        python -m py_compile mcp/enhanced_ontology_server_with_guidelines.py
+        echo "✅ MCP server syntax validation passed"
+    
+    - name: Set up SSH
+      if: steps.changes.outputs.changed == 'true'
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    
+    - name: Deploy to production
+      if: steps.changes.outputs.changed == 'true'
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+        MCP_AUTH_TOKEN: ${{ secrets.MCP_AUTH_TOKEN }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: |
+        # Create deployment script
+        cat > deploy_mcp.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 Starting MCP server deployment..."
+        
+        # Configuration
+        DEPLOY_DIR="/home/chris/proethica"
+        MCP_DIR="$DEPLOY_DIR/mcp-server"
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        RELEASE_DIR="$MCP_DIR/releases/$TIMESTAMP"
+        
+        # Create directory structure
+        mkdir -p "$MCP_DIR"/{current,releases,shared,logs}
+        
+        # Create new release directory
+        mkdir -p "$RELEASE_DIR"
+        
+        # Copy MCP files
+        cd "$DEPLOY_DIR/ai-ethical-dm"
+        git pull origin main
+        cp -r mcp/* "$RELEASE_DIR/"
+        cp requirements-mcp.txt "$RELEASE_DIR/"
+        
+        # Set up Python environment for new release
+        cd "$RELEASE_DIR"
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements-mcp.txt
+        
+        # Create environment file
+        cat > .env << ENVEOF
+        MCP_SERVER_PORT=5002
+        USE_MOCK_GUIDELINE_RESPONSES=false
+        DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
+        ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+        MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+        ENVIRONMENT=production
+        ENVEOF
+        
+        # Test new server startup
+        echo "🧪 Testing MCP server startup..."
+        timeout 30s python enhanced_ontology_server_with_guidelines.py --test-mode || {
+          echo "❌ MCP server failed startup test"
+          exit 1
+        }
+        
+        # Start new server on alternate port for testing
+        echo "🔄 Starting new MCP server on port 5003..."
+        MCP_SERVER_PORT=5003 nohup python enhanced_ontology_server_with_guidelines.py > ../logs/mcp_test_$TIMESTAMP.log 2>&1 &
+        NEW_PID=$!
+        sleep 5
+        
+        # Health check new server
+        if curl -f http://localhost:5003/health; then
+          echo "✅ New MCP server health check passed"
+        else
+          echo "❌ New MCP server health check failed"
+          kill $NEW_PID || true
+          exit 1
+        fi
+        
+        # Stop old MCP server
+        echo "⏹️ Stopping old MCP server..."
+        pkill -f "enhanced_ontology_server_with_guidelines.py" || true
+        sleep 2
+        
+        # Update symlink to new release
+        ln -sfn "$RELEASE_DIR" "$MCP_DIR/current"
+        
+        # Start new server on primary port
+        echo "▶️ Starting new MCP server on port 5002..."
+        cd "$MCP_DIR/current"
+        source venv/bin/activate
+        nohup python enhanced_ontology_server_with_guidelines.py > ../logs/mcp_$TIMESTAMP.log 2>&1 &
+        
+        # Final health check
+        sleep 5
+        if curl -f http://localhost:5002/health; then
+          echo "✅ MCP server deployment successful!"
+        else
+          echo "❌ MCP server final health check failed"
+          exit 1
+        fi
+        
+        # Cleanup old releases (keep last 3)
+        cd "$MCP_DIR/releases"
+        ls -1t | tail -n +4 | xargs rm -rf
+        
+        echo "🎉 MCP server deployment completed successfully!"
+        EOF
+        
+        # Execute deployment
+        ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST 'bash -s' < deploy_mcp.sh
+    
+    - name: Deployment notification
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        echo "✅ MCP server deployed successfully to mcp.proethica.org:5002"
+        echo "📊 View logs: ssh $SSH_USER@$SSH_HOST 'tail -f /home/chris/proethica/mcp-server/logs/mcp_*.log'"

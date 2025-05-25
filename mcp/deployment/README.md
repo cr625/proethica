@@ -1,187 +1,294 @@
-# MCP Server Deployment Guide
+# MCP Server Deployment & Sync Pipeline
 
-This guide covers deploying the ProEthica MCP server to make it accessible for the Anthropic API.
+This directory contains automated deployment and synchronization tools for the ProEthica MCP server.
 
-## Deployment Options
+## ⚠️ Important: Current Branch Status
 
-### Option A: Digital Ocean App Platform (Recommended for Simplicity)
+**The `simple` branch is currently 436 commits ahead of `main`**. All deployments must use the `simple` branch until branches are reconciled.
 
-**Pros**: Managed platform, automatic SSL, easy scaling, built-in CI/CD
-**Cons**: Less control, slightly more expensive
+## Overview
 
-1. **Create App**: 
-   - Go to Digital Ocean App Platform
-   - Connect your GitHub repository
-   - Use the provided `app.yaml` specification
+The MCP (Model Context Protocol) server provides ontology and guideline analysis capabilities to the ProEthica application. This deployment pipeline ensures the production server stays in sync with the repository while maintaining high availability.
 
-2. **Configure Environment**:
-   - Set `ANTHROPIC_API_KEY` and `DATABASE_URL` as encrypted environment variables
-   - Add `MCP_AUTH_TOKEN` for security
+## Current Production Setup
 
-3. **Deploy**: Push to main branch auto-deploys
+- **Branch**: `simple` (not `main`)
+- **MCP Location**: `/home/chris/proethica/` (home directory)
+- **Main App Location**: `/var/www/proethica/` (web directory)
+- **Port**: 5002
+- **User**: `chris` (not `www-data`)
 
-**Cost**: ~$5-12/month for basic tier
+## Files
 
-### Option B: Digital Ocean Droplet (Recommended for Control)
+### Active Deployment Scripts
+- **`deploy-mcp-simple-branch.sh`** - Current deployment script using simple branch
+- **`health-check.sh`** - Health monitoring and diagnostics
+- **`DEPLOYMENT_STRATEGY_REVISED.md`** - Updated strategy addressing branch issues
 
-**Pros**: Full control, cheaper, can host multiple services
-**Cons**: Manual setup, you manage updates
+### Future/Planning Scripts
+- **`deploy-mcp-manual.sh`** - Manual deployment script (for use after branch merge)
+- **`sync-pipeline-design.md`** - Original technical design
+- **`../.github/workflows/deploy-mcp.yml`** - GitHub Actions workflow (needs update for simple branch)
 
-1. **Create Droplet**:
-   - Ubuntu 22.04 LTS
-   - Basic droplet ($6/month)
-   - Enable backups
+### Legacy Files
+- **`deploy-droplet.sh`** - Initial server setup script
+- **`auth_improvements.py`** - Security enhancements
 
-2. **Run Deployment Script**:
-   ```bash
-   chmod +x deploy-droplet.sh
-   sudo ./deploy-droplet.sh
-   ```
+## Quick Start
 
-3. **Configure Environment**:
-   ```bash
-   sudo cp /opt/proethica-mcp/.env.template /opt/proethica-mcp/.env
-   sudo nano /opt/proethica-mcp/.env  # Add your keys
-   ```
-
-4. **Start Service**:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable proethica-mcp
-   sudo systemctl start proethica-mcp
-   ```
-
-## DNS Configuration
-
-Add these records to your domain:
-
-```
-Type  Name  Value                   TTL
-A     mcp   your-droplet-ip        3600
-# OR for App Platform:
-CNAME mcp   your-app.ondigitalocean.app  3600
-```
-
-## Security Implementation
-
-### 1. Add Authentication to Server
-
-Edit `enhanced_ontology_server_with_guidelines.py`:
-
-```python
-# At the top of the file
-from aiohttp import web
-import os
-import hmac
-
-# In the EnhancedOntologyServerWithGuidelines class
-def __init__(self):
-    # ... existing code ...
-    self.auth_token = os.environ.get('MCP_AUTH_TOKEN')
-
-# Modify handle_jsonrpc method
-async def handle_jsonrpc(self, request):
-    # Check authentication
-    if self.auth_token:
-        auth_header = request.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
-            return web.json_response({"error": "Unauthorized"}, status=401)
-        
-        token = auth_header[7:]
-        if not hmac.compare_digest(token, self.auth_token):
-            return web.json_response({"error": "Unauthorized"}, status=401)
-    
-    # ... rest of existing method ...
-```
-
-### 2. Generate Secure Token
+### 1. Manual Deployment (Current Process)
 
 ```bash
-# Generate a secure token
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+# Deploy to production from simple branch
+./deploy-mcp-simple-branch.sh production
 ```
 
-## Using with Anthropic API
-
-Once deployed:
-
-```python
-import anthropic
-import os
-
-client = anthropic.Anthropic()
-
-# Your deployed MCP server
-mcp_servers = [{
-    "url": "https://mcp.proethica.org",
-    "authorization_token": os.environ.get("MCP_AUTH_TOKEN")
-}]
-
-response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
-    max_tokens=1000,
-    messages=[{
-        "role": "user",
-        "content": "List the engineering ethics ontology entities"
-    }],
-    mcp_servers=mcp_servers,
-    headers={"anthropic-beta": "mcp-client-2025-04-04"}
-)
-```
-
-## Testing Your Deployment
-
-1. **Test health endpoint**:
-   ```bash
-   curl https://mcp.proethica.org/health
-   ```
-
-2. **Test with authentication**:
-   ```bash
-   curl -X POST https://mcp.proethica.org/jsonrpc \
-     -H "Authorization: Bearer your-token" \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","method":"list_tools","params":{},"id":1}'
-   ```
-
-3. **Test with Anthropic API** using the Python code above
-
-## Monitoring
-
-### For Droplet:
+### ⚠️ Do NOT use these until branch reconciliation:
 ```bash
-# View logs
-sudo journalctl -u proethica-mcp -f
-
-# Check status
-sudo systemctl status proethica-mcp
-
-# Restart if needed
-sudo systemctl restart proethica-mcp
+# These assume main branch (currently outdated)
+# ./deploy-mcp-manual.sh production  
+# GitHub Actions deployment
 ```
 
-### For App Platform:
-- Use Digital Ocean dashboard
-- Set up alerts for downtime
+### 2. Health Check
+
+```bash
+# Check production server
+./health-check.sh production
+
+# Check local development server
+./health-check.sh local
+```
+
+### 3. Automated Deployment
+
+Automatic deployment triggers on:
+- Push to `main` branch with changes in `mcp/` directory
+- Manual trigger via GitHub Actions
+
+## Deployment Architecture
+
+### Directory Structure (Production - Current Reality)
+```
+/home/chris/proethica/              # Chris's home directory deployment
+├── ai-ethical-dm/                  # Repository (simple branch)
+└── mcp-server/                     # MCP server deployment
+    ├── current/                    # Symlink to active release
+    ├── releases/                   # Versioned releases
+    │   ├── 20250124_143022/
+    │   ├── 20250124_151045/
+    │   └── 20250124_162318/
+    ├── config/                     # Configuration files
+    └── logs/                       # Server logs
+
+/var/www/proethica/                 # Web server directory (separate)
+└── ai-ethical-dm/                  # Main web application (if needed)
+```
+
+### Zero-Downtime Deployment Process
+
+1. **Validation**: Syntax check and dependency validation
+2. **Package**: Create new release directory with updated files
+3. **Test**: Start server on alternate port and health check
+4. **Switch**: Stop old server, update symlink, start new server
+5. **Verify**: Final health check and cleanup old releases
+
+## Configuration
+
+### Environment Variables
+
+Production server requires these environment variables in `.env`:
+
+```bash
+MCP_SERVER_PORT=5002
+USE_MOCK_GUIDELINE_RESPONSES=false
+DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
+ANTHROPIC_API_KEY=your-anthropic-api-key
+MCP_AUTH_TOKEN=your-secure-token
+ENVIRONMENT=production
+```
+
+### GitHub Secrets (for automated deployment)
+
+Required secrets in GitHub repository settings:
+
+- `SSH_PRIVATE_KEY` - SSH key for server access
+- `SSH_HOST` - Server hostname (proethica.org)
+- `SSH_USER` - SSH username (chris)
+- `ANTHROPIC_API_KEY` - Anthropic API key
+- `MCP_AUTH_TOKEN` - MCP authentication token
+
+## Monitoring & Health Checks
+
+### Health Check Endpoints
+
+- **`/health`** - Basic server health
+- **`/list_tools`** - MCP tools availability
+- **`/ontology/sources`** - Ontology system status
+- **`/guidelines/analyze`** - Guidelines functionality
+
+### Health Check Script Features
+
+- **Connectivity**: Basic HTTP connectivity test
+- **Functionality**: MCP and ontology endpoint validation
+- **Performance**: Response time measurement
+- **System Resources**: CPU, memory, and process monitoring
+
+### Example Health Check Output
+
+```bash
+🏥 ProEthica MCP Server Health Check
+====================================
+Environment: production
+
+🌐 Basic Connectivity
+  Health endpoint... ✅ OK
+
+🧠 MCP Functionality
+  List tools endpoint... ✅ OK
+  List resources endpoint... ✅ OK
+
+🔗 Ontology Endpoints
+  Ontology sources... ✅ OK
+  Ontology entities... ✅ OK
+
+📋 Guidelines Functionality
+  Guidelines analysis... ✅ OK
+
+⚡ Performance Check
+  Response time... ✅ 245ms
+
+🖥️ Server Status
+  SSH connectivity... ✅ OK
+  MCP process status... ✅ Running (1 processes)
+  System load... ✅ 0.5
+  Memory usage... ✅ 45.2%
+
+📊 Health Check Summary
+=======================
+✅ All checks passed - MCP server is healthy!
+```
 
 ## Troubleshooting
 
-1. **Connection refused**: Check if service is running
-2. **401 Unauthorized**: Verify auth token matches
-3. **502 Bad Gateway**: MCP server crashed, check logs
-4. **SSL issues**: Ensure certbot ran successfully
+### Common Issues
 
-## Next Steps
+1. **Server not responding**
+   ```bash
+   ssh chris@proethica.org 'cd /home/chris/proethica/mcp-server/current && python enhanced_ontology_server_with_guidelines.py'
+   ```
 
-1. Deploy using either option
-2. Add authentication to your server code
-3. Test with curl commands
-4. Update your Anthropic API code to use the public URL
-5. Monitor logs for first 24 hours
+2. **Check server logs**
+   ```bash
+   ssh chris@proethica.org 'tail -f /home/chris/proethica/mcp-server/logs/mcp_*.log'
+   ```
 
-## Cost Estimate
+3. **Restart MCP server**
+   ```bash
+   ./deploy-mcp-manual.sh production
+   ```
 
-- **Droplet**: $6-12/month (depending on size)
-- **App Platform**: $5-12/month (basic tier)
-- **Domain**: Already owned (proethica.org)
-- **SSL**: Free with Let's Encrypt
+4. **Health check failed**
+   ```bash
+   ./health-check.sh production
+   ```
+
+### Rollback Procedure
+
+If deployment fails, automatic rollback:
+
+1. Health check failure detected
+2. Stop new server
+3. Restore previous release symlink
+4. Restart previous version
+5. Verify rollback success
+
+Manual rollback:
+```bash
+ssh chris@proethica.org
+cd /home/chris/proethica/mcp-server
+ln -sfn releases/PREVIOUS_TIMESTAMP current
+cd current && pkill -f enhanced_ontology && nohup python enhanced_ontology_server_with_guidelines.py &
+```
+
+## Security
+
+### Authentication
+- MCP server uses token-based authentication
+- Tokens stored securely in GitHub Secrets
+- Regular token rotation recommended
+
+### Network Security
+- Server runs on port 5002
+- Firewall rules limit access
+- SSL termination via nginx proxy
+
+### Access Control
+- SSH key-based authentication only
+- Limited user permissions
+- Audit logging enabled
+
+## Development Workflow
+
+### Local Testing
+1. Make changes to MCP server code
+2. Test locally: `python mcp/enhanced_ontology_server_with_guidelines.py`
+3. Run health check: `./mcp/deployment/health-check.sh local`
+
+### Staging Deployment
+1. Deploy to staging: `./mcp/deployment/deploy-mcp-manual.sh staging`
+2. Test staging server: `./mcp/deployment/health-check.sh staging`
+
+### Production Deployment
+1. **Automatic**: Push to main branch (if MCP files changed)
+2. **Manual**: Run `./mcp/deployment/deploy-mcp-manual.sh production`
+3. **Verify**: Run `./mcp/deployment/health-check.sh production`
+
+## Maintenance
+
+### Regular Tasks
+- **Weekly**: Review server logs and performance metrics
+- **Monthly**: Rotate authentication tokens
+- **Quarterly**: Update system dependencies
+
+### Monitoring Setup
+- Health checks run every 5 minutes via cron
+- Alerts sent to team on failures
+- Performance metrics tracked and graphed
+
+## Critical Issues & Solutions
+
+### Branch Divergence Problem
+- **Issue**: `simple` branch is 436 commits ahead of `main`
+- **Impact**: Automated deployments from `main` would deploy outdated code
+- **Current Solution**: Use `deploy-mcp-simple-branch.sh` for all deployments
+- **Long-term Solution**: Merge `simple` into `main` or create separate deployment branch
+
+### Directory Structure Mismatch
+- **Issue**: MCP in home directory, main app in /var/www
+- **Impact**: Different permissions, security contexts, and deployment processes
+- **Current Solution**: Separate deployment scripts for each location
+- **Long-term Solution**: Standardize deployment location
+
+### Quick Sync Command (Emergency Use)
+```bash
+# Direct sync from simple branch (use with caution)
+ssh chris@proethica.org '
+  cd ~/proethica/ai-ethical-dm && 
+  git checkout simple && 
+  git pull origin simple && 
+  cd ~/proethica/mcp-server/current &&
+  source venv/bin/activate &&
+  pkill -f enhanced_ontology &&
+  nohup python enhanced_ontology_server_with_guidelines.py > ../logs/mcp_emergency.log 2>&1 &
+'
+```
+
+## Support
+
+For deployment issues:
+1. Check the health check output for specific failure points
+2. Review server logs for error details
+3. Consult the troubleshooting section above
+4. Verify you're using the correct branch (`simple`, not `main`)
+5. Contact the development team if issues persist
