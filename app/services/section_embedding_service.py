@@ -459,11 +459,21 @@ class SectionEmbeddingService(EmbeddingService):
                 logger.error(f"Document not found: {document_id}")
                 return {'success': False, 'error': f"Document not found: {document_id}"}
             
-            # Get document metadata
-            doc_metadata = document.doc_metadata or {}
+            # Get document metadata - handle both dict and string formats
+            if isinstance(document.doc_metadata, dict):
+                doc_metadata = document.doc_metadata
+            elif isinstance(document.doc_metadata, str):
+                try:
+                    import json
+                    doc_metadata = json.loads(document.doc_metadata)
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.error(f"Failed to parse document metadata as JSON: {e}")
+                    doc_metadata = {}
+            else:
+                doc_metadata = {}
             
             # Log metadata structure for debugging
-            logger.info(f"Document metadata keys: {list(doc_metadata.keys())}")
+            logger.info(f"Document metadata type: {type(document.doc_metadata)}, keys: {list(doc_metadata.keys())}")
             
             # Get the structure data - might be missing if using legacy format
             doc_structure = doc_metadata.get('document_structure', {})
