@@ -4,6 +4,7 @@ Routes for case management, including listing, viewing, and searching cases.
 
 import os
 import re
+import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import current_user
@@ -13,6 +14,9 @@ from app.services.embedding_service import EmbeddingService
 from app import db
 from app.services.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Create blueprints
 cases_bp = Blueprint('cases', __name__, url_prefix='/cases')
@@ -298,15 +302,21 @@ def process_url_pipeline():
     from app.services.case_processing.pipeline_manager import PipelineManager
     from app.services.case_processing.pipeline_steps.url_retrieval_step import URLRetrievalStep
     from app.services.case_processing.pipeline_steps.nspe_extraction_step import NSPECaseExtractionStep
+    from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
     
     pipeline = PipelineManager()
     pipeline.register_step('url_retrieval', URLRetrievalStep())
     pipeline.register_step('nspe_extraction', NSPECaseExtractionStep())
+    pipeline.register_step('document_structure', DocumentStructureAnnotationStep())
     
     # Determine which steps to run based on process_extraction
-    steps_to_run = ['url_retrieval', 'nspe_extraction'] if process_extraction else ['url_retrieval']
+    # Always include URL retrieval, add extraction and structure annotation if requested
+    steps_to_run = ['url_retrieval']
+    if process_extraction:
+        steps_to_run.extend(['nspe_extraction', 'document_structure'])
     
     # Run pipeline
+    logger.info(f"Running pipeline for URL: {url} with steps: {', '.join(steps_to_run)}")
     result = pipeline.run_pipeline({'url': url}, steps_to_run)
     
     # Get the final result (output from the last step)
@@ -487,6 +497,32 @@ def process_url_pipeline():
             'display_format': 'extraction_style'  # Flag to indicate special display format
         }
         
+        # Add dual format sections if available
+        if 'sections_dual' in final_result:
+            metadata['sections_dual'] = final_result['sections_dual']
+            logger.info("Storing dual format sections (HTML and text)")
+        
+        # Add text-only sections for embeddings if available
+        if 'sections_text' in final_result:
+            metadata['sections_text'] = final_result['sections_text']
+        
+        # Add document structure information if available
+        if 'document_structure' in final_result:
+            # Store document structure in nested format as per CLAUDE.md
+            from datetime import datetime
+            metadata['document_structure'] = {
+                'document_uri': final_result['document_structure'].get('document_uri'),
+                'structure_triples': final_result['document_structure'].get('structure_triples'),
+                'sections': metadata['sections'],  # Use the sections we already have
+                'annotation_timestamp': datetime.utcnow().isoformat()
+            }
+            logger.info(f"Added document structure with URI: {metadata['document_structure']['document_uri']}")
+        
+        # Add section embeddings metadata if available
+        if 'section_embeddings_metadata' in final_result:
+            metadata['section_embeddings_metadata'] = final_result['section_embeddings_metadata']
+            logger.info(f"Added section embeddings metadata with {len(metadata['section_embeddings_metadata'])} sections")
+        
         # Safe way to get user_id without relying on Flask-Login being initialized
         user_id = None
         try:
@@ -515,8 +551,14 @@ def process_url_pipeline():
         db.session.add(document)
         db.session.commit()
         
+        # Log success with document ID and structure information
+        logger.info(f"Case saved successfully with ID: {document.id}, includes document structure: {'document_structure' in metadata}")
+        
         # Redirect to view the case
-        flash('Case extracted and saved successfully', 'success')
+        success_msg = 'Case extracted and saved successfully'
+        if 'document_structure' in metadata:
+            success_msg += ' with document structure annotation'
+        flash(success_msg, 'success')
         return redirect(url_for('cases.view_case', id=document.id))
     
     # Otherwise, just show the raw content

@@ -68,6 +68,7 @@ class DocumentStructureAnnotationStep(BaseStep):
             year = input_data.get('year')
             title = input_data.get('title')
             sections = input_data.get('sections', {})
+            sections_text = input_data.get('sections_text', {})  # Get clean text versions if available
             questions_list = input_data.get('questions_list', [])
             conclusion_items = input_data.get('conclusion_items', [])
             
@@ -76,6 +77,7 @@ class DocumentStructureAnnotationStep(BaseStep):
             document_uri = f"http://proethica.org/document/case_{case_id}"
             
             # Create RDF graph for structure annotations
+            # Pass both HTML and text versions
             structure_graph = self._create_structure_graph(
                 document_uri, 
                 case_number, 
@@ -83,7 +85,8 @@ class DocumentStructureAnnotationStep(BaseStep):
                 title, 
                 sections, 
                 questions_list, 
-                conclusion_items
+                conclusion_items,
+                sections_text  # Pass clean text versions
             )
             
             # Serialize graph to turtle format
@@ -98,11 +101,13 @@ class DocumentStructureAnnotationStep(BaseStep):
             }
             
             # Generate section-level embedding metadata
-            section_embeddings_metadata = self._prepare_section_embedding_metadata(
+            # Pass the input data to access sections_text if available
+            section_embeddings_metadata = self._prepare_section_embedding_metadata_v2(
                 document_uri, 
                 sections, 
                 questions_list, 
-                conclusion_items
+                conclusion_items,
+                input_data
             )
             result['section_embeddings_metadata'] = section_embeddings_metadata
             
@@ -113,7 +118,7 @@ class DocumentStructureAnnotationStep(BaseStep):
             logger.exception(f"Error processing document structure: {str(e)}")
             return self.get_error_result(f"Error annotating document structure: {str(e)}")
     
-    def _create_structure_graph(self, document_uri, case_number, year, title, sections, questions_list, conclusion_items):
+    def _create_structure_graph(self, document_uri, case_number, year, title, sections, questions_list, conclusion_items, sections_text=None):
         """
         Create RDF graph representing document structure.
         
@@ -122,9 +127,10 @@ class DocumentStructureAnnotationStep(BaseStep):
             case_number: Case number
             year: Publication year
             title: Document title
-            sections: Dictionary of section content
+            sections: Dictionary of section content (HTML)
             questions_list: List of individual questions
             conclusion_items: List of individual conclusions
+            sections_text: Dictionary of clean text versions (optional)
             
         Returns:
             Graph: RDF graph with document structure triples
@@ -179,7 +185,9 @@ class DocumentStructureAnnotationStep(BaseStep):
             facts_uri = URIRef(f"{document_uri}/facts")
             g.add((facts_uri, RDF.type, OWL.NamedIndividual))
             g.add((facts_uri, RDF.type, PROETHICA.FactsSection))
-            g.add((facts_uri, PROETHICA.hasTextContent, Literal(sections['facts'])))
+            # Use clean text for hasTextContent if available
+            text_content = sections_text.get('facts', sections['facts']) if sections_text else sections['facts']
+            g.add((facts_uri, PROETHICA.hasTextContent, Literal(text_content)))
             g.add((facts_uri, PROETHICA.hasHtmlContent, Literal(sections['facts'])))
             g.add((facts_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, facts_uri))
@@ -190,7 +198,9 @@ class DocumentStructureAnnotationStep(BaseStep):
             questions_uri = URIRef(f"{document_uri}/questions")
             g.add((questions_uri, RDF.type, OWL.NamedIndividual))
             g.add((questions_uri, RDF.type, PROETHICA.QuestionsSection))
-            g.add((questions_uri, PROETHICA.hasTextContent, Literal(sections['question'])))
+            # Use clean text for hasTextContent if available
+            text_content = sections_text.get('question', sections['question']) if sections_text else sections['question']
+            g.add((questions_uri, PROETHICA.hasTextContent, Literal(text_content)))
             g.add((questions_uri, PROETHICA.hasHtmlContent, Literal(sections['question'])))
             g.add((questions_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, questions_uri))
@@ -210,15 +220,18 @@ class DocumentStructureAnnotationStep(BaseStep):
             references_uri = URIRef(f"{document_uri}/references")
             g.add((references_uri, RDF.type, OWL.NamedIndividual))
             g.add((references_uri, RDF.type, PROETHICA.ReferencesSection))
-            g.add((references_uri, PROETHICA.hasTextContent, Literal(sections['references'])))
+            # Use clean text for hasTextContent if available
+            text_content = sections_text.get('references', sections['references']) if sections_text else sections['references']
+            g.add((references_uri, PROETHICA.hasTextContent, Literal(text_content)))
             g.add((references_uri, PROETHICA.hasHtmlContent, Literal(sections['references'])))
             g.add((references_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, references_uri))
             section_uris['references'] = references_uri
             
-            # Extract code references from HTML
-            if sections['references']:
-                code_refs = self._extract_code_references(sections['references'])
+            # Extract code references from text version if available, else from HTML
+            references_content = sections_text.get('references', sections['references']) if sections_text else sections['references']
+            if references_content:
+                code_refs = self._extract_code_references(references_content)
                 for i, ref in enumerate(code_refs):
                     ref_uri = URIRef(f"{document_uri}/code_reference_{i+1}")
                     g.add((ref_uri, RDF.type, OWL.NamedIndividual))
@@ -232,7 +245,9 @@ class DocumentStructureAnnotationStep(BaseStep):
             discussion_uri = URIRef(f"{document_uri}/discussion")
             g.add((discussion_uri, RDF.type, OWL.NamedIndividual))
             g.add((discussion_uri, RDF.type, PROETHICA.DiscussionSection))
-            g.add((discussion_uri, PROETHICA.hasTextContent, Literal(sections['discussion'])))
+            # Use clean text for hasTextContent if available
+            text_content = sections_text.get('discussion', sections['discussion']) if sections_text else sections['discussion']
+            g.add((discussion_uri, PROETHICA.hasTextContent, Literal(text_content)))
             g.add((discussion_uri, PROETHICA.hasHtmlContent, Literal(sections['discussion'])))
             g.add((discussion_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, discussion_uri))
@@ -243,7 +258,9 @@ class DocumentStructureAnnotationStep(BaseStep):
             conclusion_uri = URIRef(f"{document_uri}/conclusion")
             g.add((conclusion_uri, RDF.type, OWL.NamedIndividual))
             g.add((conclusion_uri, RDF.type, PROETHICA.ConclusionSection))
-            g.add((conclusion_uri, PROETHICA.hasTextContent, Literal(sections['conclusion'])))
+            # Use clean text for hasTextContent if available
+            text_content = sections_text.get('conclusion', sections['conclusion']) if sections_text else sections['conclusion']
+            g.add((conclusion_uri, PROETHICA.hasTextContent, Literal(text_content)))
             g.add((conclusion_uri, PROETHICA.hasHtmlContent, Literal(sections['conclusion'])))
             g.add((conclusion_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, conclusion_uri))
@@ -275,46 +292,63 @@ class DocumentStructureAnnotationStep(BaseStep):
         
         return g
     
-    def _extract_code_references(self, html_content):
+    def _extract_code_references(self, content):
         """
-        Extract code references from references section HTML.
+        Extract code references from references section content (HTML or plain text).
         
         Args:
-            html_content: HTML content of references section
+            content: Content of references section (HTML or plain text)
             
         Returns:
             list: List of code reference strings
         """
-        if not html_content:
+        if not content:
             return []
             
         references = []
         
         try:
-            # Parse HTML
-            soup = BeautifulSoup(html_content, 'html.parser')
+            # Check if content appears to be HTML
+            if '<' in content and '>' in content:
+                # Parse as HTML
+                soup = BeautifulSoup(content, 'html.parser')
+                
+                # Try list items first
+                list_items = soup.find_all('li')
+                if list_items:
+                    for item in list_items:
+                        references.append(item.get_text().strip())
+                    return references
+                
+                # If no list items, look for paragraphs
+                paragraphs = soup.find_all('p')
+                if paragraphs:
+                    for p in paragraphs:
+                        references.append(p.get_text().strip())
+                    return references
+                
+                # If no structured content, use the raw text
+                text = soup.get_text().strip()
+            else:
+                # Treat as plain text
+                text = content.strip()
             
-            # Try list items first
-            list_items = soup.find_all('li')
-            if list_items:
-                for item in list_items:
-                    references.append(item.get_text().strip())
-                return references
-            
-            # If no list items, look for paragraphs
-            paragraphs = soup.find_all('p')
-            if paragraphs:
-                for p in paragraphs:
-                    references.append(p.get_text().strip())
-                return references
-            
-            # If no structured content, use the raw text
-            text = soup.get_text().strip()
             if text:
-                # Split by newlines or semicolons
-                for line in text.replace(';', '\n').split('\n'):
-                    if line.strip():
-                        references.append(line.strip())
+                # Check for numbered or bulleted lists in plain text
+                lines = text.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if line:
+                        # Remove list markers if present
+                        if line.startswith(('•', '-', '*')):
+                            line = line[1:].strip()
+                        elif line[0].isdigit() and '.' in line[:3]:
+                            # Remove numbered list markers like "1. " or "10. "
+                            parts = line.split('.', 1)
+                            if len(parts) > 1:
+                                line = parts[1].strip()
+                        references.append(line)
+                        
         except Exception as e:
             logger.warning(f"Error extracting code references: {str(e)}")
         
@@ -322,7 +356,7 @@ class DocumentStructureAnnotationStep(BaseStep):
     
     def _prepare_section_embedding_metadata(self, document_uri, sections, questions_list, conclusion_items):
         """
-        Prepare metadata for section-level embeddings.
+        Prepare metadata for section-level embeddings (legacy method for backward compatibility).
         
         Args:
             document_uri: URI for the document
@@ -358,6 +392,57 @@ class DocumentStructureAnnotationStep(BaseStep):
             embedding_metadata[conclusion_uri] = {
                 'type': 'conclusion_item',
                 'content': conclusion
+            }
+        
+        return embedding_metadata
+    
+    def _prepare_section_embedding_metadata_v2(self, document_uri, sections, questions_list, conclusion_items, input_data):
+        """
+        Prepare metadata for section-level embeddings using text versions when available.
+        
+        Args:
+            document_uri: URI for the document
+            sections: Dictionary of section content
+            questions_list: List of individual questions
+            conclusion_items: List of individual conclusions
+            input_data: Full input data containing sections_text if available
+            
+        Returns:
+            dict: Metadata for generating section-level embeddings
+        """
+        embedding_metadata = {}
+        
+        # Check if we have the new dual format with text versions
+        sections_text = input_data.get('sections_text', {})
+        
+        # Process main sections
+        for section_name, content in sections.items():
+            if content:
+                section_uri = f"{document_uri}/{section_name}"
+                # Use text version if available, otherwise fall back to HTML content
+                text_content = sections_text.get(section_name, content)
+                embedding_metadata[section_uri] = {
+                    'type': section_name,
+                    'content': text_content,
+                    'content_type': 'text' if section_name in sections_text else 'html'
+                }
+        
+        # Process individual questions (already plain text)
+        for i, question in enumerate(questions_list):
+            question_uri = f"{document_uri}/question_{i+1}"
+            embedding_metadata[question_uri] = {
+                'type': 'question_item',
+                'content': question,
+                'content_type': 'text'
+            }
+        
+        # Process individual conclusions (already plain text)
+        for i, conclusion in enumerate(conclusion_items):
+            conclusion_uri = f"{document_uri}/conclusion_item_{i+1}"
+            embedding_metadata[conclusion_uri] = {
+                'type': 'conclusion_item',
+                'content': conclusion,
+                'content_type': 'text'
             }
         
         return embedding_metadata

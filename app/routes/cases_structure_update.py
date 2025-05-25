@@ -1,4 +1,13 @@
 """
+DEPRECATED: This module has been consolidated into the main cases.py route.
+
+The document structure annotation functionality has been merged into the main
+case processing pipeline at /cases/process/url.
+
+This file is kept for reference but is no longer registered as a blueprint.
+See app/routes/cases.py for the current implementation.
+
+Original description:
 Updated routes for case management with document structure annotation.
 This file provides the implementation of the enhanced pipeline with document structure annotation.
 """

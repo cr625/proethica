@@ -58,10 +58,16 @@ class SectionEmbeddingService(EmbeddingService):
         
         for section_uri, metadata in section_metadata.items():
             try:
+                # Check content type - prefer text over HTML for embeddings
+                content_type = metadata.get('content_type', 'html')
                 content = metadata.get('content', '')
+                
                 if not content:
                     logger.warning(f"Empty content for section {section_uri}")
                     continue
+                
+                # Log what type of content we're embedding
+                logger.debug(f"Generating embedding for {section_uri} using {content_type} content")
                 
                 # Generate embedding for this section
                 embedding = self.get_embedding(content)
@@ -465,27 +471,44 @@ class SectionEmbeddingService(EmbeddingService):
             # Prepare section metadata
             section_metadata = {}
             
+            # Check if we have the new dual format with text versions
+            has_dual_format = 'sections_dual' in doc_metadata or 'sections_text' in doc_metadata
+            
             # Strategy 1: Try to get sections from document_structure.sections
             if 'sections' in doc_structure and doc_structure['sections']:
                 logger.info(f"Found sections in document_structure.sections")
                 
                 for section_id, section_data in doc_structure['sections'].items():
+                    # Prefer text version if available in dual format
+                    if has_dual_format and 'sections_text' in doc_metadata and section_id in doc_metadata['sections_text']:
+                        section_content = doc_metadata['sections_text'][section_id]
+                        content_type = 'text'
+                        logger.info(f"Using plain text version for section {section_id}")
+                    # Next check dual format
+                    elif has_dual_format and 'sections_dual' in doc_metadata and section_id in doc_metadata['sections_dual']:
+                        section_dual = doc_metadata['sections_dual'][section_id]
+                        section_content = section_dual.get('text', section_dual.get('html', ''))
+                        content_type = 'text' if 'text' in section_dual and section_dual['text'] else 'html'
+                        logger.info(f"Using {content_type} from dual format for section {section_id}")
                     # Extract the content from the section data or from the main sections if available
-                    if 'content' not in section_data and 'sections' in doc_metadata:
+                    elif 'content' not in section_data and 'sections' in doc_metadata:
                         # Try to find the content in the top-level sections
                         if section_id in doc_metadata['sections']:
                             section_content = doc_metadata['sections'][section_id]
+                            content_type = 'html'  # Legacy format is typically HTML
                         else:
                             logger.warning(f"No content found for section {section_id}")
                             continue
                     else:
                         section_content = section_data.get('content', '')
+                        content_type = 'html'  # Legacy format is typically HTML
                     
                     if section_content:
                         section_uri = f"http://proethica.org/document/case_{document_id}/{section_id}"
                         section_metadata[section_uri] = {
                             'type': section_data.get('type', section_id),
-                            'content': section_content
+                            'content': section_content,
+                            'content_type': content_type
                         }
             
             # Strategy 2: Try to get from section_embeddings_metadata
@@ -557,15 +580,39 @@ class SectionEmbeddingService(EmbeddingService):
                 # Then fall through to Strategy 4 to use top-level sections
                 
             # Strategy 4: Try to get from top-level sections
-            if 'sections' in doc_metadata and doc_metadata['sections']:
+            if 'sections' in doc_metadata and doc_metadata['sections'] and not section_metadata:
                 logger.info(f"Using top-level sections")
                 for section_id, content in doc_metadata['sections'].items():
                     if content:  # Skip empty sections
                         section_uri = f"http://proethica.org/document/case_{document_id}/{section_id}"
-                        section_metadata[section_uri] = {
-                            'type': section_id,
-                            'content': content
-                        }
+                        
+                        # Check if we have text version available
+                        if has_dual_format and 'sections_text' in doc_metadata and section_id in doc_metadata['sections_text']:
+                            text_content = doc_metadata['sections_text'][section_id]
+                            section_metadata[section_uri] = {
+                                'type': section_id,
+                                'content': text_content,
+                                'content_type': 'text'
+                            }
+                            logger.info(f"Using plain text version for section {section_id}")
+                        # Check dual format
+                        elif has_dual_format and 'sections_dual' in doc_metadata and section_id in doc_metadata['sections_dual']:
+                            section_dual = doc_metadata['sections_dual'][section_id]
+                            content = section_dual.get('text', section_dual.get('html', content))
+                            content_type = 'text' if 'text' in section_dual and section_dual['text'] else 'html'
+                            section_metadata[section_uri] = {
+                                'type': section_id,
+                                'content': content,
+                                'content_type': content_type
+                            }
+                            logger.info(f"Using {content_type} from dual format for section {section_id}")
+                        else:
+                            # Use HTML content from legacy format
+                            section_metadata[section_uri] = {
+                                'type': section_id,
+                                'content': content,
+                                'content_type': 'html'
+                            }
             
             # Log what we found
             logger.info(f"Prepared {len(section_metadata)} sections for embedding generation")

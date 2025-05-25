@@ -746,6 +746,66 @@ class NSPECaseExtractionStep(BaseStep):
         text = text.replace('&nbsp;', ' ').replace('&amp;', '&')
         
         return text.strip()
+    
+    def extract_text_only(self, html):
+        """
+        Extract plain text from HTML for embeddings and similarity matching.
+        Preserves semantic structure without HTML formatting.
+        
+        Args:
+            html: HTML content
+            
+        Returns:
+            str: Plain text with normalized whitespace
+        """
+        if not html:
+            return ""
+            
+        # Parse HTML
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+            
+        # Extract text with proper spacing between elements
+        text_parts = []
+        
+        # Process block-level elements to maintain structure
+        for elem in soup.find_all(['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'ol', 'ul']):
+            # Skip if this element is inside another we'll process
+            if any(parent.name in ['ol', 'ul'] for parent in elem.parents):
+                if elem.name not in ['li']:
+                    continue
+                    
+            text = elem.get_text(separator=' ', strip=True)
+            if text:
+                # Add list markers for better structure preservation
+                if elem.name == 'li':
+                    # Check if it's in an ordered list
+                    parent = elem.parent
+                    if parent and parent.name == 'ol':
+                        # Find the item's position
+                        position = len([sib for sib in elem.previous_siblings if sib.name == 'li']) + 1
+                        text = f"{position}. {text}"
+                    else:
+                        text = f"• {text}"
+                text_parts.append(text)
+                
+        # Join with newlines to preserve structure
+        text = '\n'.join(text_parts)
+        
+        # Normalize whitespace within lines
+        text = re.sub(r'[ \t]+', ' ', text)
+        # Remove excessive newlines
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
+        # Clean up special HTML entities
+        text = text.replace('&nbsp;', ' ').replace('&amp;', '&')
+        text = text.replace('&lt;', '<').replace('&gt;', '>')
+        text = text.replace('&quot;', '"').replace('&#39;', "'")
+        
+        return text.strip()
         
     def process(self, input_data):
         """
@@ -851,6 +911,30 @@ class NSPECaseExtractionStep(BaseStep):
                         title = title_text
             
             # Prepare result with all extracted components
+            # Store both HTML (for display) and text (for embeddings) versions
+            sections_dual = {
+                'facts': {
+                    'html': facts,
+                    'text': self.extract_text_only(facts) if facts else ''
+                },
+                'question': {
+                    'html': question_html,
+                    'text': self.extract_text_only(question_html) if question_html else ''
+                },
+                'references': {
+                    'html': references,
+                    'text': self.extract_text_only(references) if references else ''
+                },
+                'discussion': {
+                    'html': discussion,
+                    'text': self.extract_text_only(discussion) if discussion else ''
+                },
+                'conclusion': {
+                    'html': conclusion_html,
+                    'text': self.extract_text_only(conclusion_html) if conclusion_html else ''
+                }
+            }
+            
             result = {
                 'status': 'success',
                 'title': title,
@@ -860,12 +944,20 @@ class NSPECaseExtractionStep(BaseStep):
                 'questions_list': questions_list,  # List of individual questions
                 'conclusion_items': conclusion_items,  # List of individual conclusion items
                 'url': url,
-                'sections': {
+                'sections': {  # Keep for backward compatibility
                     'facts': facts,
                     'question': question_html,
                     'references': references,
                     'discussion': discussion,
                     'conclusion': conclusion_html
+                },
+                'sections_dual': sections_dual,  # New dual format
+                'sections_text': {  # Convenience access to text versions
+                    'facts': sections_dual['facts']['text'],
+                    'question': sections_dual['question']['text'],
+                    'references': sections_dual['references']['text'],
+                    'discussion': sections_dual['discussion']['text'],
+                    'conclusion': sections_dual['conclusion']['text']
                 }
             }
             
