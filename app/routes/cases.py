@@ -307,7 +307,8 @@ def view_case(id):
         'is_document': True,
         'case_number': metadata.get('case_number', ''),
         'year': metadata.get('year', ''),
-        'world_id': document.world_id
+        'world_id': document.world_id,
+        'doc_metadata': metadata  # Pass the full metadata to access sections
     }
     
     # Get the world
