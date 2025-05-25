@@ -514,6 +514,15 @@
     rdfs:label "Code Reference Item"@en ;
     rdfs:comment "A specific reference to a code of ethics or professional standard"@en .
 
+:NSPECodeReference rdf:type owl:Class ;
+    rdfs:subClassOf :CodeReferenceItem ;
+    rdfs:label "NSPE Code Reference"@en ;
+    rdfs:comment "A structured reference to a specific section of the NSPE Code of Ethics, including section number, description, and subject categorizations"@en .
+
+:SubjectReference rdf:type owl:Class ;
+    rdfs:label "Subject Reference"@en ;
+    rdfs:comment "A categorization or subject area that applies to a code reference, providing thematic grouping of ethical provisions"@en .
+
 #################################################################
 #    Document Structure Properties (Enhancement Group 4)        
 #################################################################
@@ -577,6 +586,36 @@
     rdfs:range rdf:List ;
     rdfs:label "has embedding"@en ;
     rdfs:comment "The vector embedding representation of a document element's content"@en .
+
+# NSPE Code Reference properties
+:hasSectionNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain :NSPECodeReference ;
+    rdfs:range xsd:string ;
+    rdfs:label "has section number"@en ;
+    rdfs:comment "The section number of an NSPE Code of Ethics reference (e.g., 'I.4.', 'II.4.a.')"@en .
+
+:hasName rdf:type owl:DatatypeProperty ;
+    rdfs:domain :SubjectReference ;
+    rdfs:range xsd:string ;
+    rdfs:label "has name"@en ;
+    rdfs:comment "The name or title of a subject reference category"@en .
+
+:hasURL rdf:type owl:DatatypeProperty ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "has URL"@en ;
+    rdfs:comment "The URL or web address associated with an entity"@en .
+
+:hasSubjectReference rdf:type owl:ObjectProperty ;
+    rdfs:domain :NSPECodeReference ;
+    rdfs:range :SubjectReference ;
+    rdfs:label "has subject reference"@en ;
+    rdfs:comment "Links an NSPE code reference to its subject reference categories"@en .
+
+:appliesTo rdf:type owl:ObjectProperty ;
+    rdfs:domain :SubjectReference ;
+    rdfs:range :NSPECodeReference ;
+    rdfs:label "applies to"@en ;
+    rdfs:comment "Indicates that a subject reference category applies to a specific code reference"@en .
 
 # Structural relationships
 :isPartOf rdf:type owl:ObjectProperty ;

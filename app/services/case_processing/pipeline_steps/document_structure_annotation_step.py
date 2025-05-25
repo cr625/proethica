@@ -240,17 +240,38 @@ class DocumentStructureAnnotationStep(BaseStep):
             g.add((document, PROETHICA.hasPart, references_uri))
             section_uris['references'] = references_uri
             
-            # Extract code references from text version if available, else from HTML
-            references_content = sections_text.get('references', sections['references']) if sections_text else sections['references']
+            # Extract structured code references from HTML content 
+            references_content = sections.get('references')  # Use HTML content for better parsing
             if references_content:
-                code_refs = self._extract_code_references(references_content)
-                for i, ref in enumerate(code_refs):
+                structured_refs = self._extract_code_references(references_content)
+                for i, ref_data in enumerate(structured_refs):
                     ref_uri = URIRef(f"{document_uri}/code_reference_{i+1}")
                     g.add((ref_uri, RDF.type, OWL.NamedIndividual))
-                    g.add((ref_uri, RDF.type, PROETHICA.CodeReferenceItem))
-                    g.add((ref_uri, PROETHICA.hasTextContent, Literal(ref)))
+                    g.add((ref_uri, RDF.type, PROETHICA.NSPECodeReference))
                     g.add((ref_uri, PROETHICA.isPartOf, references_uri))
                     g.add((references_uri, PROETHICA.hasPart, ref_uri))
+                    
+                    # Add section number if available
+                    if ref_data.get('section_number'):
+                        g.add((ref_uri, PROETHICA.hasSectionNumber, Literal(ref_data['section_number'])))
+                    
+                    # Add description/text content
+                    if ref_data.get('description'):
+                        g.add((ref_uri, PROETHICA.hasTextContent, Literal(ref_data['description'])))
+                    
+                    # Add subject references as related concepts
+                    for j, subject_ref in enumerate(ref_data.get('subject_references', [])):
+                        subject_uri = URIRef(f"{document_uri}/subject_reference_{i+1}_{j+1}")
+                        g.add((subject_uri, RDF.type, OWL.NamedIndividual))
+                        g.add((subject_uri, RDF.type, PROETHICA.SubjectReference))
+                        g.add((subject_uri, PROETHICA.hasName, Literal(subject_ref['name'])))
+                        
+                        if subject_ref.get('url'):
+                            g.add((subject_uri, PROETHICA.hasURL, Literal(subject_ref['url'])))
+                        
+                        # Create relationship between code reference and subject reference
+                        g.add((ref_uri, PROETHICA.hasSubjectReference, subject_uri))
+                        g.add((subject_uri, PROETHICA.appliesTo, ref_uri))
         
         # Discussion section
         if sections.get('discussion'):
@@ -343,13 +364,13 @@ class DocumentStructureAnnotationStep(BaseStep):
     
     def _extract_code_references(self, content):
         """
-        Extract code references from references section content (HTML or plain text).
+        Extract structured NSPE Code of Ethics References from content.
         
         Args:
             content: Content of references section (HTML or plain text)
             
         Returns:
-            list: List of code reference strings
+            list: List of structured code reference dictionaries with section_number, description, and subject_references
         """
         if not content:
             return []
@@ -362,18 +383,35 @@ class DocumentStructureAnnotationStep(BaseStep):
                 # Parse as HTML
                 soup = BeautifulSoup(content, 'html.parser')
                 
-                # Try list items first
+                # Look for NSPE structured references (field__item divs containing structured data)
+                nspe_refs = self._parse_nspe_structured_references(soup)
+                if nspe_refs:
+                    return nspe_refs
+                
+                # Fallback: Try list items
                 list_items = soup.find_all('li')
                 if list_items:
                     for item in list_items:
-                        references.append(item.get_text().strip())
+                        ref_text = item.get_text().strip()
+                        if ref_text:
+                            references.append({
+                                'section_number': None,
+                                'description': ref_text,
+                                'subject_references': []
+                            })
                     return references
                 
-                # If no list items, look for paragraphs
+                # Fallback: If no list items, look for paragraphs
                 paragraphs = soup.find_all('p')
                 if paragraphs:
                     for p in paragraphs:
-                        references.append(p.get_text().strip())
+                        ref_text = p.get_text().strip()
+                        if ref_text:
+                            references.append({
+                                'section_number': None,
+                                'description': ref_text,
+                                'subject_references': []
+                            })
                     return references
                 
                 # If no structured content, use the raw text
@@ -383,7 +421,7 @@ class DocumentStructureAnnotationStep(BaseStep):
                 text = content.strip()
             
             if text:
-                # Check for numbered or bulleted lists in plain text
+                # Fallback for plain text - try to parse basic structure
                 lines = text.split('\n')
                 for line in lines:
                     line = line.strip()
@@ -396,10 +434,86 @@ class DocumentStructureAnnotationStep(BaseStep):
                             parts = line.split('.', 1)
                             if len(parts) > 1:
                                 line = parts[1].strip()
-                        references.append(line)
+                        
+                        references.append({
+                            'section_number': None,
+                            'description': line,
+                            'subject_references': []
+                        })
                         
         except Exception as e:
             logger.warning(f"Error extracting code references: {str(e)}")
+        
+        return references
+    
+    def _parse_nspe_structured_references(self, soup):
+        """
+        Parse structured NSPE Code of Ethics References from HTML.
+        
+        Args:
+            soup: BeautifulSoup object of references content
+            
+        Returns:
+            list: List of structured reference dictionaries
+        """
+        references = []
+        
+        try:
+            # Look for field__item divs that contain structured NSPE references
+            field_items = soup.find_all('div', class_='field__item')
+            
+            for item in field_items:
+                # Look for section number in h2 tag
+                section_number = None
+                h2_tag = item.find('h2')
+                if h2_tag:
+                    # Section number is typically in a nested div
+                    number_div = h2_tag.find('div', class_='field__item')
+                    if number_div:
+                        section_number = number_div.get_text().strip()
+                
+                # Look for description text
+                description = None
+                desc_div = item.find('div', class_='text-formatted')
+                if desc_div:
+                    # Get text from paragraphs within description
+                    desc_paras = desc_div.find_all('p')
+                    if desc_paras:
+                        description = ' '.join(p.get_text().strip() for p in desc_paras if p.get_text().strip())
+                    else:
+                        description = desc_div.get_text().strip()
+                
+                # Look for subject reference links
+                subject_references = []
+                # Find "Subject Reference" section
+                subject_ref_divs = item.find_all('div')
+                for div in subject_ref_divs:
+                    if div.get_text().strip() == 'Subject Reference':
+                        # Find the field__items div that follows
+                        next_sibling = div.find_next_sibling()
+                        if next_sibling and 'field__items' in next_sibling.get('class', []):
+                            # Extract links from this section
+                            ref_links = next_sibling.find_all('a')
+                            for link in ref_links:
+                                link_text = link.get_text().strip()
+                                link_url = link.get('href', '')
+                                if link_text:
+                                    subject_references.append({
+                                        'name': link_text,
+                                        'url': link_url
+                                    })
+                        break
+                
+                # Only add if we found meaningful content
+                if section_number or description:
+                    references.append({
+                        'section_number': section_number,
+                        'description': description,
+                        'subject_references': subject_references
+                    })
+                    
+        except Exception as e:
+            logger.warning(f"Error parsing NSPE structured references: {str(e)}")
         
         return references
     
