@@ -1,0 +1,183 @@
+/* Structure Triples Viewer Styles */
+
+.structure-viewer {
+    margin-top: 1rem;
+}
+
+.viewer-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.viewer-content {
+    margin-top: 1rem;
+}
+
+/* Formatted View Styles */
+.formatted-structure {
+    max-width: 100%;
+}
+
+.document-info .card-header {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.section-card {
+    border-left: 4px solid #0d6efd;
+    transition: all 0.2s ease;
+}
+
+.section-card:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.section-card .card-header {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.section-content {
+    background-color: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 0.25rem;
+}
+
+.section-items {
+    border-top: 1px solid #dee2e6;
+    padding-top: 0.75rem;
+}
+
+.section-items ul li {
+    padding-left: 1rem;
+    position: relative;
+}
+
+.section-items ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #6c757d;
+}
+
+/* Raw View Styles */
+.raw-triples-container pre {
+    max-height: 600px;
+    overflow-y: auto;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.raw-triples-container code {
+    color: #212529;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .viewer-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .viewer-controls .btn-group {
+        width: 100%;
+    }
+    
+    .viewer-controls .btn {
+        flex: 1;
+    }
+}
+
+/* Icon spacing */
+.bi {
+    margin-right: 0.25rem;
+}
+
+/* Statistics text */
+#triple-stats {
+    font-size: 0.875rem;
+}
+
+/* Copy button feedback */
+.btn-success {
+    transition: all 0.3s ease;
+}
+
+/* Combined Section Items View */
+.section-items-table {
+    margin-top: 1rem;
+}
+
+.section-group {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.section-group-header {
+    color: #495057;
+    font-weight: 600;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.item-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.item-id {
+    font-weight: 600;
+    color: #0d6efd;
+}
+
+.item-type {
+    font-size: 0.75rem;
+}
+
+.item-uri {
+    flex: 1;
+    text-align: right;
+    min-width: 200px;
+}
+
+.item-content {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    border-left: 3px solid #0d6efd;
+    line-height: 1.6;
+}
+
+/* Make the table rows more distinct */
+.section-items-table .table tbody tr {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.section-items-table .table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.section-items-table .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Responsive adjustments for item header */
+@media (max-width: 768px) {
+    .item-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .item-uri {
+        text-align: left;
+        margin-top: 0.25rem;
+    }
+}

@@ -2,6 +2,10 @@
 
 {% block title %}Document Structure - {{ document.title }}{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="mb-4">
@@ -72,44 +76,7 @@
         </div>
     </div>
 
-    {% if section_metadata %}
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">
-            <h3>Section Metadata</h3>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Section</th>
-                            <th>Type</th>
-                            <th>URI</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for key, data in section_metadata.items() %}
-                        <tr>
-                            <td>{{ key.split('/')[-1] }}</td>
-                            <td>{{ data.get('type') }}</td>
-                            <td><code>{{ key }}</code></td>
-                            <td>
-                                {% if has_section_embeddings %}
-                                <a href="{{ url_for('doc_structure.compare_sections', doc_id=document.id, section_id=key.split('/')[-1]) }}"
-                                    class="btn btn-sm btn-primary">
-                                    <i class="bi bi-search"></i> Find Similar
-                                </a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+    <!-- Section Metadata is now integrated into Structure Triples viewer below -->
 
     <!-- Section Embeddings Information -->
     <div class="card mb-4">
@@ -413,9 +380,28 @@
             <div class="alert alert-info">
                 <i class="bi bi-info-circle"></i>
                 Structure triples represent the document's organization in ontology-based format,
-                following the ProEthica intermediate ontology.
+                following the ProEthica intermediate ontology. These triples are used for similarity analysis and LLM reasoning.
             </div>
+            
+            {% if structured_triples_data %}
+            <!-- Structure Triples Viewer Container -->
+            <div id="structure-triples-viewer"></div>
+            
+            <!-- LLM-Friendly Format (hidden, for copying) -->
+            <div id="llm-format" style="display: none;">{{ structured_triples_data.llm_format }}</div>
+            
+            <script src="{{ url_for('static', filename='js/structure-triples-viewer.js') }}"></script>
+            <script>
+                // Initialize the viewer with structured data
+                document.addEventListener('DOMContentLoaded', function() {
+                    const structuredData = {{ structured_triples_data | tojson | safe }};
+                    structureTriplesViewer = new StructureTriplesViewer('structure-triples-viewer', structuredData);
+                });
+            </script>
+            {% else %}
+            <!-- Fallback to raw display -->
             <pre class="bg-light p-3 rounded"><code>{{ structure_triples }}</code></pre>
+            {% endif %}
         </div>
     </div>
     {% endif %}

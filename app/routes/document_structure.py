@@ -14,6 +14,7 @@ from app.models.document_section import DocumentSection
 from app.services.section_embedding_service import SectionEmbeddingService
 from app.services.guideline_section_service import GuidelineSectionService 
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
+from app.services.structure_triple_formatter import StructureTripleFormatter
 from datetime import datetime
 from app import db
 
@@ -219,6 +220,16 @@ def view_structure(id):
     except Exception as e:
         current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
+    # Format structure triples if available
+    structured_triples_data = None
+    if has_structure and structure_triples:
+        formatter = StructureTripleFormatter()
+        structured_triples_data = formatter.parse_triples(structure_triples)
+        
+        # Add LLM-friendly format
+        if 'error' not in structured_triples_data:
+            structured_triples_data['llm_format'] = formatter.format_for_llm(structured_triples_data)
+    
     # Add a timestamp query parameter to prevent browser caching
     no_cache = request.args.get('_', '')
     
@@ -227,6 +238,7 @@ def view_structure(id):
                           has_structure=has_structure,
                           document_uri=document_uri,
                           structure_triples=structure_triples,
+                          structured_triples_data=structured_triples_data,
                           section_metadata=section_metadata,
                           has_section_embeddings=has_section_embeddings,
                           section_embeddings_info=section_embeddings_info,
