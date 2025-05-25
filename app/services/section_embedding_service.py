@@ -304,60 +304,51 @@ class SectionEmbeddingService(EmbeddingService):
             
             # Try using native pgvector similarity if available
             try:
-                # Create an instance of our Vector type for proper type handling
-                from app.models.document_section import Vector
-                vector_type = Vector(384)
+                # Format the embedding as a PostgreSQL array string
+                embedding_str = '[' + ','.join(str(x) for x in query_embedding) + ']'
                 
-                # Let our Vector type handle the conversion
-                embedding_param = vector_type.bind_processor(None)(query_embedding)
+                # Build the SQL query for pgvector's native cosine similarity
+                # This is more efficient than calculating similarity in Python
+                query_sql = """
+                SELECT 
+                    ds.id, 
+                    ds.document_id, 
+                    ds.section_id, 
+                    ds.section_type, 
+                    ds.content,
+                    ds.embedding <=> CAST(:query_embedding AS vector) AS similarity,
+                    d.title AS document_title
+                FROM 
+                    document_sections ds
+                JOIN 
+                    documents d ON ds.document_id = d.id
+                WHERE 
+                    ds.embedding IS NOT NULL
+                """
                 
-                # Use with to ensure transaction consistency
-                with db.session.begin():
-                    # For pgvector's native cosine similarity
-                    # This is more efficient than calculating similarity in Python
-                    query_sql = """
-                    SELECT 
-                        ds.id, 
-                        ds.document_id, 
-                        ds.section_id, 
-                        ds.section_type, 
-                        ds.content,
-                        ds.embedding <=> :query_embedding::vector(384) AS similarity,
-                        d.title AS document_title
-                    FROM 
-                        document_sections ds
-                    JOIN 
-                        documents d ON ds.document_id = d.id
-                    WHERE 
-                        ds.embedding IS NOT NULL
-                    """
-                    
-                    # Dynamically add filters based on parameters
-                    params = {'query_embedding': embedding_param}
-                    
-                    if document_id is not None:
-                        query_sql += " AND ds.document_id = :document_id"
-                        params['document_id'] = document_id
-                    
-                    if section_type is not None:
-                        query_sql += " AND ds.section_type = :section_type"
-                        params['section_type'] = section_type
-                    
-                    # Add order and limit
-                    query_sql += """
-                    ORDER BY 
-                        similarity ASC
-                    LIMIT :limit
-                    """
-                    params['limit'] = limit
-                    
-                    # Execute the query with the properly formatted embedding
-                    sections = db.session.execute(
-                        text(query_sql),
-                        params
-                    )
+                # Dynamically add filters based on parameters
+                params = {'query_embedding': embedding_str}
                 
-                for row in sections:
+                if document_id is not None:
+                    query_sql += " AND ds.document_id = :document_id"
+                    params['document_id'] = document_id
+                
+                if section_type is not None:
+                    query_sql += " AND ds.section_type = :section_type"
+                    params['section_type'] = section_type
+                
+                # Add order and limit
+                query_sql += """
+                ORDER BY 
+                    similarity ASC
+                LIMIT :limit
+                """
+                params['limit'] = limit
+                
+                # Execute the query with the properly formatted embedding
+                result = db.session.execute(text(query_sql), params)
+                
+                for row in result:
                     # Convert to 0-1 scale where 1 is most similar
                     # pgvector returns distance where 0 is identical
                     normalized_similarity = max(0.0, 1.0 - float(row.similarity))
