@@ -7,7 +7,7 @@ import os
 import sys
 import json
 import logging
-from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, current_app, abort
 from flask_sqlalchemy import SQLAlchemy
 from app.models.document import Document
 from app.models.document_section import DocumentSection
@@ -253,39 +253,85 @@ def view_structure(id):
 def generate_embeddings(id):
     """Generate section embeddings for a document."""
     # Get the document
-    document = Document.query.get_or_404(id)
+    document = Document.query.get(id)
+    if not document:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': 'Document not found'
+            }), 404
+        else:
+            abort(404)
     
     try:
+        # Ensure metadata is properly loaded as a dictionary
+        if isinstance(document.doc_metadata, str):
+            try:
+                import json
+                document.doc_metadata = json.loads(document.doc_metadata)
+            except (json.JSONDecodeError, TypeError) as e:
+                current_app.logger.error(f"Failed to parse document metadata: {e}")
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid document metadata format. Please regenerate document structure.'
+                }), 400
+        
+        metadata = document.doc_metadata or {}
+        
+        # Check if document has proper structure data
+        doc_structure = metadata.get('document_structure', {})
+        if not doc_structure:
+            return jsonify({
+                'success': False,
+                'message': 'Document structure not found. Please generate document structure first.'
+            }), 400
+        
+        # Verify we have structure triples for granular processing
+        structure_triples = doc_structure.get('structure_triples', '')
+        if not structure_triples:
+            return jsonify({
+                'success': False,
+                'message': 'Structure triples not found. Please regenerate document structure.'
+            }), 400
+        
         # Initialize section embedding service
         section_embedding_service = SectionEmbeddingService()
         
         # Log that we're starting the embedding generation process
         current_app.logger.info(f"Starting section embedding generation for document {id}")
         
-        # Log the document metadata structure
-        metadata = document.doc_metadata or {}
+        # Log the document metadata structure for debugging
         current_app.logger.info(f"Document metadata keys: {list(metadata.keys())}")
         if 'document_structure' in metadata:
             current_app.logger.info(f"Document structure keys: {list(metadata['document_structure'].keys())}")
             if 'sections' in metadata['document_structure']:
-                current_app.logger.info(f"Found {len(metadata['document_structure']['sections'])} sections in document_structure")
-                
-                # Log the first section to understand structure
-                first_section_id = list(metadata['document_structure']['sections'].keys())[0] if metadata['document_structure']['sections'] else None
-                if first_section_id:
-                    current_app.logger.info(f"First section ({first_section_id}) keys: {list(metadata['document_structure']['sections'][first_section_id].keys())}")
-        
-        if 'sections' in metadata:
-            current_app.logger.info(f"Top-level sections found: {list(metadata['sections'].keys())}")
-        
-        if 'section_embeddings_metadata' in metadata:
-            current_app.logger.info(f"Section embeddings metadata contains {len(metadata['section_embeddings_metadata'])} sections")
+                sections = metadata['document_structure']['sections']
+                # Check if sections is a dictionary before trying to access its properties
+                if isinstance(sections, dict):
+                    current_app.logger.info(f"Found {len(sections)} sections in document_structure")
+                    
+                    # Log the first section to understand structure
+                    if sections:
+                        first_section_id = list(sections.keys())[0]
+                        if isinstance(sections[first_section_id], dict):
+                            current_app.logger.info(f"First section ({first_section_id}) keys: {list(sections[first_section_id].keys())}")
+                else:
+                    current_app.logger.warning(f"document_structure.sections is not a dictionary, it's a {type(sections)}")
         
         # Process document sections
         result = section_embedding_service.process_document_sections(document.id)
         
         if result.get('success'):
-            flash(f"Successfully generated embeddings for {result.get('sections_embedded')} sections", 'success')
+            success_message = f"Successfully generated embeddings for {result.get('sections_embedded')} sections"
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': True,
+                    'message': success_message,
+                    'sections_embedded': result.get('sections_embedded')
+                })
+            else:
+                flash(success_message, 'success')
             
             # Force reload the document from the database to ensure we have the latest data
             db.session.close()
@@ -302,10 +348,16 @@ def generate_embeddings(id):
                     
                 # If there are sections with embeddings but no section_embeddings, fix it
                 if 'sections' in metadata['document_structure']:
-                    sections_with_embeddings = [s for s in metadata['document_structure']['sections'] 
-                                             if 'embedding' in metadata['document_structure']['sections'][s]]
-                    
-                    current_app.logger.info(f"Found {len(sections_with_embeddings)} sections with embeddings after reload")
+                    sections = metadata['document_structure']['sections']
+                    # Check if sections is a dictionary before iterating
+                    if isinstance(sections, dict):
+                        sections_with_embeddings = [s for s in sections 
+                                                 if isinstance(sections[s], dict) and 'embedding' in sections[s]]
+                        
+                        current_app.logger.info(f"Found {len(sections_with_embeddings)} sections with embeddings after reload")
+                    else:
+                        sections_with_embeddings = []
+                        current_app.logger.warning(f"sections is not a dictionary after reload, it's a {type(sections)}")
                     
                     if sections_with_embeddings and 'section_embeddings' not in metadata['document_structure']:
                         current_app.logger.info("Still fixing missing section_embeddings key after reload")
@@ -331,7 +383,21 @@ def generate_embeddings(id):
     
     except Exception as e:
         current_app.logger.exception(f"Exception during section embedding generation: {str(e)}")
-        flash(f"Error processing section embeddings: {str(e)}", 'danger')
+        error_message = str(e)
+        
+        # Provide more helpful error messages for common issues
+        if "'str' object has no attribute 'keys'" in error_message:
+            error_message = "Document metadata is corrupted. Please regenerate the document structure."
+        elif "No section data found" in error_message:
+            error_message = "No section data found. Please generate document structure first."
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': error_message
+            }), 500
+        else:
+            flash(f"Error processing section embeddings: {error_message}", 'danger')
     
     # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))

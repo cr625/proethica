@@ -114,11 +114,12 @@
                 <strong>No section embeddings available for this document.</strong>
             </div>
             <p>Section embeddings enable semantic search and similarity comparisons between document sections.</p>
-            <form action="{{ url_for('doc_structure.generate_embeddings', id=document.id) }}" method="post">
-                <button type="submit" class="btn btn-primary">
+            <form id="generate-embeddings-form" action="{{ url_for('doc_structure.generate_embeddings', id=document.id) }}" method="post">
+                <button type="submit" class="btn btn-primary" id="generate-embeddings-btn">
                     <i class="bi bi-cpu"></i> Generate Section Embeddings
                 </button>
             </form>
+            <div id="embedding-error-message" class="alert alert-danger mt-3 d-none"></div>
             {% endif %}
         </div>
     </div>
@@ -405,13 +406,79 @@
                     structureTriplesViewer = new StructureTriplesViewer('structure-triples-viewer', structuredData);
                 });
             </script>
+            {% endif %}
+            
+            <!-- Enhanced embedding generation handling -->
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const embeddingForm = document.getElementById('generate-embeddings-form');
+                if (embeddingForm) {
+                    embeddingForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        const btn = document.getElementById('generate-embeddings-btn');
+                        const errorDiv = document.getElementById('embedding-error-message');
+                        
+                        // Show loading state
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating embeddings...';
+                        errorDiv.classList.add('d-none');
+                        
+                        fetch(embeddingForm.action, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: new FormData(embeddingForm)
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                // Try to parse error response
+                                return response.text().then(text => {
+                                    try {
+                                        const errorData = JSON.parse(text);
+                                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                                    } catch (e) {
+                                        // If not JSON, it's probably an HTML error page
+                                        throw new Error(`Server error (${response.status}). Please check server logs.`);
+                                    }
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                // Success - reload page to show updated status
+                                window.location.reload();
+                            } else {
+                                // Show error message
+                                errorDiv.textContent = data.message || 'An error occurred while generating embeddings.';
+                                errorDiv.classList.remove('d-none');
+                                
+                                // Reset button
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="bi bi-cpu"></i> Generate Section Embeddings';
+                            }
+                        })
+                        .catch(error => {
+                            // Show error message
+                            errorDiv.textContent = error.message || 'An unexpected error occurred';
+                            errorDiv.classList.remove('d-none');
+                            
+                            // Reset button
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="bi bi-cpu"></i> Generate Section Embeddings';
+                        });
+                    });
+                }
+            });
+            </script>
             {% else %}
             <!-- Fallback to raw display -->
             <pre class="bg-light p-3 rounded"><code>{{ structure_triples }}</code></pre>
             {% endif %}
         </div>
     </div>
-    {% endif %}
     {% endif %}
 </div>
 {% endblock %}
