@@ -217,6 +217,16 @@ class StructureTriplesViewer {
             }
             groupedItems[section].push({ id: itemId, ...itemData });
         }
+        
+        // Sort items within each section by sequence number if available
+        for (const section in groupedItems) {
+            groupedItems[section].sort((a, b) => {
+                if (a.sequence_number && b.sequence_number) {
+                    return a.sequence_number - b.sequence_number;
+                }
+                return 0;
+            });
+        }
 
         // Section display order and labels
         const sectionOrder = {
@@ -246,12 +256,22 @@ class StructureTriplesViewer {
             
             // Add items for this section
             groupedItems[sectionKey].forEach(item => {
+                // Add segment type badge for discussion segments
+                let segmentTypeBadge = '';
+                if (item.segment_type) {
+                    const badgeClass = item.segment_type === 'ethical_analysis' ? 'bg-primary' : 
+                                     item.segment_type === 'reasoning' ? 'bg-info' : 
+                                     item.segment_type === 'code_reference' ? 'bg-warning' : 'bg-secondary';
+                    segmentTypeBadge = `<span class="badge ${badgeClass} ms-2">${this.escapeHtml(item.segment_type.replace('_', ' '))}</span>`;
+                }
+                
                 html += `
                     <tr>
                         <td class="w-100">
                             <div class="item-header">
                                 <code class="item-id">${this.escapeHtml(item.id)}</code>
                                 <span class="item-type badge bg-secondary ms-2">${this.escapeHtml(item.type || 'Item')}</span>
+                                ${segmentTypeBadge}
                                 <span class="item-uri text-muted ms-2"><small>${this.escapeHtml(item.uri)}</small></span>
                             </div>
                             <div class="item-content mt-2">

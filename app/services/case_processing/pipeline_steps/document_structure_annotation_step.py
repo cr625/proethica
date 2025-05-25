@@ -3,6 +3,7 @@ Document Structure Annotation Step - Annotates case document structure with onto
 """
 import logging
 import uuid
+import re
 from bs4 import BeautifulSoup
 from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF, RDFS, OWL
@@ -192,6 +193,17 @@ class DocumentStructureAnnotationStep(BaseStep):
             g.add((facts_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, facts_uri))
             section_uris['facts'] = facts_uri
+            
+            # Extract individual fact statements
+            fact_statements = self.extract_fact_statements(text_content)
+            for i, fact in enumerate(fact_statements):
+                fact_uri = URIRef(f"{document_uri}/fact_{i+1}")
+                g.add((fact_uri, RDF.type, OWL.NamedIndividual))
+                g.add((fact_uri, RDF.type, PROETHICA.FactStatement))
+                g.add((fact_uri, PROETHICA.hasTextContent, Literal(fact)))
+                g.add((fact_uri, PROETHICA.hasSequenceNumber, Literal(i+1)))
+                g.add((fact_uri, PROETHICA.isPartOf, facts_uri))
+                g.add((facts_uri, PROETHICA.hasPart, fact_uri))
         
         # Questions section
         if sections.get('question'):
@@ -252,6 +264,18 @@ class DocumentStructureAnnotationStep(BaseStep):
             g.add((discussion_uri, PROETHICA.isPartOf, document))
             g.add((document, PROETHICA.hasPart, discussion_uri))
             section_uris['discussion'] = discussion_uri
+            
+            # Extract discussion segments
+            discussion_segments = self.extract_discussion_segments(sections['discussion'])
+            for i, segment in enumerate(discussion_segments):
+                segment_uri = URIRef(f"{document_uri}/discussion_segment_{i+1}")
+                g.add((segment_uri, RDF.type, OWL.NamedIndividual))
+                g.add((segment_uri, RDF.type, PROETHICA.DiscussionSegment))
+                g.add((segment_uri, PROETHICA.hasTextContent, Literal(segment['content'])))
+                g.add((segment_uri, PROETHICA.hasSegmentType, Literal(segment['type'])))
+                g.add((segment_uri, PROETHICA.hasSequenceNumber, Literal(segment['position'])))
+                g.add((segment_uri, PROETHICA.isPartOf, discussion_uri))
+                g.add((discussion_uri, PROETHICA.hasPart, segment_uri))
         
         # Conclusion section
         if sections.get('conclusion'):
@@ -446,3 +470,106 @@ class DocumentStructureAnnotationStep(BaseStep):
             }
         
         return embedding_metadata
+    
+    def extract_fact_statements(self, facts_text):
+        """
+        Extract individual fact statements from the facts section.
+        
+        Facts are typically statements about:
+        - Who is involved (roles, relationships)
+        - What happened (events, actions)
+        - When things occurred
+        - Where events took place
+        - Context and circumstances
+        """
+        if not facts_text or not facts_text.strip():
+            return []
+            
+        # Remove HTML tags if present
+        clean_text = re.sub(r'<[^>]+>', '', facts_text)
+        clean_text = clean_text.strip()
+        
+        # Split into sentences
+        # Simple approach: split on periods followed by capital letter or end
+        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', clean_text)
+        
+        fact_statements = []
+        current_fact = ""
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            # Combine related sentences (e.g., those starting with pronouns)
+            if sentence.startswith(('He ', 'She ', 'It ', 'They ', 'This ', 'That ')):
+                if current_fact:
+                    current_fact += " " + sentence
+                else:
+                    current_fact = sentence
+            else:
+                # Save previous fact if exists
+                if current_fact:
+                    fact_statements.append(current_fact)
+                current_fact = sentence
+        
+        # Don't forget the last fact
+        if current_fact:
+            fact_statements.append(current_fact)
+            
+        return fact_statements
+    
+    def extract_discussion_segments(self, discussion_text):
+        """
+        Extract semantic segments from the discussion section.
+        
+        Discussion segments might include:
+        - Ethical principles being applied
+        - Analysis of different perspectives
+        - Reasoning about obligations
+        - Consideration of consequences
+        """
+        if not discussion_text or not discussion_text.strip():
+            return []
+            
+        segments = []
+        
+        # Remove HTML paragraph tags but keep the structure
+        paragraphs = re.split(r'</p>\s*<p>|<p>|</p>', discussion_text)
+        
+        for i, para in enumerate(paragraphs):
+            para = re.sub(r'<[^>]+>', '', para).strip()
+            if not para:
+                continue
+                
+            # Try to identify the segment type based on content
+            segment_type = "general"
+            
+            # Identify ethical principle discussions
+            if any(phrase in para.lower() for phrase in [
+                'ethical', 'obligation', 'duty', 'responsibility', 
+                'must', 'should', 'required', 'prohibited'
+            ]):
+                segment_type = "ethical_analysis"
+            
+            # Identify factual analysis
+            elif any(phrase in para.lower() for phrase in [
+                'however', 'although', 'because', 'since', 'therefore',
+                'as a result', 'consequently'
+            ]):
+                segment_type = "reasoning"
+                
+            # Identify references to codes or standards
+            elif any(phrase in para.lower() for phrase in [
+                'code', 'canon', 'rule', 'standard', 'guideline',
+                'section', 'clause'
+            ]):
+                segment_type = "code_reference"
+                
+            segments.append({
+                'type': segment_type,
+                'content': para,
+                'position': i + 1
+            })
+            
+        return segments

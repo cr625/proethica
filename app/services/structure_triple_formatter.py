@@ -32,7 +32,9 @@ class StructureTripleFormatter:
         'QuestionItem': 'Question',
         'ConclusionItem': 'Conclusion Item',
         'CodeReferenceItem': 'Code Reference',
-        'DocumentElement': 'Document'
+        'DocumentElement': 'Document',
+        'FactStatement': 'Fact',
+        'DiscussionSegment': 'Discussion Point'
     }
     
     # Predicates to include in formatted view
@@ -291,7 +293,7 @@ class StructureTripleFormatter:
             # Skip main sections and document-level items
             if any(x in item_id for x in ['facts', 'discussion', 'questions', 'conclusion', 'references', 
                                           'case_number', 'case_title', 'case_year']):
-                if not any(x in item_id for x in ['_item_', 'question_', 'conclusion_item_']):
+                if not any(x in item_id for x in ['_item_', 'question_', 'conclusion_item_', 'fact_', 'discussion_segment_']):
                     continue
             
             item_data = {
@@ -317,6 +319,14 @@ class StructureTripleFormatter:
             # Get full content
             for _, _, content in self.graph.triples((item_uri, URIRef(f"{self.PROETHICA}hasTextContent"), None)):
                 item_data['content'] = str(content)
+            
+            # Get segment type for discussion segments
+            for _, _, segment_type in self.graph.triples((item_uri, URIRef(f"{self.PROETHICA}hasSegmentType"), None)):
+                item_data['segment_type'] = str(segment_type)
+                
+            # Get sequence number if available
+            for _, _, seq_num in self.graph.triples((item_uri, URIRef(f"{self.PROETHICA}hasSequenceNumber"), None)):
+                item_data['sequence_number'] = int(str(seq_num))
             
             # Find parent section
             for _, _, parent in self.graph.triples((item_uri, URIRef(f"{self.PROETHICA}isPartOf"), None)):
