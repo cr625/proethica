@@ -73,11 +73,28 @@ This project models professional domains ("worlds") and supports ethical decisio
 - Clean text extraction prevents HTML noise in embeddings
 - Segment classification enables semantic querying
 
+## LLM Integration Documentation (2025-01-24)
+
+### Consolidated Documentation
+Created comprehensive LLM documentation in `/llm/` directory:
+- **README.md**: Overview and quick start guide
+- **docs/INDEX.md**: Complete index of 40+ LLM integration points
+- **docs/IMPLEMENTATION_GUIDE.md**: How-to guide for using LLM services
+- **docs/PROVIDERS.md**: Provider configurations (Claude, OpenAI, Mock)
+- **docs/USE_CASES.md**: Detailed use cases with examples
+- **docs/ARCHITECTURE.md**: LLM-Ontology integration architecture
+- **docs/PROCESSING_CAPABILITIES.md**: Triple generation and processing
+- **docs/EXPERIMENTAL_FRAMEWORK.md**: Research framework and evaluation
+
+### Archived Documentation
+Moved legacy LLM docs to `/llm/docs/archived/` for reference.
+
 ## Next Steps
 - Process remaining cases with enhanced pipeline
 - Test similarity search with granular fact/discussion items
 - Run LLM experiments with structured triples
 - Deploy MCP server for production use
+- Implement LLM-enhanced triple generation (Phase 2)
 
 ## MCP Server Status (Updated 2025-01-24)
 
