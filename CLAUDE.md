@@ -34,10 +34,50 @@ This project models professional domains ("worlds") and supports ethical decisio
 - Legacy/obsolete migration scripts and top-level structure fields are no longer used for new data.
 - NLTK resources are managed at setup, not runtime.
 
+## Recent Updates (2025-01-24)
+
+### 1. URL Processing Pipeline Consolidation
+- Merged duplicate case processing routes (`/cases/process_url` and `/cases/process_url_enhanced`)
+- Consolidated pipeline to include DocumentStructureAnnotationStep by default
+- Fixed template references to use single unified route
+
+### 2. Dual Text/HTML Extraction
+- Implemented dual format storage: HTML for display, plain text for embeddings
+- NSPEExtractionStep now returns both `sections` (HTML) and `sections_text` (plain)
+- Section embeddings use clean text versions for better similarity matching
+- RDF triples use clean text for `hasTextContent` predicates
+
+### 3. Enhanced Structure Triple Viewer
+- Created `StructureTripleFormatter` service for parsing RDF triples
+- Built interactive JavaScript viewer with formatted/raw toggle
+- Combined Section Metadata display with Structure Triples
+- Added user-friendly display showing:
+  - Document information (case number, title, year)
+  - Section items with full content (questions, conclusions, references)
+  - Statistics about triple counts
+  - LLM-friendly text format
+
+### 4. Enhanced Facts and Discussion Sections
+- Facts now broken into individual `FactStatement` items
+- Discussion broken into `DiscussionSegment` items with types:
+  - `ethical_analysis`: Contains ethical reasoning
+  - `reasoning`: Contains logical arguments
+  - `code_reference`: References specific standards
+  - `general`: Other content
+- Both maintain sequence numbers for narrative flow
+- Consistent with Questions/Conclusions/References pattern
+
+## Technical Improvements
+- Structure triples now display section content in unified view
+- All sections follow consistent item-based pattern for granular search
+- Clean text extraction prevents HTML noise in embeddings
+- Segment classification enables semantic querying
+
 ## Next Steps
-- Batch run the document structure pipeline for all imported cases.
-- Generate section embeddings and guideline associations as needed.
-- Run LLM experiments as described in the project plan.
+- Process remaining cases with enhanced pipeline
+- Test similarity search with granular fact/discussion items
+- Run LLM experiments with structured triples
+- Deploy MCP server for production use
 
 ## MCP Server Status (Updated 2025-01-24)
 

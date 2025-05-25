@@ -11,6 +11,7 @@ Active documentation describing how the system currently works:
 - **[NSPE_CASES_README.md](implementation/NSPE_CASES_README.md)** - NSPE case import process and ontology extensions
 - **[case_analysis_using_ontology.md](implementation/case_analysis_using_ontology.md)** - Using the ontology system to analyze cases
 - **[SECTION_TRIPLE_ASSOCIATION.md](implementation/SECTION_TRIPLE_ASSOCIATION.md)** - How sections are linked to ontology concepts
+- **[STRUCTURE_TRIPLE_VIEWER.md](implementation/STRUCTURE_TRIPLE_VIEWER.md)** - Interactive RDF triple viewer with enhanced Facts/Discussion sections
 
 ### `/archived/` - Historical Planning Documents
 Completed planning documents preserved for reference:
