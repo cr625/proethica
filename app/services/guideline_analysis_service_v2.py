@@ -11,7 +11,7 @@ from datetime import datetime
 import re
 from slugify import slugify
 
-from app import db
+from app.models import db
 from app.services.guideline_analysis_service import GuidelineAnalysisService
 from app.services.embedding_service import EmbeddingService
 from app.models.guideline import Guideline

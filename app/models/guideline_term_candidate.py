@@ -3,7 +3,8 @@ Model for guideline term candidates - concepts that may become new ontology term
 """
 
 from datetime import datetime
-from app import db
+from app.models import db
+from app.models.user import User
 
 
 class GuidelineTermCandidate(db.Model):
