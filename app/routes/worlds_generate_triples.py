@@ -1,6 +1,7 @@
 """
-Direct triple generation route for guidelines.
-Allows generating triples directly from the guideline view page without going through concept selection.
+Ontology alignment triple generation for guidelines.
+Generates semantic relationship triples that connect guideline concepts to the engineering-ethics ontology.
+This is Stage 2 of the guideline processing - Stage 1 already stored concepts as basic RDF triples.
 """
 
 from flask import redirect, url_for, flash, request
@@ -14,10 +15,24 @@ from app.services.guideline_analysis_service import GuidelineAnalysisService
 
 logger = logging.getLogger(__name__)
 
+# Define the relationship predicates we use for ontology alignment
+ALIGNMENT_PREDICATES = [
+    'http://proethica.org/ontology/alignsWith',
+    'http://proethica.org/ontology/relatesTo',
+    'http://proethica.org/ontology/implementsPrinciple',
+    'http://proethica.org/ontology/emphasizesObligation',
+    'http://proethica.org/ontology/definesRole',
+    'http://proethica.org/ontology/requiresCapability',
+    'http://proethica.org/ontology/addressesCondition',
+    'http://proethica.org/ontology/isNewTermCandidate',
+    'http://proethica.org/ontology/suggestedParent'
+]
+
 def generate_triples_direct(world_id, document_id):
     """
-    Generate triples directly from existing concepts without the selection UI.
-    This is called from the guideline view page.
+    Generate ontology alignment triples for guideline concepts.
+    This adds semantic relationships between concepts and the engineering-ethics ontology.
+    Does NOT delete existing basic concept triples (type, label, description).
     """
     try:
         # Verify the guideline exists and belongs to this world
@@ -26,80 +41,176 @@ def generate_triples_direct(world_id, document_id):
         
         if guideline.world_id != world.id:
             flash('Guideline does not belong to this world', 'error')
-            return redirect(url_for('worlds.view_guideline', id=world_id, guideline_id=document_id))
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        
+        # First try to get the related Guideline if this is a Document with guideline metadata
+        actual_guideline_id = None
+        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+            actual_guideline_id = guideline.doc_metadata['guideline_id']
+            logger.info(f"Document {document_id} is associated with Guideline {actual_guideline_id}")
         
         # Get existing concepts from entity triples
-        existing_triples = EntityTriple.query.filter_by(
-            guideline_id=guideline.id,
-            world_id=world.id
-        ).all()
+        if actual_guideline_id:
+            # If we have an associated guideline, look for its triples
+            existing_triples = EntityTriple.query.filter_by(
+                guideline_id=actual_guideline_id,
+                entity_type="guideline_concept"
+            ).all()
+        else:
+            # Otherwise look for triples associated with this document
+            existing_triples = EntityTriple.query.filter_by(
+                guideline_id=guideline.id,
+                world_id=world.id
+            ).all()
         
-        if not existing_triples:
-            flash('No concepts found. Please analyze concepts first.', 'warning')
-            return redirect(url_for('worlds.view_guideline', id=world_id, guideline_id=document_id))
-        
-        # Extract unique concepts from existing triples
-        concepts_dict = {}
-        for triple in existing_triples:
-            subject = triple.subject_label or triple.subject
-            if subject not in concepts_dict:
-                # Try to reconstruct concept structure from triples
-                concepts_dict[subject] = {
-                    'id': f'concept_{len(concepts_dict)}',
-                    'label': subject,
-                    'description': '',
-                    'category': 'concept',  # Default category
-                    'related_concepts': []
-                }
+        # If no triples found, try to extract concepts from metadata
+        if not existing_triples and guideline.doc_metadata:
+            # Check if we have extracted concepts in metadata
+            extracted_concepts = guideline.doc_metadata.get('extracted_concepts', [])
+            selected_concepts = guideline.doc_metadata.get('selected_concepts', [])
+            
+            if extracted_concepts or selected_concepts:
+                # Use selected concepts if available, otherwise all extracted
+                concepts_to_use = selected_concepts if selected_concepts else extracted_concepts
                 
-                # Look for description in triples
-                if triple.predicate and 'description' in triple.predicate.lower():
-                    concepts_dict[subject]['description'] = triple.object_literal or ''
+                # Format concepts for triple generation
+                concepts = []
+                for i, concept in enumerate(concepts_to_use):
+                    if isinstance(concept, dict):
+                        concepts.append(concept)
+                    else:
+                        # Handle simple string concepts
+                        concepts.append({
+                            'id': f'concept_{i}',
+                            'label': str(concept),
+                            'description': '',
+                            'category': 'concept'
+                        })
+                
+                if concepts:
+                    logger.info(f"Found {len(concepts)} concepts in document metadata")
+                    # Skip to triple generation
+                    logger.info(f"Generating ontology alignment triples for {len(concepts)} concepts from guideline {document_id}")
                     
-                # Look for category/type in triples
-                if triple.predicate and ('type' in triple.predicate.lower() or 'category' in triple.predicate.lower()):
-                    concepts_dict[subject]['category'] = triple.object_label or triple.object_literal or 'concept'
+                    # Initialize the guideline analysis service
+                    guideline_analysis_service = GuidelineAnalysisService()
+                    
+                    # Generate triples for all concepts
+                    selected_indices = list(range(len(concepts)))
+                    
+                    # Get ontology source from world
+                    ontology_source = world.ontology_source if world.ontology_source else 'engineering-ethics'
+                    
+                    # Extract ontology terms from guideline text (not from concepts)
+                    triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
+                        guideline_text=guideline.content,
+                        world_id=world.id,
+                        guideline_id=actual_guideline_id or guideline.id,
+                        ontology_source=ontology_source
+                    )
+                    
+                    if triples_result.get('success'):
+                        triple_count = triples_result.get('triple_count', 0)
+                        
+                        # Delete old triples before saving new ones
+                        if actual_guideline_id:
+                            EntityTriple.query.filter_by(
+                                guideline_id=actual_guideline_id,
+                                entity_type="guideline_concept"
+                            ).delete()
+                        else:
+                            EntityTriple.query.filter_by(
+                                guideline_id=guideline.id,
+                                world_id=world.id
+                            ).delete()
+                        
+                        # Save the new triples
+                        if 'triples' in triples_result:
+                            for triple_data in triples_result['triples']:
+                                entity_triple = EntityTriple(
+                                    world_id=world.id,
+                                    guideline_id=actual_guideline_id or guideline.id,
+                                    entity_type="guideline_concept" if actual_guideline_id else None,
+                                    subject=triple_data.get('subject', ''),
+                                    subject_label=triple_data.get('subject_label', ''),
+                                    predicate=triple_data.get('predicate', ''),
+                                    predicate_label=triple_data.get('predicate_label', ''),
+                                    object_uri=triple_data.get('object_uri'),
+                                    object_literal=triple_data.get('object_literal'),
+                                    object_label=triple_data.get('object_label'),
+                                    confidence=triple_data.get('confidence', 1.0)
+                                )
+                                db.session.add(entity_triple)
+                        
+                        # Update document metadata
+                        if not guideline.doc_metadata:
+                            guideline.doc_metadata = {}
+                        guideline.doc_metadata['triples_created'] = triple_count
+                        guideline.doc_metadata['triples_generated'] = True
+                        
+                        db.session.commit()
+                        term_count = triples_result.get('term_count', triple_count // 2)
+                        flash(f'Successfully extracted {term_count} ontology terms from text ({triple_count} triples)', 'success')
+                        return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+                    else:
+                        error_msg = triples_result.get('error', 'Unknown error during triple generation')
+                        flash(f'Error generating triples: {error_msg}', 'error')
+                        return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
         
-        concepts = list(concepts_dict.values())
+        # Removed concept check - Stage 2 works directly with text
         
-        if not concepts:
-            flash('Could not extract concepts from existing triples.', 'error')
-            return redirect(url_for('worlds.view_guideline', id=world_id, guideline_id=document_id))
-        
-        logger.info(f"Regenerating triples for {len(concepts)} concepts from guideline {document_id}")
+        logger.info(f"Extracting ontology terms from guideline {document_id} text")
         
         # Initialize the guideline analysis service
         guideline_analysis_service = GuidelineAnalysisService()
         
-        # Generate triples for all concepts (no selection indices means all)
-        selected_indices = list(range(len(concepts)))
-        
         # Get ontology source from world
         ontology_source = world.ontology_source if world.ontology_source else 'engineering-ethics'
         
-        # Generate new triples
-        triples_result = guideline_analysis_service.generate_triples(
-            concepts, 
-            selected_indices, 
+        # Extract ontology terms from guideline text (not from concepts)
+        # This is completely separate from the concept extraction
+        triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
+            guideline_text=guideline.content,
             world_id=world.id,
+            guideline_id=actual_guideline_id or guideline.id,
             ontology_source=ontology_source
         )
         
         if triples_result.get('success'):
             triple_count = triples_result.get('triple_count', 0)
             
-            # Delete old triples before saving new ones
-            EntityTriple.query.filter_by(
-                guideline_id=guideline.id,
-                world_id=world.id
-            ).delete()
+            # Delete only old alignment triples, not basic concept triples
+            if actual_guideline_id:
+                logger.info(f"Deleting old alignment triples for guideline {actual_guideline_id}")
+                deleted_count = EntityTriple.query.filter(
+                    EntityTriple.guideline_id == actual_guideline_id,
+                    EntityTriple.entity_type == "guideline_concept",
+                    EntityTriple.predicate.in_(ALIGNMENT_PREDICATES)
+                ).delete(synchronize_session=False)
+                logger.info(f"Deleted {deleted_count} old alignment triples")
+            else:
+                logger.info(f"Deleting old alignment triples for document {guideline.id}")
+                deleted_count = EntityTriple.query.filter(
+                    EntityTriple.guideline_id == guideline.id,
+                    EntityTriple.world_id == world.id,
+                    EntityTriple.predicate.in_(ALIGNMENT_PREDICATES)
+                ).delete(synchronize_session=False)
+                logger.info(f"Deleted {deleted_count} old alignment triples")
             
             # Save the new triples
             if 'triples' in triples_result:
+                logger.info(f"Saving {len(triples_result['triples'])} new triples")
                 for triple_data in triples_result['triples']:
+                    # Handle confidence in metadata since EntityTriple doesn't have a confidence field
+                    metadata = {}
+                    if 'confidence' in triple_data:
+                        metadata['confidence'] = triple_data['confidence']
+                    
                     entity_triple = EntityTriple(
                         world_id=world.id,
-                        guideline_id=guideline.id,
+                        guideline_id=actual_guideline_id or guideline.id,
+                        entity_id=actual_guideline_id or guideline.id,  # entity_id is required
+                        entity_type="guideline_concept",
                         subject=triple_data.get('subject', ''),
                         subject_label=triple_data.get('subject_label', ''),
                         predicate=triple_data.get('predicate', ''),
@@ -107,12 +218,15 @@ def generate_triples_direct(world_id, document_id):
                         object_uri=triple_data.get('object_uri'),
                         object_literal=triple_data.get('object_literal'),
                         object_label=triple_data.get('object_label'),
-                        confidence=triple_data.get('confidence', 1.0)
+                        is_literal=bool(triple_data.get('object_literal')),
+                        triple_metadata=metadata
                     )
                     db.session.add(entity_triple)
+                logger.info(f"Added {len(triples_result['triples'])} triples to session")
             
             db.session.commit()
-            flash(f'Successfully regenerated {triple_count} triples for {len(concepts)} concepts', 'success')
+            term_count = triples_result.get('term_count', triple_count // 2)
+            flash(f'Successfully extracted {term_count} ontology terms from text ({triple_count} triples)', 'success')
         else:
             error_msg = triples_result.get('error', 'Unknown error during triple generation')
             flash(f'Error generating triples: {error_msg}', 'error')
@@ -121,4 +235,4 @@ def generate_triples_direct(world_id, document_id):
         logger.exception(f"Error in generate_triples_direct: {str(e)}")
         flash(f'Unexpected error: {str(e)}', 'error')
     
-    return redirect(url_for('worlds.view_guideline', id=world_id, guideline_id=document_id))
+    return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))

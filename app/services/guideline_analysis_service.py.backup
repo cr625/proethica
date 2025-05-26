@@ -1108,83 +1108,284 @@ class GuidelineAnalysisService:
             ontology_namespace = "http://proethica.org/ontology/"
             guideline_uri = f"{namespace}guideline_{guideline_id}"
             
-            # Simple fallback implementation - just look for common terms
-            # In production, this would use the MCP server or LLM
-            common_terms = {
-                'roles': ['engineer', 'client', 'employer', 'public', 'colleague'],
-                'actions': ['design', 'review', 'approve', 'report', 'disclose'],
-                'conditions': ['conflict of interest', 'safety risk', 'ethical dilemma'],
-                'capabilities': ['competence', 'expertise', 'qualification', 'skill'],
-                'principles': ['integrity', 'honesty', 'safety', 'welfare', 'sustainability']
-            }
+            # Try to use LLM to extract ontology terms from text
+            try:
+                # First, get the ontology terms we should look for
+                ontology_terms = self._get_ontology_terms_for_extraction(ontology_source)
+                
+                # Use LLM to find these terms in the text
+                if self.llm_client and not self.use_mock_responses:
+                    logger.info("Using LLM to extract ontology terms from text")
+                    
+                    system_prompt = """You are an expert at identifying engineering ethics ontology terms in text.
+                    Given a guideline text and a list of ontology terms organized by category, identify where these terms 
+                    or their variations appear in the text. Focus on finding actual mentions of roles (Engineer, Client),
+                    capabilities (Technical Competence), conditions (Conflict of Interest), actions (Design, Review), etc.
+                    
+                    For each match found, provide:
+                    - The exact text snippet where it appears (with context)
+                    - The matching ontology term
+                    - The category (role, capability, condition, action, etc.)
+                    - A confidence score (0-1)
+                    """
+                    
+                    user_prompt = f"""Analyze this guideline text and find mentions of engineering ethics ontology terms:
+
+GUIDELINE TEXT:
+{guideline_text}
+
+ONTOLOGY TERMS TO FIND:
+{json.dumps(ontology_terms, indent=2)}
+
+Return your findings in this JSON format:
+{{
+    "matches": [
+        {{
+            "text_snippet": "...engineers must hold paramount...",
+            "ontology_term": "Engineer",
+            "ontology_uri": "http://proethica.org/ontology/Engineer",
+            "category": "role",
+            "confidence": 0.95,
+            "start_position": 123,
+            "end_position": 145
+        }}
+    ]
+}}"""
+                    
+                    # Call LLM
+                    response = self._call_llm_api(system_prompt, user_prompt)
+                    
+                    if response:
+                        try:
+                            matches_data = json.loads(response)
+                            matches = matches_data.get('matches', [])
+                            
+                            # Convert matches to triples
+                            for match in matches:
+                                # Triple saying this guideline mentions this ontology term
+                                mention_triple = {
+                                    'subject': guideline_uri,
+                                    'subject_label': f'Guideline {guideline_id}',
+                                    'predicate': f"{ontology_namespace}mentionsTerm",
+                                    'predicate_label': 'mentions term',
+                                    'object_uri': match.get('ontology_uri', ''),
+                                    'object_label': match.get('ontology_term', ''),
+                                    'triple_metadata': {
+                                        'confidence': match.get('confidence', 0.8),
+                                        'text_snippet': match.get('text_snippet', ''),
+                                        'category': match.get('category', ''),
+                                        'position': {
+                                            'start': match.get('start_position', 0),
+                                            'end': match.get('end_position', 0)
+                                        }
+                                    }
+                                }
+                                extracted_triples.append(mention_triple)
+                                
+                                # Category-specific relationship
+                                category = match.get('category', '').lower()
+                                if category == 'role':
+                                    role_triple = {
+                                        'subject': guideline_uri,
+                                        'subject_label': f'Guideline {guideline_id}',
+                                        'predicate': f"{ontology_namespace}definesRole",
+                                        'predicate_label': 'defines role',
+                                        'object_uri': match.get('ontology_uri', ''),
+                                        'object_label': match.get('ontology_term', '')
+                                    }
+                                    extracted_triples.append(role_triple)
+                                elif category == 'capability':
+                                    cap_triple = {
+                                        'subject': guideline_uri,
+                                        'subject_label': f'Guideline {guideline_id}',
+                                        'predicate': f"{ontology_namespace}requiresCapability",
+                                        'predicate_label': 'requires capability',
+                                        'object_uri': match.get('ontology_uri', ''),
+                                        'object_label': match.get('ontology_term', '')
+                                    }
+                                    extracted_triples.append(cap_triple)
+                                elif category == 'condition':
+                                    cond_triple = {
+                                        'subject': guideline_uri,
+                                        'subject_label': f'Guideline {guideline_id}',
+                                        'predicate': f"{ontology_namespace}addressesCondition",
+                                        'predicate_label': 'addresses condition',
+                                        'object_uri': match.get('ontology_uri', ''),
+                                        'object_label': match.get('ontology_term', '')
+                                    }
+                                    extracted_triples.append(cond_triple)
+                                elif category == 'action':
+                                    action_triple = {
+                                        'subject': guideline_uri,
+                                        'subject_label': f'Guideline {guideline_id}',
+                                        'predicate': f"{ontology_namespace}describesAction",
+                                        'predicate_label': 'describes action',
+                                        'object_uri': match.get('ontology_uri', ''),
+                                        'object_label': match.get('ontology_term', '')
+                                    }
+                                    extracted_triples.append(action_triple)
+                            
+                            logger.info(f"LLM found {len(matches)} ontology term matches in text")
+                            
+                        except json.JSONDecodeError:
+                            logger.warning("Failed to parse LLM response as JSON")
+                    
+                else:
+                    # Use simple pattern matching as fallback
+                    logger.info("Using pattern matching to extract ontology terms")
+                            concept_label = concept.get("label", "")
+                            concept_type = concept.get("type", "concept")
+                            concept_uri = f"{namespace}{self._slugify(concept_label)}"
+                            
+                            # Find matching ontology entities by type
+                            relevant_entities = []
+                            if concept_type in ontology_data['entities']:
+                                relevant_entities = ontology_data['entities'][concept_type]
+                            
+                            # Also check related types
+                            type_mapping = {
+                                'principle': ['principles', 'Principle'],
+                                'obligation': ['obligations', 'Obligation', 'Duty'],
+                                'role': ['roles', 'Role', 'Agent'],
+                                'action': ['actions', 'Action', 'Process'],
+                                'condition': ['conditions', 'Condition', 'State'],
+                                'capability': ['capabilities', 'Capability', 'Competence'],
+                                'resource': ['resources', 'Resource', 'Tool']
+                            }
+                            
+                            for mapped_type in type_mapping.get(concept_type, []):
+                                if mapped_type in ontology_data['entities']:
+                                    relevant_entities.extend(ontology_data['entities'][mapped_type])
+                            
+                            # Score each entity for alignment
+                            alignments = []
+                            for entity in relevant_entities:
+                                entity_label = entity.get('label', '')
+                                entity_uri = entity.get('uri', '')
+                                
+                                # Calculate similarity score
+                                score = self._calculate_semantic_similarity(concept_label, entity_label)
+                                
+                                if score > 0.7:  # Threshold for alignment
+                                    alignments.append({
+                                        'entity': entity,
+                                        'score': score,
+                                        'type': 'exact' if score > 0.9 else 'similar'
+                                    })
+                            
+                            # Sort by score and take top alignments
+                            alignments.sort(key=lambda x: x['score'], reverse=True)
+                            
+                            # Generate alignment triples
+                            if alignments:
+                                # Primary alignment
+                                top_alignment = alignments[0]
+                                entity = top_alignment['entity']
+                                
+                                # Main alignment triple
+                                alignment_triple = {
+                                    'subject': concept_uri,
+                                    'subject_label': concept_label,
+                                    'predicate': f"{ontology_namespace}alignsWith",
+                                    'predicate_label': 'aligns with',
+                                    'object_uri': entity['uri'],
+                                    'object_label': entity['label'],
+                                    'confidence': top_alignment['score']
+                                }
+                                alignment_triples.append(alignment_triple)
+                                
+                                # Type-specific relationship
+                                if concept_type == 'principle':
+                                    rel_triple = {
+                                        'subject': f"guideline:{world_id}",
+                                        'predicate': f"{ontology_namespace}implementsPrinciple",
+                                        'predicate_label': 'implements principle',
+                                        'object_uri': entity['uri'],
+                                        'object_label': entity['label']
+                                    }
+                                    alignment_triples.append(rel_triple)
+                                elif concept_type == 'obligation':
+                                    rel_triple = {
+                                        'subject': f"guideline:{world_id}",
+                                        'predicate': f"{ontology_namespace}emphasizesObligation",
+                                        'predicate_label': 'emphasizes obligation',
+                                        'object_uri': entity['uri'],
+                                        'object_label': entity['label']
+                                    }
+                                    alignment_triples.append(rel_triple)
+                                
+                                # Secondary alignments as related concepts
+                                for secondary in alignments[1:3]:  # Top 3 alignments
+                                    rel_entity = secondary['entity']
+                                    related_triple = {
+                                        'subject': concept_uri,
+                                        'subject_label': concept_label,
+                                        'predicate': f"{ontology_namespace}relatesTo",
+                                        'predicate_label': 'relates to',
+                                        'object_uri': rel_entity['uri'],
+                                        'object_label': rel_entity['label'],
+                                        'confidence': secondary['score']
+                                    }
+                                    alignment_triples.append(related_triple)
+                            else:
+                                # No alignment found - mark as new term candidate
+                                new_term_triple = {
+                                    'subject': concept_uri,
+                                    'subject_label': concept_label,
+                                    'predicate': f"{ontology_namespace}isNewTermCandidate",
+                                    'predicate_label': 'is new term candidate',
+                                    'object_literal': 'true',
+                                    'object_label': 'true'
+                                }
+                                alignment_triples.append(new_term_triple)
+                                
+                                # Suggest parent class
+                                parent_suggestion = self._suggest_ontology_parent(concept, concept_type)
+                                if parent_suggestion:
+                                    parent_triple = {
+                                        'subject': concept_uri,
+                                        'subject_label': concept_label,
+                                        'predicate': f"{ontology_namespace}suggestedParent",
+                                        'predicate_label': 'suggested parent',
+                                        'object_uri': parent_suggestion['uri'],
+                                        'object_label': parent_suggestion['label']
+                                    }
+                                    alignment_triples.append(parent_triple)
+                    
+            except Exception as e:
+                logger.warning(f"Error using MCP server for alignment: {str(e)}")
+                # Fall back to basic alignment
             
-            # Convert text to lowercase for matching
-            text_lower = guideline_text.lower()
+            # If no alignment triples were generated, create basic ones
+            if not alignment_triples:
+                logger.info("Falling back to basic alignment generation")
+                for concept in concepts:
+                    concept_label = concept.get("label", "")
+                    concept_uri = f"{namespace}{self._slugify(concept_label)}"
+                    
+                    # Mark all as candidates for manual review
+                    candidate_triple = {
+                        'subject': concept_uri,
+                        'subject_label': concept_label,
+                        'predicate': f"{ontology_namespace}requiresAlignment",
+                        'predicate_label': 'requires alignment',
+                        'object_literal': 'pending',
+                        'object_label': 'pending'
+                    }
+                    alignment_triples.append(candidate_triple)
             
-            # Find mentions of each term category
-            for category, terms in common_terms.items():
-                for term in terms:
-                    if term in text_lower:
-                        # Create triple for this mention
-                        term_uri = f"{ontology_namespace}{self._slugify(term)}"
-                        
-                        mention_triple = {
-                            'subject': guideline_uri,
-                            'subject_label': f'Guideline {guideline_id}',
-                            'predicate': f"{ontology_namespace}mentionsTerm",
-                            'predicate_label': 'mentions term',
-                            'object_uri': term_uri,
-                            'object_label': term.title(),
-                            'triple_metadata': {
-                                'category': category,
-                                'found_in_text': True
-                            }
-                        }
-                        extracted_triples.append(mention_triple)
-                        
-                        # Add category-specific relationship
-                        if category == 'roles':
-                            role_triple = {
-                                'subject': guideline_uri,
-                                'subject_label': f'Guideline {guideline_id}',
-                                'predicate': f"{ontology_namespace}definesRole",
-                                'predicate_label': 'defines role',
-                                'object_uri': term_uri,
-                                'object_label': term.title()
-                            }
-                            extracted_triples.append(role_triple)
-                        elif category == 'actions':
-                            action_triple = {
-                                'subject': guideline_uri,
-                                'subject_label': f'Guideline {guideline_id}',
-                                'predicate': f"{ontology_namespace}describesAction",
-                                'predicate_label': 'describes action',
-                                'object_uri': term_uri,
-                                'object_label': term.title()
-                            }
-                            extracted_triples.append(action_triple)
-                        elif category == 'principles':
-                            principle_triple = {
-                                'subject': guideline_uri,
-                                'subject_label': f'Guideline {guideline_id}',
-                                'predicate': f"{ontology_namespace}emphasizesPrinciple",
-                                'predicate_label': 'emphasizes principle',
-                                'object_uri': term_uri,
-                                'object_label': term.title()
-                            }
-                            extracted_triples.append(principle_triple)
-            
-            logger.info(f"Extracted {len(extracted_triples)} ontology term triples from text")
+            logger.info(f"Generated {len(alignment_triples)} alignment triples")
             
             return {
                 'success': True,
-                'triples': extracted_triples,
-                'triple_count': len(extracted_triples),
-                'term_count': len(extracted_triples) // 2  # Each term has 2 triples
+                'triples': alignment_triples,
+                'triple_count': len(alignment_triples),
+                'alignment_count': len([t for t in alignment_triples if t['predicate'].endswith('alignsWith')]),
+                'new_term_count': len([t for t in alignment_triples if t['predicate'].endswith('isNewTermCandidate')])
             }
             
         except Exception as e:
-            logger.exception(f"Error extracting ontology terms from text: {str(e)}")
+            logger.exception(f"Error generating ontology alignment triples: {str(e)}")
             return {
                 'success': False,
                 'error': str(e),

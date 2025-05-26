@@ -167,18 +167,22 @@
           <h5 class="mb-0">RDF Knowledge</h5>
         </div>
         <div class="card-body">
-          <p>This guideline has <strong>{{ triple_count|default(0) }}</strong> associated RDF triples.</p>
-          
+          <p>This guideline has <strong>{{ triple_count|default(0) }}</strong> RDF triples
           {% if concept_count|default(0) > 0 %}
-            <form action="{{ url_for('worlds.generate_triples_direct', world_id=world.id, document_id=guideline.id) }}" method="post" class="mb-3">
-              <button type="submit" class="btn btn-sm btn-primary w-100">
-                <i class="bi bi-diagram-3"></i> 
-                {% if triple_count|default(0) > 0 %}Regenerate{% else %}Generate{% endif %} Triples
-              </button>
-            </form>
-          {% else %}
-            <p class="text-muted small">Analyze concepts first to generate triples.</p>
+            (<strong>{{ concept_count * 3 }}</strong> basic concept triples)
           {% endif %}
+          </p>
+          
+          <div class="alert alert-info small mb-2">
+            <strong>Stage 2:</strong> Find engineering-ethics ontology terms in the guideline text.
+            <br><small>This searches the text for mentions of roles, capabilities, conditions, actions, etc.</small>
+          </div>
+          <form action="{{ url_for('worlds.generate_triples_direct', world_id=world.id, document_id=guideline.id) }}" method="post" class="mb-3">
+            <button type="submit" class="btn btn-sm btn-primary w-100">
+              <i class="bi bi-search"></i> 
+              Extract Ontology Terms
+            </button>
+          </form>
           
           {% if triple_count|default(0) > 0 and triples is defined and triples %}
             <button class="btn btn-sm btn-outline-dark mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#triplesList">
