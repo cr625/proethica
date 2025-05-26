@@ -50,3 +50,4 @@ chromadb              # Vector database
 
 # ZOTERO INTEGRATION
 pyzotero              # Zotero API client
+python-slugify==8.0.4

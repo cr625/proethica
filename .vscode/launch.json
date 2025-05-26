@@ -12,8 +12,8 @@
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "FORCE_MOCK_LLM": "false",
                 "ENVIRONMENT": "development",
-                "MCP_SERVER_PORT": "5002",
-                "MCP_SERVER_URL": "http://localhost:5002",
+                "MCP_SERVER_PORT": "5001",
+                "MCP_SERVER_URL": "http://localhost:5001",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
             }

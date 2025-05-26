@@ -88,11 +88,18 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         # Get the extracted concepts
         concepts_list = concepts_result.get("concepts", [])
         if not concepts_list:
+            # Check if this is an MCP server issue
+            error_message = 'No concepts were extracted from this guideline'
+            if concepts_result.get("using_fallback"):
+                error_message = 'The MCP server did not return any concepts. Please check the MCP server logs.'
+            elif "error" in concepts_result:
+                error_message = f'Extraction error: {concepts_result["error"]}'
+                
             return redirect(url_for('worlds.guideline_processing_error', 
                                    world_id=world.id, 
                                    document_id=document_id,
                                    error_title='No Concepts Found',
-                                   error_message='No concepts were extracted from this guideline'))
+                                   error_message=error_message))
             
         # Don't store concepts in session, we'll include them in the form as hidden fields
         # and pass them directly through the form submission

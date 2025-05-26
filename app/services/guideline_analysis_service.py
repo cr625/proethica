@@ -61,6 +61,8 @@ class GuidelineAnalysisService:
                 mcp_url = self.mcp_client.mcp_url
                 if mcp_url:
                     logger.info(f"Attempting to use MCP server at {mcp_url} for concept extraction")
+                    logger.debug(f"Content length being sent: {len(content)} characters")
+                    logger.debug(f"First 500 chars of content: {content[:500]}")
                     
                     # Make JSON-RPC call to get MCP server to extract concepts
                     response = requests.post(
@@ -84,7 +86,13 @@ class GuidelineAnalysisService:
                         result = response.json()
                         if "result" in result and not "error" in result:
                             logger.info(f"Successfully extracted concepts using MCP server")
-                            return result["result"]
+                            # Log the actual result for debugging
+                            logger.debug(f"MCP server response: {json.dumps(result.get('result', {}), indent=2)}")
+                            mcp_result = result["result"]
+                            # Check if concepts array is empty
+                            if isinstance(mcp_result, dict) and not mcp_result.get("concepts"):
+                                logger.warning("MCP server returned empty concepts array")
+                            return mcp_result
                         elif "error" in result:
                             logger.warning(f"MCP server returned error: {result['error']}")
                     else:
