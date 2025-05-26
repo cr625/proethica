@@ -27,4 +27,6 @@ from app.models.ontology_version import OntologyVersion
 from app.models.triple import Triple
 from app.models.entity_triple import EntityTriple
 from app.models.guideline import Guideline
+from app.models.guideline_term_candidate import GuidelineTermCandidate
+from app.models.guideline_semantic_triple import GuidelineSemanticTriple
 from app.models.ontology_import import OntologyImport
