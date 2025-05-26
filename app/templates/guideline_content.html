@@ -169,6 +169,17 @@
         <div class="card-body">
           <p>This guideline has <strong>{{ triple_count|default(0) }}</strong> associated RDF triples.</p>
           
+          {% if concept_count|default(0) > 0 %}
+            <form action="{{ url_for('worlds.generate_triples_direct', world_id=world.id, document_id=guideline.id) }}" method="post" class="mb-3">
+              <button type="submit" class="btn btn-sm btn-primary w-100">
+                <i class="bi bi-diagram-3"></i> 
+                {% if triple_count|default(0) > 0 %}Regenerate{% else %}Generate{% endif %} Triples
+              </button>
+            </form>
+          {% else %}
+            <p class="text-muted small">Analyze concepts first to generate triples.</p>
+          {% endif %}
+          
           {% if triple_count|default(0) > 0 and triples is defined and triples %}
             <button class="btn btn-sm btn-outline-dark mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#triplesList">
               Show/Hide Triples

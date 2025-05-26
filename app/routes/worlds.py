@@ -664,6 +664,12 @@ def view_guideline(id, document_id):
                           triples=triples, 
                           concepts=concepts)
 
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
+def generate_triples_direct(world_id, document_id):
+    """Generate triples directly from the guideline view page."""
+    from app.routes.worlds_generate_triples import generate_triples_direct as generate_triples_impl
+    return generate_triples_impl(world_id, document_id)
+
 @worlds_bp.route('/<int:id>/guidelines/add', methods=['GET'])
 def add_guideline_form(id):
     """Display form to add a guideline to a world."""
