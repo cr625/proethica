@@ -2,9 +2,15 @@
 
 This directory contains automated deployment and synchronization tools for the ProEthica MCP server.
 
+## 📚 Consolidated Documentation
+
+**See [README_CONSOLIDATED.md](./README_CONSOLIDATED.md) for the complete deployment guide.**
+
 ## ⚠️ Important: Current Branch Status
 
-**The `simple` branch is currently 436 commits ahead of `main`**. All deployments must use the `simple` branch until branches are reconciled.
+**The `simple` branch is currently 457 commits ahead of `main`**. All deployments must use the `simple` branch until branches are reconciled.
+
+**Development is happening on `guidelines-enhancement` branch** - deployment scripts for this branch are being developed.
 
 ## Overview
 
