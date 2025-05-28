@@ -183,7 +183,34 @@ def view_world(id):
     # Fetch all ontologies for the dropdown
     all_ontologies = Ontology.query.all()
     
-    return render_template('world_detail.html', world=world, entities=entities, guidelines=guidelines,
+    # Prepare entity types for dynamic tabs
+    # Define the order and display names for entity types
+    entity_type_config = [
+        ('roles', 'Roles', 'Users and their responsibilities'),
+        ('conditions', 'Conditions', 'States and situations'),
+        ('events', 'Events', 'Things that happen'),
+        ('capabilities', 'Capabilities', 'Skills and abilities'),
+        ('resources', 'Resources', 'Things that are used'),
+        ('actions', 'Actions', 'Things that are done'),
+        ('principles', 'Principles', 'Ethical guidelines'),
+        ('obligations', 'Obligations', 'Required actions')
+    ]
+    
+    # Build dynamic entity tabs - only include tabs that have entities
+    entity_tabs = []
+    if 'entities' in entities and isinstance(entities['entities'], dict):
+        for entity_key, display_name, description in entity_type_config:
+            if entity_key in entities['entities'] and len(entities['entities'][entity_key]) > 0:
+                entity_tabs.append({
+                    'key': entity_key,
+                    'name': display_name,
+                    'description': description,
+                    'count': len(entities['entities'][entity_key]),
+                    'entities': entities['entities'][entity_key]
+                })
+    
+    return render_template('world_detail_dynamic.html', world=world, entities=entities, 
+                           entity_tabs=entity_tabs, guidelines=guidelines,
                            case_studies=case_studies, ontology_status=ontology_status, 
                            ontology=ontology, all_ontologies=all_ontologies)
 
