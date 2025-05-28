@@ -184,6 +184,13 @@
             </button>
           </form>
           
+          {% if triple_count|default(0) > 0 %}
+          <a href="{{ url_for('worlds.manage_guideline_triples', world_id=world.id, guideline_id=guideline.id) }}" class="btn btn-sm btn-warning w-100 mb-3">
+            <i class="fas fa-tasks"></i> 
+            Manage Triples
+          </a>
+          {% endif %}
+          
           {% if triple_count|default(0) > 0 and triples is defined and triples %}
             <button class="btn btn-sm btn-outline-dark mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#triplesList">
               Show/Hide Triples

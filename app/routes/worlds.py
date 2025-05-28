@@ -670,6 +670,102 @@ def generate_triples_direct(world_id, document_id):
     from app.routes.worlds_generate_triples import generate_triples_direct as generate_triples_impl
     return generate_triples_impl(world_id, document_id)
 
+@worlds_bp.route('/<int:world_id>/guidelines/<int:guideline_id>/manage_triples', methods=['GET'])
+def manage_guideline_triples(world_id, guideline_id):
+    """Display and manage triples for a guideline."""
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    from app.models.guideline import Guideline
+    guideline = Document.query.get_or_404(guideline_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Get the actual guideline ID if this is a Document with guideline metadata
+    actual_guideline_id = None
+    if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+        actual_guideline_id = guideline.doc_metadata['guideline_id']
+    
+    # Get all triples for this guideline
+    from app.models.entity_triple import EntityTriple
+    if actual_guideline_id:
+        triples = EntityTriple.query.filter_by(guideline_id=actual_guideline_id).all()
+    else:
+        triples = EntityTriple.query.filter_by(
+            guideline_id=guideline.id,
+            world_id=world.id
+        ).all()
+    
+    # Group triples by predicate type for easier management
+    triple_groups = {}
+    for triple in triples:
+        predicate = triple.predicate_label or triple.predicate
+        if predicate not in triple_groups:
+            triple_groups[predicate] = {
+                'predicate': predicate,
+                'predicate_uri': triple.predicate,
+                'triples': [],
+                'count': 0
+            }
+        triple_groups[predicate]['triples'].append(triple)
+        triple_groups[predicate]['count'] += 1
+    
+    # Sort groups by count (descending)
+    sorted_groups = sorted(triple_groups.values(), key=lambda x: x['count'], reverse=True)
+    
+    return render_template('manage_guideline_triples.html',
+                          world=world,
+                          guideline=guideline,
+                          triple_groups=sorted_groups,
+                          total_triples=len(triples))
+
+@worlds_bp.route('/<int:world_id>/guidelines/<int:guideline_id>/delete_triples', methods=['POST'])
+def delete_guideline_triples(world_id, guideline_id):
+    """Delete selected triples for a guideline."""
+    try:
+        data = request.get_json()
+        triple_ids = data.get('triple_ids', [])
+        
+        if not triple_ids:
+            return jsonify({'success': False, 'message': 'No triples selected'}), 400
+        
+        # Verify world and guideline
+        world = World.query.get_or_404(world_id)
+        from app.models.document import Document
+        guideline = Document.query.get_or_404(guideline_id)
+        
+        if guideline.world_id != world.id:
+            return jsonify({'success': False, 'message': 'Invalid guideline'}), 403
+        
+        # Delete the triples
+        from app.models.entity_triple import EntityTriple
+        deleted_count = 0
+        
+        for triple_id in triple_ids:
+            triple = EntityTriple.query.get(triple_id)
+            if triple:
+                # Verify the triple belongs to this guideline
+                if (triple.guideline_id == guideline_id or 
+                    (guideline.doc_metadata and 
+                     triple.guideline_id == guideline.doc_metadata.get('guideline_id'))):
+                    db.session.delete(triple)
+                    deleted_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Successfully deleted {deleted_count} triples',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting triples: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @worlds_bp.route('/<int:id>/guidelines/add', methods=['GET'])
 def add_guideline_form(id):
     """Display form to add a guideline to a world."""
