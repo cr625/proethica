@@ -50,6 +50,24 @@
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
             }
+        },
+        {
+            "name": "MCP Server - Local",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/mcp/run_enhanced_mcp_server_with_guidelines.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                "FORCE_MOCK_LLM": "false",
+                "ENVIRONMENT": "development",
+                "MCP_SERVER_PORT": "5001",
+                "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
