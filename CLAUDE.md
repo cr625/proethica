@@ -221,5 +221,44 @@ The project uses an HTTP-based MCP (Model Context Protocol) server that provides
 - `/mcp/ontology/` - Ontology TTL files (fallback when DB unavailable)
 - `/mcp/mseo/` - Materials science ontology integration (experimental)
 
+## MCP Production Deployment (Updated 2025-01-27)
+
+### Production Server Details
+- **URL**: https://mcp.proethica.org
+- **Server**: DigitalOcean droplet (209.38.62.85)
+- **Location**: `/home/chris/proethica`
+- **Port**: 5002 (production), 5001 (local development)
+- **Branch**: `guidelines-enhancement` (latest)
+
+### Deployment Process
+1. **Local to Production Sync**:
+   ```bash
+   # From local development machine
+   ./server_config/sync-mcp-to-production.sh
+   ```
+
+2. **Check Status**:
+   ```bash
+   ./server_config/check-mcp-status.sh
+   ```
+
+3. **Manual Deployment** (on server):
+   ```bash
+   ssh digitalocean
+   cd /home/chris/proethica
+   ./server_config/deploy-mcp-guidelines.sh
+   ```
+
+### Key Scripts
+- `sync-mcp-to-production.sh` - Push local changes to production
+- `deploy-mcp-guidelines.sh` - Deploy on production server
+- `check-mcp-status.sh` - Check health and status
+
+### Testing with Anthropic API
+Once deployed, the MCP server can be accessed via:
+- Endpoint: `https://mcp.proethica.org`
+- Use with Anthropic API's MCP connector (beta)
+- Requires proper authentication setup
+
 ## Archived Documentation
 Legacy and outdated documentation has been moved to `docs/archived/` for reference.
