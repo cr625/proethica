@@ -44,6 +44,88 @@
                     "USE_MOCK_GUIDELINE_RESPONSES": "false"
                 }
             }
+        },
+        {
+            "label": "Start Flask App",
+            "type": "shell",
+            "command": "python3",
+            "args": ["run.py"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
+                    "PATH": "${env:PATH}:/home/chris/.local/bin"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Docker PostgreSQL",
+            "type": "shell",
+            "command": "docker",
+            "args": ["compose", "up", "-d"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Docker PostgreSQL",
+            "type": "shell",
+            "command": "docker",
+            "args": ["compose", "down"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test Database Connection",
+            "type": "shell",
+            "command": "docker",
+            "args": ["exec", "proethica-postgres", "psql", "-U", "postgres", "-d", "ai_ethical_dm", "-c", "SELECT COUNT(*) FROM worlds;"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Debug Test",
+            "type": "shell",
+            "command": "python3",
+            "args": ["test_debug.py"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "options": {
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
+                    "PATH": "${env:PATH}:/home/chris/.local/bin"
+                }
+            },
+            "problemMatcher": []
         }
     ]
 }

@@ -5,6 +5,7 @@
             "name": "Flask App - Local MCP",
             "type": "debugpy",
             "request": "launch",
+            "python": "/usr/bin/python3",
             "program": "${workspaceFolder}/run_debug_app.py",
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -15,13 +16,16 @@
                 "MCP_SERVER_PORT": "5001",
                 "MCP_SERVER_URL": "http://localhost:5001",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
-                "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
+                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
+                "PATH": "${env:PATH}:/home/chris/.local/bin"
             }
         },
         {
             "name": "Flask App - Production MCP",
             "type": "debugpy",
             "request": "launch",
+            "python": "/usr/bin/python3",
             "program": "${workspaceFolder}/run_debug_app.py",
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -32,13 +36,16 @@
                 "MCP_SERVER_URL": "https://mcp.proethica.org",
                 "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
-                "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
+                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
+                "PATH": "${env:PATH}:/home/chris/.local/bin"
             }
         },
         {
             "name": "Python: Current File",
             "type": "debugpy",
             "request": "launch",
+            "python": "/usr/bin/python3",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -48,13 +55,16 @@
                 "MCP_SERVER_URL": "https://mcp.proethica.org",
                 "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
-                "SQLALCHEMY_TRACK_MODIFICATIONS": "false"
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
+                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
+                "PATH": "${env:PATH}:/home/chris/.local/bin"
             }
         },
         {
             "name": "MCP Server - Local",
             "type": "debugpy",
             "request": "launch",
+            "python": "/usr/bin/python3",
             "program": "${workspaceFolder}/mcp/run_enhanced_mcp_server_with_guidelines.py",
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -65,7 +75,8 @@
                 "MCP_SERVER_PORT": "5001",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
+                "PATH": "${env:PATH}:/home/chris/.local/bin"
             },
             "cwd": "${workspaceFolder}"
         }
