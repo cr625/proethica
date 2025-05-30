@@ -59,11 +59,13 @@ def get_llm_client():
                         client.available_models = available_models
                     else:
                         # Default models
-                        client.available_models = ["claude-3-7-sonnet-20250219", "claude-3-7-sonnet-latest", "claude-3-haiku-20240307"]
+                        from config.models import ModelConfig
+                        client.available_models = [ModelConfig.CLAUDE_MODELS["sonnet-4"], ModelConfig.CLAUDE_MODELS["opus-4"], ModelConfig.CLAUDE_MODELS["haiku"]]
                 except Exception:
                     # Fallback if models check fails
-                    preferred_model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
-                    client.available_models = [preferred_model, "claude-3-7-sonnet-latest", "claude-3-haiku-20240307"]
+                    from config.models import ModelConfig
+                    preferred_model = ModelConfig.get_default_model()
+                    client.available_models = [preferred_model, ModelConfig.CLAUDE_MODELS["sonnet-4"], ModelConfig.CLAUDE_MODELS["opus-4"]]
                     
                 model_list = ", ".join(client.available_models[:3]) + ("..." if len(client.available_models) > 3 else "")
                 print(f"Initialized Anthropic client version {anthropic_version} ({client.api_version}) with models: {model_list}")

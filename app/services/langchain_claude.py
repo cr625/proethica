@@ -30,18 +30,22 @@ class LangChainClaudeService:
             cls._instance = LangChainClaudeService()
         return cls._instance
     
-    def __init__(self, api_key=None, model="claude-3-7-sonnet-20250219"):
+    def __init__(self, api_key=None, model=None):
         """
         Initialize the LangChain Claude service.
         
         Args:
             api_key: Anthropic API key (optional, will use env var if not provided)
-            model: Claude model to use (default: claude-3-7-sonnet-20250219)
+            model: Claude model to use (optional, will use centralized config if not provided)
         """
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("Anthropic API key is required")
-            
+        
+        # Use centralized model configuration if model not specified
+        if model is None:
+            from config.models import ModelConfig
+            model = ModelConfig.get_claude_model("default")
         self.model = model
         
         try:

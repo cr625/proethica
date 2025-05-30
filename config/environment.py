@@ -41,7 +41,10 @@ class config:
     USE_CLAUDE = os.getenv('USE_CLAUDE', 'true').lower() == 'true'
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-    CLAUDE_MODEL_VERSION = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+    
+    # Model configuration - use centralized config
+    from .models import ModelConfig
+    CLAUDE_MODEL_VERSION = ModelConfig.get_default_model()
 
     # Embedding configuration
     EMBEDDING_PROVIDER_PRIORITY = os.getenv('EMBEDDING_PROVIDER_PRIORITY', 'local')

@@ -430,8 +430,9 @@ class GuidelineAnalysisModule(MCPBaseModule):
                 """
 
                 # Make the API call with the structured output instructions in the prompt
+                from config.models import ModelConfig
                 response = await self.llm_client.messages.create(
-                    model="claude-3-7-sonnet-20250219",
+                    model=ModelConfig.get_claude_model("default"),
                     system=enhanced_system_prompt,
                     messages=[
                         {"role": "user", "content": user_message}

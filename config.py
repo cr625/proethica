@@ -28,7 +28,7 @@ app_config = {
     'USE_CLAUDE': os.getenv('USE_CLAUDE', 'true').lower() == 'true',
     'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY'),
     'ANTHROPIC_API_KEY': os.getenv('ANTHROPIC_API_KEY'),
-    'CLAUDE_MODEL_VERSION': os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219'),
+    'CLAUDE_MODEL_VERSION': os.getenv('CLAUDE_MODEL_VERSION'),  # Will be handled by ModelConfig
     'EMBEDDING_PROVIDER_PRIORITY': os.getenv('EMBEDDING_PROVIDER_PRIORITY', 'local'),
     'LOCAL_EMBEDDING_MODEL': os.getenv('LOCAL_EMBEDDING_MODEL', 'all-MiniLM-L6-v2'),
     'CLAUDE_EMBEDDING_MODEL': os.getenv('CLAUDE_EMBEDDING_MODEL', 'claude-3-embedding-3-0'),

@@ -197,7 +197,9 @@ class LLMService:
                 from langchain_anthropic import ChatAnthropic
                 
                 # Get model name from environment or use default
-                model_name = os.environ.get('ANTHROPIC_MODEL', 'claude-3-7-sonnet-20250219')
+                # Use centralized model configuration
+                from config.models import ModelConfig
+                model_name = os.environ.get('ANTHROPIC_MODEL') or ModelConfig.get_default_model()
                 
                 print(f"Initializing live Claude with model: {model_name}")
                 

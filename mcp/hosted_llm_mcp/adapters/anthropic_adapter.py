@@ -30,19 +30,23 @@ class AnthropicAdapter:
     and hierarchy expansion.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-7-sonnet-20250219"):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize the Anthropic adapter.
         
         Args:
             api_key: The Anthropic API key. If not provided, it will be read from environment.
-            model: The Claude model to use.
+            model: The Claude model to use. If not provided, will use centralized config.
         """
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             logger.error("No Anthropic API key provided")
             raise ValueError("Anthropic API key is required")
-            
+        
+        # Use centralized model configuration if model not specified
+        if model is None:
+            from config.models import ModelConfig
+            model = ModelConfig.get_claude_model("default")
         self.model = model
         self.client = Anthropic(api_key=self.api_key)
         logger.info(f"Initialized Anthropic adapter with model: {model}")
