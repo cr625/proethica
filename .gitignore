@@ -37,6 +37,10 @@ instance/
 
 # Environment variables
 .env
+*.env
+!.env.example
+!.env.enc
+!mcp.env.example
 
 # IDE
 .idea/

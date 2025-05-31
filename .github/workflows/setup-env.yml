@@ -1,0 +1,61 @@
+name: Setup Environment
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches: [main, develop]
+
+jobs:
+  create-env-file:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Create .env file from secrets
+      run: |
+        cat > .env << EOF
+        # Flask configuration
+        FLASK_APP=${{ secrets.FLASK_APP }}
+        FLASK_ENV=${{ secrets.FLASK_ENV }}
+        SECRET_KEY=${{ secrets.SECRET_KEY }}
+        
+        # Database configuration
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        
+        # LLM configuration
+        OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+        GEMMA_API_KEY=${{ secrets.GEMMA_API_KEY }}
+        USE_CLAUDE=${{ secrets.USE_CLAUDE }}
+        USE_AGENT_ORCHESTRATOR=${{ secrets.USE_AGENT_ORCHESTRATOR }}
+        
+        # Model configuration (new Claude models available: Opus 4 and Sonnet 4)
+        CLAUDE_DEFAULT_MODEL=${{ secrets.CLAUDE_DEFAULT_MODEL }}
+        CLAUDE_FAST_MODEL=${{ secrets.CLAUDE_FAST_MODEL }}
+        CLAUDE_POWERFUL_MODEL=${{ secrets.CLAUDE_POWERFUL_MODEL }}
+        
+        # Embedding configuration
+        EMBEDDING_PROVIDER_PRIORITY=${{ secrets.EMBEDDING_PROVIDER_PRIORITY }}
+        LOCAL_EMBEDDING_MODEL=${{ secrets.LOCAL_EMBEDDING_MODEL }}
+        
+        # Zotero API credentials
+        ZOTERO_API_KEY=${{ secrets.ZOTERO_API_KEY }}
+        ZOTERO_USER_ID=${{ secrets.ZOTERO_USER_ID }}
+        
+        # Environment and MCP configuration
+        ENVIRONMENT=${{ secrets.ENVIRONMENT }}
+        MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }}
+        MCP_SERVER_PORT=${{ secrets.MCP_SERVER_PORT }}
+        USE_MOCK_FALLBACK=${{ secrets.USE_MOCK_FALLBACK }}
+        EOF
+        
+    - name: Upload .env as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: env-file
+        path: .env
+        retention-days: 7
