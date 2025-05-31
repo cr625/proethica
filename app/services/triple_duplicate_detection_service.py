@@ -261,11 +261,15 @@ class TripleDuplicateDetectionService:
         duplicate_triples = []
         
         for triple in triples:
+            # Handle different object field names
+            object_value = triple.get('object_uri', triple.get('object_literal', triple.get('object', '')))
+            is_literal = triple.get('is_literal', False) or 'object_literal' in triple
+            
             check_result = self.check_duplicate_with_details(
                 triple['subject'],
                 triple['predicate'], 
-                triple['object'],
-                triple.get('is_literal', False),
+                object_value,
+                is_literal,
                 exclude_guideline_id
             )
             

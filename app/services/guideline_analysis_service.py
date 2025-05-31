@@ -986,10 +986,57 @@ class GuidelineAnalysisService:
                 except Exception as e:
                     logger.warning(f"Could not enhance triples with ontology relationships: {str(e)}")
             
+            # Check for duplicates
+            from app.services.triple_duplicate_detection_service import get_duplicate_detection_service
+            duplicate_service = get_duplicate_detection_service()
+            
+            unique_triples, duplicate_triples = duplicate_service.filter_duplicate_triples(all_triples)
+            
+            # Add duplicate check info to each triple
+            all_triples_with_info = []
+            for triple in all_triples:
+                # Get the object value from this triple
+                triple_object = triple.get('object_uri', triple.get('object_literal', triple.get('object')))
+                
+                # Check if this triple is in the duplicate list
+                is_duplicate = any(
+                    dup['subject'] == triple['subject'] and
+                    dup['predicate'] == triple['predicate'] and
+                    dup.get('object_uri', dup.get('object_literal', dup.get('object'))) == triple_object
+                    for dup in duplicate_triples
+                )
+                
+                if is_duplicate:
+                    # Find the duplicate info
+                    dup_info = next(
+                        dup['duplicate_info'] for dup in duplicate_triples
+                        if dup['subject'] == triple['subject'] and
+                        dup['predicate'] == triple['predicate'] and
+                        dup.get('object_uri', dup.get('object_literal', dup.get('object'))) == triple_object
+                    )
+                    triple['duplicate_check_result'] = dup_info
+                else:
+                    triple['duplicate_check_result'] = {
+                        'is_duplicate': False,
+                        'details': 'No duplicate found'
+                    }
+                
+                # Add value classification
+                triple['value_class'] = duplicate_service.classify_triple_value(
+                    triple['predicate'], 
+                    triple.get('predicate_label')
+                )
+                
+                all_triples_with_info.append(triple)
+            
             # Save the final results
             result = {
-                "triples": all_triples,
+                "triples": all_triples_with_info,
+                "unique_triples": unique_triples,
+                "duplicate_triples": duplicate_triples,
                 "triple_count": len(all_triples),
+                "unique_count": len(unique_triples),
+                "duplicate_count": len(duplicate_triples),
                 "concept_count": len(selected_concepts)
             }
             
@@ -1103,6 +1150,10 @@ class GuidelineAnalysisService:
             if not ontology_source:
                 ontology_source = 'engineering-ethics'
             
+            # Import duplicate detection service
+            from app.services.triple_duplicate_detection_service import get_duplicate_detection_service
+            duplicate_service = get_duplicate_detection_service()
+            
             extracted_triples = []
             namespace = "http://proethica.org/guidelines/"
             ontology_namespace = "http://proethica.org/ontology/"
@@ -1174,12 +1225,58 @@ class GuidelineAnalysisService:
                             }
                             extracted_triples.append(principle_triple)
             
-            logger.info(f"Extracted {len(extracted_triples)} ontology term triples from text")
+            # Check for duplicates
+            unique_triples, duplicate_triples = duplicate_service.filter_duplicate_triples(
+                extracted_triples, 
+                exclude_guideline_id=guideline_id
+            )
+            
+            # Add duplicate check info to each triple
+            all_triples_with_info = []
+            for triple in extracted_triples:
+                # Check if this triple is in the duplicate list
+                triple_object = triple.get('object_uri', triple.get('object_literal'))
+                is_duplicate = any(
+                    dup['subject'] == triple['subject'] and
+                    dup['predicate'] == triple['predicate'] and
+                    dup.get('object_uri', dup.get('object_literal', dup.get('object'))) == triple_object
+                    for dup in duplicate_triples
+                )
+                
+                if is_duplicate:
+                    # Find the duplicate info
+                    dup_info = next(
+                        dup['duplicate_info'] for dup in duplicate_triples
+                        if dup['subject'] == triple['subject'] and
+                        dup['predicate'] == triple['predicate'] and
+                        dup.get('object_uri', dup.get('object_literal', dup.get('object'))) == triple_object
+                    )
+                    triple['duplicate_check_result'] = dup_info
+                else:
+                    triple['duplicate_check_result'] = {
+                        'is_duplicate': False,
+                        'details': 'No duplicate found'
+                    }
+                
+                # Add value classification
+                triple['value_class'] = duplicate_service.classify_triple_value(
+                    triple['predicate'], 
+                    triple.get('predicate_label')
+                )
+                
+                all_triples_with_info.append(triple)
+            
+            logger.info(f"Extracted {len(extracted_triples)} ontology term triples from text " +
+                       f"({len(unique_triples)} unique, {len(duplicate_triples)} duplicates)")
             
             return {
                 'success': True,
-                'triples': extracted_triples,
+                'triples': all_triples_with_info,
+                'unique_triples': unique_triples,
+                'duplicate_triples': duplicate_triples,
                 'triple_count': len(extracted_triples),
+                'unique_count': len(unique_triples),
+                'duplicate_count': len(duplicate_triples),
                 'term_count': len(extracted_triples) // 2  # Each term has 2 triples
             }
             

@@ -20,7 +20,7 @@
 
       <!-- Summary Stats -->
       <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">Total Triples</h5>
@@ -28,23 +28,42 @@
             </div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card">
+        <div class="col-md-2">
+          <div class="card border-warning">
             <div class="card-body">
-              <h5 class="card-title">Predicate Types</h5>
-              <p class="card-text display-4">{{ triple_groups|length }}</p>
+              <h5 class="card-title">In Ontology</h5>
+              <p class="card-text display-6 text-warning">{{ ontology_count }}</p>
+              <small class="text-muted">Core knowledge</small>
             </div>
           </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <div class="card border-info">
+            <div class="card-body">
+              <h5 class="card-title">In Database</h5>
+              <p class="card-text display-6 text-info">{{ database_count }}</p>
+              <small class="text-muted">From other guidelines</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card border-success">
+            <div class="card-body">
+              <h5 class="card-title">Guideline-Specific</h5>
+              <p class="card-text display-6 text-success">{{ guideline_count }}</p>
+              <small class="text-muted">New terms</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">Selected</h5>
-              <p class="card-text display-4" id="selected-count">0</p>
+              <p class="card-text display-6" id="selected-count">0</p>
             </div>
           </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">Actions</h5>
@@ -87,7 +106,35 @@
         </div>
       </div>
 
-      <!-- Triple Groups -->
+      <!-- Ontology Status Tabs -->
+      <ul class="nav nav-tabs mb-4" id="ontologyTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-triples" type="button" role="tab">
+            All Triples ({{ total_triples }})
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="ontology-tab" data-bs-toggle="tab" data-bs-target="#ontology-triples" type="button" role="tab">
+            <i class="fas fa-book text-warning"></i> In Core Ontology ({{ ontology_count }})
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="database-tab" data-bs-toggle="tab" data-bs-target="#database-triples" type="button" role="tab">
+            <i class="fas fa-database text-info"></i> From Other Guidelines ({{ database_count }})
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="guideline-tab" data-bs-toggle="tab" data-bs-target="#guideline-triples" type="button" role="tab">
+            <i class="fas fa-plus text-success"></i> Guideline-Specific ({{ guideline_count }})
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="ontologyTabContent">
+        <!-- All Triples Tab -->
+        <div class="tab-pane fade show active" id="all-triples" role="tabpanel">
+          <h4>All Triples</h4>
+          <!-- Triple Groups -->
       {% for group in triple_groups %}
       <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -178,6 +225,235 @@
         </div>
       </div>
       {% endfor %}
+        </div>
+
+        <!-- Ontology Triples Tab -->
+        <div class="tab-pane fade" id="ontology-triples" role="tabpanel">
+          <div class="alert alert-warning">
+            <h5><i class="fas fa-book"></i> Terms Already in Core Ontology</h5>
+            <p>These triples match terms that already exist in the core engineering ethics ontology. They represent established knowledge that doesn't need to be stored again.</p>
+          </div>
+          {% for group in ontology_groups %}
+          <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-link"></i> {{ group.predicate }}
+                <span class="badge bg-warning">{{ group.count }} triples</span>
+                <span class="badge bg-secondary">ONTOLOGY</span>
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="ontology-group-{{ loop.index }}">
+                  <i class="fas fa-chevron-down"></i> Show/Hide
+                </button>
+                <input type="checkbox" class="form-check-input select-all-group ms-2" data-group="ontology-group-{{ loop.index }}">
+                <label class="form-check-label ms-1">Select All</label>
+              </div>
+            </div>
+            <div class="card-body collapse show" id="ontology-group-{{ loop.index }}">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th width="40">
+                        <input type="checkbox" class="form-check-input select-all-in-table" data-table="ontology-table-{{ loop.index }}">
+                      </th>
+                      <th>Subject</th>
+                      <th>Object</th>
+                      <th>Ontology Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ontology-table-{{ loop.index }}">
+                    {% for triple in group.triples %}
+                    <tr class="triple-row table-warning" data-triple-id="{{ triple.id }}">
+                      <td>
+                        <input type="checkbox" class="form-check-input triple-checkbox" value="{{ triple.id }}">
+                      </td>
+                      <td>
+                        <small class="text-muted">{{ triple.subject_label or triple.subject }}</small>
+                      </td>
+                      <td>
+                        {% if triple.object_label %}
+                          <strong>{{ triple.object_label }}</strong>
+                        {% elif triple.object_literal %}
+                          <em>{{ triple.object_literal }}</em>
+                        {% else %}
+                          <small class="text-muted">{{ triple.object_uri }}</small>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge bg-warning" title="{{ triple.ontology_status.details }}">
+                          <i class="fas fa-book"></i> In Core Ontology
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger delete-single" data-triple-id="{{ triple.id }}">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Database Triples Tab -->
+        <div class="tab-pane fade" id="database-triples" role="tabpanel">
+          <div class="alert alert-info">
+            <h5><i class="fas fa-database"></i> Terms from Other Guidelines</h5>
+            <p>These triples match terms that were extracted from other guidelines. They represent shared concepts across multiple guidelines.</p>
+          </div>
+          {% for group in database_groups %}
+          <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-link"></i> {{ group.predicate }}
+                <span class="badge bg-info">{{ group.count }} triples</span>
+                <span class="badge bg-secondary">DATABASE</span>
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="database-group-{{ loop.index }}">
+                  <i class="fas fa-chevron-down"></i> Show/Hide
+                </button>
+                <input type="checkbox" class="form-check-input select-all-group ms-2" data-group="database-group-{{ loop.index }}">
+                <label class="form-check-label ms-1">Select All</label>
+              </div>
+            </div>
+            <div class="card-body collapse show" id="database-group-{{ loop.index }}">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th width="40">
+                        <input type="checkbox" class="form-check-input select-all-in-table" data-table="database-table-{{ loop.index }}">
+                      </th>
+                      <th>Subject</th>
+                      <th>Object</th>
+                      <th>Source</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="database-table-{{ loop.index }}">
+                    {% for triple in group.triples %}
+                    <tr class="triple-row table-info" data-triple-id="{{ triple.id }}">
+                      <td>
+                        <input type="checkbox" class="form-check-input triple-checkbox" value="{{ triple.id }}">
+                      </td>
+                      <td>
+                        <small class="text-muted">{{ triple.subject_label or triple.subject }}</small>
+                      </td>
+                      <td>
+                        {% if triple.object_label %}
+                          <strong>{{ triple.object_label }}</strong>
+                        {% elif triple.object_literal %}
+                          <em>{{ triple.object_literal }}</em>
+                        {% else %}
+                          <small class="text-muted">{{ triple.object_uri }}</small>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge bg-info" title="{{ triple.ontology_status.details }}">
+                          <i class="fas fa-database"></i> 
+                          {% if triple.ontology_status.existing_triple %}
+                            Guideline {{ triple.ontology_status.existing_triple.guideline_id }}
+                          {% else %}
+                            Other Source
+                          {% endif %}
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger delete-single" data-triple-id="{{ triple.id }}">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Guideline-Specific Triples Tab -->
+        <div class="tab-pane fade" id="guideline-triples" role="tabpanel">
+          <div class="alert alert-success">
+            <h5><i class="fas fa-plus"></i> New Guideline-Specific Terms</h5>
+            <p>These are new terms that are specific to this guideline and don't exist in the core ontology or other guidelines.</p>
+          </div>
+          {% for group in guideline_groups %}
+          <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-link"></i> {{ group.predicate }}
+                <span class="badge bg-success">{{ group.count }} triples</span>
+                <span class="badge bg-secondary">NEW</span>
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="guideline-group-{{ loop.index }}">
+                  <i class="fas fa-chevron-down"></i> Show/Hide
+                </button>
+                <input type="checkbox" class="form-check-input select-all-group ms-2" data-group="guideline-group-{{ loop.index }}">
+                <label class="form-check-label ms-1">Select All</label>
+              </div>
+            </div>
+            <div class="card-body collapse show" id="guideline-group-{{ loop.index }}">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th width="40">
+                        <input type="checkbox" class="form-check-input select-all-in-table" data-table="guideline-table-{{ loop.index }}">
+                      </th>
+                      <th>Subject</th>
+                      <th>Object</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="guideline-table-{{ loop.index }}">
+                    {% for triple in group.triples %}
+                    <tr class="triple-row table-success" data-triple-id="{{ triple.id }}">
+                      <td>
+                        <input type="checkbox" class="form-check-input triple-checkbox" value="{{ triple.id }}">
+                      </td>
+                      <td>
+                        <small class="text-muted">{{ triple.subject_label or triple.subject }}</small>
+                      </td>
+                      <td>
+                        {% if triple.object_label %}
+                          <strong>{{ triple.object_label }}</strong>
+                        {% elif triple.object_literal %}
+                          <em>{{ triple.object_literal }}</em>
+                        {% else %}
+                          <small class="text-muted">{{ triple.object_uri }}</small>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge bg-success" title="{{ triple.ontology_status.details }}">
+                          <i class="fas fa-plus"></i> New Term
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger delete-single" data-triple-id="{{ triple.id }}">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </div>
 </div>

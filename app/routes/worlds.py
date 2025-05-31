@@ -726,7 +726,58 @@ def manage_guideline_triples(world_id, guideline_id):
             world_id=world.id
         ).all()
     
+    # Add ontology status to each triple
+    from app.services.triple_duplicate_detection_service import get_duplicate_detection_service
+    duplicate_service = get_duplicate_detection_service()
+    
+    ontology_terms = []
+    database_terms = []
+    guideline_terms = []
+    
+    for triple in triples:
+        # Check if this triple exists in ontology
+        object_value = triple.object_uri if triple.object_uri else triple.object_literal
+        duplicate_result = duplicate_service.check_duplicate_with_details(
+            triple.subject,
+            triple.predicate,
+            object_value,
+            triple.is_literal,
+            exclude_guideline_id=triple.guideline_id
+        )
+        
+        # Add the duplicate check result to the triple
+        triple.ontology_status = duplicate_result
+        
+        # Categorize triples based on their status
+        if duplicate_result['in_ontology']:
+            ontology_terms.append(triple)
+        elif duplicate_result['in_database'] and duplicate_result['existing_triple']:
+            database_terms.append(triple)
+        else:
+            guideline_terms.append(triple)
+    
     # Group triples by predicate type for easier management
+    def group_triples_by_predicate(triple_list, prefix=""):
+        groups = {}
+        for triple in triple_list:
+            predicate = triple.predicate_label or triple.predicate
+            if predicate not in groups:
+                groups[predicate] = {
+                    'predicate': predicate,
+                    'predicate_uri': triple.predicate,
+                    'triples': [],
+                    'count': 0
+                }
+            groups[predicate]['triples'].append(triple)
+            groups[predicate]['count'] += 1
+        return sorted(groups.values(), key=lambda x: x['count'], reverse=True)
+    
+    # Create grouped data for each category
+    ontology_groups = group_triples_by_predicate(ontology_terms)
+    database_groups = group_triples_by_predicate(database_terms)
+    guideline_groups = group_triples_by_predicate(guideline_terms)
+    
+    # Also create the original combined grouping for backward compatibility
     triple_groups = {}
     for triple in triples:
         predicate = triple.predicate_label or triple.predicate
@@ -747,7 +798,13 @@ def manage_guideline_triples(world_id, guideline_id):
                           world=world,
                           guideline=guideline,
                           triple_groups=sorted_groups,
-                          total_triples=len(triples))
+                          ontology_groups=ontology_groups,
+                          database_groups=database_groups,
+                          guideline_groups=guideline_groups,
+                          total_triples=len(triples),
+                          ontology_count=len(ontology_terms),
+                          database_count=len(database_terms),
+                          guideline_count=len(guideline_terms))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:guideline_id>/delete_triples', methods=['POST'])
 def delete_guideline_triples(world_id, guideline_id):
@@ -1052,8 +1109,8 @@ def guideline_processing_error(world_id, document_id):
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_guideline_triples(world_id, document_id):
-    """Generate triples from selected concepts but don't save them yet."""
-    logger.info(f"Generating triples for document {document_id} in world {world_id}")
+    """Extract ontology terms from guideline text (same as direct extraction button)."""
+    logger.info(f"Extracting ontology terms for document {document_id} in world {world_id}")
     
     world = World.query.get_or_404(world_id)
     
@@ -1098,35 +1155,41 @@ def generate_guideline_triples(world_id, document_id):
                                     error_title='No Concepts Found',
                                     error_message='No concepts were found in the analysis results.'))
         
-        # Get only the selected concepts
-        selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
-        logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
+        # Extract ontology terms directly from guideline text (same as direct extraction)
+        logger.info(f"Extracting ontology terms from guideline text (concept-based workflow)")
         
-        # Generate triples for selected concepts
-        triples_result = guideline_analysis_service.generate_triples(
-            concepts, 
-            selected_indices, 
-            ontology_source
+        # Get the actual guideline ID if available
+        actual_guideline_id = None
+        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+            actual_guideline_id = guideline.doc_metadata['guideline_id']
+        
+        # Extract ontology terms from guideline text (same as direct method)
+        triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
+            guideline_text=guideline.content,
+            world_id=world.id,
+            guideline_id=actual_guideline_id or guideline.id,
+            ontology_source=ontology_source
         )
         
         if "error" in triples_result:
-            logger.error(f"Error in triple generation: {triples_result['error']}")
+            logger.error(f"Error in ontology term extraction: {triples_result['error']}")
             return redirect(url_for('worlds.guideline_processing_error', 
                                     world_id=world.id, 
                                     document_id=document_id,
-                                    error_title='Triple Generation Error',
+                                    error_title='Ontology Term Extraction Error',
                                     error_message=triples_result['error']))
         
         # Get the triples for review
         triples = triples_result.get("triples", [])
         if not triples:
-            flash('No triples were generated from the selected concepts', 'warning')
+            flash('No ontology terms were extracted from the guideline text', 'warning')
             return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
         
         # Prepare data for the template
         triples_json = json.dumps(triples)
-        selected_concepts_json = json.dumps(selected_concepts)
-        selected_concept_indices_str = ','.join(str(idx) for idx in selected_indices)
+        # For consistency with template expectations, pass empty concept data
+        selected_concepts_json = json.dumps([])
+        selected_concept_indices_str = ''
         
         # Render the triples review template
         return render_template('guideline_triples_review.html',
@@ -1451,8 +1514,13 @@ def save_guideline_triples(world_id, document_id):
                                     error_title='Missing Guideline Record',
                                     error_message=f'The related guideline record with ID {guideline_id} was not found.'))
         
+        # Check for duplicates before saving
+        from app.services.triple_duplicate_detection_service import get_duplicate_detection_service
+        duplicate_service = get_duplicate_detection_service()
+        
         # Save the selected triples to the database
         saved_triples = []
+        skipped_duplicates = []
         
         for triple_data in selected_triples:
             # Check if triple has all required fields
@@ -1466,9 +1534,28 @@ def save_guideline_triples(world_id, document_id):
             if is_literal or 'object_literal' in triple_data:
                 object_literal = triple_data.get('object_literal', triple_data.get('object', ''))
                 object_uri = None
+                object_value = object_literal
             else:
                 object_literal = None
                 object_uri = triple_data.get('object', '')
+                object_value = object_uri
+            
+            # Check for duplicates before saving
+            duplicate_result = duplicate_service.check_duplicate_with_details(
+                triple_data.get('subject', ''),
+                triple_data.get('predicate', ''),
+                object_value,
+                is_literal,
+                exclude_guideline_id=guideline_record.id
+            )
+            
+            if duplicate_result['is_duplicate']:
+                logger.info(f"Skipping duplicate triple: {duplicate_result['details']}")
+                skipped_duplicates.append({
+                    'triple': triple_data,
+                    'reason': duplicate_result['details']
+                })
+                continue
             
             # Create the triple
             triple = EntityTriple(
@@ -1509,13 +1596,20 @@ def save_guideline_triples(world_id, document_id):
         # Commit changes
         db.session.commit()
         
-        logger.info(f"Successfully saved {len(saved_triples)} triples for guideline {guideline_record.id}")
+        logger.info(f"Successfully saved {len(saved_triples)} triples for guideline {guideline_record.id} (skipped {len(skipped_duplicates)} duplicates)")
+        
+        # Add flash message with duplicate info
+        if skipped_duplicates:
+            flash(f'Successfully saved {len(saved_triples)} triples. Skipped {len(skipped_duplicates)} duplicates.', 'success')
+        else:
+            flash(f'Successfully saved {len(saved_triples)} triples.', 'success')
         
         # Return the success page
         return render_template('guideline_triples_saved.html',
                                world=world,
                                guideline=guideline,
                                saved_triples=saved_triples,
+                               skipped_duplicates=skipped_duplicates,
                                triple_count=len(saved_triples),
                                world_id=world_id,
                                document_id=document_id)

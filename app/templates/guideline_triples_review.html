@@ -66,6 +66,7 @@
                                         <th>Predicate</th>
                                         <th>Object</th>
                                         <th style="width: 100px;">Type</th>
+                                        <th style="width: 120px;">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -107,11 +108,42 @@
                                             <span class="badge bg-info">URI</span>
                                             {% endif %}
                                         </td>
+                                        <td>
+                                            {% if triple.duplicate_check_result %}
+                                                {% if triple.duplicate_check_result.is_duplicate %}
+                                                    {% if triple.duplicate_check_result.in_ontology %}
+                                                        <span class="badge bg-warning" title="{{ triple.duplicate_check_result.details }}">
+                                                            <i class="fas fa-book"></i> In Ontology
+                                                        </span>
+                                                    {% elif triple.duplicate_check_result.in_database %}
+                                                        <span class="badge bg-info" title="{{ triple.duplicate_check_result.details }}">
+                                                            <i class="fas fa-database"></i> In Database
+                                                        </span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="badge bg-success" title="{{ triple.duplicate_check_result.details }}">
+                                                        <i class="fas fa-plus"></i> New
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                            
+                                            {% if triple.value_class %}
+                                                {% if triple.value_class == 'high' %}
+                                                    <span class="badge bg-primary" title="High-value semantic relationship">
+                                                        <i class="fas fa-star"></i>
+                                                    </span>
+                                                {% elif triple.value_class == 'low' %}
+                                                    <span class="badge bg-secondary" title="Low-value relationship">
+                                                        <i class="fas fa-circle"></i>
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                     {% else %}
                                     <tr>
-                                        <td colspan="5" class="text-center py-4">
+                                        <td colspan="6" class="text-center py-4">
                                             <div class="alert alert-warning mb-0">
                                                 No triples were generated from the selected concepts. This may indicate
                                                 a problem with the triple generation process.

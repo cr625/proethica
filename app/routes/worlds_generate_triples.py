@@ -197,14 +197,23 @@ def generate_triples_direct(world_id, document_id):
                 ).delete(synchronize_session=False)
                 logger.info(f"Deleted {deleted_count} old alignment triples")
             
-            # Save the new triples
+            # Save only unique triples (skip duplicates)
             if 'triples' in triples_result:
-                logger.info(f"Saving {len(triples_result['triples'])} new triples")
-                for triple_data in triples_result['triples']:
+                unique_triples = triples_result.get('unique_triples', triples_result['triples'])
+                duplicate_count = triples_result.get('duplicate_count', 0)
+                
+                logger.info(f"Saving {len(unique_triples)} unique triples (skipping {duplicate_count} duplicates)")
+                
+                for triple_data in unique_triples:
                     # Handle confidence in metadata since EntityTriple doesn't have a confidence field
                     metadata = {}
                     if 'confidence' in triple_data:
                         metadata['confidence'] = triple_data['confidence']
+                    
+                    # Skip if marked as duplicate
+                    if triple_data.get('duplicate_check_result', {}).get('is_duplicate', False):
+                        logger.debug(f"Skipping duplicate triple: {triple_data.get('subject_label', 'Unknown')} -> {triple_data.get('predicate_label', 'Unknown')}")
+                        continue
                     
                     entity_triple = EntityTriple(
                         world_id=world.id,
@@ -222,11 +231,16 @@ def generate_triples_direct(world_id, document_id):
                         triple_metadata=metadata
                     )
                     db.session.add(entity_triple)
-                logger.info(f"Added {len(triples_result['triples'])} triples to session")
+                logger.info(f"Added {len(unique_triples)} unique triples to session")
             
             db.session.commit()
             term_count = triples_result.get('term_count', triple_count // 2)
-            flash(f'Successfully extracted {term_count} ontology terms from text ({triple_count} triples)', 'success')
+            unique_count = len(unique_triples)
+            
+            if duplicate_count > 0:
+                flash(f'Successfully extracted {term_count} ontology terms ({unique_count} new triples, {duplicate_count} duplicates skipped)', 'success')
+            else:
+                flash(f'Successfully extracted {term_count} ontology terms ({unique_count} triples)', 'success')
         else:
             error_msg = triples_result.get('error', 'Unknown error during triple generation')
             flash(f'Error generating triples: {error_msg}', 'error')
