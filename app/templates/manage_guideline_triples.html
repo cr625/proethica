@@ -29,29 +29,29 @@
           </div>
         </div>
         <div class="col-md-2">
-          <div class="card border-warning">
+          <div class="card border-primary">
             <div class="card-body">
-              <h5 class="card-title">In Ontology</h5>
-              <p class="card-text display-6 text-warning">{{ ontology_count }}</p>
-              <small class="text-muted">Core knowledge</small>
+              <h5 class="card-title">Core Ontology</h5>
+              <p class="card-text display-6 text-primary">{{ core_ontology_count }}</p>
+              <small class="text-muted">In .ttl files</small>
             </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="card border-info">
             <div class="card-body">
-              <h5 class="card-title">In Database</h5>
-              <p class="card-text display-6 text-info">{{ database_count }}</p>
-              <small class="text-muted">From other guidelines</small>
+              <h5 class="card-title">Other Guidelines</h5>
+              <p class="card-text display-6 text-info">{{ other_guidelines_count }}</p>
+              <small class="text-muted">Shared concepts</small>
             </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="card border-success">
             <div class="card-body">
-              <h5 class="card-title">Guideline-Specific</h5>
-              <p class="card-text display-6 text-success">{{ guideline_count }}</p>
-              <small class="text-muted">New terms</small>
+              <h5 class="card-title">New Terms</h5>
+              <p class="card-text display-6 text-success">{{ guideline_specific_count }}</p>
+              <small class="text-muted">Keep these</small>
             </div>
           </div>
         </div>
@@ -74,6 +74,39 @@
           </div>
         </div>
       </div>
+
+      <!-- Cleanup Alert Row -->
+      {% if same_guideline_old_count > 0 or orphaned_count > 0 %}
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="alert alert-warning">
+            <h5><i class="fas fa-exclamation-triangle"></i> Cleanup Recommended</h5>
+            <div class="row">
+              {% if same_guideline_old_count > 0 %}
+              <div class="col-md-6">
+                <div class="card border-warning">
+                  <div class="card-body">
+                    <h6 class="card-title text-warning">Old Runs ({{ same_guideline_old_count }})</h6>
+                    <p class="card-text">Triples from previous extractions of this same guideline. Consider cleaning up.</p>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+              {% if orphaned_count > 0 %}
+              <div class="col-md-6">
+                <div class="card border-danger">
+                  <div class="card-body">
+                    <h6 class="card-title text-danger">Orphaned ({{ orphaned_count }})</h6>
+                    <p class="card-text">Triples with unclear origin. Recommend removal.</p>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
       <!-- Filter Controls -->
       <div class="card mb-4">
@@ -114,20 +147,34 @@
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="ontology-tab" data-bs-toggle="tab" data-bs-target="#ontology-triples" type="button" role="tab">
-            <i class="fas fa-book text-warning"></i> In Core Ontology ({{ ontology_count }})
+          <button class="nav-link" id="core-ontology-tab" data-bs-toggle="tab" data-bs-target="#core-ontology-triples" type="button" role="tab">
+            <i class="fas fa-book text-primary"></i> Core Ontology ({{ core_ontology_count }})
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="database-tab" data-bs-toggle="tab" data-bs-target="#database-triples" type="button" role="tab">
-            <i class="fas fa-database text-info"></i> From Other Guidelines ({{ database_count }})
+          <button class="nav-link" id="other-guidelines-tab" data-bs-toggle="tab" data-bs-target="#other-guidelines-triples" type="button" role="tab">
+            <i class="fas fa-share-alt text-info"></i> Other Guidelines ({{ other_guidelines_count }})
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="guideline-tab" data-bs-toggle="tab" data-bs-target="#guideline-triples" type="button" role="tab">
-            <i class="fas fa-plus text-success"></i> Guideline-Specific ({{ guideline_count }})
+          <button class="nav-link" id="new-terms-tab" data-bs-toggle="tab" data-bs-target="#new-terms-triples" type="button" role="tab">
+            <i class="fas fa-plus text-success"></i> New Terms ({{ guideline_specific_count }})
           </button>
         </li>
+        {% if same_guideline_old_count > 0 %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="old-runs-tab" data-bs-toggle="tab" data-bs-target="#old-runs-triples" type="button" role="tab">
+            <i class="fas fa-history text-warning"></i> Old Runs ({{ same_guideline_old_count }})
+          </button>
+        </li>
+        {% endif %}
+        {% if orphaned_count > 0 %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="orphaned-tab" data-bs-toggle="tab" data-bs-target="#orphaned-triples" type="button" role="tab">
+            <i class="fas fa-question text-danger"></i> Orphaned ({{ orphaned_count }})
+          </button>
+        </li>
+        {% endif %}
       </ul>
 
       <div class="tab-content" id="ontologyTabContent">
@@ -227,19 +274,20 @@
       {% endfor %}
         </div>
 
-        <!-- Ontology Triples Tab -->
-        <div class="tab-pane fade" id="ontology-triples" role="tabpanel">
-          <div class="alert alert-warning">
-            <h5><i class="fas fa-book"></i> Terms Already in Core Ontology</h5>
-            <p>These triples match terms that already exist in the core engineering ethics ontology. They represent established knowledge that doesn't need to be stored again.</p>
+        <!-- Core Ontology Triples Tab -->
+        <div class="tab-pane fade" id="core-ontology-triples" role="tabpanel">
+          <div class="alert alert-primary">
+            <h5><i class="fas fa-book"></i> Terms in Core Ontology Files</h5>
+            <p>These triples match terms that already exist in the actual ontology files (engineering-ethics.ttl, proethica-intermediate.ttl, bfo.ttl). They represent established knowledge that's part of the core ontology.</p>
+            <p><strong>Decision:</strong> These can usually be safely removed since the knowledge is already captured in the ontology files.</p>
           </div>
-          {% for group in ontology_groups %}
+          {% for group in core_ontology_groups %}
           <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
             <div class="card-header d-flex justify-content-between align-items-center">
               <h5 class="mb-0">
                 <i class="fas fa-link"></i> {{ group.predicate }}
-                <span class="badge bg-warning">{{ group.count }} triples</span>
-                <span class="badge bg-secondary">ONTOLOGY</span>
+                <span class="badge bg-primary">{{ group.count }} triples</span>
+                <span class="badge bg-secondary">CORE ONTOLOGY</span>
               </h5>
               <div>
                 <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="ontology-group-{{ loop.index }}">
@@ -282,8 +330,8 @@
                         {% endif %}
                       </td>
                       <td>
-                        <span class="badge bg-warning" title="{{ triple.ontology_status.details }}">
-                          <i class="fas fa-book"></i> In Core Ontology
+                        <span class="badge bg-primary" title="{{ triple.ontology_status.details }}">
+                          <i class="fas fa-book"></i> Core Ontology
                         </span>
                       </td>
                       <td>
@@ -301,13 +349,14 @@
           {% endfor %}
         </div>
 
-        <!-- Database Triples Tab -->
-        <div class="tab-pane fade" id="database-triples" role="tabpanel">
+        <!-- Other Guidelines Triples Tab -->
+        <div class="tab-pane fade" id="other-guidelines-triples" role="tabpanel">
           <div class="alert alert-info">
-            <h5><i class="fas fa-database"></i> Terms from Other Guidelines</h5>
-            <p>These triples match terms that were extracted from other guidelines. They represent shared concepts across multiple guidelines.</p>
+            <h5><i class="fas fa-share-alt"></i> Terms from Other Guidelines</h5>
+            <p>These triples match terms that were extracted from different guidelines. They represent shared concepts across multiple guidelines, indicating common ethical themes.</p>
+            <p><strong>Decision:</strong> These show valuable cross-guideline patterns. Consider keeping representative examples or consolidating duplicates.</p>
           </div>
-          {% for group in database_groups %}
+          {% for group in other_guidelines_groups %}
           <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
             <div class="card-header d-flex justify-content-between align-items-center">
               <h5 class="mb-0">
@@ -380,13 +429,14 @@
           {% endfor %}
         </div>
 
-        <!-- Guideline-Specific Triples Tab -->
-        <div class="tab-pane fade" id="guideline-triples" role="tabpanel">
+        <!-- New Terms Triples Tab -->
+        <div class="tab-pane fade" id="new-terms-triples" role="tabpanel">
           <div class="alert alert-success">
             <h5><i class="fas fa-plus"></i> New Guideline-Specific Terms</h5>
-            <p>These are new terms that are specific to this guideline and don't exist in the core ontology or other guidelines.</p>
+            <p>These are new terms that are specific to this guideline and don't exist in the core ontology or other guidelines. These are the most valuable for expanding the knowledge base.</p>
+            <p><strong>Decision:</strong> These should generally be kept. Review for quality and consider adding high-value terms to the core ontology.</p>
           </div>
-          {% for group in guideline_groups %}
+          {% for group in guideline_specific_groups %}
           <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
             <div class="card-header d-flex justify-content-between align-items-center">
               <h5 class="mb-0">
@@ -453,6 +503,160 @@
           </div>
           {% endfor %}
         </div>
+
+        <!-- Old Runs Triples Tab -->
+        {% if same_guideline_old_count > 0 %}
+        <div class="tab-pane fade" id="old-runs-triples" role="tabpanel">
+          <div class="alert alert-warning">
+            <h5><i class="fas fa-history"></i> Old Runs of Same Guideline</h5>
+            <p>These triples are from previous extractions of this same guideline. They may be outdated or redundant with current triples.</p>
+            <p><strong>Decision:</strong> These should typically be cleaned up to avoid confusion and maintain data quality.</p>
+          </div>
+          {% for group in same_guideline_old_groups %}
+          <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-link"></i> {{ group.predicate }}
+                <span class="badge bg-warning">{{ group.count }} triples</span>
+                <span class="badge bg-secondary">OLD RUN</span>
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="old-group-{{ loop.index }}">
+                  <i class="fas fa-chevron-down"></i> Show/Hide
+                </button>
+                <input type="checkbox" class="form-check-input select-all-group ms-2" data-group="old-group-{{ loop.index }}">
+                <label class="form-check-label ms-1">Select All</label>
+              </div>
+            </div>
+            <div class="card-body collapse show" id="old-group-{{ loop.index }}">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th width="40">
+                        <input type="checkbox" class="form-check-input select-all-in-table" data-table="old-table-{{ loop.index }}">
+                      </th>
+                      <th>Subject</th>
+                      <th>Object</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="old-table-{{ loop.index }}">
+                    {% for triple in group.triples %}
+                    <tr class="triple-row table-warning" data-triple-id="{{ triple.id }}">
+                      <td>
+                        <input type="checkbox" class="form-check-input triple-checkbox" value="{{ triple.id }}">
+                      </td>
+                      <td>
+                        <small class="text-muted">{{ triple.subject_label or triple.subject }}</small>
+                      </td>
+                      <td>
+                        {% if triple.object_label %}
+                          <strong>{{ triple.object_label }}</strong>
+                        {% elif triple.object_literal %}
+                          <em>{{ triple.object_literal }}</em>
+                        {% else %}
+                          <small class="text-muted">{{ triple.object_uri }}</small>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge bg-warning" title="{{ triple.ontology_status.details }}">
+                          <i class="fas fa-history"></i> Old Run
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger delete-single" data-triple-id="{{ triple.id }}">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Orphaned Triples Tab -->
+        {% if orphaned_count > 0 %}
+        <div class="tab-pane fade" id="orphaned-triples" role="tabpanel">
+          <div class="alert alert-danger">
+            <h5><i class="fas fa-question"></i> Orphaned Triples</h5>
+            <p>These triples have unclear origins or associations. They may be leftover from incomplete processes or data migration issues.</p>
+            <p><strong>Decision:</strong> These should generally be removed to maintain data integrity.</p>
+          </div>
+          {% for group in orphaned_groups %}
+          <div class="card mb-4 triple-group" data-predicate="{{ group.predicate }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-link"></i> {{ group.predicate }}
+                <span class="badge bg-danger">{{ group.count }} triples</span>
+                <span class="badge bg-secondary">ORPHANED</span>
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="orphan-group-{{ loop.index }}">
+                  <i class="fas fa-chevron-down"></i> Show/Hide
+                </button>
+                <input type="checkbox" class="form-check-input select-all-group ms-2" data-group="orphan-group-{{ loop.index }}">
+                <label class="form-check-label ms-1">Select All</label>
+              </div>
+            </div>
+            <div class="card-body collapse show" id="orphan-group-{{ loop.index }}">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th width="40">
+                        <input type="checkbox" class="form-check-input select-all-in-table" data-table="orphan-table-{{ loop.index }}">
+                      </th>
+                      <th>Subject</th>
+                      <th>Object</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="orphan-table-{{ loop.index }}">
+                    {% for triple in group.triples %}
+                    <tr class="triple-row table-danger" data-triple-id="{{ triple.id }}">
+                      <td>
+                        <input type="checkbox" class="form-check-input triple-checkbox" value="{{ triple.id }}">
+                      </td>
+                      <td>
+                        <small class="text-muted">{{ triple.subject_label or triple.subject }}</small>
+                      </td>
+                      <td>
+                        {% if triple.object_label %}
+                          <strong>{{ triple.object_label }}</strong>
+                        {% elif triple.object_literal %}
+                          <em>{{ triple.object_literal }}</em>
+                        {% else %}
+                          <small class="text-muted">{{ triple.object_uri }}</small>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge bg-danger" title="{{ triple.ontology_status.details }}">
+                          <i class="fas fa-question"></i> Orphaned
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger delete-single" data-triple-id="{{ triple.id }}">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

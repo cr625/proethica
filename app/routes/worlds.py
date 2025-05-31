@@ -726,16 +726,18 @@ def manage_guideline_triples(world_id, guideline_id):
             world_id=world.id
         ).all()
     
-    # Add ontology status to each triple
+    # Add ontology status to each triple with enhanced categorization
     from app.services.triple_duplicate_detection_service import get_duplicate_detection_service
     duplicate_service = get_duplicate_detection_service()
     
-    ontology_terms = []
-    database_terms = []
-    guideline_terms = []
+    core_ontology_terms = []      # In actual ontology files
+    other_guidelines_terms = []   # From different guidelines
+    same_guideline_old_terms = [] # Old runs of same guideline
+    orphaned_terms = []          # No clear source
+    guideline_specific_terms = [] # New unique terms
     
     for triple in triples:
-        # Check if this triple exists in ontology
+        # Check if this triple exists in ontology or database
         object_value = triple.object_uri if triple.object_uri else triple.object_literal
         duplicate_result = duplicate_service.check_duplicate_with_details(
             triple.subject,
@@ -748,13 +750,27 @@ def manage_guideline_triples(world_id, guideline_id):
         # Add the duplicate check result to the triple
         triple.ontology_status = duplicate_result
         
-        # Categorize triples based on their status
+        # Enhanced categorization logic
         if duplicate_result['in_ontology']:
-            ontology_terms.append(triple)
+            # Found in actual ontology files (engineering-ethics.ttl, etc.)
+            core_ontology_terms.append(triple)
+            
         elif duplicate_result['in_database'] and duplicate_result['existing_triple']:
-            database_terms.append(triple)
+            existing_triple = duplicate_result['existing_triple']
+            
+            # Check if it's from the same guideline (old run) vs different guideline
+            if existing_triple.guideline_id == triple.guideline_id:
+                # Same guideline - this is from an old run, probably should be cleaned up
+                same_guideline_old_terms.append(triple)
+            elif existing_triple.guideline_id and existing_triple.guideline_id != triple.guideline_id:
+                # Different guideline - this is a shared concept
+                other_guidelines_terms.append(triple)
+            else:
+                # No clear guideline association - orphaned
+                orphaned_terms.append(triple)
         else:
-            guideline_terms.append(triple)
+            # No duplicates found - this is a new guideline-specific term
+            guideline_specific_terms.append(triple)
     
     # Group triples by predicate type for easier management
     def group_triples_by_predicate(triple_list, prefix=""):
@@ -773,9 +789,11 @@ def manage_guideline_triples(world_id, guideline_id):
         return sorted(groups.values(), key=lambda x: x['count'], reverse=True)
     
     # Create grouped data for each category
-    ontology_groups = group_triples_by_predicate(ontology_terms)
-    database_groups = group_triples_by_predicate(database_terms)
-    guideline_groups = group_triples_by_predicate(guideline_terms)
+    core_ontology_groups = group_triples_by_predicate(core_ontology_terms)
+    other_guidelines_groups = group_triples_by_predicate(other_guidelines_terms)
+    same_guideline_old_groups = group_triples_by_predicate(same_guideline_old_terms)
+    orphaned_groups = group_triples_by_predicate(orphaned_terms)
+    guideline_specific_groups = group_triples_by_predicate(guideline_specific_terms)
     
     # Also create the original combined grouping for backward compatibility
     triple_groups = {}
@@ -798,13 +816,17 @@ def manage_guideline_triples(world_id, guideline_id):
                           world=world,
                           guideline=guideline,
                           triple_groups=sorted_groups,
-                          ontology_groups=ontology_groups,
-                          database_groups=database_groups,
-                          guideline_groups=guideline_groups,
+                          core_ontology_groups=core_ontology_groups,
+                          other_guidelines_groups=other_guidelines_groups,
+                          same_guideline_old_groups=same_guideline_old_groups,
+                          orphaned_groups=orphaned_groups,
+                          guideline_specific_groups=guideline_specific_groups,
                           total_triples=len(triples),
-                          ontology_count=len(ontology_terms),
-                          database_count=len(database_terms),
-                          guideline_count=len(guideline_terms))
+                          core_ontology_count=len(core_ontology_terms),
+                          other_guidelines_count=len(other_guidelines_terms),
+                          same_guideline_old_count=len(same_guideline_old_terms),
+                          orphaned_count=len(orphaned_terms),
+                          guideline_specific_count=len(guideline_specific_terms))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:guideline_id>/delete_triples', methods=['POST'])
 def delete_guideline_triples(world_id, guideline_id):
