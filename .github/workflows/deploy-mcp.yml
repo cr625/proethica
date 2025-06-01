@@ -79,8 +79,18 @@ jobs:
         python -m py_compile mcp/enhanced_ontology_server_with_guidelines.py
         echo "✅ MCP server syntax validation passed"
         
-        # Import test
-        python -c "import sys; sys.path.insert(0, 'mcp'); from enhanced_ontology_server_with_guidelines import OntologyMCPServer"
+        # Import test (with database mock for validation)
+        python -c "
+        import sys
+        sys.path.insert(0, 'mcp')
+        
+        # Mock database dependencies for validation
+        import unittest.mock
+        with unittest.mock.patch('psycopg2.connect'):
+            with unittest.mock.patch.dict('os.environ', {'USE_MOCK_GUIDELINE_RESPONSES': 'true'}):
+                from enhanced_ontology_server_with_guidelines import OntologyMCPServer
+                print('✅ MCP server import successful')
+        "
         echo "✅ MCP server import test passed"
     
     - name: Set up SSH
