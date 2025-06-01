@@ -2,7 +2,7 @@ name: Deploy MCP Server
 
 on:
   push:
-    branches: [ main, develop, guidelines-enhancement ]
+    branches: [ main, develop ]
     paths:
       - 'mcp/**'
       - 'requirements-mcp.txt'
@@ -118,7 +118,7 @@ jobs:
         
         # Configuration
         DEPLOY_DIR="/home/chris"
-        REPO_DIR="$DEPLOY_DIR/proethica-mcp"
+        REPO_DIR="$DEPLOY_DIR/proethica-repo"
         MCP_DIR="$DEPLOY_DIR/mcp-server"
         TIMESTAMP=$(date +%Y%m%d_%H%M%S)
         RELEASE_DIR="$MCP_DIR/releases/$TIMESTAMP"
