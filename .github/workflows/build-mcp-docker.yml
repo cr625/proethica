@@ -1,0 +1,159 @@
+name: Build MCP Docker Image
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'mcp/**'
+      - 'requirements-mcp.txt'
+      - 'requirements.txt'
+      - 'Dockerfile.mcp'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag'
+        required: false
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-mcp
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=${{ github.event.inputs.tag || 'latest' }}
+    
+    - name: Create Dockerfile if not exists
+      run: |
+        if [ ! -f "Dockerfile.mcp" ]; then
+          cat > Dockerfile.mcp << 'EOF'
+        FROM python:3.12-slim
+        
+        # Install system dependencies
+        RUN apt-get update && apt-get install -y \
+            curl \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Create app user
+        RUN useradd -m -u 1000 mcp && \
+            mkdir -p /app /app/logs && \
+            chown -R mcp:mcp /app
+        
+        WORKDIR /app
+        
+        # Copy requirements first for better caching
+        COPY requirements*.txt ./
+        RUN pip install --no-cache-dir --upgrade pip && \
+            if [ -f "requirements-mcp.txt" ]; then \
+              pip install --no-cache-dir -r requirements-mcp.txt; \
+            else \
+              pip install --no-cache-dir -r requirements.txt; \
+            fi
+        
+        # Copy application code
+        COPY --chown=mcp:mcp . .
+        
+        # Switch to non-root user
+        USER mcp
+        
+        # Expose port
+        EXPOSE 5002
+        
+        # Health check
+        HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+          CMD curl -f http://localhost:5002/health || exit 1
+        
+        # Run the MCP server
+        CMD ["python", "mcp/enhanced_ontology_server_with_guidelines.py"]
+        EOF
+        fi
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.mcp
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          VCS_REF=${{ github.sha }}
+          VERSION=${{ steps.meta.outputs.version }}
+    
+    - name: Generate deployment instructions
+      run: |
+        echo "## Docker Deployment Instructions" > docker-deploy.md
+        echo "" >> docker-deploy.md
+        echo "### Pull and run the image:" >> docker-deploy.md
+        echo '```bash' >> docker-deploy.md
+        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" >> docker-deploy.md
+        echo "" >> docker-deploy.md
+        echo "docker run -d \\" >> docker-deploy.md
+        echo "  --name proethica-mcp \\" >> docker-deploy.md
+        echo "  -p 5002:5002 \\" >> docker-deploy.md
+        echo "  -e MCP_SERVER_PORT=5002 \\" >> docker-deploy.md
+        echo "  -e DATABASE_URL=\$DATABASE_URL \\" >> docker-deploy.md
+        echo "  -e ANTHROPIC_API_KEY=\$ANTHROPIC_API_KEY \\" >> docker-deploy.md
+        echo "  -e MCP_AUTH_TOKEN=\$MCP_AUTH_TOKEN \\" >> docker-deploy.md
+        echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" >> docker-deploy.md
+        echo '```' >> docker-deploy.md
+        echo "" >> docker-deploy.md
+        echo "### Docker Compose example:" >> docker-deploy.md
+        echo '```yaml' >> docker-deploy.md
+        echo "version: '3.8'" >> docker-deploy.md
+        echo "services:" >> docker-deploy.md
+        echo "  mcp:" >> docker-deploy.md
+        echo "    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" >> docker-deploy.md
+        echo "    ports:" >> docker-deploy.md
+        echo "      - '5002:5002'" >> docker-deploy.md
+        echo "    environment:" >> docker-deploy.md
+        echo "      - MCP_SERVER_PORT=5002" >> docker-deploy.md
+        echo "      - DATABASE_URL=\${DATABASE_URL}" >> docker-deploy.md
+        echo "      - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY}" >> docker-deploy.md
+        echo "      - MCP_AUTH_TOKEN=\${MCP_AUTH_TOKEN}" >> docker-deploy.md
+        echo "    restart: unless-stopped" >> docker-deploy.md
+        echo "    healthcheck:" >> docker-deploy.md
+        echo "      test: ['CMD', 'curl', '-f', 'http://localhost:5002/health']" >> docker-deploy.md
+        echo "      interval: 30s" >> docker-deploy.md
+        echo "      timeout: 10s" >> docker-deploy.md
+        echo "      retries: 3" >> docker-deploy.md
+        echo '```' >> docker-deploy.md
+        
+        cat docker-deploy.md
+    
+    - name: Upload deployment instructions
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-deployment-instructions
+        path: docker-deploy.md
