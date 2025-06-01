@@ -290,11 +290,30 @@ ssh chris@proethica.org '
 '
 ```
 
+## GitHub Actions CI/CD
+
+**New!** Automated CI/CD workflows are now available. See `.github/workflows/README.md` for complete documentation.
+
+### Quick Start with GitHub Actions
+
+1. **Set up secrets**: Run `./scripts/setup-github-secrets.sh` to configure required GitHub secrets
+2. **Deploy automatically**: Push to `main`, `develop`, or `guidelines-enhancement` branches
+3. **Deploy manually**: Use GitHub Actions UI → Deploy MCP Server → Run workflow
+4. **Monitor health**: Automated health checks run every 15 minutes
+
+### Available Workflows
+
+- **deploy-mcp.yml**: Production deployment with zero-downtime and rollback
+- **test-mcp.yml**: Automated testing for pull requests
+- **build-mcp-docker.yml**: Docker image builds
+- **monitor-mcp.yml**: Health monitoring with alerting
+
 ## Support
 
 For deployment issues:
-1. Check the health check output for specific failure points
-2. Review server logs for error details
-3. Consult the troubleshooting section above
-4. Verify you're using the correct branch (`simple`, not `main`)
-5. Contact the development team if issues persist
+1. Check GitHub Actions logs if using CI/CD
+2. Check the health check output for specific failure points
+3. Review server logs for error details
+4. Consult the troubleshooting section above
+5. Verify you're using the correct branch
+6. Contact the development team if issues persist
