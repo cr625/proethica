@@ -1,10 +1,12 @@
 # Ontology Enhancement Branch
 
+> **Note**: For comprehensive ontology system documentation, see [README.md](./README.md)
+
 This branch focuses on enhancing the ontology portion of ProEthica, with an emphasis on ontology-based case analysis.
 
 ## Overview
 
-The ontology enhancement branch extends ProEthica's capabilities to perform detailed case analysis using ontological representations of ethical concepts, relationships, and principles. This branch builds on the realm-integration branch and adds specialized functionality for ontology-based reasoning.
+The ontology enhancement branch extends ProEthica's capabilities to perform detailed case analysis using ontological representations of ethical concepts, relationships, and principles. The system now uses the 8 GuidelineConceptTypes (Role, Principle, Obligation, State, Resource, Action, Event, Capability) for structured ethical reasoning.
 
 ## Key Components
 

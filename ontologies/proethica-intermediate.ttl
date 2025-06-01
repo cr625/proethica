@@ -125,6 +125,12 @@
     rdfs:comment "A choice made by an agent in response to an ethical situation"@en .
 
 # Common Ethical Concepts
+:EthicalDilemma rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf bfo:BFO_0000144 ; # process aggregate
+    rdfs:label "Ethical Dilemma"@en ;
+    rdfs:comment "A situation involving a difficult ethical choice between competing moral considerations that applies across all professional domains"@en .
+
 :EthicalPrinciple rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant
     rdfs:label "Ethical Principle"@en ;

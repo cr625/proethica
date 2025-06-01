@@ -1,17 +1,17 @@
 # Ontology Visualization
 
-This document describes the ontology visualization feature implementation in the A-Proxy system.
+This document describes the ontology visualization feature implementation in the ProEthica system.
 
 ## Overview
 
-The ontology visualization feature provides a graphical view of ontology hierarchies, making it easier to understand the structure and relationships between ontology classes. The visualization is implemented using D3.js to create an interactive tree diagram.
+The ontology visualization feature provides a graphical view of ontology hierarchies, making it easier to understand the structure and relationships between ontology classes. The visualization is implemented using D3.js to create an interactive tree diagram that displays the taxonomy and hierarchy of BFO-aligned ontologies.
 
 ## Architecture
 
 The visualization feature consists of several components:
 
 1. **Backend API**: Server-side code that extracts a hierarchical structure from the TTL content of an ontology
-2. **Visualization Template**: HTML template for the visualization page
+2. **Visualization Template**: HTML template for the visualization page  
 3. **JavaScript Code**: Client-side code that renders the hierarchy using D3.js
 4. **CSS Styling**: Styling for the visualization elements
 
@@ -22,8 +22,8 @@ The visualization feature consists of several components:
 The backend implementation includes:
 
 - A Flask route in `ontology_editor/__init__.py` to handle the `/visualize/<ontology_id>` endpoint
-- An API endpoint in `ontology_editor/api/routes.py` that parses TTL content into a hierarchical structure
-- RDFLib integration for parsing TTL and extracting class hierarchies
+- An API endpoint in `ontology_editor/api/routes.py` at `/api/hierarchy/<int:ontology_id>` that parses TTL content into a hierarchical structure
+- RDFLib integration for parsing TTL and extracting class hierarchies from proethica-intermediate.ttl and engineering-ethics.ttl
 
 ### Frontend Components
 
@@ -35,12 +35,13 @@ The frontend implementation includes:
 
 ### Key Features
 
-1. **Hierarchy Visualization**: Display classes in a hierarchical tree structure
+1. **Hierarchy Visualization**: Display classes in a hierarchical tree structure based on rdfs:subClassOf relationships
 2. **Interactive Navigation**: Expand/collapse nodes to explore the hierarchy
-3. **Entity Details**: View details of selected entities
-4. **Filtering**: Filter the visualization by entity type, search terms, etc.
-5. **BFO Integration**: Special handling for BFO classes and BFO-aligned classes
+3. **Entity Details**: View details of selected entities including URI, description, and properties
+4. **Filtering**: Filter the visualization by GuidelineConceptType (Role, Principle, Obligation, State, Resource, Action, Event, Capability)
+5. **BFO Integration**: Special handling for BFO classes and ProEthica intermediate ontology classes
 6. **Color Coding**: Different entity types are color-coded for easy identification
+7. **Dual View Modes**: Hierarchical view (inheritance structure) and Categorized view (by GuidelineConceptType)
 
 ## Usage
 

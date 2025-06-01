@@ -3,6 +3,7 @@ API routes for the ontology editor
 """
 import os
 import json
+import re
 from flask import Blueprint, request, jsonify, current_app, Response, render_template, abort
 from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,6 +15,173 @@ from app.models.ontology_import import OntologyImport
 from app.services.mcp_client import MCPClient
 from app.services.ontology_entity_service import OntologyEntityService
 from ontology_editor.services.validator import OntologyValidator
+
+def load_ontology_from_file(ontology_name):
+    """Load ontology content from file system"""
+    try:
+        # Map ontology names to file paths
+        ontology_files = {
+            'proethica-intermediate': '/home/chris/proethica/ontologies/proethica-intermediate.ttl',
+            'engineering-ethics': '/home/chris/proethica/ontologies/engineering-ethics.ttl',
+            'bfo': '/home/chris/proethica/ontologies/bfo.ttl'
+        }
+        
+        file_path = ontology_files.get(ontology_name.lower())
+        if not file_path or not os.path.exists(file_path):
+            return None
+            
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        current_app.logger.error(f"Error loading ontology file {ontology_name}: {str(e)}")
+        return None
+
+def parse_ttl_to_hierarchy(ttl_content, ontology_name):
+    """Parse TTL content into hierarchical structure for visualization"""
+    try:
+        # Simple regex-based parsing to extract class definitions and hierarchy
+        classes = {}
+        
+        # Extract class declarations with their properties
+        class_pattern = r':(\w+)\s+(?:rdf:type|a)\s+owl:Class\s*;(.*?)(?=\n\s*:|$)'
+        subclass_pattern = r'rdfs:subClassOf\s+([:\w]+)'
+        label_pattern = r'rdfs:label\s+"([^"]+)"'
+        comment_pattern = r'rdfs:comment\s+"([^"]+)"'
+        
+        for match in re.finditer(class_pattern, ttl_content, re.MULTILINE | re.DOTALL):
+            class_name = match.group(1)
+            class_body = match.group(2)
+            
+            # Extract subclass relationship
+            subclass_match = re.search(subclass_pattern, class_body)
+            parent = subclass_match.group(1) if subclass_match else None
+            
+            # Extract label
+            label_match = re.search(label_pattern, class_body)
+            label = label_match.group(1) if label_match else class_name
+            
+            # Extract comment/description
+            comment_match = re.search(comment_pattern, class_body)
+            description = comment_match.group(1) if comment_match else None
+            
+            # Determine entity type based on GuidelineConceptTypes
+            entity_type = determine_entity_type(class_name, class_body)
+            
+            classes[class_name] = {
+                'name': label,
+                'uri': f'http://proethica.org/ontology/{ontology_name}#{class_name}',
+                'description': description,
+                'parent': parent,
+                'type': entity_type,
+                'entity_type': entity_type
+            }
+        
+        # Build hierarchy tree
+        hierarchy = build_hierarchy_tree(classes, ontology_name)
+        return hierarchy
+        
+    except Exception as e:
+        current_app.logger.error(f"Error parsing TTL to hierarchy: {str(e)}")
+        # Return a simple fallback hierarchy
+        return {
+            'name': ontology_name,
+            'type': 'root',
+            'description': f'{ontology_name} ontology',
+            'children': []
+        }
+
+def determine_entity_type(class_name, class_body):
+    """Determine the entity type based on class name and body"""
+    # Check for GuidelineConceptTypes
+    if 'Role' in class_name:
+        return 'Role'
+    elif 'Principle' in class_name:
+        return 'Principle'
+    elif 'Obligation' in class_name:
+        return 'Obligation'
+    elif 'State' in class_name or 'Condition' in class_name:
+        return 'State'
+    elif 'Resource' in class_name:
+        return 'Resource'
+    elif 'Action' in class_name:
+        return 'Action'
+    elif 'Event' in class_name:
+        return 'Event'
+    elif 'Capability' in class_name:
+        return 'Capability'
+    elif 'BFO_' in class_name or 'bfo:' in class_body:
+        return 'bfo'
+    elif 'proeth:' in class_body:
+        return 'bfo-aligned'
+    else:
+        return 'non-bfo'
+
+def build_hierarchy_tree(classes, ontology_name):
+    """Build a hierarchical tree structure from class definitions"""
+    # Find root classes (no parent or parent is external)
+    roots = []
+    children_map = {}
+    
+    # Group children by parent
+    for class_name, class_data in classes.items():
+        parent = class_data.get('parent')
+        if parent and parent.startswith(':'):
+            parent = parent[1:]  # Remove prefix
+        elif parent and parent.startswith('proeth:'):
+            parent = parent[7:]  # Remove proeth: prefix
+        elif parent and parent.startswith('bfo:'):
+            parent = parent[4:]  # Remove bfo: prefix
+            
+        if not parent or parent not in classes:
+            # This is a root class
+            roots.append(class_data)
+        else:
+            # Add to parent's children
+            if parent not in children_map:
+                children_map[parent] = []
+            children_map[parent].append(class_data)
+    
+    # Recursively build tree
+    def add_children(node_data):
+        # Get the actual class name for lookups
+        class_name = None
+        for cls_name, cls_data in classes.items():
+            if cls_data == node_data:
+                class_name = cls_name
+                break
+        
+        # Also try looking up by the display name
+        if not class_name:
+            class_name = node_data['name']
+                
+        if class_name and class_name in children_map:
+            node_data['children'] = []
+            for child in children_map[class_name]:
+                add_children(child)
+                node_data['children'].append(child)
+        return node_data
+    
+    # Add children to all root nodes
+    for root in roots:
+        add_children(root)
+    
+    # Sort roots to show GuidelineConceptTypes first
+    guideline_types = ['Role', 'Principle', 'Obligation', 'State', 'Resource', 'Action', 'Event', 'Capability']
+    roots.sort(key=lambda x: (
+        0 if x['name'] in guideline_types else 1,
+        guideline_types.index(x['name']) if x['name'] in guideline_types else 999,
+        x['name']
+    ))
+    
+    # Create the main hierarchy structure
+    hierarchy = {
+        'name': ontology_name.replace('-', ' ').title(),
+        'type': 'root',
+        'description': f'{ontology_name} ontology hierarchy',
+        'children': roots
+    }
+    
+    return hierarchy
 
 def create_api_routes(config):
     """Create API Blueprint for the ontology editor"""
@@ -291,7 +459,81 @@ def create_api_routes(config):
                 'entities': {}  # Return empty entities to prevent UI errors
             }), 500
 
-    @api_bp.route('/ontology/<int:ontology_id>/hierarchy')
+    @api_bp.route('/download/<int:ontology_id>')
+    def download_ontology(ontology_id):
+        """Download ontology as TTL file"""
+        try:
+            # Get the ontology
+            ontology = Ontology.query.get_or_404(ontology_id)
+            
+            # Get the latest version or raw content
+            latest_version = OntologyVersion.query.filter_by(
+                ontology_id=ontology_id
+            ).order_by(OntologyVersion.version_number.desc()).first()
+            
+            if latest_version and latest_version.content:
+                ttl_content = latest_version.content
+            else:
+                # Fallback to loading from file
+                ttl_content = load_ontology_from_file(ontology.name)
+                
+            if not ttl_content:
+                return jsonify({'error': 'No content available for this ontology'}), 404
+            
+            # Create filename
+            filename = f"{ontology.name.lower().replace(' ', '-')}.ttl"
+            
+            # Return as downloadable file
+            response = Response(
+                ttl_content,
+                mimetype='text/turtle',
+                headers={'Content-Disposition': f'attachment; filename={filename}'}
+            )
+            return response
+            
+        except Exception as e:
+            current_app.logger.error(f"Error downloading ontology {ontology_id}: {str(e)}")
+            return jsonify({'error': f'Failed to download ontology: {str(e)}'}), 500
+
+    @api_bp.route('/hierarchy/<int:ontology_id>')
+    def get_ontology_hierarchy(ontology_id):
+        """Get ontology hierarchy for visualization"""
+        if not is_authorized():
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        try:
+            # Get the ontology
+            ontology = Ontology.query.get_or_404(ontology_id)
+            
+            # Get the latest version or raw content
+            latest_version = OntologyVersion.query.filter_by(
+                ontology_id=ontology_id
+            ).order_by(OntologyVersion.version_number.desc()).first()
+            
+            if latest_version and latest_version.content:
+                ttl_content = latest_version.content
+            else:
+                # Fallback to loading from file
+                ttl_content = load_ontology_from_file(ontology.name)
+                
+            if not ttl_content:
+                return jsonify({'error': 'No content available for this ontology'}), 404
+                
+            # Parse TTL content to hierarchy
+            hierarchy = parse_ttl_to_hierarchy(ttl_content, ontology.name)
+            
+            return jsonify({
+                'hierarchy': hierarchy,
+                'ontology': {
+                    'id': ontology.id,
+                    'name': ontology.name,
+                    'description': ontology.description
+                }
+            })
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting hierarchy for ontology {ontology_id}: {str(e)}")
+            return jsonify({'error': f'Failed to generate hierarchy: {str(e)}'}), 500
 
     
 

@@ -1,6 +1,8 @@
 # Comprehensive Ontology System Guide
 
-This document provides a unified and comprehensive guide for the ProEthica ontology system, explaining how ontologies are stored, managed, and accessed throughout the application.
+> **Note**: This document has been superseded by [README.md](./README.md) for the main ontology system guide.
+
+This document provides additional technical details for the ProEthica ontology system implementation.
 
 ## Overview
 

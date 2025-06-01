@@ -22,12 +22,12 @@
      rdfs:comment "The role of an official who enforces building codes and regulations"@en ;                                                                   
      rdfs:subClassOf :RegulatoryOfficialRole .                                                                                                                 
                                                                                                                                                                
- :BuildingSystemDeficiency a proeth:ConditionType,                                                                                                             
+ :BuildingSystemDeficiency a proeth:State,                                                                                                             
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Building System Deficiency"@en ;                                                                                                              
      rdfs:comment "A deficiency in rdf:type building system that may pose safety hazards"@en ;                                                                 
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
  :ClientMeetingEvent a proeth:EntityType,                                                                                                                      
          proeth:EventType,                                                                                                                                     
@@ -51,21 +51,21 @@
      rdfs:comment "A specific section of an ethics code or building code"@en ;                                                                                 
      rdfs:subClassOf :BuildingCode .                                                                                                                           
                                                                                                                                                                
- :CodeViolation a proeth:ConditionType,                                                                                                                        
+ :CodeViolation a proeth:State,                                                                                                                        
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Code Violation"@en ;                                                                                                                          
      rdfs:comment "A condition that violates building codes or engineering standards"@en ;                                                                     
      rdfs:subClassOf :BuildingCode .                                                                                                                           
                                                                                                                                                                
- :CompetenceVsClientWishesDilemma a proeth:ConditionType,                                                                                                      
+ :CompetenceVsClientWishesDilemma a proeth:State,                                                                                                      
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Competence vs Client Wishes Dilemma"@en ;                                                                                                     
      rdfs:comment "A dilemma where professional competence limitations conflict with client demands"@en ;                                                      
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
- :CompetencyPrinciple a proeth:ConditionType,                                                                                                                  
+ :CompetencyPrinciple a proeth:State,                                                                                                                  
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Competency Principle"@en ;                                                                                                                    
@@ -87,14 +87,14 @@
      rdfs:subClassOf :DeliveryEvent,                                                                                                                           
          :DisclosureEvent .                                                                                                                                    
                                                                                                                                                                
- :ConfidentialityAgreement a proeth:ConditionType,                                                                                                             
+ :ConfidentialityAgreement a proeth:State,                                                                                                             
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Confidentiality Agreement"@en ;                                                                                                               
      rdfs:comment "A legal requirement to maintain confidentiality of information"@en ;                                                                        
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
- :ConfidentialityPrinciple a proeth:ConditionType,                                                                                                             
+ :ConfidentialityPrinciple a proeth:State,                                                                                                             
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Confidentiality Principle"@en ;                                                                                                               
@@ -108,19 +108,19 @@
      rdfs:comment "A decision about whether to breach confidentiality to protect public safety"@en ;                                                           
      rdfs:subClassOf :DecisionAction .                                                                                                                         
                                                                                                                                                                
- :ConfidentialityVsSafetyDilemma a proeth:ConditionType,                                                                                                       
+ :ConfidentialityVsSafetyDilemma a proeth:State,                                                                                                       
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Confidentiality vs Safety Dilemma"@en ;                                                                                                       
      rdfs:comment "A dilemma where confidentiality obligations conflict with public safety obligations"@en ;                                                   
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
- :ConflictOfInterestDilemma a proeth:ConditionType,                                                                                                            
+ :ConflictOfInterestDilemma a proeth:State,                                                                                                            
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Conflict of Interest Dilemma"@en ;                                                                                                            
      rdfs:comment "A dilemma where an engineer must navigate conflicting interests in professional practice"@en ;                                              
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
  :DesignApprovalDecision a proeth:ActionType,                                                                                                                  
          proeth:EntityType,                                                                                                                                    
@@ -145,14 +145,14 @@
      rdfs:subClassOf :DesignAction,                                                                                                                            
          :EngineeringAction .                                                                                                                                  
                                                                                                                                                                
- :DisclosurePrinciple a proeth:ConditionType,                                                                                                                  
+ :DisclosurePrinciple a proeth:State,                                                                                                                  
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Disclosure Principle"@en ;                                                                                                                    
      rdfs:comment "The principle that engineers should disclose relevant information to affected parties"@en ;                                                 
      rdfs:subClassOf :Principle .                                                                                                                              
                                                                                                                                                                
- :DualRoleConflict a proeth:ConditionType,                                                                                                                     
+ :DualRoleConflict a proeth:State,                                                                                                                     
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Dual Role Conflict"@en ;                                                                                                                      
@@ -170,12 +170,12 @@
      rdfs:comment "The role of an engineer who designs and develops electrical systems"@en ;                                                                   
      rdfs:subClassOf :EngineeringRole .                                                                                                                        
                                                                                                                                                                
- :ElectricalSystemDeficiency a proeth:ConditionType,                                                                                                           
+ :ElectricalSystemDeficiency a proeth:State,                                                                                                           
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Electrical System Deficiency"@en ;                                                                                                            
      rdfs:comment "A deficiency in rdf:type building's electrical system that may violate codes or standards"@en ;                                             
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
  :EngineeringDeficiency a owl:Class ;                                                                                                                          
      rdfs:label "Engineering Deficiency"@en ;                                                                                                                  
@@ -185,7 +185,7 @@
  :EngineeringEthicalDilemma a owl:Class ;                                                                                                                      
      rdfs:label "Engineering Ethical Dilemma"@en ;                                                                                                             
      rdfs:comment "A situation involving conflicting ethical principles in engineering practice"@en ;                                                          
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
  :EngineeringEthicalPrinciple a owl:Class ;                                                                                                                    
      rdfs:label "Engineering Ethical Principle"@en ;                                                                                                           
@@ -211,7 +211,7 @@
      rdfs:comment "Detailed requirements for engineering work"@en ;                                                                                            
      rdfs:subClassOf :EngineeringDocument .                                                                                                                    
                                                                                                                                                                
- :FutureImpactsPrinciple a proeth:ConditionType,                                                                                                               
+ :FutureImpactsPrinciple a proeth:State,                                                                                                               
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Future Impacts Principle"@en ;                                                                                                                
@@ -226,7 +226,7 @@
      rdfs:subClassOf :ReportAction,                                                                                                                            
          :SafetyAction .                                                                                                                                       
                                                                                                                                                                
- :HonestyPrinciple a proeth:ConditionType,                                                                                                                     
+ :HonestyPrinciple a proeth:State,                                                                                                                     
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Honesty Principle"@en ;                                                                                                                       
@@ -261,12 +261,12 @@
      rdfs:comment "The role of an engineer who designs and develops mechanical systems"@en ;                                                                   
      rdfs:subClassOf :EngineeringRole .                                                                                                                        
                                                                                                                                                                
- :MechanicalSystemDeficiency a proeth:ConditionType,                                                                                                           
+ :MechanicalSystemDeficiency a proeth:State,                                                                                                           
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Mechanical System Deficiency"@en ;                                                                                                            
      rdfs:comment "A deficiency in rdf:type building's mechanical system that may violate codes or standards"@en ;                                             
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
  :NSPECodeOfEthics a proeth:EntityType,                                                                                                                        
          proeth:ResourceType,                                                                                                                                  
@@ -282,14 +282,14 @@
      rdfs:comment "A specific section of the NSPE Code of Ethics"@en ;                                                                                         
      rdfs:subClassOf :BuildingCode .                                                                                                                           
                                                                                                                                                                
- :NSPECompetencyPrinciple a proeth:ConditionType,                                                                                                              
+ :NSPECompetencyPrinciple a proeth:State,                                                                                                              
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Competency Principle"@en ;                                                                                                               
      rdfs:comment "The principle that engineers shall perform services only in areas of their competence (NSPE Code II.2)"@en ;                                
      rdfs:subClassOf :Principle .                                                                                                                              
                                                                                                                                                                
- :NSPEConfidentialityPrinciple a proeth:ConditionType,                                                                                                         
+ :NSPEConfidentialityPrinciple a proeth:State,                                                                                                         
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Confidentiality Principle"@en ;                                                                                                          
@@ -301,14 +301,14 @@
      rdfs:comment "A principle from the NSPE Code of Ethics"@en ;                                                                                              
      rdfs:subClassOf :Principle .                                                                                                                              
                                                                                                                                                                
- :NSPEPublicSafetyPrinciple a proeth:ConditionType,                                                                                                            
+ :NSPEPublicSafetyPrinciple a proeth:State,                                                                                                            
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Public Safety Principle"@en ;                                                                                                            
      rdfs:comment "The principle that engineers shall hold paramount the safety, health, and welfare of the public (NSPE Code I.1)"@en ;                       
      rdfs:subClassOf :SafetyPrinciple .                                                                                                                        
                                                                                                                                                                
- :NSPESafeDocumentsPrinciple a proeth:ConditionType,                                                                                                           
+ :NSPESafeDocumentsPrinciple a proeth:State,                                                                                                           
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Safe Documents Principle"@en ;                                                                                                           
@@ -323,19 +323,19 @@
      rdfs:subClassOf :DisclosureEvent,                                                                                                                         
          :EngineeringEvent .                                                                                                                                   
                                                                                                                                                                
- :ObjectivityPrinciple a proeth:ConditionType,                                                                                                                 
+ :ObjectivityPrinciple a proeth:State,                                                                                                                 
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Objectivity Principle"@en ;                                                                                                                   
      rdfs:comment "The principle that engineers should maintain objectivity in their professional judgments"@en ;                                              
      rdfs:subClassOf :Principle .                                                                                                                              
                                                                                                                                                                
- :ProfessionalResponsibilityDilemma a proeth:ConditionType,                                                                                                    
+ :ProfessionalResponsibilityDilemma a proeth:State,                                                                                                    
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Professional Responsibility Dilemma"@en ;                                                                                                     
      rdfs:comment "A dilemma where an engineer must determine the extent of their professional responsibility"@en ;                                            
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
  :ProjectEngineerRole a proeth:EntityType,                                                                                                                     
          proeth:Role,                                                                                                                                          
@@ -348,14 +348,14 @@
      rdfs:comment "The role of an engineer who manages engineering projects"@en ;                                                                              
      rdfs:subClassOf :EngineeringRole .                                                                                                                        
                                                                                                                                                                
- :PublicHealthCondition a proeth:ConditionType,                                                                                                                
+ :PublicHealthCondition a proeth:State,                                                                                                                
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Public Health Condition"@en ;                                                                                                                 
      rdfs:comment "A condition related to public health that requires engineering assessment or intervention"@en ;                                             
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
- :PublicSafetyPrinciple a proeth:ConditionType,                                                                                                                
+ :PublicSafetyPrinciple a proeth:State,                                                                                                                
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Public Safety Principle"@en ;                                                                                                                 
@@ -377,19 +377,19 @@
      rdfs:comment "The role of rdf:type member of the public affected by engineering work"@en ;                                                                
      rdfs:subClassOf proeth:Role .                                                                                                                             
                                                                                                                                                                
- :QualityVsBudgetDilemma a proeth:ConditionType,                                                                                                               
+ :QualityVsBudgetDilemma a proeth:State,                                                                                                               
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Quality vs Budget Dilemma"@en ;                                                                                                               
      rdfs:comment "A dilemma where quality standards conflict with budget constraints"@en ;                                                                    
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
- :RegulationVsPublicSafetyDilemma a proeth:ConditionType,                                                                                                      
+ :RegulationVsPublicSafetyDilemma a proeth:State,                                                                                                      
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Regulation vs Public Safety Dilemma"@en ;                                                                                                     
      rdfs:comment "A dilemma where existing regulations conflict with broader public safety considerations"@en ;                                               
-     rdfs:subClassOf :EthicalDilemma .                                                                                                                         
+     rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
  :RegulatoryEngineerRole a proeth:EntityType,                                                                                                                  
          proeth:Role,                                                                                                                                          
@@ -405,12 +405,12 @@
      rdfs:comment "An action of preparing an engineering report"@en ;                                                                                          
      rdfs:subClassOf :ReportAction .                                                                                                                           
                                                                                                                                                                
- :SafetyHazard a proeth:ConditionType,                                                                                                                         
+ :SafetyHazard a proeth:State,                                                                                                                         
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Safety Hazard"@en ;                                                                                                                           
      rdfs:comment "A condition that poses risk to safety in an engineering context"@en ;                                                                       
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
  :SafetyHazardDiscovery a proeth:EntityType,                                                                                                                   
          proeth:EventType,                                                                                                                                     
@@ -428,12 +428,12 @@
      rdfs:subClassOf :ReportingEvent,                                                                                                                          
          :SafetyEvent .                                                                                                                                        
                                                                                                                                                                
- :StructuralDeficiency a proeth:ConditionType,                                                                                                                 
+ :StructuralDeficiency a proeth:State,                                                                                                                 
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Structural Deficiency"@en ;                                                                                                                   
      rdfs:comment "A weakness or flaw in rdf:type structural system that may compromise safety"@en ;                                                           
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
  :StructuralEngineerRole a proeth:EntityType,                                                                                                                  
          proeth:Role,                                                                                                                                          
@@ -479,7 +479,7 @@
      rdfs:comment "A capability related to ensuring compliance with regulations or standards" ;                                                                
      rdfs:subClassOf :EngineeringCapability .                                                                                                                  
                                                                                                                                                                
- :ConflictOfInterestCondition a proeth:ConditionType,                                                                                                          
+ :ConflictOfInterestCondition a proeth:State,                                                                                                          
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Conflict of Interest Condition"@en ;                                                                                                          
@@ -515,7 +515,7 @@
  :EngineeringCondition a owl:Class ;                                                                                                                           
      rdfs:label "Engineering Condition"@en ;                                                                                                                   
      rdfs:comment "A condition relevant to engineering practice"@en ;                                                                                          
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
  :EngineeringConsultationCapability a owl:Class ;                                                                                                              
      rdfs:label "Engineering Consultation Capability"@en ;                                                                                                     
@@ -606,7 +606,7 @@
      rdfs:label "Engineering Decision"@en ;                                                                                                                    
      rdfs:comment "A decision made in engineering practice"@en ;                                                                                               
      rdfs:subClassOf :DecisionAction,                                                                                                                          
-         proeth:ConditionType .                                                                                                                              
+         proeth:State .                                                                                                                              
                                                                                                                                                                
  :EngineeringReport a proeth:EntityType,                                                                                                                       
          proeth:ResourceType,                                                                                                                                  
@@ -703,47 +703,32 @@
      rdfs:label "Engineering Role"@en ;                                                                                                                        
      rdfs:comment "A professional role in engineering"@en ;                                                                                                    
      rdfs:subClassOf proeth:Role .                                                                                                                             
-                                                                                                                                                               
- :EthicalDilemma a owl:Class ;                                                                                                                                 
-     rdfs:label "Ethical Dilemma" ;                                                                                                                            
-     rdfs:comment "A situation involving a difficult ethical choice between competing considerations" ;                                                        
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
-                                                                                                                                                               
+
  :RegulatoryComplianceCapability a owl:Class ;                                                                                                                 
      rdfs:label "Regulatory Compliance Capability"@en ;                                                                                                        
      rdfs:comment "The capability to ensure compliance with regulations"@en ;                                                                                  
      rdfs:subClassOf :ComplianceCapability .                                                                                                                   
                                                                                                                                                                
- proeth:ActionType a owl:Class ;                                                                                                                               
-     rdfs:label "Action Type" ;                                                                                                                                
-     rdfs:comment "Base class for all action types in the ontology" ;                                                                                          
-     rdfs:subClassOf :EngineeringAction,                                                                                                                       
-         bfo:BFO_0000002 .                                                                                                                                     
-                                                                                                                                                               
- proeth:EventType a owl:Class ;                                                                                                                                
-     rdfs:label "Event Type" ;                                                                                                                                 
-     rdfs:comment "Base class for all event types in the ontology" ;                                                                                           
-     rdfs:subClassOf :EngineeringEvent,                                                                                                                        
-         bfo:BFO_0000002 .                                                                                                                                     
+                                                                                                                                     
                                                                                                                                                                
  :EngineeringAction a owl:Class ;                                                                                                              
      rdfs:label "Engineering Action"@en ;                                                                                                      
      rdfs:comment "An action performed in engineering practice"@en ;                                                                           
-     rdfs:subClassOf proeth:ActionType .                                                                                                                   
+     rdfs:subClassOf proeth:Action .                                                                                                                   
                                                                                                                                                                
  :EngineeringEvent a owl:Class ;                                                                                                                               
      rdfs:label "Engineering Event"@en ;                                                                                                                       
      rdfs:comment "An event related to engineering practice"@en ;                                                                                              
-     rdfs:subClassOf proeth:EventType .                                                                                                                                    
+     rdfs:subClassOf proeth:Event .                                                                                                                                    
                                                                                                                                                                
  :Principle a owl:Class ;                                                                                                                                      
      rdfs:label "Principle" ;                                                                                                                                  
      rdfs:comment "A fundamental ethical principle that guides decision-making" ;                                                                              
-     rdfs:subClassOf proeth:ConditionType .                                                                                                                    
+     rdfs:subClassOf proeth:State .                                                                                                                    
  
  :ProfessionalIntegrityPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:ConditionType ;
+     rdf:type proeth:State ;
      rdfs:label "Professional Integrity Principle"@en ;
      rdfs:comment "Engineers must maintain honesty, ethical conduct, and avoid deceptive practices in all professional activities"@en ;
      rdfs:subClassOf :Principle ;
@@ -759,7 +744,7 @@
 
  :FiduciaryDutyPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:ConditionType ;
+     rdf:type proeth:State ;
      rdfs:label "Fiduciary Duty Principle"@en ;
      rdfs:comment "Engineers must act as faithful agents or trustees for their employers or clients"@en ;
      rdfs:subClassOf :Principle ;
@@ -774,7 +759,7 @@
 
  :ProfessionalAccountabilityPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:ConditionType ;
+     rdf:type proeth:State ;
      rdfs:label "Professional Accountability Principle"@en ;
      rdfs:comment "Engineers must take responsibility for their professional actions and decisions"@en ;
      rdfs:subClassOf :Principle ;
@@ -787,7 +772,7 @@
 
  :PublicInterestServicePrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:ConditionType ;
+     rdf:type proeth:State ;
      rdfs:label "Public Interest Service Principle"@en ;
      rdfs:comment "Engineers must serve the broader public interest through their professional work"@en ;
      rdfs:subClassOf :PublicSafetyPrinciple ;
@@ -800,7 +785,7 @@
 
  :IntellectualPropertyRespectPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:ConditionType ;
+     rdf:type proeth:State ;
      rdfs:label "Intellectual Property Respect Principle"@en ;
      rdfs:comment "Engineers must properly credit others' work and respect proprietary rights"@en ;
      rdfs:subClassOf :Principle ;
@@ -817,7 +802,7 @@
      rdfs:comment "Base class for all resource types in the ontology" ;                                                                                        
      rdfs:subClassOf bfo:BFO_0000002 .                                                                                                                         
                                                                                                                                                                
- proeth:ConditionType a owl:Class ;                                                                                                                            
+ proeth:State a owl:Class ;                                                                                                                            
      rdfs:label "Condition Type" ;                                                                                                                             
      rdfs:comment "Base class for all condition types in the ontology" ;                                                                                       
      rdfs:subClassOf proeth:ResourceType .
