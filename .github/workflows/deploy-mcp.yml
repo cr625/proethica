@@ -110,10 +110,14 @@ jobs:
         DEPLOY_BRANCH: ${{ github.ref_name }}
         ENVIRONMENT: ${{ github.event.inputs.environment || 'production' }}
       run: |
-        # Create deployment script
+        # Create simple deployment script that accepts branch and environment as arguments
         cat > deploy_mcp.sh << 'EOF'
         #!/bin/bash
         set -e
+        
+        # Arguments
+        DEPLOY_BRANCH="$1"
+        ENVIRONMENT="$2"
         
         # Color codes for output
         RED='\033[0;31m'
@@ -320,8 +324,8 @@ jobs:
         echo -e "${BLUE}💾 Commit: $(cd $REPO_DIR && git rev-parse --short HEAD)${NC}"
         EOF
         
-        # Execute deployment
-        ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST 'bash -s' < deploy_mcp.sh
+        # Execute deployment with branch and environment arguments
+        ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "bash -s $DEPLOY_BRANCH $ENVIRONMENT" < deploy_mcp.sh
     
     - name: Post-deployment health check
       if: steps.changes.outputs.changed == 'true'
