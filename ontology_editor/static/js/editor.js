@@ -81,12 +81,12 @@ function setupEventListeners() {
     // Confirm save button in modal
     document.getElementById('confirmSaveBtn').addEventListener('click', saveOntology);
     
-    // Visualize button
-    document.getElementById('visualizeBtn').addEventListener('click', function() {
+    // Download button
+    document.getElementById('downloadBtn').addEventListener('click', function() {
         if (currentOntologyId) {
-            window.location.href = `/ontology-editor/visualize/${currentOntologyId}`;
+            window.location.href = `/ontology-editor/api/download/${currentOntologyId}`;
         } else {
-            alert('Please open an ontology before visualizing');
+            alert('Please open an ontology before downloading');
         }
     });
     
@@ -145,7 +145,7 @@ function loadOntologyBySource(source) {
             document.getElementById('editorTitle').innerText = `Editing: ${data.name || source}`;
             document.getElementById('saveBtn').disabled = true;
             document.getElementById('validateBtn').disabled = false;
-            document.getElementById('visualizeBtn').disabled = false;
+            document.getElementById('downloadBtn').disabled = false;
 
             // Load versions for this ontology if available
             if (currentOntologyId) {
@@ -166,7 +166,7 @@ function loadOntologyBySource(source) {
             currentOntologyId = null;
             document.getElementById('saveBtn').disabled = true;
             document.getElementById('validateBtn').disabled = true;
-            document.getElementById('visualizeBtn').disabled = true;
+            document.getElementById('downloadBtn').disabled = true;
             
             // Load the list of ontologies as a fallback
             loadOntologyList();
@@ -327,7 +327,7 @@ function loadOntology(ontologyId) {
             currentOntologyId = null;
             document.getElementById('saveBtn').disabled = true;
             document.getElementById('validateBtn').disabled = true;
-            document.getElementById('visualizeBtn').disabled = true;
+            document.getElementById('downloadBtn').disabled = true;
         });
 }
 
@@ -382,7 +382,7 @@ function updateUIForLoadedOntology(ontologyId) {
     // Enable buttons
     document.getElementById('saveBtn').disabled = !isEditorDirty;
     document.getElementById('validateBtn').disabled = false;
-    document.getElementById('visualizeBtn').disabled = false;
+    document.getElementById('downloadBtn').disabled = false;
     
     // Hide validation results
     document.getElementById('validationCard').style.display = 'none';
@@ -802,7 +802,7 @@ function deleteOntology(ontologyId) {
             document.getElementById('editorTitle').innerText = 'Ontology Editor';
             document.getElementById('saveBtn').disabled = true;
             document.getElementById('validateBtn').disabled = true;
-            document.getElementById('visualizeBtn').disabled = true;
+            document.getElementById('downloadBtn').disabled = true;
             document.getElementById('versionList').innerHTML = `
                 <li class="list-group-item text-center text-muted">
                     Select an ontology to view versions
