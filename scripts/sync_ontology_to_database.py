@@ -15,7 +15,7 @@ Usage:
 import os
 import sys
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Add the project root to the Python path
@@ -51,12 +51,20 @@ DEFAULT_ONTOLOGIES = {
         'is_editable': True
     },
     'bfo': {
-        'path': 'mcp/ontology/bfo.owl',
+        'path': 'ontologies/bfo.ttl',
         'name': 'Basic Formal Ontology (BFO)',
         'description': 'Upper-level ontology for information integration',
         'base_uri': 'http://purl.obolibrary.org/obo/bfo.owl#',
         'is_base': True,
         'is_editable': False
+    },
+    'engineering-ethics': {
+        'path': 'ontologies/engineering-ethics.ttl',
+        'name': 'Engineering Ethics Ontology',
+        'description': 'Domain-specific ontology for engineering ethics',
+        'base_uri': 'http://www.semanticweb.org/proethica/engineering-ethics#',
+        'is_base': False,
+        'is_editable': True
     }
 }
 
@@ -185,7 +193,7 @@ def sync_ontology(domain_id, ttl_path, config=None):
         
         # Update the ontology
         ontology.content = content
-        ontology.updated_at = datetime.utcnow()
+        ontology.updated_at = datetime.now(timezone.utc)
         
         # Update metadata if provided
         if 'name' in metadata:
