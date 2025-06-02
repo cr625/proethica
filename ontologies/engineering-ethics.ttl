@@ -65,7 +65,7 @@
      rdfs:comment "A dilemma where professional competence limitations conflict with client demands"@en ;                                                      
      rdfs:subClassOf proeth:EthicalDilemma .                                                                                                                         
                                                                                                                                                                
- :CompetencyPrinciple a proeth:State,                                                                                                                  
+ :CompetencyPrinciple a proeth:Principle,                                                                                                                  
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Competency Principle"@en ;                                                                                                                    
@@ -94,7 +94,7 @@
      rdfs:comment "A legal requirement to maintain confidentiality of information"@en ;                                                                        
      rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
- :ConfidentialityPrinciple a proeth:State,                                                                                                             
+ :ConfidentialityPrinciple a proeth:Principle,                                                                                                             
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Confidentiality Principle"@en ;                                                                                                               
@@ -145,7 +145,7 @@
      rdfs:subClassOf :DesignAction,                                                                                                                            
          :EngineeringAction .                                                                                                                                  
                                                                                                                                                                
- :DisclosurePrinciple a proeth:State,                                                                                                                  
+ :DisclosurePrinciple a proeth:Principle,                                                                                                                  
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Disclosure Principle"@en ;                                                                                                                    
@@ -211,7 +211,7 @@
      rdfs:comment "Detailed requirements for engineering work"@en ;                                                                                            
      rdfs:subClassOf :EngineeringDocument .                                                                                                                    
                                                                                                                                                                
- :FutureImpactsPrinciple a proeth:State,                                                                                                               
+ :FutureImpactsPrinciple a proeth:Principle,                                                                                                               
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Future Impacts Principle"@en ;                                                                                                                
@@ -226,7 +226,7 @@
      rdfs:subClassOf :ReportAction,                                                                                                                            
          :SafetyAction .                                                                                                                                       
                                                                                                                                                                
- :HonestyPrinciple a proeth:State,                                                                                                                     
+ :HonestyPrinciple a proeth:Principle,                                                                                                                     
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Honesty Principle"@en ;                                                                                                                       
@@ -282,14 +282,14 @@
      rdfs:comment "A specific section of the NSPE Code of Ethics"@en ;                                                                                         
      rdfs:subClassOf :BuildingCode .                                                                                                                           
                                                                                                                                                                
- :NSPECompetencyPrinciple a proeth:State,                                                                                                              
+ :NSPECompetencyPrinciple a proeth:Principle,                                                                                                              
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Competency Principle"@en ;                                                                                                               
      rdfs:comment "The principle that engineers shall perform services only in areas of their competence (NSPE Code II.2)"@en ;                                
      rdfs:subClassOf :Principle .                                                                                                                              
                                                                                                                                                                
- :NSPEConfidentialityPrinciple a proeth:State,                                                                                                         
+ :NSPEConfidentialityPrinciple a proeth:Principle,                                                                                                         
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Confidentiality Principle"@en ;                                                                                                          
@@ -301,14 +301,14 @@
      rdfs:comment "A principle from the NSPE Code of Ethics"@en ;                                                                                              
      rdfs:subClassOf :Principle .                                                                                                                              
                                                                                                                                                                
- :NSPEPublicSafetyPrinciple a proeth:State,                                                                                                            
+ :NSPEPublicSafetyPrinciple a proeth:Principle,                                                                                                            
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Public Safety Principle"@en ;                                                                                                            
      rdfs:comment "The principle that engineers shall hold paramount the safety, health, and welfare of the public (NSPE Code I.1)"@en ;                       
      rdfs:subClassOf :SafetyPrinciple .                                                                                                                        
                                                                                                                                                                
- :NSPESafeDocumentsPrinciple a proeth:State,                                                                                                           
+ :NSPESafeDocumentsPrinciple a proeth:Principle,                                                                                                           
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "NSPE Safe Documents Principle"@en ;                                                                                                           
@@ -323,7 +323,7 @@
      rdfs:subClassOf :DisclosureEvent,                                                                                                                         
          :EngineeringEvent .                                                                                                                                   
                                                                                                                                                                
- :ObjectivityPrinciple a proeth:State,                                                                                                                 
+ :ObjectivityPrinciple a proeth:Principle,                                                                                                                 
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Objectivity Principle"@en ;                                                                                                                   
@@ -355,7 +355,7 @@
      rdfs:comment "A condition related to public health that requires engineering assessment or intervention"@en ;                                             
      rdfs:subClassOf proeth:State .                                                                                                                    
                                                                                                                                                                
- :PublicSafetyPrinciple a proeth:State,                                                                                                                
+ :PublicSafetyPrinciple a proeth:Principle,                                                                                                                
          proeth:EntityType,                                                                                                                                    
          owl:Class ;                                                                                                                                           
      rdfs:label "Public Safety Principle"@en ;                                                                                                                 
@@ -728,7 +728,7 @@
  
  :ProfessionalIntegrityPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:State ;
+     rdf:type proeth:Principle ;
      rdfs:label "Professional Integrity Principle"@en ;
      rdfs:comment "Engineers must maintain honesty, ethical conduct, and avoid deceptive practices in all professional activities"@en ;
      rdfs:subClassOf :Principle ;
@@ -744,7 +744,7 @@
 
  :FiduciaryDutyPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:State ;
+     rdf:type proeth:Principle ;
      rdfs:label "Fiduciary Duty Principle"@en ;
      rdfs:comment "Engineers must act as faithful agents or trustees for their employers or clients"@en ;
      rdfs:subClassOf :Principle ;
@@ -759,7 +759,7 @@
 
  :ProfessionalAccountabilityPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:State ;
+     rdf:type proeth:Principle ;
      rdfs:label "Professional Accountability Principle"@en ;
      rdfs:comment "Engineers must take responsibility for their professional actions and decisions"@en ;
      rdfs:subClassOf :Principle ;
@@ -772,7 +772,7 @@
 
  :PublicInterestServicePrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:State ;
+     rdf:type proeth:Principle ;
      rdfs:label "Public Interest Service Principle"@en ;
      rdfs:comment "Engineers must serve the broader public interest through their professional work"@en ;
      rdfs:subClassOf :PublicSafetyPrinciple ;
@@ -785,7 +785,7 @@
 
  :IntellectualPropertyRespectPrinciple a owl:Class ;
      rdf:type proeth:EntityType ;
-     rdf:type proeth:State ;
+     rdf:type proeth:Principle ;
      rdfs:label "Intellectual Property Respect Principle"@en ;
      rdfs:comment "Engineers must properly credit others' work and respect proprietary rights"@en ;
      rdfs:subClassOf :Principle ;
