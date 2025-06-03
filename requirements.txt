@@ -20,6 +20,9 @@ requests              # HTTP client for API requests
 # PRODUCTION
 gunicorn              # WSGI HTTP Server
 
+# NLP DEPENDENCIES
+nltk                  # Natural language processing
+
 # TESTING & DEVELOPMENT
 pytest
 pytest-flask
