@@ -188,18 +188,19 @@ def view_world(id):
     # Get dynamic entity type configuration from proethica-intermediate ontology
     entity_type_config = _get_dynamic_entity_type_config(world)
     
-    # Build dynamic entity tabs - only include tabs that have entities
+    # Build dynamic entity tabs - include all tabs from ontology configuration
     entity_tabs = []
     if 'entities' in entities and isinstance(entities['entities'], dict):
         for entity_key, display_name, description in entity_type_config:
-            if entity_key in entities['entities'] and len(entities['entities'][entity_key]) > 0:
-                entity_tabs.append({
-                    'key': entity_key,
-                    'name': display_name,
-                    'description': description,
-                    'count': len(entities['entities'][entity_key]),
-                    'entities': entities['entities'][entity_key]
-                })
+            # Get entities for this type, or empty list if none exist
+            entity_list = entities['entities'].get(entity_key, [])
+            entity_tabs.append({
+                'key': entity_key,
+                'name': display_name,
+                'description': description,
+                'count': len(entity_list),
+                'entities': entity_list
+            })
     
     return render_template('world_detail_dynamic.html', world=world, entities=entities, 
                            entity_tabs=entity_tabs, guidelines=guidelines,

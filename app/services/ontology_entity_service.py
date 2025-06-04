@@ -283,6 +283,82 @@ class OntologyEntityService:
         for subclass in graph.subjects(RDFS.subClassOf, concept_type_ref):
             entity_subjects.update(graph.subjects(RDF.type, subclass))
         
+        # Method 6: For Capabilities, find classes that end with "Capability" or are subclasses of capability classes
+        if concept_type_name == "Capability":
+            # Find all classes that end with "Capability"
+            for s, p, o in graph.triples((None, RDF.type, rdflib.OWL.Class)):
+                class_uri = str(s)
+                if class_uri.endswith("Capability") or "Capability" in class_uri:
+                    entity_subjects.add(s)
+                    logger.debug(f"Found capability class by name: {class_uri}")
+            
+            # Find classes that are subclasses of any capability-related class
+            capability_base_classes = set()
+            for s in graph.subjects():
+                if str(s).endswith("Capability") or "Capability" in str(s):
+                    capability_base_classes.add(s)
+            
+            # Find all subclasses of capability base classes
+            for base_class in capability_base_classes:
+                for subclass in graph.subjects(RDFS.subClassOf, base_class):
+                    entity_subjects.add(subclass)
+                    logger.debug(f"Found capability subclass: {subclass} -> {base_class}")
+                    # Also include the base class itself if it's a capability
+                    if str(base_class).endswith("Capability"):
+                        entity_subjects.add(base_class)
+        
+        # Method 7: For Obligations, find classes that contain obligation-related terms
+        elif concept_type_name == "Obligation":
+            obligation_terms = ["Duty", "Obligation", "Responsibility", "Requirement", "Must", "Shall"]
+            
+            # Find all classes that contain obligation-related terms
+            for s, p, o in graph.triples((None, RDF.type, rdflib.OWL.Class)):
+                class_uri = str(s)
+                class_local_name = class_uri.split('#')[-1].split('/')[-1]
+                
+                # Check if the class name contains obligation-related terms
+                for term in obligation_terms:
+                    if term in class_local_name:
+                        entity_subjects.add(s)
+                        logger.debug(f"Found obligation class by name pattern: {class_uri}")
+                        break
+                
+                # Also check rdfs:label and rdfs:comment for obligation-related content
+                label = next(graph.objects(s, RDFS.label), None)
+                comment = next(graph.objects(s, RDFS.comment), None)
+                
+                obligation_indicators = []
+                if label:
+                    obligation_indicators.append(str(label).lower())
+                if comment:
+                    obligation_indicators.append(str(comment).lower())
+                
+                for indicator_text in obligation_indicators:
+                    # Look for obligation-related keywords in labels/comments
+                    obligation_keywords = ["must", "shall", "required", "duty", "obligation", "responsibility", "accountable"]
+                    if any(keyword in indicator_text for keyword in obligation_keywords):
+                        # Additional check: make sure it's not just a dilemma or decision about obligations
+                        if not any(exclusion in indicator_text for exclusion in ["dilemma", "decision", "conflict"]):
+                            entity_subjects.add(s)
+                            logger.debug(f"Found obligation class by content: {class_uri} - {indicator_text[:50]}...")
+                            break
+            
+            # Find classes that are subclasses of any obligation-related class
+            obligation_base_classes = set()
+            for s in graph.subjects():
+                class_uri = str(s)
+                class_local_name = class_uri.split('#')[-1].split('/')[-1]
+                if any(term in class_local_name for term in obligation_terms):
+                    obligation_base_classes.add(s)
+            
+            # Find all subclasses of obligation base classes
+            for base_class in obligation_base_classes:
+                for subclass in graph.subjects(RDFS.subClassOf, base_class):
+                    entity_subjects.add(subclass)
+                    logger.debug(f"Found obligation subclass: {subclass} -> {base_class}")
+                    # Also include the base class itself
+                    entity_subjects.add(base_class)
+        
         # Create entity objects
         for s in entity_subjects:
             # Skip the concept type definition itself
