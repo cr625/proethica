@@ -2,6 +2,25 @@
 
 This document explains how to configure and run the application in different environments (development and production).
 
+## Quick Setup
+
+For a quick and automated setup of the development environment, run:
+
+```bash
+python setup_project.py
+```
+
+This script will:
+- Check Python version (3.8+ required)
+- Create a virtual environment
+- Install all dependencies
+- Download NLTK resources
+- Create .env file from template
+- Check PostgreSQL connectivity
+- Provide clear next steps
+
+For manual setup or production environments, continue reading below.
+
 ## Environment Configuration System
 
 The application now uses an environment-aware configuration system that automatically detects whether it's running in development or production and applies the appropriate settings. This enables a seamless transition between environments without manual changes.

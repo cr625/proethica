@@ -95,15 +95,27 @@ class OntologyEntityService:
             logger.error(f"Error parsing ontology {ontology.id}: {e}")
             return {"entities": {}, "is_mock": False, "error": f"Parse error: {str(e)}"}
         
-        # Extract all entity types
-        entities = {
-            "roles": self._extract_roles(g),
-            "conditions": self._extract_condition_types(g),
-            "resources": self._extract_resource_types(g),
-            "events": self._extract_event_types(g),
-            "actions": self._extract_action_types(g),
-            "capabilities": self._extract_capabilities(g)
-        }
+        # First, get the proethica-intermediate ontology to extract GuidelineConceptTypes
+        guideline_concept_types = self._extract_guideline_concept_types(g)
+        
+        # Extract entities for each GuidelineConceptType found
+        entities = {}
+        for concept_type_name, concept_type_uri in guideline_concept_types.items():
+            entity_list = self._extract_entities_by_type(g, concept_type_name, concept_type_uri)
+            if entity_list:  # Only include types that have entities
+                entities[concept_type_name.lower()] = entity_list
+        
+        # If no dynamic types found, fall back to legacy hardcoded extraction
+        if not entities:
+            logger.warning(f"No GuidelineConceptTypes found in ontology {ontology.id}, using legacy extraction")
+            entities = {
+                "roles": self._extract_roles(g),
+                "conditions": self._extract_condition_types(g),
+                "resources": self._extract_resource_types(g),
+                "events": self._extract_event_types(g),
+                "actions": self._extract_action_types(g),
+                "capabilities": self._extract_capabilities(g)
+            }
         
         result = {
             "entities": entities,
@@ -140,6 +152,171 @@ class OntologyEntityService:
                 return self.namespaces["nspe"]
         
         return default_ns
+    
+    def _extract_guideline_concept_types(self, graph):
+        """
+        Extract GuidelineConceptTypes from the proethica-intermediate ontology.
+        
+        Args:
+            graph: RDFLib Graph
+            
+        Returns:
+            Dict mapping concept type names to their URIs
+        """
+        guideline_concept_types = {}
+        proeth_namespace = self.namespaces["intermediate"]
+        
+        # SPARQL query to find all GuidelineConceptTypes
+        # SELECT ?type ?label WHERE {
+        #   ?type rdf:type :GuidelineConceptType .
+        #   ?type rdfs:label ?label .
+        # }
+        
+        # Find all classes that are GuidelineConceptTypes
+        for concept_type in graph.subjects(RDF.type, proeth_namespace.GuidelineConceptType):
+            # Get the label for this concept type
+            label = next(graph.objects(concept_type, RDFS.label), None)
+            if label:
+                concept_name = str(label)
+                guideline_concept_types[concept_name] = str(concept_type)
+                logger.info(f"Found GuidelineConceptType: {concept_name} -> {concept_type}")
+        
+        # If we don't find any in the current graph, try to load proethica-intermediate
+        if not guideline_concept_types:
+            logger.info("No GuidelineConceptTypes found in current graph, checking proethica-intermediate ontology")
+            
+            # Try to get the proethica-intermediate ontology from database
+            proethica_ontology = Ontology.query.filter_by(domain_id='proethica-intermediate').first()
+            if proethica_ontology:
+                proethica_graph = Graph()
+                try:
+                    proethica_graph.parse(data=proethica_ontology.content, format="turtle")
+                    
+                    # Extract from proethica-intermediate
+                    for concept_type in proethica_graph.subjects(RDF.type, proeth_namespace.GuidelineConceptType):
+                        label = next(proethica_graph.objects(concept_type, RDFS.label), None)
+                        if label:
+                            concept_name = str(label)
+                            guideline_concept_types[concept_name] = str(concept_type)
+                            logger.info(f"Found GuidelineConceptType from proethica-intermediate: {concept_name} -> {concept_type}")
+                            
+                except Exception as e:
+                    logger.error(f"Error parsing proethica-intermediate ontology: {e}")
+        
+        return guideline_concept_types
+    
+    def _extract_entities_by_type(self, graph, concept_type_name, concept_type_uri):
+        """
+        Extract entities of a specific GuidelineConceptType from the graph.
+        
+        Args:
+            graph: RDFLib Graph
+            concept_type_name: Name of the concept type (e.g., "Role", "Principle")
+            concept_type_uri: URI of the concept type
+            
+        Returns:
+            List of entity dictionaries
+        """
+        entities = []
+        proeth_namespace = self.namespaces["intermediate"]
+        
+        # Helper functions
+        def label_or_id(s):
+            return str(next(graph.objects(s, RDFS.label), s.split('/')[-1].split('#')[-1]))
+        
+        def get_description(s):
+            return str(next(graph.objects(s, RDFS.comment), ""))
+        
+        # Find all instances of this GuidelineConceptType
+        concept_type_ref = rdflib.URIRef(concept_type_uri)
+        
+        # Find subjects that are instances of this concept type
+        entity_subjects = set()
+        
+        # Method 1: Direct instances of the intermediate ontology type
+        entity_subjects.update(graph.subjects(RDF.type, concept_type_ref))
+        
+        # Method 2: Look for namespace-specific types with the same name
+        # e.g., engineering-ethics#Role, engineering-ethics#State, etc.
+        namespace = self._detect_namespace(graph)
+        local_type_ref = getattr(namespace, concept_type_name, None)
+        if local_type_ref:
+            entity_subjects.update(graph.subjects(RDF.type, local_type_ref))
+        
+        # Method 3: Check meta-types in both namespaces
+        # e.g., things typed as ResourceType, EventType, etc.
+        meta_type_mapping = {
+            "Role": "Role",
+            "State": "State", 
+            "Resource": "ResourceType",
+            "Event": "EventType",
+            "Action": "ActionType",
+            "Capability": "CapabilityType",
+            "Principle": "PrincipleType",
+            "Obligation": "ObligationType"
+        }
+        
+        if concept_type_name in meta_type_mapping:
+            meta_type = meta_type_mapping[concept_type_name]
+            # Try both intermediate namespace and local namespace
+            meta_type_refs = [
+                getattr(proeth_namespace, meta_type, None),
+                getattr(namespace, meta_type, None)
+            ]
+            
+            for meta_type_ref in meta_type_refs:
+                if meta_type_ref:
+                    # Find entities that have this meta-type
+                    meta_entities = list(graph.subjects(RDF.type, meta_type_ref))
+                    entity_subjects.update(meta_entities)
+                    logger.debug(f"Found {len(meta_entities)} entities with meta-type {meta_type_ref}")
+        
+        # Method 4: Entities that are both EntityType and this GuidelineConceptType
+        entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+        for s in entity_type_subjects:
+            # Check if it has any of the type references we're looking for
+            if ((s, RDF.type, concept_type_ref) in graph or
+                (local_type_ref and (s, RDF.type, local_type_ref) in graph)):
+                entity_subjects.add(s)
+        
+        # Method 5: Look for subclasses of the concept type
+        for subclass in graph.subjects(RDFS.subClassOf, concept_type_ref):
+            entity_subjects.update(graph.subjects(RDF.type, subclass))
+        
+        # Create entity objects
+        for s in entity_subjects:
+            # Skip the concept type definition itself
+            if s == concept_type_ref:
+                continue
+                
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
+            entity = {
+                "id": str(s),
+                "uri": str(s), 
+                "label": label_or_id(s),
+                "description": get_description(s),
+                "parent_class": parent_class_uri,
+                "type": concept_type_name.lower()
+            }
+            
+            # For roles, also include capabilities
+            if concept_type_name.lower() == "role":
+                entity["capabilities"] = [
+                    {
+                        "id": str(o),
+                        "label": label_or_id(o),
+                        "description": get_description(o)
+                    }
+                    for o in graph.objects(s, proeth_namespace.hasCapability)
+                ]
+            
+            entities.append(entity)
+        
+        logger.info(f"Found {len(entities)} entities for concept type {concept_type_name}")
+        return entities
     
     def _extract_roles(self, graph):
         """Extract Role entities from the graph."""

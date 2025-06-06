@@ -13,7 +13,7 @@ from mcp.fix_flask_db_config import fix_flask_database_config, get_flask_app, ge
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Configurable environment setup
-ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", os.path.join(os.path.dirname(__file__), "ontology"))
+ONTOLOGY_DIR = os.environ.get("ONTOLOGY_DIR", os.path.join(os.path.dirname(__file__), "..", "ontologies"))
 DEFAULT_DOMAIN = os.environ.get("DEFAULT_DOMAIN", "military-medical-triage")
 PORT = int(os.environ.get("MCP_SERVER_PORT", 5001))
 

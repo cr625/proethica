@@ -35,7 +35,7 @@ The application is built with:
 - PostgreSQL
 - OpenAI API key (for LLM integration)
 
-### Installation
+### Quick Setup
 
 1. Clone the repository:
    ```
@@ -43,7 +43,22 @@ The application is built with:
    cd ai-ethical-dm
    ```
 
-2. Create a virtual environment:
+2. Run the setup script:
+   ```
+   python setup_project.py
+   ```
+   
+   This will:
+   - Create a Python virtual environment
+   - Install all required dependencies
+   - Download NLTK resources
+   - Create a .env file from template
+   - Check database connectivity
+   - Provide next steps
+
+### Manual Installation
+
+1. Create a virtual environment:
    ```
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate

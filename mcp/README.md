@@ -2,6 +2,8 @@
 
 This directory contains the Model Context Protocol (MCP) server implementation for ProEthica.
 
+*Updated: CI/CD deployment now active*
+
 ## Current Active Implementation
 
 ### Primary Server

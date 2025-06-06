@@ -307,18 +307,9 @@ def create_ontology_editor_blueprint(config=None, url_prefix='/ontology-editor')
                              
     @blueprint.route('/visualize/<ontology_id>')
     def visualize_ontology(ontology_id):
-        """Ontology visualization view"""
-        # Get the ontology to ensure it exists
-        from app.models.ontology import Ontology
-        ontology = Ontology.query.get(ontology_id)
-        
-        if not ontology:
-            flash('Ontology not found.', 'error')
-            return redirect(url_for('ontology_editor.index'))
-            
-        return render_template('visualize.html', 
-                              ontology_id=ontology_id,
-                              source=ontology_id)
+        """Ontology visualization view - temporarily disabled"""
+        flash('Ontology visualization is currently under development. Use the Download TTL button to view ontologies in Protégé or WebVOWL.', 'warning')
+        return redirect(url_for('ontology_editor.index'))
     
     @blueprint.route('/entity')
     def edit_entity():

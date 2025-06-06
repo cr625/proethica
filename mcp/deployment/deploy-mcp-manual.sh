@@ -131,6 +131,7 @@ MCP_SERVER_PORT=$MCP_PORT
 USE_MOCK_GUIDELINE_RESPONSES=false
 DATABASE_URL=postgresql://postgres:PASS@localhost:5433/ai_ethical_dm
 ENVIRONMENT=$ENVIRONMENT
+ONTOLOGY_DIR=/home/chris/proethica/ontologies
 ENVEOF
 
 # Note: In production, you should set these via secure methods

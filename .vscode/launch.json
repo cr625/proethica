@@ -5,10 +5,11 @@
             "name": "Flask App - Local MCP",
             "type": "debugpy",
             "request": "launch",
-            "python": "/usr/bin/python3",
+            "python": "${workspaceFolder}/venv/bin/python",
             "program": "${workspaceFolder}/run_debug_app.py",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "FORCE_MOCK_LLM": "false",
@@ -17,18 +18,19 @@
                 "MCP_SERVER_URL": "http://localhost:5001",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
-                "PATH": "${env:PATH}:/home/chris/.local/bin"
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
             }
         },
         {
             "name": "Flask App - Production MCP",
             "type": "debugpy",
             "request": "launch",
-            "python": "/usr/bin/python3",
+            "python": "${workspaceFolder}/venv/bin/python",
             "program": "${workspaceFolder}/run_debug_app.py",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "FORCE_MOCK_LLM": "false",
@@ -37,18 +39,19 @@
                 "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
-                "PATH": "${env:PATH}:/home/chris/.local/bin"
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
             }
         },
         {
             "name": "Python: Current File",
             "type": "debugpy",
             "request": "launch",
-            "python": "/usr/bin/python3",
+            "python": "${workspaceFolder}/venv/bin/python",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "ENVIRONMENT": "development",
@@ -56,18 +59,19 @@
                 "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
-                "PATH": "${env:PATH}:/home/chris/.local/bin"
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
             }
         },
         {
             "name": "MCP Server - Local",
             "type": "debugpy",
             "request": "launch",
-            "python": "/usr/bin/python3",
+            "python": "${workspaceFolder}/venv/bin/python",
             "program": "${workspaceFolder}/mcp/run_enhanced_mcp_server_with_guidelines.py",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "FORCE_MOCK_LLM": "false",
@@ -75,8 +79,8 @@
                 "MCP_SERVER_PORT": "5001",
                 "DATABASE_URL": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
-                "PATH": "${env:PATH}:/home/chris/.local/bin"
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
             },
             "cwd": "${workspaceFolder}"
         }

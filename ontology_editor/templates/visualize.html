@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProEthica Ontology Visualization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('ontology_editor.static', filename='css/editor.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -21,18 +23,11 @@
             height: 100vh;
         }
         
-        .sidebar {
-            width: 250px;
-            background-color: #2c3e50;
-            color: white;
-            padding: 15px;
-            overflow-y: auto;
-        }
-        
         .main-content {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
+            width: 100%;
         }
         
         .header {
@@ -82,11 +77,29 @@
             padding: 20px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             min-height: 600px;
+            max-height: 800px;
+            overflow: auto;
+        }
+        
+        #visualization-network {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
         }
         
         /* Visualization-specific styles */
         .node {
             cursor: pointer;
+        }
+        
+        .node rect {
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 2px;
+            rx: 5px;
+            ry: 5px;
         }
         
         .node circle {
@@ -97,11 +110,14 @@
         
         .node text {
             font: 12px sans-serif;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
         }
         
         .link {
             fill: none;
-            stroke: #ccc;
+            stroke: #999;
             stroke-width: 2px;
         }
         
@@ -127,52 +143,68 @@
         }
         
         /* Color coding for entity types */
-        .node-bfo circle {
+        .node-bfo rect, .node-type-bfo rect {
             fill: #f5f5f5;
             stroke: #5D4037;
         }
         
-        .node-bfo text {
+        .node-bfo text, .node-type-bfo text {
             fill: #5D4037;
         }
         
-        .node-bfo-aligned circle {
+        .node-bfo-aligned rect {
             fill: #f5f5f5;
             stroke: #795548;
         }
         
-        .node-root circle {
-            fill: #f5f5f5;
+        .node-root rect, .node-type-root rect {
+            fill: #E3F2FD;
             stroke: #333;
-            stroke-width: 4px;
+            stroke-width: 3px;
         }
         
-        .node-non-bfo circle {
+        .node-non-bfo rect {
             fill: #f5f5f5;
             stroke: #2196F3;
         }
         
-        .node-type-Role circle {
+        .node-type-Role rect {
             fill: #E3F2FD;
             stroke: #1565C0;
         }
         
-        .node-type-Condition circle {
+        .node-type-State rect,
+        .node-type-Condition rect {
             fill: #E8F5E9;
             stroke: #2E7D32;
         }
         
-        .node-type-Event circle {
+        .node-type-Principle rect {
+            fill: #FCE4EC;
+            stroke: #AD1457;
+        }
+        
+        .node-type-Obligation rect {
+            fill: #FFF8E1;
+            stroke: #F57F17;
+        }
+        
+        .node-type-Capability rect {
+            fill: #E1F5FE;
+            stroke: #0277BD;
+        }
+        
+        .node-type-Event rect {
             fill: #FFF3E0;
             stroke: #EF6C00;
         }
         
-        .node-type-Action circle {
+        .node-type-Action rect {
             fill: #F3E5F5;
             stroke: #6A1B9A;
         }
         
-        .node-type-Resource circle {
+        .node-type-Resource rect {
             fill: #FFEBEE;
             stroke: #C62828;
         }
@@ -256,60 +288,49 @@
             </div>
         </nav>
     </div>
-    <div class="main-content">
-r">
-        <div class="sidebar">
-            <h2>Ontology Explorer</h2>
-            <div class="controls">
-                <h3>Visualization Settings</h3>
-                <p>Adjust the view and filtering options to explore the ontology</p>
-                <div class="control-group">
-                    <label>Zoom Level</label>
-                    <input type="range" min="0.5" max="2" step="0.1" value="1" id="zoom-control">
-                </div>
-                <div class="control-group">
-                    <label>Tree Depth</label>
-                    <select id="depth-control">
-                        <option value="1">Level 1</option>
-                        <option value="2">Level 2</option>
-                        <option value="3" selected>Level 3</option>
-                        <option value="4">Level 4</option>
-                        <option value="all">All Levels</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <button class="btn" id="expand-all-btn">Expand All</button>
-                    <button class="btn" id="collapse-all-btn">Collapse All</button>
-                </div>
-            </div>
-        </div>
+    <div class="container">
         <div class="main-content">
             <div class="header">
                 <h1>Ontology Visualization</h1>
                 <div class="btn-group">
                     <button class="btn" id="back-to-editor-btn">Back to Editor</button>
+                    <button class="btn" id="download-btn"><i class="fas fa-download"></i> Download TTL</button>
                     <button class="btn" id="refresh-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
                 </div>
             </div>
             
             <div class="view-controls">
-                <button class="btn active" id="hierarchical-view-btn">Hierarchical View</button>
-                <button class="btn" id="categorized-view-btn">Entity Type View</button>
+                <button class="btn" id="hierarchical-view-btn">Network View</button>
+                <button class="btn" id="categorized-view-btn">Category View</button>
+                <button class="btn active" id="simple-view-btn">Simple Tree</button>
             </div>
             
             <div class="type-filter">
                 <span>Filter by Type: </span>
                 <button class="filter-btn active" data-type="all">All</button>
                 <button class="filter-btn" data-type="Role">Roles</button>
-                <button class="filter-btn" data-type="Condition">Conditions</button>
+                <button class="filter-btn" data-type="Principle">Principles</button>
+                <button class="filter-btn" data-type="Obligation">Obligations</button>
+                <button class="filter-btn" data-type="State">States</button>
                 <button class="filter-btn" data-type="Resource">Resources</button>
-                <button class="filter-btn" data-type="Event">Events</button>
                 <button class="filter-btn" data-type="Action">Actions</button>
+                <button class="filter-btn" data-type="Event">Events</button>
+                <button class="filter-btn" data-type="Capability">Capabilities</button>
                 <button class="filter-btn" data-type="bfo">BFO Classes</button>
             </div>
             
             <div class="visualization-container">
-                <div id="visualization-svg-container"></div>
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Note:</strong> For best ontology visualization experience, download the TTL file and open it in:
+                    <br>• <a href="https://protege.stanford.edu/" target="_blank">Protégé</a> (desktop application)
+                    <br>• <a href="https://service.tib.eu/webvowl/" target="_blank">WebVOWL</a> (online visualization)
+                    <br>• <a href="https://github.com/VisualDataWeb/WebVOWL" target="_blank">WebVOWL GitHub</a> (if online version is down)
+                </div>
+                <div id="visualization-network"></div>
+                <div id="simple-hierarchy" style="display: none;">
+                    <div id="hierarchy-content"></div>
+                </div>
             </div>
             
             <div class="legend">
@@ -326,8 +347,16 @@ r">
                     <span>Role</span>
                 </div>
                 <div class="legend-item">
+                    <div class="legend-color" style="background-color: #FCE4EC; border-color: #AD1457;"></div>
+                    <span>Principle</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #FFF8E1; border-color: #F57F17;"></div>
+                    <span>Obligation</span>
+                </div>
+                <div class="legend-item">
                     <div class="legend-color" style="background-color: #E8F5E9; border-color: #2E7D32;"></div>
-                    <span>Condition</span>
+                    <span>State</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: #FFEBEE; border-color: #C62828;"></div>
@@ -341,6 +370,10 @@ r">
                     <div class="legend-color" style="background-color: #F3E5F5; border-color: #6A1B9A;"></div>
                     <span>Action</span>
                 </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #E1F5FE; border-color: #0277BD;"></div>
+                    <span>Capability</span>
+                </div>
             </div>
         </div>
     </div>
@@ -348,18 +381,31 @@ r">
     <script>
         // Global variables
         let ontologyHierarchy = null;
-        let currentView = 'hierarchical';
+        let currentView = 'simple';  // Default to simple view
         let currentFilter = 'all';
         let maxDepth = 3;
-        let tooltip = null;
+        let network = null;
+        let nodes = null;
+        let edges = null;
+        
+        // Color mapping for entity types
+        const colorMap = {
+            'root': '#E3F2FD',
+            'bfo': '#F5F5F5',
+            'bfo-aligned': '#E8F5E8',
+            'Role': '#E3F2FD',
+            'Principle': '#FCE4EC',
+            'Obligation': '#FFF8E1',
+            'State': '#E8F5E9',
+            'Resource': '#FFEBEE',
+            'Action': '#F3E5F5',
+            'Event': '#FFF3E0',
+            'Capability': '#E1F5FE',
+            'non-bfo': '#F0F8FF'
+        };
         
         // Initialize when document is ready
         document.addEventListener('DOMContentLoaded', function() {
-            // Create tooltip
-            tooltip = d3.select("body").append("div")
-                .attr("class", "tooltip")
-                .style("opacity", 0);
-            
             // Get ontology ID from URL
             const ontologyId = '{{ ontology_id }}';
             
@@ -380,6 +426,10 @@ r">
                 switchViewType('categorized');
             });
             
+            document.getElementById('simple-view-btn').addEventListener('click', () => {
+                switchViewType('simple');
+            });
+            
             // Filter buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -392,26 +442,16 @@ r">
                 });
             });
             
-            // Depth control
-            document.getElementById('depth-control').addEventListener('change', (e) => {
-                const value = e.target.value;
-                maxDepth = value === 'all' ? Infinity : parseInt(value);
-                redrawVisualization();
-            });
-            
-            // Zoom control
-            document.getElementById('zoom-control').addEventListener('input', (e) => {
-                const zoomLevel = parseFloat(e.target.value);
-                applyZoom(zoomLevel);
-            });
-            
-            // Expand/collapse buttons
-            document.getElementById('expand-all-btn').addEventListener('click', expandAll);
-            document.getElementById('collapse-all-btn').addEventListener('click', collapseAll);
+            // Note: Sidebar controls removed for full-width visualization
             
             // Back to editor button
             document.getElementById('back-to-editor-btn').addEventListener('click', () => {
                 window.location.href = `{{ url_for('ontology_editor.index') }}?ontology_id={{ ontology_id }}`;
+            });
+            
+            // Download button
+            document.getElementById('download-btn').addEventListener('click', () => {
+                window.location.href = `{{ url_for('ontology_editor.api.download_ontology', ontology_id=ontology_id) }}`;
             });
             
             // Refresh button
@@ -422,7 +462,7 @@ r">
         
         function loadOntologyHierarchy(ontologyId) {
             // Show loading indicator
-            d3.select('#visualization-svg-container').html('<div style="text-align: center; padding: 20px;">Loading ontology data...</div>');
+            document.getElementById('visualization-network').innerHTML = '<div style="text-align: center; padding: 100px; color: #666;">Loading ontology data...</div>';
             
             // Fetch the hierarchy data from the API
             fetch(`{{ url_for('ontology_editor.api.get_ontology_hierarchy', ontology_id=0) }}`.replace('0', ontologyId))
@@ -436,18 +476,21 @@ r">
                     // Store the data globally
                     ontologyHierarchy = data.hierarchy;
                     
+                    // Clear loading indicator
+                    document.getElementById('visualization-network').innerHTML = '';
+                    
                     // Render the visualization
                     renderVisualization();
                 })
                 .catch(error => {
                     console.error('Error loading ontology hierarchy:', error);
-                    d3.select('#visualization-svg-container').html(`
-                        <div style="text-align: center; padding: 20px; color: red;">
+                    document.getElementById('visualization-network').innerHTML = `
+                        <div style="text-align: center; padding: 100px; color: red;">
                             <p><strong>Error loading ontology data:</strong></p>
                             <p>${error.message}</p>
                             <p>Please try refreshing the page or check your connection.</p>
                         </div>
-                    `);
+                    `;
                 });
         }
         
@@ -455,15 +498,26 @@ r">
             if (!ontologyHierarchy) return;
             
             if (currentView === 'hierarchical') {
+                document.getElementById('visualization-network').style.display = 'block';
+                document.getElementById('simple-hierarchy').style.display = 'none';
                 renderHierarchicalView();
-            } else {
+            } else if (currentView === 'categorized') {
+                document.getElementById('visualization-network').style.display = 'block';
+                document.getElementById('simple-hierarchy').style.display = 'none';
                 renderCategorizedView();
+            } else if (currentView === 'simple') {
+                document.getElementById('visualization-network').style.display = 'none';
+                document.getElementById('simple-hierarchy').style.display = 'block';
+                renderSimpleTreeView();
             }
         }
         
         function redrawVisualization() {
             // Clear current visualization
-            d3.select('#visualization-svg-container').html('');
+            if (network) {
+                network.destroy();
+                network = null;
+            }
             
             // Redraw
             renderVisualization();
@@ -473,10 +527,43 @@ r">
             // Update button states
             document.getElementById('hierarchical-view-btn').classList.toggle('active', viewType === 'hierarchical');
             document.getElementById('categorized-view-btn').classList.toggle('active', viewType === 'categorized');
+            document.getElementById('simple-view-btn').classList.toggle('active', viewType === 'simple');
             
             // Update view
             currentView = viewType;
             redrawVisualization();
+        }
+        
+        function renderSimpleTreeView() {
+            if (!ontologyHierarchy) return;
+            
+            const container = document.getElementById('hierarchy-content');
+            container.innerHTML = '<h4>Ontology Class Hierarchy</h4>';
+            
+            function renderNode(node, level = 0) {
+                const indent = '  '.repeat(level);
+                const entityType = node.entity_type || node.type;
+                const color = colorMap[entityType] || '#333';
+                
+                const nodeHtml = `
+                    <div style="margin-left: ${level * 20}px; margin: 5px 0; padding: 8px; 
+                               background: ${color}; border-radius: 4px; border-left: 4px solid ${getDarkerColor(color)};">
+                        <strong>${node.name}</strong>
+                        ${node.description ? `<br><small style="opacity: 0.8;">${node.description}</small>` : ''}
+                        <span style="float: right; font-size: 0.8em; opacity: 0.7;">${entityType}</span>
+                    </div>
+                `;
+                
+                container.innerHTML += nodeHtml;
+                
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        renderNode(child, level + 1);
+                    });
+                }
+            }
+            
+            renderNode(ontologyHierarchy);
         }
         
         function filterByType(filterType) {
@@ -536,339 +623,334 @@ r">
         }
         
         function renderHierarchicalView() {
-            const container = d3.select('#visualization-svg-container');
-            container.html(''); // Clear container
+            if (!ontologyHierarchy) return;
             
-            // Set dimensions
-            const width = container.node().getBoundingClientRect().width;
-            const height = 600;
-            
-            // Create SVG
-            const svg = container.append('svg')
-                .attr('width', width)
-                .attr('height', height)
-                .append('g')
-                .attr('transform', `translate(${width / 3}, ${height / 2})`);
-            
-            // Define hierarchy layout
-            const tree = d3.tree()
-                .size([height, width - 160]); // Horizontal layout
-            
-            // Process hierarchy for filtering and display
-            const processedRoot = processHierarchyForDisplay(ontologyHierarchy);
-            
-            if (!processedRoot) {
-                container.html('<div style="text-align: center; padding: 20px;">No data available for visualization.</div>');
+            // Check if vis.js is available
+            if (typeof vis === 'undefined') {
+                document.getElementById('visualization-network').innerHTML = 
+                    '<div style="text-align: center; padding: 100px; color: red;">Visualization library not loaded. Please try the Simple Tree view instead.</div>';
                 return;
             }
             
-            // Create hierarchy from the processed data
-            const root = d3.hierarchy(processedRoot);
+            // Convert hierarchy to vis.js format
+            const visData = convertHierarchyToVisFormat(ontologyHierarchy);
             
-            // Compute the new tree layout
-            tree(root);
+            // Create vis.js network
+            const container = document.getElementById('visualization-network');
             
-            // Add links
-            const links = svg.selectAll('.link')
-                .data(root.links())
-                .enter().append('path')
-                .attr('class', 'link')
-                .attr('d', d3.linkHorizontal()
-                    .x(d => d.y)
-                    .y(d => d.x));
+            const options = {
+                layout: {
+                    hierarchical: {
+                        direction: 'UD',        // Up-Down
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 300,
+                        treeSpacing: 400,
+                        blockShifting: true,
+                        edgeMinimization: true,
+                        parentCentralization: true
+                    }
+                },
+                physics: {
+                    enabled: false  // Disable physics for hierarchical layout
+                },
+                nodes: {
+                    shape: 'box',
+                    margin: 10,
+                    size: 30,
+                    widthConstraint: {
+                        minimum: 120,
+                        maximum: 250
+                    },
+                    heightConstraint: {
+                        minimum: 40,
+                        maximum: 60
+                    },
+                    font: {
+                        size: 14,
+                        face: 'Arial, sans-serif',
+                        color: '#333'
+                    },
+                    borderWidth: 2,
+                    shadow: {
+                        enabled: true,
+                        color: 'rgba(0,0,0,0.3)',
+                        size: 8,
+                        x: 3,
+                        y: 3
+                    }
+                },
+                edges: {
+                    arrows: {
+                        to: { enabled: true, scaleFactor: 1.2, type: 'arrow' }
+                    },
+                    color: '#848484',
+                    width: 3,
+                    smooth: {
+                        enabled: false  // Use straight lines for clearer hierarchy
+                    }
+                },
+                interaction: {
+                    dragNodes: true,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
             
-            // Add nodes
-            const nodes = svg.selectAll('.node')
-                .data(root.descendants())
-                .enter().append('g')
-                .attr('class', d => `node node-${d.data.type}` + 
-                      (d.data.entity_type ? ` node-type-${d.data.entity_type}` : ''))
-                .attr('transform', d => `translate(${d.y},${d.x})`)
-                .on('click', toggleNode)
-                .on('mouseover', showTooltip)
-                .on('mouseout', hideTooltip);
+            network = new vis.Network(container, visData, options);
             
-            // Add node circles
-            nodes.append('circle')
-                .attr('r', 8);
+            // Fit the network to the container after a short delay
+            setTimeout(() => {
+                network.fit({
+                    animation: {
+                        duration: 1000,
+                        easingFunction: 'easeInOutQuad'
+                    }
+                });
+            }, 100);
             
-            // Add node labels
-            nodes.append('text')
-                .attr('dy', '.31em')
-                .attr('x', d => d.children || d._children ? -12 : 12)
-                .style('text-anchor', d => d.children || d._children ? 'end' : 'start')
-                .text(d => d.data.name)
-                .style('font-weight', d => d.data.type === 'root' ? 'bold' : 'normal');
+            // Add click event for node details
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const nodeData = visData.nodes.get(nodeId);
+                    showNodeDetails(nodeData);
+                }
+            });
+        }
+        
+        function convertHierarchyToVisFormat(hierarchy) {
+            const nodes = [];
+            const edges = [];
+            let nodeId = 1;
             
-            // Add expand/collapse indicators
-            nodes.filter(d => d._children || d.children)
-                .append('text')
-                .attr('class', 'node-toggle')
-                .attr('dy', 3) // Align with circle vertically
-                .attr('dx', d => d.children ? -20 : -24) // Position left of circle
-                .text(d => d.children ? '−' : '+') // Minus for expand, plus for collapse
-                .style('font-size', '16px')
-                .style('cursor', 'pointer')
-                .style('font-weight', 'bold');
+            function processNode(node, parentId = null) {
+                const currentId = nodeId++;
+                
+                // Determine node color based on type
+                const entityType = node.entity_type || node.type;
+                const color = colorMap[entityType] || '#F0F8FF';
+                
+                nodes.push({
+                    id: currentId,
+                    label: node.name,
+                    title: node.description || node.name,
+                    color: {
+                        background: color,
+                        border: getDarkerColor(color),
+                        highlight: {
+                            background: getLighterColor(color),
+                            border: getDarkerColor(color)
+                        }
+                    },
+                    font: {
+                        size: node.type === 'root' ? 14 : 12,
+                        color: '#333'
+                    },
+                    originalData: node
+                });
+                
+                if (parentId !== null) {
+                    edges.push({
+                        from: parentId,
+                        to: currentId,
+                        label: 'subClassOf'
+                    });
+                }
+                
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        processNode(child, currentId);
+                    });
+                }
+            }
+            
+            processNode(hierarchy);
+            
+            return {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+        }
+        
+        function getDarkerColor(hexColor) {
+            // Simple function to get a darker version of a hex color
+            const hex = hexColor.replace('#', '');
+            const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - 40);
+            const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - 40);
+            const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - 40);
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+        
+        function getLighterColor(hexColor) {
+            // Simple function to get a lighter version of a hex color
+            const hex = hexColor.replace('#', '');
+            const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + 20);
+            const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + 20);
+            const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + 20);
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+        
+        function showNodeDetails(nodeData) {
+            const details = nodeData.originalData;
+            let html = `
+                <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                           background: white; border: 2px solid #ddd; border-radius: 8px; 
+                           padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 1000; max-width: 400px;">
+                    <h4>${details.name}</h4>
+                    ${details.description ? `<p><strong>Description:</strong> ${details.description}</p>` : ''}
+                    ${details.uri ? `<p><strong>URI:</strong> <small>${details.uri}</small></p>` : ''}
+                    <p><strong>Type:</strong> ${details.entity_type || details.type}</p>
+                    <button onclick="this.parentElement.remove()" style="float: right; margin-top: 10px;">Close</button>
+                </div>
+                <div onclick="this.remove(); this.previousElementSibling.remove();" 
+                     style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                           background: rgba(0,0,0,0.5); z-index: 999;"></div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
         }
         
         function renderCategorizedView() {
-            const container = d3.select('#visualization-svg-container');
-            container.html(''); // Clear container
+            if (!ontologyHierarchy) return;
             
-            // Set dimensions
-            const width = container.node().getBoundingClientRect().width;
-            const height = 600;
-            
-            // Create SVG
-            const svg = container.append('svg')
-                .attr('width', width)
-                .attr('height', height)
-                .append('g')
-                .attr('transform', `translate(${width / 4}, ${height / 2})`);
-            
-            // Define hierarchy layout
-            const tree = d3.tree()
-                .size([height, width - 160]); // Horizontal layout
-            
-            // Create categorized hierarchy
-            const categorizedRoot = createCategorizedHierarchy(ontologyHierarchy);
-            if (!categorizedRoot || !categorizedRoot.children || categorizedRoot.children.length === 0) {
-                container.html('<div style="text-align: center; padding: 20px;">No data available for categorized view.</div>');
+            // Check if vis.js is available
+            if (typeof vis === 'undefined') {
+                document.getElementById('visualization-network').innerHTML = 
+                    '<div style="text-align: center; padding: 100px; color: red;">Visualization library not loaded. Please try the Simple Tree view instead.</div>';
                 return;
             }
             
-            // Process hierarchy for filtering and display
-            const processedRoot = processHierarchyForDisplay(categorizedRoot);
+            // Create categorized hierarchy
+            const categorizedData = createCategorizedHierarchy(ontologyHierarchy);
+            const visData = convertHierarchyToVisFormat(categorizedData);
             
-            // Create hierarchy from the processed data
-            const root = d3.hierarchy(processedRoot);
+            // Create vis.js network with different layout for categories
+            const container = document.getElementById('visualization-network');
             
-            // Compute the new tree layout
-            tree(root);
+            const options = {
+                layout: {
+                    hierarchical: {
+                        direction: 'UD',
+                        sortMethod: 'directed',
+                        levelSeparation: 100,
+                        nodeSpacing: 150,
+                        treeSpacing: 200
+                    }
+                },
+                physics: {
+                    hierarchicalRepulsion: {
+                        centralGravity: 0.0,
+                        springLength: 80,
+                        springConstant: 0.01,
+                        nodeDistance: 100,
+                        damping: 0.09
+                    },
+                    maxVelocity: 50,
+                    solver: 'hierarchicalRepulsion'
+                },
+                nodes: {
+                    shape: 'box',
+                    margin: 10,
+                    widthConstraint: {
+                        minimum: 80,
+                        maximum: 200
+                    },
+                    font: {
+                        size: 11,
+                        face: 'arial'
+                    },
+                    borderWidth: 2
+                },
+                edges: {
+                    arrows: {
+                        to: { enabled: true, scaleFactor: 0.8, type: 'arrow' }
+                    },
+                    color: '#848484',
+                    width: 1
+                },
+                interaction: {
+                    dragNodes: true,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
             
-            // Add links
-            const links = svg.selectAll('.link')
-                .data(root.links())
-                .enter().append('path')
-                .attr('class', 'link')
-                .attr('d', d3.linkHorizontal()
-                    .x(d => d.y)
-                    .y(d => d.x));
+            network = new vis.Network(container, visData, options);
             
-            // Add nodes
-            const nodes = svg.selectAll('.node')
-                .data(root.descendants())
-                .enter().append('g')
-                .attr('class', d => {
-                    const nodeType = d.data.type === 'category' ? d.data.name : d.data.type;
-                    return `node node-${d.data.type}` + 
-                           (nodeType ? ` node-type-${nodeType}` : '');
-                })
-                .attr('transform', d => `translate(${d.y},${d.x})`)
-                .on('click', toggleNode)
-                .on('mouseover', showTooltip)
-                .on('mouseout', hideTooltip);
+            // Fit the network to the container after a short delay
+            setTimeout(() => {
+                network.fit({
+                    animation: {
+                        duration: 1000,
+                        easingFunction: 'easeInOutQuad'
+                    }
+                });
+            }, 100);
             
-            // Add node circles
-            nodes.append('circle')
-                .attr('r', 8);
-            
-            // Add node labels
-            nodes.append('text')
-                .attr('dy', '.31em')
-                .attr('x', d => d.children || d._children ? -12 : 12)
-                .style('text-anchor', d => d.children || d._children ? 'end' : 'start')
-                .text(d => d.data.name)
-                .style('font-weight', d => d.data.type === 'category' ? 'bold' : 'normal');
-            
-            // Add expand/collapse indicators
-            nodes.filter(d => d._children || d.children)
-                .append('text')
-                .attr('class', 'node-toggle')
-                .attr('dy', 3) // Align with circle vertically
-                .attr('dx', d => d.children ? -20 : -24) // Position left of circle
-                .text(d => d.children ? '−' : '+') // Minus for expand, plus for collapse
-                .style('font-size', '16px')
-                .style('cursor', 'pointer')
-                .style('font-weight', 'bold');
+            // Add click event for node details
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const nodeData = visData.nodes.get(nodeId);
+                    showNodeDetails(nodeData);
+                }
+            });
         }
         
         function createCategorizedHierarchy(originalHierarchy) {
-            if (!originalHierarchy) return null;
-            
-            // Create categories
+            // Create a simplified categorized view
             const categories = {
-                'Role': {
-                    name: 'Role',
-                    type: 'category',
-                    entity_type: 'Role',
-                    description: 'Roles in the ontology',
-                    children: []
-                },
-                'Condition': {
-                    name: 'Condition',
-                    type: 'category',
-                    entity_type: 'Condition',
-                    description: 'Conditions in the ontology',
-                    children: []
-                },
-                'Resource': {
-                    name: 'Resource',
-                    type: 'category',
-                    entity_type: 'Resource',
-                    description: 'Resources in the ontology',
-                    children: []
-                },
-                'Event': {
-                    name: 'Event',
-                    type: 'category',
-                    entity_type: 'Event',
-                    description: 'Events in the ontology',
-                    children: []
-                },
-                'Action': {
-                    name: 'Action',
-                    type: 'category',
-                    entity_type: 'Action',
-                    description: 'Actions in the ontology',
-                    children: []
-                },
-                'Other': {
-                    name: 'Other',
-                    type: 'category',
-                    description: 'Other entities in the ontology',
-                    children: []
-                }
+                'Role': { name: 'Roles', type: 'category', children: [] },
+                'Principle': { name: 'Principles', type: 'category', children: [] },
+                'Obligation': { name: 'Obligations', type: 'category', children: [] },
+                'State': { name: 'States', type: 'category', children: [] },
+                'Resource': { name: 'Resources', type: 'category', children: [] },
+                'Action': { name: 'Actions', type: 'category', children: [] },
+                'Event': { name: 'Events', type: 'category', children: [] },
+                'Capability': { name: 'Capabilities', type: 'category', children: [] }
             };
             
-            // Function to find all entities matching specific types
-            function findEntitiesByPattern(node, patterns) {
-                const results = [];
-                
-                // Check if current node matches
-                if (node.name && patterns.some(pattern => node.name.includes(pattern))) {
-                    results.push(node);
+            function categorizeNodes(node) {
+                if (node.children) {
+                    node.children.forEach(categorizeNodes);
                 }
                 
-                // Recursively check children
-                if (node.children && node.children.length > 0) {
-                    for (const child of node.children) {
-                        results.push(...findEntitiesByPattern(child, patterns));
-                    }
+                const entityType = node.entity_type || node.type;
+                if (categories[entityType]) {
+                    categories[entityType].children.push(node);
                 }
-                
-                return results;
             }
             
-            // Find entities for each category
-            if (originalHierarchy.children && originalHierarchy.children.length > 0) {
-                categories.Role.children = findEntitiesByPattern(originalHierarchy, ['Role']);
-                categories.Condition.children = findEntitiesByPattern(originalHierarchy, ['Condition']);
-                categories.Resource.children = findEntitiesByPattern(originalHierarchy, ['Resource']);
-                categories.Event.children = findEntitiesByPattern(originalHierarchy, ['Event']);
-                categories.Action.children = findEntitiesByPattern(originalHierarchy, ['Action']);
-                
-                // Add entity type to each node
-                categories.Role.children.forEach(node => node.entity_type = 'Role');
-                categories.Condition.children.forEach(node => node.entity_type = 'Condition');
-                categories.Resource.children.forEach(node => node.entity_type = 'Resource');
-                categories.Event.children.forEach(node => node.entity_type = 'Event');
-                categories.Action.children.forEach(node => node.entity_type = 'Action');
+            if (originalHierarchy.children) {
+                originalHierarchy.children.forEach(categorizeNodes);
             }
             
-            // Create root object
-            const root = {
+            return {
                 name: originalHierarchy.name,
                 type: 'root',
-                description: originalHierarchy.description || 'Ontology root',
                 children: Object.values(categories).filter(cat => cat.children.length > 0)
             };
-            
-            return root;
-        }
-        
-        function toggleNode(event, d) {
-            if (d.children) {
-                d._children = d.children;
-                d.children = null;
-            } else if (d._children) {
-                d.children = d._children;
-                d._children = null;
-            }
-            
-            // Redraw the visualization
-            redrawVisualization();
-        }
-        
-        function showTooltip(event, d) {
-            const tooltipContent = `
-                <div style="font-weight: bold;">${d.data.name}</div>
-                ${d.data.description ? `<div style="margin-top: 5px;">${d.data.description}</div>` : ''}
-                ${d.data.uri ? `<div style="margin-top: 5px; font-size: 11px; opacity: 0.8;">${d.data.uri}</div>` : ''}
-            `;
-            
-            tooltip.transition()
-                .duration(200)
-                .style("opacity", .9);
-            
-            tooltip.html(tooltipContent)
-                .style("left", (event.pageX + 15) + "px")
-                .style("top", (event.pageY - 28) + "px");
-        }
-        
-        function hideTooltip() {
-            tooltip.transition()
-                .duration(500)
-                .style("opacity", 0);
         }
         
         function expandAll() {
-            expandCollapseAll(true);
+            if (network) {
+                network.fit();
+            }
         }
         
         function collapseAll() {
-            expandCollapseAll(false);
-        }
-        
-        function expandCollapseAll(expand) {
-            function processNode(node) {
-                if (!node) return;
-                
-                if (expand) {
-                    // Expand: Move _children to children
-                    if (node._children) {
-                        node.children = node._children;
-                        node._children = null;
-                    }
-                    
-                    // Process children
-                    if (node.children) {
-                        node.children.forEach(processNode);
-                    }
-                } else {
-                    // Collapse: Process children first (depth-first)
-                    if (node.children) {
-                        node.children.forEach(processNode);
-                        
-                        // Then collapse this node
-                        node._children = node.children;
-                        node.children = null;
-                    }
-                }
+            if (network) {
+                network.fit();
             }
-            
-            // Start with the current view's root
-            const rootData = currentView === 'hierarchical' 
-                ? ontologyHierarchy 
-                : createCategorizedHierarchy(ontologyHierarchy);
-                
-            processNode(rootData);
-            
-            // Redraw
-            redrawVisualization();
         }
         
         function applyZoom(zoomLevel) {
-            const svg = d3.select('#visualization-svg-container svg g');
-            svg.attr('transform', `translate(${d3.select('#visualization-svg-container
+            if (network) {
+                network.setOptions({
+                    physics: { enabled: zoomLevel > 1 }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
