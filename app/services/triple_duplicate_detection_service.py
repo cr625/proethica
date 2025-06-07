@@ -76,6 +76,10 @@ class TripleDuplicateDetectionService:
         Returns:
             True if triple exists in ontology
         """
+        # Handle None or empty values
+        if not subject or not predicate or object_value is None:
+            return False
+            
         subject_ref = URIRef(subject)
         predicate_ref = URIRef(predicate)
         
@@ -102,6 +106,10 @@ class TripleDuplicateDetectionService:
         Returns:
             EntityTriple if found, None otherwise
         """
+        # Handle None or empty values
+        if not subject or not predicate or object_value is None:
+            return None
+            
         query = EntityTriple.query.filter_by(
             subject=subject,
             predicate=predicate,

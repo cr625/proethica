@@ -134,6 +134,8 @@ def new_character(id):
             # Get all entity types from ontology in one request
             entities = mcp_client.get_world_entities(world.ontology_source)
             print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
+            if isinstance(entities, dict):
+                print(f"is_mock value: {entities.get('is_mock', 'not found')}")
             
             if entities and 'entities' in entities:
                 print(f"Final entities structure: {entities.keys()}")

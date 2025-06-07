@@ -58,7 +58,13 @@ class BackgroundTaskQueue:
         try:
             # Get a new db session for this thread
             from app import create_app
-            app = create_app()
+            import os
+            
+            # Ensure environment is set
+            os.environ.setdefault('ENVIRONMENT', 'development')
+            
+            # Create app with proper config
+            app = create_app('config')
             
             with app.app_context():
                 # Get document
@@ -69,22 +75,19 @@ class BackgroundTaskQueue:
                 
                 logger.info(f"Processing document {document_id} in background")
                 
-                # Check if document already has content but status is not completed
-                if document.content and document.processing_status != PROCESSING_STATUS['COMPLETED']:
-                    logger.info(f"Document {document_id} already has content, marking as completed")
-                    document.processing_status = PROCESSING_STATUS['COMPLETED']
-                    document.processing_progress = 100
-                    document.processing_phase = PROCESSING_PHASES['FINALIZING']
-                    db.session.commit()
-                    return
-                
                 # Update progress: Initializing (10%)
                 document.processing_phase = PROCESSING_PHASES['INITIALIZING']
                 document.processing_progress = 10
                 db.session.commit()
                 
+                # Skip extraction if content already exists (e.g., pasted text)
+                if document.content:
+                    logger.info(f"Document {document_id} already has content, skipping extraction")
+                    # Jump directly to chunking phase
+                    document.processing_progress = 30
+                    db.session.commit()
                 # Extract content based on document type
-                if document.file_type == "url" and document.source:
+                elif document.file_type == "url" and document.source:
                     # Handle URL type documents
                     logger.info(f"Processing URL document: {document.source}")
                     document.processing_phase = PROCESSING_PHASES['EXTRACTING']
@@ -177,7 +180,13 @@ class BackgroundTaskQueue:
             
             try:
                 # Update document status to failed
-                with app.app_context():
+                # Create a new app context for error handling
+                from app import create_app
+                import os
+                os.environ.setdefault('ENVIRONMENT', 'development')
+                error_app = create_app('config')
+                
+                with error_app.app_context():
                     document = Document.query.get(document_id)
                     if document:
                         document.processing_status = PROCESSING_STATUS['FAILED']

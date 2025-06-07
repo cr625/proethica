@@ -162,6 +162,8 @@ def view_world(id):
             
             # Debug logging
             print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
+            if isinstance(entities, dict):
+                print(f"is_mock value: {entities.get('is_mock', 'not found')}")
             if 'entities' in entities:
                 entity_types = entities['entities'].keys() if isinstance(entities['entities'], dict) else 'not a dict'
                 print(f"Entity types: {entity_types}")
@@ -732,6 +734,12 @@ def manage_guideline_triples(world_id, guideline_id):
     for triple in triples:
         # Check if this triple exists in ontology or database
         object_value = triple.object_uri if triple.object_uri else triple.object_literal
+        
+        # Skip triples with no object value
+        if object_value is None:
+            logger.warning(f"Skipping triple with None object value: {triple.subject} {triple.predicate}")
+            continue
+            
         duplicate_result = duplicate_service.check_duplicate_with_details(
             triple.subject,
             triple.predicate,

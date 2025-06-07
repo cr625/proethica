@@ -77,14 +77,19 @@ class GuidelineAnalysisService:
                 timeout=30
             )
             
+            logger.info(f"MCP server response status: {response.status_code}")
+            
             if response.status_code != 200:
                 raise RuntimeError(f"MCP server returned status {response.status_code}")
                 
             result = response.json()
+            logger.info(f"MCP server response keys: {list(result.keys())}")
+            
             if "error" in result:
                 raise RuntimeError(f"MCP server error: {result['error']}")
                 
             if "result" not in result or "bindings" not in result["result"]:
+                logger.error(f"Invalid MCP response structure: {result}")
                 raise RuntimeError("Invalid response from MCP server")
                 
             concept_types = {}
@@ -410,6 +415,198 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
             ])
             
         return mock_concepts
+    
+    def extract_ontology_terms_from_text(self,
+                                        guideline_text: str,
+                                        world_id: int,
+                                        guideline_id: int,
+                                        ontology_source: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Extract ontology terms directly from guideline text.
+        This finds mentions of engineering-ethics ontology terms in the text itself.
+        
+        Args:
+            guideline_text: The full text of the guideline
+            world_id: World ID for context
+            guideline_id: Guideline ID for triple association
+            ontology_source: Ontology to search for terms (default: 'engineering-ethics')
+            
+        Returns:
+            Dict with extracted term triples and metadata
+        """
+        try:
+            logger.info(f"Extracting ontology terms from guideline text")
+            
+            # Set default ontology source
+            if not ontology_source:
+                ontology_source = 'engineering-ethics'
+            
+            # If mock responses are enabled, return mock triples
+            if self.use_mock_responses:
+                logger.info("Using mock ontology term extraction")
+                mock_triples = self._generate_mock_ontology_triples(guideline_text, world_id, guideline_id)
+                return {
+                    'success': True,
+                    'triples': mock_triples,
+                    'triple_count': len(mock_triples),
+                    'mock': True,
+                    'message': "Using mock guideline responses"
+                }
+            
+            # Try MCP server for ontology term extraction
+            try:
+                mcp_url = self.mcp_client.mcp_url
+                if mcp_url:
+                    logger.info(f"Using MCP server for ontology term extraction")
+                    
+                    # First extract concepts from the text
+                    extract_response = requests.post(
+                        f"{mcp_url}/jsonrpc",
+                        json={
+                            "jsonrpc": "2.0",
+                            "method": "call_tool",
+                            "params": {
+                                "name": "extract_guideline_concepts",
+                                "arguments": {
+                                    "content": guideline_text[:50000],  # Limit content length
+                                    "ontology_source": ontology_source
+                                }
+                            },
+                            "id": 1
+                        },
+                        timeout=60
+                    )
+                    
+                    if extract_response.status_code == 200:
+                        extract_result = extract_response.json()
+                        if "result" in extract_result and "concepts" in extract_result["result"]:
+                            concepts = extract_result["result"]["concepts"]
+                            
+                            # Select all concepts (you could be more selective here)
+                            selected_indices = list(range(len(concepts)))
+                            
+                            # Now generate triples for these concepts
+                            response = requests.post(
+                                f"{mcp_url}/jsonrpc",
+                                json={
+                                    "jsonrpc": "2.0",
+                                    "method": "call_tool",
+                                    "params": {
+                                        "name": "generate_concept_triples",
+                                        "arguments": {
+                                            "concepts": concepts,
+                                            "selected_indices": selected_indices,
+                                            "ontology_source": ontology_source,
+                                            "namespace": f"http://proethica.org/guidelines/guideline_{guideline_id}/",
+                                            "output_format": "json"
+                                        }
+                                    },
+                                    "id": 2
+                                },
+                                timeout=60
+                            )
+                    
+                            if response and response.status_code == 200:
+                                result = response.json()
+                                if "result" in result and "triples" in result["result"]:
+                                    triples = result["result"]["triples"]
+                                    logger.info(f"MCP server extracted {len(triples)} ontology term triples")
+                                    return {
+                                        'success': True,
+                                        'triples': triples,
+                                        'triple_count': len(triples)
+                                    }
+                                elif "error" in result:
+                                    logger.error(f"MCP server error: {result['error']}")
+                        else:
+                            logger.warning("Failed to extract concepts from text")
+                            
+            except Exception as e:
+                logger.warning(f"MCP server error, falling back to mock: {str(e)}")
+            
+            # Fall back to mock triples if MCP fails
+            logger.info("Falling back to mock ontology term extraction")
+            mock_triples = self._generate_mock_ontology_triples(guideline_text, world_id, guideline_id)
+            return {
+                'success': True,
+                'triples': mock_triples,
+                'triple_count': len(mock_triples),
+                'fallback': True,
+                'message': "MCP server unavailable, using mock data"
+            }
+                
+        except Exception as e:
+            logger.error(f"Error in extract_ontology_terms_from_text: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'triples': [],
+                'triple_count': 0
+            }
+    
+    def _generate_mock_ontology_triples(self, guideline_text: str, world_id: int, guideline_id: int) -> List[Dict[str, Any]]:
+        """Generate mock ontology term triples for testing."""
+        mock_triples = []
+        
+        namespace = "http://proethica.org/guidelines/"
+        ontology_namespace = "http://proethica.org/ontology/"
+        guideline_uri = f"{namespace}guideline_{guideline_id}"
+        
+        # Mock some common ontology terms that might be found in engineering ethics text
+        mock_terms = [
+            {"term": "Engineer", "category": "role", "uri": f"{ontology_namespace}Engineer"},
+            {"term": "Public Safety", "category": "principle", "uri": f"{ontology_namespace}PublicSafety"},
+            {"term": "Professional Competence", "category": "capability", "uri": f"{ontology_namespace}ProfessionalCompetence"},
+            {"term": "Conflict of Interest", "category": "condition", "uri": f"{ontology_namespace}ConflictOfInterest"},
+            {"term": "Ethical Decision", "category": "action", "uri": f"{ontology_namespace}EthicalDecision"}
+        ]
+        
+        # Add mock triples for terms that might appear in the text
+        for i, term_info in enumerate(mock_terms):
+            if i >= 3:  # Limit to 3 mock terms
+                break
+                
+            # Add mention triple
+            mention_triple = {
+                'subject': guideline_uri,
+                'subject_label': f'Guideline {guideline_id}',
+                'predicate': f"{ontology_namespace}mentionsTerm",
+                'predicate_label': 'mentions term',
+                'object_uri': term_info['uri'],
+                'object_label': term_info['term'],
+                'triple_metadata': {
+                    'confidence': 0.8,
+                    'text_snippet': f"...{term_info['term'].lower()}...",
+                    'category': term_info['category'],
+                    'mock': True
+                }
+            }
+            mock_triples.append(mention_triple)
+            
+            # Add category-specific relationship
+            category = term_info['category']
+            if category == 'role':
+                rel_triple = {
+                    'subject': guideline_uri,
+                    'subject_label': f'Guideline {guideline_id}',
+                    'predicate': f"{ontology_namespace}definesRole",
+                    'predicate_label': 'defines role',
+                    'object_uri': term_info['uri'],
+                    'object_label': term_info['term']
+                }
+                mock_triples.append(rel_triple)
+            elif category == 'principle':
+                rel_triple = {
+                    'subject': guideline_uri,
+                    'subject_label': f'Guideline {guideline_id}',
+                    'predicate': f"{ontology_namespace}embodiesPrinciple",
+                    'predicate_label': 'embodies principle',
+                    'object_uri': term_info['uri'],
+                    'object_label': term_info['term']
+                }
+                mock_triples.append(rel_triple)
+        
+        return mock_triples
     
     def generate_triples_for_concepts(self, concepts: List[Dict[str, Any]], 
                                     world_id: int, 

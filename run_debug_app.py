@@ -19,6 +19,9 @@ if not os.environ.get('SQLALCHEMY_DATABASE_URI'):
     db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm')
     os.environ['SQLALCHEMY_DATABASE_URI'] = db_url
 
+# Use local MCP server instead of production for debugging
+os.environ['MCP_SERVER_URL'] = 'http://localhost:5001'
+
 # Configure logging to reduce noise
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)

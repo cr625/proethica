@@ -766,7 +766,7 @@ class EmbeddingService:
             chunk = DocumentChunk(
                 document_id=document_id,
                 chunk_index=i,
-                chunk_text=chunk_text,
+                content=chunk_text,
                 embedding=embedding,
                 chunk_metadata={"position": i}
             )
