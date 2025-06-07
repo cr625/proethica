@@ -49,117 +49,20 @@ def generate_triples_direct(world_id, document_id):
             actual_guideline_id = guideline.doc_metadata['guideline_id']
             logger.info(f"Document {document_id} is associated with Guideline {actual_guideline_id}")
         
-        # Get existing concepts from entity triples
+        # Check for saved concepts first
+        saved_concepts = None
+        
+        # Try to get saved concepts from the associated guideline
         if actual_guideline_id:
-            # If we have an associated guideline, look for its triples
-            existing_triples = EntityTriple.query.filter_by(
-                guideline_id=actual_guideline_id,
-                entity_type="guideline_concept"
-            ).all()
-        else:
-            # Otherwise look for triples associated with this document
-            existing_triples = EntityTriple.query.filter_by(
-                guideline_id=guideline.id,
-                world_id=world.id
-            ).all()
+            from app.models.guideline import Guideline
+            related_guideline = Guideline.query.get(actual_guideline_id)
+            if related_guideline and related_guideline.guideline_metadata and 'concepts' in related_guideline.guideline_metadata:
+                saved_concepts = related_guideline.guideline_metadata['concepts']
+                logger.info(f"Found {len(saved_concepts)} saved concepts in guideline metadata")
         
-        # If no triples found, try to extract concepts from metadata
-        if not existing_triples and guideline.doc_metadata:
-            # Check if we have extracted concepts in metadata
-            extracted_concepts = guideline.doc_metadata.get('extracted_concepts', [])
-            selected_concepts = guideline.doc_metadata.get('selected_concepts', [])
-            
-            if extracted_concepts or selected_concepts:
-                # Use selected concepts if available, otherwise all extracted
-                concepts_to_use = selected_concepts if selected_concepts else extracted_concepts
-                
-                # Format concepts for triple generation
-                concepts = []
-                for i, concept in enumerate(concepts_to_use):
-                    if isinstance(concept, dict):
-                        concepts.append(concept)
-                    else:
-                        # Handle simple string concepts
-                        concepts.append({
-                            'id': f'concept_{i}',
-                            'label': str(concept),
-                            'description': '',
-                            'category': 'concept'
-                        })
-                
-                if concepts:
-                    logger.info(f"Found {len(concepts)} concepts in document metadata")
-                    # Skip to triple generation
-                    logger.info(f"Generating ontology alignment triples for {len(concepts)} concepts from guideline {document_id}")
-                    
-                    # Initialize the guideline analysis service
-                    guideline_analysis_service = GuidelineAnalysisService()
-                    
-                    # Generate triples for all concepts
-                    selected_indices = list(range(len(concepts)))
-                    
-                    # Get ontology source from world
-                    ontology_source = world.ontology_source if world.ontology_source else 'engineering-ethics'
-                    
-                    # Extract ontology terms from guideline text (not from concepts)
-                    triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
-                        guideline_text=guideline.content,
-                        world_id=world.id,
-                        guideline_id=actual_guideline_id or guideline.id,
-                        ontology_source=ontology_source
-                    )
-                    
-                    if triples_result.get('success'):
-                        triple_count = triples_result.get('triple_count', 0)
-                        
-                        # Delete old triples before saving new ones
-                        if actual_guideline_id:
-                            EntityTriple.query.filter_by(
-                                guideline_id=actual_guideline_id,
-                                entity_type="guideline_concept"
-                            ).delete()
-                        else:
-                            EntityTriple.query.filter_by(
-                                guideline_id=guideline.id,
-                                world_id=world.id
-                            ).delete()
-                        
-                        # Save the new triples
-                        if 'triples' in triples_result:
-                            for triple_data in triples_result['triples']:
-                                entity_triple = EntityTriple(
-                                    world_id=world.id,
-                                    guideline_id=actual_guideline_id or guideline.id,
-                                    entity_type="guideline_concept" if actual_guideline_id else None,
-                                    subject=triple_data.get('subject', ''),
-                                    subject_label=triple_data.get('subject_label', ''),
-                                    predicate=triple_data.get('predicate', ''),
-                                    predicate_label=triple_data.get('predicate_label', ''),
-                                    object_uri=triple_data.get('object_uri'),
-                                    object_literal=triple_data.get('object_literal'),
-                                    object_label=triple_data.get('object_label'),
-                                    confidence=triple_data.get('confidence', 1.0)
-                                )
-                                db.session.add(entity_triple)
-                        
-                        # Update document metadata
-                        if not guideline.doc_metadata:
-                            guideline.doc_metadata = {}
-                        guideline.doc_metadata['triples_created'] = triple_count
-                        guideline.doc_metadata['triples_generated'] = True
-                        
-                        db.session.commit()
-                        term_count = triples_result.get('term_count', triple_count // 2)
-                        flash(f'Successfully extracted {term_count} ontology terms from text ({triple_count} triples)', 'success')
-                        return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
-                    else:
-                        error_msg = triples_result.get('error', 'Unknown error during triple generation')
-                        flash(f'Error generating triples: {error_msg}', 'error')
-                        return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
-        
-        # Removed concept check - Stage 2 works directly with text
-        
-        logger.info(f"Extracting ontology terms from guideline {document_id} text")
+        # Extract Ontology Terms is for finding specific engineering-ethics ontology terms in text
+        # This is separate from saved concepts - it scans for actual ontology term mentions
+        logger.info(f"Extracting ontology terms from guideline {document_id} text (Stage 2: Ontology Alignment)")
         
         # Initialize the guideline analysis service
         guideline_analysis_service = GuidelineAnalysisService()
@@ -167,15 +70,14 @@ def generate_triples_direct(world_id, document_id):
         # Get ontology source from world
         ontology_source = world.ontology_source if world.ontology_source else 'engineering-ethics'
         
-        # Extract ontology terms from guideline text (not from concepts)
-        # This is completely separate from the concept extraction
+        # Always extract ontology terms from text for Stage 2 (not from saved concepts)
         triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
             guideline_text=guideline.content,
             world_id=world.id,
             guideline_id=actual_guideline_id or guideline.id,
             ontology_source=ontology_source
         )
-        
+                    
         if triples_result.get('success'):
             triple_count = triples_result.get('triple_count', 0)
             

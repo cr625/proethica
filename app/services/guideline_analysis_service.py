@@ -613,8 +613,113 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
                                     guideline_id: Optional[int] = None,
                                     ontology_source: Optional[str] = None) -> Dict[str, Any]:
         """
-        Generate RDF triples for the given concepts.
+        Generate RDF triples for the given saved concepts.
+        Skips concept extraction and goes directly to triple generation.
+        
+        Args:
+            concepts: List of saved concept dictionaries with 'label', 'type', 'description'
+            world_id: World ID for context
+            guideline_id: Guideline ID for triple association
+            ontology_source: Ontology to align with (default: 'engineering-ethics')
+            
+        Returns:
+            Dict with generated triples and metadata
         """
-        # This method would remain largely the same as the original
-        # Implementation details for triple generation...
-        pass
+        try:
+            logger.info(f"Generating triples for {len(concepts)} saved concepts")
+            
+            # Set default ontology source
+            if not ontology_source:
+                ontology_source = 'engineering-ethics'
+            
+            # Convert saved concepts to the format expected by MCP server
+            mcp_concepts = []
+            for i, concept in enumerate(concepts):
+                mcp_concept = {
+                    'id': f'concept_{i}',
+                    'label': concept.get('label', 'Unknown Concept'),
+                    'description': concept.get('description', ''),
+                    'category': concept.get('type', 'concept').lower()
+                }
+                mcp_concepts.append(mcp_concept)
+            
+            # If mock responses are enabled, return mock triples
+            if self.use_mock_responses:
+                logger.info("Using mock triple generation for saved concepts")
+                mock_triples = self._generate_mock_ontology_triples("", world_id, guideline_id or 0)
+                return {
+                    'success': True,
+                    'triples': mock_triples,
+                    'triple_count': len(mock_triples),
+                    'mock': True,
+                    'message': "Using mock guideline responses"
+                }
+            
+            # Try MCP server for triple generation
+            try:
+                mcp_url = self.mcp_client.mcp_url
+                if mcp_url:
+                    logger.info(f"Using MCP server for triple generation from saved concepts")
+                    
+                    # Generate triples for saved concepts - select all concepts
+                    selected_indices = list(range(len(mcp_concepts)))
+                    
+                    response = requests.post(
+                        f"{mcp_url}/jsonrpc",
+                        json={
+                            "jsonrpc": "2.0",
+                            "method": "call_tool",
+                            "params": {
+                                "name": "generate_concept_triples",
+                                "arguments": {
+                                    "concepts": mcp_concepts,
+                                    "selected_indices": selected_indices,
+                                    "ontology_source": ontology_source,
+                                    "namespace": f"http://proethica.org/guidelines/guideline_{guideline_id}/",
+                                    "output_format": "json"
+                                }
+                            },
+                            "id": 1
+                        },
+                        timeout=60
+                    )
+            
+                    if response and response.status_code == 200:
+                        result = response.json()
+                        if "result" in result and "triples" in result["result"]:
+                            triples = result["result"]["triples"]
+                            logger.info(f"MCP server generated {len(triples)} triples from saved concepts")
+                            return {
+                                'success': True,
+                                'triples': triples,
+                                'triple_count': len(triples),
+                                'term_count': len(concepts)
+                            }
+                        elif "error" in result:
+                            logger.error(f"MCP server error: {result['error']}")
+                    else:
+                        logger.warning(f"MCP server returned status {response.status_code}")
+                        
+            except Exception as e:
+                logger.warning(f"MCP server error, falling back to mock: {str(e)}")
+            
+            # Fall back to mock triples if MCP fails
+            logger.info("Falling back to mock triple generation for saved concepts")
+            mock_triples = self._generate_mock_ontology_triples("", world_id, guideline_id or 0)
+            return {
+                'success': True,
+                'triples': mock_triples,
+                'triple_count': len(mock_triples),
+                'term_count': len(concepts),
+                'fallback': True,
+                'message': "MCP server unavailable, using mock data"
+            }
+                
+        except Exception as e:
+            logger.error(f"Error in generate_triples_for_concepts: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'triples': [],
+                'triple_count': 0
+            }
