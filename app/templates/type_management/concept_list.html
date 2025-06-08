@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Concept List - Type Management{% endblock %}
+
+{% block styles %}
+<style>
+    .concept-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .concept-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .confidence-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        position: relative;
+    }
+    
+    .confidence-indicator {
+        width: 2px;
+        height: 8px;
+        background: #000;
+        position: absolute;
+        top: -2px;
+    }
+    
+    .needs-review-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .batch-select {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+    
+    .concept-card.selected {
+        border: 2px solid #007bff;
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-list-ul me-2"></i>Concept List</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('type_management.dashboard') }}">Type Management</a></li>
+                    <li class="breadcrumb-item active">Concepts</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('type_management.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filters and Batch Actions -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <label for="filter-select" class="form-label">Filter</label>
+                            <select id="filter-select" class="form-select" onchange="applyFilter()">
+                                <option value="all" {{ 'selected' if filter_type == 'all' }}>All Concepts</option>
+                                <option value="needs_review" {{ 'selected' if filter_type == 'needs_review' }}>Needs Review</option>
+                                <option value="low_confidence" {{ 'selected' if filter_type == 'low_confidence' }}>Low Confidence</option>
+                                <option value="with_metadata" {{ 'selected' if filter_type == 'with_metadata' }}>With Mapping Data</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="sort-select" class="form-label">Sort By</label>
+                            <select id="sort-select" class="form-select" onchange="applyFilter()">
+                                <option value="recent" {{ 'selected' if sort_by == 'recent' }}>Most Recent</option>
+                                <option value="confidence" {{ 'selected' if sort_by == 'confidence' }}>Confidence (Low to High)</option>
+                                <option value="name" {{ 'selected' if sort_by == 'name' }}>Name (A-Z)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary" onclick="selectAll()">
+                                    <i class="bi bi-check-all"></i> Select All
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="clearSelection()">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <label class="form-label">Batch Actions</label>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success" onclick="batchApprove()" disabled id="batch-approve-btn">
+                            <i class="bi bi-check"></i> Approve
+                        </button>
+                        <button class="btn btn-warning" onclick="batchReview()" disabled id="batch-review-btn">
+                            <i class="bi bi-exclamation-triangle"></i> Review
+                        </button>
+                        <span class="badge bg-secondary align-self-center" id="selected-count">0 selected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Concepts Grid -->
+    {% if concepts.items %}
+    <div class="row">
+        {% for concept in concepts.items %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card concept-card h-100" data-concept-id="{{ concept.id }}">
+                <!-- Batch selection checkbox -->
+                <div class="batch-select">
+                    <input class="form-check-input batch-checkbox" type="checkbox" 
+                           value="{{ concept.id }}" onchange="updateBatchButtons()">
+                </div>
+                
+                <!-- Needs review badge -->
+                {% if concept.needs_type_review %}
+                <div class="needs-review-badge">
+                    <span class="badge bg-warning">Needs Review</span>
+                </div>
+                {% endif %}
+                
+                <div class="card-body pt-5">
+                    <h6 class="card-title">{{ concept.subject_label or 'Unknown Concept' }}</h6>
+                    
+                    <!-- Type mapping info -->
+                    <div class="mb-2">
+                        {% if concept.original_llm_type and concept.original_llm_type != concept.object_literal %}
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-right"></i> 
+                            {{ concept.original_llm_type }} → {{ concept.object_literal }}
+                        </small>
+                        {% else %}
+                        <small class="text-muted">Type: {{ concept.object_literal }}</small>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Confidence indicator -->
+                    {% if concept.type_mapping_confidence %}
+                    <div class="mb-2">
+                        <small class="text-muted">Confidence: {{ "%.1f"|format(concept.type_mapping_confidence * 100) }}%</small>
+                        <div class="confidence-bar">
+                            <div class="confidence-indicator" style="left: {{ concept.type_mapping_confidence * 100 }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Mapping justification -->
+                    {% if concept.mapping_justification %}
+                    <p class="card-text small text-muted">{{ concept.mapping_justification|truncate(80) }}</p>
+                    {% endif %}
+                    
+                    <!-- Guideline info -->
+                    {% if concept.guideline_id %}
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            <i class="bi bi-book"></i> Guideline {{ concept.guideline_id }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('type_management.concept_detail', concept_id=concept.id) }}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> Review
+                        </a>
+                        
+                        <!-- Confidence badge -->
+                        {% if concept.type_mapping_confidence %}
+                        <span class="badge {% if concept.type_mapping_confidence >= 0.8 %}bg-success{% elif concept.type_mapping_confidence >= 0.6 %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ "%.0f"|format(concept.type_mapping_confidence * 100) }}%
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if concepts.pages > 1 %}
+    <nav aria-label="Concept pagination">
+        <ul class="pagination justify-content-center">
+            {% if concepts.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('type_management.concept_list', page=concepts.prev_num, filter=filter_type, sort=sort_by) }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in concepts.iter_pages() %}
+                {% if page_num %}
+                    {% if page_num != concepts.page %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('type_management.concept_list', page=page_num, filter=filter_type, sort=sort_by) }}">{{ page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">…</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if concepts.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('type_management.concept_list', page=concepts.next_num, filter=filter_type, sort=sort_by) }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- No concepts found -->
+    <div class="text-center py-5">
+        <i class="bi bi-inbox display-1 text-muted"></i>
+        <h3 class="text-muted mt-3">No concepts found</h3>
+        <p class="text-muted">Try adjusting your filters or check back later.</p>
+        <a href="{{ url_for('type_management.concept_list') }}" class="btn btn-primary">
+            View All Concepts
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+let selectedConcepts = new Set();
+
+function applyFilter() {
+    const filter = document.getElementById('filter-select').value;
+    const sort = document.getElementById('sort-select').value;
+    
+    const params = new URLSearchParams();
+    if (filter !== 'all') params.set('filter', filter);
+    if (sort !== 'recent') params.set('sort', sort);
+    
+    const url = '{{ url_for("type_management.concept_list") }}' + 
+                (params.toString() ? '?' + params.toString() : '');
+    window.location.href = url;
+}
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.batch-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+        selectedConcepts.add(parseInt(cb.value));
+    });
+    updateBatchButtons();
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.batch-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    selectedConcepts.clear();
+    updateBatchButtons();
+}
+
+function updateBatchButtons() {
+    const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+    selectedConcepts = new Set(Array.from(checkboxes).map(cb => parseInt(cb.value)));
+    
+    const count = selectedConcepts.size;
+    document.getElementById('selected-count').textContent = `${count} selected`;
+    
+    const approveBtn = document.getElementById('batch-approve-btn');
+    const reviewBtn = document.getElementById('batch-review-btn');
+    
+    if (count > 0) {
+        approveBtn.disabled = false;
+        reviewBtn.disabled = false;
+    } else {
+        approveBtn.disabled = true;
+        reviewBtn.disabled = true;
+    }
+}
+
+function batchApprove() {
+    if (selectedConcepts.size === 0) return;
+    
+    if (confirm(`Approve ${selectedConcepts.size} concepts?`)) {
+        fetch('{{ url_for("type_management.batch_approve_concepts") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                concept_ids: Array.from(selectedConcepts),
+                action: 'approve'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Network error: ' + error);
+        });
+    }
+}
+
+function batchReview() {
+    if (selectedConcepts.size === 0) return;
+    
+    if (confirm(`Mark ${selectedConcepts.size} concepts as needing review?`)) {
+        fetch('{{ url_for("type_management.batch_approve_concepts") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                concept_ids: Array.from(selectedConcepts),
+                action: 'needs_review'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Network error: ' + error);
+        });
+    }
+}
+
+// Add click handler for concept cards
+document.addEventListener('DOMContentLoaded', function() {
+    const conceptCards = document.querySelectorAll('.concept-card');
+    conceptCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if clicking on checkbox, badge, or button
+            if (e.target.type === 'checkbox' || 
+                e.target.closest('.btn') || 
+                e.target.closest('.badge')) {
+                return;
+            }
+            
+            const checkbox = card.querySelector('.batch-checkbox');
+            checkbox.checked = !checkbox.checked;
+            updateBatchButtons();
+            
+            // Visual feedback
+            if (checkbox.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

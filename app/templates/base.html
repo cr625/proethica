@@ -70,6 +70,19 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="/ontology-editor">Ontology Editor</a>
                             </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="typeManagementDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-gear"></i> Type Management
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="typeManagementDropdown">
+                                    <li><a class="dropdown-item" href="/type-management/"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
+                                    <li><a class="dropdown-item" href="/type-management/concepts"><i class="bi bi-list-ul me-2"></i>All Concepts</a></li>
+                                    <li><a class="dropdown-item" href="/type-management/concepts?filter=needs_review"><i class="bi bi-exclamation-triangle me-2"></i>Needs Review</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="/type-management/mappings"><i class="bi bi-graph-up me-2"></i>Statistics</a></li>
+                                    <li><a class="dropdown-item" href="/type-management/pending-types"><i class="bi bi-clock me-2"></i>Pending Types</a></li>
+                                </ul>
+                            </li>
                         </ul>
                         <ul class="navbar-nav">
                             {% if session.get('user_id') %}

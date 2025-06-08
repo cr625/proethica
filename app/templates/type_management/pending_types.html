@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Types - Type Management{% endblock %}
+
+{% block styles %}
+<style>
+    .pending-type-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .pending-type-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .approval-actions {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .usage-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-clock me-2"></i>Pending Types</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('type_management.dashboard') }}">Type Management</a></li>
+                    <li class="breadcrumb-item active">Pending Types</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('type_management.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+            </a>
+            <button class="btn btn-success" onclick="approveSelected()" disabled id="approve-selected-btn">
+                <i class="bi bi-check me-1"></i>Approve Selected
+            </button>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Summary Info -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <div>
+                        <strong>{{ pending_types|length }} pending types</strong> awaiting approval. 
+                        These are new concept types discovered during guideline analysis that don't match existing ontology types.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    {% if pending_types %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <button class="btn btn-outline-primary" onclick="selectAll()">
+                                <i class="bi bi-check-all"></i> Select All
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="clearSelection()">
+                                <i class="bi bi-x-circle"></i> Clear Selection
+                            </button>
+                            <span class="ms-3 text-muted" id="selection-count">0 selected</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-success" onclick="bulkApprove()" disabled id="bulk-approve-btn">
+                                <i class="bi bi-check"></i> Approve Selected
+                            </button>
+                            <button class="btn btn-danger" onclick="bulkReject()" disabled id="bulk-reject-btn">
+                                <i class="bi bi-x"></i> Reject Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pending Types Grid -->
+    {% if pending_types %}
+    <div class="row">
+        {% for pending_type in pending_types %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card pending-type-card h-100" data-type-id="{{ pending_type.id }}">
+                <!-- Usage indicator -->
+                <div class="usage-indicator">
+                    <span class="badge bg-info">{{ pending_type.usage_count }} uses</span>
+                </div>
+                
+                <!-- Selection checkbox -->
+                <div class="approval-actions">
+                    <input class="form-check-input type-checkbox" type="checkbox" 
+                           value="{{ pending_type.id }}" onchange="updateBulkButtons()">
+                </div>
+                
+                <div class="card-body pt-5">
+                    <h5 class="card-title">{{ pending_type.proposed_type }}</h5>
+                    
+                    {% if pending_type.description %}
+                    <p class="card-text">{{ pending_type.description|truncate(120) }}</p>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar"></i> 
+                            Submitted {{ pending_type.created_at.strftime('%Y-%m-%d') }}
+                        </small>
+                    </div>
+                    
+                    {% if pending_type.example_concepts %}
+                    <div class="mb-3">
+                        <small class="text-muted">Example concepts:</small>
+                        <div class="small">
+                            {% for example in pending_type.example_concepts[:3] %}
+                            <span class="badge bg-light text-dark me-1">{{ example|truncate(20) }}</span>
+                            {% endfor %}
+                            {% if pending_type.example_concepts|length > 3 %}
+                            <span class="text-muted">+{{ pending_type.example_concepts|length - 3 }} more</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if pending_type.confidence_score %}
+                    <div class="mb-3">
+                        <small class="text-muted">Confidence:</small>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar {% if pending_type.confidence_score >= 0.8 %}bg-success{% elif pending_type.confidence_score >= 0.6 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                 style="width: {{ pending_type.confidence_score * 100 }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ "%.1f"|format(pending_type.confidence_score * 100) }}%</small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-sm btn-success" onclick="approveSingle({{ pending_type.id }})">
+                            <i class="bi bi-check"></i> Approve
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="reviewSingle({{ pending_type.id }})">
+                            <i class="bi bi-eye"></i> Review
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="rejectSingle({{ pending_type.id }})">
+                            <i class="bi bi-x"></i> Reject
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- No pending types -->
+    <div class="text-center py-5">
+        <i class="bi bi-check-circle display-1 text-success"></i>
+        <h3 class="text-muted mt-3">No Pending Types</h3>
+        <p class="text-muted">All concept types have been reviewed and approved!</p>
+        <a href="{{ url_for('type_management.concept_list') }}" class="btn btn-primary">
+            <i class="bi bi-list"></i> View All Concepts
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Type Review Modal -->
+<div class="modal fade" id="typeReviewModal" tabindex="-1" aria-labelledby="typeReviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="typeReviewModalLabel">Review Pending Type</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="typeReviewContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="approveFromModal()">
+                    <i class="bi bi-check"></i> Approve
+                </button>
+                <button type="button" class="btn btn-danger" onclick="rejectFromModal()">
+                    <i class="bi bi-x"></i> Reject
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedTypes = new Set();
+let currentReviewTypeId = null;
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.type-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+        selectedTypes.add(parseInt(cb.value));
+    });
+    updateBulkButtons();
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.type-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    selectedTypes.clear();
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkboxes = document.querySelectorAll('.type-checkbox:checked');
+    selectedTypes = new Set(Array.from(checkboxes).map(cb => parseInt(cb.value)));
+    
+    const count = selectedTypes.size;
+    document.getElementById('selection-count').textContent = `${count} selected`;
+    
+    const approveBtn = document.getElementById('bulk-approve-btn');
+    const rejectBtn = document.getElementById('bulk-reject-btn');
+    
+    if (count > 0) {
+        approveBtn.disabled = false;
+        rejectBtn.disabled = false;
+    } else {
+        approveBtn.disabled = true;
+        rejectBtn.disabled = true;
+    }
+}
+
+function bulkApprove() {
+    if (selectedTypes.size === 0) return;
+    
+    if (confirm(`Approve ${selectedTypes.size} pending types?`)) {
+        // Implementation would call backend API
+        alert(`Would approve types: ${Array.from(selectedTypes).join(', ')}`);
+        // location.reload();
+    }
+}
+
+function bulkReject() {
+    if (selectedTypes.size === 0) return;
+    
+    if (confirm(`Reject ${selectedTypes.size} pending types?`)) {
+        // Implementation would call backend API
+        alert(`Would reject types: ${Array.from(selectedTypes).join(', ')}`);
+        // location.reload();
+    }
+}
+
+function approveSingle(typeId) {
+    if (confirm('Approve this pending type?')) {
+        // Implementation would call backend API
+        alert(`Would approve type ID: ${typeId}`);
+        // location.reload();
+    }
+}
+
+function rejectSingle(typeId) {
+    if (confirm('Reject this pending type?')) {
+        // Implementation would call backend API
+        alert(`Would reject type ID: ${typeId}`);
+        // location.reload();
+    }
+}
+
+function reviewSingle(typeId) {
+    currentReviewTypeId = typeId;
+    
+    // Load type details into modal
+    document.getElementById('typeReviewContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('typeReviewModal'));
+    modal.show();
+    
+    // Simulate loading type details
+    setTimeout(() => {
+        document.getElementById('typeReviewContent').innerHTML = `
+            <div class="alert alert-info">
+                <h6>Type ID: ${typeId}</h6>
+                <p>Detailed review interface would be loaded here with:</p>
+                <ul>
+                    <li>Full type description and examples</li>
+                    <li>Similar existing types</li>
+                    <li>Usage patterns and contexts</li>
+                    <li>Suggested mappings</li>
+                </ul>
+            </div>
+        `;
+    }, 500);
+}
+
+function approveFromModal() {
+    if (currentReviewTypeId) {
+        approveSingle(currentReviewTypeId);
+        bootstrap.Modal.getInstance(document.getElementById('typeReviewModal')).hide();
+    }
+}
+
+function rejectFromModal() {
+    if (currentReviewTypeId) {
+        rejectSingle(currentReviewTypeId);
+        bootstrap.Modal.getInstance(document.getElementById('typeReviewModal')).hide();
+    }
+}
+
+// Initialize tooltips and other Bootstrap components
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh every 60 seconds
+    setTimeout(function() {
+        location.reload();
+    }, 60000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Type Review Dashboard - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block styles %}
+<style>
+    .confidence-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        position: relative;
+    }
+    
+    .confidence-indicator {
+        width: 2px;
+        height: 10px;
+        background: #000;
+        position: absolute;
+        top: -2px;
+    }
+    
+    .type-mapping-card {
+        transition: transform 0.2s;
+    }
+    
+    .type-mapping-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .needs-review {
+        border-left: 4px solid #ffc107;
+    }
+    
+    .low-confidence {
+        border-left: 4px solid #dc3545;
+    }
+    
+    .high-confidence {
+        border-left: 4px solid #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-gear-fill me-2"></i>Type Review Dashboard</h1>
+        <div>
+            <a href="{{ url_for('type_management.concept_list') }}" class="btn btn-primary">
+                <i class="bi bi-list-ul me-1"></i>View All Concepts
+            </a>
+            <a href="{{ url_for('type_management.mapping_statistics') }}" class="btn btn-outline-info">
+                <i class="bi bi-graph-up me-1"></i>Statistics
+            </a>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Needs Review</h5>
+                            <h2 class="mb-0">{{ concepts_needing_review|length }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Pending Types</h5>
+                            <h2 class="mb-0">{{ pending_types|length }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-clock fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Avg Confidence</h5>
+                            <h2 class="mb-0">
+                                {% if confidence_stats and confidence_stats.avg_confidence %}
+                                    {{ "%.1f"|format(confidence_stats.avg_confidence * 100) }}%
+                                {% else %}
+                                    --
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-graph-up fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Total Concepts</h5>
+                            <h2 class="mb-0">
+                                {% if confidence_stats %}
+                                    {{ confidence_stats.total_concepts }}
+                                {% else %}
+                                    --
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-collection fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning-fill me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="{{ url_for('type_management.concept_list', filter='needs_review') }}" class="btn btn-warning w-100 mb-2">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Review Pending Concepts
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{{ url_for('type_management.concept_list', filter='low_confidence') }}" class="btn btn-danger w-100 mb-2">
+                                <i class="bi bi-graph-down me-2"></i>Check Low Confidence Mappings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Concepts Needing Review -->
+    {% if concepts_needing_review %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Concepts Needing Review</h5>
+                    <span class="badge bg-warning">{{ concepts_needing_review|length }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for concept in concepts_needing_review[:10] %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card type-mapping-card needs-review h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ concept.subject_label or 'Unknown Concept' }}</h6>
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            {% if concept.original_llm_type %}
+                                                {{ concept.original_llm_type }} → {{ concept.object_literal }}
+                                            {% else %}
+                                                Type: {{ concept.object_literal }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    
+                                    {% if concept.type_mapping_confidence %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">Confidence: {{ "%.1f"|format(concept.type_mapping_confidence * 100) }}%</small>
+                                        <div class="confidence-bar">
+                                            <div class="confidence-indicator" style="left: {{ concept.type_mapping_confidence * 100 }}%"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if concept.mapping_justification %}
+                                    <p class="card-text small text-muted">{{ concept.mapping_justification|truncate(100) }}</p>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex justify-content-between">
+                                        <a href="{{ url_for('type_management.concept_detail', concept_id=concept.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">Review</a>
+                                        <span class="badge bg-warning">Needs Review</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if concepts_needing_review|length > 10 %}
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('type_management.concept_list', filter='needs_review') }}" 
+                           class="btn btn-outline-primary">
+                            View All {{ concepts_needing_review|length }} Concepts
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Type Distribution -->
+    {% if type_distribution %}
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Type Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for type_info in type_distribution %}
+                        <div class="col-md-4 mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-secondary">{{ type_info[0] or 'Unknown' }}</span>
+                                <span class="fw-bold">{{ type_info[1] }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_mappings %}
+                        {% for concept in recent_mappings[:5] %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <small class="fw-bold">{{ concept.subject_label|truncate(20) }}</small><br>
+                                <small class="text-muted">{{ concept.object_literal }}</small>
+                            </div>
+                            {% if concept.type_mapping_confidence %}
+                            <span class="badge {% if concept.type_mapping_confidence >= 0.8 %}bg-success{% elif concept.type_mapping_confidence >= 0.6 %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ "%.1f"|format(concept.type_mapping_confidence * 100) }}%
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pending Types for Approval -->
+    {% if pending_types %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-clock me-2"></i>Pending New Types</h5>
+                    <a href="{{ url_for('type_management.pending_types') }}" class="btn btn-sm btn-outline-primary">Manage All</a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for pending_type in pending_types[:6] %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card type-mapping-card">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ pending_type.proposed_type }}</h6>
+                                    <p class="card-text small">{{ pending_type.description|truncate(100) }}</p>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-info">{{ pending_type.usage_count }} uses</span>
+                                        <small class="text-muted">{{ pending_type.created_at.strftime('%m/%d') }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh dashboard every 30 seconds
+    setTimeout(function() {
+        location.reload();
+    }, 30000);
+});
+</script>
+{% endblock %}
