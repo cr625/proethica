@@ -53,34 +53,69 @@
                     <div class="collapse navbar-collapse" id="navbarNav">
                         <ul class="navbar-nav me-auto">
                             <li class="nav-item">
-                                <a class="nav-link" href="/">Home</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/scenarios">Scenarios</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/worlds">Worlds</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/cases">Cases</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/agent">Agent</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="/ontology-editor">Ontology Editor</a>
+                                <a class="nav-link" href="/">
+                                    <i class="bi bi-house"></i> Home
+                                </a>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="typeManagementDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-gear"></i> Type Management
+                                <a class="nav-link dropdown-toggle" href="#" id="worldsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-globe2"></i> Worlds
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="typeManagementDropdown">
-                                    <li><a class="dropdown-item" href="/type-management/"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
-                                    <li><a class="dropdown-item" href="/type-management/concepts"><i class="bi bi-list-ul me-2"></i>All Concepts</a></li>
-                                    <li><a class="dropdown-item" href="/type-management/concepts?filter=needs_review"><i class="bi bi-exclamation-triangle me-2"></i>Needs Review</a></li>
+                                <ul class="dropdown-menu" aria-labelledby="worldsDropdown">
+                                    <li><a class="dropdown-item" href="/worlds">
+                                        <i class="bi bi-list-ul me-2"></i>View All Worlds
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/worlds/new">
+                                        <i class="bi bi-plus-circle me-2"></i>Create New World
+                                    </a></li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="/type-management/mappings"><i class="bi bi-graph-up me-2"></i>Statistics</a></li>
-                                    <li><a class="dropdown-item" href="/type-management/pending-types"><i class="bi bi-clock me-2"></i>Pending Types</a></li>
+                                    <li><h6 class="dropdown-header">Quick Access</h6></li>
+                                    <li><a class="dropdown-item" href="/cases">
+                                        <i class="bi bi-folder2-open me-2"></i>All Cases
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/scenarios">
+                                        <i class="bi bi-collection-play me-2"></i>All Scenarios
+                                    </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="ontologyDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-diagram-3"></i> Ontology
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="ontologyDropdown">
+                                    <li><a class="dropdown-item" href="/ontology-editor">
+                                        <i class="bi bi-pencil-square me-2"></i>Ontology Editor
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/type-management/">
+                                        <i class="bi bi-gear me-2"></i>Type Management
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="/type-management/concepts?filter=needs_review">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>Needs Review
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/type-management/mappings">
+                                        <i class="bi bi-graph-up me-2"></i>Statistics
+                                    </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-tools"></i> Tools
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
+                                    <li><a class="dropdown-item" href="/agent">
+                                        <i class="bi bi-robot me-2"></i>Ethics Agent
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/agent/ontology">
+                                        <i class="bi bi-diagram-3 me-2"></i>Ontology Agent
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="/experiment">
+                                        <i class="bi bi-flask me-2"></i>Experiments
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/debug">
+                                        <i class="bi bi-bug me-2"></i>Debug Tools
+                                    </a></li>
                                 </ul>
                             </li>
                         </ul>

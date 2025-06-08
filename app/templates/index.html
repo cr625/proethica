@@ -1,122 +1,239 @@
 {% extends "base.html" %}
 
-{% block title %}Home - {{ config['APP_NAME'] }}{% endblock %}
+{% block title %}ProEthica - Ethical Decision-Making Platform{% endblock %}
+
+{% block styles %}
+<style>
+    .world-item, .ontology-item {
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    
+    .world-item:hover, .ontology-item:hover {
+        background-color: #f8f9fa;
+        border-color: #007bff !important;
+    }
+    
+    .world-item .btn, .ontology-item .btn {
+        transition: all 0.2s;
+    }
+    
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .status-online {
+        background-color: #28a745;
+    }
+    
+    .status-offline {
+        background-color: #dc3545;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="jumbotron">
-    <h1 class="display-4">{{ config['APP_NAME'] }}</h1>
-    <p class="lead">Resource and Entity Alignment for Language Models</p>
-    <hr class="my-4">
-    <p>{{ config['APP_NAME'] }} simulates ethical scenarios in customizable worlds using rich domain ontologies,
-        role-based guidelines,
-        and structured reasoning. The system combines professional guidelines, case precedents, and domain rules to
-        guide
-        ethical decision-making through ontological inference and validated LLM interactions.
-    </p>
-    <div class="d-flex gap-2">
-        <a class="btn btn-primary btn-lg" href="/worlds" role="button">Explore Worlds</a>
-        <a class="btn btn-success btn-lg" href="/scenarios" role="button">Browse Scenarios</a>
-    </div>
-</div>
-
-<div class="row mt-5">
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Ontology-Driven Knowledge</h5>
-                <p class="card-text">{{ config['APP_NAME'] }} leverages rich domain ontologies to create a foundation of
-                    structured knowledge,
-                    enabling precise reasoning and inference about entities, relationships, and professional guidelines.
+<div class="container mt-4">
+    <!-- Header with Description -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-normal">ProEthica</h1>
+        <p class="lead text-muted mb-4">Ethical Decision-Making Platform</p>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <p class="text-muted">
+                    ProEthica helps analyze ethical decisions in professional contexts. 
+                    Work within professional <strong>worlds</strong> to analyze <a href="/worlds" class="text-decoration-none">cases</a>, 
+                    create <a href="/scenarios" class="text-decoration-none">scenarios</a>, and manage 
+                    <a href="/worlds" class="text-decoration-none">guidelines</a> using ontology-based reasoning and AI agents.
                 </p>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">World & Scenario Building</h5>
-                <p class="card-text">Create customizable worlds with appropriate entities and constraints, then define
-                    scenarios
-                    within these worlds where ethical decisions can be simulated and analyzed based on professional
-                    roles.</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Role-Based Ethics</h5>
-                <p class="card-text">Decisions are evaluated through the lens of professional roles, each bound by
-                    specific ethical guidelines, cases, rules, and references that determine appropriate conduct within
-                    a world context.</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Structured Reasoning</h5>
-                <p class="card-text">Combines ontological inference with LLM capabilities, using the Model Context
-                    Protocol (MCP) to ensure
-                    valid input/output structures and enhance reasoning with structured domain knowledge.</p>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="row mt-4">
-    <div class="col-md-12">
-        <h3>AI Agents</h3>
-        <div class="d-flex gap-3 mb-4">
-            <a href="/agent/" class="btn btn-info">
-                <i class="bi bi-robot"></i> Ethics Agent
-            </a>
-            <a href="/agent/ontology/" class="btn btn-info">
-                <i class="bi bi-diagram-3"></i> Ontology Explorer Agent
-            </a>
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Available Worlds -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-globe2 me-2"></i>Available Worlds</h5>
+                    <a href="/worlds/new" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-circle me-1"></i>Create New
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if worlds %}
+                        {% for world in worlds %}
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded world-item">
+                            <div>
+                                <h6 class="mb-1">
+                                    <a href="/worlds/{{ world.id }}" class="text-decoration-none">{{ world.name }}</a>
+                                </h6>
+                                <p class="mb-0 text-muted small">{{ world.description|truncate(80) }}</p>
+                            </div>
+                            <div class="text-end">
+                                <a href="/worlds/{{ world.id }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-arrow-right me-1"></i>Enter
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-globe2 display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No worlds available</p>
+                            <a href="/worlds/new" class="btn btn-primary">Create Your First World</a>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        Each world contains cases, scenarios, guidelines, and agents for a specific professional domain.
+                    </small>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
-<div class="row mt-2">
-    <div class="col-md-6">
-        <h3>Getting Started</h3>
-        <p>To begin using {{ config['APP_NAME'] }}:</p>
-        <ol>
-            <li>Select an existing world or create a new one</li>
-            <li>Explore existing scenarios or create a new one within a world</li>
-            <li>Add characters, conditions, and resources to a scenario. The system can assist by drafting descriptions
-                and suggesting appropriate roles, conditions, resources, and actions from those defined in the world
-            </li>
-            <li>Create a timeline of events and actions that is considered in the ethical evaluation process.</li>
-            <li>See recommendations for decisions and see how they were evaluated.</li>
-        </ol>
-        <div class="d-flex gap-2">
-            <a href="/worlds/new" class="btn btn-primary">Create New World</a>
-            <a href="/scenarios/new" class="btn btn-success">Create New Scenario</a>
+        <!-- Ontology Management -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Ontology Management</h5>
+                </div>
+                <div class="card-body">
+                    {% if ontologies %}
+                        {% for ontology in ontologies %}
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded ontology-item">
+                            <div>
+                                <h6 class="mb-1">{{ ontology.name }}</h6>
+                                <p class="mb-0 text-muted small">{{ ontology.description|truncate(60) }}</p>
+                            </div>
+                            <div class="text-end">
+                                <a href="/ontology-editor?ontology={{ ontology.id }}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Fallback to common ontologies -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded ontology-item">
+                            <div>
+                                <h6 class="mb-1">Engineering Ethics</h6>
+                                <p class="mb-0 text-muted small">Core ontology for engineering professional ethics</p>
+                            </div>
+                            <div class="text-end">
+                                <a href="/ontology-editor" class="btn btn-sm btn-info">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </a>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded ontology-item">
+                            <div>
+                                <h6 class="mb-1">ProEthica Intermediate</h6>
+                                <p class="mb-0 text-muted small">Intermediate concepts and relationships</p>
+                            </div>
+                            <div class="text-end">
+                                <a href="/ontology-editor" class="btn btn-sm btn-info">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Quick Actions -->
+                    <div class="mt-4">
+                        <div class="d-grid gap-2">
+                            <a href="/type-management/" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-gear me-1"></i>Type Management
+                            </a>
+                            <a href="/type-management/concepts?filter=needs_review" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Review Types
+                                {% if pending_reviews > 0 %}
+                                <span class="badge bg-warning text-dark ms-1">{{ pending_reviews }}</span>
+                                {% endif %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        Manage concepts, relationships, and type mappings across all domains.
+                    </small>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <h3>Ontology-Based Ethics Framework</h3>
-        <p>{{ config['APP_NAME'] }} combines role-based ethics with rich ontological reasoning to create a comprehensive
-            ethical
-            decision-making system:</p>
-        <ul>
-            <li><strong>Knowledge Integration:</strong> Combines domain ontologies with professional codes, case
-                precedents, and
-                ethical standards as structured knowledge for precise reasoning.</li>
-            <li><strong>Simulation Environment:</strong> Evaluates ethical decisions within worlds that have defined
-                boundaries,
-                constraints, and relationships between entities.</li>
-            <li><strong>LLM-Enhanced Analysis:</strong> Leverages structured data exchange with language models while
-                using
-                ontological inferences to guide reliable ethical evaluations.</li>
-        </ul>
-        <p>This architecture enables a unique approach where role-based ethics analysis is enhanced by ontological
-            reasoning,
-            creating a system that can evaluate decisions with both the human ethical guidelines and the formal domain
-            knowledge.</p>
-        <a href="/worlds" class="btn btn-outline-primary">Explore Available Worlds</a>
+
+    <!-- System Status -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-activity me-2"></i>System Status</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="d-flex justify-content-center align-items-center mb-1">
+                                    <span class="status-indicator {{ 'status-online' if mcp_status else 'status-offline' }} me-2"></span>
+                                    <span>{{ 'Online' if mcp_status else 'Offline' }}</span>
+                                </div>
+                                <small class="text-muted">MCP Server</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="d-flex justify-content-center align-items-center mb-1">
+                                    <span class="status-indicator status-online me-2"></span>
+                                    <span>Connected</span>
+                                </div>
+                                <small class="text-muted">Database</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="d-flex justify-content-center align-items-center mb-1">
+                                    <span class="status-indicator {{ 'status-online' if embedding_status else 'status-offline' }} me-2"></span>
+                                    <span>{{ 'Ready' if embedding_status else 'Not Ready' }}</span>
+                                </div>
+                                <small class="text-muted">Embeddings</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="mb-1">
+                                    <span class="fw-bold">{{ concept_count or 0 }}</span>
+                                </div>
+                                <small class="text-muted">Ontology Concepts</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Tools -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <div class="btn-group" role="group" aria-label="Quick tools">
+                <a href="/experiment" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-flask me-1"></i>Experiments
+                </a>
+                <a href="/agent" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-robot me-1"></i>Ethics Agent
+                </a>
+                <a href="/debug" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-bug me-1"></i>Debug Tools
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
