@@ -13,6 +13,7 @@ import re
 from app import db
 from app.utils.llm_utils import get_llm_client
 from app.services.mcp_client import MCPClient
+from app.services.guideline_concept_type_mapper import GuidelineConceptTypeMapper
 from app.models.entity_triple import EntityTriple
 
 # Set up logging
@@ -33,6 +34,10 @@ class GuidelineAnalysisService:
         
         # Cache for guideline concept types
         self._guideline_concept_types = None
+        
+        # Initialize type mapper for intelligent type mapping
+        self.type_mapper = GuidelineConceptTypeMapper()
+        logger.info("GuidelineAnalysisService initialized with intelligent type mapping")
         
     def _get_guideline_concept_types(self) -> Dict[str, Dict[str, str]]:
         """
@@ -202,12 +207,28 @@ class GuidelineAnalysisService:
                         result = response.json()
                         if "result" in result and "concepts" in result["result"]:
                             concepts = result["result"]["concepts"]
-                            # Validate all concepts have valid types
+                            # Validate and map concept types using intelligent type mapper
                             valid_types = set(concept_types.keys())
                             for concept in concepts:
-                                if concept.get("type") not in valid_types:
-                                    logger.warning(f"Invalid concept type: {concept.get('type')}")
-                                    concept["type"] = "state"  # Default to state
+                                original_type = concept.get("type")
+                                if original_type not in valid_types:
+                                    logger.info(f"Mapping invalid type '{original_type}' for concept '{concept.get('label', 'Unknown')}'")
+                                    
+                                    # Use type mapper to get better mapping
+                                    mapping_result = self.type_mapper.map_concept_type(
+                                        llm_type=original_type,
+                                        concept_description=concept.get("description", ""),
+                                        concept_name=concept.get("label", "")
+                                    )
+                                    
+                                    # Store original type and mapping metadata
+                                    concept["original_llm_type"] = original_type
+                                    concept["type"] = mapping_result.mapped_type
+                                    concept["type_mapping_confidence"] = mapping_result.confidence
+                                    concept["needs_type_review"] = mapping_result.needs_review
+                                    concept["mapping_justification"] = mapping_result.justification
+                                    
+                                    logger.info(f"Mapped '{original_type}' → '{mapping_result.mapped_type}' (confidence: {mapping_result.confidence:.2f})")
                             return result["result"]
             except Exception as e:
                 logger.warning(f"MCP server error, falling back to LLM: {str(e)}")
@@ -316,7 +337,7 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
         return None
     
     def _parse_llm_response(self, response: str, valid_types: set) -> List[Dict[str, Any]]:
-        """Parse and validate concepts from LLM response."""
+        """Parse and validate concepts from LLM response using intelligent type mapping."""
         try:
             # Extract JSON array from response
             json_match = re.search(r'\[.*\]', response, re.DOTALL)
@@ -328,12 +349,36 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
                 for concept in concepts:
                     # Ensure required fields
                     if not all(field in concept for field in ["label", "description", "type"]):
+                        logger.warning(f"Skipping concept missing required fields: {concept}")
                         continue
+                    
+                    original_type = concept["type"]
+                    
+                    # Validate and map concept type
+                    if original_type not in valid_types:
+                        logger.info(f"Mapping invalid type '{original_type}' for concept '{concept['label']}'")
                         
-                    # Validate type
-                    if concept["type"] not in valid_types:
-                        logger.warning(f"Invalid type '{concept['type']}' for concept '{concept['label']}'")
-                        continue
+                        # Use type mapper to get better mapping
+                        mapping_result = self.type_mapper.map_concept_type(
+                            llm_type=original_type,
+                            concept_description=concept.get("description", ""),
+                            concept_name=concept.get("label", "")
+                        )
+                        
+                        # Store original type and mapping metadata
+                        concept["original_llm_type"] = original_type
+                        concept["type"] = mapping_result.mapped_type
+                        concept["type_mapping_confidence"] = mapping_result.confidence
+                        concept["needs_type_review"] = mapping_result.needs_review
+                        concept["mapping_justification"] = mapping_result.justification
+                        
+                        logger.info(f"Mapped '{original_type}' → '{mapping_result.mapped_type}' (confidence: {mapping_result.confidence:.2f})")
+                    else:
+                        # Type is already valid - no mapping needed
+                        concept["original_llm_type"] = original_type
+                        concept["type_mapping_confidence"] = 1.0  # Perfect confidence for exact match
+                        concept["needs_type_review"] = False
+                        concept["mapping_justification"] = f"Exact match to ontology type '{original_type}'"
                     
                     # Add default confidence if missing
                     if "confidence" not in concept:

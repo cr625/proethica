@@ -1450,7 +1450,7 @@ def save_guideline_concepts(world_id, document_id):
                     concept_uri = f"{namespace}{concept_label.lower().replace(' ', '_')}"
                     
                     # Create basic triples for this concept
-                    # 1. Type triple
+                    # 1. Type triple (with type mapping metadata)
                     type_triple = EntityTriple(
                         subject=concept_uri,
                         subject_label=concept_label,
@@ -1463,7 +1463,12 @@ def save_guideline_concepts(world_id, document_id):
                         entity_id=new_guideline.id,
                         guideline_id=new_guideline.id,
                         world_id=world_id,
-                        graph=f"guideline_{new_guideline.id}"
+                        graph=f"guideline_{new_guideline.id}",
+                        # Store type mapping metadata from GuidelineAnalysisService
+                        original_llm_type=concept.get("original_llm_type"),
+                        type_mapping_confidence=concept.get("type_mapping_confidence"),
+                        needs_type_review=concept.get("needs_type_review", False),
+                        mapping_justification=concept.get("mapping_justification")
                     )
                     db.session.add(type_triple)
                     created_triple_count += 1

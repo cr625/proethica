@@ -30,3 +30,7 @@ from app.models.guideline import Guideline
 from app.models.guideline_term_candidate import GuidelineTermCandidate
 from app.models.guideline_semantic_triple import GuidelineSemanticTriple
 from app.models.ontology_import import OntologyImport
+# Type mapping models (added 2025-01-08)
+from app.models.pending_concept_type import PendingConceptType
+from app.models.custom_concept_type import CustomConceptType
+from app.models.concept_type_mapping import ConceptTypeMapping
