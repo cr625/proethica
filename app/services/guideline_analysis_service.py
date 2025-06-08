@@ -210,7 +210,9 @@ class GuidelineAnalysisService:
                             # Validate and map concept types using intelligent type mapper
                             valid_types = set(concept_types.keys())
                             for concept in concepts:
-                                original_type = concept.get("type")
+                                # MCP server returns "category" field, map it to "type" for consistency
+                                original_type = concept.get("type") or concept.get("category")
+                                concept["type"] = original_type  # Ensure type field is set
                                 if original_type not in valid_types:
                                     logger.info(f"Mapping invalid type '{original_type}' for concept '{concept.get('label', 'Unknown')}'")
                                     
@@ -229,6 +231,12 @@ class GuidelineAnalysisService:
                                     concept["mapping_justification"] = mapping_result.justification
                                     
                                     logger.info(f"Mapped '{original_type}' → '{mapping_result.mapped_type}' (confidence: {mapping_result.confidence:.2f})")
+                                else:
+                                    # Type is already valid - add exact match metadata
+                                    concept["original_llm_type"] = original_type
+                                    concept["type_mapping_confidence"] = 1.0
+                                    concept["needs_type_review"] = False
+                                    concept["mapping_justification"] = f"Exact match to ontology type '{original_type}'"
                             return result["result"]
             except Exception as e:
                 logger.warning(f"MCP server error, falling back to LLM: {str(e)}")

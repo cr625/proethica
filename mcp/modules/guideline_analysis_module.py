@@ -765,16 +765,17 @@ class GuidelineAnalysisModule(MCPBaseModule):
                         "is_literal": True
                     })
                 
-                # 4. Add concept ID triple for reference
-                all_triples.append({
-                    "subject": concept_uri,
-                    "predicate": "http://proethica.org/ontology/hasConceptId",
-                    "object": str(concept_id),
-                    "subject_label": concept_label,
-                    "predicate_label": "has concept ID",
-                    "object_label": str(concept_id),
-                    "is_literal": True
-                })
+                # 4. Concept ID triple removed - not needed for UI display
+                # (concept_id was defaulting to 0 for all concepts, creating unhelpful triples)
+                # all_triples.append({
+                #     "subject": concept_uri,
+                #     "predicate": "http://proethica.org/ontology/hasConceptId",
+                #     "object": str(concept_id),
+                #     "subject_label": concept_label,
+                #     "predicate_label": "has concept ID",
+                #     "object_label": str(concept_id),
+                #     "is_literal": True
+                # })
                 
                 # 5. Add category/type information
                 all_triples.append({
