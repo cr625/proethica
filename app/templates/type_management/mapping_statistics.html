@@ -90,7 +90,7 @@
                         <div>
                             <h6 class="card-title">High Accuracy</h6>
                             <h3 class="mb-0">
-                                {% set high_accuracy = mappings|selectattr('confidence', 'ge', 0.8)|list|length %}
+                                {% set high_accuracy = mappings|selectattr('mapping_confidence', 'ge', 0.8)|list|length %}
                                 {{ high_accuracy }}
                             </h3>
                             <small class="text-light">≥80% confidence</small>
@@ -110,7 +110,7 @@
                         <div>
                             <h6 class="card-title">Medium Accuracy</h6>
                             <h3 class="mb-0">
-                                {% set medium_accuracy = mappings|selectattr('confidence', 'ge', 0.6)|selectattr('confidence', 'lt', 0.8)|list|length %}
+                                {% set medium_accuracy = mappings|selectattr('mapping_confidence', 'ge', 0.6)|selectattr('mapping_confidence', 'lt', 0.8)|list|length %}
                                 {{ medium_accuracy }}
                             </h3>
                             <small class="text-light">60-79% confidence</small>
@@ -130,7 +130,7 @@
                         <div>
                             <h6 class="card-title">Low Accuracy</h6>
                             <h3 class="mb-0">
-                                {% set low_accuracy = mappings|selectattr('confidence', 'lt', 0.6)|list|length %}
+                                {% set low_accuracy = mappings|selectattr('mapping_confidence', 'lt', 0.6)|list|length %}
                                 {{ low_accuracy }}
                             </h3>
                             <small class="text-light">&lt;60% confidence</small>
@@ -189,12 +189,12 @@
                         {% for mapping in mappings[:10] %}
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
-                                <div class="fw-bold small">{{ mapping.llm_type|truncate(15) }}</div>
-                                <div class="text-muted small">→ {{ mapping.mapped_type }}</div>
+                                <div class="fw-bold small">{{ mapping.original_llm_type|truncate(15) }}</div>
+                                <div class="text-muted small">→ {{ mapping.mapped_to_type }}</div>
                             </div>
                             <div class="text-end">
                                 <div class="badge bg-primary">{{ mapping.usage_count }}</div>
-                                <div class="small text-muted">{{ "%.0f"|format(mapping.confidence * 100) }}%</div>
+                                <div class="small text-muted">{{ "%.0f"|format(mapping.mapping_confidence * 100) }}%</div>
                             </div>
                         </div>
                         {% endfor %}
@@ -296,21 +296,21 @@
                                 {% for mapping in mappings %}
                                 <tr>
                                     <td>
-                                        <code class="small">{{ mapping.llm_type }}</code>
+                                        <code class="small">{{ mapping.original_llm_type }}</code>
                                     </td>
                                     <td>
-                                        <span class="badge bg-primary">{{ mapping.mapped_type }}</span>
+                                        <span class="badge bg-primary">{{ mapping.mapped_to_type }}</span>
                                     </td>
                                     <td>
-                                        <span class="{% if mapping.confidence >= 0.8 %}text-success{% elif mapping.confidence >= 0.6 %}text-warning{% else %}text-danger{% endif %}">
-                                            {{ "%.2f"|format(mapping.confidence) }}
+                                        <span class="{% if mapping.mapping_confidence >= 0.8 %}text-success{% elif mapping.mapping_confidence >= 0.6 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ "%.2f"|format(mapping.mapping_confidence) }}
                                         </span>
                                     </td>
                                     <td class="text-center">
                                         <span class="badge bg-info">{{ mapping.usage_count }}</span>
                                     </td>
                                     <td class="small text-muted">
-                                        {{ mapping.last_used.strftime('%m/%d/%Y') if mapping.last_used else 'Never' }}
+                                        {{ mapping.last_used_at.strftime('%m/%d/%Y') if mapping.last_used_at else 'Never' }}
                                     </td>
                                     <td>
                                         {% if mapping.is_automatic %}
