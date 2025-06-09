@@ -350,9 +350,22 @@ def view_case(id):
     except Exception as e:
         flash(f"Warning: Could not retrieve entity triples or related cases: {str(e)}", 'warning')
     
+    # Get ontology term links for hover functionality
+    term_links_by_section = {}
+    try:
+        from app.models.section_term_link import SectionTermLink
+        document_term_links = SectionTermLink.get_document_term_links(document.id)
+        
+        if document_term_links:
+            term_links_by_section = document_term_links
+            logger.info(f"Loaded term links for document {document.id}: {len(document_term_links)} sections")
+    except Exception as e:
+        logger.warning(f"Could not load term links for document {document.id}: {str(e)}")
+    
     return render_template('case_detail.html', case=case, world=world, 
                           entity_triples=entity_triples, 
-                          knowledge_graph_connections=knowledge_graph_connections)
+                          knowledge_graph_connections=knowledge_graph_connections,
+                          term_links_by_section=term_links_by_section)
 
 @cases_bp.route('/new', methods=['GET'])
 def case_options():

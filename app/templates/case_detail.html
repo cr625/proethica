@@ -395,5 +395,12 @@
             });
         });
     });
+    
+    // Pass term links data to JavaScript for highlighting functionality
+    {% if term_links_by_section %}
+    window.termLinksData = {{ term_links_by_section | tojson | safe }};
+    {% else %}
+    window.termLinksData = {};
+    {% endif %}
 </script>
 {% endblock %}

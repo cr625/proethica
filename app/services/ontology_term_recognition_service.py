@@ -57,29 +57,49 @@ class OntologyTermRecognitionService:
                     continue
                     
                 for entity in entities_list:
-                    # Use the label as the primary term
+                    entity_info = {
+                        'uri': entity.get('uri', ''),
+                        'label': entity.get('label', ''),
+                        'definition': entity.get('description', '') or entity.get('comment', ''),
+                        'comment': entity.get('comment', ''),
+                        'entity_type': entity_type
+                    }
+                    
+                    # Use the full label as the primary term
                     if entity.get('label'):
-                        term = entity['label'].lower()
-                        self.ontology_terms[term] = {
-                            'uri': entity.get('uri', ''),
-                            'label': entity['label'],
-                            'definition': entity.get('description', '') or entity.get('comment', ''),
-                            'comment': entity.get('comment', ''),
-                            'entity_type': entity_type
-                        }
+                        full_term = entity['label'].lower()
+                        self.ontology_terms[full_term] = entity_info.copy()
+                    
+                    # Extract individual words from the label
+                    if entity.get('label'):
+                        individual_words = self._extract_individual_words(entity['label'])
+                        for word in individual_words:
+                            word_lower = word.lower()
+                            if word_lower not in self.ontology_terms:
+                                # Create entry for individual word
+                                word_info = entity_info.copy()
+                                word_info['is_component_word'] = True
+                                word_info['parent_label'] = entity['label']
+                                self.ontology_terms[word_lower] = word_info
                     
                     # Also add the ID as a term if it's different from label
                     if entity.get('id') and entity['id'].lower() != entity.get('label', '').lower():
                         id_term = entity['id'].lower()
                         if id_term not in self.ontology_terms:
-                            self.ontology_terms[id_term] = {
-                                'uri': entity.get('uri', ''),
-                                'label': entity.get('label', entity['id']),
-                                'definition': entity.get('description', '') or entity.get('comment', ''),
-                                'comment': entity.get('comment', ''),
-                                'entity_type': entity_type,
-                                'is_id_match': True
-                            }
+                            id_info = entity_info.copy()
+                            id_info['is_id_match'] = True
+                            self.ontology_terms[id_term] = id_info
+                            
+                            # Also extract words from ID
+                            id_words = self._extract_individual_words(entity['id'])
+                            for word in id_words:
+                                word_lower = word.lower()
+                                if word_lower not in self.ontology_terms:
+                                    word_info = entity_info.copy()
+                                    word_info['is_component_word'] = True
+                                    word_info['is_from_id'] = True
+                                    word_info['parent_label'] = entity.get('label', entity['id'])
+                                    self.ontology_terms[word_lower] = word_info
             
             # Create regex patterns for efficient matching
             self._create_term_patterns()
@@ -89,6 +109,42 @@ class OntologyTermRecognitionService:
         except Exception as e:
             logger.error(f"Error loading ontology terms: {str(e)}")
             self.ontology_terms = {}
+    
+    def _extract_individual_words(self, text: str) -> List[str]:
+        """
+        Extract meaningful individual words from a concept label.
+        
+        Args:
+            text: The concept label (e.g., "Structural Engineer Role")
+            
+        Returns:
+            List of individual words
+        """
+        if not text:
+            return []
+        
+        import re
+        
+        # Remove common stop words that aren't meaningful for ontology linking
+        stop_words = {
+            'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he', 
+            'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'will', 'with'
+        }
+        
+        # Split on spaces, hyphens, and other word boundaries
+        words = re.findall(r'\b[a-zA-Z]+\b', text)
+        
+        # Filter out stop words and short words
+        meaningful_words = []
+        for word in words:
+            word_lower = word.lower()
+            if (len(word) >= 3 and 
+                word_lower not in stop_words and 
+                word.isalpha() and
+                not word_lower.endswith('ing') or word_lower in ['engineering']):  # Keep "engineering"
+                meaningful_words.append(word)
+        
+        return meaningful_words
     
     def _create_term_patterns(self):
         """Create compiled regex patterns for efficient term matching."""
@@ -155,6 +211,7 @@ class OntologyTermRecognitionService:
                         'ontology_uri': ontology_info['uri'],
                         'ontology_label': ontology_info['label'],
                         'definition': ontology_info.get('definition', '') or ontology_info.get('comment', ''),
+                        'entity_type': ontology_info.get('entity_type', 'unknown'),
                         'matched_term': term,
                         'is_synonym': ontology_info.get('is_synonym', False)
                     })
@@ -234,7 +291,8 @@ class OntologyTermRecognitionService:
                             term_end=match['term_end'],
                             ontology_uri=match['ontology_uri'],
                             ontology_label=match['ontology_label'],
-                            definition=match['definition']
+                            definition=match['definition'],
+                            entity_type=match.get('entity_type', 'unknown')
                         )
                         
                         db.session.add(term_link)

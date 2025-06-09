@@ -22,6 +22,7 @@ class SectionTermLink(db.Model):
     ontology_uri = db.Column(db.String(500), nullable=False)  # URI of ontology concept
     ontology_label = db.Column(db.String(500))  # Human-readable label
     definition = db.Column(db.Text)  # Definition from ontology
+    entity_type = db.Column(db.String(100))  # Type of ontology entity (e.g., 'role', 'principle', etc.)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -51,6 +52,7 @@ class SectionTermLink(db.Model):
             'ontology_uri': self.ontology_uri,
             'ontology_label': self.ontology_label,
             'definition': self.definition,
+            'entity_type': self.entity_type,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     

@@ -825,3 +825,31 @@ def compare_sections(doc_id, section_id):
     except Exception as e:
         flash(f"Error comparing sections: {str(e)}", 'danger')
         return redirect(url_for('doc_structure.view_structure', id=doc_id))
+
+@doc_structure_bp.route('/api/term_links/<int:document_id>')
+def get_term_links_api(document_id):
+    """Get term links for a document as JSON."""
+    try:
+        # Get the document to verify it exists
+        document = Document.query.get(document_id)
+        if not document:
+            return jsonify({'error': 'Document not found'}), 404
+        
+        # Get term links using the model's class method
+        document_term_links = SectionTermLink.get_document_term_links(document_id)
+        
+        # Calculate some statistics
+        total_links = sum(len(links) for links in document_term_links.values())
+        sections_with_links = len(document_term_links)
+        
+        return jsonify({
+            'success': True,
+            'document_id': document_id,
+            'sections_with_links': sections_with_links,
+            'total_term_links': total_links,
+            'term_links': document_term_links
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving term links for document {document_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
