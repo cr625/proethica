@@ -133,6 +133,22 @@ def view_structure(id):
         has_section_embeddings = True
         section_embeddings_info = metadata['document_structure']['section_embeddings']
         current_app.logger.info(f"Section embeddings info: {section_embeddings_info}")
+        
+        # Get list of sections with embeddings for display
+        embedded_sections = []
+        if 'sections' in metadata['document_structure']:
+            sections = metadata['document_structure']['sections']
+            if isinstance(sections, dict):
+                for section_id in sections.keys():
+                    embedded_sections.append(section_id)
+        
+        # If no sections found in metadata, check DocumentSection table
+        if not embedded_sections:
+            from app.models.document_section import DocumentSection
+            db_sections = DocumentSection.query.filter_by(document_id=id).all()
+            embedded_sections = [section.section_type for section in db_sections]
+        
+        section_embeddings_info['sections'] = embedded_sections
     else:
         # Fallback: Check directly in the DocumentSection table
         from app.models.document_section import DocumentSection
@@ -146,12 +162,17 @@ def view_structure(id):
             # Update the document metadata and set has_section_embeddings
             has_section_embeddings = True
             
+            # Get section types from database
+            db_sections = DocumentSection.query.filter_by(document_id=id).all()
+            embedded_sections = [section.section_type for section in db_sections]
+            
             # Create section_embeddings_info for the template
             section_embeddings_info = {
                 'count': doc_sections_count,
                 'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                 'storage_type': 'pgvector',
-                'note': 'Detected from database (metadata updated)'
+                'note': 'Detected from database (metadata updated)',
+                'sections': embedded_sections
             }
             
             # Update the document metadata if needed

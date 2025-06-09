@@ -673,6 +673,37 @@ def process_url_pipeline():
         db.session.add(document)
         db.session.commit()
         
+        # Generate section embeddings after saving the document
+        logger.info(f"Generating section embeddings for document ID: {document.id}")
+        try:
+            from app.services.section_embedding_service import SectionEmbeddingService
+            section_embedding_service = SectionEmbeddingService()
+            
+            # Process document sections to generate embeddings
+            embedding_result = section_embedding_service.process_document_sections(document.id)
+            
+            if embedding_result.get('success'):
+                logger.info(f"Successfully generated embeddings for {embedding_result.get('sections_embedded')} sections")
+                # Update document metadata with embedding info
+                if 'document_structure' not in metadata:
+                    metadata['document_structure'] = {}
+                
+                metadata['document_structure']['section_embeddings'] = {
+                    'count': embedding_result.get('sections_embedded', 0),
+                    'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    'storage_type': 'pgvector'
+                }
+                
+                # Save the updated metadata
+                document.doc_metadata = metadata
+                db.session.commit()
+                logger.info("Updated document metadata with section embedding information")
+            else:
+                logger.warning(f"Failed to generate section embeddings: {embedding_result.get('error')}")
+        except Exception as e:
+            logger.error(f"Error generating section embeddings: {str(e)}")
+            # Continue anyway - embeddings can be generated later
+        
         # Log success with document ID and structure information
         logger.info(f"Case saved successfully with ID: {document.id}, includes document structure: {'document_structure' in metadata}")
         
