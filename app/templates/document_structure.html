@@ -427,6 +427,99 @@
         </div>
     </div>
 
+    <!-- Ontology Term Links Information -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Ontology Term Links</h3>
+            <small class="d-block mt-1">Individual words/phrases linked to ontology terms</small>
+        </div>
+        <div class="card-body">
+            {% if has_term_links %}
+            <div class="alert alert-success">
+                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Term Links Active</h5>
+                <div class="row g-3 mt-1">
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-link me-2 text-primary"></i>
+                            <div>
+                                <div class="small text-muted">Total Links</div>
+                                <div class="fw-bold">{{ section_term_links.values()|map('length')|sum }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-file-text me-2 text-info"></i>
+                            <div>
+                                <div class="small text-muted">Sections with Links</div>
+                                <div class="fw-bold">{{ section_term_links|length }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <h5>Term Links by Section</h5>
+                    {% for section_id, term_links in section_term_links.items() %}
+                    <div class="mb-4">
+                        <h6 class="text-capitalize">{{ section_id }} <span class="badge bg-secondary">{{ term_links|length }} terms</span></h6>
+                        {% if term_links %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Term</th>
+                                        <th>Position</th>
+                                        <th>Ontology Label</th>
+                                        <th>Entity Type</th>
+                                        <th>Definition</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for link in term_links %}
+                                    <tr>
+                                        <td>
+                                            <code class="ontology-term" data-uri="{{ link.ontology_uri }}" 
+                                                  data-definition="{{ link.definition }}" 
+                                                  title="{{ link.definition }}">
+                                                {{ link.term_text }}
+                                            </code>
+                                        </td>
+                                        <td class="small text-muted">{{ link.term_start }}-{{ link.term_end }}</td>
+                                        <td>{{ link.ontology_label }}</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark entity-type-{{ link.get('entity_type', 'unknown')|lower }}">
+                                                {{ link.get('entity_type', 'unknown')|title }}
+                                            </span>
+                                        </td>
+                                        <td class="small">{{ link.definition[:100] }}{% if link.definition|length > 100 %}...{% endif %}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>No ontology term links available for this document.</strong>
+            </div>
+            <p>Term links connect individual words and phrases in the document text to their corresponding ontology definitions.</p>
+            <form action="{{ url_for('doc_structure.generate_term_links', id=document.id) }}" method="post">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-link"></i> Generate Term Links
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
     {% if structure_triples %}
     <div class="card mb-4">
         <div class="card-header bg-info text-white">

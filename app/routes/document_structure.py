@@ -11,10 +11,12 @@ from flask import Blueprint, render_template, redirect, url_for, flash, jsonify,
 from flask_sqlalchemy import SQLAlchemy
 from app.models.document import Document
 from app.models.document_section import DocumentSection
+from app.models.section_term_link import SectionTermLink
 from app.services.section_embedding_service import SectionEmbeddingService
 from app.services.guideline_section_service import GuidelineSectionService 
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
 from app.services.structure_triple_formatter import StructureTripleFormatter
+from app.services.ontology_term_recognition_service import OntologyTermRecognitionService
 from datetime import datetime
 from app import db
 
@@ -241,6 +243,22 @@ def view_structure(id):
     except Exception as e:
         current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
+    # Check for ontology term links
+    has_term_links = False
+    section_term_links = None
+    
+    try:
+        # Get term links for this document
+        document_term_links = SectionTermLink.get_document_term_links(id)
+        
+        if document_term_links:
+            has_term_links = True
+            section_term_links = document_term_links
+            total_term_links = sum(len(links) for links in document_term_links.values())
+            current_app.logger.info(f"Loaded {total_term_links} term links across {len(document_term_links)} sections")
+    except Exception as e:
+        current_app.logger.warning(f"Error loading term links: {str(e)}")
+
     # Format structure triples if available
     structured_triples_data = None
     if has_structure and structure_triples:
@@ -267,6 +285,8 @@ def view_structure(id):
                           section_guideline_associations=section_guideline_associations,
                           has_triple_associations=has_triple_associations,
                           section_triple_associations=section_triple_associations,
+                          has_term_links=has_term_links,
+                          section_term_links=section_term_links,
                           debug_info=debug_info,
                           no_cache=no_cache)
 
@@ -569,6 +589,79 @@ def generate_structure(id):
         flash(f"Error generating document structure: {str(e)}", "danger")
     
     # Force a new database fetch on redirect
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
+@doc_structure_bp.route('/generate_term_links/<int:id>', methods=['POST'])
+def generate_term_links(id):
+    """Generate ontology term links for a document."""
+    # Get the document
+    document = Document.query.get(id)
+    if not document:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': 'Document not found'
+            }), 404
+        else:
+            abort(404)
+    
+    try:
+        # Initialize the term recognition service
+        recognition_service = OntologyTermRecognitionService()
+        
+        if not recognition_service.ontology_terms:
+            error_msg = "Ontology terms not loaded. Cannot generate term links."
+            current_app.logger.error(error_msg)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': False,
+                    'message': error_msg
+                }), 500
+            else:
+                flash(error_msg, 'danger')
+                return redirect(url_for('doc_structure.view_structure', id=id))
+        
+        # Process the document
+        result = recognition_service.process_document_sections(id, force_regenerate=True)
+        
+        if result.get('success'):
+            success_message = f"Successfully generated {result.get('term_links_created')} term links across {result.get('sections_processed')} sections"
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': True,
+                    'message': success_message,
+                    'term_links_created': result.get('term_links_created'),
+                    'sections_processed': result.get('sections_processed')
+                })
+            else:
+                flash(success_message, 'success')
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            current_app.logger.error(f"Error generating term links: {error_msg}")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': False,
+                    'message': f"Error generating term links: {error_msg}"
+                }), 500
+            else:
+                flash(f"Error generating term links: {error_msg}", 'danger')
+    
+    except Exception as e:
+        current_app.logger.exception(f"Exception during term link generation: {str(e)}")
+        error_message = str(e)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': error_message
+            }), 500
+        else:
+            flash(f"Error processing term links: {error_message}", 'danger')
+    
+    # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 
 @doc_structure_bp.route('/associate_guidelines/<int:id>', methods=['POST'])
