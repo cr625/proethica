@@ -7,6 +7,31 @@
 {% endblock %}
 
 {% block content %}
+<!-- Floating Table of Contents -->
+<div id="toc-nav" class="toc-navigation">
+    <div class="toc-header">
+        <h6 class="mb-0">
+            <i class="bi bi-list"></i> Navigation
+        </h6>
+        <button type="button" class="btn-close btn-close-white" id="toc-close" aria-label="Close"></button>
+    </div>
+    <div class="toc-content">
+        <ul class="toc-list">
+            <li><a href="#document-info" class="toc-link">Document Information</a></li>
+            <li><a href="#section-embeddings" class="toc-link">Section Embeddings</a></li>
+            <li><a href="#ontology-associations" class="toc-link">Ontology Concept Associations</a></li>
+            <li><a href="#guideline-associations" class="toc-link">Ethical Guideline Associations</a></li>
+            <li><a href="#term-links" class="toc-link">Ontology Term Links</a></li>
+            <li><a href="#structure-triples" class="toc-link">Structure Triples</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- TOC Toggle Button -->
+<button id="toc-toggle" class="toc-toggle-btn" title="Show Navigation">
+    <i class="bi bi-list"></i>
+</button>
+
 <div class="container">
     <div class="mb-4">
         <div class="d-flex justify-content-end mb-2">
@@ -56,7 +81,7 @@
         {% endif %}
     </div>
     {% else %}
-    <div class="card mb-4">
+    <div id="document-info" class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h3>Document Information</h3>
         </div>
@@ -86,7 +111,7 @@
     <!-- Section Metadata is now integrated into Structure Triples viewer below -->
 
     <!-- Section Embeddings Information -->
-    <div class="card mb-4">
+    <div id="section-embeddings" class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h3>Section Embeddings</h3>
             <small class="d-block mt-1">Numeric vector representations for semantic analysis</small>
@@ -173,7 +198,7 @@
     </div>
 
     <!-- Ontology Concept Associations -->
-    <div class="card mb-4">
+    <div id="ontology-associations" class="card mb-4">
         <div class="card-header bg-info text-white">
             <h3>Ontology Concept Associations</h3>
         </div>
@@ -296,7 +321,7 @@
     </div>
 
     <!-- Ethical Guideline Associations -->
-    <div class="card mb-4">
+    <div id="guideline-associations" class="card mb-4">
         <div class="card-header bg-success text-white">
             <h3>Ethical Guideline Associations</h3>
         </div>
@@ -428,7 +453,7 @@
     </div>
 
     <!-- Ontology Term Links Information -->
-    <div class="card mb-4">
+    <div id="term-links" class="card mb-4">
         <div class="card-header bg-success text-white">
             <h3>Ontology Term Links</h3>
             <small class="d-block mt-1">Individual words/phrases linked to ontology terms</small>
@@ -521,7 +546,7 @@
     </div>
 
     {% if structure_triples %}
-    <div class="card mb-4">
+    <div id="structure-triples" class="card mb-4">
         <div class="card-header bg-info text-white">
             <h3>Structure Triples</h3>
         </div>
@@ -549,9 +574,13 @@
             </script>
             {% endif %}
             
-            <!-- Enhanced embedding generation handling -->
+            <!-- Table of Contents Navigation -->
             <script>
             document.addEventListener('DOMContentLoaded', function() {
+                // Initialize TOC navigation
+                initTOCNavigation();
+                
+                // Initialize embedding generation handling
                 const embeddingForm = document.getElementById('generate-embeddings-form');
                 if (embeddingForm) {
                     embeddingForm.addEventListener('submit', function(e) {
@@ -613,6 +642,111 @@
                     });
                 }
             });
+            
+            /**
+             * Initialize Table of Contents Navigation
+             */
+            function initTOCNavigation() {
+                const tocNav = document.getElementById('toc-nav');
+                const tocToggle = document.getElementById('toc-toggle');
+                const tocClose = document.getElementById('toc-close');
+                const tocLinks = document.querySelectorAll('.toc-link');
+                
+                // Toggle TOC visibility
+                function showTOC() {
+                    tocNav.classList.add('visible');
+                    tocToggle.classList.add('hidden');
+                }
+                
+                function hideTOC() {
+                    tocNav.classList.remove('visible');
+                    tocToggle.classList.remove('hidden');
+                }
+                
+                // Event listeners
+                if (tocToggle) {
+                    tocToggle.addEventListener('click', showTOC);
+                }
+                
+                if (tocClose) {
+                    tocClose.addEventListener('click', hideTOC);
+                }
+                
+                // Click outside to close
+                document.addEventListener('click', function(e) {
+                    if (!tocNav.contains(e.target) && !tocToggle.contains(e.target)) {
+                        hideTOC();
+                    }
+                });
+                
+                // Smooth scrolling for TOC links
+                tocLinks.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        
+                        const targetId = this.getAttribute('href').substring(1);
+                        const targetElement = document.getElementById(targetId);
+                        
+                        if (targetElement) {
+                            // Smooth scroll to target with offset for fixed header
+                            const offsetTop = targetElement.offsetTop - 20;
+                            window.scrollTo({
+                                top: offsetTop,
+                                behavior: 'smooth'
+                            });
+                            
+                            // Update active link
+                            tocLinks.forEach(l => l.classList.remove('active'));
+                            this.classList.add('active');
+                            
+                            // Hide TOC on mobile after clicking
+                            if (window.innerWidth <= 768) {
+                                setTimeout(hideTOC, 500);
+                            }
+                        }
+                    });
+                });
+                
+                // Update active section on scroll
+                function updateActiveSection() {
+                    const sections = ['document-info', 'section-embeddings', 'ontology-associations', 
+                                    'guideline-associations', 'term-links', 'structure-triples'];
+                    
+                    const scrollPos = window.scrollY + 100; // Offset for better UX
+                    
+                    let activeSection = sections[0]; // Default to first section
+                    
+                    sections.forEach(sectionId => {
+                        const element = document.getElementById(sectionId);
+                        if (element && element.offsetTop <= scrollPos) {
+                            activeSection = sectionId;
+                        }
+                    });
+                    
+                    // Update active link
+                    tocLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === '#' + activeSection) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+                
+                // Throttled scroll listener
+                let scrollTimeout;
+                window.addEventListener('scroll', function() {
+                    if (scrollTimeout) clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(updateActiveSection, 100);
+                });
+                
+                // Initialize active section
+                updateActiveSection();
+                
+                // Auto-hide on mobile
+                if (window.innerWidth <= 768) {
+                    hideTOC();
+                }
+            }
             </script>
             {% else %}
             <!-- Fallback to raw display -->
