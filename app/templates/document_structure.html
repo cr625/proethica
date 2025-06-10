@@ -19,7 +19,7 @@
         <ul class="toc-list">
             <li><a href="#document-info" class="toc-link">Document Information</a></li>
             <li><a href="#section-embeddings" class="toc-link">Section Embeddings</a></li>
-            <li><a href="#ontology-associations" class="toc-link">Ontology Concept Associations</a></li>
+            <li><a href="#ontology-associations" class="toc-link">Enhanced Guideline Associations</a></li>
             <li><a href="#guideline-associations" class="toc-link">Ethical Guideline Associations</a></li>
             <li><a href="#term-links" class="toc-link">Ontology Term Links</a></li>
             <li><a href="#structure-triples" class="toc-link">Structure Triples</a></li>
@@ -197,10 +197,29 @@
         </div>
     </div>
 
-    <!-- Ontology Concept Associations -->
+    <!-- Enhanced Guideline Associations -->
     <div id="ontology-associations" class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h3>Ontology Concept Associations</h3>
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h3>Enhanced Guideline Associations</h3>
+            <div>
+                {% if has_enhanced_associations %}
+                <button type="button" class="btn btn-sm btn-outline-light me-2" onclick="clearAssociations({{ document.id }})">
+                    <i class="bi bi-trash"></i> Clear & Regenerate
+                </button>
+                {% else %}
+                <form action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post" class="d-inline">
+                    <div class="d-inline-block me-2">
+                        <select name="association_method" class="form-select form-select-sm" style="width: auto;">
+                            <option value="embedding">Vector Similarity</option>
+                            <option value="llm">Semantic Analysis</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-stars"></i> Generate Enhanced Associations
+                    </button>
+                </form>
+                {% endif %}
+            </div>
         </div>
         <div class="card-body">
             {% if has_enhanced_associations %}
@@ -240,12 +259,12 @@
                 <table class="table table-sm">
                     <thead>
                         <tr>
-                            <th>Section</th>
-                            <th>Concept</th>
-                            <th>Overall Confidence</th>
-                            <th>Similarity Breakdown</th>
-                            <th>Pattern Indicators</th>
-                            <th>Reasoning</th>
+                            <th style="width: 8%">Section</th>
+                            <th style="width: 20%">Concept</th>
+                            <th style="width: 12%">Overall Confidence</th>
+                            <th style="width: 15%">Similarity Breakdown</th>
+                            <th style="width: 20%">Pattern Indicators</th>
+                            <th style="width: 25%">Association Logic</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -290,7 +309,22 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <small>{{ assoc.reasoning[:100] }}{% if assoc.reasoning|length > 100 %}...{% endif %}</small>
+                                {% if assoc.reasoning|length > 80 %}
+                                <div class="reasoning-text">
+                                    <small class="reasoning-short">{{ assoc.reasoning[:80] }}... 
+                                        <a href="#" class="text-primary expand-reasoning" style="text-decoration: none;">
+                                            <i class="bi bi-chevron-down"></i>
+                                        </a>
+                                    </small>
+                                    <small class="reasoning-full" style="display: none;">{{ assoc.reasoning }} 
+                                        <a href="#" class="text-primary collapse-reasoning" style="text-decoration: none;">
+                                            <i class="bi bi-chevron-up"></i>
+                                        </a>
+                                    </small>
+                                </div>
+                                {% else %}
+                                <small>{{ assoc.reasoning }}</small>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -399,29 +433,10 @@
             {% else %}
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i>
-                <strong>No ontology concept associations available for this document.</strong>
+                <strong>No enhanced guideline associations available for this document.</strong>
             </div>
-            <p>Ontology concept associations connect document sections with concepts from the engineering ethics ontology.</p>
-            <form action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="association_method" class="form-label">Association Method:</label>
-                        <select name="association_method" id="association_method" class="form-select">
-                            <option value="embedding">Embedding-based (Vector Similarity)</option>
-                            <option value="llm">LLM-based (Semantic Analysis)</option>
-                        </select>
-                        <small class="text-muted d-block mt-1">
-                            LLM-based method provides better reasoning but may be slower.
-                        </small>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-stars"></i> Generate Enhanced Guideline Associations
-                </button>
-                <small class="d-block mt-2 text-muted">
-                    ✨ Uses multi-dimensional scoring with pattern indicators for improved accuracy
-                </small>
-            </form>
+            <p>Enhanced guideline associations connect document sections with ethical concepts using multi-dimensional scoring (semantic similarity + keyword overlap + contextual relevance) with pattern indicators for improved accuracy and explainability.</p>
+            <p class="text-muted">Use the "Generate Enhanced Associations" button in the card header above to create associations for this document.</p>
             {% endif %}
         </div>
     </div>
@@ -851,6 +866,58 @@
                 // Auto-hide on mobile
                 if (window.innerWidth <= 768) {
                     hideTOC();
+                }
+            }
+            
+            // Handle reasoning text expand/collapse
+            $(document).on('click', '.expand-reasoning', function(e) {
+                e.preventDefault();
+                const container = $(this).closest('.reasoning-text');
+                container.find('.reasoning-short').hide();
+                container.find('.reasoning-full').show();
+            });
+            
+            $(document).on('click', '.collapse-reasoning', function(e) {
+                e.preventDefault();
+                const container = $(this).closest('.reasoning-text');
+                container.find('.reasoning-full').hide();
+                container.find('.reasoning-short').show();
+            });
+            
+            // Handle clear associations
+            function clearAssociations(documentId) {
+                if (confirm('Are you sure you want to clear all enhanced guideline associations? This will allow you to regenerate them.')) {
+                    // Show loading state
+                    const clearBtn = event.target.closest('button');
+                    const originalContent = clearBtn.innerHTML;
+                    clearBtn.disabled = true;
+                    clearBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Clearing...';
+                    
+                    // Make request to clear associations
+                    fetch(`{{ url_for('doc_structure.clear_associations', id=0) }}`.replace('0', documentId), {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Reload page to show cleared state
+                            window.location.reload();
+                        } else {
+                            alert('Error clearing associations: ' + (data.message || 'Unknown error'));
+                            // Reset button
+                            clearBtn.disabled = false;
+                            clearBtn.innerHTML = originalContent;
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error clearing associations: ' + error.message);
+                        // Reset button
+                        clearBtn.disabled = false;
+                        clearBtn.innerHTML = originalContent;
+                    });
                 }
             }
             </script>

@@ -891,6 +891,67 @@ def associate_ontology_concepts(id):
     # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 
+@doc_structure_bp.route('/clear_associations/<int:id>', methods=['POST'])
+def clear_associations(id):
+    """Clear enhanced guideline associations for a document."""
+    current_app.logger.info(f"Clearing enhanced associations for document {id}")
+    
+    try:
+        # Clear from database
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            result = conn.execute(
+                text("DELETE FROM case_guideline_associations WHERE case_id = :case_id"),
+                {"case_id": id}
+            )
+            deleted_count = result.rowcount
+            conn.commit()
+        
+        # Clear from document metadata if it exists
+        document = Document.query.get(id)
+        if not document:
+            # Try as Scenario
+            from app.models.scenario import Scenario
+            document = Scenario.query.get(id)
+            metadata_field = 'scenario_metadata'
+        else:
+            metadata_field = 'doc_metadata'
+            
+        if document:
+            metadata = getattr(document, metadata_field) or {}
+            if isinstance(metadata, dict):
+                if 'document_structure' in metadata and 'enhanced_associations' in metadata['document_structure']:
+                    del metadata['document_structure']['enhanced_associations']
+                    setattr(document, metadata_field, json.loads(json.dumps(metadata)))
+                    db.session.commit()
+        
+        success_message = f"Cleared {deleted_count} enhanced associations"
+        current_app.logger.info(success_message)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'message': success_message,
+                'deleted_count': deleted_count
+            })
+        else:
+            flash(success_message, 'success')
+            
+    except Exception as e:
+        error_message = f"Error clearing associations: {str(e)}"
+        current_app.logger.error(error_message)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': error_message
+            }), 500
+        else:
+            flash(error_message, 'danger')
+    
+    # Add timestamp to prevent caching for clear route
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
 @doc_structure_bp.route('/compare_sections/<int:doc_id>/<section_id>', methods=['GET'])
 def compare_sections(doc_id, section_id):
     """Find sections similar to a specific document section."""

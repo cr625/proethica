@@ -377,20 +377,20 @@ class EnhancedGuidelineAssociationService:
         components = []
         
         if semantic >= 0.7:
-            components.append(f"strong semantic similarity ({semantic:.2f})")
+            components.append(f"strong semantic ({semantic:.2f})")
         elif semantic >= 0.4:
-            components.append(f"moderate semantic similarity ({semantic:.2f})")
+            components.append(f"moderate semantic ({semantic:.2f})")
             
         if keyword >= 0.3:
-            components.append(f"keyword overlap ({keyword:.2f})")
+            components.append(f"keywords ({keyword:.2f})")
             
         if contextual >= 0.3:
-            components.append(f"contextual relevance ({contextual:.2f})")
+            components.append(f"context ({contextual:.2f})")
             
         if components:
-            return f"Association based on {', '.join(components)} with concept '{concept_text}'"
+            return f"{', '.join(components)} → '{concept_text}'"
         else:
-            return f"Low-confidence association with concept '{concept_text}'"
+            return f"Low confidence → '{concept_text}'"
     
     def _generate_pattern_indicators(
         self, 
@@ -411,8 +411,7 @@ class EnhancedGuidelineAssociationService:
             'section_type': section_type,
             'confidence_level': ensure_python_type(score.overall_confidence),
             'pattern_strength': ensure_python_type(score.semantic_similarity),
-            'concept_uri': concept.subject,
-            'timestamp': datetime.utcnow().isoformat()
+            'concept_uri': concept.subject
         }
         
         # Add section-specific indicators
