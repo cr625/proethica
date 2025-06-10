@@ -79,13 +79,26 @@ class GuidelineConceptTypeMapper:
             return self._create_result(llm_type_clean, 1.0, False, None,
                                      f"Exact match to core type '{llm_type_clean}'", False, llm_type)
         
-        # Level 2: Semantic similarity mapping
+        # Level 2: Semantic similarity mapping (check concept name too)
         semantic_result = self._find_semantic_match(llm_type)
-        if semantic_result.confidence > 0.8:
+        
+        # Also check concept name for semantic matches
+        if concept_name and semantic_result.confidence < 0.8:
+            name_result = self._find_semantic_match(concept_name)
+            if name_result.confidence > semantic_result.confidence:
+                name_result.justification = f"Concept name match: {name_result.justification}"
+                semantic_result = name_result
+        
+        if semantic_result.confidence > 0.7:  # Lower threshold to prefer semantic over description
             return semantic_result
         
-        # Level 3: Description-based inference
+        # Level 3: Description-based inference (but only if semantic matching was weak)
         desc_result = self._analyze_description(concept_description, concept_name)
+        
+        # Prefer semantic result if it's reasonably confident, even if description is stronger
+        if semantic_result.confidence >= 0.5 and semantic_result.confidence >= desc_result.confidence * 0.8:
+            return semantic_result
+        
         if desc_result.confidence > 0.5:
             return self._create_result(
                 desc_result.mapped_type,
@@ -96,6 +109,10 @@ class GuidelineConceptTypeMapper:
                 desc_result.needs_review,
                 llm_type
             )
+        
+        # Return best result we found, even if low confidence
+        if semantic_result.confidence > 0.3:
+            return semantic_result
         
         # Level 4: Propose new type
         return self._propose_new_type(llm_type, concept_description)
@@ -118,6 +135,31 @@ class GuidelineConceptTypeMapper:
             "ethical value": ("principle", 0.85, "Ethical value as principle"),
             "standard": ("principle", 0.8, "Standard as principle"),
             "value": ("principle", 0.75, "Value as principle"),
+            
+            # Ethics and related concepts
+            "ethics": ("principle", 0.9, "Ethics as principle"),
+            "professional ethics": ("principle", 0.95, "Professional ethics as principle"),
+            "ethical code": ("principle", 0.9, "Ethical code as principle"),
+            "code of ethics": ("principle", 0.95, "Code of ethics as principle"),
+            "moral principle": ("principle", 0.9, "Moral principle"),
+            
+            # Rights and legal concepts
+            "rights": ("principle", 0.85, "Rights as principle"),
+            "legal rights": ("principle", 0.85, "Legal rights as principle"),
+            "human rights": ("principle", 0.9, "Human rights as principle"),
+            "property rights": ("principle", 0.85, "Property rights as principle"),
+            "intellectual property rights": ("principle", 0.9, "Intellectual property rights as principle"),
+            "copyright": ("principle", 0.8, "Copyright as principle"),
+            "patent": ("resource", 0.8, "Patent as resource"),
+            "trademark": ("resource", 0.8, "Trademark as resource"),
+            
+            # Safety and welfare concepts
+            "safety": ("principle", 0.85, "Safety as principle"),
+            "public safety": ("principle", 0.9, "Public safety as principle"),
+            "public welfare": ("principle", 0.9, "Public welfare as principle"),
+            "welfare": ("principle", 0.8, "Welfare as principle"),
+            "health and safety": ("principle", 0.9, "Health and safety as principle"),
+            "environmental protection": ("principle", 0.85, "Environmental protection as principle"),
             
             # Obligation mappings
             "professional duty": ("obligation", 0.95, "Professional duty"),
@@ -161,11 +203,15 @@ class GuidelineConceptTypeMapper:
             
             # Capability mappings
             "competency": ("capability", 0.95, "Competency as capability"),
+            "competence": ("capability", 0.95, "Competence as capability"),
             "skill": ("capability", 0.9, "Skill as capability"),
             "ability": ("capability", 0.9, "Ability as capability"),
             "expertise": ("capability", 0.85, "Expertise as capability"),
             "qualification": ("capability", 0.85, "Qualification as capability"),
             "professional competence": ("capability", 0.9, "Professional competence"),
+            "professional competency": ("capability", 0.9, "Professional competency"),
+            "engineering competency": ("capability", 0.9, "Engineering competency"),
+            "technical competency": ("capability", 0.9, "Technical competency"),
             
             # Resource mappings
             "document": ("resource", 0.9, "Document as resource"),
@@ -256,14 +302,33 @@ class GuidelineConceptTypeMapper:
         """
         return {
             # Order matters - more specific terms first
+            
+            # Ethics and principles (most specific first)
+            "professional ethics": "principle",
+            "code of ethics": "principle", 
+            "ethical code": "principle",
+            "intellectual property rights": "principle",
+            "property rights": "principle",
+            "legal rights": "principle",
+            "human rights": "principle",
+            
+            # Professional development and growth
             "professional development": "action",
             "professional growth": "action",
             "professional courtesy": "obligation",
+            
+            # General terms
             "development": "action",
             "growth": "action",
+            "ethics": "principle",
+            "ethic": "principle",
+            "rights": "principle",
+            "property": "resource",
+            "copyright": "principle",
+            "patent": "resource",
+            "trademark": "resource",
             "standard": "principle",
             "value": "principle", 
-            "ethic": "principle",
             "justice": "principle",
             "duty": "obligation",
             "responsibility": "obligation",

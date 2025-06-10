@@ -106,8 +106,11 @@ def concept_list():
         page = request.args.get('page', 1, type=int)
         per_page = 20
         
-        # Build query
-        query = EntityTriple.query.filter_by(entity_type='guideline_concept')
+        # Build query - only show rdf:type triples (concept type definitions)
+        query = EntityTriple.query.filter(
+            EntityTriple.entity_type == 'guideline_concept',
+            EntityTriple.predicate == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+        )
         
         # Apply filters
         if filter_type == 'needs_review':

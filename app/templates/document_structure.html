@@ -203,7 +203,108 @@
             <h3>Ontology Concept Associations</h3>
         </div>
         <div class="card-body">
-            {% if has_triple_associations %}
+            {% if has_enhanced_associations %}
+            <!-- Enhanced Associations Display -->
+            <div class="alert alert-success">
+                <i class="bi bi-stars"></i>
+                <strong>✨ Enhanced Guideline Associations Available</strong>
+                <div class="mt-2 small">
+                    <span class="badge bg-primary me-2">{{ enhanced_associations_stats.total_associations }} total</span>
+                    <span class="badge bg-info me-2">{{ enhanced_associations_stats.sections_processed }} sections</span>
+                    <span class="badge bg-success me-2">{{ enhanced_associations_stats.average_confidence }} avg confidence</span>
+                    <span class="badge bg-warning">{{ enhanced_associations_stats.high_confidence_count }} high confidence</span>
+                </div>
+            </div>
+
+            <!-- Stats by Section -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5><i class="bi bi-bar-chart"></i> Confidence by Section Type</h5>
+                    {% for section in enhanced_associations_stats.by_section %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                        <span><strong>{{ section.section_type.title() }}</strong></span>
+                        <div>
+                            <span class="badge bg-secondary me-1">{{ section.count }} associations</span>
+                            <span class="badge bg-{% if section.avg_confidence > 0.7 %}success{% elif section.avg_confidence > 0.4 %}warning{% else %}danger{% endif %}">
+                                {{ "%.3f"|format(section.avg_confidence) }} confidence
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Top Associations Table -->
+            <h5><i class="bi bi-trophy"></i> Top Associations</h5>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Section</th>
+                            <th>Concept</th>
+                            <th>Overall Confidence</th>
+                            <th>Similarity Breakdown</th>
+                            <th>Pattern Indicators</th>
+                            <th>Reasoning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assoc in enhanced_associations_data %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">{{ assoc.section_type }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ assoc.concept_name }}</strong>
+                                <br><small class="text-muted">{{ assoc.concept_uri.split('/')[-1] if assoc.concept_uri else 'N/A' }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if assoc.overall_confidence > 0.7 %}success{% elif assoc.overall_confidence > 0.4 %}warning{% else %}danger{% endif %} fs-6">
+                                    {{ "%.3f"|format(assoc.overall_confidence) }}
+                                </span>
+                            </td>
+                            <td>
+                                <small>
+                                    <div>🧠 Semantic: {{ "%.3f"|format(assoc.semantic_similarity) if assoc.semantic_similarity else 'N/A' }}</div>
+                                    <div>🔤 Keywords: {{ "%.3f"|format(assoc.keyword_overlap) if assoc.keyword_overlap else 'N/A' }}</div>
+                                    <div>🎯 Context: {{ "%.3f"|format(assoc.contextual_relevance) if assoc.contextual_relevance else 'N/A' }}</div>
+                                </small>
+                            </td>
+                            <td>
+                                {% if assoc.pattern_indicators %}
+                                <div class="small">
+                                    {% for key, value in assoc.pattern_indicators.items() %}
+                                    {% if value == true %}
+                                    <span class="badge bg-success me-1">{{ key.replace('_', ' ').title() }}</span>
+                                    {% elif value == false and key in ['safety_mentioned', 'nspe_code_referenced', 'public_welfare_prioritized'] %}
+                                    <span class="badge bg-light text-dark me-1">No {{ key.replace('_', ' ').title() }}</span>
+                                    {% elif value != true and value != false %}
+                                    <span class="badge bg-info me-1">{{ key.replace('_', ' ').title() }}: {{ value }}</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <small class="text-muted">No patterns</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ assoc.reasoning[:100] }}{% if assoc.reasoning|length > 100 %}...{% endif %}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Enhanced associations use multi-dimensional scoring (semantic similarity + keyword overlap + contextual relevance) 
+                    with pattern indicators for improved accuracy and explainability.
+                </small>
+            </div>
+
+            {% elif has_triple_associations %}
             <div class="alert alert-success">
                 <i class="bi bi-check-circle"></i>
                 <strong>Ontology concept associations are available.</strong>
@@ -313,8 +414,11 @@
                     </div>
                 </div>
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-link"></i> Generate Ontology Concept Associations
+                    <i class="bi bi-stars"></i> Generate Enhanced Guideline Associations
                 </button>
+                <small class="d-block mt-2 text-muted">
+                    ✨ Uses multi-dimensional scoring with pattern indicators for improved accuracy
+                </small>
             </form>
             {% endif %}
         </div>

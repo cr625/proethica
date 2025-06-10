@@ -10,6 +10,7 @@ import logging
 from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, current_app, abort
 from flask_sqlalchemy import SQLAlchemy
 from app.models.document import Document
+from app.models.scenario import Scenario
 from app.models.document_section import DocumentSection
 from app.models.section_term_link import SectionTermLink
 from app.services.section_embedding_service import SectionEmbeddingService
@@ -243,6 +244,102 @@ def view_structure(id):
     except Exception as e:
         current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
+    # Check for enhanced guideline associations
+    has_enhanced_associations = False
+    enhanced_associations_data = None
+    enhanced_associations_stats = None
+    
+    try:
+        # Check if this document has enhanced associations
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            query = text("""
+                SELECT COUNT(*) as total_associations,
+                       AVG(overall_confidence) as avg_confidence,
+                       COUNT(CASE WHEN overall_confidence > 0.7 THEN 1 END) as high_confidence_count,
+                       section_type,
+                       COUNT(*) as section_count,
+                       AVG(overall_confidence) as section_avg_confidence
+                FROM case_guideline_associations 
+                WHERE case_id = :case_id
+                GROUP BY section_type
+                ORDER BY section_avg_confidence DESC
+            """)
+            
+            result = conn.execute(query, {"case_id": id})
+            associations_by_section = result.fetchall()
+            
+            if associations_by_section:
+                has_enhanced_associations = True
+                
+                # Get overall stats
+                query_overall = text("""
+                    SELECT COUNT(*) as total,
+                           AVG(overall_confidence) as avg_confidence,
+                           COUNT(CASE WHEN overall_confidence > 0.7 THEN 1 END) as high_confidence,
+                           COUNT(DISTINCT section_type) as sections_processed
+                    FROM case_guideline_associations 
+                    WHERE case_id = :case_id
+                """)
+                
+                overall_result = conn.execute(query_overall, {"case_id": id})
+                overall_stats = overall_result.fetchone()
+                
+                enhanced_associations_stats = {
+                    'total_associations': overall_stats[0],
+                    'average_confidence': round(overall_stats[1], 3) if overall_stats[1] else 0,
+                    'high_confidence_count': overall_stats[2],
+                    'sections_processed': overall_stats[3],
+                    'by_section': []
+                }
+                
+                for row in associations_by_section:
+                    enhanced_associations_stats['by_section'].append({
+                        'section_type': row[3],
+                        'count': row[4], 
+                        'avg_confidence': round(row[5], 3) if row[5] else 0
+                    })
+                
+                # Get top associations for display
+                query_top = text("""
+                    SELECT cga.section_type, cga.overall_confidence, cga.semantic_similarity,
+                           cga.keyword_overlap, cga.contextual_relevance, cga.association_reasoning,
+                           cga.pattern_indicators, et.subject, et.object_literal
+                    FROM case_guideline_associations cga
+                    JOIN entity_triples et ON cga.guideline_concept_id = et.id
+                    WHERE cga.case_id = :case_id
+                    ORDER BY cga.overall_confidence DESC
+                    LIMIT 20
+                """)
+                
+                top_result = conn.execute(query_top, {"case_id": id})
+                enhanced_associations_data = []
+                
+                for row in top_result:
+                    pattern_indicators = {}
+                    if row[6]:  # pattern_indicators
+                        try:
+                            pattern_indicators = json.loads(row[6]) if isinstance(row[6], str) else row[6]
+                        except:
+                            pattern_indicators = {}
+                    
+                    enhanced_associations_data.append({
+                        'section_type': row[0],
+                        'overall_confidence': row[1],
+                        'semantic_similarity': row[2],
+                        'keyword_overlap': row[3],
+                        'contextual_relevance': row[4],
+                        'reasoning': row[5],
+                        'pattern_indicators': pattern_indicators,
+                        'concept_uri': row[7],
+                        'concept_name': row[8] or row[7].split('/')[-1] if row[7] else 'Unknown'
+                    })
+                
+                current_app.logger.info(f"Loaded {len(enhanced_associations_data)} enhanced associations")
+                
+    except Exception as e:
+        current_app.logger.warning(f"Error loading enhanced associations: {str(e)}")
+
     # Check for ontology term links
     has_term_links = False
     section_term_links = None
@@ -285,6 +382,9 @@ def view_structure(id):
                           section_guideline_associations=section_guideline_associations,
                           has_triple_associations=has_triple_associations,
                           section_triple_associations=section_triple_associations,
+                          has_enhanced_associations=has_enhanced_associations,
+                          enhanced_associations_data=enhanced_associations_data,
+                          enhanced_associations_stats=enhanced_associations_stats,
                           has_term_links=has_term_links,
                           section_term_links=section_term_links,
                           debug_info=debug_info,
@@ -691,82 +791,90 @@ def associate_guidelines(id):
 
 @doc_structure_bp.route('/associate_ontology_concepts/<int:id>', methods=['POST'])
 def associate_ontology_concepts(id):
-    """Associate ontology concepts with document sections."""
-    # Get the document
-    document = Document.query.get_or_404(id)
+    """Associate ontology concepts with document sections using enhanced service."""
+    # Try to get the document - could be stored as Document or Scenario
+    document = Document.query.get(id)
+    if not document:
+        # Try as Scenario (cases are sometimes stored as scenarios)
+        from app.models.scenario import Scenario
+        document = Scenario.query.get_or_404(id)
+        # For scenarios, we need to use scenario_metadata instead of doc_metadata
+        metadata_field = 'scenario_metadata'
+    else:
+        metadata_field = 'doc_metadata'
     
     # Get association method from form
     association_method = request.form.get('association_method', 'embedding')
-    use_llm = (association_method == 'llm')
     
     try:
-        # Create the triple association service and storage
-        # Use a lower similarity threshold to get more matches (0.5 instead of default 0.6)
-        ttl_service = SectionTripleAssociationService(
-            similarity_threshold=0.5,
-            use_llm=use_llm
-        )
+        # Use the enhanced guideline association service
+        from app.services.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
+        
+        enhanced_service = EnhancedGuidelineAssociationService()
         
         # Log which method we're using
-        current_app.logger.info(f"Using {'LLM-based' if use_llm else 'embedding-based'} association method")
-        triple_storage = SectionTripleAssociationStorage()
+        current_app.logger.info(f"Using enhanced association service with {association_method} method")
         
-        # Ensure tables exist
-        triple_storage.create_table()
+        # Generate enhanced associations for this case
+        associations = enhanced_service.generate_associations_for_case(id)
         
-        # Get all section IDs for this document
-        from sqlalchemy import text
-        with db.engine.connect() as conn:
-            query = text("""
-                SELECT id FROM document_sections 
-                WHERE document_id = :document_id
-            """)
-            
-            result = conn.execute(query, {"document_id": id})
-            section_ids = [row[0] for row in result]
-        
-        if not section_ids:
-            flash("No sections found for this document", "warning")
+        if not associations:
+            flash("No associations could be generated. Make sure the case has proper section content and guideline concepts exist.", "warning")
             return redirect(url_for('doc_structure.view_structure', id=id))
-            
-        # Process each section
-        associations_created = 0
-        sections_processed = 0
         
-        for section_id in section_ids:
-            try:
-                # Process section and get matches
-                result = ttl_service.associate_section_with_concepts(section_id)
-                
-                if result and result.get('success') and result.get('matches'):
-                    # Store matches in the database
-                    matches = result.get('matches')
-                    associations_created += triple_storage.store_associations(section_id, matches)
-                    sections_processed += 1
-            except Exception as e:
-                current_app.logger.warning(f"Error processing section {section_id}: {str(e)}")
+        # Save associations to database
+        associations_created = enhanced_service.save_associations_to_database(associations)
         
-        # Update document metadata to reflect the associations
+        # Calculate statistics
+        sections_processed = len(set(assoc.section_type for assoc in associations))
+        avg_confidence = sum(assoc.score.overall_confidence for assoc in associations) / len(associations)
+        high_confidence_count = sum(1 for assoc in associations if assoc.score.overall_confidence > 0.7)
+        
+        # Group by section type for detailed stats
+        section_stats = {}
+        for assoc in associations:
+            section = assoc.section_type
+            if section not in section_stats:
+                section_stats[section] = {'count': 0, 'avg_confidence': 0, 'confidences': []}
+            section_stats[section]['count'] += 1
+            section_stats[section]['confidences'].append(assoc.score.overall_confidence)
+        
+        # Calculate averages
+        for section in section_stats:
+            confidences = section_stats[section]['confidences']
+            section_stats[section]['avg_confidence'] = sum(confidences) / len(confidences)
+        
+        # Update document metadata to reflect the enhanced associations
         if associations_created > 0:
-            metadata = document.doc_metadata or {}
+            metadata = getattr(document, metadata_field) or {}
             if not isinstance(metadata, dict):
                 metadata = {}
                 
             if 'document_structure' not in metadata:
                 metadata['document_structure'] = {}
                 
-            # Add the ontology concept associations info
-            metadata['document_structure']['ontology_concept_associations'] = {
-                'count': associations_created,
+            # Add the enhanced association info
+            metadata['document_structure']['enhanced_associations'] = {
+                'total_associations': associations_created,
                 'sections_processed': sections_processed,
-                'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                'average_confidence': round(avg_confidence, 3),
+                'high_confidence_count': high_confidence_count,
+                'section_stats': {k: {'count': v['count'], 'avg_confidence': round(v['avg_confidence'], 3)} 
+                                for k, v in section_stats.items()},
+                'method': association_method,
+                'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                'service_version': 'enhanced_v1.0'
             }
             
             # Save the updated metadata
-            document.doc_metadata = json.loads(json.dumps(metadata))
+            setattr(document, metadata_field, json.loads(json.dumps(metadata)))
             db.session.commit()
             
-            flash(f"Successfully created {associations_created} ontology concept associations across {sections_processed} sections using {'LLM-based' if use_llm else 'embedding-based'} method", "success")
+            # Create detailed success message
+            success_msg = f"✨ Enhanced associations created: {associations_created} total across {sections_processed} sections"
+            success_msg += f" | Avg confidence: {avg_confidence:.2f} | High confidence: {high_confidence_count}"
+            
+            flash(success_msg, "success")
         else:
             flash("No associations were created. Check if document sections have embeddings.", "warning")
             
