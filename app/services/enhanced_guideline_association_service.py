@@ -27,11 +27,22 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AssociationScore:
     """Container for association scoring metrics"""
-    semantic_similarity: float
+    # Embedding-based scores
+    embedding_similarity: float
     keyword_overlap: float  
     contextual_relevance: float
+    
+    # LLM-based scores
+    llm_semantic_score: float
+    llm_reasoning_quality: float
+    
+    # Combined scores
     overall_confidence: float
-    reasoning: str
+    
+    # Explanations
+    embedding_reasoning: str
+    llm_reasoning: str
+    combined_reasoning: str
 
 @dataclass  
 class GuidelineAssociation:
@@ -219,42 +230,63 @@ class EnhancedGuidelineAssociationService:
     
     def _calculate_association_score(self, section_content: str, concept: EntityTriple) -> AssociationScore:
         """
-        Calculate multi-dimensional association score
+        Calculate hybrid multi-dimensional association score using both embeddings and LLM
         
         Returns:
-            AssociationScore with semantic, keyword, contextual, and overall scores
+            AssociationScore with separate embedding and LLM scores plus combined overall score
         """
         
         # Get concept text representation
         concept_text = self._get_concept_text(concept)
         
-        # Calculate semantic similarity using embeddings
-        semantic_similarity = self._calculate_semantic_similarity(section_content, concept_text)
-        
-        # Calculate keyword overlap
+        # === EMBEDDING-BASED SCORING ===
+        embedding_similarity = self._calculate_embedding_similarity(section_content, concept_text)
         keyword_overlap = self._calculate_keyword_overlap(section_content, concept_text)
-        
-        # Calculate contextual relevance
         contextual_relevance = self._calculate_contextual_relevance(section_content, concept)
         
-        # Calculate overall confidence (weighted combination)
-        overall_confidence = (
-            0.5 * semantic_similarity +     # Primary: embedding similarity
-            0.3 * contextual_relevance +    # Secondary: context matching
-            0.2 * keyword_overlap           # Tertiary: keyword overlap
+        # Generate embedding-based reasoning
+        embedding_reasoning = self._generate_embedding_reasoning(
+            embedding_similarity, keyword_overlap, contextual_relevance, concept_text
         )
         
-        # Generate reasoning
-        reasoning = self._generate_association_reasoning(
-            semantic_similarity, keyword_overlap, contextual_relevance, concept_text
+        # === LLM-BASED SCORING ===
+        llm_scores = self._calculate_llm_scores(section_content, concept_text, concept)
+        llm_semantic_score = llm_scores.get('semantic_score', 0.0)
+        llm_reasoning_quality = llm_scores.get('reasoning_quality', 0.0)
+        llm_reasoning = llm_scores.get('reasoning', 'LLM analysis unavailable')
+        
+        # === HYBRID COMBINATION ===
+        # Weight the scores: embeddings (reliable, fast) + LLM (nuanced, context-aware)
+        overall_confidence = (
+            0.35 * embedding_similarity +    # Fast, reliable semantic matching
+            0.25 * llm_semantic_score +      # Nuanced LLM semantic analysis
+            0.20 * contextual_relevance +    # Context pattern matching
+            0.15 * llm_reasoning_quality +   # LLM reasoning coherence
+            0.05 * keyword_overlap           # Simple keyword matching
+        )
+        
+        # Generate combined reasoning explaining both methods
+        combined_reasoning = self._generate_combined_reasoning(
+            embedding_similarity, llm_semantic_score, embedding_reasoning, llm_reasoning, concept_text
         )
         
         return AssociationScore(
-            semantic_similarity=semantic_similarity,
+            # Embedding scores
+            embedding_similarity=embedding_similarity,
             keyword_overlap=keyword_overlap,
             contextual_relevance=contextual_relevance,
+            
+            # LLM scores  
+            llm_semantic_score=llm_semantic_score,
+            llm_reasoning_quality=llm_reasoning_quality,
+            
+            # Combined
             overall_confidence=overall_confidence,
-            reasoning=reasoning
+            
+            # Reasonings
+            embedding_reasoning=embedding_reasoning,
+            llm_reasoning=llm_reasoning,
+            combined_reasoning=combined_reasoning
         )
     
     def _get_concept_text(self, concept: EntityTriple) -> str:
@@ -281,7 +313,7 @@ class EnhancedGuidelineAssociationService:
                 
         return ""
     
-    def _calculate_semantic_similarity(self, text1: str, text2: str) -> float:
+    def _calculate_embedding_similarity(self, text1: str, text2: str) -> float:
         """Calculate embedding-based semantic similarity"""
         try:
             embedding1 = self.embedding_service.get_embedding(text1)
@@ -365,32 +397,150 @@ class EnhancedGuidelineAssociationService:
         # Clean and filter keywords
         return [kw.lower() for kw in keywords if len(kw) > 2]
     
-    def _generate_association_reasoning(
+    def _calculate_llm_scores(self, section_content: str, concept_text: str, concept: EntityTriple) -> Dict[str, Any]:
+        """
+        Calculate LLM-based scores for semantic similarity and reasoning quality
+        
+        Returns:
+            Dictionary with semantic_score, reasoning_quality, and reasoning text
+        """
+        try:
+            # Construct prompt for LLM analysis
+            prompt = f"""You are an expert in engineering ethics. Analyze the semantic relationship between this case section and ethical concept.
+
+CASE SECTION:
+{section_content[:500]}...
+
+ETHICAL CONCEPT: {concept_text}
+CONCEPT URI: {concept.subject}
+
+TASK: Provide scores and reasoning for how this ethical concept relates to the case section.
+
+1. Semantic Similarity Score (0.0-1.0): How semantically related is the section to this concept?
+2. Reasoning Quality Score (0.0-1.0): How well does this concept help understand the ethical issues?
+3. Detailed Reasoning: Explain the relationship, focusing on ethical principles and patterns.
+
+IMPORTANT: Respond ONLY with valid JSON in this exact format:
+{{
+    "semantic_score": 0.85,
+    "reasoning_quality": 0.75,
+    "reasoning": "Detailed explanation of the ethical relationship..."
+}}
+
+Do not include any text before or after the JSON."""
+            
+            # Get LLM response
+            llm_response = self.llm_service.send_message(prompt)
+            
+            if llm_response and hasattr(llm_response, 'content'):
+                logger.info(f"LLM response content: '{llm_response.content}' (type: {type(llm_response.content)})")
+                
+                try:
+                    # Parse JSON response
+                    import json
+                    
+                    # Handle empty or whitespace-only content
+                    if not llm_response.content or not llm_response.content.strip():
+                        logger.warning("LLM returned empty content")
+                        raise ValueError("Empty LLM response")
+                    
+                    # Try to extract JSON from the response if it's wrapped in other text
+                    content = llm_response.content.strip()
+                    
+                    # Look for JSON block if response has extra text
+                    if content.startswith('```json'):
+                        # Extract JSON from code block
+                        json_start = content.find('{')
+                        json_end = content.rfind('}') + 1
+                        if json_start != -1 and json_end != 0:
+                            content = content[json_start:json_end]
+                    elif not content.startswith('{'):
+                        # Look for the first { and last } in the response
+                        json_start = content.find('{')
+                        json_end = content.rfind('}') + 1
+                        if json_start != -1 and json_end != 0:
+                            content = content[json_start:json_end]
+                        else:
+                            logger.warning(f"No JSON found in LLM response: {content[:200]}...")
+                            raise ValueError("No JSON in LLM response")
+                    
+                    result = json.loads(content)
+                    
+                    # Validate and normalize scores
+                    semantic_score = max(0.0, min(1.0, float(result.get('semantic_score', 0.0))))
+                    reasoning_quality = max(0.0, min(1.0, float(result.get('reasoning_quality', 0.0))))
+                    reasoning = result.get('reasoning', 'LLM provided incomplete reasoning')
+                    
+                    logger.info(f"Parsed LLM scores: semantic={semantic_score}, quality={reasoning_quality}")
+                    
+                    return {
+                        'semantic_score': semantic_score,
+                        'reasoning_quality': reasoning_quality,
+                        'reasoning': reasoning
+                    }
+                    
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.warning(f"Failed to parse LLM response: {e}")
+                    
+        except Exception as e:
+            logger.warning(f"LLM scoring failed: {e}")
+            
+        # Fallback scores when LLM unavailable
+        return {
+            'semantic_score': 0.0,
+            'reasoning_quality': 0.0, 
+            'reasoning': 'LLM analysis unavailable - using embedding-based analysis only'
+        }
+    
+    def _generate_embedding_reasoning(
         self, 
-        semantic: float, 
+        embedding_sim: float, 
         keyword: float, 
         contextual: float, 
         concept_text: str
     ) -> str:
-        """Generate human-readable reasoning for the association"""
+        """Generate human-readable reasoning for embedding-based scoring"""
         
         components = []
         
-        if semantic >= 0.7:
-            components.append(f"strong semantic ({semantic:.2f})")
-        elif semantic >= 0.4:
-            components.append(f"moderate semantic ({semantic:.2f})")
+        if embedding_sim >= 0.7:
+            components.append(f"strong vector similarity ({embedding_sim:.2f})")
+        elif embedding_sim >= 0.4:
+            components.append(f"moderate vector similarity ({embedding_sim:.2f})")
             
         if keyword >= 0.3:
-            components.append(f"keywords ({keyword:.2f})")
+            components.append(f"keyword overlap ({keyword:.2f})")
             
         if contextual >= 0.3:
-            components.append(f"context ({contextual:.2f})")
+            components.append(f"contextual patterns ({contextual:.2f})")
             
         if components:
-            return f"{', '.join(components)} → '{concept_text}'"
+            return f"Embedding analysis: {', '.join(components)} → '{concept_text}'"
         else:
-            return f"Low confidence → '{concept_text}'"
+            return f"Embedding analysis: Low confidence → '{concept_text}'"
+    
+    def _generate_combined_reasoning(
+        self,
+        embedding_sim: float,
+        llm_semantic: float, 
+        embedding_reasoning: str,
+        llm_reasoning: str,
+        concept_text: str
+    ) -> str:
+        """Generate combined reasoning explaining both embedding and LLM contributions"""
+        
+        # Determine primary driver
+        if embedding_sim > llm_semantic + 0.2:
+            primary = "vector-driven"
+        elif llm_semantic > embedding_sim + 0.2:
+            primary = "LLM-driven"
+        else:
+            primary = "hybrid"
+            
+        # Create summary
+        summary = f"{primary} association (embedding: {embedding_sim:.2f}, LLM: {llm_semantic:.2f}) → '{concept_text}'"
+        
+        return summary
     
     def _generate_pattern_indicators(
         self, 
@@ -410,7 +560,7 @@ class EnhancedGuidelineAssociationService:
         indicators = {
             'section_type': section_type,
             'confidence_level': ensure_python_type(score.overall_confidence),
-            'pattern_strength': ensure_python_type(score.semantic_similarity),
+            'pattern_strength': ensure_python_type(score.embedding_similarity),
             'concept_uri': concept.subject
         }
         
@@ -462,12 +612,17 @@ class EnhancedGuidelineAssociationService:
                     'case_id': assoc.case_id,
                     'guideline_concept_id': assoc.guideline_concept_id,
                     'section_type': assoc.section_type,
-                    'semantic_similarity': convert_numpy(assoc.score.semantic_similarity),
+                    'semantic_similarity': convert_numpy(assoc.score.embedding_similarity),
                     'keyword_overlap': convert_numpy(assoc.score.keyword_overlap),
                     'contextual_relevance': convert_numpy(assoc.score.contextual_relevance),
                     'overall_confidence': convert_numpy(assoc.score.overall_confidence),
+                    'llm_semantic_score': convert_numpy(assoc.score.llm_semantic_score),
+                    'llm_reasoning_quality': convert_numpy(assoc.score.llm_reasoning_quality),
                     'pattern_indicators': json.dumps(assoc.pattern_indicators, default=convert_numpy),
-                    'association_reasoning': assoc.score.reasoning,
+                    'association_reasoning': assoc.score.combined_reasoning,
+                    'embedding_reasoning': assoc.score.embedding_reasoning,
+                    'llm_reasoning': assoc.score.llm_reasoning,
+                    'scoring_method': 'hybrid',
                     'association_method': assoc.association_method
                 }
                 
@@ -475,20 +630,29 @@ class EnhancedGuidelineAssociationService:
                 insert_sql = text("""
                     INSERT INTO case_guideline_associations 
                     (case_id, guideline_concept_id, section_type, semantic_similarity, 
-                     keyword_overlap, contextual_relevance, overall_confidence, 
-                     pattern_indicators, association_reasoning, association_method)
+                     keyword_overlap, contextual_relevance, overall_confidence,
+                     llm_semantic_score, llm_reasoning_quality, 
+                     pattern_indicators, association_reasoning, embedding_reasoning, 
+                     llm_reasoning, scoring_method, association_method)
                     VALUES 
                     (:case_id, :guideline_concept_id, :section_type, :semantic_similarity,
                      :keyword_overlap, :contextual_relevance, :overall_confidence,
-                     :pattern_indicators, :association_reasoning, :association_method)
+                     :llm_semantic_score, :llm_reasoning_quality,
+                     :pattern_indicators, :association_reasoning, :embedding_reasoning,
+                     :llm_reasoning, :scoring_method, :association_method)
                     ON CONFLICT (case_id, guideline_concept_id, section_type) 
                     DO UPDATE SET
                         semantic_similarity = EXCLUDED.semantic_similarity,
                         keyword_overlap = EXCLUDED.keyword_overlap,
                         contextual_relevance = EXCLUDED.contextual_relevance,
                         overall_confidence = EXCLUDED.overall_confidence,
+                        llm_semantic_score = EXCLUDED.llm_semantic_score,
+                        llm_reasoning_quality = EXCLUDED.llm_reasoning_quality,
                         pattern_indicators = EXCLUDED.pattern_indicators,
                         association_reasoning = EXCLUDED.association_reasoning,
+                        embedding_reasoning = EXCLUDED.embedding_reasoning,
+                        llm_reasoning = EXCLUDED.llm_reasoning,
+                        scoring_method = EXCLUDED.scoring_method,
                         association_method = EXCLUDED.association_method,
                         updated_at = CURRENT_TIMESTAMP
                 """)

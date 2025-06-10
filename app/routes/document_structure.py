@@ -304,7 +304,9 @@ def view_structure(id):
                 query_top = text("""
                     SELECT cga.section_type, cga.overall_confidence, cga.semantic_similarity,
                            cga.keyword_overlap, cga.contextual_relevance, cga.association_reasoning,
-                           cga.pattern_indicators, et.subject, et.object_literal
+                           cga.pattern_indicators, et.subject, et.object_literal,
+                           cga.llm_semantic_score, cga.llm_reasoning_quality,
+                           cga.embedding_reasoning, cga.llm_reasoning, cga.scoring_method
                     FROM case_guideline_associations cga
                     JOIN entity_triples et ON cga.guideline_concept_id = et.id
                     WHERE cga.case_id = :case_id
@@ -326,13 +328,18 @@ def view_structure(id):
                     enhanced_associations_data.append({
                         'section_type': row[0],
                         'overall_confidence': row[1],
-                        'semantic_similarity': row[2],
+                        'embedding_similarity': row[2],  # renamed from semantic_similarity
                         'keyword_overlap': row[3],
                         'contextual_relevance': row[4],
-                        'reasoning': row[5],
+                        'reasoning': row[5],  # combined reasoning
                         'pattern_indicators': pattern_indicators,
                         'concept_uri': row[7],
-                        'concept_name': row[8] or row[7].split('/')[-1] if row[7] else 'Unknown'
+                        'concept_name': row[8] or row[7].split('/')[-1] if row[7] else 'Unknown',
+                        'llm_semantic_score': row[9] or 0.0,
+                        'llm_reasoning_quality': row[10] or 0.0,
+                        'embedding_reasoning': row[11] or 'Not available',
+                        'llm_reasoning': row[12] or 'LLM analysis not available',
+                        'scoring_method': row[13] or 'hybrid'
                     })
                 
                 current_app.logger.info(f"Loaded {len(enhanced_associations_data)} enhanced associations")
