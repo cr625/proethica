@@ -20,7 +20,6 @@
             <li><a href="#document-info" class="toc-link">Document Information</a></li>
             <li><a href="#section-embeddings" class="toc-link">Section Embeddings</a></li>
             <li><a href="#ontology-associations" class="toc-link">Enhanced Guideline Associations</a></li>
-            <li><a href="#guideline-associations" class="toc-link">Ethical Guideline Associations</a></li>
             <li><a href="#term-links" class="toc-link">Ontology Term Links</a></li>
             <li><a href="#structure-triples" class="toc-link">Structure Triples</a></li>
         </ul>
@@ -254,7 +253,7 @@
             </div>
 
             <!-- Top Associations Table -->
-            <h5><i class="bi bi-trophy"></i> Top Associations</h5>
+            <h5><i class="bi bi-star"></i> Top Associations</h5>
             <div class="table-responsive">
                 <table class="table table-sm">
                     <thead>
@@ -288,13 +287,13 @@
                                 <small>
                                     <div><strong>🔢 Vector:</strong> {{ "%.3f"|format(assoc.embedding_similarity) if assoc.embedding_similarity else 'N/A' }}</div>
                                     <div><strong>🔤 Keywords:</strong> {{ "%.3f"|format(assoc.keyword_overlap) if assoc.keyword_overlap else 'N/A' }}</div>
-                                    <div><strong>🎯 Context:</strong> {{ "%.3f"|format(assoc.contextual_relevance) if assoc.contextual_relevance else 'N/A' }}</div>
+                                    <div><strong>Context:</strong> {{ "%.3f"|format(assoc.contextual_relevance) if assoc.contextual_relevance else 'N/A' }}</div>
                                 </small>
                             </td>
                             <td>
                                 <small>
-                                    <div><strong>🧠 Semantic:</strong> {{ "%.3f"|format(assoc.llm_semantic_score) if assoc.llm_semantic_score else 'N/A' }}</div>
-                                    <div><strong>✨ Quality:</strong> {{ "%.3f"|format(assoc.llm_reasoning_quality) if assoc.llm_reasoning_quality else 'N/A' }}</div>
+                                    <div><strong>Semantic:</strong> {{ "%.3f"|format(assoc.llm_semantic_score) if assoc.llm_semantic_score else 'N/A' }}</div>
+                                    <div><strong>Quality:</strong> {{ "%.3f"|format(assoc.llm_reasoning_quality) if assoc.llm_reasoning_quality else 'N/A' }}</div>
                                     {% if assoc.llm_semantic_score == 0 %}
                                     <div class="text-muted"><em>LLM unavailable</em></div>
                                     {% endif %}
@@ -336,7 +335,7 @@
                                         {% endif %}
                                         {% if assoc.llm_reasoning != 'LLM analysis not available' %}
                                         <hr class="my-1">
-                                        <small><strong>🧠 LLM:</strong> {{ assoc.llm_reasoning }}</small>
+                                        <small><strong>LLM:</strong> {{ assoc.llm_reasoning }}</small>
                                         {% endif %}
                                         <div class="mt-1">
                                             <a href="#" class="text-primary collapse-reasoning" style="text-decoration: none;">
@@ -358,9 +357,9 @@
             <div class="mt-3">
                 <small class="text-muted">
                     <i class="bi bi-info-circle"></i> 
-                    <strong>Hybrid Enhanced Associations:</strong> Combines fast vector embeddings (🔢) with nuanced LLM analysis (🧠) 
-                    for multi-dimensional scoring. Embedding scores provide reliable semantic matching, while LLM scores add 
-                    contextual understanding and detailed reasoning. Overall confidence uses weighted combination of both approaches.
+                    <strong>Hybrid Enhanced Associations:</strong> Combines fast vector embeddings (🔢) with LLM analysis
+                    for multi-dimensional scoring. Embedding scores provide semantic matching, while LLM scores add 
+                    contextual understanding. Overall confidence uses weighted combination of both approaches.
                 </small>
             </div>
 
@@ -459,148 +458,17 @@
                 <i class="bi bi-exclamation-triangle"></i>
                 <strong>No enhanced guideline associations available for this document.</strong>
             </div>
-            <p>Hybrid enhanced associations combine fast vector embeddings with nuanced LLM analysis to connect document sections with ethical concepts. Uses multi-dimensional scoring with separated component visibility:</p>
+            <p>Hybrid enhanced associations combine fast vector embeddings with LLM analysis to connect document sections with ethical concepts. Uses multi-dimensional scoring with separated component visibility:</p>
             <ul class="small">
                 <li><strong>🔢 Embedding Scores:</strong> Vector similarity, keyword overlap, contextual patterns</li>
-                <li><strong>🧠 LLM Scores:</strong> Semantic analysis, reasoning quality assessment</li>
-                <li><strong>🎯 Combined:</strong> Weighted hybrid confidence with detailed explanations</li>
+                <li><strong>LLM Scores:</strong> Semantic analysis, reasoning quality assessment</li>
+                <li><strong>Combined:</strong> Weighted hybrid confidence with detailed explanations</li>
             </ul>
             <p class="text-muted">Use the "Generate Hybrid Associations" button in the card header above to create associations for this document.</p>
             {% endif %}
         </div>
     </div>
 
-    <!-- Ethical Guideline Associations -->
-    <div id="guideline-associations" class="card mb-4">
-        <div class="card-header bg-success text-white">
-            <h3>Ethical Guideline Associations</h3>
-        </div>
-        <div class="card-body">
-            {% if has_guideline_associations %}
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i>
-                <strong>Ethical guideline associations are available.</strong>
-            </div>
-
-            {% if section_guideline_associations %}
-            {% for section_id, guidelines in section_guideline_associations.items() %}
-            <div class="mb-4">
-                <h4>Section: {{ guidelines.section_type if guidelines.section_type is defined else section_id }}</h4>
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Guideline</th>
-                            <th>Relationship</th>
-                            <th>Confidence</th>
-                            <th>Details</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for assoc in guidelines.guidelines %}
-                        {% if assoc is mapping %}
-                        <tr>
-                            <td>{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else "Unknown URI" }}</td>
-                            <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else "related" }}</td>
-                            <td>
-                                <div class="progress">
-                                    <div class="progress-bar 
-                                        {% if assoc.confidence >= 0.8 %}bg-success
-                                        {% elif assoc.confidence >= 0.5 %}bg-info
-                                        {% else %}bg-warning{% endif %}"
-                                        role="progressbar" 
-                                        style="width: {{ (assoc.confidence * 100)|round }}%"
-                                        aria-valuenow="{{ (assoc.confidence * 100)|round }}" 
-                                        aria-valuemin="0" 
-                                        aria-valuemax="100">
-                                        {{ (assoc.confidence * 100)|round }}%
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if assoc.details %}
-                                <button class="btn btn-sm btn-outline-primary" 
-                                        type="button" 
-                                        data-bs-toggle="collapse" 
-                                        data-bs-target="#details-{{ section_id }}-{{ loop.index }}" 
-                                        aria-expanded="false">
-                                    Show Details
-                                </button>
-                                <div class="collapse mt-2" id="details-{{ section_id }}-{{ loop.index }}">
-                                    <div class="card card-body">
-                                        {{ assoc.details|safe }}
-                                    </div>
-                                </div>
-                                {% else %}
-                                <span class="text-muted">No details available</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4">
-                                <table class="table table-bordered table-sm mb-2" style="background:#f8f9fa;">
-                                    <tr>
-                                        <th style="width:120px;">Label</th>
-                                        <td>{{ assoc.label if assoc.label is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>URI</th>
-                                        <td style="word-break:break-all;">{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Description</th>
-                                        <td>{{ assoc.description if assoc.description is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Confidence</th>
-                                        <td>{{ assoc.confidence if assoc.confidence is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Relationship</th>
-                                        <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else 'related' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Reasoning</th>
-                                        <td>
-                                            {% if assoc.reasoning is defined %}
-                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#reasoning-{{ section_id }}-{{ loop.index }}" aria-expanded="false">Show Reasoning</button>
-                                                <div class="collapse mt-2" id="reasoning-{{ section_id }}-{{ loop.index }}">
-                                                    <pre style="background:#fff; border:1px solid #eee; border-radius:4px; padding:8px; font-size:0.95em; color:#222; max-height:300px; overflow:auto;">{{ assoc.reasoning | tojson(indent=2) }}</pre>
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">No reasoning available</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-danger">Warning: Association is not a dictionary (type={{ assoc.__class__.__name__ }}): {{ assoc }}</td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% endfor %}
-            {% else %}
-            <p>No specific guideline associations found for sections.</p>
-            {% endif %}
-            {% else %}
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i>
-                <strong>No ethical guideline associations available for this document.</strong>
-            </div>
-            <p>Guideline associations connect document sections with ethical principles and guidelines.</p>
-            <form action="{{ url_for('doc_structure.associate_guidelines', id=document.id) }}" method="post">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-link"></i> Generate Guideline Associations
-                </button>
-            </form>
-            {% endif %}
-        </div>
-    </div>
 
     <!-- Ontology Term Links Information -->
     <div id="term-links" class="card mb-4">
@@ -860,7 +728,7 @@
                 // Update active section on scroll
                 function updateActiveSection() {
                     const sections = ['document-info', 'section-embeddings', 'ontology-associations', 
-                                    'guideline-associations', 'term-links', 'structure-triples'];
+                                    'term-links', 'structure-triples'];
                     
                     const scrollPos = window.scrollY + 100; // Offset for better UX
                     

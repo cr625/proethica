@@ -20,13 +20,20 @@ This project models professional domains ("worlds") and supports ethical decisio
 - Section embeddings are generated and stored in both the `DocumentSection` table (with pgvector) and in `section_embeddings_metadata` in `doc_metadata`.
 - Enables semantic similarity search between sections across cases.
 
-### 4. Guideline Association
-- Ethical guidelines are associated with each world.
-- Guideline associations can be generated for each case section, linking them to relevant ethical principles.
+### 4. Enhanced Hybrid Guideline Association (2025-06-10)
+- **Hybrid Approach**: Combines fast vector embeddings with nuanced LLM analysis
+- **Multi-dimensional Scoring**: 
+  - 🔢 Embedding scores: Vector similarity, keyword overlap, contextual patterns
+  - 🧠 LLM scores: Semantic analysis, reasoning quality assessment
+  - 🎯 Combined: Weighted hybrid confidence (35% embedding + 25% LLM semantic + 20% context + 15% LLM quality + 5% keywords)
+- **Separated Component Visibility**: UI shows exactly what each method contributes
+- **Database Schema**: Extended `case_guideline_associations` table with LLM-specific columns
+- **Fallback Resilience**: Embeddings provide reliable baseline even if LLM unavailable
 
 ### 5. LLM Reasoning (Experiment Phase)
 - LLMs can be prompted with case sections, extracted concepts, and triples for ontology-based reasoning.
 - Two experiment modes: ontology-augmented and prompt-only.
+- **Enhanced**: Integrated into hybrid guideline associations with JSON-structured prompts
 
 ## Technical Notes
 - All new cases use the nested `document_structure` format in metadata.
@@ -171,12 +178,52 @@ Added comprehensive support for extracting and storing full dates from NSPE case
   - Currently, the system directly saves cases without preview step
   - Could be connected to improve user experience in future
 
+## Hybrid Enhanced Associations Implementation (2025-06-10)
+
+### Technical Architecture
+- **Service**: `EnhancedGuidelineAssociationService` with hybrid scoring
+- **Database**: Extended `case_guideline_associations` table with columns:
+  - `llm_semantic_score`, `llm_reasoning_quality`
+  - `embedding_reasoning`, `llm_reasoning`, `scoring_method`
+- **UI**: Separated component display in document structure viewer
+- **Route**: `/structure/associate_ontology_concepts/<id>` with clear/regenerate functionality
+
+### Scoring Methodology
+```python
+overall_confidence = (
+    0.35 * embedding_similarity +    # Fast, reliable semantic matching
+    0.25 * llm_semantic_score +      # Nuanced LLM semantic analysis
+    0.20 * contextual_relevance +    # Context pattern matching
+    0.15 * llm_reasoning_quality +   # LLM reasoning coherence
+    0.05 * keyword_overlap           # Simple keyword matching
+)
+```
+
+### User Interface Features
+- **Clear & Regenerate**: Button to clear associations for testing
+- **Hybrid Method Selection**: Vector+LLM or LLM+Vector weighting preferences
+- **Expandable Reasoning**: Shows combined + individual method explanations
+- **Score Breakdown**: Separate columns for embedding vs LLM contributions
+- **Pattern Indicators**: Outcome prediction badges (safety, competence, transparency)
+
+### Implementation Status
+✅ **Phase 1**: Analyze existing guideline associations and case outcomes  
+✅ **Phase 2**: Design enhanced association schema with outcome patterns  
+🔄 **Phase 3**: Create outcome pattern recognition service (hybrid approach complete)  
+✅ **Connect UI**: Generate button connected to enhanced service with clear/regenerate  
+⏳ **Phase 4**: Build historical pattern correlation system  
+⏳ **Phase 5**: Implement predictive confidence scoring  
+⏳ **Phase 6**: Create case similarity matching based on patterns  
+⏳ **Phase 7**: Build UI for viewing predictive associations  
+⏳ **Phase 8**: Test and validate prediction accuracy  
+
 ## Next Steps
+- Debug LLM JSON response parsing for full hybrid functionality
+- Complete Phase 4: Historical pattern correlation system
 - Process remaining cases with enhanced pipeline
 - Test similarity search with granular fact/discussion items
 - Run LLM experiments with structured triples
 - Deploy MCP server for production use
-- Implement LLM-enhanced triple generation (Phase 2)
 
 ## MCP Server Status (Updated 2025-01-24)
 
