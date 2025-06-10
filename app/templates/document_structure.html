@@ -271,7 +271,7 @@
                                 </small>
                             </td>
                             <td>
-                                {% if assoc.pattern_indicators %}
+                                {% if assoc.pattern_indicators and assoc.pattern_indicators is mapping %}
                                 <div class="small">
                                     {% for key, value in assoc.pattern_indicators.items() %}
                                     {% if value == true %}
@@ -283,6 +283,8 @@
                                     {% endif %}
                                     {% endfor %}
                                 </div>
+                                {% elif assoc.pattern_indicators %}
+                                <small class="text-muted">Pattern data: {{ assoc.pattern_indicators|string|truncate(50) }}</small>
                                 {% else %}
                                 <small class="text-muted">No patterns</small>
                                 {% endif %}

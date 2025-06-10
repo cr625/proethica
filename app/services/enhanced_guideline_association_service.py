@@ -119,27 +119,56 @@ class EnhancedGuidelineAssociationService:
         if 'document_structure' in metadata:
             doc_structure = metadata['document_structure']
             if 'sections' in doc_structure:
-                for section_data in doc_structure['sections']:
-                    section_type = section_data.get('type', '').lower()
-                    
-                    # Get clean text content
-                    content = ''
-                    if 'content_text' in section_data:
-                        content = section_data['content_text']
-                    elif 'content' in section_data:
-                        content = section_data['content']
+                sections_data = doc_structure['sections']
+                logger.info(f"Sections data type: {type(sections_data)}, length: {len(sections_data) if hasattr(sections_data, '__len__') else 'N/A'}")
+                
+                # Handle different section formats
+                if isinstance(sections_data, list):
+                    for i, section_data in enumerate(sections_data):
+                        if i < 3:  # Log first 3 items for debugging
+                            logger.info(f"Section {i}: type={type(section_data)}, value={str(section_data)[:100]}...")
                         
-                    if content and section_type:
-                        sections[section_type] = content
+                        # Skip if section_data is a string or not a dict
+                        if not isinstance(section_data, dict):
+                            logger.warning(f"Skipping non-dict section data: {type(section_data)}")
+                            continue
+                            
+                        section_type = section_data.get('type', '').lower()
+                        
+                        # Get clean text content
+                        content = ''
+                        if 'content_text' in section_data:
+                            content = section_data['content_text']
+                        elif 'content' in section_data:
+                            content = section_data['content']
+                            
+                        if content and section_type:
+                            sections[section_type] = content
+                elif isinstance(sections_data, dict):
+                    # Handle case where sections is a dict of section_type: content
+                    for section_type, content in sections_data.items():
+                        if isinstance(content, str) and content:
+                            sections[section_type.lower()] = content
                         
         # Fallback to legacy section format
         if not sections and 'sections' in metadata:
             legacy_sections = metadata['sections']
-            for section_data in legacy_sections:
-                section_type = section_data.get('type', '').lower()
-                content = section_data.get('content', '')
-                if content and section_type:
-                    sections[section_type] = content
+            if isinstance(legacy_sections, list):
+                for section_data in legacy_sections:
+                    # Skip if section_data is not a dict
+                    if not isinstance(section_data, dict):
+                        logger.warning(f"Skipping non-dict legacy section data: {type(section_data)}")
+                        continue
+                        
+                    section_type = section_data.get('type', '').lower()
+                    content = section_data.get('content', '')
+                    if content and section_type:
+                        sections[section_type] = content
+            elif isinstance(legacy_sections, dict):
+                # Handle case where sections is a dict
+                for section_type, content in legacy_sections.items():
+                    if isinstance(content, str) and content:
+                        sections[section_type.lower()] = content
                     
         return sections
     
@@ -230,14 +259,22 @@ class EnhancedGuidelineAssociationService:
     
     def _get_concept_text(self, concept: EntityTriple) -> str:
         """Extract text representation from concept entity"""
+        # Handle case where concept might be a dict-like object
+        if hasattr(concept, 'get'):
+            object_literal = concept.get('object_literal')
+            subject = concept.get('subject')
+        else:
+            object_literal = getattr(concept, 'object_literal', None)
+            subject = getattr(concept, 'subject', None)
+            
         # Try object_literal first
-        if concept.object_literal:
-            return concept.object_literal
+        if object_literal:
+            return object_literal
             
         # Fallback to subject URI (extract readable name)
-        if concept.subject:
+        if subject:
             # Extract the fragment or last part of URI
-            parts = concept.subject.split('/')
+            parts = subject.split('/')
             if parts:
                 name = parts[-1].replace('_', ' ').replace('-', ' ')
                 return name
@@ -247,11 +284,26 @@ class EnhancedGuidelineAssociationService:
     def _calculate_semantic_similarity(self, text1: str, text2: str) -> float:
         """Calculate embedding-based semantic similarity"""
         try:
-            embedding1 = self.embedding_service.get_text_embedding(text1)
-            embedding2 = self.embedding_service.get_text_embedding(text2)
+            embedding1 = self.embedding_service.get_embedding(text1)
+            embedding2 = self.embedding_service.get_embedding(text2)
             
             if embedding1 and embedding2:
-                return self.embedding_service.calculate_similarity(embedding1, embedding2)
+                # Calculate cosine similarity
+                import numpy as np
+                
+                # Convert to numpy arrays
+                vec1 = np.array(embedding1)
+                vec2 = np.array(embedding2)
+                
+                # Calculate cosine similarity
+                dot_product = np.dot(vec1, vec2)
+                norm1 = np.linalg.norm(vec1)
+                norm2 = np.linalg.norm(vec2)
+                
+                if norm1 > 0 and norm2 > 0:
+                    similarity = dot_product / (norm1 * norm2)
+                    # Ensure the result is between 0 and 1
+                    return max(0.0, min(1.0, (similarity + 1) / 2))
                 
         except Exception as e:
             logger.warning(f"Error calculating semantic similarity: {e}")
@@ -349,10 +401,16 @@ class EnhancedGuidelineAssociationService:
     ) -> Dict[str, Any]:
         """Generate pattern indicators for outcome prediction"""
         
+        # Helper function to convert numpy types
+        def ensure_python_type(value):
+            if hasattr(value, 'item'):  # numpy scalar
+                return value.item()
+            return value
+        
         indicators = {
             'section_type': section_type,
-            'confidence_level': score.overall_confidence,
-            'pattern_strength': score.semantic_similarity,
+            'confidence_level': ensure_python_type(score.overall_confidence),
+            'pattern_strength': ensure_python_type(score.semantic_similarity),
             'concept_uri': concept.subject,
             'timestamp': datetime.utcnow().isoformat()
         }
@@ -394,16 +452,22 @@ class EnhancedGuidelineAssociationService:
         
         for assoc in associations:
             try:
-                # Prepare data for insert
+                # Prepare data for insert - convert numpy types to Python types
+                def convert_numpy(value):
+                    """Convert numpy types to Python types"""
+                    if hasattr(value, 'item'):  # numpy scalar
+                        return value.item()
+                    return value
+                
                 insert_data = {
                     'case_id': assoc.case_id,
                     'guideline_concept_id': assoc.guideline_concept_id,
                     'section_type': assoc.section_type,
-                    'semantic_similarity': assoc.score.semantic_similarity,
-                    'keyword_overlap': assoc.score.keyword_overlap,
-                    'contextual_relevance': assoc.score.contextual_relevance,
-                    'overall_confidence': assoc.score.overall_confidence,
-                    'pattern_indicators': json.dumps(assoc.pattern_indicators),
+                    'semantic_similarity': convert_numpy(assoc.score.semantic_similarity),
+                    'keyword_overlap': convert_numpy(assoc.score.keyword_overlap),
+                    'contextual_relevance': convert_numpy(assoc.score.contextual_relevance),
+                    'overall_confidence': convert_numpy(assoc.score.overall_confidence),
+                    'pattern_indicators': json.dumps(assoc.pattern_indicators, default=convert_numpy),
                     'association_reasoning': assoc.score.reasoning,
                     'association_method': assoc.association_method
                 }
@@ -435,10 +499,17 @@ class EnhancedGuidelineAssociationService:
                 
             except Exception as e:
                 logger.error(f"Error saving association {assoc}: {e}")
+                # Rollback the current transaction to recover from the error
+                db.session.rollback()
                 continue
                 
-        db.session.commit()
-        logger.info(f"Saved {saved_count} associations to database")
+        try:
+            db.session.commit()
+            logger.info(f"Saved {saved_count} associations to database")
+        except Exception as e:
+            logger.error(f"Error committing associations: {e}")
+            db.session.rollback()
+            
         return saved_count
     
     def generate_and_save_associations_for_case(self, case_id: int) -> int:

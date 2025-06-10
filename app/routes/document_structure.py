@@ -792,6 +792,9 @@ def associate_guidelines(id):
 @doc_structure_bp.route('/associate_ontology_concepts/<int:id>', methods=['POST'])
 def associate_ontology_concepts(id):
     """Associate ontology concepts with document sections using enhanced service."""
+    current_app.logger.info(f"🔥 ENHANCED ROUTE HIT: POST to associate_ontology_concepts/{id}")
+    current_app.logger.info(f"🔥 Form data: {dict(request.form)}")
+    current_app.logger.info(f"🔥 Request method: {request.method}")
     # Try to get the document - could be stored as Document or Scenario
     document = Document.query.get(id)
     if not document:
@@ -814,9 +817,12 @@ def associate_ontology_concepts(id):
         
         # Log which method we're using
         current_app.logger.info(f"Using enhanced association service with {association_method} method")
+        current_app.logger.info(f"Document type: {type(document)}, ID: {id}")
         
         # Generate enhanced associations for this case
+        current_app.logger.info("Starting association generation...")
         associations = enhanced_service.generate_associations_for_case(id)
+        current_app.logger.info(f"Generated {len(associations)} associations")
         
         if not associations:
             flash("No associations could be generated. Make sure the case has proper section content and guideline concepts exist.", "warning")
