@@ -22,6 +22,9 @@ if not os.environ.get('SQLALCHEMY_DATABASE_URI'):
 # Use local MCP server instead of production for debugging
 os.environ['MCP_SERVER_URL'] = 'http://localhost:5001'
 
+# Authentication toggle for development
+os.environ.setdefault('BYPASS_AUTH', 'true')  # Set to 'false' to enable auth
+
 # Configure logging to reduce noise
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
@@ -32,6 +35,7 @@ print("=" * 40)
 print(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
 print(f"MCP Server: {os.environ.get('MCP_SERVER_URL', 'Not configured')}")
 print(f"Database: {os.environ.get('DATABASE_URL', 'Default local')}")
+print(f"Auth Bypass: {os.environ.get('BYPASS_AUTH', 'false')} ({'ENABLED' if os.environ.get('BYPASS_AUTH') == 'true' else 'DISABLED'})")
 print("=" * 40)
 
 # Create app instance with proper configuration

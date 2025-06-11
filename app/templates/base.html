@@ -120,13 +120,40 @@
                             </li>
                         </ul>
                         <ul class="navbar-nav">
-                            {% if session.get('user_id') %}
+                            <!-- Auth Status Indicator -->
                             <li class="nav-item">
-                                <a class="nav-link" href="#">User</a>
+                                <span class="navbar-text me-2">
+                                    {% if environment == 'development' %}
+                                        {% if bypass_auth %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-shield-exclamation"></i> Auth Bypassed
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-shield-check"></i> Auth Active
+                                            </span>
+                                        {% endif %}
+                                    {% endif %}
+                                </span>
+                            </li>
+                            
+                            <!-- User/Login Section -->
+                            {% if current_user and current_user.is_authenticated %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li><a class="dropdown-item" href="/auth/logout">
+                                        <i class="bi bi-box-arrow-right me-2"></i>Logout
+                                    </a></li>
+                                </ul>
                             </li>
                             {% else %}
                             <li class="nav-item">
-                                <a class="nav-link" href="#">Login</a>
+                                <a class="nav-link" href="/auth/login">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login
+                                </a>
                             </li>
                             {% endif %}
                         </ul>
