@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
-from flask_login import login_required
+from app.utils.auth_utils import login_required
 import json
 from app import db
 from app.models.scenario import Scenario

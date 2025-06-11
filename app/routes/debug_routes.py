@@ -8,6 +8,8 @@ import requests
 import psycopg2
 import json
 from datetime import datetime
+from app.models.deconstructed_case import DeconstructedCase
+from app.models.document import Document
 
 debug_bp = Blueprint('debug', __name__)
 
@@ -285,3 +287,63 @@ def debug_status():
         return jsonify(status_data)
     else:
         return render_template('debug/status.html', status=status_data)
+
+
+@debug_bp.route('/deconstruction/<int:case_id>')
+def view_deconstruction(case_id):
+    """View case deconstruction results."""
+    # Get the case
+    case = Document.query.get_or_404(case_id)
+    
+    # Get deconstruction results
+    deconstruction = DeconstructedCase.query.filter_by(case_id=case_id).first()
+    
+    if not deconstruction:
+        return jsonify({
+            "error": "No deconstruction found for this case",
+            "case_id": case_id,
+            "case_title": case.title
+        }), 404
+    
+    # Convert to viewable format
+    result = {
+        "case": {
+            "id": case.id,
+            "title": case.title,
+            "world": case.world.name if case.world else "Unknown",
+            "source": case.source
+        },
+        "deconstruction": deconstruction.to_dict(),
+        "analysis": {
+            "stakeholders": deconstruction.stakeholders or [],
+            "decision_points": deconstruction.decision_points or [],
+            "reasoning_chain": deconstruction.reasoning_chain or {}
+        }
+    }
+    
+    return jsonify(result)
+
+
+@debug_bp.route('/deconstructions')
+def list_deconstructions():
+    """List all case deconstructions."""
+    deconstructions = DeconstructedCase.query.join(Document).all()
+    
+    results = []
+    for d in deconstructions:
+        results.append({
+            "id": d.id,
+            "case_id": d.case_id,
+            "case_title": d.case.title,
+            "adapter_type": d.adapter_type,
+            "stakeholder_count": len(d.stakeholders) if d.stakeholders else 0,
+            "decision_point_count": len(d.decision_points) if d.decision_points else 0,
+            "confidence_avg": round((d.stakeholder_confidence + d.decision_points_confidence + d.reasoning_confidence) / 3, 2),
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+            "human_validated": d.human_validated
+        })
+    
+    return jsonify({
+        "total": len(results),
+        "deconstructions": results
+    })
