@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}{{ world.name }} Scenarios - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>{{ world.name }} Scenarios</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('worlds.list_worlds') }}">Worlds</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Scenarios</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('scenarios.new_scenario', world_id=world.id) }}" class="btn btn-success me-2">
+                <i class="bi bi-plus-circle"></i> Create New Scenario
+            </a>
+            <a href="{{ url_for('worlds.view_world', id=world.id) }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to World
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0">
+                <i class="bi bi-globe"></i> World Context: {{ world.name }}
+            </h3>
+        </div>
+        <div class="card-body">
+            <p class="mb-2">{{ world.description }}</p>
+            {% if world.ontology_source %}
+            <div class="mt-2">
+                <span class="badge bg-primary">
+                    <i class="bi bi-diagram-3"></i> Ontology: {{ world.ontology_source }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if scenarios %}
+    <div class="row">
+        {% for scenario in scenarios %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h3>{{ scenario.name }}</h3>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ scenario.description }}</p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar"></i> Created: {{ scenario.created_at.strftime('%Y-%m-%d') if scenario.created_at else 'Unknown' }}
+                        </small>
+                        <small class="text-muted">
+                            <i class="bi bi-people"></i> Characters: {{ scenario.characters|length }}
+                        </small>
+                    </div>
+                    <div class="mt-2 d-flex flex-wrap gap-1">
+                        {% if scenario.characters %}
+                        <span class="badge bg-success">{{ scenario.characters|length }} Characters</span>
+                        {% endif %}
+                        {% if scenario.resources %}
+                        <span class="badge bg-warning">{{ scenario.resources|length }} Resources</span>
+                        {% endif %}
+                        {% if scenario.events %}
+                        <span class="badge bg-info">{{ scenario.events|length }} Events</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{{ url_for('scenarios.view_scenario', id=scenario.id) }}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                        <a href="{{ url_for('scenarios.edit_scenario', id=scenario.id) }}" class="btn btn-secondary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a href="{{ url_for('scenarios.simulate_scenario', id=scenario.id) }}" class="btn btn-info btn-sm">
+                            <i class="bi bi-play-circle"></i> Simulate
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">
+            <i class="bi bi-info-circle"></i> No Scenarios Yet
+        </h4>
+        <p>No scenarios have been created for the <strong>{{ world.name }}</strong> world yet.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('scenarios.new_scenario', world_id=world.id) }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Your First Scenario
+            </a>
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Scenario Planning Section - Future Phase 1 Integration -->
+    <div class="mt-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="bi bi-lightbulb"></i> Scenario Development Tools
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="bi bi-file-text"></i> From Case Studies</h5>
+                        <p class="text-muted">Transform existing case studies into interactive scenarios for testing and analysis.</p>
+                        <div class="alert alert-light border">
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> <strong>Coming Soon:</strong> Case-to-Scenario conversion wizard
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><i class="bi bi-gear"></i> Manual Creation</h5>
+                        <p class="text-muted">Build scenarios from scratch with full control over characters, resources, and decision points.</p>
+                        <a href="{{ url_for('scenarios.new_scenario', world_id=world.id) }}" class="btn btn-outline-primary">
+                            <i class="bi bi-plus"></i> Create Manual Scenario
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="bi bi-question-circle"></i> About Scenarios in {{ world.name }}
+                </h3>
+            </div>
+            <div class="card-body">
+                <p>
+                    Scenarios in the <strong>{{ world.name }}</strong> world represent ethical situations that require careful 
+                    decision-making within this specific domain context. Each scenario provides:
+                </p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li><strong>Characters</strong> - Stakeholders with specific roles and relationships</li>
+                            <li><strong>Resources</strong> - Available assets and constraints</li>
+                            <li><strong>Events</strong> - Timeline of what occurs during the scenario</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul>
+                            <li><strong>Decisions</strong> - Ethical choices that must be made</li>
+                            <li><strong>Context</strong> - Domain-specific rules and guidelines</li>
+                            <li><strong>Outcomes</strong> - Consequences of different decision paths</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if world.ontology_source %}
+                <div class="mt-3 p-3 bg-light rounded">
+                    <h6><i class="bi bi-diagram-3"></i> Ontology Integration</h6>
+                    <p class="mb-0 small">
+                        This world uses the <code>{{ world.ontology_source }}</code> ontology to provide structured 
+                        domain knowledge, ensuring scenarios are grounded in formal ethical frameworks and domain expertise.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

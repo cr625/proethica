@@ -1886,3 +1886,14 @@ def world_references(id):
         references = {'results': []}
     
     return render_template('world_references.html', world=world, references=references, query=query)
+
+# Scenarios routes
+@worlds_bp.route('/<int:id>/scenarios', methods=['GET'])
+def world_scenarios(id):
+    """Display scenarios for a specific world."""
+    world = World.query.get_or_404(id)
+    
+    # Get scenarios for this world
+    scenarios = Scenario.query.filter_by(world_id=world.id).all()
+    
+    return render_template('world_scenarios.html', world=world, scenarios=scenarios)
