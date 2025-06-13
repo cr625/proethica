@@ -8,13 +8,15 @@
  * 4. Color coding for different triple sources (McLaren vs. Engineering Ethics)
  */
 
+// Global variables
+let documentId = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('Initializing case detail page interactions...');
         
         // Store the selected triples
         const selectedTriples = new Set();
-        let documentId = null;
         
         // Try to get the document ID from the page
         const docIdEl = document.getElementById('document-id');
@@ -429,16 +431,44 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Strategy 2: Look for facts/discussion sections in structured format
         if (sectionName === 'facts') {
-            element = document.querySelector('[data-section="facts"], .card:has(h4:contains("Facts")), h4:contains("Facts") + div');
+            element = document.querySelector('[data-section="facts"]');
             if (element) return element;
+            
+            // Fallback: Look for Facts heading and get the next element
+            const factsHeadings = document.querySelectorAll('h4, h5, h6');
+            for (let heading of factsHeadings) {
+                if (heading.textContent.toLowerCase().includes('facts')) {
+                    const nextElement = heading.nextElementSibling;
+                    if (nextElement) return nextElement;
+                }
+            }
         }
         
         if (sectionName === 'discussion') {
-            element = document.querySelector('[data-section="discussion"], .card:has(h4:contains("Discussion")), h4:contains("Discussion") + div');
+            element = document.querySelector('[data-section="discussion"]');
             if (element) return element;
+            
+            // Fallback: Look for Discussion heading and get the next element
+            const discussionHeadings = document.querySelectorAll('h4, h5, h6');
+            for (let heading of discussionHeadings) {
+                if (heading.textContent.toLowerCase().includes('discussion')) {
+                    const nextElement = heading.nextElementSibling;
+                    if (nextElement) return nextElement;
+                }
+            }
         }
         
-        // Strategy 3: Look in sections_dual metadata structure
+        // Strategy 3: Look for card structure with heading text
+        const cards = document.querySelectorAll('.card');
+        for (let card of cards) {
+            const header = card.querySelector('.card-header h5, .card-header h4, .card-header h6');
+            if (header && header.textContent.toLowerCase().includes(sectionName)) {
+                const cardBody = card.querySelector('.card-body');
+                if (cardBody) return cardBody;
+            }
+        }
+        
+        // Strategy 4: Look in sections_dual metadata structure
         const factsSection = document.querySelector('#facts-section .section-content');
         const discussionSection = document.querySelector('#discussion-section .section-content');
         
@@ -460,62 +490,95 @@ document.addEventListener('DOMContentLoaded', function() {
     function highlightTermsInSection(sectionElement, termLinks) {
         if (!sectionElement) return;
         
-        // Get the text content of the section
-        const originalHTML = sectionElement.innerHTML;
+        // Clear any existing highlights first
+        const existingHighlights = sectionElement.querySelectorAll('.ontology-term-highlight');
+        existingHighlights.forEach(highlight => {
+            const parent = highlight.parentNode;
+            parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
+            parent.normalize(); // Merge adjacent text nodes
+        });
         
-        // Sort term links by start position (descending) to avoid position shifting
-        const sortedLinks = [...termLinks].sort((a, b) => b.term_start - a.term_start);
+        // Get the clean text content
+        const textContent = sectionElement.textContent;
         
-        // Track the current HTML content as we modify it
-        let currentHTML = originalHTML;
+        // Group terms by their text to avoid duplicate highlights
+        const termsByText = new Map();
+        termLinks.forEach(link => {
+            if (!termsByText.has(link.term_text)) {
+                termsByText.set(link.term_text, []);
+            }
+            termsByText.get(link.term_text).push(link);
+        });
         
-        // Apply highlighting for each term (in reverse order)
-        sortedLinks.forEach(link => {
-            const termText = link.term_text;
-            const startPos = link.term_start;
-            const endPos = link.term_end;
+        // Apply highlighting for each unique term
+        let highlightedCount = 0;
+        termsByText.forEach((links, termText) => {
+            // Use the first link's data for the highlight (they should be similar)
+            const link = links[0];
             
             // Create the tooltip content with RDF triple information
             const tooltipContent = createTooltipContent(link);
             
-            // Create the highlighted span
-            const highlightedSpan = `<span class="ontology-term-highlight" 
-                data-term="${escapeHtml(termText)}"
-                data-uri="${escapeHtml(link.ontology_uri)}"
-                data-label="${escapeHtml(link.ontology_label)}"
-                data-definition="${escapeHtml(link.definition)}"
-                title="${escapeHtml(tooltipContent)}">${termText}</span>`;
+            // Find all text nodes and highlight the term
+            const walker = document.createTreeWalker(
+                sectionElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
             
-            // Try to find and replace the term in the HTML
-            // We'll use a simple approach first - look for the exact text
-            const regex = new RegExp(`\\b${escapeRegex(termText)}\\b`, 'gi');
+            const textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
             
-            // Count existing highlights to avoid re-highlighting
-            const existingHighlights = (currentHTML.match(/ontology-term-highlight/g) || []).length;
-            let replacementCount = 0;
-            
-            currentHTML = currentHTML.replace(regex, (match) => {
-                replacementCount++;
-                // Only highlight the first few instances to avoid over-highlighting
-                if (replacementCount <= 3 && !match.includes('ontology-term-highlight')) {
-                    return highlightedSpan.replace(termText, match);
+            // Process text nodes for this term
+            textNodes.forEach(textNode => {
+                const text = textNode.textContent;
+                const regex = new RegExp(`\\b${escapeRegex(termText)}\\b`, 'gi');
+                
+                if (regex.test(text)) {
+                    // Split the text and create highlighted spans
+                    const fragments = text.split(regex);
+                    const matches = text.match(regex) || [];
+                    
+                    if (matches.length > 0) {
+                        const parent = textNode.parentNode;
+                        const docFragment = document.createDocumentFragment();
+                        
+                        for (let i = 0; i < fragments.length; i++) {
+                            // Add the text fragment
+                            if (fragments[i]) {
+                                docFragment.appendChild(document.createTextNode(fragments[i]));
+                            }
+                            
+                            // Add the highlighted match (if it exists)
+                            if (i < matches.length) {
+                                const span = document.createElement('span');
+                                span.className = 'ontology-term-highlight';
+                                span.setAttribute('data-term', termText);
+                                span.setAttribute('data-uri', link.ontology_uri);
+                                span.setAttribute('data-label', link.ontology_label);
+                                span.setAttribute('data-definition', link.definition || '');
+                                span.title = tooltipContent;
+                                span.textContent = matches[i];
+                                
+                                // Add hover events
+                                addTermHoverEvents(span);
+                                
+                                docFragment.appendChild(span);
+                                highlightedCount++;
+                            }
+                        }
+                        
+                        parent.replaceChild(docFragment, textNode);
+                    }
                 }
-                return match;
             });
         });
         
-        // Update the section with highlighted terms
-        if (currentHTML !== originalHTML) {
-            sectionElement.innerHTML = currentHTML;
-            
-            // Add event listeners to the highlighted terms
-            const highlightedTerms = sectionElement.querySelectorAll('.ontology-term-highlight');
-            highlightedTerms.forEach(term => {
-                addTermHoverEvents(term);
-            });
-            
-            console.log(`Applied highlighting to ${highlightedTerms.length} terms in section`);
-        }
+        console.log(`Applied highlighting to ${highlightedCount} terms in section`);
     }
     
     /**

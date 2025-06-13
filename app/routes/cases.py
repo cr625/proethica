@@ -7,7 +7,7 @@ import re
 import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from flask_login import current_user
+from flask_login import current_user, login_required
 from app.models.document import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService

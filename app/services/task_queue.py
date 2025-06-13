@@ -260,37 +260,51 @@ class BackgroundTaskQueue:
                 if not document.doc_metadata:
                     document.doc_metadata = {}
                 
-                document.doc_metadata['association_processing_status'] = 'processing'
-                document.doc_metadata['association_processing_progress'] = 10
-                document.doc_metadata['association_processing_phase'] = ASSOCIATION_PHASES['ANALYZING']
+                # Create a copy of metadata to ensure SQLAlchemy detects changes
+                metadata = dict(document.doc_metadata)
+                metadata['association_processing_status'] = 'processing'
+                metadata['association_processing_progress'] = 10
+                metadata['association_processing_phase'] = ASSOCIATION_PHASES['ANALYZING']
+                
+                # Assign the modified metadata back to trigger SQLAlchemy change detection
+                document.doc_metadata = metadata
                 db.session.commit()
+                logger.info(f"Set processing status to 'processing' for document {document_id}")
                 
                 # Import the enhanced service
                 from app.services.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
                 enhanced_service = EnhancedGuidelineAssociationService()
                 
                 # Update progress: Starting analysis (30%)
-                document.doc_metadata['association_processing_progress'] = 30
+                metadata = dict(document.doc_metadata)
+                metadata['association_processing_progress'] = 30
+                document.doc_metadata = metadata
                 db.session.commit()
                 
                 # Generate enhanced associations
                 logger.info(f"Generating associations using {association_method} method")
-                document.doc_metadata['association_processing_phase'] = ASSOCIATION_PHASES['LLM_PROCESSING']
-                document.doc_metadata['association_processing_progress'] = 40
+                metadata = dict(document.doc_metadata)
+                metadata['association_processing_phase'] = ASSOCIATION_PHASES['LLM_PROCESSING']
+                metadata['association_processing_progress'] = 40
+                document.doc_metadata = metadata
                 db.session.commit()
                 
                 associations = enhanced_service.generate_associations_for_case(document_id)
                 
                 if not associations:
                     logger.warning(f"No associations generated for document {document_id}")
-                    document.doc_metadata['association_processing_status'] = 'failed'
-                    document.doc_metadata['association_processing_error'] = 'No associations could be generated'
+                    metadata = dict(document.doc_metadata)
+                    metadata['association_processing_status'] = 'failed'
+                    metadata['association_processing_error'] = 'No associations could be generated'
+                    document.doc_metadata = metadata
                     db.session.commit()
                     return
                 
                 # Update progress: Saving results (80%)
-                document.doc_metadata['association_processing_phase'] = ASSOCIATION_PHASES['SAVING_RESULTS']
-                document.doc_metadata['association_processing_progress'] = 80
+                metadata = dict(document.doc_metadata)
+                metadata['association_processing_phase'] = ASSOCIATION_PHASES['SAVING_RESULTS']
+                metadata['association_processing_progress'] = 80
+                document.doc_metadata = metadata
                 db.session.commit()
                 
                 # Save associations to database
@@ -302,7 +316,8 @@ class BackgroundTaskQueue:
                 high_confidence_count = sum(1 for assoc in associations if assoc.score.overall_confidence > 0.7)
                 
                 # Store results in metadata
-                document.doc_metadata['association_results'] = {
+                metadata = dict(document.doc_metadata)
+                metadata['association_results'] = {
                     'total_associations': total_associations,
                     'avg_confidence': avg_confidence,
                     'high_confidence_count': high_confidence_count,
@@ -311,9 +326,10 @@ class BackgroundTaskQueue:
                 }
                 
                 # Mark as completed (100%)
-                document.doc_metadata['association_processing_status'] = 'completed'
-                document.doc_metadata['association_processing_progress'] = 100
-                document.doc_metadata['association_processing_phase'] = ASSOCIATION_PHASES['SAVING_RESULTS']
+                metadata['association_processing_status'] = 'completed'
+                metadata['association_processing_progress'] = 100
+                metadata['association_processing_phase'] = ASSOCIATION_PHASES['SAVING_RESULTS']
+                document.doc_metadata = metadata
                 db.session.commit()
                 
                 logger.info(f"Completed background association processing for document {document_id}: {total_associations} associations with {avg_confidence:.2f} avg confidence")
@@ -333,8 +349,10 @@ class BackgroundTaskQueue:
                     if document:
                         if not document.doc_metadata:
                             document.doc_metadata = {}
-                        document.doc_metadata['association_processing_status'] = 'failed'
-                        document.doc_metadata['association_processing_error'] = str(e)
+                        metadata = dict(document.doc_metadata)
+                        metadata['association_processing_status'] = 'failed'
+                        metadata['association_processing_error'] = str(e)
+                        document.doc_metadata = metadata
                         db.session.commit()
             except Exception as inner_e:
                 logger.error(f"Error updating association status: {str(inner_e)}")

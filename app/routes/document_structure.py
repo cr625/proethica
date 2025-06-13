@@ -858,7 +858,10 @@ def associate_ontology_concepts(id):
 def association_progress(id):
     """Get association processing progress for a document."""
     try:
+        # Force refresh from database to avoid session isolation issues
+        db.session.expire_all()
         document = Document.query.get_or_404(id)
+        db.session.refresh(document)
         
         if not document.doc_metadata:
             return jsonify({

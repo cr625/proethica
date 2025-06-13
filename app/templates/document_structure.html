@@ -207,7 +207,7 @@
                 </button>
                 {% else %}
                 <!-- Processing state (hidden by default) -->
-                <div id="processing-state" class="d-inline" style="display: none;">
+                <div id="processing-state" class="d-inline" style="display: none !important;">
                     <div class="d-inline-block me-2">
                         <select class="form-select form-select-sm" style="width: auto;" disabled>
                             <option>Processing...</option>
@@ -866,6 +866,9 @@
             let progressPollInterval = null;
             
             function startProgressPolling(documentId) {
+                console.log('DEBUG: startProgressPolling called for document:', documentId);
+                console.trace('Call stack');
+                
                 // Show progress indicator and processing state
                 document.getElementById('association-progress').style.display = 'block';
                 document.getElementById('no-associations-message').style.display = 'none';
@@ -874,7 +877,10 @@
                 const form = document.getElementById('association-form');
                 const processingState = document.getElementById('processing-state');
                 if (form) form.style.display = 'none';
-                if (processingState) processingState.style.display = 'inline';
+                if (processingState) {
+                    processingState.style.display = 'inline';
+                    console.log('DEBUG: Processing state shown');
+                }
                 
                 // Start polling
                 progressPollInterval = setInterval(() => {
@@ -955,11 +961,19 @@
                 }
                 
                 // Check current status on page load  
+                console.log('DEBUG: Checking initial status for document:', documentId);
                 fetch(`{{ url_for('doc_structure.association_progress', id=0) }}`.replace('0', documentId))
                     .then(response => response.json())
                     .then(data => {
+                        console.log('DEBUG: Initial status response:', data);
+                        console.log('DEBUG: Status value:', data.status);
+                        console.log('DEBUG: Is processing?', data.status === 'processing');
+                        console.log('DEBUG: Is pending?', data.status === 'pending');
                         if (data.status === 'processing' || data.status === 'pending') {
+                            console.log('DEBUG: Status is processing/pending, starting polling');
                             startProgressPolling(documentId);
+                        } else {
+                            console.log('DEBUG: Status is', data.status, '- not starting polling');
                         }
                     })
                     .catch(error => {
@@ -967,12 +981,20 @@
                     });
                 
                 // Also check if there's a flash message indicating processing started
-                const flashMessages = document.querySelectorAll('.alert-info');
-                for (let flash of flashMessages) {
-                    if (flash.textContent.includes('Association processing started')) {
-                        // Processing was just started, show the processing state
-                        startProgressPolling(documentId);
-                        break;
+                // Only check flash messages in the flash message container, not all info alerts
+                const flashContainer = document.querySelector('.flash-messages, .flashes');
+                console.log('DEBUG: Flash container found:', !!flashContainer);
+                if (flashContainer) {
+                    const flashMessages = flashContainer.querySelectorAll('.alert-info');
+                    console.log('DEBUG: Flash messages found:', flashMessages.length);
+                    for (let flash of flashMessages) {
+                        console.log('DEBUG: Flash message text:', flash.textContent);
+                        if (flash.textContent.includes('Association processing started')) {
+                            console.log('DEBUG: Found processing started message, starting polling');
+                            // Processing was just started, show the processing state
+                            startProgressPolling(documentId);
+                            break;
+                        }
                     }
                 }
             });
