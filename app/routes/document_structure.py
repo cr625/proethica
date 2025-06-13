@@ -817,79 +817,35 @@ def associate_ontology_concepts(id):
     association_method = request.form.get('association_method', 'embedding')
     
     try:
-        # Use the enhanced guideline association service
-        from app.services.enhanced_guideline_association_service import EnhancedGuidelineAssociationService
+        # Use async processing instead of synchronous
+        from app.services.task_queue import BackgroundTaskQueue
         
-        enhanced_service = EnhancedGuidelineAssociationService()
+        task_queue = BackgroundTaskQueue.get_instance()
         
-        # Log which method we're using
-        current_app.logger.info(f"Using enhanced association service with {association_method} method")
-        current_app.logger.info(f"Document type: {type(document)}, ID: {id}")
+        # Initialize processing status in document metadata
+        if not document.doc_metadata:
+            document.doc_metadata = {}
         
-        # Generate enhanced associations for this case
-        current_app.logger.info("Starting association generation...")
-        associations = enhanced_service.generate_associations_for_case(id)
-        current_app.logger.info(f"Generated {len(associations)} associations")
-        
-        if not associations:
-            flash("No associations could be generated. Make sure the case has proper section content and guideline concepts exist.", "warning")
+        # Check if already processing
+        current_status = document.doc_metadata.get('association_processing_status')
+        if current_status == 'processing':
+            flash("Associations are already being processed for this document. Please wait for completion.", "info")
             return redirect(url_for('doc_structure.view_structure', id=id))
         
-        # Save associations to database
-        associations_created = enhanced_service.save_associations_to_database(associations)
+        # Start async processing
+        success = task_queue.process_associations_async(id, association_method)
         
-        # Calculate statistics
-        sections_processed = len(set(assoc.section_type for assoc in associations))
-        avg_confidence = sum(assoc.score.overall_confidence for assoc in associations) / len(associations)
-        high_confidence_count = sum(1 for assoc in associations if assoc.score.overall_confidence > 0.7)
-        
-        # Group by section type for detailed stats
-        section_stats = {}
-        for assoc in associations:
-            section = assoc.section_type
-            if section not in section_stats:
-                section_stats[section] = {'count': 0, 'avg_confidence': 0, 'confidences': []}
-            section_stats[section]['count'] += 1
-            section_stats[section]['confidences'].append(assoc.score.overall_confidence)
-        
-        # Calculate averages
-        for section in section_stats:
-            confidences = section_stats[section]['confidences']
-            section_stats[section]['avg_confidence'] = sum(confidences) / len(confidences)
-        
-        # Update document metadata to reflect the enhanced associations
-        if associations_created > 0:
-            metadata = getattr(document, metadata_field) or {}
-            if not isinstance(metadata, dict):
-                metadata = {}
-                
-            if 'document_structure' not in metadata:
-                metadata['document_structure'] = {}
-                
-            # Add the enhanced association info
-            metadata['document_structure']['enhanced_associations'] = {
-                'total_associations': associations_created,
-                'sections_processed': sections_processed,
-                'average_confidence': round(avg_confidence, 3),
-                'high_confidence_count': high_confidence_count,
-                'section_stats': {k: {'count': v['count'], 'avg_confidence': round(v['avg_confidence'], 3)} 
-                                for k, v in section_stats.items()},
-                'method': association_method,
-                'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                'service_version': 'enhanced_v1.0'
-            }
-            
-            # Save the updated metadata
-            setattr(document, metadata_field, json.loads(json.dumps(metadata)))
+        if success:
+            # Initialize status
+            document.doc_metadata['association_processing_status'] = 'pending'
+            document.doc_metadata['association_processing_progress'] = 0
+            document.doc_metadata['association_processing_phase'] = 'initializing'
             db.session.commit()
             
-            # Create detailed success message
-            success_msg = f"✨ Enhanced associations created: {associations_created} total across {sections_processed} sections"
-            success_msg += f" | Avg confidence: {avg_confidence:.2f} | High confidence: {high_confidence_count}"
-            
-            flash(success_msg, "success")
+            current_app.logger.info(f"Started async association processing for document {id} with {association_method} method")
+            flash(f"Association processing started using {association_method} method. This may take 2-3 minutes. The page will show progress updates.", "info")
         else:
-            flash("No associations were created. Check if document sections have embeddings.", "warning")
+            flash("Failed to start association processing. Please try again.", "error")
             
     except Exception as e:
         current_app.logger.exception(f"Error associating ontology concepts: {str(e)}")
@@ -897,6 +853,70 @@ def associate_ontology_concepts(id):
     
     # Add timestamp to prevent caching
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
+@doc_structure_bp.route('/association_progress/<int:id>', methods=['GET'])
+def association_progress(id):
+    """Get association processing progress for a document."""
+    try:
+        document = Document.query.get_or_404(id)
+        
+        if not document.doc_metadata:
+            return jsonify({
+                'status': 'not_started',
+                'progress': 0,
+                'phase': 'none'
+            })
+        
+        status = document.doc_metadata.get('association_processing_status', 'not_started')
+        progress = document.doc_metadata.get('association_processing_progress', 0)
+        phase = document.doc_metadata.get('association_processing_phase', 'none')
+        error = document.doc_metadata.get('association_processing_error')
+        results = document.doc_metadata.get('association_results')
+        
+        # Fallback: Check if associations actually exist (workaround for session isolation issue)
+        if status == 'not_started':
+            try:
+                # Query the associations table directly (using correct column name: case_id)
+                from sqlalchemy import text
+                result = db.session.execute(
+                    text("SELECT COUNT(*) FROM case_guideline_associations WHERE case_id = :case_id"),
+                    {"case_id": id}
+                ).scalar()
+                
+                if result and result > 0:
+                    status = 'completed'
+                    progress = 100
+                    phase = 'completed'
+                    # Try to get results from associations if not in metadata
+                    if not results:
+                        results = {
+                            'total_associations': result,
+                            'method_used': 'hybrid',
+                            'processed_at': 'recently'
+                        }
+            except Exception as e:
+                current_app.logger.error(f"Error checking existing associations: {e}")
+        
+        response = {
+            'status': status,
+            'progress': progress,
+            'phase': phase
+        }
+        
+        if error:
+            response['error'] = error
+            
+        if results:
+            response['results'] = results
+            
+        return jsonify(response)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting association progress: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
 
 @doc_structure_bp.route('/clear_associations/<int:id>', methods=['POST'])
 def clear_associations(id):

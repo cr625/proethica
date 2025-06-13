@@ -206,7 +206,21 @@
                     <i class="bi bi-trash"></i> Clear & Regenerate
                 </button>
                 {% else %}
-                <form action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post" class="d-inline">
+                <!-- Processing state (hidden by default) -->
+                <div id="processing-state" class="d-inline" style="display: none;">
+                    <div class="d-inline-block me-2">
+                        <select class="form-select form-select-sm" style="width: auto;" disabled>
+                            <option>Processing...</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-light" disabled>
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        Processing Associations...
+                    </button>
+                </div>
+                
+                <!-- Normal form (visible by default) -->
+                <form id="association-form" action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post" class="d-inline">
                     <div class="d-inline-block me-2">
                         <select name="association_method" class="form-select form-select-sm" style="width: auto;" title="Method preference (both are always used in hybrid approach)">
                             <option value="embedding">Hybrid (Vector + LLM)</option>
@@ -454,7 +468,27 @@
             <p>No specific ontology concept associations found for sections.</p>
             {% endif %}
             {% else %}
-            <div class="alert alert-warning">
+            <!-- Progress indicator (hidden by default) -->
+            <div id="association-progress" class="alert alert-info" style="display: none;">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <strong id="progress-title">Processing associations...</strong>
+                        <div class="progress mt-2">
+                            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                0%
+                            </div>
+                        </div>
+                        <small id="progress-phase" class="text-muted">Initializing...</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Default no associations message -->
+            <div id="no-associations-message" class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i>
                 <strong>No enhanced guideline associations available for this document.</strong>
             </div>
@@ -766,19 +800,29 @@
                 }
             }
             
-            // Handle reasoning text expand/collapse
-            $(document).on('click', '.expand-reasoning', function(e) {
-                e.preventDefault();
-                const container = $(this).closest('.reasoning-text');
-                container.find('.reasoning-short').hide();
-                container.find('.reasoning-full').show();
-            });
-            
-            $(document).on('click', '.collapse-reasoning', function(e) {
-                e.preventDefault();
-                const container = $(this).closest('.reasoning-text');
-                container.find('.reasoning-full').hide();
-                container.find('.reasoning-short').show();
+            // Handle reasoning text expand/collapse (vanilla JavaScript)
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('expand-reasoning')) {
+                    e.preventDefault();
+                    const container = e.target.closest('.reasoning-text');
+                    if (container) {
+                        const shortEl = container.querySelector('.reasoning-short');
+                        const fullEl = container.querySelector('.reasoning-full');
+                        if (shortEl) shortEl.style.display = 'none';
+                        if (fullEl) fullEl.style.display = 'block';
+                    }
+                }
+                
+                if (e.target.classList.contains('collapse-reasoning')) {
+                    e.preventDefault();
+                    const container = e.target.closest('.reasoning-text');
+                    if (container) {
+                        const shortEl = container.querySelector('.reasoning-short');
+                        const fullEl = container.querySelector('.reasoning-full');
+                        if (shortEl) shortEl.style.display = 'block';
+                        if (fullEl) fullEl.style.display = 'none';
+                    }
+                }
             });
             
             // Handle clear associations
@@ -817,6 +861,121 @@
                     });
                 }
             }
+            
+            // Association progress polling
+            let progressPollInterval = null;
+            
+            function startProgressPolling(documentId) {
+                // Show progress indicator and processing state
+                document.getElementById('association-progress').style.display = 'block';
+                document.getElementById('no-associations-message').style.display = 'none';
+                
+                // Hide form and show processing state
+                const form = document.getElementById('association-form');
+                const processingState = document.getElementById('processing-state');
+                if (form) form.style.display = 'none';
+                if (processingState) processingState.style.display = 'inline';
+                
+                // Start polling
+                progressPollInterval = setInterval(() => {
+                    fetch(`{{ url_for('doc_structure.association_progress', id=0) }}`.replace('0', documentId))
+                        .then(response => response.json())
+                        .then(data => {
+                            updateProgressDisplay(data);
+                            
+                            // Stop polling if completed or failed
+                            if (data.status === 'completed' || data.status === 'failed') {
+                                clearInterval(progressPollInterval);
+                                progressPollInterval = null;
+                                
+                                if (data.status === 'completed') {
+                                    // Reload page to show results
+                                    setTimeout(() => window.location.reload(), 2000);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error polling progress:', error);
+                        });
+                }, 2000); // Poll every 2 seconds
+            }
+            
+            function updateProgressDisplay(data) {
+                const progressBar = document.getElementById('progress-bar');
+                const progressTitle = document.getElementById('progress-title');
+                const progressPhase = document.getElementById('progress-phase');
+                
+                // Update progress bar
+                progressBar.style.width = data.progress + '%';
+                progressBar.setAttribute('aria-valuenow', data.progress);
+                progressBar.textContent = data.progress + '%';
+                
+                // Update status text
+                const phaseNames = {
+                    'analyzing': 'Analyzing document structure...',
+                    'llm_processing': 'Processing with LLM (this takes time)...',
+                    'saving_results': 'Saving associations to database...'
+                };
+                
+                if (data.status === 'completed') {
+                    progressTitle.textContent = 'Association processing completed!';
+                    progressPhase.textContent = `Generated ${data.results?.total_associations || 0} associations`;
+                    progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                    progressBar.classList.add('bg-success');
+                } else if (data.status === 'failed') {
+                    progressTitle.textContent = 'Association processing failed';
+                    progressPhase.textContent = data.error || 'Unknown error occurred';
+                    progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                } else {
+                    progressTitle.textContent = 'Processing associations...';
+                    progressPhase.textContent = phaseNames[data.phase] || `Phase: ${data.phase}`;
+                }
+            }
+            
+            // Handle form submission to show processing state immediately
+            document.addEventListener('DOMContentLoaded', function() {
+                const documentId = {{ document.id }};
+                const form = document.getElementById('association-form');
+                
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        // Show processing state immediately
+                        const processingState = document.getElementById('processing-state');
+                        if (processingState) {
+                            form.style.display = 'none';
+                            processingState.style.display = 'inline';
+                        }
+                        
+                        // Start polling after a short delay to allow backend to start
+                        setTimeout(() => {
+                            startProgressPolling(documentId);
+                        }, 1000);
+                    });
+                }
+                
+                // Check current status on page load  
+                fetch(`{{ url_for('doc_structure.association_progress', id=0) }}`.replace('0', documentId))
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'processing' || data.status === 'pending') {
+                            startProgressPolling(documentId);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking initial status:', error);
+                    });
+                
+                // Also check if there's a flash message indicating processing started
+                const flashMessages = document.querySelectorAll('.alert-info');
+                for (let flash of flashMessages) {
+                    if (flash.textContent.includes('Association processing started')) {
+                        // Processing was just started, show the processing state
+                        startProgressPolling(documentId);
+                        break;
+                    }
+                }
+            });
             </script>
             {% else %}
             <!-- Fallback to raw display -->

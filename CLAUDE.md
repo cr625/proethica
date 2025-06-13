@@ -35,11 +35,27 @@ This project models professional domains ("worlds") and supports ethical decisio
 - Two experiment modes: ontology-augmented and prompt-only.
 - **Enhanced**: Integrated into hybrid guideline associations with JSON-structured prompts
 
+### 6. Asynchronous Processing with Progress Indicators (2025-06-12)
+- **Background Task Queue**: Extended `BackgroundTaskQueue` with `process_associations_async()` for long-running LLM operations
+- **Real-time Progress Tracking**: 
+  - Progress phases: `ANALYZING` → `LLM_PROCESSING` → `SAVING_RESULTS`
+  - Progress updates: 10% → 40% → 80% → 100%
+  - Status tracking in `doc_metadata['association_processing_*']` fields
+- **User Interface Enhancements**:
+  - **Immediate feedback**: Button changes to "Processing Associations..." with spinner
+  - **Live progress bar**: Auto-polling every 2 seconds via `/structure/association_progress/<id>` endpoint
+  - **Phase indicators**: Real-time status updates ("Processing with LLM...", "Saving results...")
+  - **Auto-refresh**: Page reloads when processing completes to show results
+- **Prevents Double Processing**: Form disabled during processing to avoid duplicate requests
+- **Vanilla JavaScript**: Removed jQuery dependency, uses modern DOM APIs for compatibility
+
 ## Technical Notes
 - All new cases use the nested `document_structure` format in metadata.
 - Section embeddings use 384-dim vectors (MiniLM-L6-v2) and are stored with pgvector.
 - Legacy/obsolete migration scripts and top-level structure fields are no longer used for new data.
 - NLTK resources are managed at setup, not runtime.
+- **Async Processing**: Long-running tasks use threading with separate database sessions to avoid blocking the main UI
+- **Progress API**: RESTful endpoint `/structure/association_progress/<id>` returns JSON status for real-time polling
 
 ## Recent Updates (2025-01-24)
 
@@ -224,6 +240,29 @@ overall_confidence = (
 - Test similarity search with granular fact/discussion items
 - Run LLM experiments with structured triples
 - Deploy MCP server for production use
+
+## Universal Progress Indicator Framework (2025-06-12)
+The async processing system implemented for hybrid associations provides a **reusable pattern** for any long-running operations:
+
+### Framework Components
+- **`BackgroundTaskQueue`**: Extensible base class for async operations
+- **Progress API pattern**: Standardized JSON endpoint for status polling  
+- **UI components**: Reusable progress bar, spinner, and state management JavaScript
+- **Database schema pattern**: Consistent `*_processing_status/progress/phase` fields in metadata
+
+### Future Applications
+This framework can be extended for:
+- **Document processing pipelines** (URL extraction, structure annotation)
+- **Bulk case analysis** (batch processing multiple cases)
+- **Ontology operations** (large-scale triple generation)
+- **Export operations** (generating reports, data exports)
+- **Machine learning tasks** (training, inference on large datasets)
+
+### Implementation Files
+- **Backend**: `app/services/task_queue.py` - Extended with association processing
+- **Routes**: `app/routes/document_structure.py` - Added progress endpoint and async route conversion
+- **Frontend**: `app/templates/document_structure.html` - Progress UI and vanilla JavaScript polling
+- **Documentation**: Updated `CLAUDE.md` with async processing patterns
 
 ## MCP Server Status (Updated 2025-01-24)
 
