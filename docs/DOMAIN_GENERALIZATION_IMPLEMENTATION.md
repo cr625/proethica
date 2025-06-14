@@ -1,74 +1,91 @@
 # Domain Generalization Implementation Plan
 
 ## Overview
-Transform ProEthica's ontology functionality into a generic, domain-agnostic system while maintaining all current engineering ethics capabilities.
+Transform ProEthica from an engineering ethics system into a generic domain-agnostic framework while maintaining all current functionality. The analysis reveals ProEthica already has excellent architectural foundations for this transformation.
+
+## 🎯 Key Discovery
+**ProEthica is surprisingly well-architected for domain generalization!** The existing adapter pattern, modular services, flexible data models, and MCP architecture provide an excellent foundation. This is an **enhancement project**, not a major refactoring.
+
+## Current Architecture Strengths
+✅ **Adapter Pattern**: `BaseCaseDeconstructionAdapter` with `EngineeringEthicsAdapter` implementation  
+✅ **Modular Services**: Base classes, pipeline system, pluggable MCP modules  
+✅ **Flexible Data Models**: `World` model supports multiple domains with JSON metadata  
+✅ **Configuration Infrastructure**: `ModelConfig` with environment-specific settings  
+✅ **Processing Pipeline**: Generic `PipelineManager` with `BaseStep` interface  
+✅ **MCP Architecture**: Production-ready modular system in `/mcp/modules/`  
 
 ## Implementation Phases
 
-### Phase 1: Abstract Current Implementation ⏳
-**Goal**: Create generic interfaces from existing code while maintaining backward compatibility
+### Phase 1: Domain Registry & Factory System 🏗️
+**Goal**: Create coordination layer for existing components while maintaining backward compatibility
 
-#### Tasks:
-- [ ] Create base adapter interfaces
-  - [ ] `base/domain_adapter.py` - Abstract base for all domain logic
-  - [ ] `base/document_processor.py` - Generic document processing interface
-  - [ ] `base/ontology_mapper.py` - Ontology alignment interface
-  - [ ] `base/concept_extractor.py` - Term extraction interface
+#### High Impact Tasks:
+- [ ] Create domain registry system
+  - [ ] `app/services/domain_registry.py` - Central domain management
+  - [ ] `app/models/domain_config.py` - Standardized domain configuration
+  - [ ] `app/services/domain_factory.py` - Factory for domain-specific components
+  - [ ] `config/domains/` - Directory for domain configuration files
 
-- [ ] Refactor engineering-specific logic
-  - [ ] Move NSPE-specific code to `adapters/engineering/`
-  - [ ] Create `engineering_adapter.py` implementing all interfaces
-  - [ ] Extract engineering patterns to `patterns.py`
-  - [ ] Create `config.yaml` for engineering domain
+- [ ] Enhance adapter factory
+  - [ ] `app/services/case_deconstruction/adapter_factory.py` - Multi-domain adapter creation
+  - [ ] `app/services/case_deconstruction/domain_adapters/` - Domain-specific adapters directory
+  - [ ] Auto-discovery of adapter classes
 
-- [ ] Update existing services
-  - [ ] Make `GuidelineAnalysisService` domain-agnostic
-  - [ ] Update `CaseDeconstructionService` to use new adapter pattern
-  - [ ] Modify `OntologyService` for multi-domain support
+- [ ] Create engineering domain configuration
+  - [ ] `config/domains/engineering.yaml` - Engineering ethics configuration
+  - [ ] Extract NSPE-specific patterns from existing code
+  - [ ] Document existing adapter interface
 
-### Phase 2: Build Framework 🔨
-**Goal**: Implement core framework components
+### Phase 2: Extend Processing Pipeline 🔨
+**Goal**: Make document processing pipeline domain-agnostic
 
-#### Tasks:
-- [ ] Domain registration system
-  - [ ] Create `DomainRegistry` class
-  - [ ] Implement dynamic adapter loading
-  - [ ] Add domain validation
+#### Medium Impact Tasks:
+- [ ] Generic extraction strategies
+  - [ ] `app/services/case_processing/extraction_strategies/` - Domain-specific extraction
+  - [ ] `app/services/case_processing/domain_validators/` - Domain validation rules
+  - [ ] Abstract base extraction strategy class
 
-- [ ] Configuration management
-  - [ ] Design domain configuration schema
-  - [ ] Create configuration loader
-  - [ ] Implement configuration validation
+- [ ] Enhance pipeline steps
+  - [ ] Make `DocumentStructureAnnotationStep` domain-configurable
+  - [ ] Create domain-specific section mappers
+  - [ ] Add flexible validation rules per domain
 
-- [ ] Generic document types
-  - [ ] Replace "guidelines" with "master documents"
-  - [ ] Replace "cases" with "analysis documents"
-  - [ ] Update database models
+- [ ] Configuration-driven processing
+  - [ ] Domain-specific extraction patterns
+  - [ ] Configurable section structures
+  - [ ] Flexible metadata handling
 
-- [ ] Enhanced World/Domain Collection
-  - [ ] Refactor `World` model to `DomainCollection`
-  - [ ] Add adapter type field
-  - [ ] Update relationships
+- [ ] Update terminology (optional)
+  - [ ] Consider "master documents" vs "guidelines" terminology
+  - [ ] Consider "analysis documents" vs "cases" terminology
+  - [ ] Update UI labels to be domain-neutral
 
-### Phase 3: Test with New Domain 🧪
-**Goal**: Validate generic pipeline with second domain
+### Phase 3: Validate with New Domain 🧪
+**Goal**: Validate generic framework with a second domain (medical ethics)
 
-#### Tasks:
-- [ ] Create medical ethics adapter
-  - [ ] `adapters/medical/adapter.py`
-  - [ ] Medical-specific patterns
-  - [ ] Configuration file
+#### Validation Tasks:
+- [ ] Create medical ethics domain
+  - [ ] `config/domains/medical.yaml` - Medical ethics configuration
+  - [ ] `app/services/case_deconstruction/domain_adapters/medical_adapter.py`
+  - [ ] Medical-specific extraction patterns
+  - [ ] Medical concept mapping
 
-- [ ] Test end-to-end workflow
-  - [ ] Upload medical guidelines as master document
-  - [ ] Extract medical concepts
-  - [ ] Process medical cases
+- [ ] Test complete workflow
+  - [ ] Create medical ethics world via domain factory
+  - [ ] Upload medical guidelines (e.g., AMA Code of Medical Ethics)
+  - [ ] Process medical cases using domain adapter
   - [ ] Generate medical scenarios
+  - [ ] Verify all components work generically
 
-- [ ] Refine abstractions
-  - [ ] Identify missing generic functionality
-  - [ ] Update base interfaces
-  - [ ] Document learnings
+- [ ] Domain-specific MCP modules (optional)
+  - [ ] `mcp/modules/medical_analysis_module.py`
+  - [ ] Medical terminology and concept extraction
+  - [ ] Medical ontology integration
+
+- [ ] Refinement based on learnings
+  - [ ] Identify gaps in generic framework
+  - [ ] Update abstractions based on real-world usage
+  - [ ] Document domain creation process
 
 ### Phase 4: Enhanced Features 🚀
 **Goal**: Add advanced multi-domain capabilities
@@ -89,133 +106,210 @@ Transform ProEthica's ontology functionality into a generic, domain-agnostic sys
   - [ ] Implement hot-loading
   - [ ] Create plugin documentation
 
-## Technical Components
+## Technical Architecture
 
-### 1. Domain Adapter Structure
+### 1. Leverage Existing Adapter Pattern
+**Current Structure** (already excellent):
 ```
-/adapters/
-├── base/
-│   ├── __init__.py
-│   ├── domain_adapter.py      # Abstract base class
-│   ├── document_processor.py  # Document processing interface
-│   ├── ontology_mapper.py     # Ontology alignment
-│   └── concept_extractor.py   # Concept extraction
-├── engineering/
-│   ├── __init__.py
-│   ├── adapter.py            # Engineering implementation
-│   ├── config.yaml          # Domain configuration
-│   └── patterns.py          # NSPE-specific patterns
-└── medical/                 # Example new domain
-    ├── __init__.py
-    ├── adapter.py
-    ├── config.yaml
-    └── patterns.py
+/app/services/case_deconstruction/
+├── adapters/
+│   ├── base_adapter.py                    # ✅ Already exists - BaseCaseDeconstructionAdapter
+│   └── engineering_ethics_adapter.py     # ✅ Already exists - EngineeringEthicsAdapter
+└── models/                                # ✅ Already exists - Comprehensive dataclasses
+    ├── stakeholder.py
+    ├── decision.py
+    ├── reasoning_chain.py
+    └── analysis_result.py
 ```
 
-### 2. Key Interfaces
+**Enhanced Structure** (what we'll add):
+```
+/app/services/
+├── domain_registry.py                    # 🆕 Central domain management
+├── domain_factory.py                     # 🆕 Domain component factory
+└── case_deconstruction/
+    ├── adapter_factory.py                # 🆕 Multi-domain adapter creation
+    └── domain_adapters/                   # 🆕 Domain-specific adapters
+        ├── engineering_adapter.py         # Move existing adapter here
+        ├── medical_adapter.py             # New domain adapter
+        └── legal_adapter.py               # Future domain adapter
 
-#### DomainAdapter
+/config/domains/                           # 🆕 Domain configurations
+├── engineering.yaml
+├── medical.yaml
+└── legal.yaml
+```
+
+### 2. Key Interfaces (Leverage Existing)
+
+#### BaseCaseDeconstructionAdapter (✅ Already Perfect)
+The existing interface is already domain-agnostic:
 ```python
-class DomainAdapter(ABC):
+class BaseCaseDeconstructionAdapter(ABC):
     @abstractmethod
-    def process_master_document(self, document: Document) -> List[Concept]
+    def extract_stakeholders(self, sections: Dict[str, str]) -> List[Stakeholder]
     
     @abstractmethod
-    def extract_concepts(self, text: str) -> List[Concept]
+    def extract_decisions(self, sections: Dict[str, str]) -> List[Decision]
     
     @abstractmethod
-    def analyze_document(self, document: Document, concepts: List[Concept]) -> Analysis
+    def extract_reasoning_chains(self, sections: Dict[str, str]) -> List[ReasoningChain]
     
     @abstractmethod
-    def generate_scenario(self, analysis: Analysis) -> Scenario
+    def analyze_case(self, sections: Dict[str, str]) -> CaseAnalysisResult
 ```
 
-#### DomainCollection (formerly World)
+#### New Domain Registry Interface
 ```python
-class DomainCollection:
-    name: str
-    adapter_type: str
-    master_document: Document
-    ontology: Ontology
-    concept_mappings: List[ConceptMapping]
-    analysis_documents: List[Document]
-    metadata: Dict
+class DomainRegistry:
+    def __init__(self):
+        self._domains: Dict[str, DomainConfig] = {}
+    
+    def register_domain(self, config: DomainConfig) -> None
+    def get_domain(self, name: str) -> DomainConfig
+    def list_domains(self) -> List[str]
+    def create_adapter(self, domain_name: str) -> BaseCaseDeconstructionAdapter
 ```
 
-### 3. Configuration Schema
+#### Domain Configuration
+```python
+@dataclass
+class DomainConfig:
+    name: str                              # "engineering", "medical", etc.
+    display_name: str                      # "Engineering Ethics"
+    adapter_class_name: str               # "EngineeringEthicsAdapter"
+    extraction_patterns: Dict[str, Any]   # Domain-specific extraction rules
+    section_mappings: Dict[str, str]      # How to map document sections
+    ontology_namespace: str               # Domain ontology namespace
+    mcp_modules: List[str]                # Required MCP modules
+    guideline_template: str               # Template for displaying guidelines
+```
+
+### 3. Domain Configuration Schema
 ```yaml
+# Example: /config/domains/engineering.yaml
 domain:
-  name: "Domain Name"
-  type: "domain_type"
-  version: "1.0"
+  name: "engineering"
+  display_name: "Engineering Ethics"
+  adapter_class: "EngineeringEthicsAdapter"
+  description: "NSPE-based engineering ethics analysis"
 
-document_types:
-  master:
-    name: "Master Document Type"
-    sections: ["section1", "section2"]
-  analysis:
-    name: "Analysis Document Type"
-    sections: ["section1", "section2"]
+document_processing:
+  guideline_sections:
+    - "facts"
+    - "discussion"
+    - "conclusion"
+    - "dissenting_opinion"
+  case_sections:
+    - "scenario_description"
+    - "ethical_considerations"
+    - "stakeholder_analysis"
+  
+extraction_patterns:
+  stakeholder_keywords:
+    - "engineer"
+    - "client"
+    - "public"
+    - "employer"
+  decision_indicators:
+    - "should"
+    - "must"
+    - "shall not"
+    - "obligation"
+  
+ontology:
+  namespace: "http://proethica.org/ontology/engineering#"
+  concepts:
+    competence: "eng:Competence"
+    safety: "eng:PublicSafety"
+    integrity: "eng:ProfessionalIntegrity"
 
-concept_extraction:
-  patterns:
-    - type: "concept_type"
-      keywords: ["keyword1", "keyword2"]
-      
-ontology_alignment:
-  namespace: "http://example.org/ontology#"
-  mappings:
-    "term1": "onto:Concept1"
+mcp_modules:
+  - "guideline_analysis_module"
+  - "ontology_query_module"
+
+ui_templates:
+  guideline_display: "engineering_guidelines.html"
+  case_analysis: "engineering_case_analysis.html"
 ```
 
-## Migration Strategy
+## Migration Strategy (Minimal Changes Required)
 
-### Database Changes
-- Add `adapter_type` to World model
-- Rename guideline references to master_document
-- Update case references to analysis_document
-- Maintain backward compatibility with views
+### Database Changes (Optional - Current Models Already Support Multiple Domains)
+Current `World` model already supports multiple domains well:
+- ✅ `name` field for domain identification
+- ✅ `ontology_file` for domain-specific ontologies  
+- ✅ JSON metadata fields for flexible domain configuration
+- ✅ Relationships to guidelines, cases, scenarios
 
-### API Changes
-- Create generic endpoints alongside existing ones
-- Deprecate domain-specific endpoints over time
-- Maintain backward compatibility
+**Optional enhancements:**
+- [ ] Add `domain_type` field to World model for explicit domain classification
+- [ ] Add `domain_config` JSON field for structured domain settings
+- [ ] Maintain full backward compatibility
 
-### UI Updates
-- Update terminology in templates
-- Make UI elements configurable by domain
-- Create domain selection interface
+### Service Layer Changes (Primary Focus)
+- [ ] Add domain registry as singleton service
+- [ ] Create adapter factory using existing adapter pattern
+- [ ] Enhance MCP client to support domain-specific modules
+- [ ] No changes to existing business logic
+
+### API Changes (Additive Only)
+- [ ] Add domain listing endpoint: `GET /api/domains`
+- [ ] Add domain-specific world creation: `POST /api/worlds/{domain_type}`
+- [ ] **Keep all existing APIs unchanged** - perfect backward compatibility
+- [ ] Add optional domain parameter to existing endpoints
+
+### UI Updates (Configuration-Driven)
+- [ ] Make terminology configurable per domain (optional)
+- [ ] Add domain selection dropdown in world creation
+- [ ] Domain-specific help text and examples
+- [ ] Keep existing UI fully functional
 
 ## Success Criteria
 - [ ] All existing engineering ethics functionality works unchanged
-- [ ] Can add new domain without code changes to core
-- [ ] Generic interfaces cover all domain needs
-- [ ] Performance remains comparable
-- [ ] Documentation updated for generic system
+- [ ] Can add new domain (medical ethics) without modifying core framework
+- [ ] Domain registry enables dynamic domain discovery
+- [ ] Configuration-driven domain creation
+- [ ] Performance remains comparable to current system
+- [ ] Clean separation between generic framework and domain logic
 
-## Timeline
-- **Phase 1**: 2 weeks
-- **Phase 2**: 3 weeks
-- **Phase 3**: 2 weeks
-- **Phase 4**: 3 weeks
+## Revised Timeline (Based on Existing Architecture)
+- **Phase 1** (Domain Registry & Factory): 1 week
+- **Phase 2** (Pipeline Extensions): 1 week  
+- **Phase 3** (Medical Domain Validation): 1 week
+- **Phase 4** (Advanced Features): 2 weeks
 
-Total: ~10 weeks
+**Total: ~5 weeks** (50% faster due to excellent existing architecture)
 
-## Risks and Mitigations
-1. **Risk**: Breaking existing functionality
-   - **Mitigation**: Comprehensive test coverage before refactoring
+## Implementation Advantages
+1. **Excellent Foundation**: Existing adapter pattern is perfectly designed for this
+2. **Minimal Risk**: Adding coordination layer, not refactoring core logic
+3. **Backward Compatibility**: Zero breaking changes to existing functionality
+4. **Proven Patterns**: Using existing service patterns and architecture
+5. **Fast Validation**: Can test with medical domain immediately
 
-2. **Risk**: Over-abstraction making system complex
-   - **Mitigation**: Start with minimal abstraction, iterate
+## Quick Start Implementation Order
+1. **Domain Registry** (1-2 days) - Central coordination
+2. **Engineering Config** (1 day) - Extract current patterns
+3. **Medical Adapter** (2-3 days) - Test generalization
+4. **Factory Pattern** (1 day) - Dynamic adapter creation
+5. **UI Integration** (1-2 days) - Domain selection interface
 
-3. **Risk**: Performance degradation
-   - **Mitigation**: Benchmark before and after changes
-
-4. **Risk**: Domain differences too large
-   - **Mitigation**: Prototype with very different domain early
+## Key Files to Create
+```
+app/services/domain_registry.py           # Day 1
+app/models/domain_config.py              # Day 1  
+config/domains/engineering.yaml          # Day 2
+config/domains/medical.yaml              # Day 3
+app/services/case_deconstruction/
+  ├── adapter_factory.py                 # Day 4
+  └── domain_adapters/
+      ├── engineering_adapter.py          # Day 2 (move existing)
+      └── medical_adapter.py             # Day 3-4
+```
 
 ## Notes
-- Maintain backward compatibility throughout
-- Document all breaking changes
-- Create migration guides for each phase
-- Keep engineering ethics as reference implementation
+- **Zero breaking changes** - This is purely additive enhancement
+- **Leverage existing excellence** - The adapter pattern is already perfect
+- **Quick validation** - Can test medical domain within first week
+- **Production ready** - Built on proven, tested architecture

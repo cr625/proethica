@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}{{ world.name }} Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-globe"></i> {{ world.name }}</h1>
+                    <p class="text-muted">{{ world.description }}</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <a href="{{ url_for('worlds.view_world', world_id=world.id) }}" class="btn btn-primary">
+                        <i class="fas fa-eye"></i> View World
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- World Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h4>{{ stats.content.guidelines }}</h4>
+                    <span>Guidelines</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h4>{{ stats.content.entity_triples }}</h4>
+                    <span>Entity Triples</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h4>{{ stats.content.concept_types }}</h4>
+                    <span>Concept Types</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h4>{{ analysis_status.guidelines.completion_rate|round(1) }}%</h4>
+                    <span>Analysis Complete</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Status -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3><i class="fas fa-chart-bar"></i> Analysis Status</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Guideline Analysis</h5>
+                            <div class="progress mb-3">
+                                <div class="progress-bar bg-success" 
+                                     role="progressbar" 
+                                     style="width: {{ analysis_status.guidelines.completion_rate }}%">
+                                    {{ analysis_status.guidelines.completion_rate|round(1) }}%
+                                </div>
+                            </div>
+                            <p>{{ analysis_status.guidelines.analyzed }} of {{ analysis_status.guidelines.total }} guidelines analyzed</p>
+                            
+                            {% if stats.content.concepts_by_type %}
+                            <h5>Concept Distribution</h5>
+                            {% for concept_type, count in stats.content.concepts_by_type.items() %}
+                            <div class="d-flex justify-content-between">
+                                <span>{{ concept_type.title() }}:</span>
+                                <span class="badge badge-primary">{{ count }}</span>
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Recommendation Status</h5>
+                            {% if recommendations_status.available %}
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle"></i> Recommendations available
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ recommendations_status.reason }}
+                                </div>
+                            {% endif %}
+                            
+                            <h5>Entity Triples</h5>
+                            <p class="mb-1"><strong>Total:</strong> {{ analysis_status.entity_triples }}</p>
+                            <p class="mb-1"><strong>Status:</strong> 
+                                <span class="badge {% if analysis_status.status == 'complete' %}badge-success{% else %}badge-warning{% endif %}">
+                                    {{ analysis_status.status.title() }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> World Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>ID:</strong> {{ world.id }}</p>
+                    <p><strong>Created:</strong> {{ world.created_at.strftime('%Y-%m-%d %H:%M') if world.created_at else 'Unknown' }}</p>
+                    <p><strong>Updated:</strong> {{ world.updated_at.strftime('%Y-%m-%d %H:%M') if world.updated_at else 'Unknown' }}</p>
+                    {% if world.ontology_id %}
+                    <p><strong>Ontology ID:</strong> {{ world.ontology_id }}</p>
+                    {% endif %}
+                    {% if world.ontology_source %}
+                    <p><strong>Ontology Source:</strong> {{ world.ontology_source }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guidelines Detail -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-book"></i> Guidelines in this World</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.guidelines %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Created</th>
+                                    <th>Analysis Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for guideline in stats.guidelines %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ guideline.title }}</strong>
+                                    </td>
+                                    <td>{{ guideline.created_at }}</td>
+                                    <td>
+                                        {% if guideline.has_analysis %}
+                                            <span class="badge badge-success">Analyzed</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/guidelines/{{ guideline.id }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        {% if not guideline.has_analysis %}
+                                        <button class="btn btn-sm btn-outline-success" onclick="analyzeGuideline({{ guideline.id }})">
+                                            <i class="fas fa-cog"></i> Analyze
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No guidelines found in this world.
+                        <a href="/worlds/{{ world.id }}/guidelines/create" class="btn btn-sm btn-primary ml-2">
+                            <i class="fas fa-plus"></i> Add Guideline
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions for this World -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-lightning-bolt"></i> World Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group mr-2 mb-2">
+                        <a href="/worlds/{{ world.id }}/guidelines/create" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Guideline
+                        </a>
+                        <a href="/cases/process_url" class="btn btn-secondary">
+                            <i class="fas fa-file-import"></i> Import Case
+                        </a>
+                        <a href="/scenarios/create?world_id={{ world.id }}" class="btn btn-info">
+                            <i class="fas fa-play"></i> Create Scenario
+                        </a>
+                    </div>
+                    
+                    <div class="btn-group mr-2 mb-2">
+                        <a href="/ontology/entities?world_id={{ world.id }}" class="btn btn-outline-primary">
+                            <i class="fas fa-sitemap"></i> Browse Concepts
+                        </a>
+                        <button class="btn btn-outline-success" onclick="runAnalysis()">
+                            <i class="fas fa-cogs"></i> Run Analysis
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="generateRecommendations()" {% if not recommendations_status.available %}disabled{% endif %}>
+                            <i class="fas fa-lightbulb"></i> Generate Recommendations
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function analyzeGuideline(guidelineId) {
+    // This would trigger guideline analysis
+    alert('Guideline analysis would be triggered for ID: ' + guidelineId);
+    // TODO: Implement actual analysis trigger
+}
+
+function runAnalysis() {
+    // This would run complete world analysis
+    alert('World analysis would be triggered for world: {{ world.id }}');
+    // TODO: Implement world analysis trigger
+}
+
+function generateRecommendations() {
+    // This would generate recommendations for the world
+    alert('Recommendation generation would be triggered for world: {{ world.id }}');
+    // TODO: Implement recommendation generation
+}
+</script>
+{% endblock %}

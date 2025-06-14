@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Ethical Recommendations - {{ recommendations.case_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-lightbulb"></i> Ethical Recommendations</h1>
+                    <p class="text-muted">{{ recommendations.case_title }}</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{{ url_for('dashboard.test_recommendations') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Test
+                    </a>
+                    <a href="{{ url_for('dashboard.api_case_recommendations', case_id=recommendations.case_id) }}" 
+                       target="_blank" class="btn btn-outline-info">
+                        <i class="fas fa-code"></i> View JSON
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overall Assessment -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header {% if recommendations.overall_risk_assessment == 'critical' %}bg-danger{% elif recommendations.overall_risk_assessment == 'high' %}bg-warning{% elif recommendations.overall_risk_assessment == 'medium' %}bg-info{% else %}bg-success{% endif %} text-white">
+                    <h3><i class="fas fa-chart-line"></i> Overall Assessment</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Risk Level</h5>
+                            <span class="badge {% if recommendations.overall_risk_assessment == 'critical' %}badge-danger{% elif recommendations.overall_risk_assessment == 'high' %}badge-warning{% elif recommendations.overall_risk_assessment == 'medium' %}badge-info{% else %}badge-success{% endif %} fs-6">
+                                {{ recommendations.overall_risk_assessment.title() }}
+                            </span>
+                            
+                            <h5 class="mt-3">Key Themes</h5>
+                            {% for theme in recommendations.key_ethical_themes %}
+                                <span class="badge badge-secondary mr-1">{{ theme }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Processing Summary</h5>
+                            <p><strong>Recommendations Generated:</strong> {{ recommendations.recommendations|length }}</p>
+                            <p><strong>Associations Analyzed:</strong> {{ recommendations.processing_metadata.associations_count }}</p>
+                            <p><strong>Average Confidence:</strong> {{ "%.1f"|format(recommendations.confidence_overview.avg_recommendation_confidence * 100) }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie"></i> Confidence Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label>Association Confidence</label>
+                        <div class="progress">
+                            <div class="progress-bar bg-info" style="width: {{ recommendations.confidence_overview.avg_association_confidence * 100 }}%">
+                                {{ "%.0f"|format(recommendations.confidence_overview.avg_association_confidence * 100) }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label>Recommendation Confidence</label>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: {{ recommendations.confidence_overview.avg_recommendation_confidence * 100 }}%">
+                                {{ "%.0f"|format(recommendations.confidence_overview.avg_recommendation_confidence * 100) }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p class="small">
+                        <strong>High Confidence Associations:</strong> {{ recommendations.confidence_overview.get('high_confidence_associations', 0) }}<br>
+                        <strong>Critical Recommendations:</strong> {{ recommendations.confidence_overview.get('critical_recommendations', 0) }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations List -->
+    <div class="row">
+        <div class="col-12">
+            <h3><i class="fas fa-list"></i> Ethical Recommendations</h3>
+            
+            {% if recommendations.recommendations %}
+                {% for rec in recommendations.recommendations %}
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center
+                        {% if rec.priority == 'critical' %}bg-danger text-white
+                        {% elif rec.priority == 'high' %}bg-warning text-dark
+                        {% elif rec.priority == 'medium' %}bg-info text-white
+                        {% else %}bg-secondary text-white{% endif %}">
+                        
+                        <div>
+                            <h5 class="mb-0">
+                                {% if rec.recommendation_type == 'action' %}<i class="fas fa-play"></i>
+                                {% elif rec.recommendation_type == 'principle' %}<i class="fas fa-balance-scale"></i>
+                                {% elif rec.recommendation_type == 'caution' %}<i class="fas fa-exclamation-triangle"></i>
+                                {% else %}<i class="fas fa-comments"></i>{% endif %}
+                                {{ rec.title }}
+                            </h5>
+                            <small>{{ rec.recommendation_type.title() }} • Priority: {{ rec.priority.title() }}</small>
+                        </div>
+                        
+                        <div class="text-right">
+                            <div class="badge badge-light text-dark">
+                                {{ "%.0f"|format(rec.confidence * 100) }}% confidence
+                            </div>
+                            <br>
+                            <small>Risk: {{ rec.risk_level.title() }}</small>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>Summary</h6>
+                                <p>{{ rec.summary }}</p>
+                                
+                                <h6>Detailed Explanation</h6>
+                                <p>{{ rec.detailed_explanation }}</p>
+                                
+                                <h6>Ethical Reasoning</h6>
+                                <p>{{ rec.ethical_reasoning }}</p>
+                                
+                                {% if rec.predicted_outcome %}
+                                <div class="alert alert-info">
+                                    <strong>Predicted Outcome:</strong> {{ rec.predicted_outcome }} 
+                                    ({{ "%.0f"|format(rec.outcome_confidence * 100) }}% confidence)
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                {% if rec.stakeholder_considerations %}
+                                <h6>Stakeholder Considerations</h6>
+                                <ul class="list-unstyled">
+                                    {% for stakeholder in rec.stakeholder_considerations %}
+                                    <li><i class="fas fa-user"></i> {{ stakeholder }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                                
+                                {% if rec.implementation_steps %}
+                                <h6>Implementation Steps</h6>
+                                <ol class="small">
+                                    {% for step in rec.implementation_steps %}
+                                    <li>{{ step }}</li>
+                                    {% endfor %}
+                                </ol>
+                                {% endif %}
+                                
+                                {% if rec.potential_challenges %}
+                                <h6>Potential Challenges</h6>
+                                <ul class="list-unstyled small">
+                                    {% for challenge in rec.potential_challenges %}
+                                    <li><i class="fas fa-exclamation-circle text-warning"></i> {{ challenge }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Supporting Evidence -->
+                        {% if rec.guideline_concepts or rec.similar_cases or rec.pattern_indicators %}
+                        <div class="mt-3">
+                            <h6>Supporting Evidence</h6>
+                            <div class="row">
+                                {% if rec.guideline_concepts %}
+                                <div class="col-md-4">
+                                    <strong>Guideline Concepts:</strong>
+                                    {% for concept in rec.guideline_concepts %}
+                                    <div class="small">
+                                        <code>{{ concept.uri }}</code> ({{ "%.0f"|format(concept.confidence * 100) }}%)
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                {% if rec.similar_cases %}
+                                <div class="col-md-4">
+                                    <strong>Similar Cases:</strong>
+                                    {% for case in rec.similar_cases %}
+                                    <div class="small">
+                                        {{ case.title[:50] }}... ({{ "%.0f"|format(case.similarity_score * 100) }}%)
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                {% if rec.pattern_indicators %}
+                                <div class="col-md-4">
+                                    <strong>Pattern Indicators:</strong>
+                                    {% for pattern in rec.pattern_indicators %}
+                                    <div class="small">
+                                        {% if pattern.pattern %}{{ pattern.pattern }}{% endif %}
+                                        {% if pattern.match_score %}({{ "%.0f"|format(pattern.match_score * 100) }}%){% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-info-circle"></i> No Specific Recommendations Generated</h5>
+                    <p>The recommendation engine could not generate specific recommendations for this case. This may be due to:</p>
+                    <ul>
+                        <li>Insufficient guideline associations</li>
+                        <li>Low confidence scores</li>
+                        <li>Missing pattern data</li>
+                    </ul>
+                    <p>Try running the association generation process or adding more guideline content.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

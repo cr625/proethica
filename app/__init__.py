@@ -104,6 +104,7 @@ def create_app(config_module='app.config'):
     # Register blueprints
     from app.routes.index import index_bp
     from app.routes.auth import auth_bp
+    from app.routes.dashboard import dashboard_bp
     from app.routes.worlds import worlds_bp
     from app.routes.domains import domains_bp
     from app.routes.roles import roles_bp
@@ -126,6 +127,7 @@ def create_app(config_module='app.config'):
     
     app.register_blueprint(index_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(worlds_bp, url_prefix='/worlds')
     app.register_blueprint(domains_bp, url_prefix='/domains')
     app.register_blueprint(roles_bp, url_prefix='/roles')

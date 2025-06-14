@@ -9,7 +9,8 @@ import sys
 from werkzeug.security import generate_password_hash
 
 # Add the project root to the path so we can import modules
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 from app import create_app, db
 
@@ -33,9 +34,10 @@ def create_test_user():
             # Create test user
             user = User(
                 username='admin',
-                email='admin@proethica.org'
+                email='admin@proethica.org',
+                password='password123',  # Simple password for development
+                is_admin=True
             )
-            user.set_password('password123')  # Simple password for development
             
             db.session.add(user)
             db.session.commit()

@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Ethics Committee Consultation - {{ discussion.case_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-users"></i> Ethics Committee Consultation</h1>
+                    <p class="text-muted">{{ discussion.case_title }}</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{{ url_for('dashboard.case_firac_analysis', case_id=discussion.case_id) }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-balance-scale"></i> FIRAC Analysis
+                    </a>
+                    <a href="{{ url_for('dashboard.api_case_ethics_committee', case_id=discussion.case_id) }}" 
+                       target="_blank" class="btn btn-outline-info">
+                        <i class="fas fa-code"></i> View JSON
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Committee Overview -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3><i class="fas fa-handshake"></i> Committee Consensus</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <h5><i class="fas fa-thumbs-up"></i> Final Recommendation</h5>
+                        <p>{{ discussion.consensus_recommendation }}</p>
+                    </div>
+                    
+                    {% if discussion.minority_opinions %}
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-comment-alt"></i> Minority Opinions</h6>
+                        <ul class="mb-0">
+                            {% for opinion in discussion.minority_opinions %}
+                            <li>{{ opinion }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie"></i> Consensus Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label>Consensus Confidence</label>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: {{ discussion.confidence_in_consensus * 100 }}%">
+                                {{ "%.0f"|format(discussion.confidence_in_consensus * 100) }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p><strong>Committee Members:</strong> {{ discussion.member_positions|length }}</p>
+                    <p><strong>Agreement Areas:</strong> {{ discussion.areas_of_agreement|length }}</p>
+                    <p><strong>Disagreement Areas:</strong> {{ discussion.areas_of_disagreement|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discussion Phases -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3><i class="fas fa-timeline"></i> Committee Discussion Process</h3>
+                </div>
+                <div class="card-body">
+                    {% for phase in discussion.discussion_phases %}
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-clock"></i> {{ phase.phase_name }} ({{ phase.duration_minutes }} minutes)</h5>
+                            <small class="text-muted">{{ phase.description }}</small>
+                        </div>
+                        <div class="card-body">
+                            {% if phase.content %}
+                                {% for line in phase.content.split('\n') %}
+                                    {% if line.strip() %}
+                                    <p class="mb-1">{{ line }}</p>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            
+                            {% if phase.questions_raised %}
+                            <div class="mt-3">
+                                <h6>Questions Raised:</h6>
+                                <ul class="list-unstyled">
+                                    {% for question in phase.questions_raised %}
+                                    <li><i class="fas fa-question-circle text-info"></i> {{ question }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                            
+                            {% if phase.key_themes %}
+                            <div class="mt-3">
+                                <h6>Key Themes:</h6>
+                                {% for theme in phase.key_themes %}
+                                    <span class="badge badge-secondary mr-1">{{ theme }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Committee Member Positions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3><i class="fas fa-user-tie"></i> Individual Member Positions</h3>
+            
+            {% for position in discussion.member_positions %}
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                    <div>
+                        <h5 class="mb-0">{{ position.member.name }}</h5>
+                        <small class="text-muted">{{ position.member.role }}</small>
+                    </div>
+                    <span class="badge badge-primary">{{ "%.0f"|format(position.confidence * 100) }}% confidence</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Position</h6>
+                            <div class="alert alert-primary">
+                                <strong>{{ position.position }}</strong>
+                            </div>
+                            
+                            <h6>Reasoning</h6>
+                            <p>{{ position.reasoning }}</p>
+                            
+                            {% if position.supporting_evidence %}
+                            <h6>Supporting Evidence</h6>
+                            <ul>
+                                {% for evidence in position.supporting_evidence %}
+                                <li><i class="fas fa-check text-success"></i> {{ evidence }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <h6>Expertise Areas</h6>
+                            {% for expertise in position.member.expertise %}
+                                <span class="badge badge-info mr-1 mb-1">{{ expertise }}</span>
+                            {% endfor %}
+                            
+                            <h6 class="mt-3">Perspective Focus</h6>
+                            <p class="small text-muted">{{ position.member.perspective_focus }}</p>
+                            
+                            {% if position.concerns_raised %}
+                            <h6>Concerns Raised</h6>
+                            <ul class="list-unstyled">
+                                {% for concern in position.concerns_raised %}
+                                <li class="small"><i class="fas fa-exclamation-triangle text-warning"></i> {{ concern }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                            
+                            {% if position.member.bias_considerations %}
+                            <h6>Bias Considerations</h6>
+                            <ul class="list-unstyled">
+                                {% for bias in position.member.bias_considerations %}
+                                <li class="small text-muted"><i class="fas fa-info-circle"></i> {{ bias }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Areas of Agreement and Disagreement -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5><i class="fas fa-handshake"></i> Areas of Agreement</h5>
+                </div>
+                <div class="card-body">
+                    {% if discussion.areas_of_agreement %}
+                        <ul>
+                            {% for area in discussion.areas_of_agreement %}
+                            <li><i class="fas fa-check text-success"></i> {{ area }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No specific areas of agreement identified</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Areas of Disagreement</h5>
+                </div>
+                <div class="card-body">
+                    {% if discussion.areas_of_disagreement %}
+                        <ul>
+                            {% for area in discussion.areas_of_disagreement %}
+                            <li><i class="fas fa-times text-warning"></i> {{ area }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-success">No significant areas of disagreement - strong consensus achieved</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Follow-up Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5><i class="fas fa-tasks"></i> Follow-up Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Recommended Next Steps</h6>
+                            <ol>
+                                {% for action in discussion.follow_up_actions %}
+                                <li>{{ action }}</li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-lightbulb"></i> Implementation Note</h6>
+                                <p class="small mb-0">
+                                    This committee consultation provides guidance for ethical decision-making. 
+                                    The final decision and implementation remain with the responsible parties, 
+                                    considering all relevant factors and constraints.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-link"></i> Related Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group">
+                        <a href="{{ url_for('dashboard.case_firac_analysis', case_id=discussion.case_id) }}" class="btn btn-outline-primary">
+                            <i class="fas fa-balance-scale"></i> View FIRAC Analysis
+                        </a>
+                        <a href="{{ url_for('dashboard.case_recommendations', case_id=discussion.case_id) }}" class="btn btn-outline-success">
+                            <i class="fas fa-lightbulb"></i> View Recommendations
+                        </a>
+                        <a href="{{ url_for('dashboard.test_firac_analysis') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-list"></i> Test Other Cases
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
