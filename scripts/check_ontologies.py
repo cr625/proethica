@@ -18,7 +18,7 @@ from app.models.ontology import Ontology
 
 def check_ontologies():
     """List all ontologies in the database."""
-    app = create_app()
+    app = create_app('config')
     
     with app.app_context():
         ontologies = Ontology.query.all()

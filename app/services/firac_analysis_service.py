@@ -27,6 +27,7 @@ except ImportError:
     CaseGuidelineAssociation = None
 
 from app.services.llm_service import LLMService
+from app.services.engineering_ontology_service import engineering_ontology_service
 
 
 @dataclass
@@ -208,13 +209,18 @@ class FIRACAnalysisService:
                     # Fallback to basic extraction
                     factual_statements.append(section.content[:200] + "...")
         
-        # Extract stakeholders using case metadata and content analysis
-        stakeholders = []
-        if case.doc_metadata:
-            # Look for common stakeholder patterns
-            case_text = ' '.join([s.content or '' for s in sections])
-            common_stakeholders = ['engineer', 'client', 'public', 'employer', 'government', 'contractor']
-            stakeholders = [s for s in common_stakeholders if s in case_text.lower()]
+        # Extract stakeholders using engineering ontology and content analysis
+        case_text = ' '.join([s.content or '' for s in sections])
+        
+        # Use engineering ontology to identify specific engineering roles
+        engineering_roles = engineering_ontology_service.identify_engineering_roles_in_case(case_text)
+        stakeholders = [role.label for role in engineering_roles]
+        
+        # Add generic stakeholders if not already covered
+        common_stakeholders = ['client', 'public', 'employer', 'government', 'contractor']
+        for stakeholder in common_stakeholders:
+            if stakeholder in case_text.lower() and stakeholder not in [s.lower() for s in stakeholders]:
+                stakeholders.append(stakeholder.title())
         
         # Create context description
         context_description = f"Ethical case involving {case.title}"
@@ -294,7 +300,7 @@ class FIRACAnalysisService:
         )
     
     def _analyze_rules(self, case: Document, associations: List) -> FIRACRules:
-        """Identify and analyze applicable rules and guidelines."""
+        """Identify and analyze applicable rules and guidelines using engineering ontology."""
         
         applicable_guidelines = []
         ontology_concepts = []
@@ -313,39 +319,62 @@ class FIRACAnalysisService:
                 
                 confidence_scores[assoc.guideline.title] = assoc.overall_confidence
         
-        # Get ontology concepts from entity triples
+        # Get engineering ontology concepts for this case
+        engineering_concepts = engineering_ontology_service.get_ontology_concepts_for_case(case.id)
+        for concept in engineering_concepts:
+            ontology_concepts.append({
+                'concept_uri': concept['uri'],
+                'concept_type': concept['engineering_context']['type'],
+                'confidence': concept['confidence'],
+                'engineering_context': concept['engineering_context']
+            })
+        
+        # Also get regular entity triples
         entity_triples = EntityTriple.query.filter_by(
             entity_id=case.id,
             entity_type='case'
         ).all()
         
         for triple in entity_triples:
-            if triple.predicate == 'hasRelevantConcept':
+            if triple.predicate == 'hasRelevantConcept' and 'engineering-ethics' not in triple.object_uri:
                 ontology_concepts.append({
                     'concept_uri': triple.object_uri,
                     'concept_type': triple.metadata.get('concept_type', 'unknown'),
                     'confidence': triple.metadata.get('confidence', 0.8)
                 })
         
-        # Extract ethical principles
-        ethical_principles = [
-            'Public safety priority',
-            'Professional competence',
-            'Honest communication',
-            'Conflict of interest avoidance'
-        ]
+        # Get case content for engineering analysis
+        case_text = case.title + ' ' + (case.doc_metadata.get('summary', '') if case.doc_metadata else '')
         
-        professional_standards = [
-            'Engineering codes of ethics',
-            'Professional licensure requirements',
-            'Industry best practices'
+        # Identify engineering roles and their ethical obligations
+        engineering_roles = engineering_ontology_service.identify_engineering_roles_in_case(case_text)
+        ethical_considerations = engineering_ontology_service.get_ethical_considerations_for_roles(engineering_roles)
+        
+        # Identify engineering standards referenced in the case
+        engineering_standards = engineering_ontology_service.identify_engineering_standards_in_case(case_text)
+        
+        # Build ethical principles from engineering ontology
+        ethical_principles = [
+            'Public safety and welfare priority',
+            'Professional competence within expertise boundaries',
+            'Honest and objective communication',
+            'Avoidance of conflicts of interest'
         ]
+        ethical_principles.extend(ethical_considerations)
+        
+        # Build professional standards from engineering ontology
+        professional_standards = [
+            'NSPE Code of Ethics',
+            'State engineering licensure requirements',
+            'Industry-specific standards and practices'
+        ]
+        professional_standards.extend([std.label for std in engineering_standards])
         
         return FIRACRules(
             applicable_guidelines=applicable_guidelines,
             ontology_concepts=ontology_concepts,
-            ethical_principles=ethical_principles,
-            professional_standards=professional_standards,
+            ethical_principles=list(set(ethical_principles)),  # Remove duplicates
+            professional_standards=list(set(professional_standards)),  # Remove duplicates
             confidence_scores=confidence_scores
         )
     
@@ -402,13 +431,20 @@ class FIRACAnalysisService:
     
     def _analyze_conclusion(self, facts: FIRACFacts, issues: FIRACIssues,
                           rules: FIRACRules, analysis: FIRACAnalysis) -> FIRACConclusion:
-        """Develop conclusion and recommendations."""
+        """Develop conclusion and recommendations using engineering ontology."""
+        
+        # Analyze competence boundaries using engineering ontology
+        case_text = facts.context_description + ' ' + ' '.join(facts.factual_statements)
+        engineering_roles = engineering_ontology_service.identify_engineering_roles_in_case(case_text)
+        competence_analysis = engineering_ontology_service.analyze_competence_boundaries(case_text, engineering_roles)
         
         # Determine if ethics committee consultation is needed
         committee_needed = (
             len(issues.ethical_dilemmas) > 1 or
             len(issues.stakeholder_conflicts) > 2 or
-            any(conf < 0.7 for conf in rules.confidence_scores.values())
+            any(conf < 0.7 for conf in rules.confidence_scores.values()) or
+            len(competence_analysis['competence_gaps']) > 0 or
+            len(competence_analysis['boundary_issues']) > 0
         )
         
         # Generate recommended action
@@ -418,14 +454,19 @@ class FIRACAnalysisService:
         else:
             recommended_action = "Conduct comprehensive ethical review following established frameworks"
         
-        # Implementation steps
+        # Implementation steps with engineering ontology insights
         implementation_steps = [
-            'Review all applicable ethical guidelines',
+            'Review all applicable ethical guidelines and engineering standards',
             'Assess impact on all stakeholders',
-            'Consider alternative approaches',
-            'Document decision rationale',
-            'Monitor implementation outcomes'
+            'Verify professional competence boundaries for all involved roles',
+            'Consider alternative approaches and their implications',
+            'Document decision rationale with supporting evidence',
+            'Monitor implementation outcomes and compliance'
         ]
+        
+        # Add competence-specific steps if needed
+        if competence_analysis['competence_gaps']:
+            implementation_steps.insert(3, 'Address identified competence gaps through consultation or referral')
         
         if committee_needed:
             implementation_steps.insert(1, 'Consult with ethics committee for multi-perspective analysis')
