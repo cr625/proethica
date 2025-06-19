@@ -101,18 +101,22 @@
 
 # Meta-classes for subtypes (not GuidelineConceptTypes themselves)
 :ResourceType rdf:type owl:Class ;
+    rdfs:subClassOf :EntityType ;
     rdfs:label "Resource Type"@en ;
     rdfs:comment "Meta-class for specific resource types recognized by the ProEthica system"@en .
 
 :EventType rdf:type owl:Class ;
+    rdfs:subClassOf :EntityType ;
     rdfs:label "Event Type"@en ;
     rdfs:comment "Meta-class for specific event types recognized by the ProEthica system"@en .
 
 :ActionType rdf:type owl:Class ;
+    rdfs:subClassOf :EntityType ;
     rdfs:label "Action Type"@en ;
     rdfs:comment "Meta-class for specific action types recognized by the ProEthica system"@en .
 
 :CapabilityType rdf:type owl:Class ;
+    rdfs:subClassOf :EntityType ;
     rdfs:label "Capability Type"@en ;
     rdfs:comment "Meta-class for specific capability types recognized by the ProEthica system"@en .
 
@@ -140,6 +144,47 @@
     rdfs:subClassOf bfo:BFO_0000017 ; # realizable entity
     rdfs:label "Professional Obligation"@en ;
     rdfs:comment "A duty or responsibility arising from professional role or standards"@en .
+
+# Engineering-specific role types
+:EngineerRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Role ;
+    rdfs:label "Engineer Role"@en ;
+    rdfs:comment "A professional role involving engineering practice and responsibilities"@en .
+
+# Standards and regulatory frameworks
+:Standard rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Resource ;
+    rdfs:label "Standard"@en ;
+    rdfs:comment "A documented agreement containing technical specifications or criteria for professional practice"@en .
+
+:EthicalCode rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Standard ;
+    rdfs:label "Ethical Code"@en ;
+    rdfs:comment "A standard that establishes ethical principles and professional conduct requirements"@en .
+
+# Specialized capability types
+:TechnicalCapability rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Capability ;
+    rdfs:label "Technical Capability"@en ;
+    rdfs:comment "A specialized technical skill or competency in a professional domain"@en .
+
+# Problem and issue types
+:EthicalIssue rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :State ;
+    rdfs:label "Ethical Issue"@en ;
+    rdfs:comment "A problematic situation involving ethical considerations or conflicts"@en .
+
+# Measurement and assessment types
+:Measurement rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Resource ;
+    rdfs:label "Measurement"@en ;
+    rdfs:comment "A quantitative or qualitative assessment or evaluation"@en .
 
 #################################################################
 #    Object Properties                                           

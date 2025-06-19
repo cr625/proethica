@@ -367,7 +367,7 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         Returns:
             Result of the tool call
         """
-        log_debug_point(message="Handling tool call")
+        # log_debug_point(message="Handling tool call")
         name = params.get("name")
         arguments = params.get("arguments", {})
         

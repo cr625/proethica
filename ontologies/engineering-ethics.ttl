@@ -61,6 +61,16 @@
 
 # Engineering Artifacts with ISO standard references
 
+:EngineeringDocument a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "Engineering Document"@en ;
+    rdfs:comment "A technical document used in engineering practice"@en ;
+    dc:source "ISO 5807:1985 - Information processing -- Documentation symbols" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Generic class for all engineering documentation types" ;
+    rdfs:subClassOf proeth:Resource .
+
 :EngineeringDrawing a proeth:EntityType,
         proeth:ResourceType,
         owl:Class ;

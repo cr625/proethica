@@ -15,16 +15,20 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from aiohttp import web
 
+# Import base module
+from .base_module import MCPBaseModule
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
-class Neo4jVisualizationModule:
+class Neo4jVisualizationModule(MCPBaseModule):
     """
     Module for Neo4j-based ontology visualization with Neosemantics (n10s) support.
     """
     
     def __init__(self):
         """Initialize the Neo4j visualization module."""
+        super().__init__("neo4j_visualization")
         self.neo4j_driver = None
         self.initialized = False
         self.connection_attempted = False
@@ -113,6 +117,9 @@ class Neo4jVisualizationModule:
             return False
             
         try:
+            # Setup Neosemantics if not already configured
+            await self.setup_neosemantics()
+            
             # Get ontology content with imports
             ontology_content = await self._get_ontology_with_imports(ontology_name)
             
@@ -901,9 +908,20 @@ class Neo4jVisualizationModule:
                         status=500
                     )
                 
+                # Check if we should load ontology first
+                ontology = request.query.get('ontology', 'engineering-ethics')
+                auto_load = request.query.get('load', 'true').lower() == 'true'
+                
+                if auto_load:
+                    # Try to load the ontology stack if not already loaded
+                    await self.load_ontology_stack(ontology)
+                
                 # Get query from URL parameters or use default
                 query = request.query.get('query', """
-                    MATCH (n:Resource)-[r]-(m:Resource)
+                    MATCH (n:Resource)
+                    WHERE NOT n:_GraphConfig AND NOT n:_NsPrefDef
+                    OPTIONAL MATCH (n)-[r]-(m:Resource)
+                    WHERE NOT m:_GraphConfig AND NOT m:_NsPrefDef
                     RETURN n, r, m
                     LIMIT 50
                 """)
@@ -913,34 +931,53 @@ class Neo4jVisualizationModule:
                     result = session.run(query)
                     records = list(result)
                 
+                # Debug: log number of records
+                logger.info(f"Query returned {len(records)} records")
+                
                 # Convert results to D3.js format
                 nodes = {}
                 links = []
                 
+                for i, record in enumerate(records[:3]):  # Log first 3 records
+                    logger.info(f"Record {i} keys: {list(record.keys())}")
+                
                 for record in records:
-                    # Add nodes
-                    for key in ['n', 'm']:
-                        if key in record:
-                            node = record[key]
-                            node_id = node.element_id
-                            if node_id not in nodes:
-                                nodes[node_id] = {
-                                    'id': node_id,
-                                    'label': node.get('rdfs__label', node.get('uri', str(node_id)))[:50],
-                                    'uri': node.get('uri', ''),
-                                    'properties': dict(node),
-                                    'type': 'Resource'
-                                }
-                    
-                    # Add relationships
-                    if 'r' in record:
-                        rel = record['r']
-                        links.append({
-                            'source': record['n'].element_id,
-                            'target': record['m'].element_id,
-                            'type': rel.type,
-                            'properties': dict(rel)
-                        })
+                    # Handle single node queries
+                    if 'node' in record:
+                        node = record['node']
+                        node_id = node.element_id
+                        if node_id not in nodes:
+                            nodes[node_id] = {
+                                'id': node_id,
+                                'label': str(node.get('rdfs__label', node.get('uri', node.get('ns0__title', str(node_id)))))[:50],
+                                'uri': node.get('uri', ''),
+                                'properties': dict(node),
+                                'type': 'Resource'
+                            }
+                    # Handle node-relationship queries
+                    else:
+                        for key in ['n', 'm']:
+                            if key in record:
+                                node = record[key]
+                                node_id = node.element_id
+                                if node_id not in nodes:
+                                    nodes[node_id] = {
+                                        'id': node_id,
+                                        'label': node.get('rdfs__label', node.get('uri', str(node_id)))[:50],
+                                        'uri': node.get('uri', ''),
+                                        'properties': dict(node),
+                                        'type': 'Resource'
+                                    }
+                        
+                        # Add relationships
+                        if 'r' in record:
+                            rel = record['r']
+                            links.append({
+                                'source': record['n'].element_id,
+                                'target': record['m'].element_id,
+                                'type': rel.type,
+                                'properties': dict(rel)
+                            })
                 
                 # Generate HTML visualization
                 html_content = self._generate_graph_html(list(nodes.values()), links, query)
@@ -957,10 +994,75 @@ class Neo4jVisualizationModule:
                     status=500
                 )
         
+        async def debug_neo4j(request):
+            """Debug endpoint to see what's in Neo4j."""
+            try:
+                if not self.initialized:
+                    return web.json_response({"error": "Neo4j not connected"})
+                
+                with self.neo4j_driver.session() as session:
+                    # Count all nodes
+                    result = session.run("MATCH (n) RETURN count(n) as total")
+                    total_nodes = result.single()["total"]
+                    
+                    # Count Resource nodes
+                    result = session.run("MATCH (n:Resource) RETURN count(n) as resources")
+                    resource_nodes = result.single()["resources"]
+                    
+                    # Get some sample nodes
+                    result = session.run("MATCH (n) RETURN n LIMIT 10")
+                    sample_nodes = [dict(record["n"]) for record in result]
+                    
+                    # Get labels
+                    result = session.run("CALL db.labels() YIELD label RETURN collect(label) as labels")
+                    labels = result.single()["labels"]
+                    
+                    return web.json_response({
+                        "total_nodes": total_nodes,
+                        "resource_nodes": resource_nodes,
+                        "labels": labels,
+                        "sample_nodes": sample_nodes[:3]  # Just first 3
+                    })
+                    
+            except Exception as e:
+                return web.json_response({"error": str(e)})
+        
+        async def test_query(request):
+            """Test query execution directly."""
+            try:
+                if not self.initialized:
+                    return web.json_response({"error": "Neo4j not connected"})
+                
+                with self.neo4j_driver.session() as session:
+                    # Simple query to get all non-config nodes
+                    result = session.run("""
+                        MATCH (n)
+                        WHERE NOT n:_GraphConfig AND NOT n:_NsPrefDef
+                        RETURN n.uri as uri, labels(n) as labels
+                        LIMIT 10
+                    """)
+                    
+                    data = []
+                    for record in result:
+                        data.append({
+                            "uri": record["uri"],
+                            "labels": record["labels"]
+                        })
+                    
+                    return web.json_response({
+                        "count": len(data),
+                        "nodes": data
+                    })
+                    
+            except Exception as e:
+                return web.json_response({"error": str(e)})
+        
         # Add routes
         app.router.add_get('/neo4j', neo4j_browser)
         app.router.add_get('/neo4j/browser', neo4j_browser)
         app.router.add_get('/neo4j/graph', query_graph)
+        app.router.add_get('/neo4j/test', test_query)
+        app.router.add_get('/neo4j/debug', debug_neo4j)
         app.router.add_get('/neo4j/status', neo4j_status)
         app.router.add_post('/neo4j/configure', configure_connection)
         app.router.add_post('/neo4j/load-ontology-stack', load_ontology_stack)

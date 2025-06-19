@@ -16,16 +16,20 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from aiohttp import web
 
+# Import base module
+from .base_module import MCPBaseModule
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
-class WebVOWLVisualizationModule:
+class WebVOWLVisualizationModule(MCPBaseModule):
     """
     Module for generating WebVOWL-compatible visualizations of ontologies.
     """
     
     def __init__(self):
         """Initialize the WebVOWL visualization module."""
+        super().__init__("webvowl_visualization")
         self.owl2vowl_jar = None
         self.initialized = False
         
