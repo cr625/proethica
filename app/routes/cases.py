@@ -7,7 +7,7 @@ import re
 import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from flask_login import current_user, login_required
+from app.utils.auth_utils import login_required, get_current_user
 from app.models.document import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
@@ -918,6 +918,7 @@ def create_from_url():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
+        current_user = get_current_user()
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1267,6 +1268,7 @@ def save_and_view_case():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
+        current_user = get_current_user()
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1613,11 +1615,15 @@ def get_related_cases():
 def generate_scenario_from_case(case_id):
     """Generate a scenario from a case using background processing."""
     try:
+        logger.info(f"Starting scenario generation for case {case_id}")
+        
         case = Document.query.get_or_404(case_id)
         scenario_service = CaseToScenarioService()
         
         # Check if case can be deconstructed
         can_process, reason = scenario_service.can_deconstruct_case(case)
+        logger.info(f"Can deconstruct case {case_id}: {can_process}, reason: {reason}")
+        
         if not can_process:
             return jsonify({
                 'success': False,
@@ -1626,6 +1632,7 @@ def generate_scenario_from_case(case_id):
         
         # Start async processing
         task_id = scenario_service.deconstruct_case_async(case_id)
+        logger.info(f"Started async deconstruction for case {case_id} with task_id: {task_id}")
         
         return jsonify({
             'success': True,
@@ -1634,7 +1641,7 @@ def generate_scenario_from_case(case_id):
         })
         
     except Exception as e:
-        logger.error(f"Error starting scenario generation for case {case_id}: {str(e)}")
+        logger.error(f"Error starting scenario generation for case {case_id}: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1757,7 +1764,7 @@ def create_scenario_from_template(template_id):
         generation_service = ScenarioGenerationService()
         scenario = generation_service.create_scenario_instance(
             template, 
-            current_user.id,
+            get_current_user().id,
             customizations
         )
         

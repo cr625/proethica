@@ -91,9 +91,11 @@ def generate_triples_direct(world_id, document_id):
                 ).delete(synchronize_session=False)
                 logger.info(f"Deleted {deleted_count} old alignment triples")
             else:
-                logger.info(f"Deleting old alignment triples for document {guideline.id}")
+                # For documents without associated guidelines, use entity_id instead
+                logger.info(f"Deleting old alignment triples for document {guideline.id} (no guideline_id)")
                 deleted_count = EntityTriple.query.filter(
-                    EntityTriple.guideline_id == guideline.id,
+                    EntityTriple.entity_id == guideline.id,
+                    EntityTriple.entity_type == "guideline_concept",
                     EntityTriple.world_id == world.id,
                     EntityTriple.predicate.in_(ALIGNMENT_PREDICATES)
                 ).delete(synchronize_session=False)

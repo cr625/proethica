@@ -5,6 +5,7 @@ Background task queue for processing documents asynchronously.
 import threading
 import logging
 import time
+from datetime import datetime
 from app import db
 from app.models.document import Document, PROCESSING_STATUS, PROCESSING_PHASES
 from app.services.embedding_service import EmbeddingService
@@ -33,8 +34,14 @@ class BackgroundTaskQueue:
     
     def __init__(self):
         """Initialize the task queue."""
-        self.embedding_service = EmbeddingService()
+        self.embedding_service = None  # Initialize lazily
         self.active_threads = {}
+    
+    def _get_embedding_service(self):
+        """Lazily initialize embedding service only when needed."""
+        if self.embedding_service is None:
+            self.embedding_service = EmbeddingService()
+        return self.embedding_service
     
     def process_document_async(self, document_id):
         """Process a document asynchronously in a background thread."""
@@ -87,6 +94,32 @@ class BackgroundTaskQueue:
         logger.info(f"Started background association processing for document {document_id}")
         return True
     
+    def process_task_async(self, task_function):
+        """Process a generic task asynchronously in a background thread.
+        
+        Args:
+            task_function: A callable that performs the background task
+            
+        Returns:
+            str: Task ID for tracking
+        """
+        import uuid
+        
+        # Generate unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Create and start a new thread for the task
+        thread = threading.Thread(
+            target=task_function,
+            daemon=True
+        )
+        
+        self.active_threads[task_id] = thread
+        thread.start()
+        
+        logger.info(f"Started background task with ID {task_id}")
+        return task_id
+    
     def _process_document_task(self, document_id):
         """Background task to process a document."""
         try:
@@ -130,7 +163,7 @@ class BackgroundTaskQueue:
                     
                     # Extract text from URL
                     try:
-                        text = self.embedding_service._extract_from_url(document.source)
+                        text = self._get_embedding_service()._extract_from_url(document.source)
                         document.content = text
                         document.processing_progress = 30
                         db.session.commit()
@@ -150,7 +183,7 @@ class BackgroundTaskQueue:
                     db.session.commit()
                     
                     try:
-                        text = self.embedding_service._extract_text(document.file_path, document.file_type)
+                        text = self._get_embedding_service()._extract_text(document.file_path, document.file_type)
                         document.content = text
                         
                         # Update progress: Text extracted (30%)
@@ -171,7 +204,7 @@ class BackgroundTaskQueue:
                     db.session.commit()
                     
                     # Split text into chunks
-                    chunks = self.embedding_service._split_text(document.content)
+                    chunks = self._get_embedding_service()._split_text(document.content)
                     
                     # Update progress: Generating embeddings (50%)
                     document.processing_phase = PROCESSING_PHASES['EMBEDDING']
@@ -179,7 +212,7 @@ class BackgroundTaskQueue:
                     db.session.commit()
                     
                     # Generate embeddings for chunks
-                    embeddings = self.embedding_service.embed_documents(chunks)
+                    embeddings = self._get_embedding_service().embed_documents(chunks)
                     
                     # Update progress: Storing chunks (70%)
                     document.processing_phase = PROCESSING_PHASES['STORING']
@@ -187,7 +220,7 @@ class BackgroundTaskQueue:
                     db.session.commit()
                     
                     # Store chunks with embeddings
-                    self.embedding_service._store_chunks(document.id, chunks, embeddings)
+                    self._get_embedding_service()._store_chunks(document.id, chunks, embeddings)
                     
                     # Update progress: Finalizing (90%)
                     document.processing_phase = PROCESSING_PHASES['FINALIZING']

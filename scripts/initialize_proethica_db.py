@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 # Set the database URL directly to avoid parsing issues
 os.environ['DATABASE_URL'] = 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm'
+os.environ['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm'
 
 # Import Flask app and models
 from app import create_app, db
@@ -32,7 +33,7 @@ def initialize_database():
     print("Initializing ProEthica database...")
     
     # Create the app with a test configuration that uses our environment variable
-    app = create_app()
+    app = create_app('config')
     
     with app.app_context():
         # Create all tables

@@ -252,8 +252,14 @@ class EmbeddingService:
         if "local" in self.provider_priority:
             try:
                 from sentence_transformers import SentenceTransformer
+                import os
+                
+                # Configure offline mode to avoid HuggingFace Hub requests
+                os.environ["HF_HUB_OFFLINE"] = "1"
+                os.environ["TRANSFORMERS_OFFLINE"] = "1"
+                
                 self.providers["local"] = {
-                    "model": SentenceTransformer(self.model_name),
+                    "model": SentenceTransformer(self.model_name, local_files_only=True),
                     "available": True,
                     "dimension": self.dimensions["local"]
                 }

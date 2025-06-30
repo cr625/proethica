@@ -10,14 +10,12 @@ This service coordinates the entire pipeline:
 
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
-import json
+from datetime import datetime, timezone
 
 from app.models.document import Document
-from app.models.deconstructed_case import DeconstructedCase
+from app.models.deconstructed_case import DeconstructedCase as DBDeconstructedCase
 from app.models.scenario_template import ScenarioTemplate
 from app.models.scenario import Scenario
-from app.models.world import World
 from app.services.case_deconstruction.base_adapter import BaseCaseDeconstructionAdapter
 from app.services.case_deconstruction.engineering_ethics_adapter import EngineeringEthicsAdapter
 from app.services.task_queue import BackgroundTaskQueue
@@ -103,7 +101,7 @@ class CaseToScenarioService:
             
         return True, "Case can be deconstructed"
 
-    def deconstruct_case_sync(self, case: Document) -> Optional[DeconstructedCase]:
+    def deconstruct_case_sync(self, case: Document) -> Optional[DBDeconstructedCase]:
         """
         Synchronously deconstruct a case using the appropriate adapter.
         
@@ -123,19 +121,39 @@ class CaseToScenarioService:
         try:
             logger.info(f"Starting deconstruction of case {case.id} with {adapter.__class__.__name__}")
             
+            # Prepare case content dictionary for adapter
+            case_content = {
+                'id': case.id,
+                'title': case.title,
+                'content': case.content,
+                'doc_metadata': case.doc_metadata or {}
+            }
+            
             # Run the deconstruction
-            deconstructed = adapter.deconstruct_case(case)
+            deconstructed = adapter.deconstruct_case(case_content)
             
             # Save to database
-            db_deconstructed = DeconstructedCase(
+            analysis_dict = deconstructed.analysis.to_dict()
+            
+            # Extract confidence scores
+            confidence_scores = {
+                'stakeholder_confidence': deconstructed.analysis.stakeholder_confidence,
+                'decision_points_confidence': deconstructed.analysis.decision_points_confidence,
+                'reasoning_confidence': deconstructed.analysis.reasoning_confidence
+            }
+            
+            db_deconstructed = DBDeconstructedCase(
                 case_id=case.id,
                 adapter_type=adapter.__class__.__name__,
-                stakeholders=deconstructed.stakeholders,
-                decision_points=deconstructed.decision_points,
-                reasoning_chain=deconstructed.reasoning_chain,
-                confidence_scores=deconstructed.confidence_scores,
-                human_validated=self._should_auto_approve(deconstructed.confidence_scores),
-                created_at=datetime.utcnow()
+                stakeholders=analysis_dict['stakeholders'],
+                decision_points=analysis_dict['decision_points'],
+                reasoning_chain=analysis_dict['reasoning_chain'],
+                stakeholder_confidence=deconstructed.analysis.stakeholder_confidence,
+                decision_points_confidence=deconstructed.analysis.decision_points_confidence,
+                reasoning_confidence=deconstructed.analysis.reasoning_confidence,
+                human_validated=self._should_auto_approve(confidence_scores),
+                adapter_version=deconstructed.analysis.adapter_version,
+                created_at=datetime.now(timezone.utc)
             )
             
             db.session.add(db_deconstructed)
@@ -145,7 +163,7 @@ class CaseToScenarioService:
             return db_deconstructed
             
         except Exception as e:
-            logger.error(f"Failed to deconstruct case {case.id}: {str(e)}")
+            logger.error(f"Failed to deconstruct case {case.id}: {str(e)}", exc_info=True)
             db.session.rollback()
             return None
 
@@ -162,35 +180,54 @@ class CaseToScenarioService:
         def deconstruction_task():
             """Background task for case deconstruction."""
             try:
-                # Update progress: Starting
-                self._update_case_progress(case_id, 10, "ANALYZING", "Loading case data...")
+                # Import app creation to get proper context
+                from app import create_app
+                import os
                 
-                case = Document.query.get(case_id)
-                if not case:
-                    raise ValueError(f"Case {case_id} not found")
+                # Ensure environment is set
+                os.environ.setdefault('ENVIRONMENT', 'development')
                 
-                # Update progress: Checking prerequisites  
-                self._update_case_progress(case_id, 20, "ANALYZING", "Checking case structure...")
-                
-                can_process, reason = self.can_deconstruct_case(case)
-                if not can_process:
-                    raise ValueError(f"Cannot deconstruct case: {reason}")
-                
-                # Update progress: Running deconstruction
-                self._update_case_progress(case_id, 40, "DECONSTRUCTING", "Extracting stakeholders and decision points...")
-                
-                deconstructed = self.deconstruct_case_sync(case)
-                if not deconstructed:
-                    raise ValueError("Deconstruction failed")
-                
-                # Update progress: Completed
-                self._update_case_progress(case_id, 100, "COMPLETED", "Deconstruction completed successfully")
-                
-                return {"success": True, "deconstructed_case_id": deconstructed.id}
-                
+                # Create app context for database access
+                app = create_app()
+                with app.app_context():
+                    # Update progress: Starting
+                    self._update_case_progress(case_id, 10, "ANALYZING", "Loading case data...")
+                    
+                    case = Document.query.get(case_id)
+                    if not case:
+                        raise ValueError(f"Case {case_id} not found")
+                    
+                    # Update progress: Checking prerequisites  
+                    self._update_case_progress(case_id, 20, "ANALYZING", "Checking case structure...")
+                    
+                    can_process, reason = self.can_deconstruct_case(case)
+                    if not can_process:
+                        raise ValueError(f"Cannot deconstruct case: {reason}")
+                    
+                    # Update progress: Running deconstruction
+                    self._update_case_progress(case_id, 40, "DECONSTRUCTING", "Extracting stakeholders and decision points...")
+                    
+                    deconstructed = self.deconstruct_case_sync(case)
+                    if not deconstructed:
+                        raise ValueError("Deconstruction failed")
+                    
+                    # Update progress: Completed
+                    self._update_case_progress(case_id, 100, "COMPLETED", "Deconstruction completed successfully")
+                    
+                    return {"success": True, "deconstructed_case_id": deconstructed.id}
+                    
             except Exception as e:
-                logger.error(f"Deconstruction task failed for case {case_id}: {str(e)}")
-                self._update_case_progress(case_id, 0, "FAILED", f"Error: {str(e)}")
+                logger.error(f"Deconstruction task failed for case {case_id}: {str(e)}", exc_info=True)
+                # Try to update progress in a new app context if needed
+                try:
+                    from app import create_app
+                    import os
+                    os.environ.setdefault('ENVIRONMENT', 'development')
+                    app = create_app()
+                    with app.app_context():
+                        self._update_case_progress(case_id, 0, "FAILED", f"Error: {str(e)}")
+                except:
+                    pass
                 return {"success": False, "error": str(e)}
         
         # Start background task
@@ -224,7 +261,7 @@ class CaseToScenarioService:
             "updated_at": metadata.get('deconstruction_updated_at')
         }
 
-    def generate_scenario_from_deconstruction(self, deconstructed_case: DeconstructedCase) -> Optional[ScenarioTemplate]:
+    def generate_scenario_from_deconstruction(self, deconstructed_case: DBDeconstructedCase) -> Optional[ScenarioTemplate]:
         """
         Generate a scenario template from a deconstructed case.
         
@@ -248,7 +285,7 @@ class CaseToScenarioService:
                 description=f"Interactive scenario based on {case.title}",
                 world_id=case.world_id,
                 template_data=self._build_scenario_template_data(deconstructed_case),
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             
             db.session.add(template)
@@ -281,7 +318,7 @@ class CaseToScenarioService:
                 world_id=template.world_id,
                 created_by=user_id,
                 scenario_metadata=self._build_scenario_metadata(template),
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             
             db.session.add(scenario)
@@ -331,26 +368,38 @@ class CaseToScenarioService:
             message: Status message
         """
         try:
-            case = Document.query.get(case_id)
-            if case:
-                if not case.doc_metadata:
-                    case.doc_metadata = {}
-                
-                case.doc_metadata.update({
-                    'deconstruction_status': status,
-                    'deconstruction_progress': progress,
-                    'deconstruction_phase': status,
-                    'deconstruction_message': message,
-                    'deconstruction_updated_at': datetime.utcnow().isoformat()
-                })
-                
-                db.session.commit()
+            # Use a new session to avoid conflicts with the main session
+            from sqlalchemy.orm import scoped_session
+            from app import db as app_db
+            
+            # Create a new session for this update
+            Session = scoped_session(app_db.session.session_factory)
+            session = Session()
+            
+            try:
+                case = session.query(Document).get(case_id)
+                if case:
+                    if not case.doc_metadata:
+                        case.doc_metadata = {}
+                    
+                    case.doc_metadata.update({
+                        'deconstruction_status': status,
+                        'deconstruction_progress': progress,
+                        'deconstruction_phase': status,
+                        'deconstruction_message': message,
+                        'deconstruction_updated_at': datetime.now(timezone.utc).isoformat()
+                    })
+                    
+                    session.commit()
+                    logger.info(f"Updated progress for case {case_id}: {progress}% - {status}")
+            finally:
+                session.close()
+                Session.remove()
                 
         except Exception as e:
-            logger.error(f"Failed to update progress for case {case_id}: {str(e)}")
-            db.session.rollback()
+            logger.error(f"Failed to update progress for case {case_id}: {str(e)}", exc_info=True)
 
-    def _build_scenario_template_data(self, deconstructed_case: DeconstructedCase) -> Dict[str, Any]:
+    def _build_scenario_template_data(self, deconstructed_case: DBDeconstructedCase) -> Dict[str, Any]:
         """
         Build scenario template data from deconstructed case.
         
@@ -415,7 +464,7 @@ class CaseToScenarioService:
             
         return characters
 
-    def _extract_initial_conditions(self, deconstructed_case: DeconstructedCase) -> Dict[str, Any]:
+    def _extract_initial_conditions(self, deconstructed_case: DBDeconstructedCase) -> Dict[str, Any]:
         """Extract initial scenario conditions from deconstructed case."""
         reasoning = deconstructed_case.reasoning_chain or {}
         
@@ -428,7 +477,7 @@ class CaseToScenarioService:
             "regulatory_environment": reasoning.get("regulations", [])
         }
 
-    def _extract_learning_objectives(self, deconstructed_case: DeconstructedCase) -> List[str]:
+    def _extract_learning_objectives(self, deconstructed_case: DBDeconstructedCase) -> List[str]:
         """Extract learning objectives from deconstructed case."""
         objectives = []
         
@@ -450,15 +499,19 @@ class CaseToScenarioService:
         
         return objectives
 
-    def _build_assessment_criteria(self, deconstructed_case: DeconstructedCase) -> List[Dict[str, Any]]:
+    def _build_assessment_criteria(self, deconstructed_case: DBDeconstructedCase) -> List[Dict[str, Any]]:
         """Build assessment criteria for the scenario."""
         criteria = []
         
-        # Stakeholder consideration
+        # Use stakeholder count to customize criteria weights
+        stakeholder_count = len(deconstructed_case.stakeholders or [])
+        
+        # Stakeholder consideration (adjust weight based on complexity)
+        stakeholder_weight = 0.3 if stakeholder_count > 3 else 0.25
         criteria.append({
             "criterion": "Stakeholder Analysis",
             "description": "Identifies and considers all relevant stakeholders",
-            "weight": 0.25,
+            "weight": stakeholder_weight,
             "rubric": {
                 "excellent": "Identifies all stakeholders and their interests",
                 "good": "Identifies most relevant stakeholders",
