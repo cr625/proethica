@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}ProEthica - Ethical Decision-Making Platform{% endblock %}
+
+{% block styles %}
+<style>
+    .stats-card {
+        transition: transform 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .primary-action-card {
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid #e9ecef;
+    }
+    
+    .primary-action-card:hover {
+        border-color: #007bff;
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .activity-item {
+        border-left: 3px solid #e9ecef;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .activity-item.case {
+        border-left-color: #28a745;
+    }
+    
+    .activity-item.guideline {
+        border-left-color: #ffc107;
+    }
+    
+    .activity-item.scenario {
+        border-left-color: #17a2b8;
+    }
+    
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .status-online {
+        background-color: #28a745;
+    }
+    
+    .status-offline {
+        background-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Simple Header -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-normal">ProEthica</h1>
+        <p class="lead text-muted">Ethical Decision-Making Platform</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-5">
+        <div class="col-md-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ world_count }}</h3>
+                    <small class="text-muted">Worlds</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ case_count }}</h3>
+                    <small class="text-muted">Cases</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ scenario_count }}</h3>
+                    <small class="text-muted">Scenarios</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ guideline_count }}</h3>
+                    <small class="text-muted">Guidelines</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Primary Actions -->
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <div class="card primary-action-card h-100" onclick="window.location.href='/worlds'">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-globe2 display-3 text-primary mb-3"></i>
+                    <h4>Select a World</h4>
+                    <p class="text-muted mb-0">Choose or create a professional domain to work with</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card primary-action-card h-100" onclick="window.location.href='/ontology-editor'">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-diagram-3 display-3 text-info mb-3"></i>
+                    <h4>Manage Ontology</h4>
+                    <p class="text-muted mb-0">Edit concepts, relationships, and type mappings</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Activity -->
+        <div class="col-md-8">
+            <h5 class="mb-3">Recent Activity</h5>
+            <div class="card">
+                <div class="card-body">
+                    {% if recent_activities %}
+                        {% for activity in recent_activities %}
+                        <div class="activity-item {{ activity.type }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ activity.title }}</strong>
+                                    <p class="mb-0 text-muted small">{{ activity.description }}</p>
+                                </div>
+                                <small class="text-muted">{{ activity.time_ago }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-4">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="col-md-4">
+            <h5 class="mb-3">System Status</h5>
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>MCP Server</span>
+                            <span>
+                                <span class="status-indicator {{ 'status-online' if mcp_status else 'status-offline' }}"></span>
+                                {{ 'Online' if mcp_status else 'Offline' }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Database</span>
+                            <span>
+                                <span class="status-indicator status-online"></span>
+                                Connected
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Embeddings</span>
+                            <span>
+                                <span class="status-indicator {{ 'status-online' if embedding_status else 'status-offline' }}"></span>
+                                {{ 'Ready' if embedding_status else 'Not Ready' }}
+                            </span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>
+                            Last backup: {{ last_backup_time or 'Never' }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">Quick Links</h6>
+                    <div class="d-grid gap-2">
+                        <a href="/experiment" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-flask me-1"></i>Experiments
+                        </a>
+                        <a href="/type-management/" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-gear me-1"></i>Type Management
+                        </a>
+                        <a href="/debug" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-bug me-1"></i>Debug Tools
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer info -->
+    <div class="row mt-5">
+        <div class="col-12 text-center text-muted">
+            <small>
+                ProEthica helps analyze ethical decisions in professional contexts using ontology-based reasoning.
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,196 @@
+@prefix : <http://proethica.org/ontology/engineering-ethics#> .
+@prefix bfo: <http://purl.obolibrary.org/obo/> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix proeth: <http://proethica.org/ontology/intermediate#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix iso15926: <http://standards.iso.org/iso/15926/part14#> .
+@prefix saref: <https://saref.etsi.org/core/> .
+@prefix ifc: <http://www.buildingsmart-tech.org/ifc/IFC4/Add2/IFC4_ADD2#> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+
+<http://proethica.org/ontology/engineering-ethics> a owl:Ontology ;
+    rdfs:label "Engineering Ethics Ontology"@en ;
+    dc:creator "ProEthica AI"@en ;
+    dc:contributor "Claude 3 Opus - Anthropic"@en ;
+    dc:date "2025-01-15"^^xsd:date ;
+    rdfs:comment "Domain-specific ontology for engineering ethics based on authoritative sources including NSPE Code of Ethics, ISO standards, and professional engineering practice"@en ;
+    dc:source "NSPE Code of Ethics, ISO/IEC 21838-2:2021 (BFO), ISO 15926, IFC/ISO 16739-1:2018" ;
+    owl:imports <http://proethica.org/ontology/intermediate>,
+        bfo:bfo.owl .
+
+# Engineering Roles with proper source attribution
+
+:StructuralEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Structural Engineer Role"@en ;
+    rdfs:comment "Engineer specializing in structural analysis and design of buildings and infrastructure"@en ;
+    dc:source "NSPE Professional Categories; IFC/ISO 16739-1:2018" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Role definition based on NSPE professional categories and IFC building standards" ;
+    rdfs:subClassOf proeth:EngineerRole ;
+    owl:equivalentClass ifc:IfcStructuralEngineer .
+
+:ElectricalEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Electrical Engineer Role"@en ;
+    rdfs:comment "Engineer specializing in electrical power systems and electronics"@en ;
+    dc:source "NSPE Professional Categories; IEC 61508 Functional Safety" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Role definition includes competencies from IEC electrical safety standards" ;
+    rdfs:subClassOf proeth:EngineerRole .
+
+:MechanicalEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Mechanical Engineer Role"@en ;
+    rdfs:comment "Engineer specializing in mechanical systems, HVAC, and thermal analysis"@en ;
+    dc:source "NSPE Professional Categories; ASME Standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.asme.org/codes-standards> ;
+    skos:note "Role encompasses ASME mechanical engineering standards" ;
+    rdfs:subClassOf proeth:EngineerRole .
+
+# Engineering Artifacts with ISO standard references
+
+:EngineeringDrawing a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "Engineering Drawing"@en ;
+    rdfs:comment "Technical drawings conforming to ISO standards"@en ;
+    dc:source "ISO 128 - Technical drawings; ISO 5455 - Technical drawings - Scales" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.iso.org/standard/3098.html> ;
+    skos:note "Based on ISO technical drawing standards series" ;
+    rdfs:subClassOf :EngineeringDocument ;
+    owl:equivalentClass iso15926:EngineeringDrawing .
+
+:EngineeringSpecification a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "Engineering Specification"@en ;
+    rdfs:comment "Detailed technical requirements document"@en ;
+    dc:source "ISO/IEC/IEEE 29148:2018 - Requirements engineering" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.iso.org/standard/72089.html> ;
+    skos:note "Aligned with ISO/IEC/IEEE requirements engineering standards" ;
+    rdfs:subClassOf :EngineeringDocument .
+
+:AsBuiltDrawings a proeth:EntityType,
+        proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "As-Built Drawings"@en ;
+    rdfs:comment "Drawings showing actual construction as completed"@en ;
+    dc:source "ISO 6707-1:2020 - Buildings and civil engineering works vocabulary" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso ifc:IfcAsBuiltElement ;
+    skos:note "Concept from construction documentation standards" ;
+    rdfs:subClassOf :EngineeringDrawing .
+
+# Engineering Standards and Codes
+
+:BuildingCode a proeth:EntityType,
+        proeth:Standard,
+        owl:Class ;
+    rdfs:label "Building Code"@en ;
+    rdfs:comment "Legal requirements for construction safety and quality"@en ;
+    dc:source "IBC - International Building Code; ISO 6707-1:2020" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.iccsafe.org/> ;
+    skos:note "Generic reference to applicable local and international building codes" ;
+    rdfs:subClassOf proeth:Standard .
+
+:NSPECodeOfEthics a proeth:EntityType,
+        proeth:EthicalCode,
+        owl:Class ;
+    rdfs:label "NSPE Code of Ethics"@en ;
+    rdfs:comment "Professional ethics code for engineers in the United States"@en ;
+    dc:source "National Society of Professional Engineers, 2019 Edition" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Authoritative source for engineering ethics principles" ;
+    rdfs:subClassOf proeth:EthicalCode .
+
+# Engineering Capabilities with competency framework references
+
+:StructuralAnalysisCapability a proeth:Capability,
+        owl:Class ;
+    rdfs:label "Structural Analysis Capability"@en ;
+    rdfs:comment "Ability to analyze structural integrity and load-bearing capacity"@en ;
+    dc:source "ASCE/SEI 7 - Minimum Design Loads; Eurocode standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Based on structural engineering competency frameworks" ;
+    rdfs:subClassOf proeth:TechnicalCapability .
+
+:ElectricalDesignCapability a proeth:Capability,
+        owl:Class ;
+    rdfs:label "Electrical Systems Design Capability"@en ;
+    rdfs:comment "Ability to design electrical power and control systems"@en ;
+    dc:source "IEEE 1584 - Arc Flash; IEC 60364 - Electrical installations" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Encompasses IEEE and IEC electrical design standards" ;
+    rdfs:subClassOf proeth:TechnicalCapability .
+
+# LLM-Generated Ethical Concepts with attribution
+
+:CompetenceBoundaryViolation a proeth:EthicalIssue,
+        owl:Class ;
+    rdfs:label "Competence Boundary Violation"@en ;
+    rdfs:comment "Ethical issue arising when engineer practices outside area of competence"@en ;
+    dc:source "NSPE Code of Ethics Section II.2.a" ;
+    prov:wasGeneratedBy "Claude 3 Opus - Anthropic" ;
+    prov:generatedAtTime "2025-01-15"^^xsd:date ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Concept derived through LLM analysis of NSPE competence requirements" ;
+    rdfs:subClassOf proeth:EthicalIssue .
+
+:InterdisciplinaryCoordinationRequirement a proeth:Obligation,
+        owl:Class ;
+    rdfs:label "Interdisciplinary Coordination Requirement"@en ;
+    rdfs:comment "Obligation to coordinate with engineers from other disciplines"@en ;
+    dc:source "ISO 15926 - Integration of life-cycle data; Systems Engineering practices" ;
+    prov:wasGeneratedBy "ProEthica Analysis Engine" ;
+    prov:generatedAtTime "2025-01-15"^^xsd:date ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Derived from systems engineering integration requirements" ;
+    rdfs:subClassOf proeth:ProfessionalObligation .
+
+# Measurement and Units Integration
+
+:EngineeringMeasurement a proeth:ResourceType,
+        owl:Class ;
+    rdfs:label "Engineering Measurement"@en ;
+    rdfs:comment "Quantitative measurement used in engineering analysis"@en ;
+    dc:source "ISO 80000 - Quantities and units; QUDT ontology" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso qudt:QuantityValue ;
+    skos:note "Aligned with ISO 80000 and QUDT measurement standards" ;
+    rdfs:subClassOf proeth:Measurement ;
+    owl:equivalentClass qudt:QuantityValue .
+
+# Provenance for the ontology itself
+
+<http://proethica.org/ontology/engineering-ethics> prov:wasGeneratedBy :OntologyDevelopmentActivity .
+
+:OntologyDevelopmentActivity a prov:Activity ;
+    rdfs:label "Engineering Ethics Ontology Development"@en ;
+    prov:startedAtTime "2024-04-05"^^xsd:date ;
+    prov:endedAtTime "2025-01-15"^^xsd:date ;
+    prov:wasAssociatedWith :ProEthicaDevelopmentTeam ;
+    prov:used :NSPECodeOfEthics ,
+              :ISOStandards ,
+              :ProfessionalEngineeringPractice ;
+    rdfs:comment "Ontology developed through analysis of engineering ethics cases and professional standards" .
+
+:ProEthicaDevelopmentTeam a prov:Agent ;
+    rdfs:label "ProEthica Development Team"@en ;
+    prov:actedOnBehalfOf "ProEthica Project" ;
+    rdfs:comment "Collaborative effort including human experts and AI assistance" .

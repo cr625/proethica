@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}{{ world.name }} - ProEthica{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="/worlds">Worlds</a></li>
+<li class="breadcrumb-item active">{{ world.name }}</li>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .world-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin: -2rem -15px 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .world-tabs {
+        background-color: #fff;
+        border-bottom: 2px solid #e9ecef;
+        margin: 0 -15px 2rem;
+        padding: 0 15px;
+    }
+    
+    .world-tabs .nav-link {
+        color: #6c757d;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 1rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    .world-tabs .nav-link:hover {
+        color: #212529;
+        border-bottom-color: #e9ecef;
+    }
+    
+    .world-tabs .nav-link.active {
+        color: #212529;
+        background: none;
+        border-bottom-color: #007bff;
+    }
+    
+    .stat-card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    }
+    
+    .quick-action-btn {
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .quick-action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .activity-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .activity-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    
+    .activity-item::before {
+        content: '';
+        position: absolute;
+        left: -2rem;
+        top: 0.5rem;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #007bff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- World Header -->
+<div class="world-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-6 mb-2">{{ world.name }}</h1>
+                <p class="mb-0 opacity-75">{{ world.description|truncate(150) }}</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="dropdown">
+                    <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear me-1"></i> World Settings
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/worlds/{{ world.id }}/edit">
+                            <i class="bi bi-pencil me-2"></i>Edit World
+                        </a></li>
+                        <li><a class="dropdown-item" href="/worlds/{{ world.id }}/export">
+                            <i class="bi bi-download me-2"></i>Export Data
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="/worlds/{{ world.id }}/delete">
+                            <i class="bi bi-trash me-2"></i>Delete World
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs world-tabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#overview">
+            <i class="bi bi-speedometer2 me-1"></i> Overview
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#cases">
+            <i class="bi bi-folder2-open me-1"></i> Cases
+            <span class="badge bg-secondary ms-1">{{ case_count }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#scenarios">
+            <i class="bi bi-collection-play me-1"></i> Scenarios
+            <span class="badge bg-secondary ms-1">{{ scenario_count }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#guidelines">
+            <i class="bi bi-book me-1"></i> Guidelines
+            <span class="badge bg-secondary ms-1">{{ guideline_count }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#agents">
+            <i class="bi bi-robot me-1"></i> Agents
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#entities">
+            <i class="bi bi-diagram-3 me-1"></i> Entities
+        </a>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Overview Tab -->
+    <div class="tab-pane fade show active" id="overview">
+        <div class="row mb-4">
+            <!-- Statistics Cards -->
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ case_count }}</h3>
+                                <small class="text-muted">Total Cases</small>
+                            </div>
+                            <i class="bi bi-folder2-open fs-2 text-primary opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ scenario_count }}</h3>
+                                <small class="text-muted">Scenarios</small>
+                            </div>
+                            <i class="bi bi-collection-play fs-2 text-info opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ guideline_count }}</h3>
+                                <small class="text-muted">Guidelines</small>
+                            </div>
+                            <i class="bi bi-book fs-2 text-warning opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ entity_count }}</h3>
+                                <small class="text-muted">Entities</small>
+                            </div>
+                            <i class="bi bi-diagram-3 fs-2 text-success opacity-25"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h5 class="mb-3">Quick Actions</h5>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="/worlds/{{ world.id }}/cases/new" class="btn btn-primary quick-action-btn">
+                        <i class="bi bi-plus-circle me-2"></i>Add New Case
+                    </a>
+                    <a href="/worlds/{{ world.id }}/scenarios/new" class="btn btn-success quick-action-btn">
+                        <i class="bi bi-plus-circle me-2"></i>Create Scenario
+                    </a>
+                    <a href="/worlds/{{ world.id }}/guidelines/upload" class="btn btn-warning quick-action-btn">
+                        <i class="bi bi-upload me-2"></i>Upload Guideline
+                    </a>
+                    <a href="/worlds/{{ world.id }}/agents" class="btn btn-info quick-action-btn">
+                        <i class="bi bi-robot me-2"></i>Launch Agent
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Recent Activity -->
+            <div class="col-md-8">
+                <h5 class="mb-3">Recent Activity in {{ world.name }}</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="activity-timeline">
+                            {% for activity in recent_activities %}
+                            <div class="activity-item">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <strong>{{ activity.title }}</strong>
+                                        <p class="mb-0 text-muted">{{ activity.description }}</p>
+                                    </div>
+                                    <small class="text-muted">{{ activity.time_ago }}</small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- World Info -->
+            <div class="col-md-4">
+                <h5 class="mb-3">World Information</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <dl class="mb-0">
+                            <dt>Created</dt>
+                            <dd>{{ world.created_at.strftime('%B %d, %Y') }}</dd>
+                            
+                            <dt>Domain</dt>
+                            <dd>{{ world.domain.name if world.domain else 'General' }}</dd>
+                            
+                            <dt>Ontology</dt>
+                            <dd>{{ world.ontology.name if world.ontology else 'Default' }}</dd>
+                            
+                            <dt>Last Updated</dt>
+                            <dd>{{ world.updated_at.strftime('%B %d, %Y') if world.updated_at else 'Never' }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cases Tab -->
+    <div class="tab-pane fade" id="cases">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Cases in {{ world.name }}</h5>
+            <div>
+                <a href="/worlds/{{ world.id }}/cases/new" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Add New Case
+                </a>
+            </div>
+        </div>
+        <!-- Case list would be loaded here -->
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-folder2-open display-4"></i>
+            <p>Case management interface would appear here</p>
+        </div>
+    </div>
+
+    <!-- Scenarios Tab -->
+    <div class="tab-pane fade" id="scenarios">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Scenarios in {{ world.name }}</h5>
+            <div>
+                <a href="/worlds/{{ world.id }}/scenarios/new" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-1"></i>Create Scenario
+                </a>
+            </div>
+        </div>
+        <!-- Scenario list would be loaded here -->
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-collection-play display-4"></i>
+            <p>Scenario management interface would appear here</p>
+        </div>
+    </div>
+
+    <!-- Guidelines Tab -->
+    <div class="tab-pane fade" id="guidelines">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Guidelines for {{ world.name }}</h5>
+            <div>
+                <a href="/worlds/{{ world.id }}/guidelines/upload" class="btn btn-warning">
+                    <i class="bi bi-upload me-1"></i>Upload Guideline
+                </a>
+            </div>
+        </div>
+        <!-- Guidelines list would be loaded here -->
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-book display-4"></i>
+            <p>Guidelines management interface would appear here</p>
+        </div>
+    </div>
+
+    <!-- Agents Tab -->
+    <div class="tab-pane fade" id="agents">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Agents for {{ world.name }}</h5>
+            <div>
+                <a href="/worlds/{{ world.id }}/agents/launch" class="btn btn-info">
+                    <i class="bi bi-robot me-1"></i>Launch Agent
+                </a>
+            </div>
+        </div>
+        <!-- Agent interface would be loaded here -->
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-robot display-4"></i>
+            <p>Agent interface would appear here</p>
+        </div>
+    </div>
+
+    <!-- Entities Tab -->
+    <div class="tab-pane fade" id="entities">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Entities in {{ world.name }}</h5>
+            <div>
+                <a href="/worlds/{{ world.id }}/entities/manage" class="btn btn-secondary">
+                    <i class="bi bi-gear me-1"></i>Manage Entities
+                </a>
+            </div>
+        </div>
+        <!-- Entity list would be loaded here -->
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-diagram-3 display-4"></i>
+            <p>Entity management interface would appear here</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

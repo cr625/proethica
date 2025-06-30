@@ -1,5 +1,58 @@
 # AI Ethical DM Project Progress
 
+## 🚀 CURRENT FOCUS: Domain Generalization Project (2025-01-27)
+
+**We are currently transforming ProEthica from an engineering ethics system into a domain-agnostic framework.** 
+See `/docs/DOMAIN_GENERALIZATION_IMPLEMENTATION.md` for the detailed implementation plan.
+
+### Key Discovery
+ProEthica is already well-architected for domain generalization! The existing adapter pattern (`BaseCaseDeconstructionAdapter`), modular services, and flexible data models provide an excellent foundation. This is an enhancement project, not a major refactoring.
+
+### Implementation Timeline: ~5 weeks
+- **Phase 1** (Current): Domain Registry & Factory System (1 week)
+- **Phase 2**: Extend Processing Pipeline (1 week)
+- **Phase 3**: Validate with Medical Ethics Domain (1 week)
+- **Phase 4**: Advanced Multi-Domain Features (2 weeks)
+
+### Key Files Being Created
+- `app/services/domain_registry.py` - Central domain management
+- `app/models/domain_config.py` - Domain configuration model
+- `config/domains/engineering.yaml` - Engineering domain config
+- `config/domains/medical.yaml` - Medical domain config (for validation)
+
+## 📊 ProEthica Unified Dashboard (2025-01-27)
+
+**A comprehensive dashboard for visualizing the ethical decision-making system capabilities and monitoring progress.**
+
+### Dashboard Features
+- **System Overview**: Real-time statistics (worlds, guidelines, cases, documents, ontologies)
+- **Pipeline Status**: 8-step ethical decision-making workflow with completion tracking
+- **Capabilities Assessment**: 8 capability areas with status indicators and completion rates
+- **Processing Statistics**: Document processing rates, embedding generation, analysis completion
+- **Recent Activity**: Latest documents, guidelines, and worlds with quick access links
+- **World-Specific Dashboards**: Detailed analysis status for individual worlds
+
+### Key Insights from Dashboard
+- **Overall System Completion**: 66.2%
+- **Operational Components**: Document Import, Structure Annotation, Section Embedding, Concept Extraction, Association Generation
+- **Missing Components**: Recommendation Engine (0%), Outcome Tracking (0%)
+- **Partial Components**: Decision Visualization (30%)
+
+### Dashboard URLs
+- Main Dashboard: `/dashboard`
+- World Dashboard: `/dashboard/world/<id>`
+- Stats API: `/dashboard/api/stats`
+- Workflow API: `/dashboard/api/workflow`
+- Capabilities API: `/dashboard/api/capabilities`
+
+### Technical Implementation
+- **Route**: `app/routes/dashboard.py` with comprehensive data aggregation
+- **Templates**: `app/templates/dashboard/index.html` and `world.html`
+- **Navigation**: Integrated into main navigation bar
+- **Real Data**: Shows actual system statistics from database models
+
+---
+
 ## Document Structure and Section Embeddings (2025 Update)
 
 This project models professional domains ("worlds") and supports ethical decision-making using structured document analysis, ontology-based concepts, and LLM reasoning. The current pipeline is:
@@ -20,19 +73,42 @@ This project models professional domains ("worlds") and supports ethical decisio
 - Section embeddings are generated and stored in both the `DocumentSection` table (with pgvector) and in `section_embeddings_metadata` in `doc_metadata`.
 - Enables semantic similarity search between sections across cases.
 
-### 4. Guideline Association
-- Ethical guidelines are associated with each world.
-- Guideline associations can be generated for each case section, linking them to relevant ethical principles.
+### 4. Enhanced Hybrid Guideline Association (2025-06-10)
+- **Hybrid Approach**: Combines fast vector embeddings with nuanced LLM analysis
+- **Multi-dimensional Scoring**: 
+  - 🔢 Embedding scores: Vector similarity, keyword overlap, contextual patterns
+  - 🧠 LLM scores: Semantic analysis, reasoning quality assessment
+  - 🎯 Combined: Weighted hybrid confidence (35% embedding + 25% LLM semantic + 20% context + 15% LLM quality + 5% keywords)
+- **Separated Component Visibility**: UI shows exactly what each method contributes
+- **Database Schema**: Extended `case_guideline_associations` table with LLM-specific columns
+- **Fallback Resilience**: Embeddings provide reliable baseline even if LLM unavailable
 
 ### 5. LLM Reasoning (Experiment Phase)
 - LLMs can be prompted with case sections, extracted concepts, and triples for ontology-based reasoning.
 - Two experiment modes: ontology-augmented and prompt-only.
+- **Enhanced**: Integrated into hybrid guideline associations with JSON-structured prompts
+
+### 6. Asynchronous Processing with Progress Indicators (2025-06-12)
+- **Background Task Queue**: Extended `BackgroundTaskQueue` with `process_associations_async()` for long-running LLM operations
+- **Real-time Progress Tracking**: 
+  - Progress phases: `ANALYZING` → `LLM_PROCESSING` → `SAVING_RESULTS`
+  - Progress updates: 10% → 40% → 80% → 100%
+  - Status tracking in `doc_metadata['association_processing_*']` fields
+- **User Interface Enhancements**:
+  - **Immediate feedback**: Button changes to "Processing Associations..." with spinner
+  - **Live progress bar**: Auto-polling every 2 seconds via `/structure/association_progress/<id>` endpoint
+  - **Phase indicators**: Real-time status updates ("Processing with LLM...", "Saving results...")
+  - **Auto-refresh**: Page reloads when processing completes to show results
+- **Prevents Double Processing**: Form disabled during processing to avoid duplicate requests
+- **Vanilla JavaScript**: Removed jQuery dependency, uses modern DOM APIs for compatibility
 
 ## Technical Notes
 - All new cases use the nested `document_structure` format in metadata.
 - Section embeddings use 384-dim vectors (MiniLM-L6-v2) and are stored with pgvector.
 - Legacy/obsolete migration scripts and top-level structure fields are no longer used for new data.
 - NLTK resources are managed at setup, not runtime.
+- **Async Processing**: Long-running tasks use threading with separate database sessions to avoid blocking the main UI
+- **Progress API**: RESTful endpoint `/structure/association_progress/<id>` returns JSON status for real-time polling
 
 ## Recent Updates (2025-01-24)
 
@@ -171,12 +247,75 @@ Added comprehensive support for extracting and storing full dates from NSPE case
   - Currently, the system directly saves cases without preview step
   - Could be connected to improve user experience in future
 
+## Hybrid Enhanced Associations Implementation (2025-06-10)
+
+### Technical Architecture
+- **Service**: `EnhancedGuidelineAssociationService` with hybrid scoring
+- **Database**: Extended `case_guideline_associations` table with columns:
+  - `llm_semantic_score`, `llm_reasoning_quality`
+  - `embedding_reasoning`, `llm_reasoning`, `scoring_method`
+- **UI**: Separated component display in document structure viewer
+- **Route**: `/structure/associate_ontology_concepts/<id>` with clear/regenerate functionality
+
+### Scoring Methodology
+```python
+overall_confidence = (
+    0.35 * embedding_similarity +    # Fast, reliable semantic matching
+    0.25 * llm_semantic_score +      # Nuanced LLM semantic analysis
+    0.20 * contextual_relevance +    # Context pattern matching
+    0.15 * llm_reasoning_quality +   # LLM reasoning coherence
+    0.05 * keyword_overlap           # Simple keyword matching
+)
+```
+
+### User Interface Features
+- **Clear & Regenerate**: Button to clear associations for testing
+- **Hybrid Method Selection**: Vector+LLM or LLM+Vector weighting preferences
+- **Expandable Reasoning**: Shows combined + individual method explanations
+- **Score Breakdown**: Separate columns for embedding vs LLM contributions
+- **Pattern Indicators**: Outcome prediction badges (safety, competence, transparency)
+
+### Implementation Status
+✅ **Phase 1**: Analyze existing guideline associations and case outcomes  
+✅ **Phase 2**: Design enhanced association schema with outcome patterns  
+🔄 **Phase 3**: Create outcome pattern recognition service (hybrid approach complete)  
+✅ **Connect UI**: Generate button connected to enhanced service with clear/regenerate  
+⏳ **Phase 4**: Build historical pattern correlation system  
+⏳ **Phase 5**: Implement predictive confidence scoring  
+⏳ **Phase 6**: Create case similarity matching based on patterns  
+⏳ **Phase 7**: Build UI for viewing predictive associations  
+⏳ **Phase 8**: Test and validate prediction accuracy  
+
 ## Next Steps
+- Debug LLM JSON response parsing for full hybrid functionality
+- Complete Phase 4: Historical pattern correlation system
 - Process remaining cases with enhanced pipeline
 - Test similarity search with granular fact/discussion items
 - Run LLM experiments with structured triples
 - Deploy MCP server for production use
-- Implement LLM-enhanced triple generation (Phase 2)
+
+## Universal Progress Indicator Framework (2025-06-12)
+The async processing system implemented for hybrid associations provides a **reusable pattern** for any long-running operations:
+
+### Framework Components
+- **`BackgroundTaskQueue`**: Extensible base class for async operations
+- **Progress API pattern**: Standardized JSON endpoint for status polling  
+- **UI components**: Reusable progress bar, spinner, and state management JavaScript
+- **Database schema pattern**: Consistent `*_processing_status/progress/phase` fields in metadata
+
+### Future Applications
+This framework can be extended for:
+- **Document processing pipelines** (URL extraction, structure annotation)
+- **Bulk case analysis** (batch processing multiple cases)
+- **Ontology operations** (large-scale triple generation)
+- **Export operations** (generating reports, data exports)
+- **Machine learning tasks** (training, inference on large datasets)
+
+### Implementation Files
+- **Backend**: `app/services/task_queue.py` - Extended with association processing
+- **Routes**: `app/routes/document_structure.py` - Added progress endpoint and async route conversion
+- **Frontend**: `app/templates/document_structure.html` - Progress UI and vanilla JavaScript polling
+- **Documentation**: Updated `CLAUDE.md` with async processing patterns
 
 ## MCP Server Status (Updated 2025-01-24)
 
@@ -259,6 +398,30 @@ Once deployed, the MCP server can be accessed via:
 - Endpoint: `https://mcp.proethica.org`
 - Use with Anthropic API's MCP connector (beta)
 - Requires proper authentication setup
+
+## Type Management System Optimization (2025-06-09)
+
+### Major Improvements Completed
+- **Fixed Type Mapping Algorithm**: Enhanced semantic mappings for ethics, rights, safety, competency concepts
+- **Resolved Data Quality Issues**: Processed 23 unmapped concept types, eliminated "None" type displays
+- **Optimized User Interface**: Concept list now shows 31 relevant concepts instead of 190 structural triples
+- **Achieved Full Coverage**: All concept types now properly classified with confidence scores
+
+### Current Status
+- **31 concept types mapped** with intelligent classifications
+- **12 concepts flagged for review** with clear reasoning
+- **77% average confidence** across all mappings
+- **Zero unmapped concepts** remaining in system
+
+### Type Distribution
+- **principle**: 9 concepts (ethics, rights, safety)
+- **state**: 9 concepts (conditions, reputation)  
+- **obligation**: 6 concepts (duties, responsibilities)
+- **action**: 3 concepts (development, communication)
+- **role**: 2 concepts (professional relationships)
+- **capability**: 1 concept (competence)
+
+See `TYPE_MANAGEMENT_OPTIMIZATION_2025_06_09.md` for complete details.
 
 ## Archived Documentation
 Legacy and outdated documentation has been moved to `docs/archived/` for reference.

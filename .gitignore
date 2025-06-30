@@ -82,3 +82,19 @@ _src/
 # Backup files
 *.bak*
 mcp_server.pid
+
+# Documentation and cleanup directories
+docs/
+pending_delete/
+
+# Test and temporary files
+test_*.py
+*_test.py
+*.temp
+temp_*/
+*_temp/
+scenario_demo.html
+add_decision_points*.sql
+check_decisions.py
+*_analysis.py
+*_refined.py

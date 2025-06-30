@@ -51,6 +51,12 @@ class EntityTriple(db.Model):
     timeline_order = db.Column(Integer, nullable=True)  # Explicit ordering for timeline items
     timeline_group = db.Column(String(255), nullable=True)  # For grouping related temporal items
     
+    # Type mapping fields (added 2025-01-08)
+    original_llm_type = db.Column(String(255), nullable=True)  # Original type suggested by LLM
+    type_mapping_confidence = db.Column(db.Float, nullable=True)  # Confidence in type mapping (0-1)
+    needs_type_review = db.Column(Boolean, default=False)  # Flag for human review needed
+    mapping_justification = db.Column(Text, nullable=True)  # Explanation of mapping decision
+    
     # Polymorphic entity reference
     entity_type = db.Column(String(50), nullable=False)  # 'character', 'action', 'event', 'resource'
     entity_id = db.Column(Integer, nullable=False)
@@ -107,7 +113,12 @@ class EntityTriple(db.Model):
             'temporal_confidence': self.temporal_confidence,
             'temporal_context': self.temporal_context,
             'timeline_order': self.timeline_order,
-            'timeline_group': self.timeline_group
+            'timeline_group': self.timeline_group,
+            # Type mapping fields
+            'original_llm_type': self.original_llm_type,
+            'type_mapping_confidence': self.type_mapping_confidence,
+            'needs_type_review': self.needs_type_review,
+            'mapping_justification': self.mapping_justification
         }
     
     def to_rdf_tuple(self):

@@ -1,0 +1,52 @@
+[Unit]
+Description=ProEthica MCP Server (Modern)
+After=network.target postgresql.service
+Wants=postgresql.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=proethica-mcp
+Group=proethica-mcp
+WorkingDirectory=/opt/proethica-mcp/current
+
+# Environment
+Environment="PATH=/opt/proethica-mcp/current/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/proethica-mcp/current:/opt/proethica-mcp/current/mcp"
+EnvironmentFile=/opt/proethica-mcp/shared/.env
+
+# Start command - will auto-detect which server to use
+ExecStartPre=/bin/bash -c 'source /opt/proethica-mcp/current/venv/bin/activate'
+ExecStart=/opt/proethica-mcp/current/venv/bin/python /opt/proethica-mcp/current/mcp/http_ontology_mcp_server.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitBurst=5
+
+# Logging
+StandardOutput=append:/opt/proethica-mcp/shared/logs/mcp.log
+StandardError=append:/opt/proethica-mcp/shared/logs/mcp-error.log
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+
+# Allow writing to specific paths
+ReadWritePaths=/opt/proethica-mcp/shared/logs
+ReadWritePaths=/opt/proethica-mcp/shared/data
+
+[Install]
+WantedBy=multi-user.target

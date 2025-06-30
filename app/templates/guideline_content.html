@@ -83,9 +83,15 @@
                 <tbody>
                   {% for concept in concepts %}
                     <tr>
-                      <td><strong>{{ concept.subject_label }}</strong></td>
+                      <td><strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></td>
                       <td>
-                        {% if concept.type_label %}
+                        {% if concept.type_description %}
+                          <span class="badge bg-secondary">{{ concept.type_description }}</span>
+                        {% elif concept.category %}
+                          <span class="badge bg-secondary">{{ concept.category }}</span>
+                        {% elif concept.type %}
+                          <span class="badge bg-secondary">{{ concept.type }}</span>
+                        {% elif concept.type_label %}
                           <span class="badge bg-secondary">{{ concept.type_label }}</span>
                         {% else %}
                           <span class="badge bg-secondary">Concept</span>

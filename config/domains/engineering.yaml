@@ -1,0 +1,66 @@
+name: engineering
+display_name: Engineering Ethics
+description: NSPE-based engineering ethics analysis
+adapter_class_name: EngineeringEthicsAdapter
+guideline_sections:
+- facts
+- question
+- discussion
+- conclusion
+- dissenting_opinion
+case_sections:
+- scenario_description
+- ethical_considerations
+- stakeholder_analysis
+- decision_points
+- recommendations
+extraction_patterns:
+  stakeholder_keywords:
+  - engineer
+  - client
+  - public
+  - employer
+  - employee
+  - contractor
+  - government
+  - company
+  decision_indicators:
+  - should
+  - must
+  - shall
+  - shall not
+  - obligation
+  - duty
+  - responsibility
+  - required
+  ethical_principles:
+  - safety
+  - integrity
+  - competence
+  - honesty
+  - fairness
+  - transparency
+  - accountability
+section_mappings:
+  facts: case_facts
+  question: ethical_question
+  discussion: ethical_analysis
+  conclusion: ethical_conclusion
+  dissenting_opinion: minority_view
+ontology_namespace: http://proethica.org/ontology/engineering#
+ontology_concepts:
+  competence: eng:Competence
+  safety: eng:PublicSafety
+  integrity: eng:ProfessionalIntegrity
+  honesty: eng:Honesty
+  judgment: eng:ProfessionalJudgment
+mcp_modules:
+- guideline_analysis_module
+- ontology_query_module
+ui_templates:
+  guideline_display: domain/engineering_guidelines.html
+  case_analysis: domain/engineering_case_analysis.html
+metadata:
+  source: NSPE Code of Ethics
+  version: '2019'
+  professional_body: National Society of Professional Engineers

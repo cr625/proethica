@@ -4,6 +4,7 @@ Flask application initialization module.
 
 import os
 from flask import Flask
+from flask_login import LoginManager
 
 from app.models import db
 from app.template_filters import init_app as init_filters
@@ -60,6 +61,25 @@ def create_app(config_module='app.config'):
 
     db.init_app(app)
     
+    # Initialize Flask-Login
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Please log in to access this page.'
+    login_manager.login_message_category = 'info'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        # Check if auth is bypassed
+        if os.environ.get('BYPASS_AUTH', 'false').lower() == 'true':
+            # Return a mock user for bypass mode
+            from app.utils.auth_utils import get_mock_user
+            return get_mock_user(user_id)
+        else:
+            # Use real user model
+            from app.models.user import User
+            return User.query.get(int(user_id))
+    
     # Simply test database connection without schema verification
     with app.app_context():
         try:
@@ -83,6 +103,8 @@ def create_app(config_module='app.config'):
     
     # Register blueprints
     from app.routes.index import index_bp
+    from app.routes.auth import auth_bp
+    from app.routes.dashboard import dashboard_bp
     from app.routes.worlds import worlds_bp
     from app.routes.domains import domains_bp
     from app.routes.roles import roles_bp
@@ -100,9 +122,12 @@ def create_app(config_module='app.config'):
     from app.routes.document_structure import doc_structure_bp
     from app.routes.test_routes import test_bp
     from app.routes.experiment import experiment_bp
+    from app.routes.type_management import type_management_bp
     from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(worlds_bp, url_prefix='/worlds')
     app.register_blueprint(domains_bp, url_prefix='/domains')
     app.register_blueprint(roles_bp, url_prefix='/roles')
@@ -119,6 +144,7 @@ def create_app(config_module='app.config'):
     # app.register_blueprint(cases_structure_bp, url_prefix='/cases_enhanced')  # Functionality consolidated into main cases_bp
     app.register_blueprint(doc_structure_bp)
     app.register_blueprint(experiment_bp, url_prefix='/experiment')
+    app.register_blueprint(type_management_bp)
     app.register_blueprint(test_bp)
     
     # Create and register the ontology editor blueprint
@@ -138,7 +164,8 @@ def create_app(config_module='app.config'):
         """Add environment variables to template context."""
         return {
             'environment': app.config.get('ENVIRONMENT', 'development'),
-            'app_name': 'ProEthica'
+            'app_name': 'ProEthica',
+            'bypass_auth': os.environ.get('BYPASS_AUTH', 'false').lower() == 'true'
         }
     
     return app

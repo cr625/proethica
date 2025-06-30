@@ -38,6 +38,16 @@
                             <a class="nav-link active" href="{{ url_for('ontology_editor.index') }}">Editor</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="http://localhost:5002/neo4j" target="_blank">
+                                <i class="bi bi-graph-up"></i> Neo4j Visualization
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="http://localhost:5002/visualization" target="_blank">
+                                <i class="bi bi-diagram-3"></i> WebVOWL
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="/">Main Application</a>
                         </li>
                     </ul>
@@ -92,6 +102,9 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0" id="editorTitle">Ontology Editor</h5>
                         <div>
+                            <button class="btn btn-sm btn-outline-info" id="visualizeBtn" onclick="openVisualizationTab()">
+                                <i class="bi bi-graph-up"></i> Visualize
+                            </button>
                             <button class="btn btn-sm btn-outline-primary" id="validateBtn" disabled>
                                 <i class="bi bi-check-circle"></i> Validate
                             </button>
@@ -258,6 +271,13 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function openVisualizationTab() {
+            // Open the Neo4j graph visualization in a new tab with ontology parameter
+            window.open('http://localhost:5002/neo4j/graph?ontology=engineering-ethics&load=true', '_blank');
+        }
+    </script>
     
 </body>
 

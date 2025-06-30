@@ -10,11 +10,14 @@ import logging
 from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, current_app, abort
 from flask_sqlalchemy import SQLAlchemy
 from app.models.document import Document
+from app.models.scenario import Scenario
 from app.models.document_section import DocumentSection
+from app.models.section_term_link import SectionTermLink
 from app.services.section_embedding_service import SectionEmbeddingService
 from app.services.guideline_section_service import GuidelineSectionService 
 from app.services.case_processing.pipeline_steps.document_structure_annotation_step import DocumentStructureAnnotationStep
 from app.services.structure_triple_formatter import StructureTripleFormatter
+from app.services.ontology_term_recognition_service import OntologyTermRecognitionService
 from datetime import datetime
 from app import db
 
@@ -133,6 +136,22 @@ def view_structure(id):
         has_section_embeddings = True
         section_embeddings_info = metadata['document_structure']['section_embeddings']
         current_app.logger.info(f"Section embeddings info: {section_embeddings_info}")
+        
+        # Get list of sections with embeddings for display
+        embedded_sections = []
+        if 'sections' in metadata['document_structure']:
+            sections = metadata['document_structure']['sections']
+            if isinstance(sections, dict):
+                for section_id in sections.keys():
+                    embedded_sections.append(section_id)
+        
+        # If no sections found in metadata, check DocumentSection table
+        if not embedded_sections:
+            from app.models.document_section import DocumentSection
+            db_sections = DocumentSection.query.filter_by(document_id=id).all()
+            embedded_sections = [section.section_type for section in db_sections]
+        
+        section_embeddings_info['sections'] = embedded_sections
     else:
         # Fallback: Check directly in the DocumentSection table
         from app.models.document_section import DocumentSection
@@ -146,12 +165,17 @@ def view_structure(id):
             # Update the document metadata and set has_section_embeddings
             has_section_embeddings = True
             
+            # Get section types from database
+            db_sections = DocumentSection.query.filter_by(document_id=id).all()
+            embedded_sections = [section.section_type for section in db_sections]
+            
             # Create section_embeddings_info for the template
             section_embeddings_info = {
                 'count': doc_sections_count,
                 'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                 'storage_type': 'pgvector',
-                'note': 'Detected from database (metadata updated)'
+                'note': 'Detected from database (metadata updated)',
+                'sections': embedded_sections
             }
             
             # Update the document metadata if needed
@@ -220,6 +244,125 @@ def view_structure(id):
     except Exception as e:
         current_app.logger.warning(f"Error loading section-triple associations: {str(e)}")
 
+    # Check for enhanced guideline associations
+    has_enhanced_associations = False
+    enhanced_associations_data = None
+    enhanced_associations_stats = None
+    
+    try:
+        # Check if this document has enhanced associations
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            query = text("""
+                SELECT COUNT(*) as total_associations,
+                       AVG(overall_confidence) as avg_confidence,
+                       COUNT(CASE WHEN overall_confidence > 0.7 THEN 1 END) as high_confidence_count,
+                       section_type,
+                       COUNT(*) as section_count,
+                       AVG(overall_confidence) as section_avg_confidence
+                FROM case_guideline_associations 
+                WHERE case_id = :case_id
+                GROUP BY section_type
+                ORDER BY section_avg_confidence DESC
+            """)
+            
+            result = conn.execute(query, {"case_id": id})
+            associations_by_section = result.fetchall()
+            
+            if associations_by_section:
+                has_enhanced_associations = True
+                
+                # Get overall stats
+                query_overall = text("""
+                    SELECT COUNT(*) as total,
+                           AVG(overall_confidence) as avg_confidence,
+                           COUNT(CASE WHEN overall_confidence > 0.7 THEN 1 END) as high_confidence,
+                           COUNT(DISTINCT section_type) as sections_processed
+                    FROM case_guideline_associations 
+                    WHERE case_id = :case_id
+                """)
+                
+                overall_result = conn.execute(query_overall, {"case_id": id})
+                overall_stats = overall_result.fetchone()
+                
+                enhanced_associations_stats = {
+                    'total_associations': overall_stats[0],
+                    'average_confidence': round(overall_stats[1], 3) if overall_stats[1] else 0,
+                    'high_confidence_count': overall_stats[2],
+                    'sections_processed': overall_stats[3],
+                    'by_section': []
+                }
+                
+                for row in associations_by_section:
+                    enhanced_associations_stats['by_section'].append({
+                        'section_type': row[3],
+                        'count': row[4], 
+                        'avg_confidence': round(row[5], 3) if row[5] else 0
+                    })
+                
+                # Get top associations for display
+                query_top = text("""
+                    SELECT cga.section_type, cga.overall_confidence, cga.semantic_similarity,
+                           cga.keyword_overlap, cga.contextual_relevance, cga.association_reasoning,
+                           cga.pattern_indicators, et.subject, et.object_literal,
+                           cga.llm_semantic_score, cga.llm_reasoning_quality,
+                           cga.embedding_reasoning, cga.llm_reasoning, cga.scoring_method
+                    FROM case_guideline_associations cga
+                    JOIN entity_triples et ON cga.guideline_concept_id = et.id
+                    WHERE cga.case_id = :case_id
+                    ORDER BY cga.overall_confidence DESC
+                    LIMIT 20
+                """)
+                
+                top_result = conn.execute(query_top, {"case_id": id})
+                enhanced_associations_data = []
+                
+                for row in top_result:
+                    pattern_indicators = {}
+                    if row[6]:  # pattern_indicators
+                        try:
+                            pattern_indicators = json.loads(row[6]) if isinstance(row[6], str) else row[6]
+                        except:
+                            pattern_indicators = {}
+                    
+                    enhanced_associations_data.append({
+                        'section_type': row[0],
+                        'overall_confidence': row[1],
+                        'embedding_similarity': row[2],  # renamed from semantic_similarity
+                        'keyword_overlap': row[3],
+                        'contextual_relevance': row[4],
+                        'reasoning': row[5],  # combined reasoning
+                        'pattern_indicators': pattern_indicators,
+                        'concept_uri': row[7],
+                        'concept_name': row[8] or row[7].split('/')[-1] if row[7] else 'Unknown',
+                        'llm_semantic_score': row[9] or 0.0,
+                        'llm_reasoning_quality': row[10] or 0.0,
+                        'embedding_reasoning': row[11] or 'Not available',
+                        'llm_reasoning': row[12] or 'LLM analysis not available',
+                        'scoring_method': row[13] or 'hybrid'
+                    })
+                
+                current_app.logger.info(f"Loaded {len(enhanced_associations_data)} enhanced associations")
+                
+    except Exception as e:
+        current_app.logger.warning(f"Error loading enhanced associations: {str(e)}")
+
+    # Check for ontology term links
+    has_term_links = False
+    section_term_links = None
+    
+    try:
+        # Get term links for this document
+        document_term_links = SectionTermLink.get_document_term_links(id)
+        
+        if document_term_links:
+            has_term_links = True
+            section_term_links = document_term_links
+            total_term_links = sum(len(links) for links in document_term_links.values())
+            current_app.logger.info(f"Loaded {total_term_links} term links across {len(document_term_links)} sections")
+    except Exception as e:
+        current_app.logger.warning(f"Error loading term links: {str(e)}")
+
     # Format structure triples if available
     structured_triples_data = None
     if has_structure and structure_triples:
@@ -246,6 +389,11 @@ def view_structure(id):
                           section_guideline_associations=section_guideline_associations,
                           has_triple_associations=has_triple_associations,
                           section_triple_associations=section_triple_associations,
+                          has_enhanced_associations=has_enhanced_associations,
+                          enhanced_associations_data=enhanced_associations_data,
+                          enhanced_associations_stats=enhanced_associations_stats,
+                          has_term_links=has_term_links,
+                          section_term_links=section_term_links,
                           debug_info=debug_info,
                           no_cache=no_cache)
 
@@ -550,6 +698,79 @@ def generate_structure(id):
     # Force a new database fetch on redirect
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 
+@doc_structure_bp.route('/generate_term_links/<int:id>', methods=['POST'])
+def generate_term_links(id):
+    """Generate ontology term links for a document."""
+    # Get the document
+    document = Document.query.get(id)
+    if not document:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': 'Document not found'
+            }), 404
+        else:
+            abort(404)
+    
+    try:
+        # Initialize the term recognition service
+        recognition_service = OntologyTermRecognitionService()
+        
+        if not recognition_service.ontology_terms:
+            error_msg = "Ontology terms not loaded. Cannot generate term links."
+            current_app.logger.error(error_msg)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': False,
+                    'message': error_msg
+                }), 500
+            else:
+                flash(error_msg, 'danger')
+                return redirect(url_for('doc_structure.view_structure', id=id))
+        
+        # Process the document
+        result = recognition_service.process_document_sections(id, force_regenerate=True)
+        
+        if result.get('success'):
+            success_message = f"Successfully generated {result.get('term_links_created')} term links across {result.get('sections_processed')} sections"
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': True,
+                    'message': success_message,
+                    'term_links_created': result.get('term_links_created'),
+                    'sections_processed': result.get('sections_processed')
+                })
+            else:
+                flash(success_message, 'success')
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            current_app.logger.error(f"Error generating term links: {error_msg}")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': False,
+                    'message': f"Error generating term links: {error_msg}"
+                }), 500
+            else:
+                flash(f"Error generating term links: {error_msg}", 'danger')
+    
+    except Exception as e:
+        current_app.logger.exception(f"Exception during term link generation: {str(e)}")
+        error_message = str(e)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': error_message
+            }), 500
+        else:
+            flash(f"Error processing term links: {error_message}", 'danger')
+    
+    # Add timestamp to prevent caching
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
 @doc_structure_bp.route('/associate_guidelines/<int:id>', methods=['POST'])
 def associate_guidelines(id):
     """Associate ethical guidelines with document sections."""
@@ -577,90 +798,188 @@ def associate_guidelines(id):
 
 @doc_structure_bp.route('/associate_ontology_concepts/<int:id>', methods=['POST'])
 def associate_ontology_concepts(id):
-    """Associate ontology concepts with document sections."""
-    # Get the document
-    document = Document.query.get_or_404(id)
+    """Associate ontology concepts with document sections using enhanced service."""
+    current_app.logger.info(f"🔥 ENHANCED ROUTE HIT: POST to associate_ontology_concepts/{id}")
+    current_app.logger.info(f"🔥 Form data: {dict(request.form)}")
+    current_app.logger.info(f"🔥 Request method: {request.method}")
+    # Try to get the document - could be stored as Document or Scenario
+    document = Document.query.get(id)
+    if not document:
+        # Try as Scenario (cases are sometimes stored as scenarios)
+        from app.models.scenario import Scenario
+        document = Scenario.query.get_or_404(id)
+        # For scenarios, we need to use scenario_metadata instead of doc_metadata
+        metadata_field = 'scenario_metadata'
+    else:
+        metadata_field = 'doc_metadata'
     
     # Get association method from form
     association_method = request.form.get('association_method', 'embedding')
-    use_llm = (association_method == 'llm')
     
     try:
-        # Create the triple association service and storage
-        # Use a lower similarity threshold to get more matches (0.5 instead of default 0.6)
-        ttl_service = SectionTripleAssociationService(
-            similarity_threshold=0.5,
-            use_llm=use_llm
-        )
+        # Use async processing instead of synchronous
+        from app.services.task_queue import BackgroundTaskQueue
         
-        # Log which method we're using
-        current_app.logger.info(f"Using {'LLM-based' if use_llm else 'embedding-based'} association method")
-        triple_storage = SectionTripleAssociationStorage()
+        task_queue = BackgroundTaskQueue.get_instance()
         
-        # Ensure tables exist
-        triple_storage.create_table()
+        # Initialize processing status in document metadata
+        if not document.doc_metadata:
+            document.doc_metadata = {}
         
-        # Get all section IDs for this document
-        from sqlalchemy import text
-        with db.engine.connect() as conn:
-            query = text("""
-                SELECT id FROM document_sections 
-                WHERE document_id = :document_id
-            """)
-            
-            result = conn.execute(query, {"document_id": id})
-            section_ids = [row[0] for row in result]
-        
-        if not section_ids:
-            flash("No sections found for this document", "warning")
+        # Check if already processing
+        current_status = document.doc_metadata.get('association_processing_status')
+        if current_status == 'processing':
+            flash("Associations are already being processed for this document. Please wait for completion.", "info")
             return redirect(url_for('doc_structure.view_structure', id=id))
-            
-        # Process each section
-        associations_created = 0
-        sections_processed = 0
         
-        for section_id in section_ids:
-            try:
-                # Process section and get matches
-                result = ttl_service.associate_section_with_concepts(section_id)
-                
-                if result and result.get('success') and result.get('matches'):
-                    # Store matches in the database
-                    matches = result.get('matches')
-                    associations_created += triple_storage.store_associations(section_id, matches)
-                    sections_processed += 1
-            except Exception as e:
-                current_app.logger.warning(f"Error processing section {section_id}: {str(e)}")
+        # Start async processing
+        success = task_queue.process_associations_async(id, association_method)
         
-        # Update document metadata to reflect the associations
-        if associations_created > 0:
-            metadata = document.doc_metadata or {}
-            if not isinstance(metadata, dict):
-                metadata = {}
-                
-            if 'document_structure' not in metadata:
-                metadata['document_structure'] = {}
-                
-            # Add the ontology concept associations info
-            metadata['document_structure']['ontology_concept_associations'] = {
-                'count': associations_created,
-                'sections_processed': sections_processed,
-                'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            }
-            
-            # Save the updated metadata
-            document.doc_metadata = json.loads(json.dumps(metadata))
+        if success:
+            # Initialize status
+            document.doc_metadata['association_processing_status'] = 'pending'
+            document.doc_metadata['association_processing_progress'] = 0
+            document.doc_metadata['association_processing_phase'] = 'initializing'
             db.session.commit()
             
-            flash(f"Successfully created {associations_created} ontology concept associations across {sections_processed} sections using {'LLM-based' if use_llm else 'embedding-based'} method", "success")
+            current_app.logger.info(f"Started async association processing for document {id} with {association_method} method")
+            flash(f"Association processing started using {association_method} method. This may take 2-3 minutes. The page will show progress updates.", "info")
         else:
-            flash("No associations were created. Check if document sections have embeddings.", "warning")
+            flash("Failed to start association processing. Please try again.", "error")
             
     except Exception as e:
         current_app.logger.exception(f"Error associating ontology concepts: {str(e)}")
         flash(f"Error associating ontology concepts: {str(e)}", "danger")
     
     # Add timestamp to prevent caching
+    return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
+
+@doc_structure_bp.route('/association_progress/<int:id>', methods=['GET'])
+def association_progress(id):
+    """Get association processing progress for a document."""
+    try:
+        # Force refresh from database to avoid session isolation issues
+        db.session.expire_all()
+        document = Document.query.get_or_404(id)
+        db.session.refresh(document)
+        
+        if not document.doc_metadata:
+            return jsonify({
+                'status': 'not_started',
+                'progress': 0,
+                'phase': 'none'
+            })
+        
+        status = document.doc_metadata.get('association_processing_status', 'not_started')
+        progress = document.doc_metadata.get('association_processing_progress', 0)
+        phase = document.doc_metadata.get('association_processing_phase', 'none')
+        error = document.doc_metadata.get('association_processing_error')
+        results = document.doc_metadata.get('association_results')
+        
+        # Fallback: Check if associations actually exist (workaround for session isolation issue)
+        if status == 'not_started':
+            try:
+                # Query the associations table directly (using correct column name: case_id)
+                from sqlalchemy import text
+                result = db.session.execute(
+                    text("SELECT COUNT(*) FROM case_guideline_associations WHERE case_id = :case_id"),
+                    {"case_id": id}
+                ).scalar()
+                
+                if result and result > 0:
+                    status = 'completed'
+                    progress = 100
+                    phase = 'completed'
+                    # Try to get results from associations if not in metadata
+                    if not results:
+                        results = {
+                            'total_associations': result,
+                            'method_used': 'hybrid',
+                            'processed_at': 'recently'
+                        }
+            except Exception as e:
+                current_app.logger.error(f"Error checking existing associations: {e}")
+        
+        response = {
+            'status': status,
+            'progress': progress,
+            'phase': phase
+        }
+        
+        if error:
+            response['error'] = error
+            
+        if results:
+            response['results'] = results
+            
+        return jsonify(response)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting association progress: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+@doc_structure_bp.route('/clear_associations/<int:id>', methods=['POST'])
+def clear_associations(id):
+    """Clear enhanced guideline associations for a document."""
+    current_app.logger.info(f"Clearing enhanced associations for document {id}")
+    
+    try:
+        # Clear from database
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            result = conn.execute(
+                text("DELETE FROM case_guideline_associations WHERE case_id = :case_id"),
+                {"case_id": id}
+            )
+            deleted_count = result.rowcount
+            conn.commit()
+        
+        # Clear from document metadata if it exists
+        document = Document.query.get(id)
+        if not document:
+            # Try as Scenario
+            from app.models.scenario import Scenario
+            document = Scenario.query.get(id)
+            metadata_field = 'scenario_metadata'
+        else:
+            metadata_field = 'doc_metadata'
+            
+        if document:
+            metadata = getattr(document, metadata_field) or {}
+            if isinstance(metadata, dict):
+                if 'document_structure' in metadata and 'enhanced_associations' in metadata['document_structure']:
+                    del metadata['document_structure']['enhanced_associations']
+                    setattr(document, metadata_field, json.loads(json.dumps(metadata)))
+                    db.session.commit()
+        
+        success_message = f"Cleared {deleted_count} enhanced associations"
+        current_app.logger.info(success_message)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'message': success_message,
+                'deleted_count': deleted_count
+            })
+        else:
+            flash(success_message, 'success')
+            
+    except Exception as e:
+        error_message = f"Error clearing associations: {str(e)}"
+        current_app.logger.error(error_message)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': error_message
+            }), 500
+        else:
+            flash(error_message, 'danger')
+    
+    # Add timestamp to prevent caching for clear route
     return redirect(url_for('doc_structure.view_structure', id=id, _=datetime.utcnow().timestamp()))
 
 @doc_structure_bp.route('/compare_sections/<int:doc_id>/<section_id>', methods=['GET'])
@@ -711,3 +1030,31 @@ def compare_sections(doc_id, section_id):
     except Exception as e:
         flash(f"Error comparing sections: {str(e)}", 'danger')
         return redirect(url_for('doc_structure.view_structure', id=doc_id))
+
+@doc_structure_bp.route('/api/term_links/<int:document_id>')
+def get_term_links_api(document_id):
+    """Get term links for a document as JSON."""
+    try:
+        # Get the document to verify it exists
+        document = Document.query.get(document_id)
+        if not document:
+            return jsonify({'error': 'Document not found'}), 404
+        
+        # Get term links using the model's class method
+        document_term_links = SectionTermLink.get_document_term_links(document_id)
+        
+        # Calculate some statistics
+        total_links = sum(len(links) for links in document_term_links.values())
+        sections_with_links = len(document_term_links)
+        
+        return jsonify({
+            'success': True,
+            'document_id': document_id,
+            'sections_with_links': sections_with_links,
+            'total_term_links': total_links,
+            'term_links': document_term_links
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving term links for document {document_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500

@@ -178,7 +178,7 @@ class OntologyMCPServer:
         return {"contents": []}
 
     async def _handle_list_tools(self, params):
-        return {"tools": ["get_world_entities"]}
+        return {"tools": ["get_world_entities", "query_ontology"]}
 
     async def _handle_call_tool(self, params):
         name = params.get("name")
@@ -190,7 +190,60 @@ class OntologyMCPServer:
             g = self._load_graph_from_file(ontology_source)
             entities = self._extract_entities(g, entity_type)
             return {"content": [{"text": json.dumps({"entities": entities})}]}
+        elif name == "query_ontology":
+            return await self._handle_query_ontology(arguments)
         return {"content": [{"text": json.dumps({"error": "Unknown tool"})}]}
+
+    async def _handle_query_ontology(self, arguments):
+        """
+        Handle SPARQL queries on the ontology.
+        
+        Args:
+            arguments: Dictionary containing 'sparql_query' and optional 'ontology_source'
+            
+        Returns:
+            Dictionary containing query results
+        """
+        try:
+            sparql_query = arguments.get("sparql_query")
+            ontology_source = arguments.get("ontology_source", "proethica-intermediate")
+            
+            if not sparql_query:
+                return {"error": "No SPARQL query provided"}
+            
+            # Load the ontology graph
+            g = self._load_graph_from_file(ontology_source)
+            
+            if len(g) == 0:
+                return {"error": f"Could not load ontology: {ontology_source}"}
+            
+            # Execute the SPARQL query
+            try:
+                results = g.query(sparql_query)
+                
+                # Convert results to JSON format
+                bindings = []
+                for row in results:
+                    binding = {}
+                    for var in results.vars:
+                        value = row[var]
+                        if value is not None:
+                            binding[str(var)] = {
+                                "value": str(value),
+                                "type": "uri" if isinstance(value, URIRef) else "literal"
+                            }
+                    bindings.append(binding)
+                
+                return {
+                    "bindings": bindings,
+                    "vars": [str(var) for var in results.vars] if hasattr(results, 'vars') else []
+                }
+                
+            except Exception as query_error:
+                return {"error": f"SPARQL query error: {str(query_error)}"}
+                
+        except Exception as e:
+            return {"error": f"Query execution error: {str(e)}"}
 
     def _detect_namespace(self, graph):
         """Detect the primary namespace used in the ontology."""

@@ -7,6 +7,30 @@
 {% endblock %}
 
 {% block content %}
+<!-- Floating Table of Contents -->
+<div id="toc-nav" class="toc-navigation">
+    <div class="toc-header">
+        <h6 class="mb-0">
+            <i class="bi bi-list"></i> Navigation
+        </h6>
+        <button type="button" class="btn-close btn-close-white" id="toc-close" aria-label="Close"></button>
+    </div>
+    <div class="toc-content">
+        <ul class="toc-list">
+            <li><a href="#document-info" class="toc-link">Document Information</a></li>
+            <li><a href="#section-embeddings" class="toc-link">Section Embeddings</a></li>
+            <li><a href="#ontology-associations" class="toc-link">Enhanced Guideline Associations</a></li>
+            <li><a href="#term-links" class="toc-link">Ontology Term Links</a></li>
+            <li><a href="#structure-triples" class="toc-link">Structure Triples</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- TOC Toggle Button -->
+<button id="toc-toggle" class="toc-toggle-btn" title="Show Navigation">
+    <i class="bi bi-list"></i>
+</button>
+
 <div class="container">
     <div class="mb-4">
         <div class="d-flex justify-content-end mb-2">
@@ -56,7 +80,7 @@
         {% endif %}
     </div>
     {% else %}
-    <div class="card mb-4">
+    <div id="document-info" class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h3>Document Information</h3>
         </div>
@@ -86,28 +110,76 @@
     <!-- Section Metadata is now integrated into Structure Triples viewer below -->
 
     <!-- Section Embeddings Information -->
-    <div class="card mb-4">
+    <div id="section-embeddings" class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h3>Section Embeddings</h3>
+            <small class="d-block mt-1">Numeric vector representations for semantic analysis</small>
         </div>
         <div class="card-body">
             {% if has_section_embeddings %}
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i>
-                <strong>Section embeddings are available.</strong>
-                <p>Generated: {{ section_embeddings_info.get('updated_at') }}</p>
-                <p>Number of sections: {{ section_embeddings_info.get('count') }}</p>
-            </div>
-
-            <div class="mt-3">
-                <h4>Section Similarity Search</h4>
-                <p>You can find other case sections similar to this document's sections:</p>
-                <div class="d-flex gap-2">
-                    <a href="{{ url_for('doc_structure.search_similar_sections') }}" class="btn btn-outline-primary">
-                        <i class="bi bi-search"></i> Search Across All Cases
-                    </a>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="alert alert-success">
+                        <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Embeddings Active</h5>
+                        <div class="row g-3 mt-1">
+                            <div class="col-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-text me-2 text-primary"></i>
+                                    <div>
+                                        <div class="small text-muted">Vector Embeddings</div>
+                                        <div class="fw-bold">{{ section_embeddings_info.get('count', 0) }} × 384D</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-list-ul me-2 text-info mt-1"></i>
+                                    <div class="flex-grow-1">
+                                        <div class="small text-muted">Embedded Sections</div>
+                                        {% if section_embeddings_info.get('sections') %}
+                                        <div class="d-flex flex-wrap gap-1 mt-1">
+                                            {% for section in section_embeddings_info.get('sections', []) %}
+                                            <span class="badge bg-light text-dark border">{{ section }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% else %}
+                                        <div class="fw-bold">{{ section_embeddings_info.get('count', 0) }} sections</div>
+                                        {% endif %}
+                                        <div class="small text-muted mt-1">{{ "{:,}".format(section_embeddings_info.get('count', 0) * 384) }} float values</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-clock-history me-2 text-secondary"></i>
+                                    <div>
+                                        <div class="small text-muted">Last Updated</div>
+                                        <div class="small">{{ section_embeddings_info.get('updated_at', 'Unknown') }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h5>Available Actions</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('doc_structure.search_similar_sections') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-search"></i> Search Similar Sections
+                        </a>
+                        <form id="generate-embeddings-form" action="{{ url_for('doc_structure.generate_embeddings', id=document.id) }}" method="post" class="mb-0">
+                            <button type="submit" class="btn btn-outline-secondary w-100" id="generate-embeddings-btn">
+                                <i class="bi bi-arrow-repeat"></i> Re-generate Section Embeddings
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
+            {% if section_embeddings_info.get('note') %}
+            <div class="mt-3 text-muted small">
+                <i class="bi bi-info-circle"></i> {{ section_embeddings_info.get('note') }}
+            </div>
+            {% endif %}
             {% else %}
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i>
@@ -124,13 +196,188 @@
         </div>
     </div>
 
-    <!-- Ontology Concept Associations -->
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h3>Ontology Concept Associations</h3>
+    <!-- Enhanced Guideline Associations -->
+    <div id="ontology-associations" class="card mb-4">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h3>Enhanced Guideline Associations</h3>
+            <div>
+                {% if has_enhanced_associations %}
+                <button type="button" class="btn btn-sm btn-outline-light me-2" onclick="clearAssociations({{ document.id }})">
+                    <i class="bi bi-trash"></i> Clear & Regenerate
+                </button>
+                {% else %}
+                <!-- Processing state (hidden by default) -->
+                <div id="processing-state" class="d-inline" style="display: none !important;">
+                    <div class="d-inline-block me-2">
+                        <select class="form-select form-select-sm" style="width: auto;" disabled>
+                            <option>Processing...</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-light" disabled>
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        Processing Associations...
+                    </button>
+                </div>
+                
+                <!-- Normal form (visible by default) -->
+                <form id="association-form" action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post" class="d-inline">
+                    <div class="d-inline-block me-2">
+                        <select name="association_method" class="form-select form-select-sm" style="width: auto;" title="Method preference (both are always used in hybrid approach)">
+                            <option value="embedding">Hybrid (Vector + LLM)</option>
+                            <option value="llm">Hybrid (LLM + Vector)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-stars"></i> Generate Hybrid Associations
+                    </button>
+                </form>
+                {% endif %}
+            </div>
         </div>
         <div class="card-body">
-            {% if has_triple_associations %}
+            {% if has_enhanced_associations %}
+            <!-- Enhanced Associations Display -->
+            <div class="alert alert-success">
+                <i class="bi bi-stars"></i>
+                <strong>✨ Enhanced Guideline Associations Available</strong>
+                <div class="mt-2 small">
+                    <span class="badge bg-primary me-2">{{ enhanced_associations_stats.total_associations }} total</span>
+                    <span class="badge bg-info me-2">{{ enhanced_associations_stats.sections_processed }} sections</span>
+                    <span class="badge bg-success me-2">{{ enhanced_associations_stats.average_confidence }} avg confidence</span>
+                    <span class="badge bg-warning">{{ enhanced_associations_stats.high_confidence_count }} high confidence</span>
+                </div>
+            </div>
+
+            <!-- Stats by Section -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5><i class="bi bi-bar-chart"></i> Confidence by Section Type</h5>
+                    {% for section in enhanced_associations_stats.by_section %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                        <span><strong>{{ section.section_type.title() }}</strong></span>
+                        <div>
+                            <span class="badge bg-secondary me-1">{{ section.count }} associations</span>
+                            <span class="badge bg-{% if section.avg_confidence > 0.7 %}success{% elif section.avg_confidence > 0.4 %}warning{% else %}danger{% endif %}">
+                                {{ "%.3f"|format(section.avg_confidence) }} confidence
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Top Associations Table -->
+            <h5><i class="bi bi-star"></i> Top Associations</h5>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%">Section</th>
+                            <th style="width: 15%">Concept</th>
+                            <th style="width: 10%">Overall</th>
+                            <th style="width: 15%">Embedding Scores</th>
+                            <th style="width: 12%">LLM Scores</th>
+                            <th style="width: 15%">Pattern Indicators</th>
+                            <th style="width: 25%">Hybrid Reasoning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assoc in enhanced_associations_data %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">{{ assoc.section_type }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ assoc.concept_name }}</strong>
+                                <br><small class="text-muted">{{ assoc.concept_uri.split('/')[-1] if assoc.concept_uri else 'N/A' }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if assoc.overall_confidence > 0.7 %}success{% elif assoc.overall_confidence > 0.4 %}warning{% else %}danger{% endif %} fs-6">
+                                    {{ "%.3f"|format(assoc.overall_confidence) }}
+                                </span>
+                                <br><small class="text-muted">{{ assoc.scoring_method }}</small>
+                            </td>
+                            <td>
+                                <small>
+                                    <div><strong>🔢 Vector:</strong> {{ "%.3f"|format(assoc.embedding_similarity) if assoc.embedding_similarity else 'N/A' }}</div>
+                                    <div><strong>🔤 Keywords:</strong> {{ "%.3f"|format(assoc.keyword_overlap) if assoc.keyword_overlap else 'N/A' }}</div>
+                                    <div><strong>Context:</strong> {{ "%.3f"|format(assoc.contextual_relevance) if assoc.contextual_relevance else 'N/A' }}</div>
+                                </small>
+                            </td>
+                            <td>
+                                <small>
+                                    <div><strong>Semantic:</strong> {{ "%.3f"|format(assoc.llm_semantic_score) if assoc.llm_semantic_score else 'N/A' }}</div>
+                                    <div><strong>Quality:</strong> {{ "%.3f"|format(assoc.llm_reasoning_quality) if assoc.llm_reasoning_quality else 'N/A' }}</div>
+                                    {% if assoc.llm_semantic_score == 0 %}
+                                    <div class="text-muted"><em>LLM unavailable</em></div>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                {% if assoc.pattern_indicators and assoc.pattern_indicators is mapping %}
+                                <div class="small">
+                                    {% for key, value in assoc.pattern_indicators.items() %}
+                                    {% if value == true %}
+                                    <span class="badge bg-success me-1">{{ key.replace('_', ' ').title() }}</span>
+                                    {% elif value == false and key in ['safety_mentioned', 'nspe_code_referenced', 'public_welfare_prioritized'] %}
+                                    <span class="badge bg-light text-dark me-1">No {{ key.replace('_', ' ').title() }}</span>
+                                    {% elif value != true and value != false %}
+                                    <span class="badge bg-info me-1">{{ key.replace('_', ' ').title() }}: {{ value }}</span>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% elif assoc.pattern_indicators %}
+                                <small class="text-muted">Pattern data: {{ assoc.pattern_indicators|string|truncate(50) }}</small>
+                                {% else %}
+                                <small class="text-muted">No patterns</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <!-- Combined reasoning with expand option -->
+                                {% if assoc.reasoning|length > 60 %}
+                                <div class="reasoning-text">
+                                    <small class="reasoning-short">{{ assoc.reasoning[:60] }}... 
+                                        <a href="#" class="text-primary expand-reasoning" style="text-decoration: none;">
+                                            <i class="bi bi-chevron-down"></i>
+                                        </a>
+                                    </small>
+                                    <div class="reasoning-full" style="display: none;">
+                                        <small><strong>Combined:</strong> {{ assoc.reasoning }}</small>
+                                        {% if assoc.embedding_reasoning != 'Not available' %}
+                                        <hr class="my-1">
+                                        <small><strong>🔢 Embedding:</strong> {{ assoc.embedding_reasoning }}</small>
+                                        {% endif %}
+                                        {% if assoc.llm_reasoning != 'LLM analysis not available' %}
+                                        <hr class="my-1">
+                                        <small><strong>LLM:</strong> {{ assoc.llm_reasoning }}</small>
+                                        {% endif %}
+                                        <div class="mt-1">
+                                            <a href="#" class="text-primary collapse-reasoning" style="text-decoration: none;">
+                                                <i class="bi bi-chevron-up"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <small>{{ assoc.reasoning }}</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Hybrid Enhanced Associations:</strong> Combines fast vector embeddings (🔢) with LLM analysis
+                    for multi-dimensional scoring. Embedding scores provide semantic matching, while LLM scores add 
+                    contextual understanding. Overall confidence uses weighted combination of both approaches.
+                </small>
+            </div>
+
+            {% elif has_triple_associations %}
             <div class="alert alert-success">
                 <i class="bi bi-check-circle"></i>
                 <strong>Ontology concept associations are available.</strong>
@@ -221,158 +468,129 @@
             <p>No specific ontology concept associations found for sections.</p>
             {% endif %}
             {% else %}
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i>
-                <strong>No ontology concept associations available for this document.</strong>
-            </div>
-            <p>Ontology concept associations connect document sections with concepts from the engineering ethics ontology.</p>
-            <form action="{{ url_for('doc_structure.associate_ontology_concepts', id=document.id) }}" method="post">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="association_method" class="form-label">Association Method:</label>
-                        <select name="association_method" id="association_method" class="form-select">
-                            <option value="embedding">Embedding-based (Vector Similarity)</option>
-                            <option value="llm">LLM-based (Semantic Analysis)</option>
-                        </select>
-                        <small class="text-muted d-block mt-1">
-                            LLM-based method provides better reasoning but may be slower.
-                        </small>
+            <!-- Progress indicator (hidden by default) -->
+            <div id="association-progress" class="alert alert-info" style="display: none;">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <strong id="progress-title">Processing associations...</strong>
+                        <div class="progress mt-2">
+                            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                0%
+                            </div>
+                        </div>
+                        <small id="progress-phase" class="text-muted">Initializing...</small>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-link"></i> Generate Ontology Concept Associations
-                </button>
-            </form>
+            </div>
+            
+            <!-- Default no associations message -->
+            <div id="no-associations-message" class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>No enhanced guideline associations available for this document.</strong>
+            </div>
+            <p>Hybrid enhanced associations combine fast vector embeddings with LLM analysis to connect document sections with ethical concepts. Uses multi-dimensional scoring with separated component visibility:</p>
+            <ul class="small">
+                <li><strong>🔢 Embedding Scores:</strong> Vector similarity, keyword overlap, contextual patterns</li>
+                <li><strong>LLM Scores:</strong> Semantic analysis, reasoning quality assessment</li>
+                <li><strong>Combined:</strong> Weighted hybrid confidence with detailed explanations</li>
+            </ul>
+            <p class="text-muted">Use the "Generate Hybrid Associations" button in the card header above to create associations for this document.</p>
             {% endif %}
         </div>
     </div>
 
-    <!-- Ethical Guideline Associations -->
-    <div class="card mb-4">
+
+    <!-- Ontology Term Links Information -->
+    <div id="term-links" class="card mb-4">
         <div class="card-header bg-success text-white">
-            <h3>Ethical Guideline Associations</h3>
+            <h3>Ontology Term Links</h3>
+            <small class="d-block mt-1">Individual words/phrases linked to ontology terms</small>
         </div>
         <div class="card-body">
-            {% if has_guideline_associations %}
+            {% if has_term_links %}
             <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i>
-                <strong>Ethical guideline associations are available.</strong>
+                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Term Links Active</h5>
+                <div class="row g-3 mt-1">
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-link me-2 text-primary"></i>
+                            <div>
+                                <div class="small text-muted">Total Links</div>
+                                <div class="fw-bold">{{ section_term_links.values()|map('length')|sum }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-file-text me-2 text-info"></i>
+                            <div>
+                                <div class="small text-muted">Sections with Links</div>
+                                <div class="fw-bold">{{ section_term_links|length }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {% if section_guideline_associations %}
-            {% for section_id, guidelines in section_guideline_associations.items() %}
-            <div class="mb-4">
-                <h4>Section: {{ guidelines.section_type if guidelines.section_type is defined else section_id }}</h4>
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Guideline</th>
-                            <th>Relationship</th>
-                            <th>Confidence</th>
-                            <th>Details</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for assoc in guidelines.guidelines %}
-                        {% if assoc is mapping %}
-                        <tr>
-                            <td>{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else "Unknown URI" }}</td>
-                            <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else "related" }}</td>
-                            <td>
-                                <div class="progress">
-                                    <div class="progress-bar 
-                                        {% if assoc.confidence >= 0.8 %}bg-success
-                                        {% elif assoc.confidence >= 0.5 %}bg-info
-                                        {% else %}bg-warning{% endif %}"
-                                        role="progressbar" 
-                                        style="width: {{ (assoc.confidence * 100)|round }}%"
-                                        aria-valuenow="{{ (assoc.confidence * 100)|round }}" 
-                                        aria-valuemin="0" 
-                                        aria-valuemax="100">
-                                        {{ (assoc.confidence * 100)|round }}%
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if assoc.details %}
-                                <button class="btn btn-sm btn-outline-primary" 
-                                        type="button" 
-                                        data-bs-toggle="collapse" 
-                                        data-bs-target="#details-{{ section_id }}-{{ loop.index }}" 
-                                        aria-expanded="false">
-                                    Show Details
-                                </button>
-                                <div class="collapse mt-2" id="details-{{ section_id }}-{{ loop.index }}">
-                                    <div class="card card-body">
-                                        {{ assoc.details|safe }}
-                                    </div>
-                                </div>
-                                {% else %}
-                                <span class="text-muted">No details available</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4">
-                                <table class="table table-bordered table-sm mb-2" style="background:#f8f9fa;">
+            <div class="row">
+                <div class="col-12">
+                    <h5>Term Links by Section</h5>
+                    {% for section_id, term_links in section_term_links.items() %}
+                    <div class="mb-4">
+                        <h6 class="text-capitalize">{{ section_id }} <span class="badge bg-secondary">{{ term_links|length }} terms</span></h6>
+                        {% if term_links %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
                                     <tr>
-                                        <th style="width:120px;">Label</th>
-                                        <td>{{ assoc.label if assoc.label is defined else '—' }}</td>
+                                        <th>Term</th>
+                                        <th>Position</th>
+                                        <th>Ontology Label</th>
+                                        <th>Entity Type</th>
+                                        <th>Definition</th>
                                     </tr>
+                                </thead>
+                                <tbody>
+                                    {% for link in term_links %}
                                     <tr>
-                                        <th>URI</th>
-                                        <td style="word-break:break-all;">{{ assoc.uri if assoc.uri is defined else assoc.guideline_uri if assoc.guideline_uri is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Description</th>
-                                        <td>{{ assoc.description if assoc.description is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Confidence</th>
-                                        <td>{{ assoc.confidence if assoc.confidence is defined else '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Relationship</th>
-                                        <td>{{ assoc.relationship if assoc.relationship is defined else assoc.relationship_type if assoc.relationship_type is defined else 'related' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Reasoning</th>
                                         <td>
-                                            {% if assoc.reasoning is defined %}
-                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#reasoning-{{ section_id }}-{{ loop.index }}" aria-expanded="false">Show Reasoning</button>
-                                                <div class="collapse mt-2" id="reasoning-{{ section_id }}-{{ loop.index }}">
-                                                    <pre style="background:#fff; border:1px solid #eee; border-radius:4px; padding:8px; font-size:0.95em; color:#222; max-height:300px; overflow:auto;">{{ assoc.reasoning | tojson(indent=2) }}</pre>
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">No reasoning available</span>
-                                            {% endif %}
+                                            <code class="ontology-term" data-uri="{{ link.ontology_uri }}" 
+                                                  data-definition="{{ link.definition }}" 
+                                                  title="{{ link.definition }}">
+                                                {{ link.term_text }}
+                                            </code>
                                         </td>
+                                        <td class="small text-muted">{{ link.term_start }}-{{ link.term_end }}</td>
+                                        <td>{{ link.ontology_label }}</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark entity-type-{{ link.get('entity_type', 'unknown')|lower }}">
+                                                {{ link.get('entity_type', 'unknown')|title }}
+                                            </span>
+                                        </td>
+                                        <td class="small">{{ link.definition[:100] }}{% if link.definition|length > 100 %}...{% endif %}</td>
                                     </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-danger">Warning: Association is not a dictionary (type={{ assoc.__class__.__name__ }}): {{ assoc }}</td>
-                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                         {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
-            {% endfor %}
-            {% else %}
-            <p>No specific guideline associations found for sections.</p>
-            {% endif %}
             {% else %}
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i>
-                <strong>No ethical guideline associations available for this document.</strong>
+                <strong>No ontology term links available for this document.</strong>
             </div>
-            <p>Guideline associations connect document sections with ethical principles and guidelines.</p>
-            <form action="{{ url_for('doc_structure.associate_guidelines', id=document.id) }}" method="post">
+            <p>Term links connect individual words and phrases in the document text to their corresponding ontology definitions.</p>
+            <form action="{{ url_for('doc_structure.generate_term_links', id=document.id) }}" method="post">
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-link"></i> Generate Guideline Associations
+                    <i class="bi bi-link"></i> Generate Term Links
                 </button>
             </form>
             {% endif %}
@@ -380,7 +598,7 @@
     </div>
 
     {% if structure_triples %}
-    <div class="card mb-4">
+    <div id="structure-triples" class="card mb-4">
         <div class="card-header bg-info text-white">
             <h3>Structure Triples</h3>
         </div>
@@ -408,9 +626,13 @@
             </script>
             {% endif %}
             
-            <!-- Enhanced embedding generation handling -->
+            <!-- Table of Contents Navigation -->
             <script>
             document.addEventListener('DOMContentLoaded', function() {
+                // Initialize TOC navigation
+                initTOCNavigation();
+                
+                // Initialize embedding generation handling
                 const embeddingForm = document.getElementById('generate-embeddings-form');
                 if (embeddingForm) {
                     embeddingForm.addEventListener('submit', function(e) {
@@ -470,6 +692,310 @@
                             btn.innerHTML = '<i class="bi bi-cpu"></i> Generate Section Embeddings';
                         });
                     });
+                }
+            });
+            
+            /**
+             * Initialize Table of Contents Navigation
+             */
+            function initTOCNavigation() {
+                const tocNav = document.getElementById('toc-nav');
+                const tocToggle = document.getElementById('toc-toggle');
+                const tocClose = document.getElementById('toc-close');
+                const tocLinks = document.querySelectorAll('.toc-link');
+                
+                // Toggle TOC visibility
+                function showTOC() {
+                    tocNav.classList.add('visible');
+                    tocToggle.classList.add('hidden');
+                }
+                
+                function hideTOC() {
+                    tocNav.classList.remove('visible');
+                    tocToggle.classList.remove('hidden');
+                }
+                
+                // Event listeners
+                if (tocToggle) {
+                    tocToggle.addEventListener('click', showTOC);
+                }
+                
+                if (tocClose) {
+                    tocClose.addEventListener('click', hideTOC);
+                }
+                
+                // Click outside to close
+                document.addEventListener('click', function(e) {
+                    if (!tocNav.contains(e.target) && !tocToggle.contains(e.target)) {
+                        hideTOC();
+                    }
+                });
+                
+                // Smooth scrolling for TOC links
+                tocLinks.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        
+                        const targetId = this.getAttribute('href').substring(1);
+                        const targetElement = document.getElementById(targetId);
+                        
+                        if (targetElement) {
+                            // Smooth scroll to target with offset for fixed header
+                            const offsetTop = targetElement.offsetTop - 20;
+                            window.scrollTo({
+                                top: offsetTop,
+                                behavior: 'smooth'
+                            });
+                            
+                            // Update active link
+                            tocLinks.forEach(l => l.classList.remove('active'));
+                            this.classList.add('active');
+                            
+                            // Hide TOC on mobile after clicking
+                            if (window.innerWidth <= 768) {
+                                setTimeout(hideTOC, 500);
+                            }
+                        }
+                    });
+                });
+                
+                // Update active section on scroll
+                function updateActiveSection() {
+                    const sections = ['document-info', 'section-embeddings', 'ontology-associations', 
+                                    'term-links', 'structure-triples'];
+                    
+                    const scrollPos = window.scrollY + 100; // Offset for better UX
+                    
+                    let activeSection = sections[0]; // Default to first section
+                    
+                    sections.forEach(sectionId => {
+                        const element = document.getElementById(sectionId);
+                        if (element && element.offsetTop <= scrollPos) {
+                            activeSection = sectionId;
+                        }
+                    });
+                    
+                    // Update active link
+                    tocLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === '#' + activeSection) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+                
+                // Throttled scroll listener
+                let scrollTimeout;
+                window.addEventListener('scroll', function() {
+                    if (scrollTimeout) clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(updateActiveSection, 100);
+                });
+                
+                // Initialize active section
+                updateActiveSection();
+                
+                // Auto-hide on mobile
+                if (window.innerWidth <= 768) {
+                    hideTOC();
+                }
+            }
+            
+            // Handle reasoning text expand/collapse (vanilla JavaScript)
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('expand-reasoning')) {
+                    e.preventDefault();
+                    const container = e.target.closest('.reasoning-text');
+                    if (container) {
+                        const shortEl = container.querySelector('.reasoning-short');
+                        const fullEl = container.querySelector('.reasoning-full');
+                        if (shortEl) shortEl.style.display = 'none';
+                        if (fullEl) fullEl.style.display = 'block';
+                    }
+                }
+                
+                if (e.target.classList.contains('collapse-reasoning')) {
+                    e.preventDefault();
+                    const container = e.target.closest('.reasoning-text');
+                    if (container) {
+                        const shortEl = container.querySelector('.reasoning-short');
+                        const fullEl = container.querySelector('.reasoning-full');
+                        if (shortEl) shortEl.style.display = 'block';
+                        if (fullEl) fullEl.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Handle clear associations
+            function clearAssociations(documentId) {
+                if (confirm('Are you sure you want to clear all enhanced guideline associations? This will allow you to regenerate them.')) {
+                    // Show loading state
+                    const clearBtn = event.target.closest('button');
+                    const originalContent = clearBtn.innerHTML;
+                    clearBtn.disabled = true;
+                    clearBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Clearing...';
+                    
+                    // Make request to clear associations
+                    fetch(`{{ url_for('doc_structure.clear_associations', id=0) }}`.replace('0', documentId), {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Reload page to show cleared state
+                            window.location.reload();
+                        } else {
+                            alert('Error clearing associations: ' + (data.message || 'Unknown error'));
+                            // Reset button
+                            clearBtn.disabled = false;
+                            clearBtn.innerHTML = originalContent;
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error clearing associations: ' + error.message);
+                        // Reset button
+                        clearBtn.disabled = false;
+                        clearBtn.innerHTML = originalContent;
+                    });
+                }
+            }
+            
+            // Association progress polling
+            let progressPollInterval = null;
+            
+            function startProgressPolling(documentId) {
+                console.log('DEBUG: startProgressPolling called for document:', documentId);
+                console.trace('Call stack');
+                
+                // Show progress indicator and processing state
+                document.getElementById('association-progress').style.display = 'block';
+                document.getElementById('no-associations-message').style.display = 'none';
+                
+                // Hide form and show processing state
+                const form = document.getElementById('association-form');
+                const processingState = document.getElementById('processing-state');
+                if (form) form.style.display = 'none';
+                if (processingState) {
+                    processingState.style.display = 'inline';
+                    console.log('DEBUG: Processing state shown');
+                }
+                
+                // Start polling
+                progressPollInterval = setInterval(() => {
+                    fetch(`{{ url_for('doc_structure.association_progress', id=0) }}`.replace('0', documentId))
+                        .then(response => response.json())
+                        .then(data => {
+                            updateProgressDisplay(data);
+                            
+                            // Stop polling if completed or failed
+                            if (data.status === 'completed' || data.status === 'failed') {
+                                clearInterval(progressPollInterval);
+                                progressPollInterval = null;
+                                
+                                if (data.status === 'completed') {
+                                    // Reload page to show results
+                                    setTimeout(() => window.location.reload(), 2000);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error polling progress:', error);
+                        });
+                }, 2000); // Poll every 2 seconds
+            }
+            
+            function updateProgressDisplay(data) {
+                const progressBar = document.getElementById('progress-bar');
+                const progressTitle = document.getElementById('progress-title');
+                const progressPhase = document.getElementById('progress-phase');
+                
+                // Update progress bar
+                progressBar.style.width = data.progress + '%';
+                progressBar.setAttribute('aria-valuenow', data.progress);
+                progressBar.textContent = data.progress + '%';
+                
+                // Update status text
+                const phaseNames = {
+                    'analyzing': 'Analyzing document structure...',
+                    'llm_processing': 'Processing with LLM (this takes time)...',
+                    'saving_results': 'Saving associations to database...'
+                };
+                
+                if (data.status === 'completed') {
+                    progressTitle.textContent = 'Association processing completed!';
+                    progressPhase.textContent = `Generated ${data.results?.total_associations || 0} associations`;
+                    progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                    progressBar.classList.add('bg-success');
+                } else if (data.status === 'failed') {
+                    progressTitle.textContent = 'Association processing failed';
+                    progressPhase.textContent = data.error || 'Unknown error occurred';
+                    progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                } else {
+                    progressTitle.textContent = 'Processing associations...';
+                    progressPhase.textContent = phaseNames[data.phase] || `Phase: ${data.phase}`;
+                }
+            }
+            
+            // Handle form submission to show processing state immediately
+            document.addEventListener('DOMContentLoaded', function() {
+                const documentId = {{ document.id }};
+                const form = document.getElementById('association-form');
+                
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        // Show processing state immediately
+                        const processingState = document.getElementById('processing-state');
+                        if (processingState) {
+                            form.style.display = 'none';
+                            processingState.style.display = 'inline';
+                        }
+                        
+                        // Start polling after a short delay to allow backend to start
+                        setTimeout(() => {
+                            startProgressPolling(documentId);
+                        }, 1000);
+                    });
+                }
+                
+                // Check current status on page load  
+                console.log('DEBUG: Checking initial status for document:', documentId);
+                fetch(`{{ url_for('doc_structure.association_progress', id=0) }}`.replace('0', documentId))
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('DEBUG: Initial status response:', data);
+                        console.log('DEBUG: Status value:', data.status);
+                        console.log('DEBUG: Is processing?', data.status === 'processing');
+                        console.log('DEBUG: Is pending?', data.status === 'pending');
+                        if (data.status === 'processing' || data.status === 'pending') {
+                            console.log('DEBUG: Status is processing/pending, starting polling');
+                            startProgressPolling(documentId);
+                        } else {
+                            console.log('DEBUG: Status is', data.status, '- not starting polling');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking initial status:', error);
+                    });
+                
+                // Also check if there's a flash message indicating processing started
+                // Only check flash messages in the flash message container, not all info alerts
+                const flashContainer = document.querySelector('.flash-messages, .flashes');
+                console.log('DEBUG: Flash container found:', !!flashContainer);
+                if (flashContainer) {
+                    const flashMessages = flashContainer.querySelectorAll('.alert-info');
+                    console.log('DEBUG: Flash messages found:', flashMessages.length);
+                    for (let flash of flashMessages) {
+                        console.log('DEBUG: Flash message text:', flash.textContent);
+                        if (flash.textContent.includes('Association processing started')) {
+                            console.log('DEBUG: Found processing started message, starting polling');
+                            // Processing was just started, show the processing state
+                            startProgressPolling(documentId);
+                            break;
+                        }
+                    }
                 }
             });
             </script>

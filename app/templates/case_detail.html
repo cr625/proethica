@@ -114,70 +114,6 @@
             <div data-extraction-style="true">
                 {{ case.description|safe }}
             </div>
-
-            <!-- Questions list from metadata if available -->
-            {% if case.doc_metadata.questions_list %}
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header bg-light">
-                            {% if case.doc_metadata.questions_list|length > 1 %}
-                            <h5 class="mb-0">Questions</h5>
-                            {% else %}
-                            <h5 class="mb-0">Question</h5>
-                            {% endif %}
-                        </div>
-                        <div class="card-body">
-                            <ol class="mb-0">
-                                {% for question in case.doc_metadata.questions_list %}
-                                <li>{{ question }}</li>
-                                {% endfor %}
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Conclusion items list from metadata if available -->
-            {% if case.doc_metadata.conclusion_items %}
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header bg-light">
-                            {% if case.doc_metadata.conclusion_items|length > 1 %}
-                            <h5 class="mb-0">Conclusions</h5>
-                            {% else %}
-                            <h5 class="mb-0">Conclusion</h5>
-                            {% endif %}
-                        </div>
-                        <div class="card-body">
-                            <ol class="mb-0">
-                                {% for conclusion in case.doc_metadata.conclusion_items %}
-                                <li>{{ conclusion }}</li>
-                                {% endfor %}
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Dissenting Opinion Section (moved here after conclusion) -->
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.dissenting_opinion and case.doc_metadata.sections_dual.dissenting_opinion.html %}
-            <div class="mb-4">
-                <h4>Dissenting Opinion</h4>
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> The following represents a dissenting view from the Board of Ethical Review
-                </div>
-                <div class="collapsible-section" id="dissenting-section">
-                    <div class="section-content">
-                        {{ case.doc_metadata.sections_dual.dissenting_opinion.html|safe }}
-                    </div>
-                </div>
-                <a href="#" class="show-more-link" data-target="dissenting-section">Show more</a>
-            </div>
-            {% endif %}
             {% else %}
             <!-- Check if we have sections in metadata -->
             {% if case.doc_metadata and case.doc_metadata.sections_dual %}
@@ -240,6 +176,26 @@
             </div>
             {% endif %}
 
+            <!-- Scenario Generation Section -->
+            <div class="mb-4">
+                <div class="card border-success">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="bi bi-play-circle text-success"></i> Generate Interactive Scenario
+                        </h4>
+                        <span id="scenario-status-badge" class="badge bg-secondary">Checking...</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="scenario-generation-content">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Display ontology information if available -->
             {% if case.doc_metadata and case.doc_metadata.ontology_info %}
@@ -422,6 +378,348 @@
 {{ super() }}
 <!-- Include the external case detail JS file -->
 <script src="{{ url_for('static', filename='js/case_detail.js') }}"></script>
+
+<!-- Scenario Generation JavaScript -->
+<script>
+// Scenario Generation Management
+class ScenarioGenerationManager {
+    constructor(caseId) {
+        this.caseId = caseId;
+        this.statusCheckInterval = null;
+        this.progressInterval = null;
+        this.init();
+    }
+    
+    init() {
+        this.checkScenarioStatus();
+    }
+    
+    async checkScenarioStatus() {
+        try {
+            const response = await fetch(`/cases/${this.caseId}/scenario_status`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateStatusDisplay(data);
+            } else {
+                this.showError('Failed to check scenario status: ' + data.error);
+            }
+        } catch (error) {
+            this.showError('Error checking scenario status: ' + error.message);
+        }
+    }
+    
+    updateStatusDisplay(status) {
+        const badge = document.getElementById('scenario-status-badge');
+        const content = document.getElementById('scenario-generation-content');
+        
+        if (status.is_deconstructed && status.has_templates) {
+            // Case is deconstructed and has templates - show scenario creation options
+            badge.className = 'badge bg-success';
+            badge.textContent = `${status.template_count} Template${status.template_count !== 1 ? 's' : ''} Available`;
+            
+            content.innerHTML = this.renderTemplateOptions(status.templates);
+        } else if (status.is_deconstructed) {
+            // Case is deconstructed but no templates - offer to create template
+            badge.className = 'badge bg-warning';
+            badge.textContent = 'Ready for Template Creation';
+            
+            content.innerHTML = this.renderCreateTemplateOption();
+        } else if (status.can_deconstruct) {
+            // Case can be deconstructed - show generation option
+            badge.className = 'badge bg-info';
+            badge.textContent = 'Ready for Generation';
+            
+            content.innerHTML = this.renderGenerationOption();
+        } else {
+            // Case cannot be deconstructed
+            badge.className = 'badge bg-danger';
+            badge.textContent = 'Not Compatible';
+            
+            content.innerHTML = this.renderNotCompatible(status.deconstruct_reason);
+        }
+    }
+    
+    renderGenerationOption() {
+        return `
+            <div class="text-center">
+                <h5>Transform this case into an interactive scenario</h5>
+                <p class="text-muted">This will analyze the case to extract stakeholders, decision points, and reasoning chains.</p>
+                <button id="generate-scenario-btn" class="btn btn-success btn-lg">
+                    <i class="bi bi-play-circle"></i> Generate Scenario
+                </button>
+            </div>
+        `;
+    }
+    
+    renderCreateTemplateOption() {
+        return `
+            <div class="text-center">
+                <h5>Case has been analyzed</h5>
+                <p class="text-muted">Create a scenario template from the analyzed case data.</p>
+                <button id="create-template-btn" class="btn btn-primary btn-lg">
+                    <i class="bi bi-file-earmark-plus"></i> Create Scenario Template
+                </button>
+            </div>
+        `;
+    }
+    
+    renderTemplateOptions(templates) {
+        let html = `
+            <div class="text-center">
+                <h5>Scenario Templates Available</h5>
+                <p class="text-muted">Create playable scenarios from these templates.</p>
+                <div class="row">
+        `;
+        
+        templates.forEach(template => {
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">${template.title}</h6>
+                            <button class="btn btn-success create-scenario-btn" data-template-id="${template.id}">
+                                <i class="bi bi-play"></i> Create Scenario
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+                <button id="create-template-btn" class="btn btn-outline-primary">
+                    <i class="bi bi-plus"></i> Create Another Template
+                </button>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    renderNotCompatible(reason) {
+        return `
+            <div class="text-center">
+                <h5 class="text-muted">Scenario Generation Not Available</h5>
+                <p class="text-muted">${reason}</p>
+                <small class="text-muted">This case may need additional processing or may not be compatible with scenario generation.</small>
+            </div>
+        `;
+    }
+    
+    async generateScenario() {
+        const btn = document.getElementById('generate-scenario-btn');
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
+        
+        try {
+            const response = await fetch(`/cases/${this.caseId}/generate_scenario`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showProgress();
+                this.startProgressPolling();
+            } else {
+                this.showError('Failed to start generation: ' + data.error);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        } catch (error) {
+            this.showError('Error starting generation: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+    
+    async createTemplate() {
+        const btn = document.getElementById('create-template-btn');
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
+        
+        try {
+            const response = await fetch(`/cases/${this.caseId}/create_scenario_template`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showSuccess('Template created successfully!');
+                // Refresh status to show new template
+                setTimeout(() => this.checkScenarioStatus(), 1000);
+            } else {
+                this.showError('Failed to create template: ' + data.error);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        } catch (error) {
+            this.showError('Error creating template: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+    
+    async createScenarioFromTemplate(templateId) {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
+        
+        try {
+            const response = await fetch(`/cases/templates/${templateId}/create_scenario`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    difficulty: 'intermediate',
+                    time_limits: 'normal'
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showSuccess('Scenario created successfully! Redirecting...');
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 1500);
+            } else {
+                this.showError('Failed to create scenario: ' + data.error);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        } catch (error) {
+            this.showError('Error creating scenario: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+    
+    showProgress() {
+        const content = document.getElementById('scenario-generation-content');
+        content.innerHTML = `
+            <div class="text-center">
+                <h5>Generating Scenario...</h5>
+                <div class="progress mb-3">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 10%">10%</div>
+                </div>
+                <p id="progress-message" class="text-muted">Starting analysis...</p>
+            </div>
+        `;
+    }
+    
+    startProgressPolling() {
+        this.progressInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/cases/${this.caseId}/scenario_generation_progress`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.updateProgress(data.progress);
+                    
+                    if (data.progress.status === 'COMPLETED') {
+                        clearInterval(this.progressInterval);
+                        this.showCompleted();
+                    } else if (data.progress.status === 'FAILED') {
+                        clearInterval(this.progressInterval);
+                        this.showError('Generation failed: ' + data.progress.message);
+                    }
+                }
+            } catch (error) {
+                console.error('Error polling progress:', error);
+            }
+        }, 2000);
+    }
+    
+    updateProgress(progress) {
+        const progressBar = document.getElementById('progress-bar');
+        const progressMessage = document.getElementById('progress-message');
+        
+        if (progressBar) {
+            progressBar.style.width = progress.progress + '%';
+            progressBar.textContent = progress.progress + '%';
+        }
+        
+        if (progressMessage) {
+            progressMessage.textContent = progress.message || 'Processing...';
+        }
+    }
+    
+    showCompleted() {
+        const content = document.getElementById('scenario-generation-content');
+        content.innerHTML = `
+            <div class="text-center">
+                <h5 class="text-success"><i class="bi bi-check-circle"></i> Generation Complete!</h5>
+                <p class="text-muted">The case has been analyzed. You can now create scenario templates.</p>
+                <button class="btn btn-primary" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Page
+                </button>
+            </div>
+        `;
+    }
+    
+    showSuccess(message) {
+        const content = document.getElementById('scenario-generation-content');
+        content.innerHTML = `
+            <div class="text-center">
+                <h5 class="text-success"><i class="bi bi-check-circle"></i> ${message}</h5>
+            </div>
+        `;
+    }
+    
+    showError(message) {
+        const content = document.getElementById('scenario-generation-content');
+        content.innerHTML = `
+            <div class="text-center">
+                <h5 class="text-danger"><i class="bi bi-exclamation-circle"></i> Error</h5>
+                <p class="text-muted">${message}</p>
+                <button class="btn btn-outline-primary" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Initialize scenario generation when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const caseId = {{ case.id }};
+    const scenarioManager = new ScenarioGenerationManager(caseId);
+    
+    // Event delegation for dynamically created buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'generate-scenario-btn') {
+            e.preventDefault();
+            scenarioManager.generateScenario();
+        } else if (e.target.id === 'create-template-btn') {
+            e.preventDefault();
+            scenarioManager.createTemplate();
+        } else if (e.target.classList.contains('create-scenario-btn')) {
+            e.preventDefault();
+            const templateId = e.target.getAttribute('data-template-id');
+            scenarioManager.createScenarioFromTemplate(templateId);
+        }
+    });
+});
+</script>
+
 <!-- Pass case ID to JS -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -459,5 +757,12 @@
             });
         });
     });
+    
+    // Pass term links data to JavaScript for highlighting functionality
+    {% if term_links_by_section %}
+    window.termLinksData = {{ term_links_by_section | tojson | safe }};
+    {% else %}
+    window.termLinksData = {};
+    {% endif %}
 </script>
 {% endblock %}

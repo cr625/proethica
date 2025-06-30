@@ -405,6 +405,64 @@ class LLMService:
         
         return text
     
+    def generate_response(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """
+        Generate a response using the LLM for FIRAC and Ethics Committee analysis.
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with 'analysis' key containing the LLM response
+        """
+        try:
+            # Use the LLM to generate response
+            if hasattr(self.llm, 'invoke'):
+                # For newer LangChain versions
+                response = self.llm.invoke(prompt)
+            elif hasattr(self.llm, 'generate'):
+                # For older LangChain versions
+                response = self.llm.generate([prompt])
+                if hasattr(response, 'generations') and response.generations:
+                    response = response.generations[0][0].text
+            else:
+                # Fallback: direct call
+                response = self.llm(prompt)
+            
+            # Handle different response types
+            if hasattr(response, 'content'):
+                response_text = response.content
+            elif isinstance(response, str):
+                response_text = response
+            else:
+                response_text = str(response)
+            
+            return {
+                'analysis': response_text,
+                'model': self.model_name,
+                'prompt_length': len(prompt),
+                'response_length': len(response_text)
+            }
+            
+        except Exception as e:
+            # Fallback to mock response for development
+            fallback_response = (
+                "This is a mock LLM response for development. "
+                "The analysis indicates that this case involves ethical considerations "
+                "related to professional responsibility, stakeholder interests, and "
+                "compliance with ethical guidelines. Further analysis would benefit "
+                "from detailed examination of applicable standards and precedents."
+            )
+            
+            return {
+                'analysis': fallback_response,
+                'model': 'mock',
+                'error': str(e),
+                'prompt_length': len(prompt),
+                'response_length': len(fallback_response)
+            }
+    
     def send_message(self, message: str, conversation: Optional[Conversation] = None, 
                     world_id: Optional[int] = None) -> Message:
         """

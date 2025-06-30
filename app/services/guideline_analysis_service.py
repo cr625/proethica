@@ -13,6 +13,7 @@ import re
 from app import db
 from app.utils.llm_utils import get_llm_client
 from app.services.mcp_client import MCPClient
+from app.services.guideline_concept_type_mapper import GuidelineConceptTypeMapper
 from app.models.entity_triple import EntityTriple
 
 # Set up logging
@@ -33,6 +34,10 @@ class GuidelineAnalysisService:
         
         # Cache for guideline concept types
         self._guideline_concept_types = None
+        
+        # Initialize type mapper for intelligent type mapping
+        self.type_mapper = GuidelineConceptTypeMapper()
+        logger.info("GuidelineAnalysisService initialized with intelligent type mapping")
         
     def _get_guideline_concept_types(self) -> Dict[str, Dict[str, str]]:
         """
@@ -77,14 +82,19 @@ class GuidelineAnalysisService:
                 timeout=30
             )
             
+            logger.info(f"MCP server response status: {response.status_code}")
+            
             if response.status_code != 200:
                 raise RuntimeError(f"MCP server returned status {response.status_code}")
                 
             result = response.json()
+            logger.info(f"MCP server response keys: {list(result.keys())}")
+            
             if "error" in result:
                 raise RuntimeError(f"MCP server error: {result['error']}")
                 
             if "result" not in result or "bindings" not in result["result"]:
+                logger.error(f"Invalid MCP response structure: {result}")
                 raise RuntimeError("Invalid response from MCP server")
                 
             concept_types = {}
@@ -197,12 +207,36 @@ class GuidelineAnalysisService:
                         result = response.json()
                         if "result" in result and "concepts" in result["result"]:
                             concepts = result["result"]["concepts"]
-                            # Validate all concepts have valid types
+                            # Validate and map concept types using intelligent type mapper
                             valid_types = set(concept_types.keys())
                             for concept in concepts:
-                                if concept.get("type") not in valid_types:
-                                    logger.warning(f"Invalid concept type: {concept.get('type')}")
-                                    concept["type"] = "state"  # Default to state
+                                # MCP server returns "category" field, map it to "type" for consistency
+                                original_type = concept.get("type") or concept.get("category")
+                                concept["type"] = original_type  # Ensure type field is set
+                                if original_type not in valid_types:
+                                    logger.info(f"Mapping invalid type '{original_type}' for concept '{concept.get('label', 'Unknown')}'")
+                                    
+                                    # Use type mapper to get better mapping
+                                    mapping_result = self.type_mapper.map_concept_type(
+                                        llm_type=original_type,
+                                        concept_description=concept.get("description", ""),
+                                        concept_name=concept.get("label", "")
+                                    )
+                                    
+                                    # Store original type and mapping metadata
+                                    concept["original_llm_type"] = original_type
+                                    concept["type"] = mapping_result.mapped_type
+                                    concept["type_mapping_confidence"] = mapping_result.confidence
+                                    concept["needs_type_review"] = mapping_result.needs_review
+                                    concept["mapping_justification"] = mapping_result.justification
+                                    
+                                    logger.info(f"Mapped '{original_type}' → '{mapping_result.mapped_type}' (confidence: {mapping_result.confidence:.2f})")
+                                else:
+                                    # Type is already valid - add exact match metadata
+                                    concept["original_llm_type"] = original_type
+                                    concept["type_mapping_confidence"] = 1.0
+                                    concept["needs_type_review"] = False
+                                    concept["mapping_justification"] = f"Exact match to ontology type '{original_type}'"
                             return result["result"]
             except Exception as e:
                 logger.warning(f"MCP server error, falling back to LLM: {str(e)}")
@@ -311,7 +345,7 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
         return None
     
     def _parse_llm_response(self, response: str, valid_types: set) -> List[Dict[str, Any]]:
-        """Parse and validate concepts from LLM response."""
+        """Parse and validate concepts from LLM response using intelligent type mapping."""
         try:
             # Extract JSON array from response
             json_match = re.search(r'\[.*\]', response, re.DOTALL)
@@ -323,12 +357,36 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
                 for concept in concepts:
                     # Ensure required fields
                     if not all(field in concept for field in ["label", "description", "type"]):
+                        logger.warning(f"Skipping concept missing required fields: {concept}")
                         continue
+                    
+                    original_type = concept["type"]
+                    
+                    # Validate and map concept type
+                    if original_type not in valid_types:
+                        logger.info(f"Mapping invalid type '{original_type}' for concept '{concept['label']}'")
                         
-                    # Validate type
-                    if concept["type"] not in valid_types:
-                        logger.warning(f"Invalid type '{concept['type']}' for concept '{concept['label']}'")
-                        continue
+                        # Use type mapper to get better mapping
+                        mapping_result = self.type_mapper.map_concept_type(
+                            llm_type=original_type,
+                            concept_description=concept.get("description", ""),
+                            concept_name=concept.get("label", "")
+                        )
+                        
+                        # Store original type and mapping metadata
+                        concept["original_llm_type"] = original_type
+                        concept["type"] = mapping_result.mapped_type
+                        concept["type_mapping_confidence"] = mapping_result.confidence
+                        concept["needs_type_review"] = mapping_result.needs_review
+                        concept["mapping_justification"] = mapping_result.justification
+                        
+                        logger.info(f"Mapped '{original_type}' → '{mapping_result.mapped_type}' (confidence: {mapping_result.confidence:.2f})")
+                    else:
+                        # Type is already valid - no mapping needed
+                        concept["original_llm_type"] = original_type
+                        concept["type_mapping_confidence"] = 1.0  # Perfect confidence for exact match
+                        concept["needs_type_review"] = False
+                        concept["mapping_justification"] = f"Exact match to ontology type '{original_type}'"
                     
                     # Add default confidence if missing
                     if "confidence" not in concept:
@@ -411,13 +469,310 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
             
         return mock_concepts
     
+    def extract_ontology_terms_from_text(self,
+                                        guideline_text: str,
+                                        world_id: int,
+                                        guideline_id: int,
+                                        ontology_source: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Extract ontology terms directly from guideline text.
+        This finds mentions of engineering-ethics ontology terms in the text itself.
+        
+        Args:
+            guideline_text: The full text of the guideline
+            world_id: World ID for context
+            guideline_id: Guideline ID for triple association
+            ontology_source: Ontology to search for terms (default: 'engineering-ethics')
+            
+        Returns:
+            Dict with extracted term triples and metadata
+        """
+        try:
+            logger.info(f"Extracting ontology terms from guideline text")
+            
+            # Set default ontology source
+            if not ontology_source:
+                ontology_source = 'engineering-ethics'
+            
+            # If mock responses are enabled, return mock triples
+            if self.use_mock_responses:
+                logger.info("Using mock ontology term extraction")
+                mock_triples = self._generate_mock_ontology_triples(guideline_text, world_id, guideline_id)
+                return {
+                    'success': True,
+                    'triples': mock_triples,
+                    'triple_count': len(mock_triples),
+                    'mock': True,
+                    'message': "Using mock guideline responses"
+                }
+            
+            # Try MCP server for ontology term extraction
+            try:
+                mcp_url = self.mcp_client.mcp_url
+                if mcp_url:
+                    logger.info(f"Using MCP server for ontology term extraction")
+                    
+                    # First extract concepts from the text
+                    extract_response = requests.post(
+                        f"{mcp_url}/jsonrpc",
+                        json={
+                            "jsonrpc": "2.0",
+                            "method": "call_tool",
+                            "params": {
+                                "name": "extract_guideline_concepts",
+                                "arguments": {
+                                    "content": guideline_text[:50000],  # Limit content length
+                                    "ontology_source": ontology_source
+                                }
+                            },
+                            "id": 1
+                        },
+                        timeout=60
+                    )
+                    
+                    if extract_response.status_code == 200:
+                        extract_result = extract_response.json()
+                        if "result" in extract_result and "concepts" in extract_result["result"]:
+                            concepts = extract_result["result"]["concepts"]
+                            
+                            # Select all concepts (you could be more selective here)
+                            selected_indices = list(range(len(concepts)))
+                            
+                            # Now generate triples for these concepts
+                            response = requests.post(
+                                f"{mcp_url}/jsonrpc",
+                                json={
+                                    "jsonrpc": "2.0",
+                                    "method": "call_tool",
+                                    "params": {
+                                        "name": "generate_concept_triples",
+                                        "arguments": {
+                                            "concepts": concepts,
+                                            "selected_indices": selected_indices,
+                                            "ontology_source": ontology_source,
+                                            "namespace": f"http://proethica.org/guidelines/guideline_{guideline_id}/",
+                                            "output_format": "json"
+                                        }
+                                    },
+                                    "id": 2
+                                },
+                                timeout=60
+                            )
+                    
+                            if response and response.status_code == 200:
+                                result = response.json()
+                                if "result" in result and "triples" in result["result"]:
+                                    triples = result["result"]["triples"]
+                                    logger.info(f"MCP server extracted {len(triples)} ontology term triples")
+                                    return {
+                                        'success': True,
+                                        'triples': triples,
+                                        'triple_count': len(triples)
+                                    }
+                                elif "error" in result:
+                                    logger.error(f"MCP server error: {result['error']}")
+                        else:
+                            logger.warning("Failed to extract concepts from text")
+                            
+            except Exception as e:
+                logger.warning(f"MCP server error, falling back to mock: {str(e)}")
+            
+            # Fall back to mock triples if MCP fails
+            logger.info("Falling back to mock ontology term extraction")
+            mock_triples = self._generate_mock_ontology_triples(guideline_text, world_id, guideline_id)
+            return {
+                'success': True,
+                'triples': mock_triples,
+                'triple_count': len(mock_triples),
+                'fallback': True,
+                'message': "MCP server unavailable, using mock data"
+            }
+                
+        except Exception as e:
+            logger.error(f"Error in extract_ontology_terms_from_text: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'triples': [],
+                'triple_count': 0
+            }
+    
+    def _generate_mock_ontology_triples(self, guideline_text: str, world_id: int, guideline_id: int) -> List[Dict[str, Any]]:
+        """Generate mock ontology term triples for testing."""
+        mock_triples = []
+        
+        namespace = "http://proethica.org/guidelines/"
+        ontology_namespace = "http://proethica.org/ontology/"
+        guideline_uri = f"{namespace}guideline_{guideline_id}"
+        
+        # Mock some common ontology terms that might be found in engineering ethics text
+        mock_terms = [
+            {"term": "Engineer", "category": "role", "uri": f"{ontology_namespace}Engineer"},
+            {"term": "Public Safety", "category": "principle", "uri": f"{ontology_namespace}PublicSafety"},
+            {"term": "Professional Competence", "category": "capability", "uri": f"{ontology_namespace}ProfessionalCompetence"},
+            {"term": "Conflict of Interest", "category": "condition", "uri": f"{ontology_namespace}ConflictOfInterest"},
+            {"term": "Ethical Decision", "category": "action", "uri": f"{ontology_namespace}EthicalDecision"}
+        ]
+        
+        # Add mock triples for terms that might appear in the text
+        for i, term_info in enumerate(mock_terms):
+            if i >= 3:  # Limit to 3 mock terms
+                break
+                
+            # Add mention triple
+            mention_triple = {
+                'subject': guideline_uri,
+                'subject_label': f'Guideline {guideline_id}',
+                'predicate': f"{ontology_namespace}mentionsTerm",
+                'predicate_label': 'mentions term',
+                'object_uri': term_info['uri'],
+                'object_label': term_info['term'],
+                'triple_metadata': {
+                    'confidence': 0.8,
+                    'text_snippet': f"...{term_info['term'].lower()}...",
+                    'category': term_info['category'],
+                    'mock': True
+                }
+            }
+            mock_triples.append(mention_triple)
+            
+            # Add category-specific relationship
+            category = term_info['category']
+            if category == 'role':
+                rel_triple = {
+                    'subject': guideline_uri,
+                    'subject_label': f'Guideline {guideline_id}',
+                    'predicate': f"{ontology_namespace}definesRole",
+                    'predicate_label': 'defines role',
+                    'object_uri': term_info['uri'],
+                    'object_label': term_info['term']
+                }
+                mock_triples.append(rel_triple)
+            elif category == 'principle':
+                rel_triple = {
+                    'subject': guideline_uri,
+                    'subject_label': f'Guideline {guideline_id}',
+                    'predicate': f"{ontology_namespace}embodiesPrinciple",
+                    'predicate_label': 'embodies principle',
+                    'object_uri': term_info['uri'],
+                    'object_label': term_info['term']
+                }
+                mock_triples.append(rel_triple)
+        
+        return mock_triples
+    
     def generate_triples_for_concepts(self, concepts: List[Dict[str, Any]], 
                                     world_id: int, 
                                     guideline_id: Optional[int] = None,
                                     ontology_source: Optional[str] = None) -> Dict[str, Any]:
         """
-        Generate RDF triples for the given concepts.
+        Generate RDF triples for the given saved concepts.
+        Skips concept extraction and goes directly to triple generation.
+        
+        Args:
+            concepts: List of saved concept dictionaries with 'label', 'type', 'description'
+            world_id: World ID for context
+            guideline_id: Guideline ID for triple association
+            ontology_source: Ontology to align with (default: 'engineering-ethics')
+            
+        Returns:
+            Dict with generated triples and metadata
         """
-        # This method would remain largely the same as the original
-        # Implementation details for triple generation...
-        pass
+        try:
+            logger.info(f"Generating triples for {len(concepts)} saved concepts")
+            
+            # Set default ontology source
+            if not ontology_source:
+                ontology_source = 'engineering-ethics'
+            
+            # Convert saved concepts to the format expected by MCP server
+            mcp_concepts = []
+            for i, concept in enumerate(concepts):
+                mcp_concept = {
+                    'id': f'concept_{i}',
+                    'label': concept.get('label', 'Unknown Concept'),
+                    'description': concept.get('description', ''),
+                    'category': concept.get('type', 'concept').lower()
+                }
+                mcp_concepts.append(mcp_concept)
+            
+            # If mock responses are enabled, return mock triples
+            if self.use_mock_responses:
+                logger.info("Using mock triple generation for saved concepts")
+                mock_triples = self._generate_mock_ontology_triples("", world_id, guideline_id or 0)
+                return {
+                    'success': True,
+                    'triples': mock_triples,
+                    'triple_count': len(mock_triples),
+                    'mock': True,
+                    'message': "Using mock guideline responses"
+                }
+            
+            # Try MCP server for triple generation
+            try:
+                mcp_url = self.mcp_client.mcp_url
+                if mcp_url:
+                    logger.info(f"Using MCP server for triple generation from saved concepts")
+                    
+                    # Generate triples for saved concepts - select all concepts
+                    selected_indices = list(range(len(mcp_concepts)))
+                    
+                    response = requests.post(
+                        f"{mcp_url}/jsonrpc",
+                        json={
+                            "jsonrpc": "2.0",
+                            "method": "call_tool",
+                            "params": {
+                                "name": "generate_concept_triples",
+                                "arguments": {
+                                    "concepts": mcp_concepts,
+                                    "selected_indices": selected_indices,
+                                    "ontology_source": ontology_source,
+                                    "namespace": f"http://proethica.org/guidelines/guideline_{guideline_id}/",
+                                    "output_format": "json"
+                                }
+                            },
+                            "id": 1
+                        },
+                        timeout=60
+                    )
+            
+                    if response and response.status_code == 200:
+                        result = response.json()
+                        if "result" in result and "triples" in result["result"]:
+                            triples = result["result"]["triples"]
+                            logger.info(f"MCP server generated {len(triples)} triples from saved concepts")
+                            return {
+                                'success': True,
+                                'triples': triples,
+                                'triple_count': len(triples),
+                                'term_count': len(concepts)
+                            }
+                        elif "error" in result:
+                            logger.error(f"MCP server error: {result['error']}")
+                    else:
+                        logger.warning(f"MCP server returned status {response.status_code}")
+                        
+            except Exception as e:
+                logger.warning(f"MCP server error, falling back to mock: {str(e)}")
+            
+            # Fall back to mock triples if MCP fails
+            logger.info("Falling back to mock triple generation for saved concepts")
+            mock_triples = self._generate_mock_ontology_triples("", world_id, guideline_id or 0)
+            return {
+                'success': True,
+                'triples': mock_triples,
+                'triple_count': len(mock_triples),
+                'term_count': len(concepts),
+                'fallback': True,
+                'message': "MCP server unavailable, using mock data"
+            }
+                
+        except Exception as e:
+            logger.error(f"Error in generate_triples_for_concepts: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'triples': [],
+                'triple_count': 0
+            }

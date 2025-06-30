@@ -86,4 +86,17 @@ app = create_app('config')
 
 if __name__ == '__main__':
     print(f"Starting Flask server on port {args.port}...")
-    app.run(host='0.0.0.0', port=args.port, debug=(environment == 'development'))
+    
+    # Start the Flask development server
+    try:
+        app.run(
+            host='0.0.0.0',
+            port=args.port,
+            debug=(environment == 'development'),
+            use_reloader=False  # Disable reloader to avoid conflicts with debugger
+        )
+    except KeyboardInterrupt:
+        print("\nServer stopped by user")
+    except Exception as e:
+        print(f"Error starting server: {e}")
+        raise

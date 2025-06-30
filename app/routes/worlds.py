@@ -162,6 +162,8 @@ def view_world(id):
             
             # Debug logging
             print(f"Retrieved entities result: {entities.keys() if isinstance(entities, dict) else 'not a dict'}")
+            if isinstance(entities, dict):
+                print(f"is_mock value: {entities.get('is_mock', 'not found')}")
             if 'entities' in entities:
                 entity_types = entities['entities'].keys() if isinstance(entities['entities'], dict) else 'not a dict'
                 print(f"Entity types: {entity_types}")
@@ -188,18 +190,19 @@ def view_world(id):
     # Get dynamic entity type configuration from proethica-intermediate ontology
     entity_type_config = _get_dynamic_entity_type_config(world)
     
-    # Build dynamic entity tabs - only include tabs that have entities
+    # Build dynamic entity tabs - include all tabs from ontology configuration
     entity_tabs = []
     if 'entities' in entities and isinstance(entities['entities'], dict):
         for entity_key, display_name, description in entity_type_config:
-            if entity_key in entities['entities'] and len(entities['entities'][entity_key]) > 0:
-                entity_tabs.append({
-                    'key': entity_key,
-                    'name': display_name,
-                    'description': description,
-                    'count': len(entities['entities'][entity_key]),
-                    'entities': entities['entities'][entity_key]
-                })
+            # Get entities for this type, or empty list if none exist
+            entity_list = entities['entities'].get(entity_key, [])
+            entity_tabs.append({
+                'key': entity_key,
+                'name': display_name,
+                'description': description,
+                'count': len(entity_list),
+                'entities': entity_list
+            })
     
     return render_template('world_detail_dynamic.html', world=world, entities=entities, 
                            entity_tabs=entity_tabs, guidelines=guidelines,
@@ -636,30 +639,11 @@ def view_guideline(id, document_id):
                 if related_guideline.guideline_metadata and 'concepts_selected' in related_guideline.guideline_metadata:
                     concept_count = related_guideline.guideline_metadata['concepts_selected']
                 
-                # Extract concepts from triples to display in the UI
+                # Get concepts from guideline metadata if available
                 concepts = []
-                # Group triples by subject to form concept objects
-                subject_groups = {}
-                for triple in triples:
-                    if triple.subject not in subject_groups:
-                        subject_groups[triple.subject] = {
-                            'subject': triple.subject,
-                            'subject_label': triple.subject_label or triple.subject.split('/')[-1],
-                            'description': None,
-                            'type_label': None
-                        }
-                    
-                    # Check for rdf:type predicates to get concept type
-                    if triple.predicate.endswith('#type') or triple.predicate.endswith('/type'):
-                        subject_groups[triple.subject]['type_label'] = triple.object_label or (triple.object_uri and triple.object_uri.split('/')[-1]) or "Concept"
-                    
-                    # Check for description predicates
-                    if triple.predicate.endswith('#comment') or triple.predicate.endswith('/comment') or 'description' in triple.predicate or 'definition' in triple.predicate:
-                        subject_groups[triple.subject]['description'] = triple.object_literal or triple.object_uri
-                
-                # Convert grouped data to list of concepts
-                concepts = list(subject_groups.values())
-                logger.info(f"Extracted {len(concepts)} concepts from {triple_count} triples for display")
+                if related_guideline.guideline_metadata and 'concepts' in related_guideline.guideline_metadata:
+                    concepts = related_guideline.guideline_metadata['concepts']
+                    logger.info(f"Retrieved {len(concepts)} concepts from guideline metadata")
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -708,10 +692,13 @@ def manage_guideline_triples(world_id, guideline_id):
     if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
         actual_guideline_id = guideline.doc_metadata['guideline_id']
     
-    # Get all triples for this guideline
+    # Get all triples for this guideline (with proper world filtering)
     from app.models.entity_triple import EntityTriple
     if actual_guideline_id:
-        triples = EntityTriple.query.filter_by(guideline_id=actual_guideline_id).all()
+        triples = EntityTriple.query.filter_by(
+            guideline_id=actual_guideline_id,
+            world_id=world.id
+        ).all()
     else:
         triples = EntityTriple.query.filter_by(
             guideline_id=guideline.id,
@@ -731,6 +718,12 @@ def manage_guideline_triples(world_id, guideline_id):
     for triple in triples:
         # Check if this triple exists in ontology or database
         object_value = triple.object_uri if triple.object_uri else triple.object_literal
+        
+        # Skip triples with no object value
+        if object_value is None:
+            logger.warning(f"Skipping triple with None object value: {triple.subject} {triple.predicate}")
+            continue
+            
         duplicate_result = duplicate_service.check_duplicate_with_details(
             triple.subject,
             triple.predicate,
@@ -1457,7 +1450,7 @@ def save_guideline_concepts(world_id, document_id):
                     concept_uri = f"{namespace}{concept_label.lower().replace(' ', '_')}"
                     
                     # Create basic triples for this concept
-                    # 1. Type triple
+                    # 1. Type triple (with type mapping metadata)
                     type_triple = EntityTriple(
                         subject=concept_uri,
                         subject_label=concept_label,
@@ -1470,7 +1463,12 @@ def save_guideline_concepts(world_id, document_id):
                         entity_id=new_guideline.id,
                         guideline_id=new_guideline.id,
                         world_id=world_id,
-                        graph=f"guideline_{new_guideline.id}"
+                        graph=f"guideline_{new_guideline.id}",
+                        # Store type mapping metadata from GuidelineAnalysisService
+                        original_llm_type=concept.get("original_llm_type"),
+                        type_mapping_confidence=concept.get("type_mapping_confidence"),
+                        needs_type_review=concept.get("needs_type_review", False),
+                        mapping_justification=concept.get("mapping_justification")
                     )
                     db.session.add(type_triple)
                     created_triple_count += 1
@@ -1523,10 +1521,24 @@ def save_guideline_concepts(world_id, document_id):
                 "analysis_date": datetime.utcnow().isoformat()
             }
             
-            # Also update the guideline_metadata with the triple count
+            # Store the selected concepts in guideline metadata
+            selected_concepts_for_storage = []
+            for idx in selected_indices:
+                if idx < len(concepts):
+                    concept = concepts[idx]
+                    selected_concepts_for_storage.append({
+                        'label': concept.get('label', 'Unknown Concept'),
+                        'type': concept.get('type', 'concept'),
+                        'category': concept.get('category', concept.get('type_description', concept.get('type', 'concept'))),
+                        'description': concept.get('description', 'No description available')
+                    })
+            
+            # Update the guideline_metadata with concepts and triple count
             new_guideline.guideline_metadata = {
                 **(new_guideline.guideline_metadata or {}),
-                "triple_count": created_triple_count
+                "triple_count": created_triple_count,
+                "concepts": selected_concepts_for_storage,
+                "concepts_selected": len(selected_indices)
             }
             
             db.session.commit()
@@ -1773,10 +1785,13 @@ def save_guideline_triples(world_id, document_id):
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 def delete_guideline(id, document_id):
-    """Delete a guideline document."""
+    """Delete a guideline document and all associated data."""
     world = World.query.get_or_404(id)
     
     from app.models.document import Document
+    from app.models.guideline import Guideline
+    from app.models.entity_triple import EntityTriple
+    
     document = Document.query.get_or_404(document_id)
     
     # Check if document belongs to this world
@@ -1789,18 +1804,61 @@ def delete_guideline(id, document_id):
         flash('Document is not a guideline', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
-    # Delete the file if it exists
-    if document.file_path and os.path.exists(document.file_path):
-        try:
-            os.remove(document.file_path)
-        except Exception as e:
-            flash(f'Error deleting file: {str(e)}', 'warning')
+    # Get the associated guideline ID if exists
+    actual_guideline_id = None
+    if document.doc_metadata and 'guideline_id' in document.doc_metadata:
+        actual_guideline_id = document.doc_metadata['guideline_id']
+        logger.info(f"Deleting document {document_id} with associated guideline {actual_guideline_id}")
     
-    # Delete the document
-    db.session.delete(document)
-    db.session.commit()
+    # Delete associated data in order (due to foreign key constraints)
+    deleted_counts = {
+        'triples': 0,
+        'guideline': 0
+    }
     
-    flash('Guideline deleted successfully', 'success')
+    try:
+        # Use no_autoflush to prevent premature queries to related tables
+        with db.session.no_autoflush:
+            # 1. Delete entity triples associated with the guideline
+            if actual_guideline_id:
+                deleted_counts['triples'] = EntityTriple.query.filter_by(
+                    guideline_id=actual_guideline_id
+                ).delete(synchronize_session=False)
+                logger.info(f"Deleted {deleted_counts['triples']} triples for guideline {actual_guideline_id}")
+                
+                # 2. Delete the guideline entry
+                guideline = Guideline.query.get(actual_guideline_id)
+                if guideline:
+                    db.session.delete(guideline)
+                    deleted_counts['guideline'] = 1
+                    logger.info(f"Deleted guideline {actual_guideline_id}")
+            
+            # 3. Delete the file if it exists
+            if document.file_path and os.path.exists(document.file_path):
+                try:
+                    os.remove(document.file_path)
+                    logger.info(f"Deleted file {document.file_path}")
+                except Exception as e:
+                    flash(f'Error deleting file: {str(e)}', 'warning')
+            
+            # 4. Delete the document
+            db.session.delete(document)
+        
+        # Commit all deletions
+        db.session.commit()
+        
+        # Provide detailed feedback
+        if deleted_counts['triples'] > 0:
+            flash(f'Guideline deleted successfully along with {deleted_counts["triples"]} associated triples', 'success')
+        else:
+            flash('Guideline deleted successfully', 'success')
+            
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting guideline: {str(e)}")
+        flash(f'Error deleting guideline: {str(e)}', 'error')
+        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+    
     return redirect(url_for('worlds.world_guidelines', id=world.id))
 
 # References routes
@@ -1828,3 +1886,14 @@ def world_references(id):
         references = {'results': []}
     
     return render_template('world_references.html', world=world, references=references, query=query)
+
+# Scenarios routes
+@worlds_bp.route('/<int:id>/scenarios', methods=['GET'])
+def world_scenarios(id):
+    """Display scenarios for a specific world."""
+    world = World.query.get_or_404(id)
+    
+    # Get scenarios for this world
+    scenarios = Scenario.query.filter_by(world_id=world.id).all()
+    
+    return render_template('world_scenarios.html', world=world, scenarios=scenarios)

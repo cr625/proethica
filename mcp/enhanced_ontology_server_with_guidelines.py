@@ -10,7 +10,7 @@ import os
 import sys
 import json
 import logging
-from mcp.enhanced_debug_logging import log_debug_point, log_json_rpc_request, log_method_call
+# from mcp.enhanced_debug_logging import log_debug_point, log_json_rpc_request, log_method_call
 import asyncio
 import aiohttp
 from aiohttp import web
@@ -31,6 +31,8 @@ sys.path.insert(0, str(project_root))
 # Import MCP server and modules
 from mcp.http_ontology_mcp_server import OntologyMCPServer
 from mcp.modules.guideline_analysis_module import GuidelineAnalysisModule
+from mcp.modules.webvowl_visualization_module import WebVOWLVisualizationModule
+from mcp.modules.neo4j_visualization_module import Neo4jVisualizationModule
 
 class OntologyClientWrapper:
     """
@@ -147,6 +149,8 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         
         # Register additional modules
         self._register_guideline_analysis_module()
+        self._register_webvowl_visualization_module()
+        self._register_neo4j_visualization_module()
     
     def _init_anthropic_client(self):
         """Initialize the Anthropic client."""
@@ -363,7 +367,7 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         Returns:
             Result of the tool call
         """
-        log_debug_point(message="Handling tool call")
+        # log_debug_point(message="Handling tool call")
         name = params.get("name")
         arguments = params.get("arguments", {})
         
@@ -498,26 +502,103 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         except Exception as e:
             logger.error(f"Error registering guideline analysis module: {e}")
             raise
+    
+    def _register_webvowl_visualization_module(self):
+        """Register the WebVOWL visualization module."""
+        try:
+            # Create the module
+            webvowl_module = WebVOWLVisualizationModule()
+            
+            # Initialize with OWL2VOWL JAR path
+            webvowl_module.initialize()
+            
+            # Store in modules dict for later web route registration
+            self.modules['webvowl'] = webvowl_module
+            
+            logger.info("WebVOWL visualization module registered successfully")
+        except Exception as e:
+            logger.error(f"Error registering WebVOWL visualization module: {e}")
+            # Don't raise - visualization is optional
+    
+    def _register_neo4j_visualization_module(self):
+        """Register the Neo4j visualization module."""
+        try:
+            # Create the module
+            neo4j_module = Neo4jVisualizationModule()
+            
+            # Initialize with default Neo4j settings
+            neo4j_module.initialize()
+            
+            # Store in modules dict for later web route registration
+            self.modules['neo4j'] = neo4j_module
+            
+            logger.info("Neo4j visualization module registered successfully")
+        except Exception as e:
+            logger.error(f"Error registering Neo4j visualization module: {e}")
+            # Don't raise - visualization is optional
 
 async def run_server():
     """
     Run the enhanced ontology server with guidelines support.
     
-    This function creates and starts the server.
+    This function creates and starts the server with WebVOWL visualization.
     """
     # Create server
     server = EnhancedOntologyServerWithGuidelines()
     
-    # Start server
-    await server.start()
+    # Create web application
+    app = web.Application()
+    
+    # Add CORS middleware
+    @web.middleware
+    async def cors_middleware(request, handler):
+        response = await handler(request)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+    
+    app.middlewares.append(cors_middleware)
+    
+    # Register core MCP routes
+    app.router.add_post('/jsonrpc', server.handle_jsonrpc)
+    app.router.add_get('/api/ontology/{ontology_source}/entities', server.handle_get_entities)
+    app.router.add_get('/api/guidelines/{world_name}', server.handle_get_guidelines)
+    app.router.add_get('/health', server.handle_health)
+    
+    # Register WebVOWL visualization routes if module is available
+    if 'webvowl' in server.modules:
+        webvowl_module = server.modules['webvowl']
+        await webvowl_module.create_visualization_routes(app)
+        logger.info("WebVOWL visualization routes registered")
+    
+    # Register Neo4j visualization routes if module is available
+    if 'neo4j' in server.modules:
+        neo4j_module = server.modules['neo4j']
+        await neo4j_module.create_neo4j_routes(app)
+        logger.info("Neo4j visualization routes registered")
+    
+    # Start the web server
+    PORT = int(os.environ.get("MCP_SERVER_PORT", 5001))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, 'localhost', PORT)
+    await site.start()
+    
+    logger.info(f"Enhanced MCP Server with WebVOWL and Neo4j running on http://localhost:{PORT}")
+    logger.info(f"WebVOWL visualizations available at: http://localhost:{PORT}/visualization")
+    logger.info(f"Neo4j browser interface available at: http://localhost:{PORT}/neo4j")
     
     # Keep running until interrupted
     try:
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(3600)  # Sleep for an hour
+    except KeyboardInterrupt:
+        logger.info("Server shutdown requested")
     except asyncio.CancelledError:
-        # Shutdown server gracefully
-        await server.stop()
+        logger.info("Server cancelled")
+    finally:
+        await runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(run_server())

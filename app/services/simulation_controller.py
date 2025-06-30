@@ -179,7 +179,7 @@ class SimulationController:
         return state
     
     def _get_timeline_items(self, scenario) -> List[Dict[str, Any]]:
-        """Get all timeline items (events and actions) sorted by time."""
+        """Get all timeline items (events, actions, and decisions) sorted by time."""
         items = []
         
         # Add actions
@@ -215,6 +215,38 @@ class SimulationController:
                     'time': event.event_time,
                     'data': event_dict,
                     'is_decision': False
+                })
+        
+        # Add decisions from the decisions table
+        if hasattr(scenario, 'decisions') and scenario.decisions:
+            for decision in scenario.decisions:
+                # Convert decision options from JSON to list format for simulation
+                options = []
+                if decision.options and isinstance(decision.options, dict):
+                    options_data = decision.options.get('options', [])
+                    for opt in options_data:
+                        if isinstance(opt, dict):
+                            # Extract the option text for simulation display
+                            option_text = f"{opt.get('title', '')}: {opt.get('description', '')}"
+                            options.append(option_text)
+                        else:
+                            options.append(str(opt))
+                
+                # Convert decision to dictionary format
+                decision_dict = {
+                    'id': decision.id,
+                    'description': decision.description,
+                    'options': options,
+                    'question': decision.options.get('question', '') if decision.options else '',
+                    'context': decision.options.get('context', '') if decision.options else '',
+                    'full_options_data': decision.options  # Keep full data for detailed analysis
+                }
+                
+                items.append({
+                    'type': 'decision',
+                    'time': decision.decision_time,
+                    'data': decision_dict,
+                    'is_decision': True
                 })
         
         # Sort by time

@@ -7,13 +7,15 @@ import re
 import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from flask_login import current_user
+from app.utils.auth_utils import login_required, get_current_user
 from app.models.document import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db
 from app.services.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
+from app.services.case_to_scenario_service import CaseToScenarioService
+from app.services.scenario_generation_service import ScenarioGenerationService
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -350,9 +352,22 @@ def view_case(id):
     except Exception as e:
         flash(f"Warning: Could not retrieve entity triples or related cases: {str(e)}", 'warning')
     
+    # Get ontology term links for hover functionality
+    term_links_by_section = {}
+    try:
+        from app.models.section_term_link import SectionTermLink
+        document_term_links = SectionTermLink.get_document_term_links(document.id)
+        
+        if document_term_links:
+            term_links_by_section = document_term_links
+            logger.info(f"Loaded term links for document {document.id}: {len(document_term_links)} sections")
+    except Exception as e:
+        logger.warning(f"Could not load term links for document {document.id}: {str(e)}")
+    
     return render_template('case_detail.html', case=case, world=world, 
                           entity_triples=entity_triples, 
-                          knowledge_graph_connections=knowledge_graph_connections)
+                          knowledge_graph_connections=knowledge_graph_connections,
+                          term_links_by_section=term_links_by_section)
 
 @cases_bp.route('/new', methods=['GET'])
 def case_options():
@@ -673,6 +688,37 @@ def process_url_pipeline():
         db.session.add(document)
         db.session.commit()
         
+        # Generate section embeddings after saving the document
+        logger.info(f"Generating section embeddings for document ID: {document.id}")
+        try:
+            from app.services.section_embedding_service import SectionEmbeddingService
+            section_embedding_service = SectionEmbeddingService()
+            
+            # Process document sections to generate embeddings
+            embedding_result = section_embedding_service.process_document_sections(document.id)
+            
+            if embedding_result.get('success'):
+                logger.info(f"Successfully generated embeddings for {embedding_result.get('sections_embedded')} sections")
+                # Update document metadata with embedding info
+                if 'document_structure' not in metadata:
+                    metadata['document_structure'] = {}
+                
+                metadata['document_structure']['section_embeddings'] = {
+                    'count': embedding_result.get('sections_embedded', 0),
+                    'updated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    'storage_type': 'pgvector'
+                }
+                
+                # Save the updated metadata
+                document.doc_metadata = metadata
+                db.session.commit()
+                logger.info("Updated document metadata with section embedding information")
+            else:
+                logger.warning(f"Failed to generate section embeddings: {embedding_result.get('error')}")
+        except Exception as e:
+            logger.error(f"Error generating section embeddings: {str(e)}")
+            # Continue anyway - embeddings can be generated later
+        
         # Log success with document ID and structure information
         logger.info(f"Case saved successfully with ID: {document.id}, includes document structure: {'document_structure' in metadata}")
         
@@ -872,6 +918,7 @@ def create_from_url():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
+        current_user = get_current_user()
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1221,6 +1268,7 @@ def save_and_view_case():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
+        current_user = get_current_user()
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1559,3 +1607,183 @@ def get_related_cases():
         return jsonify({'related_cases': matching_cases})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# Scenario Generation Routes
+@cases_bp.route('/<int:case_id>/generate_scenario', methods=['POST'])
+@login_required
+def generate_scenario_from_case(case_id):
+    """Generate a scenario from a case using background processing."""
+    try:
+        logger.info(f"Starting scenario generation for case {case_id}")
+        
+        case = Document.query.get_or_404(case_id)
+        scenario_service = CaseToScenarioService()
+        
+        # Check if case can be deconstructed
+        can_process, reason = scenario_service.can_deconstruct_case(case)
+        logger.info(f"Can deconstruct case {case_id}: {can_process}, reason: {reason}")
+        
+        if not can_process:
+            return jsonify({
+                'success': False,
+                'error': f'Cannot generate scenario: {reason}'
+            }), 400
+        
+        # Start async processing
+        task_id = scenario_service.deconstruct_case_async(case_id)
+        logger.info(f"Started async deconstruction for case {case_id} with task_id: {task_id}")
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': 'Scenario generation started'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting scenario generation for case {case_id}: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/<int:case_id>/scenario_generation_progress', methods=['GET'])
+def get_scenario_generation_progress(case_id):
+    """Get the progress of scenario generation for a case."""
+    try:
+        scenario_service = CaseToScenarioService()
+        progress = scenario_service.get_deconstruction_progress(case_id)
+        
+        return jsonify({
+            'success': True,
+            'progress': progress
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting scenario generation progress for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/<int:case_id>/scenario_status', methods=['GET'])
+def get_scenario_status(case_id):
+    """Check if a case has been deconstructed and can generate scenarios."""
+    try:
+        from app.models.deconstructed_case import DeconstructedCase
+        from app.models.scenario_template import ScenarioTemplate
+        
+        case = Document.query.get_or_404(case_id)
+        scenario_service = CaseToScenarioService()
+        
+        # Check if case can be deconstructed
+        can_deconstruct, reason = scenario_service.can_deconstruct_case(case)
+        
+        # Check if case has been deconstructed
+        deconstructed = DeconstructedCase.query.filter_by(case_id=case_id).first()
+        
+        # Check if scenario templates exist
+        templates = []
+        if deconstructed:
+            templates = ScenarioTemplate.query.filter_by(deconstructed_case_id=deconstructed.id).all()
+        
+        return jsonify({
+            'success': True,
+            'can_deconstruct': can_deconstruct,
+            'deconstruct_reason': reason,
+            'is_deconstructed': deconstructed is not None,
+            'deconstructed_case_id': deconstructed.id if deconstructed else None,
+            'has_templates': len(templates) > 0,
+            'template_count': len(templates),
+            'templates': [{'id': t.id, 'title': t.title} for t in templates]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting scenario status for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/<int:case_id>/create_scenario_template', methods=['POST'])
+@login_required
+def create_scenario_template(case_id):
+    """Create a scenario template from a deconstructed case."""
+    try:
+        from app.models.deconstructed_case import DeconstructedCase
+        
+        # Get the deconstructed case
+        deconstructed = DeconstructedCase.query.filter_by(case_id=case_id).first()
+        if not deconstructed:
+            return jsonify({
+                'success': False,
+                'error': 'Case must be deconstructed first'
+            }), 400
+        
+        # Generate scenario template
+        generation_service = ScenarioGenerationService()
+        template = generation_service.generate_scenario_template(deconstructed)
+        
+        if not template:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to generate scenario template'
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'template_id': template.id,
+            'template_title': template.title,
+            'message': 'Scenario template created successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating scenario template for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/templates/<int:template_id>/create_scenario', methods=['POST'])
+@login_required
+def create_scenario_from_template(template_id):
+    """Create a playable scenario from a template."""
+    try:
+        from app.models.scenario_template import ScenarioTemplate
+        
+        template = ScenarioTemplate.query.get_or_404(template_id)
+        
+        # Get customizations from request
+        customizations = request.json or {}
+        
+        # Create scenario instance
+        generation_service = ScenarioGenerationService()
+        scenario = generation_service.create_scenario_instance(
+            template, 
+            get_current_user().id,
+            customizations
+        )
+        
+        if not scenario:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to create scenario instance'
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'scenario_id': scenario.id,
+            'scenario_title': scenario.title,
+            'redirect_url': url_for('scenarios.view_scenario', id=scenario.id)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating scenario from template {template_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

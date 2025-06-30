@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Domain Registry Test{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Domain Registry Test</h1>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3>Domain Registry Status</h3>
+                </div>
+                <div class="card-body">
+                    <p><strong>Total Domains Registered:</strong> {{ domains|length }}</p>
+                    <p><strong>Available Domains:</strong> {{ domains.keys()|list|join(', ') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h3>Adapter Test Result</h3>
+                </div>
+                <div class="card-body">
+                    {% if adapter_test %}
+                        {% if adapter_test.success %}
+                            <div class="alert alert-success">
+                                <strong>✓ Success!</strong> {{ adapter_test.message }}
+                                <br>
+                                <strong>Adapter Class:</strong> {{ adapter_test.adapter_class }}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger">
+                                <strong>✗ Error:</strong> {{ adapter_test.message }}
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            No adapter test performed.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for domain_name, config in domains.items() %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h4>{{ config.display_name }}</h4>
+                    <small>Domain: {{ config.name }}</small>
+                </div>
+                <div class="card-body">
+                    <p><strong>Description:</strong> {{ config.description }}</p>
+                    <p><strong>Adapter:</strong> <code>{{ config.adapter_class_name }}</code></p>
+                    <p><strong>Ontology:</strong> <small>{{ config.ontology_namespace }}</small></p>
+                    
+                    <h5>Guideline Sections:</h5>
+                    <ul class="list-unstyled">
+                        {% for section in config.guideline_sections %}
+                        <li><span class="badge badge-primary">{{ section }}</span></li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <h5>Case Sections:</h5>
+                    <ul class="list-unstyled">
+                        {% for section in config.case_sections %}
+                        <li><span class="badge badge-secondary">{{ section }}</span></li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <h5>Extraction Patterns:</h5>
+                    <div class="small">
+                        {% for pattern_type, patterns in config.extraction_patterns.items() %}
+                        <p class="mb-1">
+                            <strong>{{ pattern_type }}:</strong> 
+                            {{ patterns|length }} patterns
+                        </p>
+                        {% endfor %}
+                    </div>
+                    
+                    <h5>MCP Modules:</h5>
+                    <ul class="list-unstyled">
+                        {% for module in config.mcp_modules %}
+                        <li><span class="badge badge-info">{{ module }}</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h3>API Endpoints</h3>
+                </div>
+                <div class="card-body">
+                    <p>Test the following API endpoints:</p>
+                    <ul>
+                        <li><a href="{{ url_for('domains.api_list_domains') }}" target="_blank">GET /domains/api/domains</a> - List all domains</li>
+                        <li><a href="{{ url_for('domains.api_get_domain', domain_name='engineering') }}" target="_blank">GET /domains/api/domains/engineering</a> - Get engineering domain</li>
+                        <li><code>POST /domains/api/domains/reload</code> - Reload domain configurations</li>
+                    </ul>
+                    
+                    <button class="btn btn-warning" onclick="reloadDomains()">Reload Domain Configurations</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function reloadDomains() {
+    fetch('{{ url_for("domains.api_reload_domains") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Domain configurations reloaded successfully!');
+            location.reload();
+        } else {
+            alert('Error reloading domains: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+    });
+}
+</script>
+{% endblock %}

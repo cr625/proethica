@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}{{ concept.subject_label or 'Concept' }} - Type Management{% endblock %}
+
+{% block styles %}
+<style>
+    .confidence-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        position: relative;
+    }
+    
+    .confidence-indicator {
+        width: 3px;
+        height: 12px;
+        background: #000;
+        position: absolute;
+        top: -2px;
+    }
+    
+    .metadata-card {
+        border-left: 4px solid #007bff;
+    }
+    
+    .review-card {
+        border-left: 4px solid #ffc107;
+    }
+    
+    .triple-card {
+        border-left: 4px solid #28a745;
+    }
+    
+    .similar-concept-card {
+        transition: transform 0.2s;
+        cursor: pointer;
+    }
+    
+    .similar-concept-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-gear me-2"></i>{{ concept.subject_label or 'Unknown Concept' }}</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('type_management.dashboard') }}">Type Management</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('type_management.concept_list') }}">Concepts</a></li>
+                    <li class="breadcrumb-item active">{{ concept.subject_label or 'Concept' }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('type_management.concept_list') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to List
+            </a>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-md-8">
+            <!-- Type Mapping Information -->
+            <div class="card metadata-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-tag me-2"></i>Type Mapping Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="fw-bold">Current Type:</label>
+                                <div>
+                                    <span class="badge bg-primary fs-6">{{ concept.object_literal }}</span>
+                                </div>
+                            </div>
+                            
+                            {% if concept.original_llm_type and concept.original_llm_type != concept.object_literal %}
+                            <div class="mb-3">
+                                <label class="fw-bold">Original LLM Type:</label>
+                                <div>
+                                    <span class="badge bg-secondary">{{ concept.original_llm_type }}</span>
+                                    <i class="bi bi-arrow-right mx-2"></i>
+                                    <span class="badge bg-primary">{{ concept.object_literal }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            {% if concept.type_mapping_confidence %}
+                            <div class="mb-3">
+                                <label class="fw-bold">Mapping Confidence:</label>
+                                <div>
+                                    <span class="fw-bold">{{ "%.1f"|format(concept.type_mapping_confidence * 100) }}%</span>
+                                    <div class="confidence-bar mt-1">
+                                        <div class="confidence-indicator" style="left: {{ concept.type_mapping_confidence * 100 }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="mb-3">
+                                <label class="fw-bold">Review Status:</label>
+                                <div>
+                                    {% if concept.needs_type_review %}
+                                    <span class="badge bg-warning"><i class="bi bi-exclamation-triangle me-1"></i>Needs Review</span>
+                                    {% else %}
+                                    <span class="badge bg-success"><i class="bi bi-check me-1"></i>Approved</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if concept.mapping_justification %}
+                    <div class="mb-3">
+                        <label class="fw-bold">Mapping Justification:</label>
+                        <p class="mb-0">{{ concept.mapping_justification }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Type Update Form -->
+            {% if concept.needs_type_review %}
+            <div class="card review-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Update Type Mapping</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('type_management.update_concept_type', concept_id=concept.id) }}">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="new_type" class="form-label">New Type:</label>
+                                    <select class="form-select" id="new_type" name="new_type" required>
+                                        <option value="">Select a type...</option>
+                                        <option value="role" {{ 'selected' if concept.object_literal == 'role' }}>Role</option>
+                                        <option value="principle" {{ 'selected' if concept.object_literal == 'principle' }}>Principle</option>
+                                        <option value="obligation" {{ 'selected' if concept.object_literal == 'obligation' }}>Obligation</option>
+                                        <option value="state" {{ 'selected' if concept.object_literal == 'state' }}>State</option>
+                                        <option value="resource" {{ 'selected' if concept.object_literal == 'resource' }}>Resource</option>
+                                        <option value="action" {{ 'selected' if concept.object_literal == 'action' }}>Action</option>
+                                        <option value="event" {{ 'selected' if concept.object_literal == 'event' }}>Event</option>
+                                        <option value="capability" {{ 'selected' if concept.object_literal == 'capability' }}>Capability</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="review_status" name="review_status" value="approved">
+                                        <label class="form-check-label" for="review_status">
+                                            Mark as approved (no further review needed)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="notes" class="form-label">Review Notes:</label>
+                                    <textarea class="form-control" id="notes" name="notes" rows="4" 
+                                              placeholder="Add notes about this type change..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check me-1"></i>Update Type
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="cancelEdit()">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Related Triples -->
+            {% if related_triples %}
+            <div class="card triple-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Related Triples</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Predicate</th>
+                                    <th>Object</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for triple in related_triples %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ triple.predicate_label or triple.predicate|replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'rdf:')|replace('http://www.w3.org/2000/01/rdf-schema#', 'rdfs:')|replace('http://proethica.org/ontology/', '') }}</small>
+                                    </td>
+                                    <td>
+                                        {% if triple.object_literal %}
+                                        {{ triple.object_literal|truncate(50) }}
+                                        {% else %}
+                                        <small class="text-muted">{{ triple.object|replace('http://proethica.org/ontology/', '')|truncate(50) }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if triple.object_literal %}
+                                        <span class="badge bg-info">Literal</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">URI</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Concept Metadata -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Concept Details</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small class="text-muted">Subject URI:</small>
+                        <div class="small text-break">{{ concept.subject }}</div>
+                    </div>
+                    
+                    {% if guideline %}
+                    <div class="mb-2">
+                        <small class="text-muted">From Guideline:</small>
+                        <div>
+                            <a href="{{ url_for('worlds.guideline_detail', world_id=1, guideline_id=guideline.id) }}" 
+                               class="text-decoration-none">
+                                <i class="bi bi-book"></i> {{ guideline.title|truncate(30) }}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">Created:</small>
+                        <div class="small">{{ concept.created_at.strftime('%Y-%m-%d %H:%M') if concept.created_at else 'Unknown' }}</div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">ID:</small>
+                        <div class="small">{{ concept.id }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Similar Concepts -->
+            {% if similar_concepts %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-collection me-2"></i>Similar Concepts</h6>
+                </div>
+                <div class="card-body">
+                    {% for similar in similar_concepts %}
+                    <div class="similar-concept-card card mb-2" 
+                         onclick="window.location.href='{{ url_for('type_management.concept_detail', concept_id=similar.id) }}'">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold small">{{ similar.subject_label|truncate(25) }}</div>
+                                    <div class="text-muted small">{{ similar.object_literal }}</div>
+                                </div>
+                                {% if similar.type_mapping_confidence %}
+                                <span class="badge {% if similar.type_mapping_confidence >= 0.8 %}bg-success{% elif similar.type_mapping_confidence >= 0.6 %}bg-warning{% else %}bg-danger{% endif %} small">
+                                    {{ "%.0f"|format(similar.type_mapping_confidence * 100) }}%
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if concept.needs_type_review %}
+                        <button class="btn btn-success btn-sm" onclick="quickApprove()">
+                            <i class="bi bi-check"></i> Quick Approve
+                        </button>
+                        {% endif %}
+                        
+                        <a href="{{ url_for('type_management.concept_list', filter='with_metadata') }}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-list"></i> View Similar
+                        </a>
+                        
+                        {% if guideline %}
+                        <a href="{{ url_for('worlds.manage_guideline_triples', world_id=1, guideline_id=guideline.id) }}" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-diagram-3"></i> Manage Triples
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function cancelEdit() {
+    // Reset form or navigate back
+    window.location.href = '{{ url_for("type_management.concept_list") }}';
+}
+
+function quickApprove() {
+    if (confirm('Approve this concept with its current type mapping?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("type_management.update_concept_type", concept_id=concept.id) }}';
+        
+        // Keep current type
+        const typeInput = document.createElement('input');
+        typeInput.type = 'hidden';
+        typeInput.name = 'new_type';
+        typeInput.value = '{{ concept.object_literal }}';
+        form.appendChild(typeInput);
+        
+        // Mark as approved
+        const statusInput = document.createElement('input');
+        statusInput.type = 'hidden';
+        statusInput.name = 'review_status';
+        statusInput.value = 'approved';
+        form.appendChild(statusInput);
+        
+        // Add quick approval note
+        const notesInput = document.createElement('input');
+        notesInput.type = 'hidden';
+        notesInput.name = 'notes';
+        notesInput.value = 'Quick approved via concept detail page';
+        form.appendChild(notesInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

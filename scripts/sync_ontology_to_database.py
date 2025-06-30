@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Load environment variables from .env file if it exists
 from dotenv import load_dotenv

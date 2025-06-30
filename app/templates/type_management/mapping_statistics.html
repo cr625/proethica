@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Mapping Statistics - Type Management{% endblock %}
+
+{% block styles %}
+<style>
+    .stat-card {
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .mapping-row {
+        border-left: 3px solid #007bff;
+        background: #f8f9fa;
+        transition: background-color 0.2s;
+    }
+    
+    .mapping-row:hover {
+        background: #e9ecef;
+    }
+    
+    .accuracy-chart {
+        height: 300px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-graph-up me-2"></i>Mapping Statistics</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('type_management.dashboard') }}">Type Management</a></li>
+                    <li class="breadcrumb-item active">Statistics</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('type_management.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+            </a>
+            <button class="btn btn-primary" onclick="exportData()">
+                <i class="bi bi-download me-1"></i>Export Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Total Mappings</h6>
+                            <h3 class="mb-0">{{ mappings|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-arrow-left-right fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">High Accuracy</h6>
+                            <h3 class="mb-0">
+                                {% set high_accuracy = mappings|selectattr('mapping_confidence', 'ge', 0.8)|list|length %}
+                                {{ high_accuracy }}
+                            </h3>
+                            <small class="text-light">≥80% confidence</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-check-circle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Medium Accuracy</h6>
+                            <h3 class="mb-0">
+                                {% set medium_accuracy = mappings|selectattr('mapping_confidence', 'ge', 0.6)|selectattr('mapping_confidence', 'lt', 0.8)|list|length %}
+                                {{ medium_accuracy }}
+                            </h3>
+                            <small class="text-light">60-79% confidence</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Low Accuracy</h6>
+                            <h3 class="mb-0">
+                                {% set low_accuracy = mappings|selectattr('mapping_confidence', 'lt', 0.6)|list|length %}
+                                {{ low_accuracy }}
+                            </h3>
+                            <small class="text-light">&lt;60% confidence</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-x-circle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Accuracy Over Time Chart -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Mapping Accuracy Over Time</h5>
+                </div>
+                <div class="card-body">
+                    {% if accuracy_stats %}
+                    <div class="accuracy-chart d-flex align-items-center justify-content-center text-muted">
+                        <div class="text-center">
+                            <i class="bi bi-graph-up display-4"></i>
+                            <p>Chart visualization would appear here</p>
+                            <p class="small">
+                                Data points: {{ accuracy_stats|length }}<br>
+                                Latest avg confidence: 
+                                {% if accuracy_stats %}
+                                    {{ "%.1f"|format(accuracy_stats[-1].avg_confidence * 100) }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-graph-up display-4"></i>
+                        <p>No accuracy data available yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Most Active Mappings -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Most Used Mappings</h5>
+                </div>
+                <div class="card-body">
+                    {% if mappings %}
+                        {% for mapping in mappings[:10] %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <div class="fw-bold small">{{ mapping.original_llm_type|truncate(15) }}</div>
+                                <div class="text-muted small">→ {{ mapping.mapped_to_type }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="badge bg-primary">{{ mapping.usage_count }}</div>
+                                <div class="small text-muted">{{ "%.0f"|format(mapping.mapping_confidence * 100) }}%</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No mapping data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Most Common Mappings Table -->
+    {% if common_mappings %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-table me-2"></i>Most Common Mappings</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Original LLM Type</th>
+                                    <th>Mapped To</th>
+                                    <th>Count</th>
+                                    <th>Avg Confidence</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mapping in common_mappings %}
+                                <tr class="mapping-row">
+                                    <td>
+                                        <span class="badge bg-secondary">{{ mapping[0] or 'Unknown' }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ mapping[1] }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">{{ mapping[2] }}</span>
+                                    </td>
+                                    <td>
+                                        {% if mapping[3] %}
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2">{{ "%.1f"|format(mapping[3] * 100) }}%</span>
+                                            <div class="flex-grow-1">
+                                                <div class="progress" style="height: 6px;">
+                                                    <div class="progress-bar {% if mapping[3] >= 0.8 %}bg-success{% elif mapping[3] >= 0.6 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                         style="width: {{ mapping[3] * 100 }}%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('type_management.concept_list', filter='with_metadata') }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> View Concepts
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Detailed Mapping Rules -->
+    {% if mappings %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>All Mapping Rules</h5>
+                    <small class="text-muted">{{ mappings|length }} total rules</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>LLM Type</th>
+                                    <th>Mapped Type</th>
+                                    <th>Confidence</th>
+                                    <th>Usage Count</th>
+                                    <th>Last Used</th>
+                                    <th>Auto/Manual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mapping in mappings %}
+                                <tr>
+                                    <td>
+                                        <code class="small">{{ mapping.original_llm_type }}</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ mapping.mapped_to_type }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="{% if mapping.mapping_confidence >= 0.8 %}text-success{% elif mapping.mapping_confidence >= 0.6 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ "%.2f"|format(mapping.mapping_confidence) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ mapping.usage_count }}</span>
+                                    </td>
+                                    <td class="small text-muted">
+                                        {{ mapping.last_used_at.strftime('%m/%d/%Y') if mapping.last_used_at else 'Never' }}
+                                    </td>
+                                    <td>
+                                        {% if mapping.is_automatic %}
+                                        <span class="badge bg-secondary">Auto</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Manual</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function exportData() {
+    // This would implement CSV/JSON export functionality
+    alert('Export functionality would be implemented here');
+}
+
+// Auto-refresh every 60 seconds for live stats
+setTimeout(function() {
+    location.reload();
+}, 60000);
+</script>
+{% endblock %}

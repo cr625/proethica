@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Test Recommendation Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-lightbulb"></i> Recommendation Engine Test</h1>
+                    <p class="text-muted">Test the new ethical recommendation engine with real case data</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engine Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3><i class="fas fa-rocket"></i> Recommendation Engine Status</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <h5><i class="fas fa-check-circle"></i> Engine Ready!</h5>
+                        <p>The recommendation engine is now operational and can generate ethical guidance based on:</p>
+                        <ul>
+                            <li><strong>Case-Guideline Associations</strong> with hybrid confidence scoring</li>
+                            <li><strong>Pattern Recognition</strong> for outcome prediction</li>
+                            <li><strong>Similar Case Analysis</strong> for precedent-based reasoning</li>
+                            <li><strong>Risk Assessment</strong> for ethical compliance</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Engine Capabilities</h5>
+                            <ul class="list-unstyled">
+                                <li><span class="badge badge-success">✓</span> Confidence-based ranking</li>
+                                <li><span class="badge badge-success">✓</span> Multi-type recommendations (action, principle, caution, consultation)</li>
+                                <li><span class="badge badge-success">✓</span> Risk level assessment</li>
+                                <li><span class="badge badge-success">✓</span> Implementation guidance</li>
+                                <li><span class="badge badge-success">✓</span> Stakeholder considerations</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Data Sources</h5>
+                            <ul class="list-unstyled">
+                                <li><span class="badge badge-primary">📊</span> Hybrid association scores (35% embedding + 25% LLM + others)</li>
+                                <li><span class="badge badge-primary">🔍</span> Pattern indicators with ethical correlations</li>
+                                <li><span class="badge badge-primary">📚</span> Similar case matching via semantic similarity</li>
+                                <li><span class="badge badge-primary">⚠️</span> Risk pattern recognition</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Cases -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-folder-open"></i> Cases Available for Recommendation Testing</h5>
+                </div>
+                <div class="card-body">
+                    {% if cases %}
+                    <p>The following cases have association data and can generate recommendations:</p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Case ID</th>
+                                    <th>Title</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for case in cases %}
+                                <tr>
+                                    <td>{{ case.id }}</td>
+                                    <td>{{ case.title }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('dashboard.case_recommendations', case_id=case.id) }}" 
+                                               class="btn btn-primary btn-sm">
+                                                <i class="fas fa-lightbulb"></i> Generate Recommendations
+                                            </a>
+                                            <a href="{{ url_for('dashboard.api_case_recommendations', case_id=case.id) }}" 
+                                               target="_blank" 
+                                               class="btn btn-outline-info btn-sm">
+                                                <i class="fas fa-code"></i> View JSON API
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> No Cases with Associations Found</h5>
+                        <p>To test the recommendation engine, you need cases with guideline associations. Try:</p>
+                        <ol>
+                            <li>Import some NSPE cases</li>
+                            <li>Run the association generation process</li>
+                            <li>Return to this page to test recommendations</li>
+                        </ol>
+                        
+                        <div class="mt-3">
+                            <a href="/cases/process_url" class="btn btn-primary">
+                                <i class="fas fa-file-import"></i> Import Cases
+                            </a>
+                            <a href="/structure" class="btn btn-secondary">
+                                <i class="fas fa-cogs"></i> Generate Associations
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Documentation -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-book"></i> API Documentation</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Recommendation Engine Endpoints:</h6>
+                    <ul>
+                        <li>
+                            <code>GET /dashboard/case/&lt;case_id&gt;/recommendations</code> 
+                            - HTML view of recommendations
+                        </li>
+                        <li>
+                            <code>GET /dashboard/api/case/&lt;case_id&gt;/recommendations</code> 
+                            - JSON API for recommendations
+                        </li>
+                        <li>
+                            <code>GET /dashboard/recommendations/test</code> 
+                            - This test page
+                        </li>
+                    </ul>
+                    
+                    <h6>Recommendation Types Generated:</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><span class="badge badge-primary">action</span> - Specific actions to take</li>
+                                <li><span class="badge badge-info">principle</span> - Ethical principles to follow</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><span class="badge badge-warning">caution</span> - Risk warnings and mitigation</li>
+                                <li><span class="badge badge-secondary">consultation</span> - Similar cases and precedents</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
