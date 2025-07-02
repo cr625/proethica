@@ -1833,7 +1833,13 @@ def delete_guideline(id, document_id):
                     deleted_counts['guideline'] = 1
                     logger.info(f"Deleted guideline {actual_guideline_id}")
             
-            # 3. Delete the file if it exists
+            # 3. Delete document chunks first (due to NOT NULL constraint on document_id)
+            from app.models.document import DocumentChunk
+            deleted_chunks = DocumentChunk.query.filter_by(document_id=document.id).delete(synchronize_session=False)
+            if deleted_chunks > 0:
+                logger.info(f"Deleted {deleted_chunks} document chunks for document {document.id}")
+            
+            # 4. Delete the file if it exists
             if document.file_path and os.path.exists(document.file_path):
                 try:
                     os.remove(document.file_path)
@@ -1841,7 +1847,7 @@ def delete_guideline(id, document_id):
                 except Exception as e:
                     flash(f'Error deleting file: {str(e)}', 'warning')
             
-            # 4. Delete the document
+            # 5. Delete the document
             db.session.delete(document)
         
         # Commit all deletions

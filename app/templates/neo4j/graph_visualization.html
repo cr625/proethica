@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProEthica Ontology Graph Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        select, input, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        #graph {
+            width: 100%;
+            height: 80vh;
+            border: 1px solid #ddd;
+        }
+        
+        .legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            max-width: 300px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #fadcd7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #27ae60;
+            background: #d5edda;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .stats {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ProEthica Ontology Graph Visualization</h1>
+        <p>Interactive visualization of ProEthica ontologies and their relationships</p>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="ontology-select">Ontology:</label>
+                <select id="ontology-select">
+                    <option value="all" {% if ontology == 'all' %}selected{% endif %}>All Ontologies</option>
+                    <option value="engineering-ethics" {% if ontology == 'engineering-ethics' %}selected{% endif %}>Engineering Ethics</option>
+                    <option value="proethica-intermediate" {% if ontology == 'proethica-intermediate' %}selected{% endif %}>ProEthica Intermediate</option>
+                    <option value="bfo" {% if ontology == 'bfo' %}selected{% endif %}>BFO</option>
+                    <option value="relationships" {% if ontology == 'relationships' %}selected{% endif %}>Cross-Ontology Relationships</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="limit-input">Max Nodes:</label>
+                <input type="number" id="limit-input" value="{{ limit }}" min="10" max="500" step="10">
+            </div>
+            
+            <div class="control-group">
+                <button id="load-btn">Load Graph</button>
+                <button id="reload-btn">Reload Ontologies</button>
+                <button id="reset-btn">Reset View</button>
+            </div>
+        </div>
+        
+        <div id="message-area"></div>
+        <div id="stats-area" class="stats"></div>
+    </div>
+    
+    <div class="graph-container">
+        <svg id="graph"></svg>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #3498db;"></div>
+                <span>ProEthica Intermediate</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e74c3c;"></div>
+                <span>Engineering Ethics</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #2ecc71;"></div>
+                <span>BFO</span>
+            </div>
+        </div>
+        
+        <div id="info-panel" class="info-panel">
+            <strong id="info-title">Node Information</strong>
+            <div id="info-content"></div>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            Loading graph data...
+        </div>
+    </div>
+
+    <script>
+        class OntologyGraphVisualization {
+            constructor() {
+                this.svg = d3.select("#graph");
+                this.width = window.innerWidth - 40;
+                this.height = window.innerHeight * 0.8;
+                this.nodes = [];
+                this.links = [];
+                this.simulation = null;
+                
+                this.initializeSVG();
+                this.setupEventListeners();
+                
+                // Auto-load if specified
+                if ({{ auto_load | tojson }}) {
+                    this.loadGraph();
+                }
+            }
+            
+            initializeSVG() {
+                this.svg
+                    .attr("width", this.width)
+                    .attr("height", this.height);
+                
+                // Add zoom behavior
+                const zoom = d3.zoom()
+                    .scaleExtent([0.1, 3])
+                    .on("zoom", (event) => {
+                        this.svg.select(".graph-group")
+                            .attr("transform", event.transform);
+                    });
+                
+                this.svg.call(zoom);
+                
+                // Create main group for graph elements
+                this.svg.append("g").attr("class", "graph-group");
+            }
+            
+            setupEventListeners() {
+                document.getElementById("load-btn").addEventListener("click", () => {
+                    this.loadGraph();
+                });
+                
+                document.getElementById("reload-btn").addEventListener("click", () => {
+                    this.reloadOntologies();
+                });
+                
+                document.getElementById("reset-btn").addEventListener("click", () => {
+                    this.resetView();
+                });
+                
+                // Handle window resize
+                window.addEventListener("resize", () => {
+                    this.width = window.innerWidth - 40;
+                    this.height = window.innerHeight * 0.8;
+                    this.svg.attr("width", this.width).attr("height", this.height);
+                    if (this.simulation) {
+                        this.simulation.force("center", d3.forceCenter(this.width / 2, this.height / 2));
+                    }
+                });
+            }
+            
+            showMessage(message, type = "info") {
+                const messageArea = document.getElementById("message-area");
+                messageArea.innerHTML = `<div class="${type}">${message}</div>`;
+                setTimeout(() => {
+                    messageArea.innerHTML = "";
+                }, 5000);
+            }
+            
+            showLoading(show = true) {
+                document.getElementById("loading").style.display = show ? "block" : "none";
+            }
+            
+            async loadGraph() {
+                const ontology = document.getElementById("ontology-select").value;
+                const limit = document.getElementById("limit-input").value;
+                
+                this.showLoading(true);
+                this.showMessage("Loading graph data...", "info");
+                
+                try {
+                    const response = await fetch(`/neo4j/api/graph-data?ontology=${ontology}&limit=${limit}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.renderGraph(data.nodes, data.edges);
+                        this.showStats(data.stats);
+                        this.showMessage(`Loaded ${data.nodes.length} nodes and ${data.edges.length} edges`, "success");
+                    } else {
+                        this.showMessage(`Error: ${data.error}`, "error");
+                    }
+                } catch (error) {
+                    this.showMessage(`Error loading graph: ${error.message}`, "error");
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            async reloadOntologies() {
+                this.showLoading(true);
+                this.showMessage("Reloading ontologies into Neo4j...", "info");
+                
+                try {
+                    const response = await fetch("/neo4j/reload", { method: "POST" });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showMessage("Ontologies reloaded successfully", "success");
+                        // Auto-reload the graph
+                        setTimeout(() => this.loadGraph(), 1000);
+                    } else {
+                        this.showMessage(`Error reloading: ${data.error}`, "error");
+                    }
+                } catch (error) {
+                    this.showMessage(`Error reloading ontologies: ${error.message}`, "error");
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            renderGraph(nodes, edges) {
+                // Clear previous graph
+                this.svg.select(".graph-group").selectAll("*").remove();
+                
+                this.nodes = nodes.map(d => ({...d}));
+                this.links = edges.map(d => ({...d}));
+                
+                // Create simulation
+                this.simulation = d3.forceSimulation(this.nodes)
+                    .force("link", d3.forceLink(this.links).id(d => d.id).distance(100))
+                    .force("charge", d3.forceManyBody().strength(-300))
+                    .force("center", d3.forceCenter(this.width / 2, this.height / 2))
+                    .force("collision", d3.forceCollide().radius(30));
+                
+                const g = this.svg.select(".graph-group");
+                
+                // Create links
+                const link = g.append("g")
+                    .attr("class", "links")
+                    .selectAll("line")
+                    .data(this.links)
+                    .join("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-opacity", 0.6)
+                    .attr("stroke-width", 1.5);
+                
+                // Create link labels
+                const linkLabels = g.append("g")
+                    .attr("class", "link-labels")
+                    .selectAll("text")
+                    .data(this.links)
+                    .join("text")
+                    .attr("font-size", "10px")
+                    .attr("fill", "#666")
+                    .attr("text-anchor", "middle")
+                    .text(d => d.label);
+                
+                // Create nodes
+                const node = g.append("g")
+                    .attr("class", "nodes")
+                    .selectAll("circle")
+                    .data(this.nodes)
+                    .join("circle")
+                    .attr("r", 8)
+                    .attr("fill", d => d.color)
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 2)
+                    .call(this.drag());
+                
+                // Create node labels
+                const nodeLabels = g.append("g")
+                    .attr("class", "node-labels")
+                    .selectAll("text")
+                    .data(this.nodes)
+                    .join("text")
+                    .attr("font-size", "12px")
+                    .attr("text-anchor", "middle")
+                    .attr("dy", -12)
+                    .text(d => d.label);
+                
+                // Add hover effects
+                node.on("mouseover", (event, d) => {
+                    this.showNodeInfo(d);
+                    node.attr("opacity", n => n === d ? 1 : 0.3);
+                    link.attr("opacity", l => l.source === d || l.target === d ? 1 : 0.1);
+                })
+                .on("mouseout", () => {
+                    this.hideNodeInfo();
+                    node.attr("opacity", 1);
+                    link.attr("opacity", 0.6);
+                });
+                
+                // Update positions on simulation tick
+                this.simulation.on("tick", () => {
+                    link
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+                    
+                    linkLabels
+                        .attr("x", d => (d.source.x + d.target.x) / 2)
+                        .attr("y", d => (d.source.y + d.target.y) / 2);
+                    
+                    node
+                        .attr("cx", d => d.x)
+                        .attr("cy", d => d.y);
+                    
+                    nodeLabels
+                        .attr("x", d => d.x)
+                        .attr("y", d => d.y);
+                });
+            }
+            
+            drag() {
+                return d3.drag()
+                    .on("start", (event, d) => {
+                        if (!event.active) this.simulation.alphaTarget(0.3).restart();
+                        d.fx = d.x;
+                        d.fy = d.y;
+                    })
+                    .on("drag", (event, d) => {
+                        d.fx = event.x;
+                        d.fy = event.y;
+                    })
+                    .on("end", (event, d) => {
+                        if (!event.active) this.simulation.alphaTarget(0);
+                        d.fx = null;
+                        d.fy = null;
+                    });
+            }
+            
+            showNodeInfo(node) {
+                const infoPanel = document.getElementById("info-panel");
+                const infoTitle = document.getElementById("info-title");
+                const infoContent = document.getElementById("info-content");
+                
+                infoTitle.textContent = node.label;
+                infoContent.innerHTML = `
+                    <p><strong>Type:</strong> ${node.type}</p>
+                    <p><strong>Ontology:</strong> ${node.ontology}</p>
+                    <p><strong>URI:</strong> ${node.id}</p>
+                    <p><strong>Labels:</strong> ${node.labels.join(", ")}</p>
+                `;
+                
+                infoPanel.style.display = "block";
+            }
+            
+            hideNodeInfo() {
+                document.getElementById("info-panel").style.display = "none";
+            }
+            
+            showStats(stats) {
+                const statsArea = document.getElementById("stats-area");
+                if (stats) {
+                    statsArea.innerHTML = `
+                        <strong>Graph Statistics:</strong>
+                        Nodes: ${stats.nodeCount} | 
+                        Edges: ${stats.edgeCount} | 
+                        Ontology: ${stats.ontology}
+                    `;
+                }
+            }
+            
+            resetView() {
+                const transform = d3.zoomIdentity;
+                this.svg.transition().duration(750).call(
+                    d3.zoom().transform, transform
+                );
+            }
+        }
+        
+        // Initialize visualization when page loads
+        document.addEventListener("DOMContentLoaded", () => {
+            window.graphViz = new OntologyGraphVisualization();
+        });
+    </script>
+</body>
+</html>
