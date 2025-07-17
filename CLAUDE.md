@@ -1,24 +1,31 @@
 # AI Ethical DM Project Progress
 
-## 🚀 CURRENT FOCUS: Domain Generalization Project (2025-01-27)
+## 🚀 CURRENT FOCUS: Engineering Ethics Ontology Organization Project (2025-07-17)
 
-**We are currently transforming ProEthica from an engineering ethics system into a domain-agnostic framework.** 
-See `/docs/DOMAIN_GENERALIZATION_IMPLEMENTATION.md` for the detailed implementation plan.
+**We are currently organizing the engineering ethics ontology according to the 8 main intermediate types (Role, Principle, Obligation, State, Resource, Action, Event, Capability) to improve concept extraction and categorization.**
 
-### Key Discovery
-ProEthica is already well-architected for domain generalization! The existing adapter pattern (`BaseCaseDeconstructionAdapter`), modular services, and flexible data models provide an excellent foundation. This is an enhancement project, not a major refactoring.
+📋 **PROGRESS TRACKING**: See `/docs/ENGINEERING_ETHICS_ONTOLOGY_ORGANIZATION_PROGRESS.md` for detailed status, tasks, and results.
 
-### Implementation Timeline: ~5 weeks
-- **Phase 1** (Current): Domain Registry & Factory System (1 week)
-- **Phase 2**: Extend Processing Pipeline (1 week)
-- **Phase 3**: Validate with Medical Ethics Domain (1 week)
-- **Phase 4**: Advanced Multi-Domain Features (2 weeks)
+### Key Challenge
+Current ontology has 14 concepts across 6 categories, but is missing Action and Event concepts entirely. Only 2 mapping fixes needed - most intermediate classes are already correctly mapped.
 
-### Key Files Being Created
-- `app/services/domain_registry.py` - Central domain management
-- `app/models/domain_config.py` - Domain configuration model
-- `config/domains/engineering.yaml` - Engineering domain config
-- `config/domains/medical.yaml` - Medical domain config (for validation)
+### Implementation Strategy: 5-Phase Ontology-First Approach
+- **Phase 1** (Current): Fix Current Ontology Mapping (Week 1)
+- **Phase 2**: Populate 8 Categories with Starter Examples (Week 2)
+- **Phase 3**: Analyze and Import NSPE Code of Ethics (Week 3)
+- **Phase 4**: Process Sample NSPE Cases (Week 4)
+- **Phase 5**: External Ontology Integration (Week 5-6)
+
+### Primary Content Sources
+- [NSPE Code of Ethics](https://www.nspe.org/career-growth/ethics/code-ethics)
+- [NSPE Board of Ethical Review Cases](https://www.nspe.org/career-growth/ethics/board-ethical-review-cases)
+- Existing engineering ethics ontology concepts
+
+### Key Files
+- **Progress Tracking**: `/docs/ENGINEERING_ETHICS_ONTOLOGY_ORGANIZATION_PROGRESS.md`
+- **Main Ontology**: `/ontologies/engineering-ethics.ttl`
+- **Intermediate Ontology**: `/ontologies/proethica-intermediate.ttl`
+- **Extraction Service**: `/app/services/ontology_entity_service.py`
 
 ## 📊 ProEthica Unified Dashboard (2025-01-27)
 

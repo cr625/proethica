@@ -142,7 +142,6 @@
 
 :ProfessionalObligation rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000017 ; # realizable entity
-    rdfs:subClassOf :Obligation ;
     rdfs:label "Professional Obligation"@en ;
     rdfs:comment "A duty or responsibility arising from professional role or standards"@en .
 
@@ -162,7 +161,7 @@
 
 :EthicalCode rdf:type owl:Class ;
     rdf:type :EntityType ;
-    rdfs:subClassOf :Principle ;
+    rdfs:subClassOf :Standard ;
     rdfs:label "Ethical Code"@en ;
     rdfs:comment "A standard that establishes ethical principles and professional conduct requirements"@en .
 

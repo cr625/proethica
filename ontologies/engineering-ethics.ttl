@@ -108,7 +108,7 @@
 # Engineering Standards and Codes
 
 :BuildingCode a proeth:EntityType,
-        proeth:Standard,
+        proeth:Principle,
         owl:Class ;
     rdfs:label "Building Code"@en ;
     rdfs:comment "Legal requirements for construction safety and quality"@en ;
@@ -116,7 +116,7 @@
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
     rdfs:seeAlso <https://www.iccsafe.org/> ;
     skos:note "Generic reference to applicable local and international building codes" ;
-    rdfs:subClassOf proeth:Standard .
+    rdfs:subClassOf proeth:Principle .
 
 :NSPECodeOfEthics a proeth:EntityType,
         proeth:EthicalCode,
@@ -151,7 +151,8 @@
 
 # LLM-Generated Ethical Concepts with attribution
 
-:CompetenceBoundaryViolation a proeth:EthicalIssue,
+:CompetenceBoundaryViolation a proeth:EntityType,
+        proeth:EthicalIssue,
         owl:Class ;
     rdfs:label "Competence Boundary Violation"@en ;
     rdfs:comment "Ethical issue arising when engineer practices outside area of competence"@en ;
@@ -185,6 +186,110 @@
     skos:note "Aligned with ISO 80000 and QUDT measurement standards" ;
     rdfs:subClassOf proeth:Measurement ;
     owl:equivalentClass qudt:QuantityValue .
+
+# Engineering Actions
+
+:EngineeringDesignAction a proeth:EntityType,
+        proeth:Action,
+        owl:Class ;
+    rdfs:label "Engineering Design Action"@en ;
+    rdfs:comment "The process of creating engineering designs, specifications, and technical solutions"@en ;
+    dc:source "NSPE Code of Ethics; Engineering Design Process Standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Core engineering activity involving creative problem solving and technical analysis" ;
+    rdfs:subClassOf proeth:Action .
+
+:SafetyReportingAction a proeth:EntityType,
+        proeth:Action,
+        owl:Class ;
+    rdfs:label "Safety Reporting Action"@en ;
+    rdfs:comment "The act of reporting safety concerns, violations, or hazards to appropriate authorities"@en ;
+    dc:source "NSPE Code of Ethics Section II.1.a - Hold paramount safety" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Critical professional obligation to report safety issues" ;
+    rdfs:subClassOf proeth:Action .
+
+:EthicalConsultationAction a proeth:EntityType,
+        proeth:Action,
+        owl:Class ;
+    rdfs:label "Ethical Consultation Action"@en ;
+    rdfs:comment "Seeking guidance from ethics boards, professional societies, or senior engineers on ethical matters"@en ;
+    dc:source "NSPE Board of Ethical Review procedures" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Professional practice of seeking ethical guidance when faced with dilemmas" ;
+    rdfs:subClassOf proeth:Action .
+
+:ProfessionalReviewAction a proeth:EntityType,
+        proeth:Action,
+        owl:Class ;
+    rdfs:label "Professional Review Action"@en ;
+    rdfs:comment "The process of reviewing engineering work by qualified peers for quality and compliance"@en ;
+    dc:source "NSPE Code of Ethics; Professional peer review standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Quality assurance practice involving peer evaluation of technical work" ;
+    rdfs:subClassOf proeth:Action .
+
+:QualityAssuranceAction a proeth:EntityType,
+        proeth:Action,
+        owl:Class ;
+    rdfs:label "Quality Assurance Action"@en ;
+    rdfs:comment "Activities to ensure engineering work meets required standards and specifications"@en ;
+    dc:source "ISO 9001; Engineering quality management standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Systematic activities to provide confidence that quality requirements will be fulfilled" ;
+    rdfs:subClassOf proeth:Action .
+
+# Engineering Events
+
+:SafetyIncidentEvent a proeth:EntityType,
+        proeth:Event,
+        owl:Class ;
+    rdfs:label "Safety Incident Event"@en ;
+    rdfs:comment "An occurrence involving injury, damage, or hazardous conditions in engineering contexts"@en ;
+    dc:source "OSHA incident reporting; NSPE safety guidelines" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Events requiring documentation, investigation, and potential corrective actions" ;
+    rdfs:subClassOf proeth:Event .
+
+:EthicalViolationEvent a proeth:EntityType,
+        proeth:Event,
+        owl:Class ;
+    rdfs:label "Ethical Violation Event"@en ;
+    rdfs:comment "An occurrence where professional ethics codes or standards have been breached"@en ;
+    dc:source "NSPE Code of Ethics enforcement procedures" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Events that may trigger ethics board review or professional sanctions" ;
+    rdfs:subClassOf proeth:Event .
+
+:ProjectMilestoneEvent a proeth:EntityType,
+        proeth:Event,
+        owl:Class ;
+    rdfs:label "Project Milestone Event"@en ;
+    rdfs:comment "A significant achievement or completion point in an engineering project"@en ;
+    dc:source "Project management standards; Engineering project lifecycle" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Key project events that may trigger reviews, approvals, or phase transitions" ;
+    rdfs:subClassOf proeth:Event .
+
+:AuditFindingEvent a proeth:EntityType,
+        proeth:Event,
+        owl:Class ;
+    rdfs:label "Audit Finding Event"@en ;
+    rdfs:comment "Discovery of compliance issues, deficiencies, or improvements during quality or safety audits"@en ;
+    dc:source "ISO 19011 - Auditing management systems" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Events that require documentation and may necessitate corrective actions" ;
+    rdfs:subClassOf proeth:Event .
+
+:CompetencyReviewEvent a proeth:EntityType,
+        proeth:Event,
+        owl:Class ;
+    rdfs:label "Competency Review Event"@en ;
+    rdfs:comment "Formal assessment of an engineer's professional competencies and qualifications"@en ;
+    dc:source "Professional engineering licensure requirements; Competency frameworks" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Periodic events for maintaining professional standards and continuous improvement" ;
+    rdfs:subClassOf proeth:Event .
 
 # Provenance for the ontology itself
 
