@@ -2,6 +2,44 @@
 
 {% block title %}Guideline Extracted Concepts{% endblock %}
 
+{% block styles %}
+<style>
+    .concept-type-override {
+        min-width: 120px;
+        font-size: 0.875rem;
+    }
+    
+    .concept-type-override option {
+        padding: 0.25rem;
+    }
+    
+    .type-help-tooltip {
+        cursor: help;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-left: 0.25rem;
+    }
+    
+    .type-definitions {
+        font-size: 0.8rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .type-definitions dt {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .type-definitions dd {
+        margin-bottom: 0.5rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container my-4">
     <nav aria-label="breadcrumb">
@@ -52,11 +90,86 @@
             </div>
         </div>
         
+        <!-- Type Definitions Help -->
+        <div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+            <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Understanding Concept Types</h6>
+            <p class="mb-2 small">You can manually adjust concept types using the dropdown menus. Here's what each type represents:</p>
+            
+            <dl class="type-definitions mb-0">
+                <dt><span class="badge bg-primary">Role</span></dt>
+                <dd>Professional positions, occupations, or stakeholder categories (e.g., Engineer, Client, Manager). <strong>NOT duties or relationships.</strong></dd>
+                
+                <dt><span class="badge bg-success">Principle</span></dt>
+                <dd>Core ethical values, fundamental beliefs, or guiding standards (e.g., Safety First, Honesty).</dd>
+                
+                <dt><span class="badge bg-warning">Obligation</span></dt>
+                <dd>Professional duties, requirements, or things that MUST be done (e.g., Faithful Agency, Confidentiality).</dd>
+                
+                <dt><span class="badge bg-info">State</span></dt>
+                <dd>Conditions, situations, or circumstances that exist (e.g., Conflict of Interest, Risk State).</dd>
+                
+                <dt><span class="badge bg-secondary">Resource</span></dt>
+                <dd>Physical or informational entities, documents, or tools (e.g., Technical Standards, Specifications).</dd>
+                
+                <dt><span class="badge bg-danger">Action</span></dt>
+                <dd>Intentional activities or processes performed (e.g., Design Review, Communication).</dd>
+                
+                <dt><span class="badge bg-dark">Event</span></dt>
+                <dd>Occurrences, incidents, or happenings (e.g., Safety Incident, Project Milestone).</dd>
+                
+                <dt><span class="badge bg-light text-dark">Capability</span></dt>
+                <dd>Skills, competencies, or abilities (e.g., Technical Expertise, Problem Solving).</dd>
+            </dl>
+            
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        
+        <!-- Type Legend -->
+        <div class="type-legend mb-3">
+            <div class="type-legend-item">
+                <span class="badge bg-primary">Role</span>
+                <span>Professional positions</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-success">Principle</span>
+                <span>Ethical values</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-warning">Obligation</span>
+                <span>Professional duties</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-info">State</span>
+                <span>Conditions</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-secondary">Resource</span>
+                <span>Physical entities</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-danger">Action</span>
+                <span>Activities</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-dark">Event</span>
+                <span>Occurrences</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-light text-dark">Capability</span>
+                <span>Skills</span>
+            </div>
+        </div>
+        
         <div class="row">
             <div class="col-12">
+                <!-- DEBUG: Template Test -->
+                <div class="alert alert-warning mb-3">
+                    <strong>🔧 TEMPLATE DEBUG:</strong> This template was updated with dropdown functionality. If you see this message but no dropdowns below, there's a template rendering issue.
+                </div>
+                
                 <div class="card mb-4">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0">Extracted Concepts ({{ concepts|length }})</h5>
+                        <h5 class="mb-0">Extracted Concepts ({{ concepts|length }}) - WITH DROPDOWNS</h5>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -79,7 +192,56 @@
                                             </div>
                                         </td>
                                         <td><label class="form-check-label" for="concept-{{ loop.index }}"><strong>{{ concept.label }}</strong></label></td>
-                                        <td>{{ concept.category|capitalize if concept.category else (concept.type|capitalize if concept.type else "Concept") }}</td>
+                                        <td>
+                                            <!-- DEBUG: Show concept data -->
+                                            <div class="small text-muted mb-1">
+                                                DEBUG: type={{ concept.type }}, primary_type={{ concept.primary_type }}, category={{ concept.category }}
+                                            </div>
+                                            {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                                            {% set type_colors = {
+                                              'role': 'bg-primary',
+                                              'principle': 'bg-success', 
+                                              'obligation': 'bg-warning',
+                                              'state': 'bg-info',
+                                              'resource': 'bg-secondary',
+                                              'action': 'bg-danger',
+                                              'event': 'bg-dark',
+                                              'capability': 'bg-light text-dark'
+                                            } %}
+                                            {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                                            {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                                            
+                                            <div class="concept-type-display">
+                                                <!-- Manual Type Override Dropdown -->
+                                                <select class="form-select form-select-sm concept-type-override" 
+                                                        data-concept-index="{{ loop.index0 }}"
+                                                        data-original-type="{{ primary_type }}"
+                                                        style="width: auto; margin-bottom: 0.25rem;">
+                                                    <option value="role" {% if primary_type == 'role' %}selected{% endif %} class="text-primary">Role</option>
+                                                    <option value="principle" {% if primary_type == 'principle' %}selected{% endif %} class="text-success">Principle</option>
+                                                    <option value="obligation" {% if primary_type == 'obligation' %}selected{% endif %} class="text-warning">Obligation</option>
+                                                    <option value="state" {% if primary_type == 'state' %}selected{% endif %} class="text-info">State</option>
+                                                    <option value="resource" {% if primary_type == 'resource' %}selected{% endif %} class="text-secondary">Resource</option>
+                                                    <option value="action" {% if primary_type == 'action' %}selected{% endif %} class="text-danger">Action</option>
+                                                    <option value="event" {% if primary_type == 'event' %}selected{% endif %} class="text-dark">Event</option>
+                                                    <option value="capability" {% if primary_type == 'capability' %}selected{% endif %}>Capability</option>
+                                                </select>
+                                                
+                                                <div class="concept-hierarchy mt-1">
+                                                    {% set semantic_label = concept.semantic_label or concept.category or concept.type %}
+                                                    <small class="text-muted">
+                                                        <span class="hierarchy-display">{{ display_type }}</span> → 
+                                                        {% if semantic_label %}{{ semantic_label|capitalize }} → {% endif %}
+                                                        <strong>{{ concept.label }}</strong>
+                                                    </small>
+                                                    {% if primary_type != (concept.original_llm_type or '').lower() %}
+                                                        <br><small class="text-warning" style="font-size: 0.7rem;">
+                                                            <i class="bi bi-info-circle"></i> Originally: {{ concept.original_llm_type or 'Unknown' }}
+                                                        </small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td>{{ concept.description }}</td>
                                         <td>
                                             <div class="progress">{#
@@ -146,6 +308,78 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Sort concepts by confidence (optional feature)
     // Could be implemented with JavaScript to allow dynamic sorting
+    
+    // Handle type override changes
+    const typeOverrideSelects = document.querySelectorAll('.concept-type-override');
+    const typeColorMap = {
+        'role': 'bg-primary',
+        'principle': 'bg-success',
+        'obligation': 'bg-warning',
+        'state': 'bg-info',
+        'resource': 'bg-secondary',
+        'action': 'bg-danger',
+        'event': 'bg-dark',
+        'capability': 'bg-light text-dark'
+    };
+    
+    typeOverrideSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const newType = this.value;
+            const conceptIndex = this.dataset.conceptIndex;
+            const conceptDiv = this.closest('.concept-type-display');
+            const hierarchySpan = conceptDiv.querySelector('.hierarchy-display');
+            
+            // Update the hierarchy display
+            hierarchySpan.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            
+            // Update select styling based on type
+            this.className = 'form-select form-select-sm concept-type-override';
+            
+            // Show change indicator if different from original
+            const originalType = this.dataset.originalType;
+            const changeIndicator = conceptDiv.querySelector('.text-warning');
+            if (newType !== originalType) {
+                if (!changeIndicator) {
+                    const indicator = document.createElement('small');
+                    indicator.className = 'text-warning';
+                    indicator.style.fontSize = '0.7rem';
+                    indicator.innerHTML = '<br><i class="bi bi-info-circle"></i> Modified from: ' + originalType.charAt(0).toUpperCase() + originalType.slice(1);
+                    conceptDiv.querySelector('.concept-hierarchy').appendChild(indicator);
+                }
+            } else if (changeIndicator) {
+                changeIndicator.remove();
+            }
+            
+            // Update the hidden concept data that will be submitted
+            updateConceptData(conceptIndex, 'type', newType);
+            updateConceptData(conceptIndex, 'primary_type', newType);
+        });
+    });
+    
+    // Function to update concept data in the form
+    function updateConceptData(index, field, value) {
+        // The concepts are stored in a hidden field as JSON
+        const conceptsDataField = document.getElementById('concepts_data');
+        let concepts = [];
+        try {
+            concepts = JSON.parse(conceptsDataField.value || '[]');
+        } catch (e) {
+            console.error('Error parsing concepts data:', e);
+            return;
+        }
+        
+        if (concepts[index]) {
+            concepts[index][field] = value;
+            // Mark as manually edited
+            concepts[index]['manually_edited'] = true;
+            concepts[index]['manual_type_override'] = value;
+            conceptsDataField.value = JSON.stringify(concepts);
+        }
+    }
+    
+    // Initialize concepts data field with current data
+    const conceptsData = {{ concepts|tojson }};
+    document.getElementById('concepts_data').value = JSON.stringify(conceptsData);
 });
 </script>
 {% endblock %}

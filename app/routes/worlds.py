@@ -1444,13 +1444,23 @@ def save_guideline_concepts(world_id, document_id):
                     concept = concepts[idx]
                     concept_label = concept.get("label", "Unknown Concept")
                     concept_description = concept.get("description", "")
-                    concept_type = concept.get("type", "concept")
+                    
+                    # Check for manual type override
+                    if concept.get("manually_edited") and concept.get("manual_type_override"):
+                        concept_type = concept.get("manual_type_override")
+                        # Update the mapping metadata to reflect manual override
+                        concept["mapping_source"] = "manual"
+                        concept["mapping_justification"] = "Manually corrected by user"
+                        concept["type_mapping_confidence"] = 1.0
+                        concept["needs_type_review"] = False
+                    else:
+                        concept_type = concept.get("type", "concept")
                     
                     # Create concept URI
                     concept_uri = f"{namespace}{concept_label.lower().replace(' ', '_')}"
                     
                     # Create basic triples for this concept
-                    # 1. Type triple (with type mapping metadata)
+                    # 1. Type triple (with two-tier type mapping metadata)
                     type_triple = EntityTriple(
                         subject=concept_uri,
                         subject_label=concept_label,
@@ -1468,7 +1478,11 @@ def save_guideline_concepts(world_id, document_id):
                         original_llm_type=concept.get("original_llm_type"),
                         type_mapping_confidence=concept.get("type_mapping_confidence"),
                         needs_type_review=concept.get("needs_type_review", False),
-                        mapping_justification=concept.get("mapping_justification")
+                        mapping_justification=concept.get("mapping_justification"),
+                        # Two-tier concept type storage
+                        semantic_label=concept.get("semantic_label", concept.get("category", concept.get("type", ""))),
+                        primary_type=concept_type,
+                        mapping_source=concept.get("mapping_source", "legacy")
                     )
                     db.session.add(type_triple)
                     created_triple_count += 1
@@ -1529,7 +1543,7 @@ def save_guideline_concepts(world_id, document_id):
                     selected_concepts_for_storage.append({
                         'label': concept.get('label', 'Unknown Concept'),
                         'type': concept.get('type', 'concept'),
-                        'category': concept.get('category', concept.get('type_description', concept.get('type', 'concept'))),
+                        'category': concept.get('type', 'concept'),  # Use the basic type (role, principle, etc.)
                         'description': concept.get('description', 'No description available')
                     })
             

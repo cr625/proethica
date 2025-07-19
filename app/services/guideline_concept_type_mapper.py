@@ -11,6 +11,7 @@ import re
 from typing import Dict, List, Optional, Tuple
 from difflib import SequenceMatcher
 from dataclasses import dataclass
+from app.models.concept_type_mapping import ConceptTypeMapping
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +19,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TypeMappingResult:
     """Result of type mapping operation."""
-    mapped_type: str              # Final type to use
+    mapped_type: str              # Final type to use (primary_type for storage)
     confidence: float             # Mapping confidence (0-1)
     is_new_type: bool            # Whether this suggests a new ontology type
     suggested_parent: Optional[str]  # Suggested parent class if new
     justification: str           # Why this mapping was chosen
     needs_review: bool           # Whether human review is needed
     original_type: str           # Original LLM-suggested type
+    semantic_label: str          # Semantic label for display (preserves LLM insight)
+    mapping_source: str          # Source of mapping: 'historical', 'semantic_rules', 'manual', 'exact_match'
 
 
 class GuidelineConceptTypeMapper:
@@ -55,10 +58,97 @@ class GuidelineConceptTypeMapper:
         
         logger.info("GuidelineConceptTypeMapper initialized with comprehensive mappings")
     
+    def _check_historical_mapping(self, llm_type: str, concept_name: str = "", 
+                                concept_description: str = "") -> Optional[TypeMappingResult]:
+        """
+        Check historical mapping decisions for adaptive learning.
+        
+        Args:
+            llm_type: Type suggested by LLM
+            concept_name: Name/label of the concept
+            concept_description: Description of the concept
+            
+        Returns:
+            TypeMappingResult if historical mapping found, None otherwise
+        """
+        try:
+            # Check for exact LLM type match
+            mapping = ConceptTypeMapping.get_mapping_for_type(llm_type)
+            if mapping:
+                # Boost confidence based on usage count
+                usage_boost = min(mapping.usage_count * 0.1, 0.3)
+                confidence = min(mapping.average_confidence + usage_boost, 1.0)
+                
+                return self._create_result(
+                    mapping.mapped_type, 
+                    confidence,
+                    False, 
+                    None,
+                    f"Historical mapping: used {mapping.usage_count} times (avg confidence: {mapping.average_confidence:.2f})",
+                    confidence < 0.7,
+                    mapping.semantic_label or llm_type,
+                    llm_type,
+                    "historical"
+                )
+            
+            # Check for similar historical mappings using fuzzy matching
+            similar_mappings = ConceptTypeMapping.query.filter(
+                ConceptTypeMapping.usage_count > 0
+            ).all()
+            
+            best_match = None
+            best_similarity = 0.0
+            
+            for mapping in similar_mappings:
+                # Check similarity against original_llm_type
+                if mapping.original_llm_type:
+                    similarity = SequenceMatcher(None, llm_type.lower(), 
+                                               mapping.original_llm_type.lower()).ratio()
+                    if similarity > 0.8 and similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = mapping
+                
+                # Check similarity against semantic_label if available
+                if mapping.semantic_label:
+                    similarity = SequenceMatcher(None, llm_type.lower(), 
+                                               mapping.semantic_label.lower()).ratio()
+                    if similarity > 0.8 and similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = mapping
+            
+            if best_match and best_similarity > 0.8:
+                # Confidence based on similarity and usage
+                usage_boost = min(best_match.usage_count * 0.05, 0.2)
+                confidence = min((best_match.average_confidence * best_similarity) + usage_boost, 0.9)
+                
+                return self._create_result(
+                    best_match.mapped_type,
+                    confidence,
+                    False,
+                    None,
+                    f"Similar historical mapping: '{best_match.original_llm_type or best_match.semantic_label}' (similarity: {best_similarity:.2f}, usage: {best_match.usage_count})",
+                    confidence < 0.7,
+                    best_match.semantic_label or llm_type,
+                    llm_type,
+                    "historical_similar"
+                )
+                
+        except Exception as e:
+            logger.warning(f"Error checking historical mappings: {e}")
+        
+        return None
+    
     def map_concept_type(self, llm_type: str, concept_description: str = "", 
                         concept_name: str = "") -> TypeMappingResult:
         """
-        Map LLM-suggested type to ontology type or propose new type.
+        Map LLM-suggested type to ontology type using adaptive learning.
+        
+        Uses five-level adaptive mapping strategy:
+        0. Historical learning - check previous mapping decisions
+        1. Exact match to core types
+        2. Semantic similarity mapping
+        3. Description-based inference  
+        4. New type proposal with parent suggestion
         
         Args:
             llm_type: Type suggested by LLM
@@ -70,14 +160,19 @@ class GuidelineConceptTypeMapper:
         """
         if not llm_type:
             return self._create_result("state", 0.3, False, None, 
-                                     "No type provided, defaulting to state", True, "")
+                                     "No type provided, defaulting to state", True, "", "", "fallback")
         
         llm_type_clean = llm_type.strip().lower()
+        
+        # Level 0: Historical learning - check previous mapping decisions first
+        historical_result = self._check_historical_mapping(llm_type_clean, concept_name, concept_description)
+        if historical_result and historical_result.confidence > 0.8:
+            return historical_result
         
         # Level 1: Exact match to core types
         if llm_type_clean in self.core_types:
             return self._create_result(llm_type_clean, 1.0, False, None,
-                                     f"Exact match to core type '{llm_type_clean}'", False, llm_type)
+                                     f"Exact match to core type '{llm_type_clean}'", False, llm_type, llm_type, "exact_match")
         
         # Level 2: Semantic similarity mapping (check concept name too)
         semantic_result = self._find_semantic_match(llm_type)
@@ -89,26 +184,37 @@ class GuidelineConceptTypeMapper:
                 name_result.justification = f"Concept name match: {name_result.justification}"
                 semantic_result = name_result
         
-        if semantic_result.confidence > 0.7:  # Lower threshold to prefer semantic over description
+        # Combine with historical data if available
+        if historical_result and semantic_result.confidence < 0.9:
+            # Boost confidence if historical data supports semantic result
+            if historical_result.mapped_type == semantic_result.mapped_type:
+                semantic_result.confidence = min(semantic_result.confidence + 0.2, 1.0)
+                semantic_result.justification += f" (supported by historical data)"
+                semantic_result.mapping_source = "historical+semantic"
+        
+        if semantic_result.confidence > 0.7:
             return semantic_result
         
-        # Level 3: Description-based inference (but only if semantic matching was weak)
+        # Level 3: Description-based inference
         desc_result = self._analyze_description(concept_description, concept_name)
         
-        # Prefer semantic result if it's reasonably confident, even if description is stronger
+        # Combine with historical data
+        if historical_result and desc_result.confidence < 0.9:
+            if historical_result.mapped_type == desc_result.mapped_type:
+                desc_result.confidence = min(desc_result.confidence + 0.2, 1.0)
+                desc_result.justification += f" (supported by historical data)"
+                desc_result.mapping_source = "historical+description"
+        
+        # Prefer semantic result if it's reasonably confident
         if semantic_result.confidence >= 0.5 and semantic_result.confidence >= desc_result.confidence * 0.8:
             return semantic_result
         
         if desc_result.confidence > 0.5:
-            return self._create_result(
-                desc_result.mapped_type,
-                desc_result.confidence,
-                desc_result.is_new_type,
-                desc_result.suggested_parent,
-                f"Description analysis: {desc_result.justification}",
-                desc_result.needs_review,
-                llm_type
-            )
+            return desc_result
+        
+        # Use historical result if better than what we found
+        if historical_result and historical_result.confidence > max(semantic_result.confidence, desc_result.confidence):
+            return historical_result
         
         # Return best result we found, even if low confidence
         if semantic_result.confidence > 0.3:
@@ -174,12 +280,24 @@ class GuidelineConceptTypeMapper:
             "requirement": ("obligation", 0.8, "Requirement as obligation"),
             "ethical prohibition": ("obligation", 0.85, "Prohibition as negative obligation"),
             
-            # Role mappings
+            # Role mappings - LIMITED to actual positions/occupations
             "professional role": ("role", 0.95, "Professional role"),
             "stakeholder": ("role", 0.9, "Stakeholder as role"),
-            "professional relationship": ("role", 0.85, "Professional relationship as role"),
+            "engineer": ("role", 0.95, "Engineer as role"),
+            "client": ("role", 0.95, "Client as role"),
+            "manager": ("role", 0.95, "Manager as role"),
             "position": ("role", 0.8, "Position as role"),
-            "agent": ("role", 0.75, "Agent as role"),
+            "occupation": ("role", 0.9, "Occupation as role"),
+            # Remove misleading mappings
+            # "professional relationship": ("role", 0.85, "Professional relationship as role"),  # This is NOT a role
+            # "agent": ("role", 0.75, "Agent as role"),  # Too vague
+            
+            # Agency and relationships are obligations, not roles
+            "faithful agency": ("obligation", 0.95, "Faithful agency as obligation"),
+            "agency": ("obligation", 0.9, "Agency as obligation"),
+            "professional relationship": ("obligation", 0.85, "Professional relationship as obligation"),
+            "trustworthy agent": ("obligation", 0.9, "Trustworthy agent duty"),
+            "fiduciary duty": ("obligation", 0.95, "Fiduciary duty"),
             
             # State mappings
             "condition": ("state", 0.9, "Condition as state"),
@@ -201,17 +319,21 @@ class GuidelineConceptTypeMapper:
             "communication": ("action", 0.75, "Communication as action"),
             "professional development": ("action", 0.8, "Professional development as action"),
             
-            # Capability mappings
+            # Capability mappings - actual abilities/skills
             "competency": ("capability", 0.95, "Competency as capability"),
             "competence": ("capability", 0.95, "Competence as capability"),
             "skill": ("capability", 0.9, "Skill as capability"),
             "ability": ("capability", 0.9, "Ability as capability"),
             "expertise": ("capability", 0.85, "Expertise as capability"),
             "qualification": ("capability", 0.85, "Qualification as capability"),
-            "professional competence": ("capability", 0.9, "Professional competence"),
-            "professional competency": ("capability", 0.9, "Professional competency"),
-            "engineering competency": ("capability", 0.9, "Engineering competency"),
+            "technical competence": ("capability", 0.9, "Technical competence"),
             "technical competency": ("capability", 0.9, "Technical competency"),
+            "engineering competency": ("capability", 0.9, "Engineering competency"),
+            
+            # Professional competence as OBLIGATION (requirement to work within expertise)
+            "professional competence": ("obligation", 0.9, "Professional competence requirement"),
+            "professional competency": ("obligation", 0.9, "Professional competency requirement"),
+            "competence requirement": ("obligation", 0.95, "Competence requirement"),
             
             # Resource mappings
             "document": ("resource", 0.9, "Document as resource"),
@@ -356,7 +478,7 @@ class GuidelineConceptTypeMapper:
         if llm_type_clean in self.semantic_mapping:
             core_type, confidence, justification = self.semantic_mapping[llm_type_clean]
             return self._create_result(core_type, confidence, False, None,
-                                     f"Semantic mapping: {justification}", False, llm_type)
+                                     f"Semantic mapping: {justification}", False, llm_type, llm_type, "semantic_rules")
         
         # Check fuzzy string matching
         best_match = None
@@ -372,16 +494,16 @@ class GuidelineConceptTypeMapper:
             core_type, confidence, justification = best_match
             return self._create_result(core_type, confidence, False, None,
                                      f"Fuzzy match: {justification} (similarity: {best_score:.2f})", 
-                                     confidence < 0.8, llm_type)
+                                     confidence < 0.8, llm_type, llm_type, "semantic_rules")
         
         return self._create_result("state", 0.3, False, None,
-                                 "No semantic match found", True, llm_type)
+                                 "No semantic match found", True, llm_type, llm_type, "fallback")
     
     def _analyze_description(self, description: str, concept_name: str = "") -> TypeMappingResult:
         """Analyze concept description and name for type hints."""
         if not description and not concept_name:
             return self._create_result("state", 0.3, False, None,
-                                     "No description available for analysis", True, "")
+                                     "No description available for analysis", True, "", "", "fallback")
         
         text_to_analyze = f"{concept_name} {description}".lower()
         
@@ -403,7 +525,7 @@ class GuidelineConceptTypeMapper:
         
         if not type_scores:
             return self._create_result("state", 0.3, False, None,
-                                     "No keywords matched in description", True, "")
+                                     "No keywords matched in description", True, "", "", "fallback")
         
         # Get best scoring type
         best_type = max(type_scores.keys(), key=lambda t: type_scores[t][0])
@@ -412,7 +534,7 @@ class GuidelineConceptTypeMapper:
         justification = f"Keywords matched for {best_type}: {', '.join(matched_patterns[:3])}"
         
         return self._create_result(best_type, best_score, False, None,
-                                 justification, best_score < 0.7, "")
+                                 justification, best_score < 0.7, "", "", "description_analysis")
     
     def _propose_new_type(self, llm_type: str, description: str = "") -> TypeMappingResult:
         """Propose a new type for ontology expansion."""
@@ -440,11 +562,12 @@ class GuidelineConceptTypeMapper:
         justification = f"New type proposal: '{llm_type}' could be added as subclass of '{suggested_parent}'"
         
         return self._create_result(suggested_parent, 0.6, True, suggested_parent,
-                                 justification, True, llm_type)
+                                 justification, True, llm_type, llm_type, "new_type_proposal")
     
     def _create_result(self, mapped_type: str, confidence: float, is_new_type: bool,
                       suggested_parent: Optional[str], justification: str, 
-                      needs_review: bool, original_type: str) -> TypeMappingResult:
+                      needs_review: bool, semantic_label: str, original_type: str, 
+                      mapping_source: str) -> TypeMappingResult:
         """Create a TypeMappingResult with consistent formatting."""
         return TypeMappingResult(
             mapped_type=mapped_type,
@@ -453,7 +576,9 @@ class GuidelineConceptTypeMapper:
             suggested_parent=suggested_parent,
             justification=justification,
             needs_review=needs_review,
-            original_type=original_type
+            original_type=original_type,
+            semantic_label=semantic_label or original_type,
+            mapping_source=mapping_source
         )
     
     def get_mapping_statistics(self) -> Dict[str, int]:

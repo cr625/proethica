@@ -85,17 +85,31 @@
                     <tr>
                       <td><strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></td>
                       <td>
-                        {% if concept.type_description %}
-                          <span class="badge bg-secondary">{{ concept.type_description }}</span>
-                        {% elif concept.category %}
-                          <span class="badge bg-secondary">{{ concept.category }}</span>
-                        {% elif concept.type %}
-                          <span class="badge bg-secondary">{{ concept.type }}</span>
-                        {% elif concept.type_label %}
-                          <span class="badge bg-secondary">{{ concept.type_label }}</span>
-                        {% else %}
-                          <span class="badge bg-secondary">Concept</span>
-                        {% endif %}
+                        {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                        {% set type_colors = {
+                          'role': 'bg-primary',
+                          'principle': 'bg-success', 
+                          'obligation': 'bg-warning',
+                          'state': 'bg-info',
+                          'resource': 'bg-secondary',
+                          'action': 'bg-danger',
+                          'event': 'bg-dark',
+                          'capability': 'bg-light text-dark'
+                        } %}
+                        {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                        {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                        
+                        <div class="concept-type-display">
+                          <span class="badge {{ color_class }}">{{ display_type }}</span>
+                          <div class="concept-hierarchy mt-1">
+                            {% set semantic_label = concept.semantic_label or concept.category or concept.type %}
+                            {% if semantic_label %}
+                              <small class="text-muted">{{ display_type }} → {{ semantic_label|capitalize }} → <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
+                            {% else %}
+                              <small class="text-muted"><strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
+                            {% endif %}
+                          </div>
+                        </div>
                       </td>
                       <td>
                         {% if concept.description %}

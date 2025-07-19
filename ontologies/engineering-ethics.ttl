@@ -59,6 +59,37 @@
     skos:note "Role encompasses ASME mechanical engineering standards" ;
     rdfs:subClassOf proeth:EngineerRole .
 
+:ClientRepresentativeRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Client Representative Role"@en ;
+    rdfs:comment "Individual or organization that commissions engineering services and represents the client's interests"@en ;
+    dc:source "Professional engineering contracts; Client relations standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Key stakeholder in engineering projects with specific rights and responsibilities" ;
+    rdfs:subClassOf proeth:Role .
+
+:ProjectManagerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Project Manager Role"@en ;
+    rdfs:comment "Professional responsible for planning, executing, and closing engineering projects"@en ;
+    dc:source "Project Management Institute standards; Engineering project management practices" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Coordinates resources, timeline, and deliverables while ensuring compliance with standards" ;
+    rdfs:subClassOf proeth:Role .
+
+:PublicOfficialRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Public Official Role"@en ;
+    rdfs:comment "Government representative involved in engineering project approval, regulation, or oversight"@en ;
+    dc:source "NSPE Code of Ethics Section III.3 - Engineers in public service" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Includes regulatory officials, inspectors, and government engineers" ;
+    rdfs:subClassOf proeth:Role .
+
 # Engineering Artifacts with ISO standard references
 
 :EngineeringDocument a proeth:EntityType,
@@ -108,7 +139,7 @@
 # Engineering Standards and Codes
 
 :BuildingCode a proeth:EntityType,
-        proeth:Principle,
+        proeth:ResourceType,
         owl:Class ;
     rdfs:label "Building Code"@en ;
     rdfs:comment "Legal requirements for construction safety and quality"@en ;
@@ -116,6 +147,49 @@
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
     rdfs:seeAlso <https://www.iccsafe.org/> ;
     skos:note "Generic reference to applicable local and international building codes" ;
+    rdfs:subClassOf :EngineeringDocument .
+
+:PublicSafetyPrinciple a proeth:EntityType,
+        proeth:Principle,
+        owl:Class ;
+    rdfs:label "Public Safety Principle"@en ;
+    rdfs:comment "The fundamental principle that engineers must hold paramount the safety, health, and welfare of the public"@en ;
+    dc:source "NSPE Code of Ethics Section I.1 - Fundamental Canons" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "The primary and overriding principle in engineering ethics" ;
+    rdfs:subClassOf proeth:Principle .
+
+:ProfessionalIntegrityPrinciple a proeth:EntityType,
+        proeth:Principle,
+        owl:Class ;
+    rdfs:label "Professional Integrity Principle"@en ;
+    rdfs:comment "The principle of maintaining honesty, trustworthiness, and ethical behavior in all professional activities"@en ;
+    dc:source "NSPE Code of Ethics Section I.3 - Issue public statements only in an objective and truthful manner" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Encompasses honesty, objectivity, and truthfulness in professional practice" ;
+    rdfs:subClassOf proeth:Principle .
+
+:CompetencePrinciple a proeth:EntityType,
+        proeth:Principle,
+        owl:Class ;
+    rdfs:label "Competence Principle"@en ;
+    rdfs:comment "The principle that engineers should perform services only in areas of their competence"@en ;
+    dc:source "NSPE Code of Ethics Section I.2 - Perform services only in areas of competence" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Engineers must recognize their limitations and seek assistance when needed" ;
+    rdfs:subClassOf proeth:Principle .
+
+:SustainabilityPrinciple a proeth:EntityType,
+        proeth:Principle,
+        owl:Class ;
+    rdfs:label "Sustainability Principle"@en ;
+    rdfs:comment "The principle of considering environmental impact and promoting sustainable development in engineering practice"@en ;
+    dc:source "NSPE Code of Ethics; Sustainable engineering practices" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Engineers should strive to minimize environmental impact and promote sustainable solutions" ;
     rdfs:subClassOf proeth:Principle .
 
 :NSPECodeOfEthics a proeth:EntityType,
@@ -149,6 +223,85 @@
     skos:note "Encompasses IEEE and IEC electrical design standards" ;
     rdfs:subClassOf proeth:TechnicalCapability .
 
+:EthicalReasoningCapability a proeth:Capability,
+        owl:Class ;
+    rdfs:label "Ethical Reasoning Capability"@en ;
+    rdfs:comment "The ability to analyze ethical dimensions of engineering decisions and apply moral principles to professional situations"@en ;
+    dc:source "NSPE Code of Ethics; Engineering ethics education standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Essential capability for navigating complex ethical dilemmas in engineering practice" ;
+    rdfs:subClassOf proeth:Capability .
+
+:ProfessionalJudgmentCapability a proeth:Capability,
+        owl:Class ;
+    rdfs:label "Professional Judgment Capability"@en ;
+    rdfs:comment "The ability to make sound decisions based on technical knowledge, experience, and professional standards"@en ;
+    dc:source "Engineering professional competency frameworks" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Combines technical expertise with ethical considerations and practical wisdom" ;
+    rdfs:subClassOf proeth:Capability .
+
+:TechnicalExpertiseCapability a proeth:Capability,
+        owl:Class ;
+    rdfs:label "Technical Expertise Capability"@en ;
+    rdfs:comment "Advanced knowledge and skills in specific engineering domains enabling competent practice"@en ;
+    dc:source "Professional engineering licensure requirements; Competency standards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Domain-specific technical knowledge required for professional practice" ;
+    rdfs:subClassOf proeth:TechnicalCapability .
+
+# Engineering States
+
+:ProfessionalCompetenceState a proeth:EntityType,
+        proeth:State,
+        owl:Class ;
+    rdfs:label "Professional Competence State"@en ;
+    rdfs:comment "The state of having adequate knowledge, skills, and experience to perform engineering work safely and effectively"@en ;
+    dc:source "NSPE Code of Ethics Section II.2.a - Competence requirements" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Critical professional state that engineers must maintain throughout their careers" ;
+    rdfs:subClassOf proeth:State .
+
+:ConflictOfInterestState a proeth:EntityType,
+        proeth:State,
+        owl:Class ;
+    rdfs:label "Conflict of Interest State"@en ;
+    rdfs:comment "A situation where an engineer's personal, financial, or other interests could compromise their professional judgment or objectivity"@en ;
+    dc:source "NSPE Code of Ethics Section II.4 - Conflicts of Interest" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Engineers must disclose all known or potential conflicts of interest" ;
+    rdfs:subClassOf proeth:State .
+
+:EthicalDilemmaState a proeth:EntityType,
+        proeth:State,
+        owl:Class ;
+    rdfs:label "Ethical Dilemma State"@en ;
+    rdfs:comment "A situation requiring a choice between competing ethical principles or professional obligations"@en ;
+    dc:source "NSPE Board of Ethical Review case analysis" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Complex situations where multiple ethical principles may conflict" ;
+    rdfs:subClassOf proeth:State .
+
+:ComplianceState a proeth:EntityType,
+        proeth:State,
+        owl:Class ;
+    rdfs:label "Compliance State"@en ;
+    rdfs:comment "The condition of conforming to applicable laws, regulations, codes, and professional standards"@en ;
+    dc:source "NSPE Code of Ethics; Regulatory compliance requirements" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Encompasses legal, regulatory, and professional standard compliance" ;
+    rdfs:subClassOf proeth:State .
+
+:RiskState a proeth:EntityType,
+        proeth:State,
+        owl:Class ;
+    rdfs:label "Risk State"@en ;
+    rdfs:comment "A condition involving potential hazards, uncertainties, or threats to safety, project success, or ethical standards"@en ;
+    dc:source "Risk management standards; Safety engineering practices" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Engineers must identify, assess, and manage various types of risks" ;
+    rdfs:subClassOf proeth:State .
+
 # LLM-Generated Ethical Concepts with attribution
 
 :CompetenceBoundaryViolation a proeth:EntityType,
@@ -172,6 +325,35 @@
     prov:generatedAtTime "2025-01-15"^^xsd:date ;
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
     skos:note "Derived from systems engineering integration requirements" ;
+    rdfs:subClassOf proeth:ProfessionalObligation .
+
+:PublicWelfareObligation a proeth:Obligation,
+        owl:Class ;
+    rdfs:label "Public Welfare Obligation"@en ;
+    rdfs:comment "The fundamental duty to hold paramount the safety, health, and welfare of the public in engineering practice"@en ;
+    dc:source "NSPE Code of Ethics Section I.1 - Fundamental Canons" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "The primary obligation that supersedes all other professional duties" ;
+    rdfs:subClassOf proeth:ProfessionalObligation .
+
+:HonestServiceObligation a proeth:Obligation,
+        owl:Class ;
+    rdfs:label "Honest Service Obligation"@en ;
+    rdfs:comment "The duty to act as faithful agents or trustees for employers and clients, avoiding conflicts of interest"@en ;
+    dc:source "NSPE Code of Ethics Section I.4 - Act as faithful agents" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
+    skos:note "Includes obligations of loyalty, disclosure, and professional integrity" ;
+    rdfs:subClassOf proeth:ProfessionalObligation .
+
+:ContinuousLearningObligation a proeth:Obligation,
+        owl:Class ;
+    rdfs:label "Continuous Learning Obligation"@en ;
+    rdfs:comment "The professional duty to maintain and enhance competence through ongoing education and professional development"@en ;
+    dc:source "NSPE Code of Ethics Section I.5 - Build professional reputation on merit" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Engineers must stay current with technological advances and best practices" ;
     rdfs:subClassOf proeth:ProfessionalObligation .
 
 # Measurement and Units Integration

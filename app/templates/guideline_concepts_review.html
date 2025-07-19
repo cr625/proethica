@@ -212,8 +212,57 @@
                     </td>
                     <td><strong>{{ concept.label }}</strong></td>
                     <td>
-                      <span class="badge bg-secondary">{{ concept.category|capitalize if concept.category else
-                        (concept.type|capitalize if concept.type else "Concept") }}</span>
+                      {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                      {% set type_colors = {
+                        'role': 'bg-primary',
+                        'principle': 'bg-success', 
+                        'obligation': 'bg-warning',
+                        'state': 'bg-info',
+                        'resource': 'bg-secondary',
+                        'action': 'bg-danger',
+                        'event': 'bg-dark',
+                        'capability': 'bg-light text-dark'
+                      } %}
+                      {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                      {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                      
+                      <div class="concept-type-display">
+                        <!-- Manual Type Override Dropdown -->
+                        {% set actual_type = concept.type or concept.primary_type or 'concept' %}
+                        {% set dropdown_type = actual_type.lower() %}
+                        <select class="form-select form-select-sm concept-type-override" 
+                                data-concept-index="{{ loop.index0 }}"
+                                data-original-type="{{ dropdown_type }}"
+                                style="width: auto; margin-bottom: 0.25rem;">
+                            <option value="role" {% if dropdown_type == 'role' %}selected{% endif %} class="text-primary">Role</option>
+                            <option value="principle" {% if dropdown_type == 'principle' %}selected{% endif %} class="text-success">Principle</option>
+                            <option value="obligation" {% if dropdown_type == 'obligation' %}selected{% endif %} class="text-warning">Obligation</option>
+                            <option value="state" {% if dropdown_type == 'state' %}selected{% endif %} class="text-info">State</option>
+                            <option value="resource" {% if dropdown_type == 'resource' %}selected{% endif %} class="text-secondary">Resource</option>
+                            <option value="action" {% if dropdown_type == 'action' %}selected{% endif %} class="text-danger">Action</option>
+                            <option value="event" {% if dropdown_type == 'event' %}selected{% endif %} class="text-dark">Event</option>
+                            <option value="capability" {% if dropdown_type == 'capability' %}selected{% endif %}>Capability</option>
+                        </select>
+                        
+                        <div class="concept-hierarchy mt-1">
+                          {% set semantic_category = concept.category %}
+                          {% set ontology_type = actual_type.capitalize() %}
+                          <small class="text-muted">
+                            <span class="hierarchy-display">{{ ontology_type }}</span>
+                            {% if semantic_category and semantic_category != actual_type %}
+                              <span class="text-primary"> → {{ semantic_category }}</span>
+                            {% endif %}
+                            → <strong>{{ concept.label }}</strong>
+                          </small>
+                          
+                          <!-- Show if user has made manual changes -->
+                          <div class="manual-change-indicator" style="display: none;">
+                            <br><small class="text-info" style="font-size: 0.7rem;">
+                              <i class="bi bi-pencil"></i> Manually adjusted
+                            </small>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td>{{ concept.description }}</td>
                     <td>
@@ -312,5 +361,42 @@
   .table td {
     vertical-align: middle;
   }
+  
+  .concept-type-override {
+    min-width: 120px;
+    font-size: 0.875rem;
+  }
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle type override changes
+    const typeOverrideSelects = document.querySelectorAll('.concept-type-override');
+    
+    typeOverrideSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const newType = this.value;
+            const conceptIndex = this.dataset.conceptIndex;
+            const conceptDiv = this.closest('.concept-type-display');
+            const hierarchySpan = conceptDiv.querySelector('.hierarchy-display');
+            
+            // Update the hierarchy display
+            hierarchySpan.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            
+            // Show manual adjustment indicator if different from original
+            const originalType = this.dataset.originalType;
+            const manualIndicator = conceptDiv.querySelector('.manual-change-indicator');
+            if (newType !== originalType) {
+                manualIndicator.style.display = 'block';
+            } else {
+                manualIndicator.style.display = 'none';
+            }
+            
+            console.log('Type manually changed for concept', conceptIndex, 'from', originalType, 'to', newType);
+        });
+    });
+});
+</script>
 {% endblock %}

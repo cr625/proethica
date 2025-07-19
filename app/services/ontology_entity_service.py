@@ -109,12 +109,14 @@ class OntologyEntityService:
         if not entities:
             logger.warning(f"No GuidelineConceptTypes found in ontology {ontology.id}, using legacy extraction")
             entities = {
-                "roles": self._extract_roles(g),
-                "conditions": self._extract_condition_types(g),
-                "resources": self._extract_resource_types(g),
-                "events": self._extract_event_types(g),
-                "actions": self._extract_action_types(g),
-                "capabilities": self._extract_capabilities(g)
+                "role": self._extract_roles(g),
+                "principle": self._extract_principles(g),
+                "obligation": self._extract_obligations(g),
+                "state": self._extract_condition_types(g),  # conditions -> states
+                "resource": self._extract_resource_types(g),
+                "event": self._extract_event_types(g),
+                "action": self._extract_action_types(g),
+                "capability": self._extract_capabilities(g)
             }
         
         result = {
@@ -186,22 +188,61 @@ class OntologyEntityService:
             logger.info("No GuidelineConceptTypes found in current graph, checking proethica-intermediate ontology")
             
             # Try to get the proethica-intermediate ontology from database
-            proethica_ontology = Ontology.query.filter_by(domain_id='proethica-intermediate').first()
-            if proethica_ontology:
-                proethica_graph = Graph()
+            try:
+                proethica_ontology = Ontology.query.filter_by(domain_id='proethica-intermediate').first()
+                if proethica_ontology:
+                    proethica_graph = Graph()
+                    try:
+                        proethica_graph.parse(data=proethica_ontology.content, format="turtle")
+                        
+                        # Extract from proethica-intermediate
+                        for concept_type in proethica_graph.subjects(RDF.type, proeth_namespace.GuidelineConceptType):
+                            label = next(proethica_graph.objects(concept_type, RDFS.label), None)
+                            if label:
+                                concept_name = str(label)
+                                guideline_concept_types[concept_name] = str(concept_type)
+                                logger.info(f"Found GuidelineConceptType from proethica-intermediate: {concept_name} -> {concept_type}")
+                                
+                    except Exception as e:
+                        logger.error(f"Error parsing proethica-intermediate ontology: {e}")
+            except Exception as e:
+                logger.error(f"Error accessing proethica-intermediate ontology from database: {e}")
+                
+                # If database access fails, try loading from file system
                 try:
-                    proethica_graph.parse(data=proethica_ontology.content, format="turtle")
-                    
-                    # Extract from proethica-intermediate
-                    for concept_type in proethica_graph.subjects(RDF.type, proeth_namespace.GuidelineConceptType):
-                        label = next(proethica_graph.objects(concept_type, RDFS.label), None)
-                        if label:
-                            concept_name = str(label)
-                            guideline_concept_types[concept_name] = str(concept_type)
-                            logger.info(f"Found GuidelineConceptType from proethica-intermediate: {concept_name} -> {concept_type}")
-                            
-                except Exception as e:
-                    logger.error(f"Error parsing proethica-intermediate ontology: {e}")
+                    import os
+                    intermediate_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                                                   'ontologies', 'proethica-intermediate.ttl')
+                    if os.path.exists(intermediate_path):
+                        logger.info(f"Loading proethica-intermediate from file: {intermediate_path}")
+                        proethica_graph = Graph()
+                        proethica_graph.parse(intermediate_path, format="turtle")
+                        
+                        # Extract from proethica-intermediate
+                        for concept_type in proethica_graph.subjects(RDF.type, proeth_namespace.GuidelineConceptType):
+                            label = next(proethica_graph.objects(concept_type, RDFS.label), None)
+                            if label:
+                                concept_name = str(label)
+                                guideline_concept_types[concept_name] = str(concept_type)
+                                logger.info(f"Found GuidelineConceptType from file: {concept_name} -> {concept_type}")
+                except Exception as file_error:
+                    logger.error(f"Error loading proethica-intermediate from file: {file_error}")
+        
+        # If still no GuidelineConceptTypes found, use hardcoded fallback
+        if not guideline_concept_types:
+            logger.info("Using hardcoded GuidelineConceptTypes fallback")
+            guideline_concept_types = {
+                "Role": "http://proethica.org/ontology/intermediate#Role",
+                "Principle": "http://proethica.org/ontology/intermediate#Principle", 
+                "Obligation": "http://proethica.org/ontology/intermediate#Obligation",
+                "State": "http://proethica.org/ontology/intermediate#State",
+                "Resource": "http://proethica.org/ontology/intermediate#Resource",
+                "Action": "http://proethica.org/ontology/intermediate#Action",
+                "Event": "http://proethica.org/ontology/intermediate#Event", 
+                "Capability": "http://proethica.org/ontology/intermediate#Capability"
+            }
+            
+        logger.info(f"Final GuidelineConceptTypes: {guideline_concept_types}")
         
         return guideline_concept_types
     
@@ -448,9 +489,9 @@ class OntologyEntityService:
         
         return roles
     
-    def _extract_condition_types(self, graph):
-        """Extract ConditionType entities from the graph."""
-        conditions = []
+    def _extract_principles(self, graph):
+        """Extract Principle entities from the graph."""
+        principles = []
         namespace = self._detect_namespace(graph)
         proeth_namespace = self.namespaces["intermediate"]
         
@@ -461,31 +502,106 @@ class OntologyEntityService:
         def get_description(s):
             return str(next(graph.objects(s, RDFS.comment), ""))
         
-        # Find ConditionType instances
-        condition_subjects = set()
-        condition_subjects.update(graph.subjects(RDF.type, namespace.ConditionType))
-        condition_subjects.update(graph.subjects(RDF.type, proeth_namespace.ConditionType))
+        # Find Principle instances
+        principle_subjects = set()
+        principle_subjects.update(graph.subjects(RDF.type, proeth_namespace.Principle))
         
-        # Also find instances that have both EntityType and ConditionType types
+        # Also find instances that have both EntityType and Principle types
         entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
         for s in entity_type_subjects:
-            if (s, RDF.type, proeth_namespace.ConditionType) in graph:
-                condition_subjects.add(s)
+            if (s, RDF.type, proeth_namespace.Principle) in graph:
+                principle_subjects.add(s)
         
-        # Create condition objects
-        for s in condition_subjects:
+        # Create principle objects
+        for s in principle_subjects:
             # Get parent class (RDFS.subClassOf)
             parent_class = next(graph.objects(s, RDFS.subClassOf), None)
             parent_class_uri = str(parent_class) if parent_class else None
             
-            conditions.append({
+            principles.append({
                 "id": str(s),
                 "label": label_or_id(s),
                 "description": get_description(s),
                 "parent_class": parent_class_uri
             })
         
-        return conditions
+        return principles
+    
+    def _extract_obligations(self, graph):
+        """Extract Obligation entities from the graph."""
+        obligations = []
+        namespace = self._detect_namespace(graph)
+        proeth_namespace = self.namespaces["intermediate"]
+        
+        # Helper functions for getting properties
+        def label_or_id(s):
+            return str(next(graph.objects(s, RDFS.label), s))
+        
+        def get_description(s):
+            return str(next(graph.objects(s, RDFS.comment), ""))
+        
+        # Find Obligation instances
+        obligation_subjects = set()
+        obligation_subjects.update(graph.subjects(RDF.type, proeth_namespace.Obligation))
+        
+        # Also find instances that have both EntityType and Obligation types
+        entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+        for s in entity_type_subjects:
+            if (s, RDF.type, proeth_namespace.Obligation) in graph:
+                obligation_subjects.add(s)
+        
+        # Create obligation objects
+        for s in obligation_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
+            obligations.append({
+                "id": str(s),
+                "label": label_or_id(s),
+                "description": get_description(s),
+                "parent_class": parent_class_uri
+            })
+        
+        return obligations
+    
+    def _extract_condition_types(self, graph):
+        """Extract State entities from the graph (legacy method name for compatibility)."""
+        states = []
+        namespace = self._detect_namespace(graph)
+        proeth_namespace = self.namespaces["intermediate"]
+        
+        # Helper functions for getting properties
+        def label_or_id(s):
+            return str(next(graph.objects(s, RDFS.label), s))
+        
+        def get_description(s):
+            return str(next(graph.objects(s, RDFS.comment), ""))
+        
+        # Find State instances (updated to use State instead of ConditionType)
+        state_subjects = set()
+        state_subjects.update(graph.subjects(RDF.type, proeth_namespace.State))
+        
+        # Also find instances that have both EntityType and State types
+        entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
+        for s in entity_type_subjects:
+            if (s, RDF.type, proeth_namespace.State) in graph:
+                state_subjects.add(s)
+        
+        # Create state objects
+        for s in state_subjects:
+            # Get parent class (RDFS.subClassOf)
+            parent_class = next(graph.objects(s, RDFS.subClassOf), None)
+            parent_class_uri = str(parent_class) if parent_class else None
+            
+            states.append({
+                "id": str(s),
+                "label": label_or_id(s),
+                "description": get_description(s),
+                "parent_class": parent_class_uri
+            })
+        
+        return states
     
     def _extract_resource_types(self, graph):
         """Extract ResourceType entities from the graph."""

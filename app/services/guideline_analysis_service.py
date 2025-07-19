@@ -223,12 +223,14 @@ class GuidelineAnalysisService:
                                         concept_name=concept.get("label", "")
                                     )
                                     
-                                    # Store original type and mapping metadata
+                                    # Store original type and mapping metadata (two-tier approach)
                                     concept["original_llm_type"] = original_type
                                     concept["type"] = mapping_result.mapped_type
                                     concept["type_mapping_confidence"] = mapping_result.confidence
                                     concept["needs_type_review"] = mapping_result.needs_review
                                     concept["mapping_justification"] = mapping_result.justification
+                                    concept["semantic_label"] = mapping_result.semantic_label
+                                    concept["mapping_source"] = mapping_result.mapping_source
                                     
                                     logger.info(f"Mapped '{original_type}' → '{mapping_result.mapped_type}' (confidence: {mapping_result.confidence:.2f})")
                                 else:
@@ -237,6 +239,8 @@ class GuidelineAnalysisService:
                                     concept["type_mapping_confidence"] = 1.0
                                     concept["needs_type_review"] = False
                                     concept["mapping_justification"] = f"Exact match to ontology type '{original_type}'"
+                                    concept["semantic_label"] = original_type
+                                    concept["mapping_source"] = "exact_match"
                             return result["result"]
             except Exception as e:
                 logger.warning(f"MCP server error, falling back to LLM: {str(e)}")
