@@ -13,6 +13,20 @@
         padding: 0.25rem;
     }
     
+    .concept-hierarchy {
+        word-wrap: break-word;
+        white-space: normal;
+    }
+    
+    .hierarchy-path {
+        padding: 0.25rem 0;
+    }
+    
+    .table td {
+        vertical-align: top;
+        padding: 0.75rem 0.5rem;
+    }
+    
     .type-help-tooltip {
         cursor: help;
         font-size: 0.75rem;
@@ -162,10 +176,6 @@
         
         <div class="row">
             <div class="col-12">
-                <!-- DEBUG: Template Test -->
-                <div class="alert alert-warning mb-3">
-                    <strong>🔧 TEMPLATE DEBUG:</strong> This template was updated with dropdown functionality. If you see this message but no dropdowns below, there's a template rendering issue.
-                </div>
                 
                 <div class="card mb-4">
                     <div class="card-header bg-light">
@@ -177,10 +187,9 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 5%">Select</th>
-                                        <th style="width: 20%">Concept</th>
-                                        <th style="width: 15%">Type</th>
-                                        <th style="width: 45%">Description</th>
-                                        <th style="width: 15%">Confidence</th>
+                                        <th style="width: 25%">Concept</th>
+                                        <th style="width: 30%">Type & Classification</th>
+                                        <th style="width: 40%">Description</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -188,69 +197,65 @@
                                     <tr>
                                         <td>
                                             <div class="form-check">
-                                                <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index }}">
+                                                <input class="form-check-input concept-checkbox" type="checkbox" name="selected_concepts" value="{{ loop.index0 }}" id="concept-{{ loop.index }}" checked>
                                             </div>
                                         </td>
-                                        <td><label class="form-check-label" for="concept-{{ loop.index }}"><strong>{{ concept.label }}</strong></label></td>
                                         <td>
-                                            <!-- DEBUG: Show concept data -->
-                                            <div class="small text-muted mb-1">
-                                                DEBUG: type={{ concept.type }}, primary_type={{ concept.primary_type }}, category={{ concept.category }}
+                                            <div class="d-flex align-items-center">
+                                                {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                                                {% set type_colors = {
+                                                  'role': 'bg-primary',
+                                                  'principle': 'bg-success', 
+                                                  'obligation': 'bg-warning',
+                                                  'state': 'bg-info',
+                                                  'resource': 'bg-secondary',
+                                                  'action': 'bg-danger',
+                                                  'event': 'bg-dark',
+                                                  'capability': 'bg-light text-dark'
+                                                } %}
+                                                {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                                                {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                                                <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                                                <label class="form-check-label" for="concept-{{ loop.index }}"><strong>{{ concept.label }}</strong></label>
                                             </div>
-                                            {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
-                                            {% set type_colors = {
-                                              'role': 'bg-primary',
-                                              'principle': 'bg-success', 
-                                              'obligation': 'bg-warning',
-                                              'state': 'bg-info',
-                                              'resource': 'bg-secondary',
-                                              'action': 'bg-danger',
-                                              'event': 'bg-dark',
-                                              'capability': 'bg-light text-dark'
-                                            } %}
-                                            {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
-                                            {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
-                                            
+                                        </td>
+                                        <td>
                                             <div class="concept-type-display">
                                                 <!-- Manual Type Override Dropdown -->
+                                                {% set actual_type = concept.type or concept.primary_type or 'concept' %}
+                                                {% set dropdown_type = actual_type.lower() %}
                                                 <select class="form-select form-select-sm concept-type-override" 
                                                         data-concept-index="{{ loop.index0 }}"
-                                                        data-original-type="{{ primary_type }}"
+                                                        data-original-type="{{ dropdown_type }}"
                                                         style="width: auto; margin-bottom: 0.25rem;">
-                                                    <option value="role" {% if primary_type == 'role' %}selected{% endif %} class="text-primary">Role</option>
-                                                    <option value="principle" {% if primary_type == 'principle' %}selected{% endif %} class="text-success">Principle</option>
-                                                    <option value="obligation" {% if primary_type == 'obligation' %}selected{% endif %} class="text-warning">Obligation</option>
-                                                    <option value="state" {% if primary_type == 'state' %}selected{% endif %} class="text-info">State</option>
-                                                    <option value="resource" {% if primary_type == 'resource' %}selected{% endif %} class="text-secondary">Resource</option>
-                                                    <option value="action" {% if primary_type == 'action' %}selected{% endif %} class="text-danger">Action</option>
-                                                    <option value="event" {% if primary_type == 'event' %}selected{% endif %} class="text-dark">Event</option>
-                                                    <option value="capability" {% if primary_type == 'capability' %}selected{% endif %}>Capability</option>
+                                                    <option value="role" {% if dropdown_type == 'role' %}selected{% endif %} class="text-primary">Role</option>
+                                                    <option value="principle" {% if dropdown_type == 'principle' %}selected{% endif %} class="text-success">Principle</option>
+                                                    <option value="obligation" {% if dropdown_type == 'obligation' %}selected{% endif %} class="text-warning">Obligation</option>
+                                                    <option value="state" {% if dropdown_type == 'state' %}selected{% endif %} class="text-info">State</option>
+                                                    <option value="resource" {% if dropdown_type == 'resource' %}selected{% endif %} class="text-secondary">Resource</option>
+                                                    <option value="action" {% if dropdown_type == 'action' %}selected{% endif %} class="text-danger">Action</option>
+                                                    <option value="event" {% if dropdown_type == 'event' %}selected{% endif %} class="text-dark">Event</option>
+                                                    <option value="capability" {% if dropdown_type == 'capability' %}selected{% endif %}>Capability</option>
                                                 </select>
                                                 
-                                                <div class="concept-hierarchy mt-1">
-                                                    {% set semantic_label = concept.semantic_label or concept.category or concept.type %}
-                                                    <small class="text-muted">
-                                                        <span class="hierarchy-display">{{ display_type }}</span> → 
-                                                        {% if semantic_label %}{{ semantic_label|capitalize }} → {% endif %}
-                                                        <strong>{{ concept.label }}</strong>
-                                                    </small>
-                                                    {% if primary_type != (concept.original_llm_type or '').lower() %}
-                                                        <br><small class="text-warning" style="font-size: 0.7rem;">
-                                                            <i class="bi bi-info-circle"></i> Originally: {{ concept.original_llm_type or 'Unknown' }}
+                                                <div class="concept-hierarchy mt-2">
+                                                    {% set semantic_category = concept.category %}
+                                                    {% set ontology_type = actual_type.capitalize() %}
+                                                    <div class="hierarchy-path mb-1">
+                                                        <small class="d-block" style="line-height: 1.4;">
+                                                            <strong class="hierarchy-display text-dark">{{ ontology_type }}</strong>
+                                                            {% if semantic_category and semantic_category != actual_type %}
+                                                                <br>↳ <span class="text-primary fst-italic">{{ semantic_category }}</span>
+                                                                <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                                                            {% else %}
+                                                                <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                                                            {% endif %}
                                                         </small>
-                                                    {% endif %}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td>{{ concept.description }}</td>
-                                        <td>
-                                            <div class="progress">{#
-                                                {% set confidence_pct = (concept.confidence * 100)|int %}
-                                                {% set confidence_class = "bg-success" if confidence_pct >= 80 else "bg-warning" if confidence_pct >= 60 else "bg-danger" %}
-                                                <div class="progress-bar {{ confidence_class }}" role="progressbar" style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}" aria-valuemin="0" aria-valuemax="100">{{ confidence_pct }}%</div>
-                                            #}
-                                            </div>
-                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>

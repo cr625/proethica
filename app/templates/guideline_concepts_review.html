@@ -193,10 +193,10 @@
                 <thead class="table-light">
                   <tr>
                     <th style="width: 50px;">Select</th>
-                    <th>Concept</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Ontology Match</th>
+                    <th style="width: 25%;">Concept</th>
+                    <th style="width: 30%;">Type & Classification</th>
+                    <th style="width: 30%;">Description</th>
+                    <th style="width: 15%;">Ontology Match</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -210,22 +210,26 @@
                         <label class="form-check-label" for="concept{{ loop.index }}"></label>
                       </div>
                     </td>
-                    <td><strong>{{ concept.label }}</strong></td>
                     <td>
-                      {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
-                      {% set type_colors = {
-                        'role': 'bg-primary',
-                        'principle': 'bg-success', 
-                        'obligation': 'bg-warning',
-                        'state': 'bg-info',
-                        'resource': 'bg-secondary',
-                        'action': 'bg-danger',
-                        'event': 'bg-dark',
-                        'capability': 'bg-light text-dark'
-                      } %}
-                      {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
-                      {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
-                      
+                      <div class="d-flex align-items-center">
+                        {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                        {% set type_colors = {
+                          'role': 'bg-primary',
+                          'principle': 'bg-success', 
+                          'obligation': 'bg-warning',
+                          'state': 'bg-info',
+                          'resource': 'bg-secondary',
+                          'action': 'bg-danger',
+                          'event': 'bg-dark',
+                          'capability': 'bg-light text-dark'
+                        } %}
+                        {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                        {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                        <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                        <strong>{{ concept.label }}</strong>
+                      </div>
+                    </td>
+                    <td>
                       <div class="concept-type-display">
                         <!-- Manual Type Override Dropdown -->
                         {% set actual_type = concept.type or concept.primary_type or 'concept' %}
@@ -244,21 +248,25 @@
                             <option value="capability" {% if dropdown_type == 'capability' %}selected{% endif %}>Capability</option>
                         </select>
                         
-                        <div class="concept-hierarchy mt-1">
+                        <div class="concept-hierarchy mt-2">
                           {% set semantic_category = concept.category %}
                           {% set ontology_type = actual_type.capitalize() %}
-                          <small class="text-muted">
-                            <span class="hierarchy-display">{{ ontology_type }}</span>
-                            {% if semantic_category and semantic_category != actual_type %}
-                              <span class="text-primary"> → {{ semantic_category }}</span>
-                            {% endif %}
-                            → <strong>{{ concept.label }}</strong>
-                          </small>
+                          <div class="hierarchy-path mb-1">
+                            <small class="d-block" style="line-height: 1.4;">
+                              <strong class="hierarchy-display text-dark">{{ ontology_type }}</strong>
+                              {% if semantic_category and semantic_category != actual_type %}
+                                <br>↳ <span class="text-primary fst-italic">{{ semantic_category }}</span>
+                                <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                              {% else %}
+                                <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                              {% endif %}
+                            </small>
+                          </div>
                           
                           <!-- Show if user has made manual changes -->
                           <div class="manual-change-indicator" style="display: none;">
-                            <br><small class="text-info" style="font-size: 0.7rem;">
-                              <i class="bi bi-pencil"></i> Manually adjusted
+                            <small class="text-info d-block" style="font-size: 0.75rem;">
+                              <i class="bi bi-pencil-square"></i> Manually adjusted
                             </small>
                           </div>
                         </div>
@@ -292,6 +300,62 @@
                   {% endif %}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept Types Reference -->
+    <div class="card mt-4 mb-4">
+      <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="fas fa-tags"></i> Concept Types</h6>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="text-primary">🏛️ Ontological Types (8 Fundamental Categories)</h6>
+            <p class="small text-muted mb-2">Formal ontology classes - stored as permanent classifications</p>
+            
+            <dl class="small mb-3">
+              <dt><span class="badge bg-primary">Role</span></dt>
+              <dd>Professional positions, occupations, or stakeholder categories (e.g., Engineer, Client, Manager). <strong>NOT duties or relationships.</strong></dd>
+              
+              <dt><span class="badge bg-success">Principle</span></dt>
+              <dd>Core ethical values, fundamental beliefs, or guiding standards (e.g., Safety First, Honesty).</dd>
+              
+              <dt><span class="badge bg-warning">Obligation</span></dt>
+              <dd>Professional duties, requirements, or things that MUST be done (e.g., Faithful Agency, Confidentiality).</dd>
+              
+              <dt><span class="badge bg-info">State</span></dt>
+              <dd>Conditions, situations, or circumstances that exist (e.g., Conflict of Interest, Risk State).</dd>
+              
+              <dt><span class="badge bg-secondary">Resource</span></dt>
+              <dd>Physical or informational entities, documents, or tools (e.g., Technical Standards, Specifications).</dd>
+              
+              <dt><span class="badge bg-danger">Action</span></dt>
+              <dd>Intentional activities or processes performed (e.g., Design Review, Communication).</dd>
+              
+              <dt><span class="badge bg-dark">Event</span></dt>
+              <dd>Occurrences, incidents, or happenings (e.g., Safety Incident, Project Milestone).</dd>
+              
+              <dt><span class="badge bg-light text-dark">Capability</span></dt>
+              <dd>Skills, competencies, or abilities (e.g., Technical Expertise, Problem Solving).</dd>
+            </dl>
+          </div>
+          <div class="col-md-6">
+            <h6 class="text-primary">🤖 Semantic Categories (LLM Insights)</h6>
+            <p class="small text-muted mb-2">AI-generated classifications - stored as metadata for future ontology evolution</p>
+            <div class="mb-3">
+              <span class="text-primary fst-italic">Examples: Fundamental Duty, Professional Standard, Ethical Principle</span>
+            </div>
+            
+            <div class="alert alert-info mb-0">
+              <small>
+                <strong>Display Format:</strong><br>
+                <strong>Concept Column:</strong> <span class="badge bg-success">Ontological Type</span> <strong>Concept Name</strong><br>
+                <strong>Type Column:</strong> Dropdown + <strong>Ontological Type</strong> → <span class="text-primary fst-italic">LLM Semantic Category</span> → <strong>Concept Name</strong>
+              </small>
             </div>
           </div>
         </div>
@@ -366,6 +430,20 @@
     min-width: 120px;
     font-size: 0.875rem;
   }
+  
+  .concept-hierarchy {
+    word-wrap: break-word;
+    white-space: normal;
+  }
+  
+  .hierarchy-path {
+    padding: 0.25rem 0;
+  }
+  
+  .table td {
+    vertical-align: top;
+    padding: 0.75rem 0.5rem;
+  }
 </style>
 {% endblock %}
 
@@ -382,8 +460,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const conceptDiv = this.closest('.concept-type-display');
             const hierarchySpan = conceptDiv.querySelector('.hierarchy-display');
             
+            const typeColors = {
+                'role': 'bg-primary',
+                'principle': 'bg-success',
+                'obligation': 'bg-warning',
+                'state': 'bg-info',
+                'resource': 'bg-secondary',
+                'action': 'bg-danger',
+                'event': 'bg-dark',
+                'capability': 'bg-light text-dark'
+            };
+            
             // Update the hierarchy display
-            hierarchySpan.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            if (hierarchySpan) {
+                hierarchySpan.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            }
+            
+            // Update the concept column badge
+            const row = this.closest('tr');
+            const conceptBadge = row.querySelector('td:nth-child(2) .badge');
+            if (conceptBadge) {
+                // Remove old color classes
+                conceptBadge.className = 'badge me-2';
+                // Add new color class
+                conceptBadge.classList.add(typeColors[newType] || 'bg-secondary');
+                conceptBadge.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            }
             
             // Show manual adjustment indicator if different from original
             const originalType = this.dataset.originalType;
@@ -394,7 +496,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 manualIndicator.style.display = 'none';
             }
             
-            console.log('Type manually changed for concept', conceptIndex, 'from', originalType, 'to', newType);
         });
     });
 });
