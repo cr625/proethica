@@ -82,9 +82,9 @@
     {% endif %}
     
     {% if concepts %}
-    <form method="POST" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
+    <form method="POST" action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}" id="concepts-form">
         <!-- Include concepts data as hidden field -->
-        <input type="hidden" name="concepts_data" value="{{ concepts|tojson }}" />
+        <input type="hidden" name="concepts_data" id="concepts_data" value="" />
         <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
         <div class="row mb-3">
             <div class="col-md-8">
@@ -104,82 +104,14 @@
             </div>
         </div>
         
-        <!-- Type Definitions Help -->
-        <div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
-            <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Understanding Concept Types</h6>
-            <p class="mb-2 small">You can manually adjust concept types using the dropdown menus. Here's what each type represents:</p>
-            
-            <dl class="type-definitions mb-0">
-                <dt><span class="badge bg-primary">Role</span></dt>
-                <dd>Professional positions, occupations, or stakeholder categories (e.g., Engineer, Client, Manager). <strong>NOT duties or relationships.</strong></dd>
-                
-                <dt><span class="badge bg-success">Principle</span></dt>
-                <dd>Core ethical values, fundamental beliefs, or guiding standards (e.g., Safety First, Honesty).</dd>
-                
-                <dt><span class="badge bg-warning">Obligation</span></dt>
-                <dd>Professional duties, requirements, or things that MUST be done (e.g., Faithful Agency, Confidentiality).</dd>
-                
-                <dt><span class="badge bg-info">State</span></dt>
-                <dd>Conditions, situations, or circumstances that exist (e.g., Conflict of Interest, Risk State).</dd>
-                
-                <dt><span class="badge bg-secondary">Resource</span></dt>
-                <dd>Physical or informational entities, documents, or tools (e.g., Technical Standards, Specifications).</dd>
-                
-                <dt><span class="badge bg-danger">Action</span></dt>
-                <dd>Intentional activities or processes performed (e.g., Design Review, Communication).</dd>
-                
-                <dt><span class="badge bg-dark">Event</span></dt>
-                <dd>Occurrences, incidents, or happenings (e.g., Safety Incident, Project Milestone).</dd>
-                
-                <dt><span class="badge bg-light text-dark">Capability</span></dt>
-                <dd>Skills, competencies, or abilities (e.g., Technical Expertise, Problem Solving).</dd>
-            </dl>
-            
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
         
-        <!-- Type Legend -->
-        <div class="type-legend mb-3">
-            <div class="type-legend-item">
-                <span class="badge bg-primary">Role</span>
-                <span>Professional positions</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-success">Principle</span>
-                <span>Ethical values</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-warning">Obligation</span>
-                <span>Professional duties</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-info">State</span>
-                <span>Conditions</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-secondary">Resource</span>
-                <span>Physical entities</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-danger">Action</span>
-                <span>Activities</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-dark">Event</span>
-                <span>Occurrences</span>
-            </div>
-            <div class="type-legend-item">
-                <span class="badge bg-light text-dark">Capability</span>
-                <span>Skills</span>
-            </div>
-        </div>
         
         <div class="row">
             <div class="col-12">
                 
                 <div class="card mb-4">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0">Extracted Concepts ({{ concepts|length }}) - WITH DROPDOWNS</h5>
+                        <h5 class="mb-0">Extracted Concepts ({{ concepts|length }})</h5>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -260,6 +192,62 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Concept Types Reference -->
+        <div class="card mt-4 mb-4">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="fas fa-tags"></i> Concept Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">🏛️ Ontological Types (8 Fundamental Categories)</h6>
+                        <p class="small text-muted mb-2">Formal ontology classes - stored as permanent classifications</p>
+                        
+                        <dl class="small mb-3">
+                            <dt><span class="badge bg-primary">Role</span></dt>
+                            <dd>Professional positions, occupations, or stakeholder categories (e.g., Engineer, Client, Manager). <strong>NOT duties or relationships.</strong></dd>
+                            
+                            <dt><span class="badge bg-success">Principle</span></dt>
+                            <dd>Core ethical values, fundamental beliefs, or guiding standards (e.g., Safety First, Honesty).</dd>
+                            
+                            <dt><span class="badge bg-warning">Obligation</span></dt>
+                            <dd>Professional duties, requirements, or things that MUST be done (e.g., Faithful Agency, Confidentiality).</dd>
+                            
+                            <dt><span class="badge bg-info">State</span></dt>
+                            <dd>Conditions, situations, or circumstances that exist (e.g., Conflict of Interest, Risk State).</dd>
+                            
+                            <dt><span class="badge bg-secondary">Resource</span></dt>
+                            <dd>Physical or informational entities, documents, or tools (e.g., Technical Standards, Specifications).</dd>
+                            
+                            <dt><span class="badge bg-danger">Action</span></dt>
+                            <dd>Intentional activities or processes performed (e.g., Design Review, Communication).</dd>
+                            
+                            <dt><span class="badge bg-dark">Event</span></dt>
+                            <dd>Occurrences, incidents, or happenings (e.g., Safety Incident, Project Milestone).</dd>
+                            
+                            <dt><span class="badge bg-light text-dark">Capability</span></dt>
+                            <dd>Skills, competencies, or abilities (e.g., Technical Expertise, Problem Solving).</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">🤖 Semantic Categories (LLM Insights)</h6>
+                        <p class="small text-muted mb-2">AI-generated classifications - stored as metadata for future ontology evolution</p>
+                        <div class="mb-3">
+                            <span class="text-primary fst-italic">Examples: Fundamental Duty, Professional Standard, Ethical Principle</span>
+                        </div>
+                        
+                        <div class="alert alert-info mb-0">
+                            <small>
+                                <strong>Display Format:</strong><br>
+                                <strong>Concept Column:</strong> <span class="badge bg-success">Ontological Type</span> <strong>Concept Name</strong><br>
+                                <strong>Type Column:</strong> Dropdown + <strong>Ontological Type</strong> → <span class="text-primary fst-italic">LLM Semantic Category</span> → <strong>Concept Name</strong>
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -383,8 +371,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Initialize concepts data field with current data
-    const conceptsData = {{ concepts|tojson }};
-    document.getElementById('concepts_data').value = JSON.stringify(conceptsData);
+    const conceptsData = {{ concepts|tojson|safe }};
+    const conceptsDataField = document.getElementById('concepts_data');
+    if (conceptsDataField) {
+        conceptsDataField.value = JSON.stringify(conceptsData);
+        console.log('Initial concepts data set:', conceptsDataField.value.substring(0, 100) + '...');
+    } else {
+        console.error('concepts_data field not found!');
+    }
+    
+    // Add form submission handler to ensure data is present
+    const form = document.getElementById('concepts-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const dataField = document.getElementById('concepts_data');
+            console.log('Form submitting with concepts_data:', dataField.value.substring(0, 100) + '...');
+            if (!dataField.value || dataField.value === '') {
+                console.error('concepts_data is empty! Setting it now...');
+                dataField.value = JSON.stringify(conceptsData);
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

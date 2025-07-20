@@ -78,11 +78,41 @@
                                 {% if concepts %}
                                 {% for concept in concepts %}
                                 <tr>
-                                    <td><strong>{{ concept.label }}</strong></td>
                                     <td>
-                                        <span class="badge bg-secondary">{{ concept.category|capitalize if
-                                            concept.category else
-                                            (concept.type|capitalize if concept.type else "Concept") }}</span>
+                                        <div class="d-flex align-items-center">
+                                            {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                                            {% set type_colors = {
+                                              'role': 'bg-primary',
+                                              'principle': 'bg-success', 
+                                              'obligation': 'bg-warning',
+                                              'state': 'bg-info',
+                                              'resource': 'bg-secondary',
+                                              'action': 'bg-danger',
+                                              'event': 'bg-dark',
+                                              'capability': 'bg-light text-dark'
+                                            } %}
+                                            {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                                            {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                                            <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                                            <strong>{{ concept.label }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="concept-hierarchy">
+                                            {% set semantic_category = concept.category %}
+                                            {% set ontology_type = (concept.primary_type or concept.type or 'concept').capitalize() %}
+                                            <div class="hierarchy-path">
+                                                <small class="d-block" style="line-height: 1.4;">
+                                                    <strong class="hierarchy-display text-dark">{{ ontology_type }}</strong>
+                                                    {% if semantic_category and semantic_category != (concept.primary_type or concept.type) %}
+                                                        <br>↳ <span class="text-primary fst-italic">{{ semantic_category }}</span>
+                                                        <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                                                    {% else %}
+                                                        <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>{{ concept.description }}</td>
                                 </tr>
@@ -137,7 +167,17 @@
 {{ super() }}
 <style>
     .table td {
-        vertical-align: middle;
+        vertical-align: top;
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .concept-hierarchy {
+        word-wrap: break-word;
+        white-space: normal;
+    }
+    
+    .hierarchy-path {
+        padding: 0.25rem 0;
     }
 </style>
 {% endblock %}

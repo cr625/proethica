@@ -107,41 +107,18 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         
         logger.info(f"Successfully extracted {len(concepts_list)} concepts")
         
-        # Try to use the guideline_concepts_review.html template, which is more robust
-        # than guideline_extracted_concepts.html and has proper URL routing
-        try:
-            # Debug log the concepts list to help with troubleshooting
-            logger.info(f"Passing {len(concepts_list)} concepts to template guideline_concepts_review.html")
-            
-            # First try the better template with additional logging
-            return render_template('guideline_concepts_review.html', 
+        # Use the primary template - no fallbacks
+        logger.info(f"Passing {len(concepts_list)} concepts to template guideline_concepts_review.html")
+        
+        # Render the concepts review template
+        return render_template('guideline_concepts_review.html', 
                                world=world, 
                                guideline=guideline,
                                concepts=concepts_list,
                                world_id=world.id,
                                document_id=document_id,
-                               ontology_source=ontology_source)  # Pass ontology_source explicitly
-        except Exception as template_error:
-            # Fall back to the original template if needed
-            logger.warning(f"Error using guideline_concepts_review.html template: {str(template_error)}. Falling back to guideline_extracted_concepts.html")
-            try:
-                # Fallback template
-                return render_template('guideline_extracted_concepts.html', 
-                                    world=world, 
-                                    guideline=guideline,
-                                    concepts=concepts_list,
-                                    world_id=world.id,
-                                    document_id=document_id)
-            except Exception as fallback_error:
-                # If both templates fail, redirect to error page
-                logger.error(f"Both templates failed. Error: {str(fallback_error)}")
-                error_details = traceback.format_exc()
-                return redirect(url_for('worlds.guideline_processing_error', 
-                                       world_id=world.id, 
-                                       document_id=document_id,
-                                       error_title='Template Rendering Error',
-                                       error_message='Successfully extracted concepts, but encountered an error displaying them.',
-                                       error_details=error_details))
+                               ontology_source=ontology_source,
+                               matched_entities={})  # Add empty matched_entities to fix any missing variable issues
     except Exception as e:
         logger.exception(f"Error in direct_concept_extraction: {str(e)}")
         error_details = traceback.format_exc()

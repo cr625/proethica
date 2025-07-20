@@ -1381,120 +1381,171 @@ def save_guideline_concepts(world_id, document_id):
                                 error_message='You must select at least one concept to save to the ontology.'))
     
     try:
-        # Get concepts data from the form instead of session
+        # Get concepts data from the form - try different methods
         concepts_data = request.form.get('concepts_data', '[]')
         ontology_source = request.form.get('ontology_source', '')
         
-        try:
-            # Parse the JSON data from the form with our robust parser
+        # Debug logging
+        logger.info(f"Received concepts_data length: {len(concepts_data)}")
+        logger.info(f"Full concepts_data: {concepts_data}")
+        logger.info(f"Selected concept indices: {selected_indices}")
+        
+        # If the form data is truncated, let's try to get concepts from the extraction again
+        if len(concepts_data) < 100 or not concepts_data.strip().endswith(']'):
+            logger.warning("Concepts data appears truncated or invalid, re-extracting from document")
+            
+            # Re-extract concepts since form data is corrupted
+            from app.services.guideline_analysis_service import GuidelineAnalysisService
+            guideline_service = GuidelineAnalysisService()
+            
+            content = guideline.content
+            if not content and guideline.file_path:
+                with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+            
+            if content:
+                concepts_result = guideline_service.extract_concepts(content, ontology_source)
+                if "concepts" in concepts_result:
+                    all_concepts = concepts_result["concepts"]
+                    # Filter to only selected concepts
+                    concepts = [all_concepts[i] for i in selected_indices if i < len(all_concepts)]
+                    logger.info(f"Re-extracted and filtered to {len(concepts)} selected concepts")
+                else:
+                    logger.error("Failed to re-extract concepts")
+                    concepts = []
+            else:
+                logger.error("No content available for re-extraction")
+                concepts = []
+        else:
+            # Try to parse the JSON data from the form
             concepts = robust_json_parse(concepts_data)
-        except Exception as json_error:
-            logger.error(f"Error parsing concepts JSON: {str(json_error)}")
-            return redirect(url_for('worlds.guideline_processing_error', 
-                                    world_id=world_id, 
-                                    document_id=document_id,
-                                    error_title='JSON Parsing Error',
-                                    error_message='Could not parse the concept data from the form submission.',
-                                    error_details=str(json_error)))
-        
-        if not concepts:
-            logger.error("No concepts found in parsed data")
-            return redirect(url_for('worlds.guideline_processing_error', 
-                                    world_id=world_id, 
-                                    document_id=document_id,
-                                    error_title='No Concepts Found',
-                                    error_message='No concepts were found in the analysis results.'))
-        
-        logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
-        
-        # At this stage, we're just saving the concepts, not generating or saving triples yet
-        # No triples data is needed here
-        
-        # Save the guideline model with the triples
-        try:
-            # Create guideline record
-            from app.models.guideline import Guideline
-            new_guideline = Guideline(
-                world_id=world_id,
-                title=guideline.title,
-                content=guideline.content,
-                source_url=guideline.source,
-                file_path=guideline.file_path,
-                file_type=guideline.file_type,
-                guideline_metadata={
-                    "document_id": document_id,
-                    "analyzed": True,
-                    "concepts_extracted": len(concepts),
-                    "concepts_selected": len(selected_indices),
-                    "triple_count": 0,  # No triples yet
-                    "analysis_date": datetime.utcnow().isoformat(),
+            
+    except Exception as json_error:
+        logger.error(f"Error parsing concepts JSON: {str(json_error)}")
+        return redirect(url_for('worlds.guideline_processing_error', 
+                                world_id=world_id, 
+                                document_id=document_id,
+                                error_title='JSON Parsing Error',
+                                error_message='Could not parse the concept data from the form submission.',
+                                error_details=str(json_error)))
+    
+    if not concepts:
+        logger.error("No concepts found in parsed data")
+        return redirect(url_for('worlds.guideline_processing_error', 
+                                world_id=world_id, 
+                                document_id=document_id,
+                                error_title='No Concepts Found',
+                                error_message='No concepts were found in the analysis results.'))
+    
+    logger.info(f"Generating triples for {len(selected_indices)} selected concepts out of {len(concepts)} total concepts")
+    
+    # At this stage, we're just saving the concepts, not generating or saving triples yet
+    # No triples data is needed here
+    
+    # Save the guideline model with the triples
+    try:
+        # Create guideline record
+        from app.models.guideline import Guideline
+        new_guideline = Guideline(
+            world_id=world_id,
+            title=guideline.title,
+            content=guideline.content,
+            source_url=guideline.source,
+            file_path=guideline.file_path,
+            file_type=guideline.file_type,
+            guideline_metadata={
+                "document_id": document_id,
+                "analyzed": True,
+                "concepts_extracted": len(concepts),
+                "concepts_selected": len(selected_indices),
+                "triple_count": 0,  # No triples yet
+                "analysis_date": datetime.utcnow().isoformat(),
                 "ontology_source": ontology_source
-                }
-            )
-            db.session.add(new_guideline)
-            db.session.flush()  # Get the guideline ID
-            
-            # Create basic entity triples for each selected concept
-            # These are minimal triples just to represent the concepts, not the full semantic relationships
-            created_triple_count = 0
-            namespace = "http://proethica.org/guidelines/"
-            
-            for idx in selected_indices:
-                if idx < len(concepts):
-                    concept = concepts[idx]
-                    concept_label = concept.get("label", "Unknown Concept")
-                    concept_description = concept.get("description", "")
-                    
-                    # Check for manual type override
-                    if concept.get("manually_edited") and concept.get("manual_type_override"):
-                        concept_type = concept.get("manual_type_override")
-                        # Update the mapping metadata to reflect manual override
-                        concept["mapping_source"] = "manual"
-                        concept["mapping_justification"] = "Manually corrected by user"
-                        concept["type_mapping_confidence"] = 1.0
-                        concept["needs_type_review"] = False
-                    else:
-                        concept_type = concept.get("type", "concept")
-                    
-                    # Create concept URI
-                    concept_uri = f"{namespace}{concept_label.lower().replace(' ', '_')}"
-                    
-                    # Create basic triples for this concept
-                    # 1. Type triple (with two-tier type mapping metadata)
-                    type_triple = EntityTriple(
+            }
+        )
+        db.session.add(new_guideline)
+        db.session.flush()  # Get the guideline ID
+        
+        # Create basic entity triples for each selected concept
+        # These are minimal triples just to represent the concepts, not the full semantic relationships
+        created_triple_count = 0
+        namespace = "http://proethica.org/guidelines/"
+        
+        for idx in selected_indices:
+            if idx < len(concepts):
+                concept = concepts[idx]
+                concept_label = concept.get("label", "Unknown Concept")
+                concept_description = concept.get("description", "")
+                
+                # Check for manual type override
+                if concept.get("manually_edited") and concept.get("manual_type_override"):
+                    concept_type = concept.get("manual_type_override")
+                    # Update the mapping metadata to reflect manual override
+                    concept["mapping_source"] = "manual"
+                    concept["mapping_justification"] = "Manually corrected by user"
+                    concept["type_mapping_confidence"] = 1.0
+                    concept["needs_type_review"] = False
+                else:
+                    concept_type = concept.get("type", "concept")
+                
+                # Create concept URI
+                concept_uri = f"{namespace}{concept_label.lower().replace(' ', '_')}"
+                
+                # Create basic triples for this concept
+                # 1. Type triple (with two-tier type mapping metadata)
+                type_triple = EntityTriple(
+                    subject=concept_uri,
+                    subject_label=concept_label,
+                    predicate="http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                    predicate_label="is a",
+                    object_uri=f"http://proethica.org/ontology/{concept_type}",
+                    object_label=concept_type.title(),
+                    is_literal=False,
+                    entity_type="guideline_concept",
+                    entity_id=new_guideline.id,
+                    guideline_id=new_guideline.id,
+                    world_id=world_id,
+                    graph=f"guideline_{new_guideline.id}",
+                    # Store type mapping metadata from GuidelineAnalysisService
+                    original_llm_type=concept.get("original_llm_type"),
+                    type_mapping_confidence=concept.get("type_mapping_confidence"),
+                    needs_type_review=concept.get("needs_type_review", False),
+                    mapping_justification=concept.get("mapping_justification"),
+                    # Two-tier concept type storage
+                    semantic_label=concept.get("semantic_label", concept.get("category", concept.get("type", ""))),
+                    primary_type=concept_type,
+                    mapping_source=concept.get("mapping_source", "legacy")
+                )
+                db.session.add(type_triple)
+                created_triple_count += 1
+                
+                # 2. Label triple
+                label_triple = EntityTriple(
+                    subject=concept_uri,
+                    subject_label=concept_label,
+                    predicate="http://www.w3.org/2000/01/rdf-schema#label",
+                    predicate_label="label",
+                    object_literal=concept_label,
+                    object_label=concept_label,
+                    is_literal=True,
+                    entity_type="guideline_concept",
+                    entity_id=new_guideline.id,
+                    guideline_id=new_guideline.id,
+                    world_id=world_id,
+                    graph=f"guideline_{new_guideline.id}"
+                )
+                db.session.add(label_triple)
+                created_triple_count += 1
+                
+                # 3. Description triple if available
+                if concept_description:
+                    description_triple = EntityTriple(
                         subject=concept_uri,
                         subject_label=concept_label,
-                        predicate="http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                        predicate_label="is a",
-                        object_uri=f"http://proethica.org/ontology/{concept_type}",
-                        object_label=concept_type.title(),
-                        is_literal=False,
-                        entity_type="guideline_concept",
-                        entity_id=new_guideline.id,
-                        guideline_id=new_guideline.id,
-                        world_id=world_id,
-                        graph=f"guideline_{new_guideline.id}",
-                        # Store type mapping metadata from GuidelineAnalysisService
-                        original_llm_type=concept.get("original_llm_type"),
-                        type_mapping_confidence=concept.get("type_mapping_confidence"),
-                        needs_type_review=concept.get("needs_type_review", False),
-                        mapping_justification=concept.get("mapping_justification"),
-                        # Two-tier concept type storage
-                        semantic_label=concept.get("semantic_label", concept.get("category", concept.get("type", ""))),
-                        primary_type=concept_type,
-                        mapping_source=concept.get("mapping_source", "legacy")
-                    )
-                    db.session.add(type_triple)
-                    created_triple_count += 1
-                    
-                    # 2. Label triple
-                    label_triple = EntityTriple(
-                        subject=concept_uri,
-                        subject_label=concept_label,
-                        predicate="http://www.w3.org/2000/01/rdf-schema#label",
-                        predicate_label="label",
-                        object_literal=concept_label,
-                        object_label=concept_label,
+                        predicate="http://purl.org/dc/elements/1.1/description",
+                        predicate_label="has description",
+                        object_literal=concept_description,
+                        object_label=concept_description[:50] + "..." if len(concept_description) > 50 else concept_description,
                         is_literal=True,
                         entity_type="guideline_concept",
                         entity_id=new_guideline.id,
@@ -1502,103 +1553,73 @@ def save_guideline_concepts(world_id, document_id):
                         world_id=world_id,
                         graph=f"guideline_{new_guideline.id}"
                     )
-                    db.session.add(label_triple)
+                    db.session.add(description_triple)
                     created_triple_count += 1
-                    
-                    # 3. Description triple if available
-                    if concept_description:
-                        description_triple = EntityTriple(
-                            subject=concept_uri,
-                            subject_label=concept_label,
-                            predicate="http://purl.org/dc/elements/1.1/description",
-                            predicate_label="has description",
-                            object_literal=concept_description,
-                            object_label=concept_description[:50] + "..." if len(concept_description) > 50 else concept_description,
-                            is_literal=True,
-                            entity_type="guideline_concept",
-                            entity_id=new_guideline.id,
-                            guideline_id=new_guideline.id,
-                            world_id=world_id,
-                            graph=f"guideline_{new_guideline.id}"
-                        )
-                        db.session.add(description_triple)
-                        created_triple_count += 1
-            
-            # Update document metadata
-            guideline.doc_metadata = {
-                **(guideline.doc_metadata or {}),
-                "analyzed": True,
-                "guideline_id": new_guideline.id,
-                "concepts_extracted": len(concepts),
-                "concepts_selected": len(selected_indices),
-                "triples_created": created_triple_count,  # Update with the number of created triples
-                "analysis_date": datetime.utcnow().isoformat()
-            }
-            
-            # Store the selected concepts in guideline metadata
-            selected_concepts_for_storage = []
-            for idx in selected_indices:
-                if idx < len(concepts):
-                    concept = concepts[idx]
-                    selected_concepts_for_storage.append({
-                        'label': concept.get('label', 'Unknown Concept'),
-                        'type': concept.get('type', 'concept'),
-                        'category': concept.get('type', 'concept'),  # Use the basic type (role, principle, etc.)
-                        'description': concept.get('description', 'No description available')
-                    })
-            
-            # Update the guideline_metadata with concepts and triple count
-            new_guideline.guideline_metadata = {
-                **(new_guideline.guideline_metadata or {}),
-                "triple_count": created_triple_count,
-                "concepts": selected_concepts_for_storage,
-                "concepts_selected": len(selected_indices)
-            }
-            
-            db.session.commit()
-            
-            logger.info(f"Successfully saved {len(selected_indices)} concepts for guideline {new_guideline.id}")
-            
-            # Get the selected concepts for display in the template
-            selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
-            
-            # Convert to JSON for passing to the template
-            concepts_json = json.dumps(selected_concepts)
-            
-            # Render the intermediate page showing saved concepts with a Generate Triples button
-            return render_template('guideline_saved_concepts.html',
-                                  world=world,
-                                  guideline=guideline,
-                                  concepts=selected_concepts,
-                                  concepts_json=concepts_json,
-                                  selected_indices=selected_indices,
-                                  concept_count=len(selected_indices),
-                                  guideline_id=new_guideline.id,
-                                  world_id=world_id,
-                                  document_id=document_id,
-                                  ontology_source=ontology_source)
-            
-        except Exception as e:
-            db.session.rollback()
-            import traceback
-            error_trace = traceback.format_exc()
-            logger.error(f"Error saving concepts: {str(e)}\n{error_trace}")
-            return redirect(url_for('worlds.guideline_processing_error', 
-                                   world_id=world_id, 
-                                   document_id=document_id,
-                                   error_title='Database Error',
-                                   error_message=f'Error saving concepts: {str(e)}',
-                                   error_details=error_trace))
+        
+        # Update document metadata
+        guideline.doc_metadata = {
+            **(guideline.doc_metadata or {}),
+            "analyzed": True,
+            "guideline_id": new_guideline.id,
+            "concepts_extracted": len(concepts),
+            "concepts_selected": len(selected_indices),
+            "triples_created": created_triple_count,  # Update with the number of created triples
+            "analysis_date": datetime.utcnow().isoformat()
+        }
+        
+        # Store the selected concepts in guideline metadata
+        selected_concepts_for_storage = []
+        for idx in selected_indices:
+            if idx < len(concepts):
+                concept = concepts[idx]
+                selected_concepts_for_storage.append({
+                    'label': concept.get('label', 'Unknown Concept'),
+                    'type': concept.get('type', 'concept'),
+                    'category': concept.get('type', 'concept'),  # Use the basic type (role, principle, etc.)
+                    'description': concept.get('description', 'No description available')
+                })
+        
+        # Update the guideline_metadata with concepts and triple count
+        new_guideline.guideline_metadata = {
+            **(new_guideline.guideline_metadata or {}),
+            "triple_count": created_triple_count,
+            "concepts": selected_concepts_for_storage,
+            "concepts_selected": len(selected_indices)
+        }
+        
+        db.session.commit()
+        
+        logger.info(f"Successfully saved {len(selected_indices)} concepts for guideline {new_guideline.id}")
+        
+        # Get the selected concepts for display in the template
+        selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
+        
+        # Convert to JSON for passing to the template
+        concepts_json = json.dumps(selected_concepts)
+        
+        # Render the intermediate page showing saved concepts with a Generate Triples button
+        return render_template('guideline_saved_concepts.html',
+                              world=world,
+                              guideline=guideline,
+                              concepts=selected_concepts,
+                              concepts_json=concepts_json,
+                              selected_indices=selected_indices,
+                              concept_count=len(selected_indices),
+                              guideline_id=new_guideline.id,
+                              world_id=world_id,
+                              document_id=document_id,
+                              ontology_source=ontology_source)
         
     except Exception as e:
+        db.session.rollback()
         import traceback
         error_trace = traceback.format_exc()
-        logger.error(f"Error processing concepts: {str(e)}\n{error_trace}")
+        logger.error(f"Error saving concepts: {str(e)}\n{error_trace}")
         return redirect(url_for('worlds.guideline_processing_error', 
                                world_id=world_id, 
                                document_id=document_id,
-                               error_title='Unexpected Error',
-                               error_message=f'Error processing concepts: {str(e)}',
+                               error_title='Database Error',
+                               error_message=f'Error saving concepts: {str(e)}',
                                error_details=error_trace))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_triples', methods=['POST'])

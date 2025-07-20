@@ -2,6 +2,28 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "MCP Server - Local",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "program": "${workspaceFolder}/mcp/run_enhanced_mcp_server_with_guidelines.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                "FORCE_MOCK_LLM": "false",
+                "ENVIRONMENT": "development",
+                "DEBUG": "true",
+                "MCP_SERVER_PORT": "5001",
+                "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
+                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
+            },
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Flask App - Local MCP",
             "type": "debugpy",
             "request": "launch",
@@ -50,51 +72,6 @@
             }
         },
         {
-            "name": "ProEthica Dashboard - Development",
-            "type": "debugpy",
-            "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "program": "${workspaceFolder}/run_with_dashboard.py",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "envFile": "${workspaceFolder}/.env",
-            "env": {
-                "USE_MOCK_GUIDELINE_RESPONSES": "false",
-                "FORCE_MOCK_LLM": "false",
-                "ENVIRONMENT": "development",
-                "DEBUG": "true",
-                "BYPASS_AUTH": "true",
-                "MCP_SERVER_URL": "http://localhost:5001",
-                "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
-                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
-                "PATH": "${env:PATH}"
-            }
-        },
-        {
-            "name": "ProEthica Dashboard - With Authentication",
-            "type": "debugpy",
-            "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "program": "${workspaceFolder}/run.py",
-            "args": ["--port", "3333", "--environment", "development"],
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "envFile": "${workspaceFolder}/.env",
-            "env": {
-                "USE_MOCK_GUIDELINE_RESPONSES": "false",
-                "FORCE_MOCK_LLM": "false",
-                "ENVIRONMENT": "development",
-                "DEBUG": "true",
-                "BYPASS_AUTH": "false",
-                "MCP_SERVER_URL": "http://localhost:5001",
-                "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
-                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
-                "PATH": "${env:PATH}"
-            }
-        },
-        {
             "name": "Python: Current File",
             "type": "debugpy",
             "request": "launch",
@@ -107,35 +84,20 @@
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "ENVIRONMENT": "development",
                 "BYPASS_AUTH": "true",
-                "MCP_SERVER_URL": "https://mcp.proethica.org",
-                "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
+                "MCP_SERVER_URL": "http://localhost:5001",
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
                 "PYTHONPATH": "${workspaceFolder}",
                 "PATH": "${env:PATH}"
             }
-        },
+        }
+    ],
+    "compounds": [
         {
-            "name": "MCP Server - Local",
-            "type": "debugpy",
-            "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "program": "${workspaceFolder}/mcp/run_enhanced_mcp_server_with_guidelines.py",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "envFile": "${workspaceFolder}/.env",
-            "env": {
-                "USE_MOCK_GUIDELINE_RESPONSES": "false",
-                "FORCE_MOCK_LLM": "false",
-                "ENVIRONMENT": "development",
-                "DEBUG": "true",
-                "MCP_SERVER_PORT": "5001",
-                "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
-                "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
-                "PATH": "${env:PATH}"
-            },
-            "cwd": "${workspaceFolder}"
+            "name": "Full Stack: MCP + Flask",
+            "configurations": ["MCP Server - Local", "Flask App - Local MCP"],
+            "stopAll": true,
+            "preLaunchTask": "kill-python-processes"
         }
     ]
 }
