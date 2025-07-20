@@ -660,13 +660,25 @@ def view_guideline(id, document_id):
         elif 'concepts_extracted' in guideline.doc_metadata:
             concept_count = guideline.doc_metadata['concepts_extracted']
     
+    # Check if concepts have been added to the ontology
+    ontology_status = {'ready_to_add': False}
+    if related_guideline:
+        try:
+            ontology_status = GuidelineConceptIntegrationService.check_concepts_added_to_ontology(
+                guideline_id=related_guideline.id,
+                ontology_domain='engineering-ethics'
+            )
+        except Exception as e:
+            logger.warning(f"Could not check ontology status: {str(e)}")
+    
     return render_template('guideline_content.html', 
                           world=world, 
                           guideline=guideline, 
                           triple_count=triple_count, 
                           concept_count=concept_count, 
                           triples=triples, 
-                          concepts=concepts)
+                          concepts=concepts,
+                          ontology_status=ontology_status)
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_triples_direct(world_id, document_id):
@@ -1977,11 +1989,12 @@ def add_concepts_to_ontology(world_id, document_id):
         
         logger.info(f"Found {len(concepts)} concepts to add to ontology")
         
-        # Use the integration service to add concepts to ontology
+        # Use the integration service to add concepts to derived ontology (avoids modifying core .ttl files)
         result = GuidelineConceptIntegrationService.add_concepts_to_ontology(
             concepts=concepts,
+            guideline_id=actual_guideline_id,
             ontology_domain='engineering-ethics',
-            commit_message=commit_message or f"Added {len(concepts)} concepts from NSPE Code of Ethics guideline analysis"
+            commit_message=commit_message or f"Added {len(concepts)} concepts from guideline analysis"
         )
         
         if result['success']:

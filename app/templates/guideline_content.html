@@ -123,6 +123,38 @@
                 </tbody>
               </table>
             </div>
+            
+            <!-- Add to Ontology section (only show if concepts exist and not already added) -->
+            {% if ontology_status and ontology_status.ready_to_add %}
+            <div class="mt-3 p-3 bg-light border rounded">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1"><i class="fas fa-plus-circle text-success"></i> Ready for Ontology Integration</h6>
+                  <small class="text-muted">
+                    {% if ontology_status.some_added %}
+                      {{ ontology_status.concepts_in_ontology }}/{{ ontology_status.total_concepts }} concepts already in derived ontology ({{ ontology_status.percentage_added }}%)
+                    {% else %}
+                      {{ ontology_status.total_concepts }} concepts ready to be added to a derived ontology
+                    {% endif %}
+                    <br><em>Creates a derived ontology that imports engineering-ethics (base .ttl unchanged)</em>
+                  </small>
+                </div>
+                <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" data-bs-toggle="modal" data-bs-target="#addToOntologyModal">
+                  <i class="fas fa-plus-circle"></i> Add to Ontology
+                </button>
+              </div>
+            </div>
+            {% elif ontology_status and ontology_status.all_added %}
+            <div class="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
+              <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <div>
+                  <h6 class="mb-1 text-success">Concepts Added to Derived Ontology</h6>
+                  <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a derived ontology ({{ ontology_status.derived_ontology_name if ontology_status.derived_ontology_name else 'Guideline-specific ontology' }})</small>
+                </div>
+              </div>
+            </div>
+            {% endif %}
           {% else %}
             <div class="alert alert-info">
               <p>No concepts have been associated with this guideline yet.</p>
@@ -260,6 +292,57 @@
     </div>
   </div>
 </div>
+
+<!-- Add to Ontology Modal -->
+<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="addToOntologyModalLabel">
+          <i class="fas fa-plus-circle"></i> Add Concepts to Derived Ontology
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <h6><i class="fas fa-info-circle"></i> What will happen:</h6>
+          <ul class="mb-0">
+            <li><strong>{{ ontology_status.total_concepts if ontology_status else 0 }} concepts</strong> will be added to a new derived ontology</li>
+            <li>The derived ontology will <strong>import the base engineering-ethics ontology</strong></li>
+            <li>The <strong>base .ttl file remains unchanged</strong> - concepts are stored separately</li>
+            <li>Concepts will be mapped to their appropriate <strong>intermediate classes</strong> (Principle, Obligation, etc.)</li>
+            <li>All <strong>semantic metadata</strong> from the analysis will be preserved</li>
+            <li>The derived ontology can be <strong>deleted later</strong> without affecting the base ontology</li>
+          </ul>
+        </div>
+        
+        <div class="mb-3">
+          <label for="commitMessage" class="form-label">Commit Message (optional):</label>
+          <textarea class="form-control" id="commitMessage" name="commit_message" rows="2" 
+                    placeholder="Added concepts from guideline analysis">Created derived ontology with {{ ontology_status.total_concepts if ontology_status else 0 }} concepts from {{ guideline.title }} guideline analysis</textarea>
+        </div>
+        
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="confirmAddition" required>
+          <label class="form-check-label" for="confirmAddition">
+            I confirm that I want to create a derived ontology with these concepts
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="confirmAddBtn" disabled>
+          <i class="fas fa-plus-circle"></i> Add to Ontology
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden form for submission -->
+<form id="addToOntologyForm" method="post" action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}" style="display: none;">
+  <input type="hidden" name="commit_message" id="hiddenCommitMessage" value="">
+</form>
 {% endblock %}
 
 {% block styles %}
@@ -292,4 +375,38 @@
     color: #666;
   }
 </style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmAddBtn = document.getElementById('confirmAddBtn');
+    const confirmCheckbox = document.getElementById('confirmAddition');
+    const commitMessageTextarea = document.getElementById('commitMessage');
+    const hiddenCommitMessage = document.getElementById('hiddenCommitMessage');
+    const form = document.getElementById('addToOntologyForm');
+
+    // Only run if the elements exist (i.e., when the modal is present)
+    if (confirmAddBtn && confirmCheckbox && commitMessageTextarea && form) {
+        // Enable/disable confirm button based on checkbox
+        confirmCheckbox.addEventListener('change', function() {
+            confirmAddBtn.disabled = !this.checked;
+        });
+
+        // Handle form submission when confirmed
+        confirmAddBtn.addEventListener('click', function() {
+            // Add commit message to hidden form
+            hiddenCommitMessage.value = commitMessageTextarea.value.trim();
+
+            // Change button to show processing
+            confirmAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding to Ontology...';
+            confirmAddBtn.disabled = true;
+            
+            // Submit the form
+            form.submit();
+        });
+    }
+});
+</script>
 {% endblock %}

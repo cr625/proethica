@@ -10,12 +10,15 @@ This service provides functionality to manage entities in ontologies:
 
 import os
 import re
+import logging
 from rdflib import Graph, Namespace, URIRef, Literal
 from rdflib.namespace import RDF, RDFS, OWL
 
 from app import db
 from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
+
+logger = logging.getLogger(__name__)
 
 class EntityService:
     @classmethod
@@ -52,6 +55,9 @@ class EntityService:
     # Entity types mapping to their classes in the ontology
     ENTITY_TYPES = {
         'role': 'Role',
+        'principle': 'Principle',
+        'obligation': 'Obligation',
+        'state': 'State',
         'condition': 'ConditionType',
         'resource': 'ResourceType',
         'action': 'ActionType',
@@ -106,6 +112,37 @@ class EntityService:
         else:
             return "Domain Ontology"
     
+    @classmethod
+    def get_entities(cls, ontology_id):
+        """
+        Get all entities from an ontology grouped by type.
+        
+        Args:
+            ontology_id (int): Ontology ID
+            
+        Returns:
+            dict: Dictionary with entity types as keys and lists of entities as values
+        """
+        try:
+            from app.services.ontology_entity_service import OntologyEntityService
+            
+            # Get entities using the existing OntologyEntityService
+            entity_service = OntologyEntityService.get_instance()
+            
+            # Create a dummy world object
+            class DummyWorld:
+                def __init__(self, ontology_id):
+                    self.ontology_id = ontology_id
+            
+            dummy_world = DummyWorld(ontology_id)
+            entities = entity_service.get_entities_for_world(dummy_world)
+            
+            return entities
+            
+        except Exception as e:
+            logger.error(f"Error getting entities for ontology {ontology_id}: {str(e)}")
+            return {}
+
     @classmethod
     def get_valid_parents(cls, ontology_id, entity_type):
         """
