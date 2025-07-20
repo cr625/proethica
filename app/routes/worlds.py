@@ -18,6 +18,7 @@ from app.services.mcp_client import MCPClient
 from app.services.task_queue import BackgroundTaskQueue
 from app.services.ontology_entity_service import OntologyEntityService
 from app.services.guideline_analysis_service import GuidelineAnalysisService
+from app.services.guideline_concept_integration_service import GuidelineConceptIntegrationService
 from app.models.entity_triple import EntityTriple
 
 # Set up logger
@@ -1938,3 +1939,90 @@ def world_scenarios(id):
     scenarios = Scenario.query.filter_by(world_id=world.id).all()
     
     return render_template('world_scenarios.html', world=world, scenarios=scenarios)
+
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/add_concepts_to_ontology', methods=['POST'])
+def add_concepts_to_ontology(world_id, document_id):
+    """Add extracted guideline concepts directly to the engineering-ethics ontology."""
+    logger.info(f"Adding concepts to ontology for document {document_id} in world {world_id}")
+    
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    guideline = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if guideline.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    try:
+        # Get commit message if provided
+        commit_message = request.form.get('commit_message', '').strip()
+        
+        # Get the guideline ID from metadata if available
+        actual_guideline_id = None
+        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+            actual_guideline_id = guideline.doc_metadata['guideline_id']
+        
+        if not actual_guideline_id:
+            flash('No guideline concepts found to add to ontology', 'warning')
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+        
+        # Retrieve concepts from the saved guideline
+        concepts = GuidelineConceptIntegrationService.get_concepts_from_guideline(actual_guideline_id)
+        
+        if not concepts:
+            flash('No concepts found for this guideline', 'warning')
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+        
+        logger.info(f"Found {len(concepts)} concepts to add to ontology")
+        
+        # Use the integration service to add concepts to ontology
+        result = GuidelineConceptIntegrationService.add_concepts_to_ontology(
+            concepts=concepts,
+            ontology_domain='engineering-ethics',
+            commit_message=commit_message or f"Added {len(concepts)} concepts from NSPE Code of Ethics guideline analysis"
+        )
+        
+        if result['success']:
+            summary = result['summary']
+            
+            # Create success message based on results
+            success_parts = []
+            if summary['successful_additions'] > 0:
+                success_parts.append(f"{summary['successful_additions']} concepts added")
+            if summary['skipped_duplicates'] > 0:
+                success_parts.append(f"{summary['skipped_duplicates']} duplicates skipped")
+            
+            if success_parts:
+                flash(f"Ontology updated successfully: {', '.join(success_parts)}", 'success')
+            else:
+                flash('No new concepts were added (all were duplicates)', 'info')
+            
+            # Render success template with results
+            return render_template('guideline_ontology_success.html',
+                                  world=world,
+                                  guideline=guideline,
+                                  result=result,
+                                  concepts=concepts,
+                                  world_id=world_id,
+                                  document_id=document_id)
+        else:
+            # Handle errors
+            error_message = result.get('error', 'Unknown error occurred')
+            errors = result.get('errors', [])
+            
+            flash(f'Error adding concepts to ontology: {error_message}', 'error')
+            
+            if errors:
+                for error in errors[:5]:  # Show first 5 errors
+                    flash(f'Detail: {error}', 'warning')
+            
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+    
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Error adding concepts to ontology: {str(e)}\n{error_trace}")
+        flash(f'Unexpected error: {str(e)}', 'error')
+        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
