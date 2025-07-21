@@ -61,9 +61,28 @@ class GuidelineConceptIntegrationService:
             Dict with success status, results, and any errors
         """
         try:
-            logger.info(f"Starting integration of {len(concepts)} concepts from guideline {guideline_id}")
+            # Get the actual guideline ID from document metadata to retrieve concepts
+            actual_guideline_id = cls._get_actual_guideline_id(guideline_id)
+            if not actual_guideline_id:
+                return {
+                    'success': False,
+                    'error': f'No actual guideline ID found for document {guideline_id}',
+                    'results': []
+                }
             
-            # Get or create derived ontology for this guideline
+            # If concepts list is empty, retrieve from database using actual guideline ID
+            if not concepts:
+                concepts = cls.get_concepts_from_guideline(actual_guideline_id)
+                if not concepts:
+                    return {
+                        'success': False,
+                        'error': f'No concepts found for guideline {actual_guideline_id}',
+                        'results': []
+                    }
+            
+            logger.info(f"Starting integration of {len(concepts)} concepts from document {guideline_id} (actual guideline {actual_guideline_id})")
+            
+            # Get or create derived ontology for this guideline (using document ID for naming)
             derived_ontology = cls._get_or_create_derived_ontology(guideline_id, ontology_domain)
             if not derived_ontology:
                 return {
@@ -367,15 +386,29 @@ class GuidelineConceptIntegrationService:
         Check if concepts from a guideline have already been added to a derived ontology.
         
         Args:
-            guideline_id: ID of the guideline
+            guideline_id: Document ID of the guideline (used for naming derived ontology)
             ontology_domain: Domain ID of base ontology (default: 'engineering-ethics')
             
         Returns:
             Dict with status information about ontology integration
         """
         try:
-            # Get concepts from this guideline
-            concepts = cls.get_concepts_from_guideline(guideline_id)
+            # For consistency, we need to check both:
+            # 1. The derived ontology naming (uses document_id: guideline_id parameter)  
+            # 2. The actual concepts storage (uses actual guideline_id from metadata)
+            
+            # Get the actual guideline ID from document metadata to retrieve concepts
+            actual_guideline_id = cls._get_actual_guideline_id(guideline_id)
+            if not actual_guideline_id:
+                return {
+                    'exists': False,
+                    'error': 'No concepts found for this guideline (no actual guideline ID)',
+                    'concepts_in_ontology': 0,
+                    'total_concepts': 0
+                }
+            
+            # Get concepts from the actual guideline record
+            concepts = cls.get_concepts_from_guideline(actual_guideline_id)
             if not concepts:
                 return {
                     'exists': False,
@@ -387,6 +420,9 @@ class GuidelineConceptIntegrationService:
             # Check if a derived ontology exists for this guideline
             derived_domain = f"guideline-{guideline_id}-concepts"
             derived_ontology = Ontology.query.filter_by(domain_id=derived_domain).first()
+            
+            logger.info(f"Checking for derived ontology with domain: {derived_domain}")
+            logger.info(f"Found derived ontology: {derived_ontology.name if derived_ontology else 'None'}")
             
             if not derived_ontology:
                 # No derived ontology means concepts haven't been added yet
@@ -466,3 +502,74 @@ class GuidelineConceptIntegrationService:
         except Exception as e:
             logger.warning(f"Could not retrieve description for concept {concept_uri}: {str(e)}")
             return ''
+    
+    @classmethod
+    def _get_actual_guideline_id(cls, document_id: int) -> Optional[int]:
+        """
+        Get the actual guideline ID from document metadata.
+        
+        Args:
+            document_id: Document ID (from URL)
+            
+        Returns:
+            Actual guideline ID from metadata, or None if not found
+        """
+        try:
+            from app.models.document import Document
+            document = Document.query.get(document_id)
+            
+            if document and document.doc_metadata and 'guideline_id' in document.doc_metadata:
+                return document.doc_metadata['guideline_id']
+            
+            logger.warning(f"No actual guideline ID found for document {document_id}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error retrieving actual guideline ID for document {document_id}: {str(e)}")
+            return None
+    
+    @classmethod
+    def cleanup_conflicting_derived_ontologies(cls, document_id: int) -> Dict[str, Any]:
+        """
+        Check for and optionally clean up derived ontologies with incorrect IDs.
+        
+        Args:
+            document_id: Document ID (correct ID for naming)
+            
+        Returns:
+            Dict with cleanup information
+        """
+        try:
+            # Get the actual guideline ID from document metadata
+            actual_guideline_id = cls._get_actual_guideline_id(document_id)
+            if not actual_guideline_id:
+                return {'conflicts_found': False, 'message': 'No actual guideline ID found'}
+            
+            # Check for derived ontologies that might exist with wrong IDs
+            correct_domain = f"guideline-{document_id}-concepts"
+            incorrect_domain = f"guideline-{actual_guideline_id}-concepts"
+            
+            correct_ont = Ontology.query.filter_by(domain_id=correct_domain).first()
+            incorrect_ont = Ontology.query.filter_by(domain_id=incorrect_domain).first()
+            
+            conflicts = []
+            
+            if correct_ont and incorrect_ont:
+                conflicts.append(f"Both correct ({correct_domain}) and incorrect ({incorrect_domain}) ontologies exist")
+            elif incorrect_ont and not correct_ont:
+                conflicts.append(f"Only incorrect ontology exists ({incorrect_domain}), should be ({correct_domain})")
+            
+            return {
+                'conflicts_found': len(conflicts) > 0,
+                'conflicts': conflicts,
+                'correct_domain': correct_domain,
+                'incorrect_domain': incorrect_domain,
+                'correct_ontology_exists': correct_ont is not None,
+                'incorrect_ontology_exists': incorrect_ont is not None,
+                'correct_ontology_id': correct_ont.id if correct_ont else None,
+                'incorrect_ontology_id': incorrect_ont.id if incorrect_ont else None
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking for conflicting ontologies: {str(e)}")
+            return {'conflicts_found': False, 'error': str(e)}

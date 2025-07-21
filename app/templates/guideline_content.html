@@ -15,9 +15,7 @@
     </ol>
   </nav>
   
-  <div class="row">
-    <!-- Guideline content column -->
-    <div class="col-lg-8">
+  <!-- Main content (full width) -->
       <div class="card mb-4">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Guideline Content</h5>
@@ -146,12 +144,26 @@
             </div>
             {% elif ontology_status and ontology_status.all_added %}
             <div class="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
-              <div class="d-flex align-items-center">
-                <i class="fas fa-check-circle text-success me-2"></i>
-                <div>
-                  <h6 class="mb-1 text-success">Concepts Added to Derived Ontology</h6>
-                  <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a derived ontology ({{ ontology_status.derived_ontology_name if ontology_status.derived_ontology_name else 'Guideline-specific ontology' }})</small>
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-check-circle text-success me-2"></i>
+                  <div>
+                    <h6 class="mb-1 text-success">Concepts Added to Derived Ontology</h6>
+                    <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a derived ontology</small>
+                    {% if ontology_status.derived_ontology_name %}
+                    <br><small class="text-muted"><strong>{{ ontology_status.derived_ontology_name }}</strong></small>
+                    {% endif %}
+                  </div>
                 </div>
+                {% if ontology_status.derived_ontology_id %}
+                <div class="text-end">
+                  <a href="/ontology_editor/view/{{ ontology_status.derived_ontology_id }}" class="btn btn-sm btn-outline-success" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> View Ontology
+                  </a>
+                  <br>
+                  <small class="text-muted mt-1 d-block">Manage or delete concepts</small>
+                </div>
+                {% endif %}
               </div>
             </div>
             {% endif %}
@@ -164,110 +176,6 @@
         </div>
       </div>
     </div>
-    
-    <!-- Metadata sidebar column -->
-    <div class="col-lg-4">
-      <div class="card mb-4">
-        <div class="card-header bg-secondary text-white">
-          <h5 class="mb-0">Guideline Information</h5>
-        </div>
-        <div class="card-body">
-          <dl class="row">
-            <dt class="col-sm-4">Created</dt>
-            <dd class="col-sm-8">{{ guideline.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
-            
-            <dt class="col-sm-4">Updated</dt>
-            <dd class="col-sm-8">{{ guideline.updated_at.strftime('%Y-%m-%d %H:%M') }}</dd>
-            
-            <dt class="col-sm-4">World</dt>
-            <dd class="col-sm-8">
-              <a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a>
-            </dd>
-            
-            <dt class="col-sm-4">File Type</dt>
-            <dd class="col-sm-8">{{ guideline.file_type or 'N/A' }}</dd>
-            
-            <dt class="col-sm-4">Concepts</dt>
-            <dd class="col-sm-8">{{ concept_count|default(0) }}</dd>
-          </dl>
-        </div>
-      </div>
-      
-      <!-- Related guidelines -->
-      {% if related_guidelines %}
-        <div class="card mb-4">
-          <div class="card-header bg-success text-white">
-            <h5 class="mb-0">Related Guidelines</h5>
-          </div>
-          <div class="card-body">
-            <ul class="list-group list-group-flush">
-              {% for rel_guideline in related_guidelines %}
-                <li class="list-group-item">
-                  <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=rel_guideline.id) }}">
-                    {{ rel_guideline.title }}
-                  </a>
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-      {% endif %}
-      
-      <!-- Associated RDF triples -->
-      <div class="card">
-        <div class="card-header bg-dark text-white">
-          <h5 class="mb-0">RDF Knowledge</h5>
-        </div>
-        <div class="card-body">
-          <p>This guideline has <strong>{{ triple_count|default(0) }}</strong> RDF triples
-          {% if concept_count|default(0) > 0 %}
-            (<strong>{{ concept_count * 3 }}</strong> basic concept triples)
-          {% endif %}
-          </p>
-          
-          <div class="alert alert-info small mb-2">
-            <strong>Stage 2:</strong> Find engineering-ethics ontology terms in the guideline text.
-            <br><small>This searches the text for mentions of roles, capabilities, conditions, actions, etc.</small>
-          </div>
-          <form action="{{ url_for('worlds.generate_triples_direct', world_id=world.id, document_id=guideline.id) }}" method="post" class="mb-3">
-            <button type="submit" class="btn btn-sm btn-primary w-100">
-              <i class="bi bi-search"></i> 
-              Extract Ontology Terms
-            </button>
-          </form>
-          
-          {% if triple_count|default(0) > 0 %}
-          <a href="{{ url_for('worlds.manage_guideline_triples', world_id=world.id, guideline_id=guideline.id) }}" class="btn btn-sm btn-warning w-100 mb-3">
-            <i class="fas fa-tasks"></i> 
-            Manage Triples
-          </a>
-          {% endif %}
-          
-          {% if triple_count|default(0) > 0 and triples is defined and triples %}
-            <button class="btn btn-sm btn-outline-dark mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#triplesList">
-              Show/Hide Triples
-            </button>
-            
-            <div class="collapse" id="triplesList">
-              <div class="card card-body bg-light mb-3">
-                <ul class="list-group list-group-flush">
-                  {% for triple in triples %}
-                    <li class="list-group-item small">
-                      <strong>{{ triple.subject_label or triple.subject }}</strong>
-                      <span class="text-muted">{{ triple.predicate_label or triple.predicate }}</span>
-                      <span>{{ triple.object_label or triple.object_literal or triple.object_uri }}</span>
-                    </li>
-                  {% endfor %}
-                </ul>
-              </div>
-            </div>
-          {% endif %}
-          
-          <!-- Export functionality not yet implemented -->
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- Delete Guideline Modal -->

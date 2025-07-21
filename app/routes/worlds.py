@@ -661,11 +661,12 @@ def view_guideline(id, document_id):
             concept_count = guideline.doc_metadata['concepts_extracted']
     
     # Check if concepts have been added to the ontology
+    # Use document_id for consistent naming/linking with derived ontologies
     ontology_status = {'ready_to_add': False}
     if related_guideline:
         try:
             ontology_status = GuidelineConceptIntegrationService.check_concepts_added_to_ontology(
-                guideline_id=related_guideline.id,
+                guideline_id=document_id,  # Use document ID that matches the URL
                 ontology_domain='engineering-ethics'
             )
         except Exception as e:
@@ -1980,21 +1981,13 @@ def add_concepts_to_ontology(world_id, document_id):
             flash('No guideline concepts found to add to ontology', 'warning')
             return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
         
-        # Retrieve concepts from the saved guideline
-        concepts = GuidelineConceptIntegrationService.get_concepts_from_guideline(actual_guideline_id)
-        
-        if not concepts:
-            flash('No concepts found for this guideline', 'warning')
-            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
-        
-        logger.info(f"Found {len(concepts)} concepts to add to ontology")
-        
         # Use the integration service to add concepts to derived ontology (avoids modifying core .ttl files)
+        # Pass document_id for consistent naming/linking - service will handle concept retrieval
         result = GuidelineConceptIntegrationService.add_concepts_to_ontology(
-            concepts=concepts,
-            guideline_id=actual_guideline_id,
+            concepts=[],  # Service will retrieve concepts internally
+            guideline_id=document_id,  # Use document ID that matches the URL
             ontology_domain='engineering-ethics',
-            commit_message=commit_message or f"Added {len(concepts)} concepts from guideline analysis"
+            commit_message=commit_message or f"Added concepts from guideline analysis"
         )
         
         if result['success']:
@@ -2011,6 +2004,10 @@ def add_concepts_to_ontology(world_id, document_id):
                 flash(f"Ontology updated successfully: {', '.join(success_parts)}", 'success')
             else:
                 flash('No new concepts were added (all were duplicates)', 'info')
+            
+            # Get concepts from result for template
+            actual_guideline_id = GuidelineConceptIntegrationService._get_actual_guideline_id(document_id)
+            concepts = GuidelineConceptIntegrationService.get_concepts_from_guideline(actual_guideline_id) if actual_guideline_id else []
             
             # Render success template with results
             return render_template('guideline_ontology_success.html',
