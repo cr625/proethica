@@ -74,39 +74,29 @@
                 <thead>
                   <tr>
                     <th>Concept</th>
-                    <th>Type</th>
                     <th>Description</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for concept in concepts %}
                     <tr>
-                      <td><strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></td>
                       <td>
-                        {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
-                        {% set type_colors = {
-                          'role': 'bg-primary',
-                          'principle': 'bg-success', 
-                          'obligation': 'bg-warning',
-                          'state': 'bg-info',
-                          'resource': 'bg-secondary',
-                          'action': 'bg-danger',
-                          'event': 'bg-dark',
-                          'capability': 'bg-light text-dark'
-                        } %}
-                        {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
-                        {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
-                        
-                        <div class="concept-type-display">
-                          <span class="badge {{ color_class }}">{{ display_type }}</span>
-                          <div class="concept-hierarchy mt-1">
-                            {% set semantic_category = concept.semantic_label or concept.category %}
-                            {% if semantic_category and semantic_category != primary_type %}
-                              <small class="text-muted">{{ display_type }} → <span class="text-primary fst-italic">{{ semantic_category }}</span> → <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
-                            {% else %}
-                              <small class="text-muted">{{ display_type }} → <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
-                            {% endif %}
-                          </div>
+                        <div class="d-flex align-items-center">
+                          {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                          {% set type_colors = {
+                            'role': 'bg-primary',
+                            'principle': 'bg-success', 
+                            'obligation': 'bg-warning',
+                            'state': 'bg-info',
+                            'resource': 'bg-secondary',
+                            'action': 'bg-danger',
+                            'event': 'bg-dark',
+                            'capability': 'bg-light text-dark'
+                          } %}
+                          {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                          {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                          <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                          <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong>
                         </div>
                       </td>
                       <td>
