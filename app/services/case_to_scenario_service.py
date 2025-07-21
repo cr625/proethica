@@ -313,10 +313,9 @@ class CaseToScenarioService:
         try:
             # Create scenario instance
             scenario = Scenario(
-                title=template.title,
+                name=template.title,
                 description=template.description,
                 world_id=template.world_id,
-                created_by=user_id,
                 scenario_metadata=self._build_scenario_metadata(template),
                 created_at=datetime.now(timezone.utc)
             )

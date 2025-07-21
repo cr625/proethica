@@ -413,9 +413,15 @@ class ScenarioGenerationManager {
         const badge = document.getElementById('scenario-status-badge');
         const content = document.getElementById('scenario-generation-content');
         
-        if (status.is_deconstructed && status.has_templates) {
-            // Case is deconstructed and has templates - show scenario creation options
+        if (status.has_scenarios) {
+            // Case has playable scenarios - show scenario links
             badge.className = 'badge bg-success';
+            badge.textContent = `${status.scenario_count} Scenario${status.scenario_count !== 1 ? 's' : ''} Available`;
+            
+            content.innerHTML = this.renderScenarioLinks(status.scenarios);
+        } else if (status.is_deconstructed && status.has_templates) {
+            // Case is deconstructed and has templates - show scenario creation options
+            badge.className = 'badge bg-warning';
             badge.textContent = `${status.template_count} Template${status.template_count !== 1 ? 's' : ''} Available`;
             
             content.innerHTML = this.renderTemplateOptions(status.templates);
@@ -492,6 +498,42 @@ class ScenarioGenerationManager {
                 <button id="create-template-btn" class="btn btn-outline-primary">
                     <i class="bi bi-plus"></i> Create Another Template
                 </button>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    renderScenarioLinks(scenarios) {
+        let html = `
+            <div class="text-center">
+                <h5><i class="bi bi-play-circle text-success"></i> Interactive Scenarios Ready!</h5>
+                <p class="text-muted">This case has been transformed into playable scenarios. Click to explore:</p>
+                <div class="row justify-content-center">
+        `;
+        
+        scenarios.forEach(scenario => {
+            html += `
+                <div class="col-md-8 mb-3">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h6 class="card-title">${scenario.name}</h6>
+                            <a href="${scenario.url}" class="btn btn-success btn-lg w-100" target="_blank">
+                                <i class="bi bi-play-circle"></i> Play Scenario
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+                <div class="mt-3">
+                    <a href="/scenarios/" class="btn btn-outline-primary">
+                        <i class="bi bi-list"></i> View All Scenarios
+                    </a>
+                </div>
             </div>
         `;
         

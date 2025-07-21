@@ -17,9 +17,9 @@ class ScenarioTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     deconstructed_case_id = db.Column(db.Integer, db.ForeignKey('deconstructed_cases.id'), nullable=False)
     
-    # Basic template information
-    title = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.Text, nullable=True)
+    # Basic template information  
+    title = db.Column('template_name', db.String(255), nullable=False)  # Map to existing column
+    description = db.Column('template_description', db.Text, nullable=True)  # Map to existing column
     world_id = db.Column(db.Integer, db.ForeignKey('worlds.id'), nullable=True)
     
     # Template configuration data

@@ -333,30 +333,19 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <!-- Combined reasoning with expand option -->
+                                <!-- Combined reasoning with modal option -->
                                 {% if assoc.reasoning|length > 60 %}
                                 <div class="reasoning-text">
-                                    <small class="reasoning-short">{{ assoc.reasoning[:60] }}... 
-                                        <a href="#" class="text-primary expand-reasoning" style="text-decoration: none;">
-                                            <i class="bi bi-chevron-down"></i>
+                                    <small>{{ assoc.reasoning[:60] }}... 
+                                        <a href="javascript:void(0)" class="text-primary show-reasoning-modal" 
+                                           style="text-decoration: none;" 
+                                           data-concept-name="{{ assoc.concept_name | e }}"
+                                           data-reasoning-combined="{{ assoc.reasoning | e }}"
+                                           data-reasoning-embedding="{{ (assoc.embedding_reasoning if assoc.embedding_reasoning != 'Not available' else '') | e }}"
+                                           data-reasoning-llm="{{ (assoc.llm_reasoning if assoc.llm_reasoning != 'LLM analysis not available' else '') | e }}">
+                                            <i class="bi bi-arrows-fullscreen"></i>
                                         </a>
                                     </small>
-                                    <div class="reasoning-full" style="display: none;">
-                                        <small><strong>Combined:</strong> {{ assoc.reasoning }}</small>
-                                        {% if assoc.embedding_reasoning != 'Not available' %}
-                                        <hr class="my-1">
-                                        <small><strong>🔢 Embedding:</strong> {{ assoc.embedding_reasoning }}</small>
-                                        {% endif %}
-                                        {% if assoc.llm_reasoning != 'LLM analysis not available' %}
-                                        <hr class="my-1">
-                                        <small><strong>LLM:</strong> {{ assoc.llm_reasoning }}</small>
-                                        {% endif %}
-                                        <div class="mt-1">
-                                            <a href="#" class="text-primary collapse-reasoning" style="text-decoration: none;">
-                                                <i class="bi bi-chevron-up"></i>
-                                            </a>
-                                        </div>
-                                    </div>
                                 </div>
                                 {% else %}
                                 <small>{{ assoc.reasoning }}</small>
@@ -494,9 +483,9 @@
             </div>
             <p>Hybrid enhanced associations combine fast vector embeddings with LLM analysis to connect document sections with ethical concepts. Uses multi-dimensional scoring with separated component visibility:</p>
             <ul class="small">
-                <li><strong>🔢 Embedding Scores:</strong> Vector similarity, keyword overlap, contextual patterns</li>
-                <li><strong>LLM Scores:</strong> Semantic analysis, reasoning quality assessment</li>
-                <li><strong>Combined:</strong> Weighted hybrid confidence with detailed explanations</li>
+                <li><strong>🔢 Embedding Scores:</strong> Vector similarity (0-1), keyword overlap (%), contextual patterns (0-1)</li>
+                <li><strong>🧠 LLM Scores:</strong> Semantic analysis (0-1), reasoning quality assessment (0-1)</li>
+                <li><strong>🎯 Combined:</strong> Weighted hybrid confidence (0-1) with detailed explanations</li>
             </ul>
             <p class="text-muted">Use the "Generate Hybrid Associations" button in the card header above to create associations for this document.</p>
             {% endif %}
@@ -800,28 +789,43 @@
                 }
             }
             
-            // Handle reasoning text expand/collapse (vanilla JavaScript)
+            // Handle reasoning modal display
             document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('expand-reasoning')) {
+                if (e.target.classList.contains('show-reasoning-modal') || e.target.closest('.show-reasoning-modal')) {
                     e.preventDefault();
-                    const container = e.target.closest('.reasoning-text');
-                    if (container) {
-                        const shortEl = container.querySelector('.reasoning-short');
-                        const fullEl = container.querySelector('.reasoning-full');
-                        if (shortEl) shortEl.style.display = 'none';
-                        if (fullEl) fullEl.style.display = 'block';
+                    const link = e.target.classList.contains('show-reasoning-modal') ? e.target : e.target.closest('.show-reasoning-modal');
+                    
+                    // Get data from the link
+                    const conceptName = link.getAttribute('data-concept-name');
+                    const combinedReasoning = link.getAttribute('data-reasoning-combined');
+                    const embeddingReasoning = link.getAttribute('data-reasoning-embedding');
+                    const llmReasoning = link.getAttribute('data-reasoning-llm');
+                    
+                    // Populate modal content
+                    document.getElementById('modal-concept-name').textContent = conceptName;
+                    document.getElementById('modal-reasoning-combined').textContent = combinedReasoning;
+                    
+                    // Show/hide embedding section
+                    const embeddingSection = document.getElementById('modal-embedding-section');
+                    if (embeddingReasoning && embeddingReasoning.trim()) {
+                        document.getElementById('modal-reasoning-embedding').textContent = embeddingReasoning;
+                        embeddingSection.style.display = 'block';
+                    } else {
+                        embeddingSection.style.display = 'none';
                     }
-                }
-                
-                if (e.target.classList.contains('collapse-reasoning')) {
-                    e.preventDefault();
-                    const container = e.target.closest('.reasoning-text');
-                    if (container) {
-                        const shortEl = container.querySelector('.reasoning-short');
-                        const fullEl = container.querySelector('.reasoning-full');
-                        if (shortEl) shortEl.style.display = 'block';
-                        if (fullEl) fullEl.style.display = 'none';
+                    
+                    // Show/hide LLM section
+                    const llmSection = document.getElementById('modal-llm-section');
+                    if (llmReasoning && llmReasoning.trim()) {
+                        document.getElementById('modal-reasoning-llm').textContent = llmReasoning;
+                        llmSection.style.display = 'block';
+                    } else {
+                        llmSection.style.display = 'none';
                     }
+                    
+                    // Show the modal
+                    const modal = new bootstrap.Modal(document.getElementById('reasoningModal'));
+                    modal.show();
                 }
             });
             
@@ -1007,4 +1011,51 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Reasoning Modal -->
+<div class="modal fade" id="reasoningModal" tabindex="-1" aria-labelledby="reasoningModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reasoningModalLabel">
+                    <i class="bi bi-stars me-2"></i>Hybrid Reasoning Detail
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6 class="text-primary">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        Concept: <span id="modal-concept-name" class="fw-bold"></span>
+                    </h6>
+                </div>
+                
+                <div class="mb-4">
+                    <h6><i class="bi bi-stars me-1"></i>Combined Analysis</h6>
+                    <div class="p-3 border rounded bg-light">
+                        <div id="modal-reasoning-combined"></div>
+                    </div>
+                </div>
+                
+                <div id="modal-embedding-section" class="mb-4" style="display: none;">
+                    <h6><i class="bi bi-cpu me-1"></i>Embedding Analysis</h6>
+                    <div class="p-3 border rounded" style="background-color: #f8f9fa;">
+                        <div id="modal-reasoning-embedding" class="text-muted"></div>
+                    </div>
+                </div>
+                
+                <div id="modal-llm-section" class="mb-4" style="display: none;">
+                    <h6><i class="bi bi-brain me-1"></i>LLM Analysis</h6>
+                    <div class="p-3 border rounded" style="background-color: #f0f8ff;">
+                        <div id="modal-reasoning-llm" class="text-muted"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

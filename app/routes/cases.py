@@ -1725,8 +1725,24 @@ def get_scenario_status(case_id):
         
         # Check if scenario templates exist
         templates = []
+        scenarios = []
         if deconstructed:
-            templates = ScenarioTemplate.query.filter_by(deconstructed_case_id=deconstructed.id).all()
+            try:
+                templates = ScenarioTemplate.query.filter_by(deconstructed_case_id=deconstructed.id).all()
+            except Exception as e:
+                logger.warning(f"Error querying scenario templates: {str(e)}")
+                templates = []
+                
+            # Find playable scenarios for this case
+            try:
+                from app.models.scenario import Scenario
+                all_scenarios = Scenario.query.filter_by(world_id=case.world_id).all()
+                for scenario in all_scenarios:
+                    if scenario.scenario_metadata and scenario.scenario_metadata.get('source_case_id') == case_id:
+                        scenarios.append(scenario)
+            except Exception as e:
+                logger.warning(f"Error querying scenarios: {str(e)}")
+                scenarios = []
         
         return jsonify({
             'success': True,
@@ -1736,7 +1752,10 @@ def get_scenario_status(case_id):
             'deconstructed_case_id': deconstructed.id if deconstructed else None,
             'has_templates': len(templates) > 0,
             'template_count': len(templates),
-            'templates': [{'id': t.id, 'title': t.title} for t in templates]
+            'templates': [{'id': t.id, 'title': t.title} for t in templates],
+            'has_scenarios': len(scenarios) > 0,
+            'scenario_count': len(scenarios),
+            'scenarios': [{'id': s.id, 'name': s.name, 'url': f'/scenarios/{s.id}'} for s in scenarios]
         })
         
     except Exception as e:
