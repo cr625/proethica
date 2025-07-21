@@ -100,11 +100,11 @@
                         <div class="concept-type-display">
                           <span class="badge {{ color_class }}">{{ display_type }}</span>
                           <div class="concept-hierarchy mt-1">
-                            {% set semantic_label = concept.semantic_label or concept.category or concept.type %}
-                            {% if semantic_label %}
-                              <small class="text-muted">{{ display_type }} → {{ semantic_label|capitalize }} → <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
+                            {% set semantic_category = concept.semantic_label or concept.category %}
+                            {% if semantic_category and semantic_category != primary_type %}
+                              <small class="text-muted">{{ display_type }} → <span class="text-primary fst-italic">{{ semantic_category }}</span> → <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
                             {% else %}
-                              <small class="text-muted"><strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
+                              <small class="text-muted">{{ display_type }} → <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong></small>
                             {% endif %}
                           </div>
                         </div>
