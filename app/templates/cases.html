@@ -34,6 +34,23 @@
             <a href="{{ url_for('cases.case_options') }}" class="btn btn-success">Add New Case</a>
         </div>
     </div>
+    
+    <!-- Processing Status Legend -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-end text-muted small">
+                <span class="me-3">Processing Status:</span>
+                <span class="badge bg-success me-2">
+                    <i class="bi bi-link-45deg"></i> EGA
+                </span>
+                <span class="me-3">Enhanced Guideline Associations</span>
+                <span class="badge bg-primary me-2">
+                    <i class="bi bi-diagram-3"></i> OTL
+                </span>
+                <span class="me-2">Ontology Term Links</span>
+            </div>
+        </div>
+    </div>
 
     {% if grouped_cases %}
     {% for year, year_cases in grouped_cases.items() %}
@@ -53,7 +70,18 @@
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
                                 {% endif %}
                                 {% if case.full_date %}
-                                <span class="badge bg-info">{{ case.full_date }}</span>
+                                <span class="badge bg-info me-2">{{ case.full_date }}</span>
+                                {% endif %}
+                                <!-- Processing Status Icons -->
+                                {% if case.has_enhanced_associations %}
+                                <span class="badge bg-success me-1" title="Enhanced Guideline Associations available">
+                                    <i class="bi bi-link-45deg"></i> EGA
+                                </span>
+                                {% endif %}
+                                {% if case.has_term_links %}
+                                <span class="badge bg-primary me-1" title="Ontology Term Links available">
+                                    <i class="bi bi-diagram-3"></i> OTL
+                                </span>
                                 {% endif %}
                             </div>
                         </div>
