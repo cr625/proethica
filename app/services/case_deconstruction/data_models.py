@@ -114,8 +114,15 @@ class EthicalDecisionPoint:
     urgency_level: float = 0.5  # 0.0 to 1.0
     complexity_level: float = 0.5  # 0.0 to 1.0
     
+    # Additional fields for interactive scenarios (optional)
+    sequence_number: Optional[int] = None
+    protagonist: Optional[str] = None
+    question_text: Optional[str] = None
+    narrative_setup: Optional[str] = None
+    case_sections: Optional[Dict[str, str]] = None
+    
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        base_dict = {
             'decision_id': self.decision_id,
             'title': self.title,
             'description': self.description,
@@ -127,6 +134,20 @@ class EthicalDecisionPoint:
             'urgency_level': self.urgency_level,
             'complexity_level': self.complexity_level
         }
+        
+        # Add interactive fields if present
+        if self.sequence_number is not None:
+            base_dict['sequence_number'] = self.sequence_number
+        if self.protagonist:
+            base_dict['protagonist'] = self.protagonist
+        if self.question_text:
+            base_dict['question_text'] = self.question_text
+        if self.narrative_setup:
+            base_dict['narrative_setup'] = self.narrative_setup
+        if self.case_sections:
+            base_dict['case_sections'] = self.case_sections
+            
+        return base_dict
 
 
 @dataclass

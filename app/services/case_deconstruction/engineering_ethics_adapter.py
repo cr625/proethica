@@ -127,32 +127,39 @@ class EngineeringEthicsAdapter(BaseCaseDeconstructionAdapter):
         """Identify engineering ethics decision points in the case."""
         decision_points = []
         
-        case_text = self._get_case_text(case_content)
-        discussion_text = self._get_section_text(case_content, 'discussion')
+        # First, try to extract decision points from questions section (for interactive scenarios)
+        question_based_decisions = self._extract_interactive_decision_points(case_content)
+        if question_based_decisions:
+            decision_points.extend(question_based_decisions)
         
-        # Identify decision types present in the case
-        identified_types = self._identify_decision_types(case_text)
-        
-        for decision_type in identified_types:
-            # Extract relevant principles
-            relevant_principles = self._get_relevant_principles(decision_type)
-            
-            # Create decision point
-            decision_point = EthicalDecisionPoint(
-                decision_id=f"decision_{decision_type.value}",
-                title=self._generate_decision_title(decision_type, case_text),
-                description=self._extract_decision_description(decision_type, discussion_text),
-                decision_type=decision_type,
-                ethical_principles=relevant_principles,
-                primary_options=self._generate_decision_options(decision_type, case_text),
-                context_factors=self._extract_context_factors(case_text)
-            )
-            
-            decision_points.append(decision_point)
-        
-        # If no specific decisions identified, create a general professional judgment decision
+        # Fallback to original logic if no question-based decisions found
         if not decision_points:
-            decision_points.append(self._create_default_decision_point(case_text))
+            case_text = self._get_case_text(case_content)
+            discussion_text = self._get_section_text(case_content, 'discussion')
+            
+            # Identify decision types present in the case
+            identified_types = self._identify_decision_types(case_text)
+            
+            for decision_type in identified_types:
+                # Extract relevant principles
+                relevant_principles = self._get_relevant_principles(decision_type)
+                
+                # Create decision point
+                decision_point = EthicalDecisionPoint(
+                    decision_id=f"decision_{decision_type.value}",
+                    title=self._generate_decision_title(decision_type, case_text),
+                    description=self._extract_decision_description(decision_type, discussion_text),
+                    decision_type=decision_type,
+                    ethical_principles=relevant_principles,
+                    primary_options=self._generate_decision_options(decision_type, case_text),
+                    context_factors=self._extract_context_factors(case_text)
+                )
+                
+                decision_points.append(decision_point)
+            
+            # If no specific decisions identified, create a general professional judgment decision
+            if not decision_points:
+                decision_points.append(self._create_default_decision_point(case_text))
         
         return decision_points
     
@@ -409,3 +416,200 @@ class EngineeringEthicsAdapter(BaseCaseDeconstructionAdapter):
         # Take first sentence as the main outcome
         sentences = re.split(r'[.!?]+', conclusion_text)
         return sentences[0].strip() if sentences else conclusion_text[:100]
+    
+    def _extract_interactive_decision_points(self, case_content: Dict[str, Any]) -> List[EthicalDecisionPoint]:
+        """Extract interactive decision points from case questions for wizard-style scenarios."""
+        questions_text = self._get_section_text(case_content, 'question')
+        if not questions_text:
+            return []
+        
+        # Extract case facts for context
+        facts_text = self._get_section_text(case_content, 'facts')
+        discussion_text = self._get_section_text(case_content, 'discussion')
+        
+        # Identify protagonist from facts (typically first mentioned engineer)
+        protagonist = self._extract_protagonist(facts_text)
+        
+        # Split questions and create decision points
+        question_sentences = self._split_questions(questions_text)
+        decision_points = []
+        
+        for i, question in enumerate(question_sentences):
+            if self._is_ethical_decision_question(question):
+                decision_point = self._create_interactive_decision_point(
+                    question=question,
+                    sequence=i + 1,
+                    protagonist=protagonist,
+                    case_facts=facts_text,
+                    discussion_context=discussion_text,
+                    case_content=case_content
+                )
+                decision_points.append(decision_point)
+        
+        return decision_points
+    
+    def _extract_protagonist(self, facts_text: str) -> str:
+        """Extract the protagonist engineer from case facts."""
+        if not facts_text:
+            return "Engineer"
+        
+        # Look for "Engineer X" pattern
+        engineer_match = re.search(r'Engineer\s+([A-Z])', facts_text)
+        if engineer_match:
+            return f"Engineer {engineer_match.group(1)}"
+        
+        # Fallback patterns
+        if 'licensed professional engineer' in facts_text.lower():
+            return "Professional Engineer"
+        
+        return "Engineer"
+    
+    def _split_questions(self, questions_text: str) -> List[str]:
+        """Split question text into individual questions."""
+        # Clean HTML if present
+        clean_text = re.sub(r'<[^>]+>', '', questions_text)
+        
+        # Split on question marks followed by capital letters or "Would"
+        questions = re.split(r'\?(?=\s*[A-Z]|Would)', clean_text)
+        
+        # Clean and filter questions
+        cleaned_questions = []
+        for q in questions:
+            q = q.strip()
+            if q and len(q) > 10:  # Filter out very short fragments
+                if not q.endswith('?'):
+                    q += '?'
+                cleaned_questions.append(q)
+        
+        return cleaned_questions
+    
+    def _is_ethical_decision_question(self, question: str) -> bool:
+        """Determine if a question represents an ethical decision point."""
+        ethical_keywords = [
+            'ethical', 'ethics', 'should', 'would it be', 'was it',
+            'appropriate', 'proper', 'right', 'wrong', 'duty', 'obligation',
+            'responsibility', 'professional', 'code'
+        ]
+        
+        question_lower = question.lower()
+        return any(keyword in question_lower for keyword in ethical_keywords)
+    
+    def _create_interactive_decision_point(self, question: str, sequence: int, protagonist: str, 
+                                         case_facts: str, discussion_context: str, 
+                                         case_content: Dict[str, Any]) -> EthicalDecisionPoint:
+        """Create an interactive decision point from a case question."""
+        
+        # Analyze question to determine decision type and context
+        decision_type = self._analyze_question_type(question)
+        
+        # Extract key situation from question
+        situation_context = self._extract_situation_from_question(question, case_facts)
+        
+        # Generate contextual options based on question and case
+        options = self._generate_contextual_options(question, decision_type, case_facts)
+        
+        # Get relevant NSPE principles
+        relevant_principles = self._get_relevant_principles(decision_type)
+        
+        # Extract context factors from facts
+        context_factors = self._extract_context_factors(case_facts)
+        
+        return EthicalDecisionPoint(
+            decision_id=f"interactive_decision_{sequence}",
+            title=f"{protagonist}'s Decision {sequence}",
+            description=situation_context,
+            decision_type=decision_type,
+            ethical_principles=relevant_principles,
+            primary_options=options,
+            context_factors=context_factors,
+            # Additional fields for interactive scenarios
+            sequence_number=sequence,
+            protagonist=protagonist,
+            question_text=question,
+            narrative_setup=self._build_narrative_setup(sequence, protagonist, case_facts),
+            case_sections={
+                'facts': case_facts[:500] if case_facts else "",
+                'discussion': discussion_context[:500] if discussion_context else ""
+            }
+        )
+    
+    def _analyze_question_type(self, question: str) -> DecisionType:
+        """Analyze question text to determine the type of ethical decision."""
+        question_lower = question.lower()
+        
+        # Check for specific decision type indicators
+        if any(word in question_lower for word in ['safety', 'risk', 'hazard', 'danger', 'harm']):
+            return DecisionType.SAFETY
+        elif any(word in question_lower for word in ['disclose', 'report', 'inform', 'voice', 'concern']):
+            return DecisionType.DISCLOSURE
+        elif any(word in question_lower for word in ['confidential', 'secret', 'private']):
+            return DecisionType.CONFIDENTIALITY
+        elif any(word in question_lower for word in ['conflict', 'interest', 'bias', 'impartial']):
+            return DecisionType.CONFLICT_OF_INTEREST
+        else:
+            return DecisionType.PROFESSIONAL_DUTY
+    
+    def _extract_situation_from_question(self, question: str, case_facts: str) -> str:
+        """Extract the situation context from the question and case facts."""
+        # For Case 8 specifically, identify key situation elements
+        if 'cease work' in question.lower():
+            return "Client X has requested you to cease work on the stormwater management system project after you identified necessary protective measures that they are unwilling to fund."
+        elif 'continue working' in question.lower():
+            return "Despite Client X's refusal to invest in the protective measures you've identified as necessary, they expect you to continue working on the project."
+        else:
+            # Generic situation extraction
+            return f"You face an ethical decision regarding professional responsibilities and public welfare."
+    
+    def _generate_contextual_options(self, question: str, decision_type: DecisionType, case_facts: str) -> List[DecisionOption]:
+        """Generate contextual decision options based on the specific question."""
+        question_lower = question.lower()
+        
+        # For Case 8's specific questions
+        if 'cease work' in question_lower and 'voicing concern' in question_lower:
+            return [
+                DecisionOption(
+                    option_id="cease_without_concern",
+                    title="Cease work without voicing concern",
+                    ethical_justification="Comply with client request while avoiding confrontation, trusting they understand the implications"
+                ),
+                DecisionOption(
+                    option_id="cease_with_concern",
+                    title="Cease work but voice concern about risks",
+                    ethical_justification="Honor client request while fulfilling duty to communicate potential risks to public safety"
+                ),
+                DecisionOption(
+                    option_id="refuse_to_cease",
+                    title="Refuse to cease work and escalate issue",
+                    ethical_justification="Prioritize public safety paramount obligation over client relationship"
+                )
+            ]
+        elif 'continue working' in question_lower:
+            return [
+                DecisionOption(
+                    option_id="continue_with_concerns",
+                    title="Continue working despite concerns",
+                    ethical_justification="Maintain client relationship and complete contracted work"
+                ),
+                DecisionOption(
+                    option_id="refuse_to_continue",
+                    title="Refuse to continue without protective measures",
+                    ethical_justification="Uphold professional responsibility to ensure public safety"
+                ),
+                DecisionOption(
+                    option_id="seek_alternative_solution",
+                    title="Seek alternative protective measures",
+                    ethical_justification="Find creative solutions that balance client constraints with safety requirements"
+                )
+            ]
+        else:
+            # Default options based on decision type
+            return self._generate_decision_options(decision_type, case_facts)
+    
+    def _build_narrative_setup(self, sequence: int, protagonist: str, case_facts: str) -> str:
+        """Build narrative setup for the decision point."""
+        if sequence == 1:
+            return f"You are {protagonist}, a licensed professional engineer with expertise in stormwater control design. You've been contracted to design a system for a large development, but have identified critical protective measures needed for public safety."
+        elif sequence == 2:
+            return f"As {protagonist}, you've presented your professional analysis to the client, but they've made it clear they're unwilling to fund the protective measures you've identified as necessary."
+        else:
+            return f"Continuing as {protagonist}, you must navigate the complex balance between professional obligations, client relationships, and public welfare."
