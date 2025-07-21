@@ -11,6 +11,7 @@ import logging
 
 from app.models.document import Document
 from app.models.ontology import Ontology
+from app.services.guideline_analysis_service_v2 import GuidelineAnalysisServiceV2
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +73,17 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         
         logger.info(f"Extracting concepts for guideline {guideline.title} with world {world.name}")
         
-        # Extract concepts from the guideline content
-        concepts_result = guideline_analysis_service.extract_concepts(content, ontology_source)
+        # Use enhanced V2 service for ontology-aware concept extraction
+        logger.info("Using GuidelineAnalysisServiceV2 for enhanced ontology matching")
+        enhanced_service = GuidelineAnalysisServiceV2()
+        
+        # Extract concepts with ontology matching
+        concepts_result = enhanced_service.extract_concepts_v2(
+            content=content, 
+            guideline_id=document_id, 
+            world_id=world.id
+        )
+        logger.info(f"V2 extraction result keys: {list(concepts_result.keys())}")
         
         if "error" in concepts_result:
             logger.warning(f"Error during concept extraction: {concepts_result['error']}")
@@ -85,8 +95,21 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                        error_title='Concept Extraction Error',
                                        error_message=f'Error extracting concepts: {concepts_result["error"]}'))
         
-        # Get the extracted concepts
+        # Get the extracted concepts with match information
         concepts_list = concepts_result.get("concepts", [])
+        term_candidates = concepts_result.get("term_candidates", [])
+        stats = concepts_result.get("stats", {})
+        
+        # Log matching results
+        if stats:
+            logger.info(f"Concept extraction stats: {stats}")
+            logger.info(f"Found {stats.get('matched_concepts', 0)} existing ontology matches")
+            logger.info(f"Identified {stats.get('new_terms', 0)} new term candidates")
+        
+        # Log warning if concepts are missing enhanced fields but don't modify them
+        for concept in concepts_list:
+            if 'is_new' not in concept and 'ontology_match' not in concept:
+                logger.error(f"CRITICAL: Concept '{concept.get('label', 'Unknown')}' missing enhanced match fields - V2 service not working properly!")
         if not concepts_list:
             # Check if this is an MCP server issue
             error_message = 'No concepts were extracted from this guideline'
@@ -110,11 +133,13 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         # Use the primary template - no fallbacks
         logger.info(f"Passing {len(concepts_list)} concepts to template guideline_concepts_review.html")
         
-        # Render the concepts review template
+        # Render the enhanced concepts review template with match information
         return render_template('guideline_concepts_review.html', 
                                world=world, 
                                guideline=guideline,
                                concepts=concepts_list,
+                               term_candidates=term_candidates,
+                               stats=stats,
                                world_id=world.id,
                                document_id=document_id,
                                ontology_source=ontology_source,
