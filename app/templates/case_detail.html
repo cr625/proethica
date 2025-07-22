@@ -81,7 +81,12 @@
             <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
             {% endif %}
         </div>
-        <h2>{{ case.title }}</h2>
+        <h2>
+            {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated_sample' %}
+            <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
+            {% endif %}
+            {{ case.title }}
+        </h2>
     </div>
 
     <div class="card mb-4">

@@ -17,6 +17,8 @@ from app.services.case_url_processor import CaseUrlProcessor
 from app.services.case_to_scenario_service import CaseToScenarioService
 from app.services.scenario_generation_service import ScenarioGenerationService
 from app.services.agents.case_creation_agent import CaseCreationAgent
+from app.services.conversation_to_case_service import ConversationToCaseService
+from app.models.agent_conversation import AgentConversation
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -1981,6 +1983,91 @@ def get_category_concepts(category):
         
     except Exception as e:
         logger.error(f"Error getting concepts for category {category}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/new/agent/generate', methods=['POST'])
+@login_required
+def generate_case_from_conversation():
+    """Generate NSPE-format case from agent conversation."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No conversation data provided'
+            }), 400
+        
+        # Get conversation data
+        world_id = data.get('world_id')
+        conversation_history = data.get('conversation_history', [])
+        selected_concepts = data.get('selected_concepts', {})
+        conversation_metadata = data.get('conversation_metadata', {})
+        
+        if not conversation_history:
+            return jsonify({
+                'success': False,
+                'error': 'No conversation history provided'
+            }), 400
+        
+        # Get current user
+        current_user = get_current_user()
+        
+        # Create AgentConversation record
+        import uuid
+        session_id = str(uuid.uuid4())
+        
+        conversation = AgentConversation(
+            session_id=session_id,
+            user_id=current_user.username if current_user else None,
+            world_id=world_id,
+            title="Language Model-Assisted Case Creation",
+            metadata=conversation_metadata
+        )
+        
+        # Add messages to conversation
+        for msg in conversation_history:
+            conversation.add_message(
+                content=msg.get('content', ''),
+                role=msg.get('type', 'user'),  # Convert 'type' to 'role'
+                metadata=msg.get('metadata', {})
+            )
+        
+        # Add ontology selections
+        for category, concepts in selected_concepts.items():
+            if concepts:
+                conversation.update_ontology_selections(category, concepts)
+        
+        # Save conversation
+        db.session.add(conversation)
+        db.session.flush()  # Get ID
+        
+        # Generate case using the conversation
+        case_service = ConversationToCaseService()
+        generated_case = case_service.generate_case_from_conversation(conversation)
+        
+        if not generated_case:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to generate case from conversation'
+            }), 500
+        
+        # Return success with case details
+        return jsonify({
+            'success': True,
+            'case_id': generated_case.id,
+            'case_title': generated_case.title,
+            'case_url': url_for('cases.view_case', id=generated_case.id),
+            'conversation_id': conversation.id,
+            'message': 'Case generated successfully from conversation'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating case from conversation: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

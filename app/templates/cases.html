@@ -64,7 +64,12 @@
                 <div class="col-12 mb-3">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">{{ case.title }}</h5>
+                            <h5 class="mb-0">
+                                {% if case.doc_metadata and (case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata.get('source') == 'agent_generated_sample') %}
+                                <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
+                                {% endif %}
+                                {{ case.title }}
+                            </h5>
                             <div>
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>

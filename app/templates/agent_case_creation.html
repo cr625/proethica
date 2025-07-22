@@ -411,9 +411,14 @@
             <a href="{{ url_for('cases.case_options') }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Options
             </a>
-            <button id="clearConversation" class="btn btn-outline-warning">
-                <i class="bi bi-trash"></i> Clear
-            </button>
+            <div class="btn-group">
+                <button id="generateCase" class="btn btn-success" disabled>
+                    <i class="bi bi-file-earmark-plus"></i> Generate Case
+                </button>
+                <button id="clearConversation" class="btn btn-outline-warning">
+                    <i class="bi bi-trash"></i> Clear
+                </button>
+            </div>
         </div>
     </div>
 
@@ -558,7 +563,9 @@ const AgentCaseCreation = {
             isProcessing: false,
             ontologyCollapsed: false,
             expandedCategories: {},
-            loadedConcepts: {}
+            loadedConcepts: {},
+            conversationId: null,
+            canGenerateCase: false
         }
     },
     mounted() {
@@ -599,6 +606,7 @@ const AgentCaseCreation = {
             const selectAllBtn = document.getElementById('selectAllCategories');
             const clearCategoriesBtn = document.getElementById('clearCategories');
             const clearConversationBtn = document.getElementById('clearConversation');
+            const generateCaseBtn = document.getElementById('generateCase');
             
             if (selectAllBtn) {
                 selectAllBtn.addEventListener('click', this.selectAllCategories);
@@ -608,6 +616,9 @@ const AgentCaseCreation = {
             }
             if (clearConversationBtn) {
                 clearConversationBtn.addEventListener('click', this.clearConversation);
+            }
+            if (generateCaseBtn) {
+                generateCaseBtn.addEventListener('click', this.generateCase);
             }
         },
         
@@ -923,6 +934,9 @@ const AgentCaseCreation = {
                 content: content,
                 timestamp: new Date().toISOString()
             });
+            
+            // Update case generation capability
+            this.updateCaseGenerationStatus();
         },
         
         addAgentResponse(response) {
@@ -978,6 +992,9 @@ const AgentCaseCreation = {
                 content: response,
                 timestamp: new Date().toISOString()
             });
+            
+            // Update case generation capability
+            this.updateCaseGenerationStatus();
         },
         
         showProcessing(show) {
@@ -995,6 +1012,82 @@ const AgentCaseCreation = {
             }
         },
         
+        updateCaseGenerationStatus() {
+            const generateBtn = document.getElementById('generateCase');
+            
+            // Need at least 2 user messages and 1 agent response, plus some ontology selections
+            const userMessages = this.conversationHistory.filter(msg => msg.type === 'user').length;
+            const agentMessages = this.conversationHistory.filter(msg => msg.type === 'agent').length;
+            const hasOntologySelections = Object.values(this.selectedConcepts).some(concepts => concepts.length > 0);
+            
+            this.canGenerateCase = userMessages >= 2 && agentMessages >= 1 && hasOntologySelections;
+            
+            if (generateBtn) {
+                generateBtn.disabled = !this.canGenerateCase;
+                
+                if (this.canGenerateCase) {
+                    generateBtn.title = 'Generate NSPE-format case from this conversation';
+                } else {
+                    generateBtn.title = 'Need more conversation and ontology selections to generate case';
+                }
+            }
+        },
+        
+        async generateCase() {
+            if (!this.canGenerateCase) {
+                alert('Need more conversation and ontology selections to generate a case.');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generateCase');
+            
+            try {
+                // Show processing state
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
+                
+                // Send conversation and selections to backend for case generation
+                const response = await fetch('/cases/new/agent/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        world_id: this.worldId,
+                        conversation_history: this.conversationHistory,
+                        selected_concepts: this.selectedConcepts,
+                        conversation_metadata: {
+                            total_messages: this.conversationHistory.length,
+                            concept_count: Object.values(this.selectedConcepts).reduce((sum, concepts) => sum + concepts.length, 0),
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success message
+                    this.addMessage('system', `✅ Case generated successfully! Case ID: ${result.case_id}`);
+                    
+                    // Redirect to the generated case
+                    setTimeout(() => {
+                        window.location.href = result.case_url;
+                    }, 2000);
+                } else {
+                    this.addMessage('error', `Failed to generate case: ${result.error || 'Unknown error'}`);
+                }
+                
+            } catch (error) {
+                console.error('Error generating case:', error);
+                this.addMessage('error', 'Failed to communicate with case generation service');
+            } finally {
+                // Reset button
+                generateBtn.disabled = !this.canGenerateCase;
+                generateBtn.innerHTML = '<i class="bi bi-file-earmark-plus"></i> Generate Case';
+            }
+        },
+        
         clearConversation() {
             if (confirm('Clear the entire conversation?')) {
                 document.getElementById('conversationArea').innerHTML = `
@@ -1008,6 +1101,8 @@ const AgentCaseCreation = {
                     </div>
                 `;
                 this.conversationHistory = [];
+                this.conversationId = null;
+                this.updateCaseGenerationStatus();
             }
         },
         
