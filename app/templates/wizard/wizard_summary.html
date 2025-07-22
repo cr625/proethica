@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Summary - Ethical Decision Wizard{% endblock %}
+
+{% block styles %}
+<style>
+    .summary-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .summary-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 25px;
+    }
+    
+    .summary-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-bottom: 2px solid #007bff;
+        border-radius: 12px 12px 0 0;
+        padding: 20px;
+    }
+    
+    .timeline-item {
+        border-left: 3px solid #007bff;
+        padding-left: 20px;
+        margin-bottom: 25px;
+        position: relative;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 0;
+        width: 13px;
+        height: 13px;
+        background-color: #007bff;
+        border-radius: 50%;
+    }
+    
+    .recommendation-item {
+        background: linear-gradient(135deg, #e3f2fd, #f8f9ff);
+        border: 1px solid #2196f3;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+    }
+    
+    .recommendation-item.high-priority {
+        border-color: #f44336;
+        background: linear-gradient(135deg, #ffebee, #fff5f5);
+    }
+    
+    .recommendation-item.medium-priority {
+        border-color: #ff9800;
+        background: linear-gradient(135deg, #fff3e0, #fffaf5);
+    }
+    
+    .confidence-score {
+        background: linear-gradient(135deg, #4caf50, #66bb6a);
+        color: white;
+        border-radius: 25px;
+        padding: 8px 20px;
+        font-weight: bold;
+        display: inline-block;
+    }
+    
+    .confidence-score.medium {
+        background: linear-gradient(135deg, #ff9800, #ffb74d);
+    }
+    
+    .confidence-score.low {
+        background: linear-gradient(135deg, #f44336, #ef5350);
+    }
+    
+    .risk-indicator {
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .risk-low {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .risk-medium {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .risk-high {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f1b5bb;
+    }
+    
+    .action-item {
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .precedent-case {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.2s ease;
+    }
+    
+    .precedent-case:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .export-section {
+        background: linear-gradient(135deg, #6c757d, #868e96);
+        color: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-top: 40px;
+    }
+    
+    .step-summary {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .ethical-principles {
+        background: linear-gradient(135deg, #e8f4fd, #f1f8ff);
+        border: 1px solid #007bff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Summary Header -->
+    <div class="summary-header text-center">
+        <div class="row align-items-center">
+            <div class="col-md-8 mx-auto">
+                <h1 class="display-5 mb-3">
+                    <i class="bi bi-check-circle-fill me-3"></i>
+                    Analysis Complete
+                </h1>
+                <h3 class="mb-3">{{ summary.title or 'Ethical Decision Analysis' }}</h3>
+                <p class="lead mb-4">{{ summary.description or 'Comprehensive analysis and recommendations for your ethical dilemma' }}</p>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h4 class="mb-1">{{ summary.session.world.name if summary.session.world else 'General' }}</h4>
+                            <small class="opacity-75">Professional Domain</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h4 class="mb-1">{{ summary.total_steps }}</h4>
+                            <small class="opacity-75">Steps Completed</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h4 class="mb-1">{{ summary.session.created_at.strftime('%b %d, %Y') if summary.session.created_at else 'Unknown' }}</h4>
+                            <small class="opacity-75">Session Date</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <div class="btn-group" role="group">
+                <a href="/wizard" class="btn btn-outline-primary">
+                    <i class="bi bi-house me-2"></i>New Session
+                </a>
+                <button class="btn btn-primary" onclick="printSummary()">
+                    <i class="bi bi-printer me-2"></i>Print Report
+                </button>
+                <button class="btn btn-success" onclick="exportSummary('pdf')">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
+                </button>
+                <button class="btn btn-info" onclick="exportSummary('json')">
+                    <i class="bi bi-download me-2"></i>Export Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Analysis Column -->
+        <div class="col-lg-8">
+            <!-- Executive Summary -->
+            <div class="summary-card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-clipboard-data me-2"></i>
+                        Executive Summary
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5>Overall Recommendation Confidence</h5>
+                            <span class="confidence-score {{ 'high' if summary.overall_confidence > 0.8 else 'medium' if summary.overall_confidence > 0.6 else 'low' }}">
+                                {{ (summary.overall_confidence * 100) | round(1) }}%
+                            </span>
+                        </div>
+                        <div class="progress mb-3">
+                            <div class="progress-bar 
+                                {% if summary.overall_confidence > 0.8 %}bg-success
+                                {% elif summary.overall_confidence > 0.6 %}bg-warning
+                                {% else %}bg-danger{% endif %}" 
+                                style="width: {{ (summary.overall_confidence * 100) | round(1) }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Primary Recommendation</h5>
+                        <div class="recommendation-item {{ 'high-priority' if summary.primary_recommendation.priority == 'high' else 'medium-priority' if summary.primary_recommendation.priority == 'medium' else '' }}">
+                            <h6 class="mb-2">{{ summary.primary_recommendation.title }}</h6>
+                            <p class="mb-3">{{ summary.primary_recommendation.description }}</p>
+                            <div class="small text-muted">
+                                <strong>Rationale:</strong> {{ summary.primary_recommendation.rationale }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h5>Key Ethical Considerations</h5>
+                        <div class="ethical-principles">
+                            {% for principle in summary.key_principles %}
+                            <div class="d-flex align-items-start mb-2">
+                                <i class="bi bi-arrow-right-circle text-primary me-2 mt-1"></i>
+                                <div>
+                                    <strong>{{ principle.name }}:</strong> {{ principle.application }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decision Process Timeline -->
+            <div class="summary-card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Decision Process Timeline
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% for step_summary in summary.step_summaries %}
+                    <div class="timeline-item">
+                        <div class="step-summary">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-1">
+                                    Step {{ step_summary.step_number }}: {{ step_summary.title }}
+                                </h6>
+                                <small class="text-muted">{{ step_summary.step_type.title() }}</small>
+                            </div>
+                            
+                            {% if step_summary.step_type == 'event' %}
+                                <p class="mb-2"><strong>Your Response:</strong></p>
+                                <p class="text-muted small">{{ step_summary.response | truncate(200) }}</p>
+                            {% elif step_summary.step_type == 'decision' %}
+                                <p class="mb-2"><strong>Your Choice:</strong></p>
+                                {% if step_summary.selected_option %}
+                                <div class="alert alert-light mb-0">
+                                    <strong>{{ step_summary.selected_option.title }}</strong><br>
+                                    <small class="text-muted">{{ step_summary.selected_option.description }}</small>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                            
+                            {% if step_summary.ai_insights %}
+                            <div class="mt-2">
+                                <small class="text-info">
+                                    <i class="bi bi-lightbulb me-1"></i>
+                                    <strong>AI Insight:</strong> {{ step_summary.ai_insights }}
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Detailed Recommendations -->
+            <div class="summary-card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Detailed Recommendations
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% for recommendation in summary.detailed_recommendations %}
+                    <div class="recommendation-item {{ recommendation.priority }}-priority">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">{{ recommendation.title }}</h6>
+                            <span class="badge 
+                                {% if recommendation.priority == 'high' %}bg-danger
+                                {% elif recommendation.priority == 'medium' %}bg-warning
+                                {% else %}bg-info{% endif %}">
+                                {{ recommendation.priority.title() }} Priority
+                            </span>
+                        </div>
+                        <p class="mb-2">{{ recommendation.description }}</p>
+                        <div class="small text-muted mb-2">
+                            <strong>Expected Outcome:</strong> {{ recommendation.expected_outcome }}
+                        </div>
+                        {% if recommendation.implementation_steps %}
+                        <div class="small">
+                            <strong>Implementation Steps:</strong>
+                            <ol class="mt-1 mb-0">
+                                {% for step in recommendation.implementation_steps %}
+                                <li>{{ step }}</li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Risk Assessment -->
+            <div class="summary-card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-shield-exclamation me-2"></i>
+                        Risk Assessment
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% for risk in summary.identified_risks %}
+                    <div class="risk-indicator risk-{{ risk.level }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ risk.category }}:</strong> {{ risk.description }}
+                            </div>
+                            <span class="badge bg-{{ 'danger' if risk.level == 'high' else 'warning' if risk.level == 'medium' else 'success' }}">
+                                {{ risk.level.title() }}
+                            </span>
+                        </div>
+                        {% if risk.mitigation_strategies %}
+                        <div class="mt-2 small">
+                            <strong>Mitigation:</strong> {{ risk.mitigation_strategies | join(', ') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Action Items -->
+            <div class="summary-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-check me-2"></i>
+                        Immediate Action Items
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for action in summary.action_items %}
+                    <div class="action-item">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="action{{ loop.index }}">
+                            <label class="form-check-label" for="action{{ loop.index }}">
+                                <strong>{{ action.title }}</strong>
+                            </label>
+                        </div>
+                        <p class="mb-1 small text-muted">{{ action.description }}</p>
+                        {% if action.deadline %}
+                        <div class="small text-warning">
+                            <i class="bi bi-clock me-1"></i>
+                            Deadline: {{ action.deadline }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Related Cases -->
+            {% if summary.related_cases %}
+            <div class="summary-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-files me-2"></i>
+                        Related Precedents
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for case in summary.related_cases %}
+                    <div class="precedent-case">
+                        <h6 class="mb-2">{{ case.title }}</h6>
+                        <p class="small text-muted mb-2">{{ case.summary }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-primary">
+                                Similarity: {{ (case.similarity_score * 100) | round(1) }}%
+                            </small>
+                            <a href="{{ case.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                View Case
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Applied Guidelines -->
+            {% if summary.applied_guidelines %}
+            <div class="summary-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-book me-2"></i>
+                        Applied Guidelines
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for guideline in summary.applied_guidelines %}
+                    <div class="mb-3">
+                        <h6 class="mb-1">{{ guideline.title }}</h6>
+                        <p class="small text-muted mb-1">{{ guideline.excerpt }}</p>
+                        <div class="small text-info">
+                            Relevance: {{ (guideline.relevance_score * 100) | round(1) }}%
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Session Metrics -->
+            <div class="summary-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up me-2"></i>
+                        Session Metrics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h4 class="text-primary mb-0">{{ summary.metrics.duration_minutes }}</h4>
+                            <small class="text-muted">Minutes</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-success mb-0">{{ summary.metrics.completeness_percentage }}%</h4>
+                            <small class="text-muted">Complete</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-info mb-0">{{ summary.metrics.cases_referenced }}</h4>
+                            <small class="text-muted">Cases</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning mb-0">{{ summary.metrics.principles_applied }}</h4>
+                            <small class="text-muted">Principles</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="export-section">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="mb-2">Share Your Analysis</h4>
+                <p class="mb-0">
+                    Export this analysis for documentation, consultation, or compliance purposes.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="btn-group">
+                    <button class="btn btn-light" onclick="shareSession()">
+                        <i class="bi bi-share me-1"></i>Share Link
+                    </button>
+                    <button class="btn btn-outline-light" onclick="emailSummary()">
+                        <i class="bi bi-envelope me-1"></i>Email
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Share Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="shareUrl" class="form-label">Shareable Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareUrl" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyToClipboard()">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="publicAccess">
+                    <label class="form-check-label" for="publicAccess">
+                        Allow public access (no login required)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="generateShareLink()">Generate Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function printSummary() {
+    window.print();
+}
+
+function exportSummary(format) {
+    const sessionId = '{{ summary.session.session_id }}';
+    
+    // Show loading state
+    const originalBtn = event.target;
+    const originalText = originalBtn.innerHTML;
+    originalBtn.innerHTML = '<i class="bi bi-spinner-border spinner-border-sm me-1"></i>Generating...';
+    originalBtn.disabled = true;
+    
+    fetch(`/wizard/export/${sessionId}/${format}`, {
+        method: 'POST'
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Export failed');
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ethical-analysis-${sessionId}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // Reset button
+        originalBtn.innerHTML = originalText;
+        originalBtn.disabled = false;
+    })
+    .catch(error => {
+        console.error('Export error:', error);
+        alert('Error exporting summary. Please try again.');
+        
+        // Reset button
+        originalBtn.innerHTML = originalText;
+        originalBtn.disabled = false;
+    });
+}
+
+function shareSession() {
+    const modal = new bootstrap.Modal(document.getElementById('shareModal'));
+    modal.show();
+}
+
+function generateShareLink() {
+    const sessionId = '{{ summary.session.session_id }}';
+    const publicAccess = document.getElementById('publicAccess').checked;
+    
+    fetch('/wizard/generate_share_link', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            session_id: sessionId,
+            public_access: publicAccess
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('shareUrl').value = data.share_url;
+        } else {
+            alert('Error generating share link: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error generating share link. Please try again.');
+    });
+}
+
+function copyToClipboard() {
+    const shareUrl = document.getElementById('shareUrl');
+    shareUrl.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-secondary');
+    
+    setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+
+function emailSummary() {
+    const sessionId = '{{ summary.session.session_id }}';
+    const subject = encodeURIComponent('Ethical Decision Analysis - {{ summary.title or "Summary" }}');
+    const body = encodeURIComponent(
+        'I have completed an ethical decision analysis using the ProEthica Wizard.\n\n' +
+        'View the full analysis here: ' + window.location.href + '\n\n' +
+        'Key Recommendation: {{ summary.primary_recommendation.title }}\n' +
+        'Confidence Level: {{ (summary.overall_confidence * 100) | round(1) }}%'
+    );
+    
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+}
+
+// Auto-save action item progress
+document.addEventListener('change', function(event) {
+    if (event.target.type === 'checkbox' && event.target.id.startsWith('action')) {
+        const actionId = event.target.id.replace('action', '');
+        const completed = event.target.checked;
+        
+        // Save progress (optional - can be implemented later)
+        fetch('/wizard/update_action_item', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                session_id: '{{ summary.session.session_id }}',
+                action_id: actionId,
+                completed: completed
+            })
+        })
+        .catch(error => {
+            console.error('Error updating action item:', error);
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -125,6 +125,7 @@ def create_app(config_module='app.config'):
     from app.routes.type_management import type_management_bp
     from app.routes.neo4j_visualization import neo4j_bp
     from app.routes.debug_env import debug_env_bp
+    from app.routes.wizard import wizard_bp
     from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
@@ -149,6 +150,7 @@ def create_app(config_module='app.config'):
     app.register_blueprint(type_management_bp)
     app.register_blueprint(neo4j_bp)
     app.register_blueprint(debug_env_bp)
+    app.register_blueprint(wizard_bp)
     app.register_blueprint(test_bp)
     
     # Create and register the ontology editor blueprint

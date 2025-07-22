@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Step {{ step_number }} - {{ scenario.name }}{% endblock %}
+
+{% block styles %}
+<style>
+    .wizard-progress {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        margin-bottom: 30px;
+        border-radius: 15px;
+    }
+    
+    .progress-step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin: 0 3px;
+        font-size: 14px;
+    }
+    
+    .progress-step.completed {
+        background-color: rgba(255,255,255,0.3);
+        color: white;
+    }
+    
+    .progress-step.current {
+        background-color: white;
+        color: #667eea;
+    }
+    
+    .progress-step.pending {
+        background-color: rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.7);
+    }
+
+    .step-card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .option-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .option-card:hover {
+        border-color: #007bff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,123,255,0.1);
+    }
+
+    .option-card.selected {
+        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+
+    .nspe-badge {
+        font-size: 0.75em;
+        padding: 0.25em 0.5em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <!-- Progress Header -->
+    <div class="wizard-progress text-center">
+        <h2 class="mb-3">{{ scenario.name }}</h2>
+        
+        <!-- Progress Steps -->
+        <div class="mb-3">
+            {% for i in range(1, session.total_steps + 1) %}
+                <span class="progress-step 
+                    {% if i < step_number %}completed
+                    {% elif i == step_number %}current
+                    {% else %}pending{% endif %}">
+                    {{ i }}
+                </span>
+                {% if not loop.last %}
+                <span class="text-white-50">→</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        
+        <p class="mb-0">Step {{ step_number }} of {{ session.total_steps }}: {{ step.step_type|title }}</p>
+        <div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar bg-light" style="width: {{ ((step_number - 1) / session.total_steps * 100)|round(1) }}%;"></div>
+        </div>
+    </div>
+
+    <!-- Step Content -->
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card step-card">
+                <!-- Event Step -->
+                {% if step.step_type == 'event' %}
+                    <div class="card-header bg-info text-white">
+                        <h3 class="mb-0">
+                            <i class="bi bi-calendar-event me-2"></i>{{ step.title }}
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Event Narrative -->
+                        <div class="mb-4">
+                            <p class="lead">{{ step.narrative }}</p>
+                        </div>
+                        
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>You are Engineer A.</strong> This event is part of your ethical analysis. Click "Continue" to proceed to the next step.
+                        </div>
+
+                        <!-- Navigation -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            {% if session.can_go_back %}
+                            <button type="button" class="btn btn-outline-secondary" onclick="goBack()">
+                                <i class="bi bi-arrow-left me-2"></i>Previous
+                            </button>
+                            {% else %}
+                            <div></div>
+                            {% endif %}
+                            
+                            <button type="button" class="btn btn-primary btn-lg" onclick="continueNext()">
+                                Continue <i class="bi bi-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                
+                <!-- Decision Step -->
+                {% elif step.step_type == 'decision' %}
+                    <div class="card-header bg-warning text-dark">
+                        <h3 class="mb-0">
+                            <i class="bi bi-question-circle me-2"></i>{{ step.title }}
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Decision Context -->
+                        <div class="mb-4">
+                            <p class="lead">{{ step.narrative }}</p>
+                        </div>
+                        
+                        <!-- Decision Question -->
+                        {% if step.question %}
+                        <div class="alert alert-warning mb-4">
+                            <h5><i class="bi bi-question-circle me-2"></i>The Decision</h5>
+                            <p class="mb-0 fw-bold">{{ step.question }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Decision Options -->
+                        <div class="mb-4">
+                            <h5 class="mb-3"><i class="bi bi-list-check me-2"></i>Choose Your Response</h5>
+                            
+                            {% for option in step.options %}
+                            <div class="card option-card mb-3" data-option="{{ option.id }}" onclick="selectOption('{{ option.id }}')">
+                                <div class="card-header d-flex align-items-center justify-content-between" 
+                                     style="border-left: 6px solid 
+                                        {% if option.color == 'green' %}#28a745{% elif option.color == 'red' %}#dc3545{% else %}#ffc107{% endif %};">
+                                    <div class="d-flex align-items-center">
+                                        <div class="form-check me-3">
+                                            <input class="form-check-input" type="radio" 
+                                                   name="decision" id="option{{ loop.index }}" 
+                                                   value="{{ option.id }}">
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">
+                                                {% if option.color == 'green' %}🟢
+                                                {% elif option.color == 'red' %}🔴
+                                                {% else %}🟡{% endif %}
+                                                {{ option.title }}
+                                            </h6>
+                                        </div>
+                                    </div>
+                                    {% if option.nspe_status in ['nspe_positive', 'nspe_negative', 'nspe_conclusion'] %}
+                                    <span class="badge bg-primary nspe-badge">
+                                        {% if option.nspe_status == 'nspe_positive' %}NSPE: Ethical
+                                        {% elif option.nspe_status == 'nspe_negative' %}NSPE: Unethical
+                                        {% else %}NSPE Conclusion{% endif %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="card-body">
+                                    {% if option.description %}
+                                    <p class="mb-3">{{ option.description }}</p>
+                                    {% endif %}
+                                    
+                                    {% if option.ethical_analysis %}
+                                    <div class="mb-3">
+                                        <strong>Analysis:</strong> {{ option.ethical_analysis }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Supporting References in Columns -->
+                                    <div class="row">
+                                        {% if option.code_references %}
+                                        <div class="col-md-6 mb-3">
+                                            <h6 class="text-primary"><i class="bi bi-book me-1"></i>NSPE Code References</h6>
+                                            {% for ref in option.code_references %}
+                                            <div class="mb-1">
+                                                <span class="badge bg-secondary me-2">Code</span>
+                                                <small>{{ ref }}</small>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if option.precedent_cases %}
+                                        <div class="col-md-6 mb-3">
+                                            <h6 class="text-success"><i class="bi bi-file-earmark-text me-1"></i>Precedent Cases</h6>
+                                            {% for case in option.precedent_cases %}
+                                            <div class="mb-1">
+                                                <span class="badge bg-info me-2">Case</span>
+                                                <small>{{ case }}</small>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if option.reasoning_quote %}
+                                    <div class="alert alert-light border-start border-primary border-3 mb-0">
+                                        <small class="text-muted">
+                                            <i class="bi bi-quote me-2"></i>{{ option.reasoning_quote }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Navigation -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            {% if session.can_go_back %}
+                            <button type="button" class="btn btn-outline-secondary" onclick="goBack()">
+                                <i class="bi bi-arrow-left me-2"></i>Previous
+                            </button>
+                            {% else %}
+                            <div></div>
+                            {% endif %}
+                            
+                            <button type="button" id="continueBtn" class="btn btn-success btn-lg" 
+                                    onclick="submitDecision()" disabled>
+                                Submit Choice <i class="bi bi-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedOption = null;
+const scenarioId = {{ scenario.id }};
+const currentStep = {{ step_number }};
+
+function selectOption(optionId) {
+    // Remove previous selection
+    document.querySelectorAll('.option-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Add selection to clicked card
+    const selectedCard = document.querySelector(`[data-option="${optionId}"]`);
+    selectedCard.classList.add('selected');
+    
+    // Update radio button
+    document.getElementById(`option${Array.from(selectedCard.parentNode.children).indexOf(selectedCard) + 1}`).checked = true;
+    
+    // Enable continue button
+    selectedOption = optionId;
+    document.getElementById('continueBtn').disabled = false;
+}
+
+function submitDecision() {
+    if (!selectedOption) {
+        alert('Please select an option before continuing.');
+        return;
+    }
+    
+    // Submit the choice
+    fetch(`/scenarios/${scenarioId}/wizard/step/${currentStep}/choice`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            option_id: selectedOption
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Navigate to next step
+            const nextStep = currentStep + 1;
+            if (nextStep <= {{ session.total_steps }}) {
+                window.location.href = `/scenarios/${scenarioId}/wizard/step/${nextStep}`;
+            } else {
+                window.location.href = `/scenarios/${scenarioId}/wizard/summary`;
+            }
+        } else {
+            alert('Error submitting choice: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error submitting choice. Please try again.');
+    });
+}
+
+function continueNext() {
+    // For event steps, just go to next step
+    const nextStep = currentStep + 1;
+    if (nextStep <= {{ session.total_steps }}) {
+        window.location.href = `/scenarios/${scenarioId}/wizard/step/${nextStep}`;
+    } else {
+        window.location.href = `/scenarios/${scenarioId}/wizard/summary`;
+    }
+}
+
+function goBack() {
+    const prevStep = currentStep - 1;
+    if (prevStep >= 1) {
+        window.location.href = `/scenarios/${scenarioId}/wizard/step/${prevStep}`;
+    }
+}
+
+// Handle option card clicks for radio button selection
+document.querySelectorAll('.option-card').forEach(card => {
+    card.addEventListener('click', function(e) {
+        // Don't trigger if clicking on radio button directly
+        if (e.target.type !== 'radio') {
+            const optionId = this.getAttribute('data-option');
+            selectOption(optionId);
+        }
+    });
+});
+</script>
+{% endblock %}

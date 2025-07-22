@@ -1,0 +1,615 @@
+{% extends "base.html" %}
+
+{% block title %}Step {{ step.step_number }} - Ethical Decision Wizard{% endblock %}
+
+{% block styles %}
+<style>
+    .wizard-progress {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .progress-step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin: 0 5px;
+        position: relative;
+    }
+    
+    .progress-step.completed {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .progress-step.current {
+        background-color: #007bff;
+        color: white;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+    
+    .progress-step.pending {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .progress-connector {
+        flex: 1;
+        height: 2px;
+        background-color: #dee2e6;
+        margin: 0 10px;
+    }
+    
+    .progress-connector.completed {
+        background-color: #28a745;
+    }
+    
+    .step-card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+    
+    .option-card {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .option-card:hover {
+        border-color: #007bff;
+        background-color: #f8f9ff;
+    }
+    
+    .option-card.selected {
+        border-color: #007bff;
+        background-color: #e3f2fd;
+    }
+    
+    .supporting-arguments {
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-top: 15px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .argument-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .argument-item:last-child {
+        border-bottom: none;
+    }
+    
+    .navigation-buttons {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 30px;
+    }
+    
+    .session-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Session Info Header -->
+    <div class="session-info">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-1">{{ session.title or 'Ethical Decision Session' }}</h2>
+                <p class="mb-0 opacity-75">
+                    <i class="bi bi-globe me-2"></i>{{ session.world.name if session.world else 'Unknown World' }}
+                    <span class="mx-3">|</span>
+                    <i class="bi bi-calendar me-2"></i>{{ session.created_at.strftime('%B %d, %Y') if session.created_at else 'Unknown Date' }}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="/wizard" class="btn btn-light btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Wizard
+                </a>
+                <button class="btn btn-outline-light btn-sm ms-2" onclick="saveSession()">
+                    <i class="bi bi-save me-1"></i>Save Progress
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="wizard-progress">
+        <div class="d-flex align-items-center justify-content-center">
+            {% for i in range(1, session.total_steps + 1) %}
+                <div class="progress-step 
+                    {% if i < step.step_number %}completed
+                    {% elif i == step.step_number %}current
+                    {% else %}pending{% endif %}">
+                    {% if i < step.step_number %}
+                        <i class="bi bi-check"></i>
+                    {% else %}
+                        {{ i }}
+                    {% endif %}
+                </div>
+                {% if i < session.total_steps %}
+                    <div class="progress-connector {% if i < step.step_number %}completed{% endif %}"></div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="text-center mt-3">
+            <small class="text-muted">
+                Step {{ step.step_number }} of {{ session.total_steps }}: {{ step.step_type.title() }}
+            </small>
+        </div>
+    </div>
+
+    <!-- Step Content -->
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card step-card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-{{ 'question-circle' if step.step_type == 'event' else 'lightbulb' }} me-2"></i>
+                        {{ step.title }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Step Description -->
+                    <div class="mb-4">
+                        <p class="lead">{{ step.description }}</p>
+                    </div>
+
+                    <!-- Event Step Content -->
+                    {% if step.step_type == 'event' %}
+                        <!-- Text Input for Event Steps -->
+                        <div class="mb-4">
+                            <label for="userResponse" class="form-label fw-bold">Your Response:</label>
+                            <textarea 
+                                class="form-control" 
+                                id="userResponse" 
+                                rows="5" 
+                                placeholder="Describe the situation, provide details, or explain your perspective..."
+                                onchange="saveResponse()">{{ step.user_response or '' }}</textarea>
+                            <div class="form-text">
+                                Take your time to provide a thorough response. This information will be used 
+                                to generate personalized recommendations.
+                            </div>
+                        </div>
+
+                        <!-- AI Analysis (if available) -->
+                        {% if step.ai_analysis %}
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-robot me-2"></i>AI Analysis</h6>
+                            <p class="mb-0">{{ step.ai_analysis }}</p>
+                        </div>
+                        {% endif %}
+
+                    <!-- Decision Step Content -->
+                    {% elif step.step_type == 'decision' %}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Select your preferred course of action:</label>
+                            
+                            {% for option in step.options %}
+                            <div class="option-card" data-option-id="{{ option.id }}" onclick="selectOption('{{ option.id }}')">
+                                <div class="d-flex align-items-start">
+                                    <input 
+                                        type="radio" 
+                                        name="selectedOption" 
+                                        value="{{ option.id }}" 
+                                        class="form-check-input mt-1 me-3"
+                                        {% if step.selected_option == option.id %}checked{% endif %}>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-2">{{ option.title }}</h6>
+                                        <p class="text-muted mb-0">{{ option.description }}</p>
+                                        
+                                        <!-- Supporting Arguments -->
+                                        {% if option.supporting_arguments %}
+                                        <div class="supporting-arguments">
+                                            <h6 class="mb-2">
+                                                <i class="bi bi-arrow-right-circle me-1"></i>
+                                                Supporting Factors:
+                                            </h6>
+                                            {% for argument in option.supporting_arguments %}
+                                            <div class="argument-item">
+                                                <small>
+                                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                                    {{ argument }}
+                                                </small>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Custom Response Option -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="selectedOption" value="custom" id="customOption">
+                                <label class="form-check-label fw-bold" for="customOption">
+                                    Other / Custom Response
+                                </label>
+                            </div>
+                            <textarea 
+                                class="form-control mt-2" 
+                                id="customResponse" 
+                                rows="3" 
+                                placeholder="Describe your alternative approach..."
+                                style="display: none;"
+                                onchange="saveResponse()">{{ step.custom_response or '' }}</textarea>
+                        </div>
+                    {% endif %}
+
+                    <!-- Related Cases (if available) -->
+                    {% if step.related_cases %}
+                    <div class="mt-4">
+                        <h6><i class="bi bi-files me-2"></i>Related Cases</h6>
+                        <div class="row">
+                            {% for case in step.related_cases %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-left-primary">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title mb-1">{{ case.title }}</h6>
+                                        <p class="card-text small text-muted">{{ case.summary }}</p>
+                                        <small class="text-primary">
+                                            Similarity: {{ (case.similarity_score * 100) | round(1) }}%
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Guidelines (if available) -->
+                    {% if step.relevant_guidelines %}
+                    <div class="mt-4">
+                        <h6><i class="bi bi-book me-2"></i>Relevant Guidelines</h6>
+                        <div class="list-group list-group-flush">
+                            {% for guideline in step.relevant_guidelines %}
+                            <div class="list-group-item px-0">
+                                <strong>{{ guideline.title }}</strong>
+                                <p class="mb-0 text-muted small">{{ guideline.excerpt }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="navigation-buttons">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        {% if step.step_number > 1 %}
+                        <button class="btn btn-outline-secondary" onclick="previousStep()">
+                            <i class="bi bi-arrow-left me-2"></i>Previous Step
+                        </button>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <span class="text-muted me-3">Step {{ step.step_number }} of {{ session.total_steps }}</span>
+                        
+                        {% if step.step_number < session.total_steps %}
+                        <button class="btn btn-primary" onclick="nextStep()" id="nextBtn">
+                            Next Step<i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                        {% else %}
+                        <button class="btn btn-success" onclick="completeSession()" id="completeBtn">
+                            Complete Session<i class="bi bi-check-circle ms-2"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Processing Modal -->
+<div class="modal fade" id="processingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Processing...</span>
+                </div>
+                <h5 id="processingTitle">Processing Your Response...</h5>
+                <p class="text-muted" id="processingMessage">Please wait while we analyze your input and prepare the next step.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let sessionId = '{{ session.session_id }}';
+let currentStepNumber = {{ step.step_number }};
+
+function selectOption(optionId) {
+    // Update visual selection
+    document.querySelectorAll('.option-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    const selectedCard = document.querySelector(`[data-option-id="${optionId}"]`);
+    if (selectedCard) {
+        selectedCard.classList.add('selected');
+    }
+    
+    // Update radio button
+    const radio = document.querySelector(`input[value="${optionId}"]`);
+    if (radio) {
+        radio.checked = true;
+    }
+    
+    // Hide custom response if not needed
+    const customResponse = document.getElementById('customResponse');
+    if (optionId !== 'custom') {
+        customResponse.style.display = 'none';
+    }
+    
+    saveResponse();
+}
+
+function saveResponse() {
+    const stepType = '{{ step.step_type }}';
+    let responseData = {
+        session_id: sessionId,
+        step_number: currentStepNumber
+    };
+    
+    if (stepType === 'event') {
+        responseData.response = document.getElementById('userResponse').value;
+    } else if (stepType === 'decision') {
+        const selectedOption = document.querySelector('input[name="selectedOption"]:checked');
+        if (selectedOption) {
+            responseData.selected_option = selectedOption.value;
+            if (selectedOption.value === 'custom') {
+                responseData.custom_response = document.getElementById('customResponse').value;
+            }
+        }
+    }
+    
+    // Auto-save (debounced)
+    clearTimeout(window.saveTimeout);
+    window.saveTimeout = setTimeout(() => {
+        fetch('/wizard/save_response', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(responseData)
+        });
+    }, 1000);
+}
+
+function nextStep() {
+    // Validate current step
+    if (!validateCurrentStep()) {
+        return;
+    }
+    
+    showProcessingModal('Moving to Next Step...', 'Preparing the next part of your analysis...');
+    
+    // Save current step and move to next
+    const stepType = '{{ step.step_type }}';
+    let responseData = {
+        session_id: sessionId,
+        step_number: currentStepNumber,
+        action: 'next'
+    };
+    
+    if (stepType === 'event') {
+        responseData.response = document.getElementById('userResponse').value;
+    } else if (stepType === 'decision') {
+        const selectedOption = document.querySelector('input[name="selectedOption"]:checked');
+        if (selectedOption) {
+            responseData.selected_option = selectedOption.value;
+            if (selectedOption.value === 'custom') {
+                responseData.custom_response = document.getElementById('customResponse').value;
+            }
+        }
+    }
+    
+    fetch('/wizard/process_step', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(responseData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = `/wizard/session/${sessionId}/${data.next_step}`;
+        } else {
+            hideProcessingModal();
+            alert('Error: ' + (data.error || 'Unknown error occurred'));
+        }
+    })
+    .catch(error => {
+        hideProcessingModal();
+        console.error('Error:', error);
+        alert('Error processing step. Please try again.');
+    });
+}
+
+function previousStep() {
+    if (currentStepNumber > 1) {
+        window.location.href = `/wizard/session/${sessionId}/${currentStepNumber - 1}`;
+    }
+}
+
+function completeSession() {
+    if (!validateCurrentStep()) {
+        return;
+    }
+    
+    showProcessingModal('Completing Session...', 'Generating your final analysis and recommendations...');
+    
+    // Save current step and complete session
+    const stepType = '{{ step.step_type }}';
+    let responseData = {
+        session_id: sessionId,
+        step_number: currentStepNumber,
+        action: 'complete'
+    };
+    
+    if (stepType === 'event') {
+        responseData.response = document.getElementById('userResponse').value;
+    } else if (stepType === 'decision') {
+        const selectedOption = document.querySelector('input[name="selectedOption"]:checked');
+        if (selectedOption) {
+            responseData.selected_option = selectedOption.value;
+            if (selectedOption.value === 'custom') {
+                responseData.custom_response = document.getElementById('customResponse').value;
+            }
+        }
+    }
+    
+    fetch('/wizard/complete_session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(responseData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = `/wizard/session/${sessionId}/summary`;
+        } else {
+            hideProcessingModal();
+            alert('Error: ' + (data.error || 'Unknown error occurred'));
+        }
+    })
+    .catch(error => {
+        hideProcessingModal();
+        console.error('Error:', error);
+        alert('Error completing session. Please try again.');
+    });
+}
+
+function validateCurrentStep() {
+    const stepType = '{{ step.step_type }}';
+    
+    if (stepType === 'event') {
+        const response = document.getElementById('userResponse').value.trim();
+        if (!response) {
+            alert('Please provide a response before continuing.');
+            return false;
+        }
+    } else if (stepType === 'decision') {
+        const selectedOption = document.querySelector('input[name="selectedOption"]:checked');
+        if (!selectedOption) {
+            alert('Please select an option before continuing.');
+            return false;
+        }
+        if (selectedOption.value === 'custom') {
+            const customResponse = document.getElementById('customResponse').value.trim();
+            if (!customResponse) {
+                alert('Please describe your custom response.');
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+function saveSession() {
+    fetch('/wizard/save_session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            session_id: sessionId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show temporary success message
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check me-1"></i>Saved';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-outline-light');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-light');
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving session:', error);
+    });
+}
+
+function showProcessingModal(title, message) {
+    document.getElementById('processingTitle').textContent = title;
+    document.getElementById('processingMessage').textContent = message;
+    
+    const modal = new bootstrap.Modal(document.getElementById('processingModal'));
+    modal.show();
+}
+
+function hideProcessingModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('processingModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+// Show custom response textarea when custom option is selected
+document.addEventListener('DOMContentLoaded', function() {
+    const customOption = document.getElementById('customOption');
+    const customResponse = document.getElementById('customResponse');
+    
+    if (customOption && customResponse) {
+        customOption.addEventListener('change', function() {
+            if (this.checked) {
+                customResponse.style.display = 'block';
+                customResponse.focus();
+            }
+        });
+        
+        // Show custom response if it was previously selected
+        if (customOption.checked) {
+            customResponse.style.display = 'block';
+        }
+    }
+});
+</script>
+{% endblock %}
