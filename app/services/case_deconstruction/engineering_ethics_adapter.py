@@ -505,8 +505,12 @@ class EngineeringEthicsAdapter(BaseCaseDeconstructionAdapter):
         # Extract key situation from question
         situation_context = self._extract_situation_from_question(question, case_facts)
         
-        # Generate contextual options based on question and case
-        options = self._generate_contextual_options(question, decision_type, case_facts)
+        # Extract NSPE conclusion for this question
+        conclusion_text = self._get_section_text(case_content, 'conclusion')
+        nspe_conclusion = self._extract_question_conclusion(question, conclusion_text, sequence)
+        
+        # Generate contextual options based on question and case (now including NSPE conclusion)
+        options = self._generate_question_based_options(question, decision_type, case_facts, nspe_conclusion)
         
         # Get relevant NSPE principles
         relevant_principles = self._get_relevant_principles(decision_type)
@@ -613,3 +617,230 @@ class EngineeringEthicsAdapter(BaseCaseDeconstructionAdapter):
             return f"As {protagonist}, you've presented your professional analysis to the client, but they've made it clear they're unwilling to fund the protective measures you've identified as necessary."
         else:
             return f"Continuing as {protagonist}, you must navigate the complex balance between professional obligations, client relationships, and public welfare."
+    
+    def _extract_question_conclusion(self, question: str, conclusion_text: str, sequence: int) -> Dict[str, str]:
+        """Extract NSPE's conclusion for a specific question."""
+        if not conclusion_text:
+            return {"decision": "No conclusion available", "rationale": ""}
+        
+        # Try to find conclusion by sequence (look for numbered patterns)
+        conclusion_patterns = [
+            rf"(?:Question|Q\.?)\s*{sequence}[:\s]+(.*?)(?=(?:Question|Q\.?)\s*{sequence + 1}|$)",
+            rf"{sequence}\.\s*(.*?)(?=\d+\.|$)",
+            rf"(?:First|Second|Third|1st|2nd|3rd)[:\s]+(.*?)(?=(?:First|Second|Third|1st|2nd|3rd)|$)"
+        ]
+        
+        for pattern in conclusion_patterns:
+            match = re.search(pattern, conclusion_text, re.IGNORECASE | re.DOTALL)
+            if match:
+                conclusion_text_part = match.group(1).strip()
+                return self._parse_conclusion_text(conclusion_text_part)
+        
+        # Fallback: use entire conclusion if no specific match
+        if sequence == 1:
+            # Take first portion of conclusion
+            conclusion_parts = re.split(r'(?:Question|Q\.?)\s*[2-9]|(?:Second|Third)', conclusion_text, 1)
+            conclusion_part = conclusion_parts[0].strip()
+            return self._parse_conclusion_text(conclusion_part)
+        
+        return {"decision": "Conclusion requires interpretation", "rationale": conclusion_text[:200] + "..."}
+    
+    def _parse_conclusion_text(self, text: str) -> Dict[str, str]:
+        """Parse conclusion text to extract decision and rationale."""
+        if not text:
+            return {"decision": "No decision found", "rationale": ""}
+        
+        # Look for clear decision indicators
+        decision_indicators = {
+            "ethical": "Ethical",
+            "not ethical": "Not Ethical", 
+            "unethical": "Not Ethical",
+            "partly ethical": "Partly Ethical",
+            "acceptable": "Acceptable",
+            "not acceptable": "Not Acceptable",
+            "required": "Required",
+            "not required": "Not Required",
+            "obligation": "Has Obligation",
+            "no obligation": "No Obligation"
+        }
+        
+        text_lower = text.lower()
+        decision = "Requires Interpretation"
+        
+        for indicator, decision_value in decision_indicators.items():
+            if indicator in text_lower:
+                decision = decision_value
+                break
+        
+        # Extract rationale (first sentence or two)
+        sentences = re.split(r'[.!?]+', text)
+        rationale = '. '.join(sentences[:2]).strip()
+        if not rationale.endswith('.'):
+            rationale += '.'
+        
+        return {"decision": decision, "rationale": rationale}
+    
+    def _generate_question_based_options(self, question: str, decision_type: DecisionType, 
+                                       case_facts: str, nspe_conclusion: Dict[str, str]) -> List[DecisionOption]:
+        """Generate decision options based on the question, including NSPE's conclusion as one option."""
+        question_lower = question.lower()
+        
+        # Determine question type and generate appropriate options
+        if 'ai' in question_lower and 'ethical' in question_lower:
+            return self._generate_ai_ethics_options(question, nspe_conclusion)
+        elif 'disclose' in question_lower or 'disclosure' in question_lower:
+            return self._generate_disclosure_options(question, nspe_conclusion)
+        elif 'cease work' in question_lower:
+            return self._generate_work_cessation_options(question, nspe_conclusion)
+        elif 'continue working' in question_lower:
+            return self._generate_work_continuation_options(question, nspe_conclusion)
+        else:
+            return self._generate_generic_ethical_options(question, nspe_conclusion)
+    
+    def _generate_ai_ethics_options(self, question: str, nspe_conclusion: Dict[str, str]) -> List[DecisionOption]:
+        """Generate options for AI ethics questions."""
+        options = []
+        
+        if 'report text' in question.lower():
+            options = [
+                DecisionOption(
+                    option_id="completely_ethical",
+                    title="Completely Ethical",
+                    ethical_justification="Engineer thoroughly reviewed content, ensuring accuracy and technical competence"
+                ),
+                DecisionOption(
+                    option_id="partly_ethical_nspe",
+                    title="Partly Ethical, Partly Unethical",
+                    ethical_justification="Review was good but failed on privacy disclosures and citation requirements",
+                    alignment_with_principles={"nspe_conclusion": 1.0}  # Mark as NSPE conclusion
+                ),
+                DecisionOption(
+                    option_id="completely_unethical",
+                    title="Completely Unethical", 
+                    ethical_justification="AI should not be used for technical reports regardless of review"
+                )
+            ]
+        elif 'design documents' in question.lower():
+            options = [
+                DecisionOption(
+                    option_id="ethical_with_oversight",
+                    title="Ethical with Proper Oversight",
+                    ethical_justification="Acceptable when engineer maintains responsible charge and full review",
+                    alignment_with_principles={"nspe_conclusion": 1.0}  # Mark as NSPE conclusion
+                ),
+                DecisionOption(
+                    option_id="always_ethical",
+                    title="Always Ethical",
+                    ethical_justification="AI tools are just like any other software design tool"
+                ),
+                DecisionOption(
+                    option_id="never_ethical", 
+                    title="Never Ethical",
+                    ethical_justification="Engineering designs must be entirely human-created for professional responsibility"
+                )
+            ]
+        elif 'obligation' in question.lower() and 'disclose' in question.lower():
+            options = [
+                DecisionOption(
+                    option_id="disclose_when_substantial",
+                    title="Disclose When AI Role is Substantial",
+                    ethical_justification="Transparency favored when AI plays significant role in work product",
+                    alignment_with_principles={"nspe_conclusion": 1.0}  # Mark as NSPE conclusion
+                ),
+                DecisionOption(
+                    option_id="always_disclose",
+                    title="Must Always Disclose",
+                    ethical_justification="Full transparency required for any AI assistance"
+                ),
+                DecisionOption(
+                    option_id="never_disclose",
+                    title="No Need to Disclose",
+                    ethical_justification="AI is just a tool like CAD software, no disclosure needed"
+                )
+            ]
+        
+        return options
+    
+    def _generate_disclosure_options(self, question: str, nspe_conclusion: Dict[str, str]) -> List[DecisionOption]:
+        """Generate options for disclosure-related questions."""
+        return [
+            DecisionOption(
+                option_id="full_disclosure",
+                title="Full Disclosure Required",
+                ethical_justification="Complete transparency ensures public trust and safety"
+            ),
+            DecisionOption(
+                option_id="conditional_disclosure",
+                title="Conditional Disclosure",
+                ethical_justification="Disclosure depends on contractual obligations and significance of AI use",
+                alignment_with_principles={"nspe_conclusion": 1.0}  # Likely NSPE position
+            ),
+            DecisionOption(
+                option_id="no_disclosure",
+                title="No Disclosure Needed",
+                ethical_justification="Professional tools don't require disclosure to clients"
+            )
+        ]
+    
+    def _generate_work_cessation_options(self, question: str, nspe_conclusion: Dict[str, str]) -> List[DecisionOption]:
+        """Generate options for work cessation questions."""
+        return [
+            DecisionOption(
+                option_id="cease_without_concern",
+                title="Cease Work Without Voicing Concern", 
+                ethical_justification="Comply with client request while avoiding confrontation"
+            ),
+            DecisionOption(
+                option_id="cease_with_concern",
+                title="Cease Work But Voice Safety Concerns",
+                ethical_justification="Honor client request while fulfilling duty to communicate risks",
+                alignment_with_principles={"nspe_conclusion": 1.0}  # Likely NSPE position
+            ),
+            DecisionOption(
+                option_id="refuse_to_cease",
+                title="Refuse to Cease Work",
+                ethical_justification="Prioritize public safety over client relationship"
+            )
+        ]
+    
+    def _generate_work_continuation_options(self, question: str, nspe_conclusion: Dict[str, str]) -> List[DecisionOption]:
+        """Generate options for work continuation questions."""
+        return [
+            DecisionOption(
+                option_id="continue_despite_concerns",
+                title="Continue Working Despite Concerns",
+                ethical_justification="Maintain client relationship and complete contracted work"
+            ),
+            DecisionOption(
+                option_id="refuse_to_continue",
+                title="Refuse to Continue Without Safety Measures",
+                ethical_justification="Uphold professional responsibility for public safety",
+                alignment_with_principles={"nspe_conclusion": 1.0}  # Likely NSPE position  
+            ),
+            DecisionOption(
+                option_id="seek_alternatives",
+                title="Seek Alternative Solutions",
+                ethical_justification="Find creative solutions balancing constraints with safety"
+            )
+        ]
+    
+    def _generate_generic_ethical_options(self, question: str, nspe_conclusion: Dict[str, str]) -> List[DecisionOption]:
+        """Generate generic ethical options for unclear question types."""
+        return [
+            DecisionOption(
+                option_id="follow_nspe_code",
+                title="Follow NSPE Code Strictly",
+                ethical_justification="Adhere to established professional ethical standards",
+                alignment_with_principles={"nspe_conclusion": 1.0}  # Default to NSPE alignment
+            ),
+            DecisionOption(
+                option_id="balance_considerations",
+                title="Balance Multiple Considerations", 
+                ethical_justification="Weigh competing interests and find balanced solution"
+            ),
+            DecisionOption(
+                option_id="prioritize_client",
+                title="Prioritize Client Relationship",
+                ethical_justification="Maintain professional relationship while meeting obligations"
+            )
+        ]
