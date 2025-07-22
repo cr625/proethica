@@ -16,6 +16,7 @@ from app.services.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
 from app.services.case_to_scenario_service import CaseToScenarioService
 from app.services.scenario_generation_service import ScenarioGenerationService
+from app.services.agents.case_creation_agent import CaseCreationAgent
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -1841,6 +1842,145 @@ def create_scenario_from_template(template_id):
         
     except Exception as e:
         logger.error(f"Error creating scenario from template {template_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/new/agent', methods=['GET'])
+@login_required
+def agent_assisted_creation():
+    """Display agent-assisted case creation interface with ontology integration."""
+    try:
+        # Get current user and available worlds
+        from app.models.world import World
+        worlds = World.query.all()
+        current_user = get_current_user()
+        
+        # Get default world (first available world)
+        default_world = worlds[0] if worlds else None
+        
+        # Initialize case creation agent
+        case_agent = CaseCreationAgent(world_id=default_world.id if default_world else None)
+        
+        # Get ontology categories from the service
+        ontology_categories = []
+        if default_world:
+            entities = case_agent.ontology_service.get_entities_for_world(default_world)
+            for category_name, concepts in entities.get("entities", {}).items():
+                ontology_categories.append({
+                    "name": category_name,
+                    "count": len(concepts),
+                    "concepts": concepts[:5]  # Show first 5 as preview
+                })
+        
+        # Fallback categories if no world available
+        if not ontology_categories:
+            fallback_categories = ["Role", "Principle", "Obligation", "State", "Resource", "Action", "Event", "Capability"]
+            ontology_categories = [{"name": cat, "count": 0, "concepts": []} for cat in fallback_categories]
+        
+        return render_template('agent_case_creation.html', 
+                             worlds=worlds,
+                             ontology_categories=ontology_categories,
+                             default_world=default_world,
+                             current_user=current_user)
+                             
+    except Exception as e:
+        logger.error(f"Error loading agent case creation interface: {e}")
+        flash(f"Error loading AI assistant: {str(e)}", 'error')
+        return redirect(url_for('cases.case_options'))
+
+
+@cases_bp.route('/new/agent/api', methods=['POST'])
+@login_required
+def agent_creation_api():
+    """API endpoint for agent interactions with ontology integration."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Get parameters
+        prompt = data.get('prompt', '')
+        world_id = data.get('world_id')
+        selected_categories = data.get('selected_categories', [])
+        selected_concepts = data.get('selected_concepts', {})
+        conversation_history = data.get('conversation_history', [])
+        
+        if not prompt:
+            return jsonify({
+                'success': False,
+                'error': 'No prompt provided'
+            }), 400
+        
+        # Initialize case creation agent
+        case_agent = CaseCreationAgent(world_id=world_id)
+        case_agent.set_selected_categories(selected_categories)
+        case_agent.set_selected_concepts(selected_concepts)
+        
+        # Prepare scenario data
+        scenario_data = {
+            'world_id': world_id,
+            'conversation_history': conversation_history,
+            'request_type': 'case_creation'
+        }
+        
+        # Get analysis from agent
+        analysis = case_agent.analyze(
+            scenario_data=scenario_data,
+            decision_text=prompt,
+            options=[],  # No predefined options for case creation
+            previous_results=None
+        )
+        
+        # Format response for UI
+        formatted_response = case_agent.format_response_for_ui(analysis)
+        
+        return jsonify({
+            'success': True,
+            'response': formatted_response
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in agent creation API: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/new/agent/concepts/<category>', methods=['GET'])
+@login_required 
+def get_category_concepts(category):
+    """Get concepts for a specific ontological category."""
+    try:
+        world_id = request.args.get('world_id', type=int)
+        
+        if not world_id:
+            return jsonify({
+                'success': False,
+                'error': 'World ID required'
+            }), 400
+        
+        # Initialize case creation agent
+        case_agent = CaseCreationAgent(world_id=world_id)
+        
+        # Get concepts for the category
+        concepts = case_agent.get_category_concepts(category, world_id)
+        
+        return jsonify({
+            'success': True,
+            'category': category,
+            'concepts': concepts
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting concepts for category {category}: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
