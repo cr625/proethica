@@ -36,12 +36,13 @@ class CaseCreationAgent(BaseAgent):
     def set_selected_categories(self, categories: List[str]):
         """
         Set the ontological categories selected by the user.
+        This is now derived from selected concepts.
         
         Args:
             categories: List of category names (e.g., ['Principle', 'Obligation'])
         """
         self.selected_categories = categories
-        logger.info(f"Case Creation Agent: Selected categories {categories}")
+        logger.info(f"Case Creation Agent: Categories with selected concepts: {categories}")
         
     def set_selected_concepts(self, concepts: Dict[str, List[str]]):
         """
@@ -132,34 +133,55 @@ The user wants to create an engineering ethics case with the following request:
 
 USER REQUEST: {user_prompt}
 
-ONTOLOGICAL CONTEXT:
-The user has selected these ontological categories for the case: {', '.join(self.selected_categories)}
+ONTOLOGICAL FRAMEWORK:
+The user has selected these ontological categories: {', '.join(self.selected_categories) if self.selected_categories else 'None selected'}
 """
         
         # Add specific concepts if selected
         if self.selected_concepts:
-            base_prompt += "\nSPECIFIC CONCEPTS SELECTED:\n"
+            base_prompt += "\n🎯 SELECTED SPECIFIC CONCEPTS:\n"
+            total_concepts = 0
             for category, concepts in self.selected_concepts.items():
-                base_prompt += f"- {category}: {', '.join(concepts)}\n"
+                if concepts:  # Only show categories with selected concepts
+                    base_prompt += f"• {category}: {', '.join(concepts)}\n"
+                    total_concepts += len(concepts)
+            
+            if total_concepts > 0:
+                base_prompt += f"\nYou should focus particularly on incorporating these {total_concepts} selected concepts into the case development.\n"
         
-        # Add available entities context
-        if ontology_context.get("available_entities"):
-            base_prompt += "\nAVAILABLE ONTOLOGICAL CONCEPTS:\n"
-            for category, entities in ontology_context["available_entities"].items():
-                entity_names = [entity.get("label", entity.get("name", "Unknown")) for entity in entities[:5]]
-                base_prompt += f"- {category}: {', '.join(entity_names)}\n"
+        # Add context about how to use the concepts
+        if self.selected_concepts:
+            base_prompt += "\nINTEGRATION GUIDANCE:\n"
+            for category, concepts in self.selected_concepts.items():
+                if concepts:
+                    if category == "Principle":
+                        base_prompt += f"- Principles ({', '.join(concepts)}): Create ethical tensions or conflicts where these principles must be balanced\n"
+                    elif category == "Obligation":
+                        base_prompt += f"- Obligations ({', '.join(concepts)}): Design scenarios where these professional duties conflict or are challenged\n"
+                    elif category == "Role":
+                        base_prompt += f"- Roles ({', '.join(concepts)}): Include characters or stakeholders representing these professional positions\n"
+                    elif category == "Action":
+                        base_prompt += f"- Actions ({', '.join(concepts)}): Structure the case around decisions involving these specific actions\n"
+                    elif category == "Event":
+                        base_prompt += f"- Events ({', '.join(concepts)}): Include these types of incidents or occurrences in the timeline\n"
+                    elif category == "State":
+                        base_prompt += f"- States ({', '.join(concepts)}): Create situations that exemplify these conditions or circumstances\n"
+                    elif category == "Resource":
+                        base_prompt += f"- Resources ({', '.join(concepts)}): Reference these documents, tools, or materials in the case\n"
+                    elif category == "Capability":
+                        base_prompt += f"- Capabilities ({', '.join(concepts)}): Address questions of competence and expertise in these areas\n"
         
         base_prompt += """
-TASK: Help develop a comprehensive engineering ethics case that effectively incorporates 
-the selected ontological categories. Provide specific guidance on:
 
-1. Case structure and narrative development
-2. How to integrate the selected ontological concepts
-3. Specific suggestions for ethical dilemmas or decisions
-4. Professional context and stakeholder considerations
-5. Realistic engineering scenarios that involve these concepts
+TASK: Develop a comprehensive engineering ethics case that meaningfully incorporates the selected concepts. Focus on:
 
-Please provide practical, actionable guidance for case development."""
+1. **Case Structure**: Create a realistic engineering scenario with clear timeline and stakeholders
+2. **Concept Integration**: Weave the selected ontological concepts naturally into the narrative  
+3. **Ethical Complexity**: Design genuine dilemmas where the selected concepts create tension
+4. **Professional Context**: Ensure realistic engineering practices and industry standards
+5. **Decision Points**: Create meaningful choices that require ethical reasoning
+
+Provide specific, actionable guidance for developing this case. Be concrete about how to incorporate the selected concepts."""
         
         return base_prompt
     

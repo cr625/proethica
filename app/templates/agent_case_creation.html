@@ -68,7 +68,10 @@
 
 /* Category Selection Styling */
 .category-section {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
 }
 
 .category-header {
@@ -87,13 +90,33 @@
     background-color: #dee2e6;
 }
 
+.category-header.expanded {
+    background-color: #007bff;
+    color: white;
+}
+
+.category-expand-icon {
+    transition: transform 0.2s;
+}
+
+.category-header.expanded .category-expand-icon {
+    transform: rotate(90deg);
+}
+
 .category-content {
     padding: 10px 15px;
-    border-bottom: 1px solid #f0f0f0;
+    background-color: #f8f9fa;
+    display: none;
+}
+
+.category-content.expanded {
+    display: block;
 }
 
 .category-checkbox {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
 }
 
 .category-checkbox input[type="checkbox"] {
@@ -104,6 +127,46 @@
     margin-bottom: 0;
     font-weight: 500;
     cursor: pointer;
+    flex: 1;
+}
+
+.concept-list {
+    margin-top: 10px;
+    padding-left: 20px;
+    max-height: 200px;
+    overflow-y: auto;
+    border-left: 2px solid #007bff;
+}
+
+.concept-item {
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    padding: 3px 5px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.concept-item:hover {
+    background-color: #e3f2fd;
+}
+
+.concept-item input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.concept-item label {
+    margin-bottom: 0;
+    font-size: 0.9em;
+    cursor: pointer;
+    flex: 1;
+}
+
+.concept-description {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-left: 20px;
+    font-style: italic;
 }
 
 .concept-count {
@@ -113,6 +176,27 @@
     border-radius: 10px;
     font-size: 0.8em;
     margin-left: 5px;
+}
+
+.concept-count.has-selections {
+    background-color: #007bff;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { background-color: #007bff; }
+    50% { background-color: #0056b3; }
+    100% { background-color: #007bff; }
+}
+
+.category-header.has-selected-concepts {
+    background-color: #e3f2fd;
+    border-left: 4px solid #007bff;
+}
+
+.category-header.has-selected-concepts.expanded {
+    background-color: #007bff;
+    color: white;
 }
 
 .concept-preview {
@@ -322,7 +406,7 @@
 {% block content %}
 <div class="container-fluid" style="max-width: none; padding-left: 15px; padding-right: 15px;">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-robot"></i> Language Model-Assisted Case Creation</h1>
+        <h1>Language Model-Assisted Case Creation</h1>
         <div class="d-flex gap-2">
             <a href="{{ url_for('cases.case_options') }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Options
@@ -351,45 +435,44 @@
                     
                     {% for category in ontology_categories %}
                     <div class="category-section">
-                        <div class="category-checkbox">
-                            <input type="checkbox" 
-                                   id="category_{{ category.name }}" 
-                                   value="{{ category.name }}"
-                                   class="category-select">
-                            <label for="category_{{ category.name }}">
-                                {{ category.name }}
+                        <div class="category-header" data-category="{{ category.name }}" onclick="toggleCategoryExpansion('{{ category.name }}')">
+                            <div class="d-flex align-items-center">
+                                <strong>{{ category.name }}</strong>
                                 <span class="concept-count">{{ category.count }}</span>
-                            </label>
-                            {% if category.concepts %}
-                            <div class="concept-preview">
-                                <small>
-                                    {% for concept in category.concepts[:3] %}
-                                        {% if concept is mapping %}
-                                            {{ concept.get('label', concept.get('name', 'Unknown')) }}
-                                        {% else %}
-                                            {{ concept }}
-                                        {% endif %}
-                                        {% if not loop.last %}, {% endif %}
-                                    {% endfor %}
-                                    {% if category.concepts|length > 3 %}...{% endif %}
-                                </small>
                             </div>
-                            {% endif %}
+                            <i class="bi bi-chevron-right category-expand-icon"></i>
+                        </div>
+                        <div class="category-content" id="category_content_{{ category.name }}">
+                            <div class="concept-list" id="concepts_{{ category.name }}">
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <small class="d-block mt-2 text-muted">Loading {{ category.name|lower }} concepts...</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
                     
                     <div class="mt-3">
                         <button class="btn btn-sm btn-outline-primary w-100" id="selectAllCategories">
-                            <i class="bi bi-check-all"></i> Select All
+                            <i class="bi bi-check-all"></i> Select All Concepts
                         </button>
                         <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="clearCategories">
-                            <i class="bi bi-x-circle"></i> Clear All
+                            <i class="bi bi-x-circle"></i> Clear All Selections
                         </button>
                     </div>
                     
                     <div class="selected-summary mt-3 p-2 bg-light rounded" id="selectedSummary" style="display: none;">
-                        <small><strong>Selected:</strong> <span id="selectedCount">0</span> categories</small>
+                        <small>
+                            <strong>Selected:</strong> 
+                            <span id="selectedCount">0</span> categories, 
+                            <span id="selectedConceptCount">0</span> concepts
+                        </small>
+                        <div id="selectedDetails" class="mt-2" style="display: none;">
+                            <div id="selectedConceptsList" class="small text-muted"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -470,10 +553,12 @@ const AgentCaseCreation = {
     data() {
         return {
             worldId: document.getElementById('worldId').value,
-            selectedCategories: [],
+            selectedConcepts: {},
             conversationHistory: [],
             isProcessing: false,
-            ontologyCollapsed: false
+            ontologyCollapsed: false,
+            expandedCategories: {},
+            loadedConcepts: {}
         }
     },
     mounted() {
@@ -482,13 +567,7 @@ const AgentCaseCreation = {
     },
     methods: {
         initializeEventListeners() {
-            // Category selection
-            const categorySelects = document.querySelectorAll('.category-select');
-            if (categorySelects) {
-                categorySelects.forEach(checkbox => {
-                    checkbox.addEventListener('change', this.handleCategoryChange);
-                });
-            }
+            // No category checkboxes anymore - concepts are selected individually
             
             // Panel toggle
             const ontologyToggle = document.getElementById('ontologyToggle');
@@ -532,47 +611,214 @@ const AgentCaseCreation = {
             }
         },
         
-        handleCategoryChange(e) {
-            const category = e.target.value;
-            if (e.target.checked) {
-                if (!this.selectedCategories.includes(category)) {
-                    this.selectedCategories.push(category);
-                }
-            } else {
-                this.selectedCategories = this.selectedCategories.filter(cat => cat !== category);
-            }
-            this.updateSelectedSummary();
-        },
         
         updateSelectedSummary() {
             const summary = document.getElementById('selectedSummary');
             const count = document.getElementById('selectedCount');
+            const conceptCount = document.getElementById('selectedConceptCount');
             
-            count.textContent = this.selectedCategories.length;
+            const totalConcepts = Object.values(this.selectedConcepts).reduce((sum, concepts) => sum + concepts.length, 0);
+            const categoriesWithConcepts = Object.keys(this.selectedConcepts).filter(cat => this.selectedConcepts[cat].length > 0).length;
             
-            if (this.selectedCategories.length > 0) {
+            count.textContent = categoriesWithConcepts;
+            conceptCount.textContent = totalConcepts;
+            
+            if (totalConcepts > 0) {
                 summary.style.display = 'block';
+                this.updateSelectedDetails();
             } else {
                 summary.style.display = 'none';
             }
         },
         
+        updateSelectedDetails() {
+            const details = document.getElementById('selectedDetails');
+            const conceptsList = document.getElementById('selectedConceptsList');
+            
+            if (Object.keys(this.selectedConcepts).length > 0) {
+                let html = '';
+                for (const [category, concepts] of Object.entries(this.selectedConcepts)) {
+                    if (concepts.length > 0) {
+                        html += `<strong>${category}:</strong> ${concepts.join(', ')}<br>`;
+                    }
+                }
+                conceptsList.innerHTML = html;
+                details.style.display = 'block';
+            } else {
+                details.style.display = 'none';
+            }
+        },
+        
         selectAllCategories() {
-            document.querySelectorAll('.category-select').forEach(checkbox => {
-                checkbox.checked = true;
-                if (!this.selectedCategories.includes(checkbox.value)) {
-                    this.selectedCategories.push(checkbox.value);
+            // Expand all categories and select all their concepts
+            const categories = document.querySelectorAll('.category-header');
+            categories.forEach(async (header) => {
+                const categoryName = header.dataset.category;
+                // Expand if not already expanded
+                if (!this.expandedCategories[categoryName]) {
+                    await this.toggleCategoryExpansion(categoryName);
+                }
+                // Wait for concepts to load, then select all
+                setTimeout(() => {
+                    const conceptCheckboxes = document.querySelectorAll(`input[data-category="${categoryName}"].concept-select`);
+                    conceptCheckboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                        this.handleConceptChange(categoryName, checkbox.value, true);
+                    });
+                }, 500);
+            });
+        },
+        
+        clearCategories() {
+            // Clear all selected concepts
+            document.querySelectorAll('.concept-select').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            this.selectedConcepts = {};
+            // Remove visual feedback from all category headers
+            document.querySelectorAll('.category-header').forEach(header => {
+                header.classList.remove('has-selected-concepts');
+                const conceptCount = header.querySelector('.concept-count');
+                conceptCount.classList.remove('has-selections');
+                if (conceptCount.dataset.originalCount) {
+                    conceptCount.textContent = conceptCount.dataset.originalCount;
                 }
             });
             this.updateSelectedSummary();
         },
         
-        clearCategories() {
-            document.querySelectorAll('.category-select').forEach(checkbox => {
-                checkbox.checked = false;
+        async toggleCategoryExpansion(categoryName) {
+            const header = document.querySelector(`[data-category="${categoryName}"]`);
+            const content = document.getElementById(`category_content_${categoryName}`);
+            const icon = header.querySelector('.category-expand-icon');
+            
+            if (this.expandedCategories[categoryName]) {
+                // Collapse
+                content.classList.remove('expanded');
+                header.classList.remove('expanded');
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-right');
+                this.expandedCategories[categoryName] = false;
+            } else {
+                // Expand
+                content.classList.add('expanded');
+                header.classList.add('expanded');
+                icon.classList.remove('bi-chevron-right');
+                icon.classList.add('bi-chevron-down');
+                this.expandedCategories[categoryName] = true;
+                
+                // Load concepts if not already loaded
+                if (!this.loadedConcepts[categoryName]) {
+                    await this.loadCategoryConcepts(categoryName);
+                }
+            }
+        },
+        
+        async loadCategoryConcepts(categoryName) {
+            const conceptsContainer = document.getElementById(`concepts_${categoryName}`);
+            
+            try {
+                const response = await fetch(`/cases/new/agent/concepts/${categoryName}?world_id=${this.worldId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.renderConcepts(categoryName, result.concepts);
+                    this.loadedConcepts[categoryName] = true;
+                } else {
+                    conceptsContainer.innerHTML = `
+                        <div class="text-center text-muted">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <small class="d-block">Error loading concepts</small>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading concepts:', error);
+                conceptsContainer.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-wifi-off"></i>
+                        <small class="d-block">Connection error</small>
+                    </div>
+                `;
+            }
+        },
+        
+        renderConcepts(categoryName, concepts) {
+            const conceptsContainer = document.getElementById(`concepts_${categoryName}`);
+            
+            if (!concepts || concepts.length === 0) {
+                conceptsContainer.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-inbox"></i>
+                        <small class="d-block">No concepts available</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            concepts.forEach(concept => {
+                const conceptName = concept.label || concept.name || concept;
+                const conceptDescription = concept.description || '';
+                const conceptId = `concept_${categoryName}_${conceptName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                
+                html += `
+                    <div class="concept-item">
+                        <input type="checkbox" 
+                               id="${conceptId}"
+                               value="${conceptName}"
+                               class="concept-select"
+                               data-category="${categoryName}"
+                               onchange="handleConceptChange('${categoryName}', '${conceptName}', this.checked)">
+                        <label for="${conceptId}">${conceptName}</label>
+                    </div>
+                `;
+                
+                if (conceptDescription) {
+                    html += `<div class="concept-description">${conceptDescription}</div>`;
+                }
             });
-            this.selectedCategories = [];
+            
+            conceptsContainer.innerHTML = html;
+        },
+        
+        handleConceptChange(categoryName, conceptName, isSelected) {
+            if (!this.selectedConcepts[categoryName]) {
+                this.selectedConcepts[categoryName] = [];
+            }
+            
+            if (isSelected) {
+                if (!this.selectedConcepts[categoryName].includes(conceptName)) {
+                    this.selectedConcepts[categoryName].push(conceptName);
+                }
+            } else {
+                this.selectedConcepts[categoryName] = this.selectedConcepts[categoryName].filter(name => name !== conceptName);
+            }
+            
+            // Update visual feedback
+            this.updateCategoryVisualFeedback(categoryName);
             this.updateSelectedSummary();
+        },
+        
+        updateCategoryVisualFeedback(categoryName) {
+            const header = document.querySelector(`[data-category="${categoryName}"]`);
+            const conceptCount = header.querySelector('.concept-count');
+            const hasSelectedConcepts = this.selectedConcepts[categoryName] && this.selectedConcepts[categoryName].length > 0;
+            
+            if (hasSelectedConcepts) {
+                header.classList.add('has-selected-concepts');
+                conceptCount.classList.add('has-selections');
+                conceptCount.textContent = `${conceptCount.dataset.originalCount || conceptCount.textContent} (${this.selectedConcepts[categoryName].length} selected)`;
+            } else {
+                header.classList.remove('has-selected-concepts');
+                conceptCount.classList.remove('has-selections');
+                conceptCount.textContent = conceptCount.dataset.originalCount || conceptCount.textContent.split(' (')[0];
+            }
+            
+            // Store original count if not already stored
+            if (!conceptCount.dataset.originalCount) {
+                conceptCount.dataset.originalCount = conceptCount.textContent.split(' (')[0];
+            }
         },
         
         toggleOntologyPanel() {
@@ -628,8 +874,8 @@ const AgentCaseCreation = {
                     body: JSON.stringify({
                         prompt: message,
                         world_id: this.worldId,
-                        selected_categories: this.selectedCategories,
-                        selected_concepts: {},
+                        selected_categories: Object.keys(this.selectedConcepts).filter(cat => this.selectedConcepts[cat].length > 0),
+                        selected_concepts: this.selectedConcepts,
                         conversation_history: this.conversationHistory
                     })
                 });
@@ -773,11 +1019,49 @@ const AgentCaseCreation = {
     }
 };
 
+// Global functions for onclick handlers  
+function toggleCategoryExpansion(categoryName) {
+    if (window.agentApp && window.agentApp.toggleCategoryExpansion) {
+        window.agentApp.toggleCategoryExpansion(categoryName);
+    } else {
+        console.error('Agent app not initialized or method not found');
+    }
+}
+
+function handleConceptChange(categoryName, conceptName, isSelected) {
+    if (window.agentApp && window.agentApp.handleConceptChange) {
+        window.agentApp.handleConceptChange(categoryName, conceptName, isSelected);
+    } else {
+        console.error('Agent app not initialized or method not found');
+    }
+}
+
 // Initialize the Vue app
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing Agent Case Creation interface...');
-    window.agentApp = AgentCaseCreation;
-    AgentCaseCreation.mounted();
+    
+    // Create the app instance properly
+    window.agentApp = {};
+    
+    // Initialize data
+    const appData = AgentCaseCreation.data();
+    Object.keys(appData).forEach(key => {
+        window.agentApp[key] = appData[key];
+    });
+    
+    // Bind methods to the instance with proper 'this' context
+    Object.keys(AgentCaseCreation.methods).forEach(methodName => {
+        window.agentApp[methodName] = AgentCaseCreation.methods[methodName].bind(window.agentApp);
+    });
+    
+    // Initialize the app
+    if (window.agentApp.initializeEventListeners) {
+        window.agentApp.initializeEventListeners();
+    }
+    if (window.agentApp.updateSelectedSummary) {
+        window.agentApp.updateSelectedSummary();
+    }
+    
     console.log('Agent Case Creation interface initialized');
 });
 </script>
