@@ -94,8 +94,8 @@ class WizardController:
             scenario_id=scenario_id,
             step_number=step_number,
             step_type='summary',
-            title='Journey Complete',
-            narrative_content='Your ethical journey through this scenario is complete. Review your choices and see how they compare with NSPE conclusions.',
+            title='Analysis Complete',
+            narrative_content='Engineer A\'s ethical analysis of this scenario is complete. Review the choices made and see how they compare with NSPE conclusions.',
             step_metadata={
                 'show_choices': True,
                 'show_analysis': True,
@@ -109,18 +109,18 @@ class WizardController:
         
         # Add protagonist perspective
         if 'project_assignment' in event.parameters.get('event_type', ''):
-            return f"You are Engineer A. {base_narrative}\n\nThis marks the beginning of your ethical journey."
+            return f"Engineer A is the agent in this scenario. {base_narrative}\n\nThis marks the beginning of the ethical analysis."
         elif 'context_change' in event.parameters.get('event_type', ''):
-            return f"A significant change occurs. {base_narrative}\n\nThis will impact your upcoming decisions."
+            return f"A significant change occurs. {base_narrative}\n\nThis will impact Engineer A's upcoming decisions."
         else:
-            return f"{base_narrative}\n\nConsider how this affects your professional responsibilities."
+            return f"{base_narrative}\n\nConsider how this affects Engineer A's professional responsibilities."
     
     def _generate_decision_narrative(self, decision: Action) -> str:
         """Generate narrative content for a decision step."""
         context = decision.parameters.get('context', '')
         question = decision.parameters.get('question_text', '')
         
-        return f"{context}\n\nNow you face a critical decision:\n\n{question}"
+        return f"{context}\n\nNow Engineer A faces a critical decision:\n\n{question}"
     
     def get_or_create_session(self, user_id: int, scenario_id: int) -> UserWizardSession:
         """Get existing session or create a new one."""

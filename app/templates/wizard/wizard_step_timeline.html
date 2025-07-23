@@ -116,7 +116,7 @@
                         
                         <div class="alert alert-info mb-4">
                             <i class="bi bi-info-circle me-2"></i>
-                            <strong>You are Engineer A.</strong> This event is part of your ethical analysis. Click "Continue" to proceed to the next step.
+                            <strong>Engineer A is the agent in this scenario.</strong> This event is part of the ethical analysis. Click "Continue" to proceed to the next step.
                         </div>
 
                         <!-- Navigation -->
@@ -158,7 +158,7 @@
                         
                         <!-- Decision Options -->
                         <div class="mb-4">
-                            <h5 class="mb-3"><i class="bi bi-list-check me-2"></i>Choose Your Response</h5>
+                            <h5 class="mb-3"><i class="bi bi-list-check me-2"></i>Choose Engineer A's Response</h5>
                             
                             {% for option in step.options %}
                             <div class="card option-card mb-3" data-option="{{ option.id }}" onclick="selectOption('{{ option.id }}')">
