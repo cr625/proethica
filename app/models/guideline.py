@@ -26,6 +26,8 @@ class Guideline(db.Model):
     
     # Relationships
     world = db.relationship('World', back_populates='guidelines')
+    sections = db.relationship('GuidelineSection', back_populates='guideline', 
+                             cascade='all, delete-orphan', lazy='dynamic')
     entity_triples = db.relationship('EntityTriple', 
                                    primaryjoin="and_(EntityTriple.entity_type=='guideline_concept', "
                                                "EntityTriple.guideline_id==Guideline.id)",
@@ -64,7 +66,8 @@ class Guideline(db.Model):
             'metadata': self.guideline_metadata,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'triple_count': self.entity_triples.count()
+            'triple_count': self.entity_triples.count(),
+            'section_count': self.sections.count()
         }
     
     @property

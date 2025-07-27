@@ -593,6 +593,75 @@ def world_guidelines(id):
     
     return render_template('guidelines.html', world=world, guidelines=guidelines)
 
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/sections')
+def view_guideline_sections(id, document_id):
+    """Display extracted sections from a guideline document."""
+    logger.info(f"Accessing guideline sections route: world_id={id}, document_id={document_id}")
+    
+    world = World.query.get_or_404(id)
+    
+    from app.models.document import Document
+    from app.models.guideline_section import GuidelineSection
+    
+    document = Document.query.get_or_404(document_id)
+    logger.info(f"Found document: {document.title}, type: {document.document_type}")
+    
+    # Check if document belongs to this world
+    if document.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Check if document is a guideline
+    if document.document_type != "guideline":
+        flash('Document is not a guideline', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Get the associated guideline ID if exists
+    actual_guideline_id = None
+    logger.info(f"Document metadata keys: {list(document.doc_metadata.keys()) if document.doc_metadata else 'No metadata'}")
+    
+    if document.doc_metadata and 'guideline_structure' in document.doc_metadata:
+        guideline_structure = document.doc_metadata['guideline_structure']
+        logger.info(f"Guideline structure keys: {list(guideline_structure.keys())}")
+        actual_guideline_id = guideline_structure.get('guideline_id')
+        logger.info(f"Found guideline_id: {actual_guideline_id}")
+    else:
+        logger.info("No guideline_structure found in metadata")
+    
+    # Get guideline sections
+    sections = []
+    if actual_guideline_id:
+        sections = GuidelineSection.query.filter_by(guideline_id=actual_guideline_id).order_by(GuidelineSection.section_code).all()
+        logger.info(f"Found {len(sections)} sections for guideline_id {actual_guideline_id}")
+    else:
+        # Fallback: check if there are sections for any guideline
+        all_sections = GuidelineSection.query.all()
+        logger.info(f"No guideline_id found. Total sections in DB: {len(all_sections)}")
+        if all_sections:
+            available_guideline_ids = list(set([s.guideline_id for s in all_sections]))
+            logger.info(f"Available guideline IDs: {available_guideline_ids}")
+            # Use the most recent guideline ID as fallback
+            if available_guideline_ids:
+                fallback_guideline_id = max(available_guideline_ids)
+                logger.info(f"Using fallback guideline_id: {fallback_guideline_id}")
+                sections = GuidelineSection.query.filter_by(guideline_id=fallback_guideline_id).order_by(GuidelineSection.section_code).all()
+                actual_guideline_id = fallback_guideline_id
+    
+    # Group sections by category
+    sections_by_category = {}
+    for section in sections:
+        category = section.section_category
+        if category not in sections_by_category:
+            sections_by_category[category] = []
+        sections_by_category[category].append(section)
+    
+    return render_template('guideline_sections_view.html', 
+                         world=world, 
+                         document=document,
+                         sections=sections,
+                         sections_by_category=sections_by_category,
+                         guideline_id=actual_guideline_id)
+
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>', methods=['GET'])
 def view_guideline(id, document_id):
     """Display a specific guideline document."""

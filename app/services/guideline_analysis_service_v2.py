@@ -82,9 +82,9 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
                 'term_candidates': term_candidates,
                 'relationships': relationships,
                 'stats': {
-                    'total_concepts': len(raw_concepts),
+                    'total_concepts': len(matched_concepts),
                     'matched_concepts': len([c for c in matched_concepts if not c.get('is_new')]),
-                    'new_terms': len(term_candidates),
+                    'new_terms': len([c for c in matched_concepts if c.get('is_new')]),
                     'relationships': len(relationships)
                 }
             }

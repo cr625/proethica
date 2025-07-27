@@ -198,6 +198,61 @@ class BackgroundTaskQueue:
                 
                 # Process document content if available
                 if document.content:
+                    # Check if this is a guideline document that needs structure annotation
+                    if document.document_type == "guideline":
+                        # Update progress: Analyzing guideline structure (35%)
+                        document.processing_phase = PROCESSING_PHASES.get('ANALYZING', PROCESSING_PHASES['CHUNKING'])
+                        document.processing_progress = 35
+                        db.session.commit()
+                        
+                        # Extract guideline sections
+                        try:
+                            from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
+                            
+                            # Create Guideline record if it doesn't exist
+                            from app.models.guideline import Guideline
+                            guideline = Guideline.query.filter_by(
+                                world_id=document.world_id,
+                                title=document.title
+                            ).first()
+                            
+                            if not guideline:
+                                guideline = Guideline(
+                                    world_id=document.world_id,
+                                    title=document.title,
+                                    content=document.content,
+                                    source_url=document.source,
+                                    file_path=document.file_path,
+                                    file_type=document.file_type,
+                                    guideline_metadata={}
+                                )
+                                db.session.add(guideline)
+                                db.session.commit()
+                                logger.info(f"Created Guideline record {guideline.id} for document {document.id}")
+                            
+                            # Extract guideline sections
+                            structure_annotator = GuidelineStructureAnnotationStep()
+                            result = structure_annotator.process(guideline)
+                            
+                            if result['success']:
+                                logger.info(f"Successfully extracted {result['sections_created']} sections from guideline {guideline.id}")
+                                # Update document metadata with guideline info
+                                if not document.doc_metadata:
+                                    document.doc_metadata = {}
+                                document.doc_metadata['guideline_structure'] = {
+                                    'guideline_id': guideline.id,
+                                    'format_type': result['format_type'],
+                                    'sections_count': result['sections_created'],
+                                    'processed_at': datetime.utcnow().isoformat()
+                                }
+                                db.session.commit()
+                            else:
+                                logger.warning(f"Guideline structure annotation failed: {result.get('error', 'Unknown error')}")
+                            
+                        except Exception as e:
+                            logger.error(f"Error during guideline structure annotation: {str(e)}")
+                            # Continue with normal processing even if guideline annotation fails
+                    
                     # Update progress: Chunking text (40%)
                     document.processing_phase = PROCESSING_PHASES['CHUNKING']
                     document.processing_progress = 40
