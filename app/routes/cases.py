@@ -143,7 +143,8 @@ def list_cases():
                 'case_number': metadata.get('case_number', ''),
                 'full_date': metadata.get('full_date', ''),
                 'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
-                'has_term_links': term_links_status.get(doc.id, False)
+                'has_term_links': term_links_status.get(doc.id, False),
+                'doc_metadata': metadata  # Include full metadata for subject tags
             }
             
             cases.append(case)
@@ -274,7 +275,8 @@ def search_cases():
                     'questions_list': questions_list,
                     'conclusion_items': conclusion_items,
                     'case_number': metadata.get('case_number', ''),
-                    'full_date': metadata.get('full_date', '')
+                    'full_date': metadata.get('full_date', ''),
+                    'doc_metadata': metadata  # Include full metadata for subject tags
                 }
                 
                 cases.append(case)
@@ -527,6 +529,7 @@ def process_url_pipeline():
         # Get structured list data
         questions_list = final_result.get('questions_list', [])
         conclusion_items = final_result.get('conclusion_items', [])
+        subject_tags = final_result.get('subject_tags', [])
             
         # Generate HTML content that matches the extraction page display format
         html_content = ""
@@ -662,6 +665,7 @@ def process_url_pipeline():
             'full_date': full_date,
             'date_parts': date_parts,
             'pdf_url': pdf_url,
+            'subject_tags': subject_tags,  # NSPE subject tags
             'sections': {
                 'facts': facts,
                 'question': question_html,
@@ -1343,6 +1347,20 @@ def save_and_view_case():
         dissenting_opinion = request.form.get('dissenting_opinion', '')
         pdf_url = request.form.get('pdf_url', '')
         
+        # Extract subject tags
+        subject_tags = []
+        try:
+            import json
+            subject_tags_str = request.form.get('subject_tags')
+            if subject_tags_str:
+                subject_tags = json.loads(subject_tags_str)
+        except Exception as e:
+            print(f"Warning: Error parsing subject_tags: {str(e)}")
+            # Try to get as a single string if JSON parsing fails
+            subject_tags_str = request.form.get('subject_tags', '')
+            if subject_tags_str:
+                subject_tags = [subject_tags_str]
+        
         # Try to parse JSON lists if available
         questions_list = []
         conclusion_items = []
@@ -1540,6 +1558,7 @@ def save_and_view_case():
             'full_date': full_date,
             'date_parts': date_parts,
             'pdf_url': pdf_url,
+            'subject_tags': subject_tags,  # NSPE subject tags
             'sections': {
                 'facts': facts,
                 'question': question_html,

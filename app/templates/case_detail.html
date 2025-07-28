@@ -107,6 +107,18 @@
                 {% endif %}
             </div>
             {% endif %}
+            
+            <!-- Subject Tags Section -->
+            {% if case.doc_metadata and case.doc_metadata.subject_tags %}
+            <div class="mt-2">
+                <strong>Subject Tags:</strong>
+                {% for tag in case.doc_metadata.subject_tags %}
+                <span class="badge bg-warning text-dark me-1 mb-1" title="NSPE Subject Classification">
+                    <i class="bi bi-tag"></i> {{ tag }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
         <div class="card-body">
             {% if world %}

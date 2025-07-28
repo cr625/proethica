@@ -77,6 +77,26 @@
                                 {% if case.full_date %}
                                 <span class="badge bg-info me-2">{{ case.full_date }}</span>
                                 {% endif %}
+                                <!-- Subject Tags -->
+                                {% set subject_tags = [] %}
+                                {% if case.doc_metadata %}
+                                    {% set doc_metadata = case.doc_metadata %}
+                                    {% if doc_metadata.subject_tags %}
+                                        {% set subject_tags = doc_metadata.subject_tags %}
+                                    {% endif %}
+                                {% endif %}
+                                {% if subject_tags %}
+                                    {% for tag in subject_tags[:2] %}
+                                    <span class="badge bg-warning text-dark me-1" title="NSPE Subject: {{ tag }}">
+                                        <i class="bi bi-tag-fill"></i> {{ tag }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if subject_tags|length > 2 %}
+                                    <span class="badge bg-light text-dark me-1" title="{{ subject_tags|length - 2 }} more tags">
+                                        +{{ subject_tags|length - 2 }}
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
                                 <!-- Processing Status Icons -->
                                 {% if case.has_enhanced_associations %}
                                 <span class="badge bg-success me-1" title="Enhanced Guideline Associations available">
