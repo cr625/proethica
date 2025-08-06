@@ -99,10 +99,19 @@
               {% endif %}
               
               {% if concept_count > 0 %}
-              <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}#associated-concepts"
-                class="btn btn-outline-success">
-                <i class="bi bi-eye"></i> View Concepts ({{ concept_count }})
-              </a>
+                {% if guideline_ontologies and guideline.id in guideline_ontologies %}
+                  <!-- Derived ontology exists, show View button -->
+                  <a href="/ontology-editor/?ontology_id={{ guideline_ontologies[guideline.id].id }}&view=full"
+                    class="btn btn-outline-success" target="_blank" title="View the derived ontology for this guideline">
+                    <i class="bi bi-diagram-3"></i> View Ontology
+                  </a>
+                {% else %}
+                  <!-- Concepts exist but no ontology yet -->
+                  <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}#associated-concepts"
+                    class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> View Concepts ({{ concept_count }})
+                  </a>
+                {% endif %}
               {% else %}
               <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
                 class="btn btn-outline-info">

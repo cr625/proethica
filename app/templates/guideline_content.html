@@ -195,19 +195,33 @@
             <div class="mt-3 p-3 bg-light border rounded">
               <div class="d-flex justify-content-between align-items-center">
                 <div>
-                  <h6 class="mb-1"><i class="fas fa-plus-circle text-success"></i> Ready for Ontology Integration</h6>
-                  <small class="text-muted">
-                    {% if ontology_status.some_added %}
-                      {{ ontology_status.concepts_in_ontology }}/{{ ontology_status.total_concepts }} concepts already in derived ontology ({{ ontology_status.percentage_added }}%)
-                    {% else %}
-                      {{ ontology_status.total_concepts }} concepts ready to be added to a derived ontology
-                    {% endif %}
-                    <br><em>Creates a derived ontology that imports engineering-ethics (base .ttl unchanged)</em>
-                  </small>
+                  {% if ontology_status.derived_ontology_exists %}
+                    <h6 class="mb-1"><i class="fas fa-database text-info"></i> Derived Ontology Exists</h6>
+                    <small class="text-muted">
+                      A derived ontology has been created for this guideline<br>
+                      <em class="text-info">Concepts are stored in database (base .ttl file unchanged)</em>
+                    </small>
+                  {% else %}
+                    <h6 class="mb-1"><i class="fas fa-plus-circle text-success"></i> Ready for Ontology Integration</h6>
+                    <small class="text-muted">
+                      {% if ontology_status.some_added %}
+                        {{ ontology_status.concepts_in_ontology }}/{{ ontology_status.total_concepts }} concepts already in derived ontology ({{ ontology_status.percentage_added }}%)
+                      {% else %}
+                        {{ ontology_status.total_concepts }} concepts ready to be added to a derived ontology
+                      {% endif %}
+                      <br><em class="text-info">Will create a derived ontology in the database (base .ttl file unchanged)</em>
+                    </small>
+                  {% endif %}
                 </div>
-                <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" data-bs-toggle="modal" data-bs-target="#addToOntologyModal">
-                  <i class="fas fa-plus-circle"></i> Add to Ontology
-                </button>
+                {% if ontology_status.derived_ontology_exists %}
+                  <a href="/ontology-editor/?ontology_id={{ ontology_status.derived_ontology_id }}&view=full" class="btn btn-success btn-sm" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> View Ontology
+                  </a>
+                {% else %}
+                  <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" data-bs-toggle="modal" data-bs-target="#addToOntologyModal">
+                    <i class="fas fa-plus-circle"></i> Add to Ontology
+                  </button>
+                {% endif %}
               </div>
             </div>
             {% elif ontology_status and ontology_status.all_added %}
@@ -217,7 +231,8 @@
                   <i class="fas fa-check-circle text-success me-2"></i>
                   <div>
                     <h6 class="mb-1 text-success">Concepts Added to Derived Ontology</h6>
-                    <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a derived ontology</small>
+                    <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a derived ontology in the database<br>
+                    <em class="text-info">The base engineering-ethics.ttl file remains unchanged</em></small>
                     {% if ontology_status.derived_ontology_name %}
                     <br><small class="text-muted"><strong>{{ ontology_status.derived_ontology_name }}</strong></small>
                     {% endif %}
@@ -225,7 +240,7 @@
                 </div>
                 {% if ontology_status.derived_ontology_id %}
                 <div class="text-end">
-                  <a href="/ontology_editor/view/{{ ontology_status.derived_ontology_id }}" class="btn btn-sm btn-outline-success" target="_blank">
+                  <a href="/ontology-editor/?ontology_id={{ ontology_status.derived_ontology_id }}&view=full" class="btn btn-sm btn-outline-success" target="_blank">
                     <i class="fas fa-external-link-alt"></i> View Ontology
                   </a>
                   <br>

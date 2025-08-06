@@ -614,9 +614,22 @@ def world_guidelines(id):
     
     # Get all guidelines documents for this world
     from app.models.document import Document
+    from app.models.ontology import Ontology
     guidelines = Document.query.filter_by(world_id=world.id, document_type="guideline").all()
     
-    return render_template('guidelines.html', world=world, guidelines=guidelines)
+    # Check for derived ontologies for each guideline
+    guideline_ontologies = {}
+    for guideline in guidelines:
+        derived_domain = f"guideline-{guideline.id}-concepts"
+        derived_ontology = Ontology.query.filter_by(domain_id=derived_domain).first()
+        if derived_ontology:
+            guideline_ontologies[guideline.id] = {
+                'exists': True,
+                'id': derived_ontology.id,
+                'name': derived_ontology.name
+            }
+    
+    return render_template('guidelines.html', world=world, guidelines=guidelines, guideline_ontologies=guideline_ontologies)
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/sections')
 def view_guideline_sections(id, document_id):

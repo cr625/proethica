@@ -61,19 +61,25 @@ class GuidelineConceptIntegrationService:
             Dict with success status, results, and any errors
         """
         try:
+            logger.info(f"add_concepts_to_ontology called for guideline_id={guideline_id}, ontology_domain={ontology_domain}")
+            
             # Get the actual guideline ID from document metadata to retrieve concepts
             actual_guideline_id = cls._get_actual_guideline_id(guideline_id)
             if not actual_guideline_id:
+                logger.error(f"No actual guideline ID found for document {guideline_id}")
                 return {
                     'success': False,
                     'error': f'No actual guideline ID found for document {guideline_id}',
                     'results': []
                 }
             
+            logger.info(f"Found actual guideline ID: {actual_guideline_id} for document {guideline_id}")
+            
             # If concepts list is empty, retrieve from database using actual guideline ID
             if not concepts:
                 concepts = cls.get_concepts_from_guideline(actual_guideline_id)
                 if not concepts:
+                    logger.warning(f"No concepts found for guideline {actual_guideline_id}")
                     return {
                         'success': False,
                         'error': f'No concepts found for guideline {actual_guideline_id}',
@@ -238,8 +244,20 @@ class GuidelineConceptIntegrationService:
                 return None
             
             # Get guideline information for naming
-            guideline = Guideline.query.get(guideline_id)
-            guideline_title = guideline.title[:50] + "..." if guideline and len(guideline.title) > 50 else (guideline.title if guideline else f"Guideline {guideline_id}")
+            # Note: guideline_id here is actually a document_id, so we need to get the actual guideline
+            from app.models.document import Document
+            document = Document.query.get(guideline_id)
+            guideline_title = f"Document {guideline_id}"
+            
+            if document:
+                guideline_title = document.title[:50] + "..." if len(document.title) > 50 else document.title
+                
+                # Try to get the actual guideline if it exists
+                if document.doc_metadata and 'guideline_id' in document.doc_metadata:
+                    actual_guideline_id = document.doc_metadata['guideline_id']
+                    guideline = Guideline.query.get(actual_guideline_id)
+                    if guideline:
+                        guideline_title = guideline.title[:50] + "..." if len(guideline.title) > 50 else guideline.title
             
             # Create derived ontology content that imports the base ontology
             derived_content = cls._create_derived_ontology_content(derived_domain, base_ontology.domain_id, guideline_title)
@@ -250,6 +268,7 @@ class GuidelineConceptIntegrationService:
                 domain_id=derived_domain,
                 description=f"Derived ontology containing concepts extracted from guideline: {guideline_title}",
                 content=derived_content,
+                base_uri=f"http://proethica.org/ontology/{derived_domain}#",
                 is_base=False,
                 is_editable=True,
                 created_at=datetime.utcnow(),

@@ -159,8 +159,8 @@
             <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-outline-primary me-2">
                 <i class="fas fa-arrow-left"></i> Back to Guideline
             </a>
-            {% if result.summary.successful_additions > 0 %}
-            <a href="{{ url_for('ontology_editor.index') }}" class="btn btn-success">
+            {% if result.summary.successful_additions > 0 or result.ontology_id %}
+            <a href="/ontology-editor/?ontology_id={{ result.ontology_id }}&view=full" class="btn btn-success">
                 <i class="fas fa-eye"></i> View Updated Ontology
             </a>
             {% endif %}
