@@ -126,30 +126,30 @@
                                     <td>{{ ont.domain }}</td>
                                     <td>
                                         {% if ont.file_exists %}
-                                        <i class="fas fa-check text-success"></i>
+                                        <span class="text-success font-weight-bold">{{ ont.domain }}.ttl</span>
                                         {% else %}
-                                        <i class="fas fa-times text-danger"></i>
+                                        <span class="text-danger font-weight-bold">MISSING</span>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {% if ont.db_exists %}
-                                        <i class="fas fa-check text-success"></i>
+                                        <span class="text-success" style="font-size: 1.2em;">✓</span>
                                         {% else %}
-                                        <i class="fas fa-times text-danger"></i>
+                                        <span class="text-danger" style="font-size: 1.2em;">✗</span>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {% if ont.is_synced %}
-                                        <span class="badge badge-success">Synced</span>
+                                        <span class="text-success" style="font-size: 1.2em;">✓</span>
                                         {% else %}
-                                        <span class="badge badge-warning">Needs Sync</span>
+                                        <span class="text-warning" style="font-size: 1.2em;">⚠</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if ont.ontology_id %}
                                         <a href="/ontology-editor/?ontology={{ ont.ontology_id }}&ontology_id={{ ont.ontology_id }}&view=full" 
                                            class="btn btn-sm btn-outline-primary" title="Edit {{ ont.domain }} ontology">
-                                            <i class="fas fa-edit"></i>
+                                            <i class="fas fa-edit"></i> Edit
                                         </a>
                                         {% else %}
                                         <span class="text-muted">-</span>
@@ -167,75 +167,6 @@
                         <br>
                         <small class="text-muted">{{ sync_status.guideline_ontologies.note }}</small>
                     </p>
-                </div>
-            </div>
-
-            <!-- Processing Stats -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Processing Statistics</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-6">
-                            <p class="mb-1">Documents with Structure</p>
-                            <div class="progress mb-3">
-                                <div class="progress-bar" style="width: {{ stats.processing.structure_percentage }}%">
-                                    {{ stats.processing.structure_percentage }}%
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <p class="mb-1">Documents with Embeddings</p>
-                            <div class="progress mb-3">
-                                <div class="progress-bar bg-info" style="width: {{ stats.processing.embeddings_percentage }}%">
-                                    {{ stats.processing.embeddings_percentage }}%
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <small class="text-muted">Entity Triples: <strong>{{ stats.analysis.entity_triples }}</strong></small>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted">Associations: <strong>{{ stats.analysis.associations }}</strong></small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column: Recent Activity & Quick Actions -->
-        <div class="col-lg-6">
-            <!-- Quick Actions -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-6 mb-2">
-                            <a href="/worlds" class="btn btn-block btn-outline-primary">
-                                <i class="fas fa-globe"></i> Manage Worlds
-                            </a>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <a href="/guidelines" class="btn btn-block btn-outline-success">
-                                <i class="fas fa-book"></i> Manage Guidelines
-                            </a>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <a href="/cases" class="btn btn-block btn-outline-info">
-                                <i class="fas fa-file-alt"></i> Process Cases
-                            </a>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <a href="/ontology-editor" class="btn btn-block btn-outline-warning">
-                                <i class="fas fa-sitemap"></i> Ontology Editor
-                            </a>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -277,33 +208,112 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Database Tables Info (from debug route) -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
+        <!-- Right Column: Processing & Actions -->
+        <div class="col-lg-6">
+            <!-- Processing & Actions -->
+            <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">Database Overview</h5>
+                    <h5 class="mb-0">Processing & Actions</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <h6>Table Count: {{ stats.database.table_count }}</h6>
-                        </div>
-                        <div class="col-md-8">
-                            <h6>Key Tables</h6>
-                            <div class="d-flex flex-wrap">
-                                {% for table in ['worlds', 'guidelines', 'documents', 'entity_triples', 'ontologies', 'scenarios'] %}
-                                <span class="badge badge-secondary mr-2 mb-1">{{ table }}</span>
-                                {% endfor %}
+                    <!-- Processing Status -->
+                    <h6>Processing Status</h6>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Document Structure</span>
+                                <small>{{ stats.processing.processed_documents }}/{{ stats.processing.total_documents }}</small>
                             </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar" style="width: {{ stats.processing.structure_percentage }}%">
+                                    {{ stats.processing.structure_percentage }}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Section Embeddings</span>
+                                <small>{{ stats.processing.embedded_sections }}/{{ stats.processing.total_sections }}</small>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-info" style="width: {{ stats.processing.embeddings_percentage }}%">
+                                    {{ stats.processing.embeddings_percentage }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Based on Processing Needs -->
+                    <h6>Available Actions</h6>
+                    <div class="row">
+                        <!-- Document Processing Actions -->
+                        {% if stats.processing.structure_percentage < 100 %}
+                        <div class="col-6 mb-2">
+                            <a href="/cases" class="btn btn-block btn-sm btn-outline-warning">
+                                <i class="fas fa-cogs"></i> Process Documents
+                            </a>
+                            <small class="text-muted">{{ stats.processing.total_documents - stats.processing.processed_documents }} need structure</small>
+                        </div>
+                        {% endif %}
+
+                        {% if stats.processing.embeddings_percentage < 100 %}
+                        <div class="col-6 mb-2">
+                            <a href="/documents" class="btn btn-block btn-sm btn-outline-info">
+                                <i class="fas fa-vector-square"></i> Generate Embeddings
+                            </a>
+                            <small class="text-muted">{{ stats.processing.total_sections - stats.processing.embedded_sections }} sections need embeddings</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Guidelines Actions -->
+                        <div class="col-6 mb-2">
+                            <a href="/guidelines" class="btn btn-block btn-sm btn-outline-success">
+                                <i class="fas fa-book"></i> Manage Guidelines
+                            </a>
+                            <small class="text-muted">{{ stats.overview.guidelines }} guidelines</small>
+                        </div>
+
+                        <!-- Ontology Actions -->
+                        {% if sync_status.needs_sync %}
+                        <div class="col-6 mb-2">
+                            <button class="btn btn-block btn-sm btn-outline-danger" onclick="syncOntologies()">
+                                <i class="fas fa-sync"></i> Sync Ontologies
+                            </button>
+                            <small class="text-muted">TTL files need sync</small>
+                        </div>
+                        {% else %}
+                        <div class="col-6 mb-2">
+                            <a href="/ontology-editor" class="btn btn-block btn-sm btn-outline-secondary">
+                                <i class="fas fa-sitemap"></i> Edit Ontologies
+                            </a>
+                            <small class="text-muted">All ontologies synced</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Association Generation (if there are unprocessed documents) -->
+                        {% if stats.analysis.associations < stats.overview.documents %}
+                        <div class="col-6 mb-2">
+                            <a href="/cases" class="btn btn-block btn-sm btn-outline-primary">
+                                <i class="fas fa-link"></i> Generate Associations
+                            </a>
+                            <small class="text-muted">{{ stats.overview.documents - stats.analysis.associations }} documents need associations</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Always show worlds management -->
+                        <div class="col-6 mb-2">
+                            <a href="/worlds" class="btn btn-block btn-sm btn-outline-primary">
+                                <i class="fas fa-globe"></i> Manage Worlds
+                            </a>
+                            <small class="text-muted">{{ stats.overview.worlds }} worlds</small>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
 </div>
 
 <script>

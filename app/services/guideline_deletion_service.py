@@ -5,6 +5,7 @@ Safely removes guidelines and all associated data including:
 - Entity triples (handled by cascade)
 - Derived ontologies
 - Guideline sections
+- Related documents (with document_type='guideline')
 - Any cached data
 """
 
@@ -14,6 +15,7 @@ from app import db
 from app.models.guideline import Guideline
 from app.models.ontology import Ontology
 from app.models.entity_triple import EntityTriple
+from app.models.document import Document
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,8 @@ class GuidelineDeletionService:
                 'guideline_title': guideline.title,
                 'triple_count': guideline.entity_triples.count(),
                 'section_count': guideline.sections.count(),
-                'derived_ontologies': []
+                'derived_ontologies': [],
+                'related_documents': []
             }
             
             # Find derived ontologies for this guideline
@@ -59,6 +62,25 @@ class GuidelineDeletionService:
                     'id': ont.id,
                     'domain': ont.domain_id,
                     'name': ont.name
+                })
+            
+            # Find related documents that reference this guideline
+            related_documents = Document.query.filter(
+                db.and_(
+                    Document.document_type == 'guideline',
+                    db.or_(
+                        Document.doc_metadata.op('->>')('guideline_id') == str(guideline_id),
+                        Document.doc_metadata.op('->>')('source_guideline_id') == str(guideline_id)
+                    )
+                )
+            ).all()
+            
+            for doc in related_documents:
+                stats['related_documents'].append({
+                    'id': doc.id,
+                    'title': doc.title,
+                    'document_type': doc.document_type,
+                    'created_at': doc.created_at.isoformat() if doc.created_at else None
                 })
             
             if not confirm:
@@ -77,6 +99,11 @@ class GuidelineDeletionService:
             for ont in derived_ontologies:
                 logger.info(f"Deleting derived ontology: {ont.domain_id}")
                 db.session.delete(ont)
+            
+            # Delete related documents
+            for doc in related_documents:
+                logger.info(f"Deleting related document: {doc.title} (ID: {doc.id})")
+                db.session.delete(doc)
             
             # Delete the guideline (cascade will handle triples and sections)
             db.session.delete(guideline)
@@ -147,7 +174,8 @@ class GuidelineDeletionService:
                     {'type': t.primary_type or 'untyped', 'count': t.count}
                     for t in triple_types
                 ],
-                'derived_ontologies': []
+                'derived_ontologies': [],
+                'related_documents': []
             }
             
             # Check for derived ontologies
@@ -161,6 +189,26 @@ class GuidelineDeletionService:
                     'domain': ont.domain_id,
                     'name': ont.name,
                     'entity_count': ont.entity_count
+                })
+            
+            # Check for related documents
+            related_documents = Document.query.filter(
+                db.and_(
+                    Document.document_type == 'guideline',
+                    db.or_(
+                        Document.doc_metadata.op('->>')('guideline_id') == str(guideline_id),
+                        Document.doc_metadata.op('->>')('source_guideline_id') == str(guideline_id)
+                    )
+                )
+            ).all()
+            
+            for doc in related_documents:
+                dependencies['related_documents'].append({
+                    'id': doc.id,
+                    'title': doc.title,
+                    'document_type': doc.document_type,
+                    'created_at': doc.created_at.isoformat() if doc.created_at else None,
+                    'guideline_ref': doc.doc_metadata.get('guideline_id') or doc.doc_metadata.get('source_guideline_id')
                 })
             
             return {
