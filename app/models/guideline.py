@@ -24,8 +24,13 @@ class Guideline(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # User ownership and data classification
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    data_type = db.Column(db.String(20), default='user')  # 'system' or 'user'
+    
     # Relationships
     world = db.relationship('World', back_populates='guidelines')
+    creator = db.relationship('User', backref='created_guidelines')
     sections = db.relationship('GuidelineSection', back_populates='guideline', 
                              cascade='all, delete-orphan', lazy='dynamic')
     entity_triples = db.relationship('EntityTriple', 
@@ -34,6 +39,40 @@ class Guideline(db.Model):
                                    back_populates='guideline',
                                    lazy='dynamic',
                                    cascade='all, delete-orphan')
+    
+    def can_edit(self, user):
+        """Check if the user can edit this guideline."""
+        if not user or not user.is_authenticated:
+            return False
+        
+        # Admin can edit everything
+        if getattr(user, 'is_admin', False):
+            return True
+        
+        # System data can only be edited by admins
+        if self.data_type == 'system':
+            return False
+        
+        # User can edit their own content
+        return self.created_by == user.id
+    
+    def can_delete(self, user):
+        """Check if the user can delete this guideline."""
+        # Same rules as editing
+        return self.can_edit(user)
+    
+    def can_view(self, user):
+        """Check if the user can view this guideline."""
+        # All users can view all guidelines (read-only for system data)
+        return True
+    
+    def is_system_data(self):
+        """Check if this is system data (read-only for non-admins)."""
+        return self.data_type == 'system'
+    
+    def is_user_data(self):
+        """Check if this is user-created data."""
+        return self.data_type == 'user'
     
     def __repr__(self):
         return f'<Guideline {self.id}: {self.title}>'

@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session
+from flask_login import login_required, current_user
 import json
 import ast
 import re
@@ -941,6 +942,7 @@ def delete_guideline_triples(world_id, guideline_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @worlds_bp.route('/<int:id>/guidelines/add', methods=['GET'])
+@login_required
 def add_guideline_form(id):
     """Display form to add a guideline to a world."""
     world = World.query.get_or_404(id)
@@ -951,6 +953,7 @@ def add_guideline_form(id):
     return render_template('add_guideline.html', world=world, referrer=referrer)
 
 @worlds_bp.route('/<int:id>/guidelines/add', methods=['POST'])
+@login_required
 def add_guideline(id):
     """Process form submission to add a guideline to a world."""
     world = World.query.get_or_404(id)
@@ -990,7 +993,9 @@ def add_guideline(id):
                     file_path=file_path,
                     file_type=file_type,
                     doc_metadata={},
-                    processing_status=PROCESSING_STATUS['PENDING']
+                    processing_status=PROCESSING_STATUS['PENDING'],
+                    created_by=current_user.id,
+                    data_type='user'
                 )
                 db.session.add(document)
                 db.session.commit()
@@ -1013,7 +1018,9 @@ def add_guideline(id):
                 source=guidelines_url,
                 file_type="url",
                 doc_metadata={},
-                processing_status=PROCESSING_STATUS['PENDING']
+                processing_status=PROCESSING_STATUS['PENDING'],
+                created_by=current_user.id,
+                data_type='user'
             )
             db.session.add(document)
             db.session.commit()
@@ -1036,7 +1043,9 @@ def add_guideline(id):
                 content=guidelines_text,
                 file_type="txt",
                 doc_metadata={},
-                processing_status=PROCESSING_STATUS['PENDING']
+                processing_status=PROCESSING_STATUS['PENDING'],
+                created_by=current_user.id,
+                data_type='user'
             )
             db.session.add(document)
             db.session.commit()
@@ -1473,35 +1482,83 @@ def save_guideline_concepts(world_id, document_id):
         logger.info(f"Full concepts_data: {concepts_data}")
         logger.info(f"Selected concept indices: {selected_indices}")
         
-        # If the form data is truncated, let's try to get concepts from the extraction again
-        if len(concepts_data) < 100 or not concepts_data.strip().endswith(']'):
-            logger.warning("Concepts data appears truncated or invalid, re-extracting from document")
-            
-            # Re-extract concepts since form data is corrupted
-            from app.services.guideline_analysis_service import GuidelineAnalysisService
-            guideline_service = GuidelineAnalysisService()
-            
-            content = guideline.content
-            if not content and guideline.file_path:
-                with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-            
-            if content:
-                concepts_result = guideline_service.extract_concepts(content, ontology_source)
-                if "concepts" in concepts_result:
-                    all_concepts = concepts_result["concepts"]
-                    # Filter to only selected concepts
-                    concepts = [all_concepts[i] for i in selected_indices if i < len(all_concepts)]
-                    logger.info(f"Re-extracted and filtered to {len(concepts)} selected concepts")
-                else:
-                    logger.error("Failed to re-extract concepts")
-                    concepts = []
-            else:
-                logger.error("No content available for re-extraction")
-                concepts = []
+        # FIXED: Improved form data validation to avoid unnecessary LLM re-extraction
+        # Check if concepts_data is valid JSON or a special cached reference
+        parsed_concepts = None
+        
+        if concepts_data == "cached_in_session":
+            # Template is using the new lightweight approach - get from cache
+            logger.info("Form indicates concepts are cached, retrieving from session/database")
+            parsed_concepts = None  # Will trigger cache lookup below
         else:
-            # Try to parse the JSON data from the form
-            concepts = robust_json_parse(concepts_data)
+            # Try to parse JSON from form data (legacy approach)
+            try:
+                if concepts_data and concepts_data.strip():
+                    parsed_concepts = robust_json_parse(concepts_data)
+                    if parsed_concepts and isinstance(parsed_concepts, list) and len(parsed_concepts) > 0:
+                        logger.info(f"Successfully parsed {len(parsed_concepts)} concepts from form data")
+                        concepts = parsed_concepts
+                    else:
+                        logger.warning("Form data parsed but contains no valid concepts")
+                        parsed_concepts = None
+                else:
+                    logger.warning("No concepts_data in form submission")
+            except Exception as parse_error:
+                logger.warning(f"Failed to parse form concepts_data: {parse_error}")
+                parsed_concepts = None
+        
+        # Only re-extract if form data is completely invalid AND we have no cached data
+        if parsed_concepts is None:
+            # Get fresh data from database to avoid stale cache
+            from app import db
+            db.session.refresh(guideline)
+            
+            # Try multiple sources for cached concepts with detailed logging
+            cached_concepts = None
+            
+            # Debug current document state
+            logger.info(f"Document {document_id} metadata keys: {list(guideline.doc_metadata.keys()) if guideline.doc_metadata else 'None'}")
+            
+            # Check document metadata (primary source now)
+            if hasattr(guideline, 'doc_metadata') and guideline.doc_metadata:
+                if 'extracted_concepts' in guideline.doc_metadata:
+                    cached_concepts = guideline.doc_metadata.get('extracted_concepts', [])
+                    logger.info(f"Found {len(cached_concepts)} cached concepts in document metadata")
+                    # Log timestamp for debugging
+                    timestamp = guideline.doc_metadata.get('extraction_timestamp', 'unknown')
+                    logger.info(f"Concepts cached at: {timestamp}")
+                else:
+                    logger.warning("'extracted_concepts' key not found in doc_metadata")
+            else:
+                logger.warning("No doc_metadata found in guideline")
+            
+            # Fallback: Check Flask session (though it may be truncated)
+            if not cached_concepts:
+                session_key = f'concepts_{document_id}'
+                if session_key in session:
+                    cached_concepts = session.get(session_key, [])
+                    logger.info(f"Fallback: Found {len(cached_concepts)} cached concepts in Flask session")
+                else:
+                    logger.warning(f"No concepts found in session key: {session_key}")
+                    logger.info(f"Available session keys: {list(session.keys())}")
+            
+            if cached_concepts and len(cached_concepts) > 0:
+                # Use cached concepts and filter to selected indices
+                concepts = [cached_concepts[i] for i in selected_indices if i < len(cached_concepts)]
+                logger.info(f"Using {len(concepts)} cached concepts from {len(cached_concepts)} total (avoiding LLM re-extraction)")
+            else:
+                # Only as last resort, if no cached data exists, inform user instead of re-extracting
+                logger.error("No valid form data and no cached concepts - asking user to retry analysis")
+                logger.error(f"Debug info - Document metadata: {guideline.doc_metadata}")
+                logger.error(f"Debug info - Session keys: {list(session.keys())}")
+                return redirect(url_for('worlds.guideline_processing_error', 
+                                      world_id=world_id, 
+                                      document_id=document_id,
+                                      error_title='Concepts Data Lost',
+                                      error_message='The extracted concepts were lost during form submission. Please click "Analyze Concepts" again and then "Save Concepts".',
+                                      error_details='This can happen if the browser session expires or the form data is corrupted.'))
+        
+        # concepts variable should already be set by the logic above
             
     except Exception as json_error:
         logger.error(f"Error parsing concepts JSON: {str(json_error)}")

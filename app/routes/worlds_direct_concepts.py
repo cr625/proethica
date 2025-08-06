@@ -8,6 +8,7 @@ from flask import render_template, flash, redirect, url_for, jsonify, session
 import traceback
 import json
 import logging
+from datetime import datetime
 
 from app.models.document import Document
 from app.models.ontology import Ontology
@@ -124,8 +125,42 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                    error_title='No Concepts Found',
                                    error_message=error_message))
             
-        # Don't store concepts in session, we'll include them in the form as hidden fields
-        # and pass them directly through the form submission
+        # Cache extracted concepts in document metadata to avoid re-extraction during save
+        try:
+            from app import db
+            
+            # Ensure we have fresh guideline from DB
+            db.session.refresh(guideline)
+            
+            if not guideline.doc_metadata:
+                guideline.doc_metadata = {}
+            
+            # Store the concepts
+            guideline.doc_metadata['extracted_concepts'] = concepts_list
+            guideline.doc_metadata['extraction_timestamp'] = datetime.utcnow().isoformat()
+            
+            # Mark the field as modified for SQLAlchemy
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(guideline, 'doc_metadata')
+            
+            db.session.add(guideline)
+            db.session.commit()
+            logger.info(f"Cached {len(concepts_list)} extracted concepts in document metadata")
+            
+            # Verify it was saved
+            db.session.refresh(guideline)
+            saved_concepts = guideline.doc_metadata.get('extracted_concepts', [])
+            logger.info(f"Verified: {len(saved_concepts)} concepts saved to database")
+            
+        except Exception as cache_error:
+            logger.error(f"Failed to cache concepts in document metadata: {cache_error}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Skip session storage to avoid cookie size limits
+        logger.info("Skipping Flask session storage to avoid cookie size limits")
+        
+        # Also prepare JSON for form submission as backup
         concepts_json = json.dumps(concepts_list)
         
         logger.info(f"Successfully extracted {len(concepts_list)} concepts")
