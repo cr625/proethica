@@ -17,22 +17,6 @@
     .world-item .btn, .ontology-item .btn {
         transition: all 0.2s;
     }
-    
-    .status-indicator {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 5px;
-    }
-    
-    .status-online {
-        background-color: #28a745;
-    }
-    
-    .status-offline {
-        background-color: #dc3545;
-    }
 </style>
 {% endblock %}
 
@@ -46,7 +30,7 @@
             <div class="col-md-8">
                 <p class="text-muted">
                     ProEthica helps analyze ethical decisions in professional contexts. 
-                    Work within professional <strong>worlds</strong> to analyze <a href="/worlds" class="text-decoration-none">cases</a>, 
+                    Work within professional <a href="/worlds/" class="text-decoration-none">worlds</a> to analyze <a href="/cases/" class="text-decoration-none">cases</a>, 
                     create <a href="/scenarios" class="text-decoration-none">scenarios</a>, and manage 
                     <a href="/worlds" class="text-decoration-none">guidelines</a> using ontology-based reasoning and AI agents.
                 </p>
@@ -165,73 +149,6 @@
                         Manage concepts, relationships, and type mappings across all domains.
                     </small>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- System Status -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-activity me-2"></i>System Status</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="d-flex justify-content-center align-items-center mb-1">
-                                    <span class="status-indicator {{ 'status-online' if mcp_status else 'status-offline' }} me-2"></span>
-                                    <span>{{ 'Online' if mcp_status else 'Offline' }}</span>
-                                </div>
-                                <small class="text-muted">MCP Server</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="d-flex justify-content-center align-items-center mb-1">
-                                    <span class="status-indicator status-online me-2"></span>
-                                    <span>Connected</span>
-                                </div>
-                                <small class="text-muted">Database</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="d-flex justify-content-center align-items-center mb-1">
-                                    <span class="status-indicator {{ 'status-online' if embedding_status else 'status-offline' }} me-2"></span>
-                                    <span>{{ 'Ready' if embedding_status else 'Not Ready' }}</span>
-                                </div>
-                                <small class="text-muted">Embeddings</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <div class="mb-1">
-                                    <span class="fw-bold">{{ concept_count or 0 }}</span>
-                                </div>
-                                <small class="text-muted">Ontology Concepts</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Tools -->
-    <div class="row mt-4">
-        <div class="col-12 text-center">
-            <div class="btn-group" role="group" aria-label="Quick tools">
-                <a href="/experiment" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-flask me-1"></i>Experiments
-                </a>
-                <a href="/agent" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-robot me-1"></i>Ethics Agent
-                </a>
-                <a href="/debug" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-bug me-1"></i>Debug Tools
-                </a>
             </div>
         </div>
     </div>
