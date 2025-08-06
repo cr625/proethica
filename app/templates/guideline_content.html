@@ -29,24 +29,40 @@
               {% endif %}
             </a>
             <!-- Edit functionality not yet implemented -->
+            {% if can_delete_item(guideline) %}
             <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#deleteGuidelineModal">
               <i class="fas fa-trash"></i> Delete
             </button>
+            {% endif %}
           </div>
         </div>
         <div class="card-body">
-          <p class="text-muted">
-            <strong>Source:</strong> 
-            {% if guideline.source %}
-              <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a>
-            {% elif guideline.source_url %}
-              <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
-            {% elif guideline.file_path %}
-              Uploaded file: {{ guideline.file_path.split('/')[-1] }}
-            {% else %}
-              Manual entry
-            {% endif %}
-          </p>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <p class="text-muted mb-2">
+                <strong>Source:</strong> 
+                {% if guideline.source %}
+                  <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a>
+                {% elif guideline.source_url %}
+                  <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
+                {% elif guideline.file_path %}
+                  Uploaded file: {{ guideline.file_path.split('/')[-1] }}
+                {% else %}
+                  Manual entry
+                {% endif %}
+              </p>
+            </div>
+            <div class="col-md-6">
+              <p class="text-muted mb-2">
+                <strong>Created by:</strong> {{ get_creator_name(guideline) }}
+              </p>
+              {% if guideline.created_at %}
+              <p class="text-muted mb-2">
+                <strong>Created:</strong> {{ guideline.created_at.strftime('%Y-%m-%d %H:%M') }}
+              </p>
+              {% endif %}
+            </div>
+          </div>
           
           <div class="mt-4 guideline-content">
             {% if guideline.content %}
@@ -68,12 +84,66 @@
       </div>
       
       <!-- Extracted concepts section -->
-      <div class="card mb-4">
+      <div class="card mb-4" id="associated-concepts">
         <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Associated Concepts</h5>
-          <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" class="btn btn-sm btn-light">
-            <i class="fas fa-brain"></i> Analyze Concepts
-          </a>
+          <div class="btn-group" role="group">
+            {% if concepts %}
+              {% if ontology_status and ontology_status.all_added %}
+                <!-- Concepts exist and are in ontology -->
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-warning"
+                   onclick="return confirm('Re-extracting concepts may invalidate ontology mappings. Continue?')">
+                  <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split" 
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                    <i class="bi bi-trash"></i> Remove Concepts & Ontology Entries
+                  </a></li>
+                </ul>
+              {% elif ontology_status and ontology_status.ready_to_add %}
+                <!-- Concepts exist but not in ontology -->
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-warning">
+                  <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split" 
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                    <i class="bi bi-trash"></i> Remove Extracted Concepts
+                  </a></li>
+                </ul>
+              {% else %}
+                <!-- Concepts exist but status unclear -->
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-warning">
+                  <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split" 
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                    <i class="bi bi-trash"></i> Remove Extracted Concepts
+                  </a></li>
+                </ul>
+              {% endif %}
+            {% else %}
+              <!-- No concepts exist -->
+              <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                 class="btn btn-sm btn-light">
+                <i class="bi bi-lightbulb"></i> Extract Concepts
+              </a>
+            {% endif %}
+          </div>
         </div>
         <div class="card-body">
           {% if concepts %}
@@ -314,5 +384,49 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Function to remove extracted concepts
+function removeExtractedConcepts(guidelineId) {
+    const confirmMessage = 'Are you sure you want to remove all extracted concepts?\n\n' +
+                          'This will delete:\n' +
+                          '• All concept extractions from this guideline\n' +
+                          '• Any associated ontology entries (if they exist)\n' +
+                          '• Analysis metadata\n\n' +
+                          'This action cannot be undone.';
+    
+    if (confirm(confirmMessage)) {
+        // Show loading state
+        const button = event.target.closest('.btn-group');
+        if (button) {
+            button.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
+                              '<i class="bi bi-hourglass-split"></i> Removing...</button>';
+        }
+        
+        // Send DELETE request
+        fetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (response.ok) {
+                // Reload the page to show updated state
+                window.location.reload();
+            } else {
+                throw new Error('Failed to remove concepts');
+            }
+        })
+        .catch(error => {
+            console.error('Error removing concepts:', error);
+            alert('Failed to remove concepts. Please try again.');
+            // Restore button state
+            window.location.reload();
+        });
+    }
+    
+    return false; // Prevent default link action
+}
 </script>
 {% endblock %}

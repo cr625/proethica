@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}403 - Access Forbidden{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="fas fa-lock me-2"></i>
+                        Access Forbidden (403)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-ban text-warning" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h5 class="text-center mb-3">You don't have permission to access this resource</h5>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>What happened?</h6>
+                        <p class="mb-2">You tried to access content or perform an action that you don't have permission for.</p>
+                        
+                        <h6 class="mt-3"><i class="fas fa-shield-alt me-2"></i>Common reasons:</h6>
+                        <ul class="mb-0">
+                            <li><strong>System Content</strong>: You're trying to edit system content (like Engineering Ethics data) which is read-only for non-administrators</li>
+                            <li><strong>Not Your Content</strong>: You're trying to modify content created by another user</li>
+                            <li><strong>Admin Required</strong>: The action requires administrator privileges</li>
+                            <li><strong>Session Expired</strong>: Your login session may have expired</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-lightbulb me-2"></i>What can you do?</h6>
+                        <ul class="mb-0">
+                            <li><strong>View Content</strong>: You can still view and browse all content</li>
+                            <li><strong>Create Your Own</strong>: Create new worlds, guidelines, and scenarios</li>
+                            <li><strong>Contact Admin</strong>: If you need special access, contact an administrator</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('index.index') }}" class="btn btn-primary me-2">
+                            <i class="fas fa-home me-2"></i>Go Home
+                        </a>
+                        <button onclick="history.back()" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Go Back
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-footer text-muted text-center">
+                    <small>
+                        <i class="fas fa-users me-2"></i>
+                        ProEthica uses role-based permissions to protect content and ensure data integrity
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-header {
+    border-bottom: 2px solid rgba(0,0,0,.125);
+}
+
+.alert h6 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.alert ul {
+    margin-left: 1rem;
+}
+</style>
+{% endblock %}

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session
 from flask_login import login_required, current_user
+from app.utils.auth_utils import admin_required, data_owner_required
 import json
 import ast
 import re
@@ -212,9 +213,15 @@ def view_world(id):
                            ontology=ontology, all_ontologies=all_ontologies)
 
 @worlds_bp.route('/<int:id>/edit', methods=['GET'])
+@login_required
 def edit_world(id):
     """Display form to edit an existing world."""
     world = World.query.get_or_404(id)
+    
+    # Check if user can edit this world
+    if not world.can_edit(current_user):
+        flash('You do not have permission to edit this world.', 'error')
+        return redirect(url_for('worlds.view_world', id=id))
     
     # Fetch all available ontologies for the dropdown
     ontologies = Ontology.query.all()
@@ -222,9 +229,15 @@ def edit_world(id):
     return render_template('edit_world.html', world=world, ontologies=ontologies)
 
 @worlds_bp.route('/<int:id>/edit', methods=['POST'])
+@login_required
 def update_world_form(id):
     """Update an existing world from form data."""
     world = World.query.get_or_404(id)
+    
+    # Check if user can edit this world
+    if not world.can_edit(current_user):
+        flash('You do not have permission to edit this world.', 'error')
+        return redirect(url_for('worlds.view_world', id=id))
     
     # Update world fields
     world.name = request.form.get('name', '')
@@ -430,9 +443,14 @@ def update_world(id):
     })
 
 @worlds_bp.route('/<int:id>', methods=['DELETE'])
+@login_required
 def delete_world(id):
     """Delete a world via API."""
     world = World.query.get_or_404(id)
+    
+    # Check if user can delete this world
+    if not world.can_delete(current_user):
+        return jsonify({'error': 'You do not have permission to delete this world'}), 403
     
     # Delete associated scenarios first
     for scenario in world.scenarios:
@@ -448,9 +466,15 @@ def delete_world(id):
     })
 
 @worlds_bp.route('/<int:id>/delete', methods=['POST'])
+@login_required
 def delete_world_confirm(id):
     """Delete a world from web form."""
     world = World.query.get_or_404(id)
+    
+    # Check if user can delete this world
+    if not world.can_delete(current_user):
+        flash('You do not have permission to delete this world.', 'error')
+        return redirect(url_for('worlds.view_world', id=id))
     
     # Delete associated scenarios first
     for scenario in world.scenarios:
@@ -1959,6 +1983,7 @@ def save_guideline_triples(world_id, document_id):
                               error_details=error_trace))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
+@login_required
 def delete_guideline(id, document_id):
     """Delete a guideline document and all associated data."""
     world = World.query.get_or_404(id)
@@ -1978,6 +2003,11 @@ def delete_guideline(id, document_id):
     if document.document_type != "guideline":
         flash('Document is not a guideline', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Check if user can delete this document
+    if not document.can_delete(current_user):
+        flash('You do not have permission to delete this guideline.', 'error')
+        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
     
     # Get the associated guideline ID if exists
     actual_guideline_id = None
@@ -2162,3 +2192,103 @@ def add_concepts_to_ontology(world_id, document_id):
         logger.error(f"Error adding concepts to ontology: {str(e)}\n{error_trace}")
         flash(f'Unexpected error: {str(e)}', 'error')
         return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+
+
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/concepts', methods=['DELETE'])
+@login_required
+def remove_extracted_concepts(id, document_id):
+    """Remove extracted concepts from a guideline and associated ontology entries."""
+    from flask import jsonify
+    
+    try:
+        # Get the world and guideline
+        world = World.query.get_or_404(id)
+        guideline = Guideline.query.filter_by(id=document_id, world_id=id).first_or_404()
+        
+        # Check permissions
+        if not guideline.can_edit(current_user):
+            logger.warning(f"User {current_user.id} attempted to remove concepts from guideline {document_id} without permission")
+            return jsonify({'error': 'Permission denied'}), 403
+        
+        logger.info(f"User {current_user.id} removing extracted concepts from guideline {document_id}")
+        
+        # Track what we're removing for logging
+        concepts_removed = 0
+        ontology_entries_removed = 0
+        
+        # 1. Remove extracted concepts from document metadata
+        if hasattr(guideline, 'doc_metadata') and guideline.doc_metadata:
+            if 'extracted_concepts' in guideline.doc_metadata:
+                concepts_removed = len(guideline.doc_metadata.get('extracted_concepts', []))
+                
+                # Remove concept extraction data
+                extraction_keys = [
+                    'extracted_concepts', 
+                    'extraction_timestamp',
+                    'concept_extraction_method',
+                    'llm_extraction_metadata'
+                ]
+                
+                for key in extraction_keys:
+                    guideline.doc_metadata.pop(key, None)
+                
+                # Mark as modified for SQLAlchemy
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(guideline, 'doc_metadata')
+        
+        # 2. Check if there's a derived ontology and remove related entries
+        from app.models.ontology import Ontology
+        derived_ontology = Ontology.query.filter(
+            Ontology.domain_id.like(f'%guideline-{document_id}%')
+        ).first()
+        
+        if derived_ontology:
+            logger.info(f"Found derived ontology {derived_ontology.id} for guideline {document_id}")
+            
+            # Count ontology entries before deletion
+            from app.models.entity_triple import EntityTriple
+            ontology_triples = EntityTriple.query.filter_by(
+                guideline_id=document_id,
+                ontology_id=derived_ontology.id
+            ).all()
+            ontology_entries_removed = len(ontology_triples)
+            
+            # Remove entity triples associated with this guideline
+            for triple in ontology_triples:
+                db.session.delete(triple)
+            
+            # If this was the only guideline using this derived ontology, remove the ontology too
+            remaining_triples = EntityTriple.query.filter_by(
+                ontology_id=derived_ontology.id
+            ).filter(EntityTriple.guideline_id != document_id).count()
+            
+            if remaining_triples == 0:
+                logger.info(f"No other guidelines use derived ontology {derived_ontology.id}, removing it")
+                db.session.delete(derived_ontology)
+        
+        # 3. Reset any triple counters or metadata
+        if hasattr(guideline, 'doc_metadata') and guideline.doc_metadata:
+            guideline.doc_metadata.pop('triples_created', None)
+            flag_modified(guideline, 'doc_metadata')
+        
+        # Commit all changes
+        db.session.commit()
+        
+        logger.info(f"Successfully removed {concepts_removed} concepts and {ontology_entries_removed} ontology entries from guideline {document_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Concepts removed successfully',
+            'concepts_removed': concepts_removed,
+            'ontology_entries_removed': ontology_entries_removed
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Error removing concepts from guideline {document_id}: {str(e)}\n{error_trace}")
+        
+        return jsonify({
+            'error': f'Failed to remove concepts: {str(e)}'
+        }), 500

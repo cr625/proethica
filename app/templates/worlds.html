@@ -17,7 +17,10 @@
         <div class="col">
             <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">{{ world.name }}</h5>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title">{{ world.name }}</h5>
+                        {{ get_data_type_badge(world)|safe }}
+                    </div>
                     <p class="card-text text-truncate" id="description-{{ world.id }}">
                         {{ world.description }}
                     </p>
@@ -25,23 +28,32 @@
                         id="toggle-btn-{{ world.id }}">
                         Show More
                     </button>
-                    <p class="card-text"><small class="text-muted">Created: {{ world.created_at.strftime('%Y-%m-%d')
-                            }}</small></p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Created: {{ world.created_at.strftime('%Y-%m-%d') }}</small>
+                        {% if not is_system_data(world) %}
+                        <small class="text-muted">By: {{ get_creator_name(world) }}</small>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-flex justify-content-between">
                         <div>
                             <a href="/worlds/{{ world.id }}" class="btn btn-outline-primary">View Details</a>
+                            {% if can_edit_item(world) %}
                             <a href="/worlds/{{ world.id }}/edit" class="btn btn-outline-warning">Edit</a>
+                            {% endif %}
                         </div>
+                        {% if can_delete_item(world) %}
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
                             data-bs-target="#deleteWorldModal{{ world.id }}">
                             Delete
                         </button>
+                        {% endif %}
                     </div>
                 </div>
 
-                <!-- Delete World Modal -->
+                <!-- Delete World Modal - Only show if user can delete -->
+                {% if can_delete_item(world) %}
                 <div class="modal fade" id="deleteWorldModal{{ world.id }}" tabindex="-1"
                     aria-labelledby="deleteWorldModalLabel{{ world.id }}" aria-hidden="true">
                     <div class="modal-dialog">
@@ -65,6 +77,7 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}

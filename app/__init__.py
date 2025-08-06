@@ -95,6 +95,10 @@ def create_app(config_module='app.config'):
     # Register template filters
     init_filters(app)
     
+    # Register template helpers for permissions and ownership
+    from app.utils.template_helpers import register_template_helpers
+    register_template_helpers(app)
+    
     # Register blueprints
     from app.routes.index import index_bp
     from app.routes.auth import auth_bp
@@ -168,6 +172,13 @@ def create_app(config_module='app.config'):
             'environment': app.config.get('ENVIRONMENT', 'development'),
             'app_name': 'ProEthica'
         }
+    
+    # Error handlers for authentication and permissions
+    @app.errorhandler(403)
+    def forbidden(error):
+        """Handle 403 Forbidden errors with helpful message."""
+        from flask import render_template
+        return render_template('errors/403.html'), 403
     
     return app
 
