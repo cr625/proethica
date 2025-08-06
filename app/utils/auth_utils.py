@@ -1,75 +1,85 @@
 """
 Authentication utilities for ProEthica.
+
+This module provides authentication decorators and utilities for the ProEthica system.
+With the removal of the bypass system, all authentication now goes through Flask-Login.
 """
 
-import os
 import functools
-from flask_login import current_user, login_required as flask_login_required
-from flask import redirect, url_for, request
+from flask_login import current_user
 
 
-class MockUser:
-    """Mock user for development mode when auth is bypassed."""
-    
-    def __init__(self, user_id=1):
-        self.id = user_id
-        self.username = "dev_user"
-        self.email = "dev@proethica.org"
-        self.is_authenticated = True
-        self.is_active = True
-        self.is_anonymous = False
-    
-    def get_id(self):
-        return str(self.id)
-    
-    def __repr__(self):
-        return f'<MockUser {self.username}>'
-
-
-def get_mock_user(user_id=1):
-    """Get a mock user for bypass mode."""
-    return MockUser(user_id)
-
-
-def login_required(f):
+def admin_required(f):
     """
-    Custom login_required decorator that respects the BYPASS_AUTH environment variable.
-    
-    If BYPASS_AUTH is 'true', this decorator does nothing (allows access).
-    If BYPASS_AUTH is 'false' or not set, this uses Flask-Login's normal behavior.
+    Decorator that requires the current user to be an admin.
+    Must be used in combination with @login_required.
     """
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        # Check if auth is bypassed
-        if os.environ.get('BYPASS_AUTH', 'false').lower() == 'true':
-            # Auth is bypassed - allow access without checking login
-            return f(*args, **kwargs)
-        else:
-            # Normal auth behavior - use Flask-Login's login_required
-            return flask_login_required(f)(*args, **kwargs)
+        if not current_user.is_authenticated:
+            # This should not happen if @login_required is used first
+            from flask import abort
+            abort(401)
+        
+        if not getattr(current_user, 'is_admin', False):
+            from flask import abort
+            abort(403)  # Forbidden
+        
+        return f(*args, **kwargs)
     
     return decorated_function
 
 
-def get_current_user():
+def data_owner_required(model_class, id_param='id'):
     """
-    Get the current user, handling both real auth and bypass mode.
+    Decorator that requires the current user to be the owner of the data being accessed,
+    or an admin. Must be used in combination with @login_required.
+    
+    Args:
+        model_class: The SQLAlchemy model class to check ownership of
+        id_param: The parameter name in the route that contains the item ID
     """
-    if os.environ.get('BYPASS_AUTH', 'false').lower() == 'true':
-        # Return mock user in bypass mode
-        return get_mock_user()
-    else:
-        # Return real current user
-        return current_user
+    def decorator(f):
+        @functools.wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                from flask import abort
+                abort(401)
+            
+            # Get the item ID from the route parameters
+            item_id = kwargs.get(id_param)
+            if item_id is None:
+                from flask import abort
+                abort(400)  # Bad request - missing ID
+            
+            # Get the item from the database
+            item = model_class.query.get_or_404(item_id)
+            
+            # Check if user is admin or owns the data
+            is_owner = getattr(item, 'created_by', None) == current_user.id
+            is_admin = getattr(current_user, 'is_admin', False)
+            
+            if not (is_admin or is_owner):
+                from flask import abort
+                abort(403)  # Forbidden
+            
+            return f(*args, **kwargs)
+        
+        return decorated_function
+    return decorator
 
 
-def is_authenticated():
+def user_required(f):
     """
-    Check if user is authenticated, handling both real auth and bypass mode.
+    Decorator that requires any authenticated user.
+    This is essentially the same as @login_required but kept for consistency.
     """
-    if os.environ.get('BYPASS_AUTH', 'false').lower() == 'true':
-        # Always authenticated in bypass mode
-        return True
-    else:
-        # Check real authentication status
-        return current_user.is_authenticated
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            from flask import abort
+            abort(401)
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function

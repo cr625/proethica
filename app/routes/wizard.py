@@ -7,7 +7,7 @@ with session management, step progression, and choice tracking.
 
 import logging
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
-from app.utils.auth_utils import login_required, get_current_user
+from flask_login import login_required, current_user
 from app.models.scenario import Scenario
 from app.models.wizard import WizardStep, UserWizardSession
 from app.services.wizard_controller import WizardController
@@ -32,7 +32,7 @@ def start_or_resume_wizard(id):
         scenario = Scenario.query.get_or_404(id)
         
         # Get current user
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get or create session
@@ -77,7 +77,7 @@ def get_step_content(id, step_number):
         scenario = Scenario.query.get_or_404(id)
         
         # Get current user and session
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get active session
@@ -156,7 +156,7 @@ def submit_choice(id, step_number):
         option_id = data['option_id']
         
         # Get current user and session
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get active session
@@ -248,7 +248,7 @@ def navigate_wizard(id):
             }), 400
         
         # Get current user and session
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get active session
@@ -320,7 +320,7 @@ def view_summary(id):
         scenario = Scenario.query.get_or_404(id)
         
         # Get current user and session
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get session (can be active or completed)
@@ -372,7 +372,7 @@ def get_session_status(id):
         scenario = Scenario.query.get_or_404(id)
         
         # Get current user
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get active session
@@ -416,7 +416,7 @@ def reset_wizard_session(id):
         scenario = Scenario.query.get_or_404(id)
         
         # Get current user
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         user_id = current_user.id
         
         # Get existing session

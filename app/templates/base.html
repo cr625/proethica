@@ -122,19 +122,13 @@
                             </li>
                         </ul>
                         <ul class="navbar-nav">
-                            <!-- Auth Status Indicator -->
+                            <!-- Environment Indicator (Development Only) -->
                             <li class="nav-item">
                                 <span class="navbar-text me-2">
                                     {% if environment == 'development' %}
-                                        {% if bypass_auth %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="bi bi-shield-exclamation"></i> Auth Bypassed
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-success">
-                                                <i class="bi bi-shield-check"></i> Auth Active
-                                            </span>
-                                        {% endif %}
+                                        <span class="badge bg-info">
+                                            <i class="bi bi-gear"></i> Development
+                                        </span>
                                     {% endif %}
                                 </span>
                             </li>

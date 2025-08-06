@@ -7,7 +7,7 @@ import re
 import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from app.utils.auth_utils import login_required, get_current_user
+from flask_login import login_required, current_user
 from app.models.document import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
@@ -964,7 +964,7 @@ def create_from_url():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1314,7 +1314,7 @@ def save_and_view_case():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1844,7 +1844,7 @@ def create_scenario_from_template(template_id):
         generation_service = ScenarioGenerationService()
         scenario = generation_service.create_scenario_instance(
             template, 
-            get_current_user().id,
+            current_user.id,
             customizations
         )
         
@@ -1877,7 +1877,7 @@ def agent_assisted_creation():
         # Get current user and available worlds
         from app.models.world import World
         worlds = World.query.all()
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         
         # Get default world (first available world)
         default_world = worlds[0] if worlds else None
@@ -2034,7 +2034,7 @@ def generate_case_from_conversation():
             }), 400
         
         # Get current user
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         
         # Create AgentConversation record
         import uuid

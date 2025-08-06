@@ -70,15 +70,9 @@ def create_app(config_module='app.config'):
     
     @login_manager.user_loader
     def load_user(user_id):
-        # Check if auth is bypassed
-        if os.environ.get('BYPASS_AUTH', 'false').lower() == 'true':
-            # Return a mock user for bypass mode
-            from app.utils.auth_utils import get_mock_user
-            return get_mock_user(user_id)
-        else:
-            # Use real user model
-            from app.models.user import User
-            return User.query.get(int(user_id))
+        """Load user from the database for Flask-Login."""
+        from app.models.user import User
+        return User.query.get(int(user_id))
     
     # Simply test database connection without schema verification
     with app.app_context():
@@ -172,8 +166,7 @@ def create_app(config_module='app.config'):
         """Add environment variables to template context."""
         return {
             'environment': app.config.get('ENVIRONMENT', 'development'),
-            'app_name': 'ProEthica',
-            'bypass_auth': os.environ.get('BYPASS_AUTH', 'false').lower() == 'true'
+            'app_name': 'ProEthica'
         }
     
     return app
