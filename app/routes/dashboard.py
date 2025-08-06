@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 @dashboard_bp.route('/')
 @login_required
 def index():
-    """Main dashboard view showing system overview and capabilities."""
+    """Admin dashboard showing system overview and management tools."""
     
     # Get system statistics
     stats = get_system_statistics()
@@ -48,18 +48,18 @@ def index():
     # Get recent activity
     recent_activity = get_recent_activity()
     
-    # Get workflow status
-    workflow_status = get_workflow_status()
+    # Get ontology sync status
+    sync_status = get_ontology_sync_status()
     
-    # Get capability assessment
-    capabilities = assess_capabilities()
+    # Get simplified system status (MCP server, database)
+    system_status = get_simplified_system_status()
     
     return render_template(
         'dashboard/index.html',
         stats=stats,
         recent_activity=recent_activity,
-        workflow_status=workflow_status,
-        capabilities=capabilities
+        sync_status=sync_status,
+        system_status=system_status
     )
 
 
@@ -85,6 +85,14 @@ def api_capabilities():
     """API endpoint for capability assessment."""
     capabilities = assess_capabilities()
     return jsonify(capabilities)
+
+
+@dashboard_bp.route('/api/sync-status')
+@login_required
+def api_sync_status():
+    """API endpoint for ontology sync status."""
+    sync_status = get_ontology_sync_status()
+    return jsonify(sync_status)
 
 
 @dashboard_bp.route('/world/<int:world_id>')
@@ -405,8 +413,125 @@ def test_firac_analysis():
     )
 
 
+def get_simplified_system_status():
+    """Get simplified system status for admin dashboard."""
+    import os
+    import requests
+    
+    status = {
+        'mcp_server': False,
+        'database': False,
+        'mcp_url': os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')
+    }
+    
+    # Check MCP server
+    try:
+        response = requests.post(
+            f"{status['mcp_url']}/jsonrpc",
+            json={
+                "jsonrpc": "2.0",
+                "method": "list_tools",
+                "params": {},
+                "id": 1
+            },
+            timeout=2
+        )
+        if response.status_code == 200:
+            status['mcp_server'] = True
+    except:
+        pass
+    
+    # Check database
+    try:
+        # Simple query to check database connection
+        World.query.limit(1).first()
+        status['database'] = True
+    except:
+        pass
+    
+    return status
+
+
+def get_ontology_sync_status():
+    """Check synchronization status between TTL files and database."""
+    import os
+    from datetime import datetime
+    import hashlib
+    from app.models.ontology_version import OntologyVersion
+    
+    sync_status = {
+        'core_ontologies': [],
+        'guideline_ontologies': [],
+        'last_sync': None,
+        'needs_sync': False
+    }
+    
+    # Check core ontology files
+    core_ontologies = ['bfo', 'proethica-intermediate', 'engineering-ethics']
+    for domain in core_ontologies:
+        ttl_path = f'ontologies/{domain}.ttl'
+        if os.path.exists(ttl_path):
+            # Get file modification time
+            file_mtime = datetime.fromtimestamp(os.path.getmtime(ttl_path))
+            
+            # Get file content for comparison
+            with open(ttl_path, 'r') as f:
+                file_content = f.read()
+            
+            # Check database version
+            ontology = Ontology.query.filter_by(domain_id=domain).first()
+            latest_version = None
+            db_synced = False
+            
+            if ontology:
+                latest_version = OntologyVersion.query.filter_by(
+                    ontology_id=ontology.id
+                ).order_by(OntologyVersion.created_at.desc()).first()
+                
+                # Compare content if version exists
+                if latest_version and latest_version.content:
+                    # Simple comparison: check if content matches
+                    db_synced = (latest_version.content.strip() == file_content.strip())
+                elif latest_version:
+                    # If no content stored, check by modification time
+                    db_synced = (latest_version.created_at.timestamp() >= file_mtime.timestamp())
+            
+            sync_status['core_ontologies'].append({
+                'domain': domain,
+                'file_exists': True,
+                'file_modified': file_mtime.isoformat(),
+                'db_exists': ontology is not None,
+                'is_synced': db_synced,
+                'last_db_sync': latest_version.created_at.isoformat() if latest_version else None,
+                'has_content': bool(latest_version.content) if latest_version else False,
+                'ontology_id': ontology.id if ontology else None
+            })
+            
+            if not db_synced:
+                sync_status['needs_sync'] = True
+    
+    # Count guideline-derived ontologies (database only)
+    guideline_ontology_count = Ontology.query.filter(
+        Ontology.domain_id.like('%guideline-%')
+    ).count()
+    
+    sync_status['guideline_ontologies'] = {
+        'count': guideline_ontology_count,
+        'note': 'Guideline ontologies exist only in database (no TTL files)'
+    }
+    
+    # Get last sync time
+    last_sync = OntologyVersion.query.order_by(
+        OntologyVersion.created_at.desc()
+    ).first()
+    if last_sync:
+        sync_status['last_sync'] = last_sync.created_at.isoformat()
+    
+    return sync_status
+
+
 def get_system_statistics():
-    """Get overall system statistics."""
+    """Get overall system statistics for admin dashboard."""
     
     # Basic counts
     world_count = World.query.count()
@@ -443,6 +568,15 @@ def get_system_statistics():
         ).subquery()
     ).scalar() or 0
     
+    # Get database table count
+    try:
+        result = db.session.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+        )
+        table_count = result.scalar()
+    except:
+        table_count = 0
+    
     return {
         'overview': {
             'worlds': world_count,
@@ -454,10 +588,10 @@ def get_system_statistics():
         'processing': {
             'total_documents': document_count,
             'processed_documents': processed_docs,
-            'processing_rate': (processed_docs / document_count * 100) if document_count > 0 else 0,
+            'structure_percentage': round((processed_docs / document_count * 100) if document_count > 0 else 0),
             'total_sections': total_sections,
             'embedded_sections': embedded_sections,
-            'embedding_rate': (embedded_sections / total_sections * 100) if total_sections > 0 else 0
+            'embeddings_percentage': round((embedded_sections / total_sections * 100) if total_sections > 0 else 0)
         },
         'analysis': {
             'total_guidelines': guideline_count,
@@ -465,6 +599,9 @@ def get_system_statistics():
             'analysis_rate': (analyzed_guidelines / guideline_count * 100) if guideline_count > 0 else 0,
             'entity_triples': entity_triple_count,
             'associations': associations_count
+        },
+        'database': {
+            'table_count': table_count
         }
     }
 
@@ -485,13 +622,14 @@ def get_recent_activity():
         'documents': [{
             'id': doc.id,
             'title': doc.title,
-            'created_at': doc.created_at.isoformat() if doc.created_at else None,
-            'type': 'case' if doc.doc_metadata.get('case_number') else 'document'
+            'document_type': doc.document_type,
+            'created_at': doc.created_at.isoformat() if doc.created_at else None
         } for doc in recent_docs],
         'guidelines': [{
             'id': guideline.id,
             'title': guideline.title,
             'world_id': guideline.world_id,
+            'world_name': guideline.world.name if guideline.world else 'Unknown',
             'created_at': guideline.created_at.isoformat() if guideline.created_at else None
         } for guideline in recent_guidelines],
         'worlds': [{

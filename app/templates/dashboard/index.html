@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ProEthica Dashboard{% endblock %}
+{% block title %}Admin Dashboard - ProEthica{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
@@ -8,355 +8,297 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
-                <h1><i class="fas fa-tachometer-alt"></i> ProEthica Dashboard</h1>
+                <h1><i class="fas fa-cog"></i> Admin Dashboard</h1>
                 <div class="btn-group">
-                    <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                    <button class="btn btn-outline-primary" onclick="location.reload()">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
-                    <a href="/worlds" class="btn btn-primary">
-                        <i class="fas fa-globe"></i> Manage Worlds
+                    <a href="/debug/status" class="btn btn-outline-secondary">
+                        <i class="fas fa-bug"></i> Debug Status
                     </a>
                 </div>
             </div>
-            <p class="text-muted">Unified view of ethical decision-making capabilities and system status</p>
         </div>
     </div>
 
-    <!-- System Overview Cards -->
+    <!-- System Stats Row -->
     <div class="row mb-4">
-        <div class="col-md-2">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4>{{ stats.overview.worlds }}</h4>
-                            <span>Worlds</span>
+        <div class="col-lg-8">
+            <!-- Main Stats Cards -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Worlds</h5>
+                            <h3>{{ stats.overview.worlds }}</h3>
+                            <small class="text-muted">Professional domains</small>
                         </div>
-                        <i class="fas fa-globe fa-2x"></i>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Guidelines</h5>
+                            <h3>{{ stats.overview.guidelines }}</h3>
+                            <small class="text-muted">Ethical guidelines</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Cases</h5>
+                            <h3>{{ stats.overview.cases }}</h3>
+                            <small class="text-muted">Ethics cases</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Documents</h5>
+                            <h3>{{ stats.overview.documents }}</h3>
+                            <small class="text-muted">Total documents</small>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-2">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4>{{ stats.overview.guidelines }}</h4>
-                            <span>Guidelines</span>
-                        </div>
-                        <i class="fas fa-book fa-2x"></i>
-                    </div>
+
+        <div class="col-lg-4">
+            <!-- System Status Card -->
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">System Status</h5>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card bg-info text-white">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4>{{ stats.overview.cases }}</h4>
-                            <span>Cases</span>
-                        </div>
-                        <i class="fas fa-file-alt fa-2x"></i>
+                    <div class="mb-2">
+                        <span class="badge badge-{{ 'success' if system_status.mcp_server else 'danger' }}">
+                            MCP Server: {{ 'Online' if system_status.mcp_server else 'Offline' }}
+                        </span>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4>{{ stats.overview.documents }}</h4>
-                            <span>Documents</span>
-                        </div>
-                        <i class="fas fa-folder fa-2x"></i>
+                    <div class="mb-2">
+                        <span class="badge badge-{{ 'success' if system_status.database else 'danger' }}">
+                            Database: {{ 'Connected' if system_status.database else 'Error' }}
+                        </span>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card bg-secondary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4>{{ stats.overview.ontologies }}</h4>
-                            <span>Ontologies</span>
-                        </div>
-                        <i class="fas fa-sitemap fa-2x"></i>
+                    <div class="mb-2">
+                        <span class="badge badge-{{ 'warning' if sync_status.needs_sync else 'success' }}">
+                            Ontology Sync: {{ 'Update Needed' if sync_status.needs_sync else 'Synced' }}
+                        </span>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card bg-dark text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4>{{ stats.analysis.associations }}</h4>
-                            <span>Associations</span>
-                        </div>
-                        <i class="fas fa-link fa-2x"></i>
-                    </div>
+                    {% if sync_status.last_sync %}
+                    <small class="text-muted">Last sync: {{ sync_status.last_sync }}</small>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Workflow Status -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3><i class="fas fa-project-diagram"></i> Ethical Decision-Making Pipeline</h3>
-                    <small>Overall Completion: {{ "%.1f"|format(workflow_status.overall_completion) }}%</small>
+    <!-- Main Content Area -->
+    <div class="row">
+        <!-- Left Column: Data Management -->
+        <div class="col-lg-6">
+            <!-- Ontology Management -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Ontology Management</h5>
+                    <button class="btn btn-sm btn-primary" onclick="syncOntologies()">
+                        <i class="fas fa-sync"></i> Sync TTL to DB
+                    </button>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        {% for step_key, step in workflow_status.pipeline.items() %}
-                        <div class="col-md-3 mb-3">
-                            <div class="card h-100 {% if step.status == 'operational' %}border-success{% elif step.status == 'partial' %}border-warning{% else %}border-danger{% endif %}">
-                                <div class="card-body">
-                                    <h6 class="card-title">
-                                        {% if step.status == 'operational' %}
-                                            <i class="fas fa-check-circle text-success"></i>
-                                        {% elif step.status == 'partial' %}
-                                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                    <h6>Core Ontologies</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>File</th>
+                                    <th>Database</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ont in sync_status.core_ontologies %}
+                                <tr>
+                                    <td>{{ ont.domain }}</td>
+                                    <td>
+                                        {% if ont.file_exists %}
+                                        <i class="fas fa-check text-success"></i>
                                         {% else %}
-                                            <i class="fas fa-times-circle text-danger"></i>
+                                        <i class="fas fa-times text-danger"></i>
                                         {% endif %}
-                                        {{ step.name }}
-                                    </h6>
-                                    <p class="card-text small">{{ step.description }}</p>
-                                    <div class="progress">
-                                        <div class="progress-bar 
-                                            {% if step.completion == 100 %}bg-success
-                                            {% elif step.completion > 50 %}bg-warning
-                                            {% else %}bg-danger{% endif %}" 
-                                            role="progressbar" 
-                                            style="width: {{ step.completion }}%"
-                                            aria-valuenow="{{ step.completion }}" 
-                                            aria-valuemin="0" 
-                                            aria-valuemax="100">
-                                            {{ step.completion }}%
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Capabilities Assessment -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h3><i class="fas fa-cogs"></i> System Capabilities</h3>
-                </div>
-                <div class="card-body">
-                    {% for cap_key, capability in capabilities.items() %}
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong>{{ capability.name }}</strong>
-                            <span class="badge 
-                                {% if capability.status == 'excellent' %}badge-success
-                                {% elif capability.status == 'good' %}badge-primary
-                                {% elif capability.status == 'needs_work' %}badge-warning
-                                {% else %}badge-danger{% endif %}">
-                                {{ capability.status.replace('_', ' ').title() }}
-                            </span>
-                        </div>
-                        <div class="progress mb-2">
-                            <div class="progress-bar 
-                                {% if capability.completion >= 80 %}bg-success
-                                {% elif capability.completion >= 60 %}bg-info
-                                {% elif capability.completion >= 40 %}bg-warning
-                                {% else %}bg-danger{% endif %}" 
-                                role="progressbar" 
-                                style="width: {{ capability.completion }}%"
-                                aria-valuenow="{{ capability.completion }}" 
-                                aria-valuemin="0" 
-                                aria-valuemax="100">
-                                {{ capability.completion }}%
-                            </div>
-                        </div>
-                        <ul class="list-unstyled small">
-                            {% for feature in capability.features[:3] %}
-                            <li><i class="fas fa-check text-success"></i> {{ feature }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h3><i class="fas fa-chart-line"></i> Processing Statistics</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>Document Processing</h5>
-                            <div class="progress mb-2">
-                                <div class="progress-bar bg-info" 
-                                     role="progressbar" 
-                                     style="width: {{ stats.processing.processing_rate }}%">
-                                    {{ "%.1f"|format(stats.processing.processing_rate) }}%
-                                </div>
-                            </div>
-                            <small>{{ stats.processing.processed_documents }} of {{ stats.processing.total_documents }} documents processed</small>
-                            
-                            <h5 class="mt-3">Embedding Generation</h5>
-                            <div class="progress mb-2">
-                                <div class="progress-bar bg-warning" 
-                                     role="progressbar" 
-                                     style="width: {{ stats.processing.embedding_rate }}%">
-                                    {{ "%.1f"|format(stats.processing.embedding_rate) }}%
-                                </div>
-                            </div>
-                            <small>{{ stats.processing.embedded_sections }} of {{ stats.processing.total_sections }} sections embedded</small>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <h5>Guideline Analysis</h5>
-                            <div class="progress mb-2">
-                                <div class="progress-bar bg-success" 
-                                     role="progressbar" 
-                                     style="width: {{ stats.analysis.analysis_rate }}%">
-                                    {{ "%.1f"|format(stats.analysis.analysis_rate) }}%
-                                </div>
-                            </div>
-                            <small>{{ stats.analysis.analyzed_guidelines }} of {{ stats.analysis.total_guidelines }} guidelines analyzed</small>
-                            
-                            <h5 class="mt-3">Knowledge Graph</h5>
-                            <p class="mb-1"><strong>{{ stats.analysis.entity_triples }}</strong> Entity Triples</p>
-                            <p class="mb-1"><strong>{{ stats.analysis.associations }}</strong> Case Associations</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Activity -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-clock"></i> Recent Documents</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_activity.documents %}
-                        {% for doc in recent_activity.documents %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <strong>{{ doc.title[:30] }}{% if doc.title|length > 30 %}...{% endif %}</strong>
-                                <br><small class="text-muted">{{ doc.type.title() }}</small>
-                            </div>
-                            <small>{{ doc.created_at }}</small>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">No recent documents</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-book"></i> Recent Guidelines</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_activity.guidelines %}
-                        {% for guideline in recent_activity.guidelines %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <strong>{{ guideline.title[:30] }}{% if guideline.title|length > 30 %}...{% endif %}</strong>
-                                <br><small class="text-muted">World {{ guideline.world_id }}</small>
-                            </div>
-                            <small>{{ guideline.created_at }}</small>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">No recent guidelines</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-globe"></i> Recent Worlds</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_activity.worlds %}
-                        {% for world in recent_activity.worlds %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <a href="{{ url_for('dashboard.world_dashboard', world_id=world.id) }}">
-                                    <strong>{{ world.name }}</strong>
-                                </a>
-                                <br><small class="text-muted">{{ world.description[:40] }}{% if world.description and world.description|length > 40 %}...{% endif %}</small>
-                            </div>
-                            <small>{{ world.created_at }}</small>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">No recent worlds</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-lightning-bolt"></i> Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="btn-group mr-2 mb-2">
-                        <a href="/worlds/create" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Create World
-                        </a>
-                        <a href="/cases/process_url" class="btn btn-secondary">
-                            <i class="fas fa-file-import"></i> Import Case
-                        </a>
-                        <a href="/worlds" class="btn btn-info">
-                            <i class="fas fa-list"></i> Browse Worlds
-                        </a>
+                                    </td>
+                                    <td>
+                                        {% if ont.db_exists %}
+                                        <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                        <i class="fas fa-times text-danger"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if ont.is_synced %}
+                                        <span class="badge badge-success">Synced</span>
+                                        {% else %}
+                                        <span class="badge badge-warning">Needs Sync</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if ont.ontology_id %}
+                                        <a href="/ontology-editor/?ontology={{ ont.ontology_id }}&ontology_id={{ ont.ontology_id }}&view=full" 
+                                           class="btn btn-sm btn-outline-primary" title="Edit {{ ont.domain }} ontology">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                     
-                    <div class="btn-group mr-2 mb-2">
-                        <a href="/ontology/entities" class="btn btn-outline-primary">
-                            <i class="fas fa-sitemap"></i> Browse Ontology
-                        </a>
-                        <a href="/dashboard/recommendations/test" class="btn btn-success">
-                            <i class="fas fa-lightbulb"></i> Test Recommendations
-                        </a>
-                        <a href="/dashboard/firac/test" class="btn btn-warning">
-                            <i class="fas fa-balance-scale"></i> Test FIRAC Analysis
-                        </a>
-                        <a href="/domains/test" class="btn btn-outline-secondary">
-                            <i class="fas fa-cogs"></i> Test Domain Registry
-                        </a>
-                        <a href="/debug" class="btn btn-outline-warning">
-                            <i class="fas fa-bug"></i> Debug Tools
-                        </a>
+                    <h6 class="mt-3">Guideline Ontologies</h6>
+                    <p class="mb-0">
+                        <strong>{{ sync_status.guideline_ontologies.count }}</strong> guideline-derived ontologies
+                        <br>
+                        <small class="text-muted">{{ sync_status.guideline_ontologies.note }}</small>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Processing Stats -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Processing Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <p class="mb-1">Documents with Structure</p>
+                            <div class="progress mb-3">
+                                <div class="progress-bar" style="width: {{ stats.processing.structure_percentage }}%">
+                                    {{ stats.processing.structure_percentage }}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <p class="mb-1">Documents with Embeddings</p>
+                            <div class="progress mb-3">
+                                <div class="progress-bar bg-info" style="width: {{ stats.processing.embeddings_percentage }}%">
+                                    {{ stats.processing.embeddings_percentage }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">Entity Triples: <strong>{{ stats.analysis.entity_triples }}</strong></small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Associations: <strong>{{ stats.analysis.associations }}</strong></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Recent Activity & Quick Actions -->
+        <div class="col-lg-6">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <a href="/worlds" class="btn btn-block btn-outline-primary">
+                                <i class="fas fa-globe"></i> Manage Worlds
+                            </a>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <a href="/guidelines" class="btn btn-block btn-outline-success">
+                                <i class="fas fa-book"></i> Manage Guidelines
+                            </a>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <a href="/cases" class="btn btn-block btn-outline-info">
+                                <i class="fas fa-file-alt"></i> Process Cases
+                            </a>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <a href="/ontology-editor" class="btn btn-block btn-outline-warning">
+                                <i class="fas fa-sitemap"></i> Ontology Editor
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% if recent_activity.documents %}
+                    <h6>Recent Documents</h6>
+                    <ul class="list-unstyled">
+                        {% for doc in recent_activity.documents[:5] %}
+                        <li class="mb-2">
+                            <a href="/documents/{{ doc.id }}/structure">{{ doc.title[:50] }}...</a>
+                            <br>
+                            <small class="text-muted">
+                                {{ doc.document_type }} - {{ doc.created_at }}
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if recent_activity.guidelines %}
+                    <h6>Recent Guidelines</h6>
+                    <ul class="list-unstyled">
+                        {% for guideline in recent_activity.guidelines[:3] %}
+                        <li class="mb-2">
+                            <a href="/guidelines/{{ guideline.id }}">{{ guideline.title[:50] }}...</a>
+                            <br>
+                            <small class="text-muted">
+                                World: {{ guideline.world_name }} - {{ guideline.created_at }}
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Tables Info (from debug route) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Database Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Table Count: {{ stats.database.table_count }}</h6>
+                        </div>
+                        <div class="col-md-8">
+                            <h6>Key Tables</h6>
+                            <div class="d-flex flex-wrap">
+                                {% for table in ['worlds', 'guidelines', 'documents', 'entity_triples', 'ontologies', 'scenarios'] %}
+                                <span class="badge badge-secondary mr-2 mb-1">{{ table }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -365,11 +307,12 @@
 </div>
 
 <script>
-function refreshDashboard() {
-    location.reload();
+function syncOntologies() {
+    if (!confirm('Sync TTL files to database? This will update the database with the latest ontology definitions.')) {
+        return;
+    }
+    
+    alert('Please run: python scripts/sync_ontology_to_database.py\n\nThis operation should be run from the command line.');
 }
-
-// Auto-refresh every 5 minutes
-setInterval(refreshDashboard, 300000);
 </script>
 {% endblock %}
