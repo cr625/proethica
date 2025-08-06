@@ -316,6 +316,17 @@
     skos:note "Concept derived through LLM analysis of NSPE competence requirements" ;
     rdfs:subClassOf proeth:EthicalIssue .
 
+:InterdisciplinaryCoordinationRequirement a proeth:Obligation,
+        owl:Class ;
+    rdfs:label "Interdisciplinary Coordination Requirement"@en ;
+    rdfs:comment "Obligation to coordinate with engineers from other disciplines"@en ;
+    dc:source "ISO 15926 - Integration of life-cycle data; Systems Engineering practices" ;
+    prov:wasGeneratedBy "ProEthica Analysis Engine" ;
+    prov:generatedAtTime "2025-01-15"^^xsd:date ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Derived from systems engineering integration requirements" ;
+    rdfs:subClassOf proeth:ProfessionalObligation .
+
 :PublicWelfareObligation a proeth:Obligation,
         owl:Class ;
     rdfs:label "Public Welfare Obligation"@en ;
@@ -461,90 +472,6 @@
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
     skos:note "Periodic events for maintaining professional standards and continuous improvement" ;
     rdfs:subClassOf proeth:Event .
-
-#################################################################
-#    Constraint Entities                                       
-#################################################################
-
-:ProfessionalLicenseConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Professional License Constraint"@en ;
-    rdfs:comment "Requirement that engineers must hold valid professional engineering licenses for specific types of work"@en ;
-    dc:source "NSPE Code of Ethics Section I.2; State Professional Engineering Licensing Laws" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Critical constraint for structural, civil, and other regulated engineering work" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:ExperienceLevelConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Experience Level Constraint"@en ;
-    rdfs:comment "Requirement that engineers must have sufficient years of relevant experience for complex projects"@en ;
-    dc:source "NSPE Code of Ethics Section I.1; Professional competency standards" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Ensures adequate expertise for project complexity and public safety" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:BudgetLimitConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Budget Limit Constraint"@en ;
-    rdfs:comment "Financial limitation that restricts project scope, resources, or timeline decisions"@en ;
-    dc:source "Engineering project management practices; Cost estimation standards" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Often creates ethical tensions between cost control and quality/safety" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:TimeDeadlineConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Time Deadline Constraint"@en ;
-    rdfs:comment "Temporal limitation requiring project completion or milestone achievement by specific dates"@en ;
-    dc:source "Project management standards; Contract requirements" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Can create pressure leading to ethical compromises in quality or safety" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:SafetyStandardComplianceConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Safety Standard Compliance Constraint"@en ;
-    rdfs:comment "Mandatory adherence to established safety codes, regulations, and best practices"@en ;
-    dc:source "OSHA regulations; Building codes; Industry safety standards" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Non-negotiable constraint for public safety and regulatory compliance" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:ConflictOfInterestConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Conflict of Interest Constraint"@en ;
-    rdfs:comment "Restriction preventing engineers from working on projects where personal interests conflict with professional duties"@en ;
-    dc:source "NSPE Code of Ethics Section II.4; Professional ethics guidelines" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Essential for maintaining professional integrity and unbiased judgment" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:SupervisionConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Supervision Constraint"@en ;
-    rdfs:comment "Requirement that junior or unlicensed engineers must work under qualified professional supervision"@en ;
-    dc:source "NSPE Code of Ethics Section I.2; Professional engineering practice acts" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Ensures proper oversight for public safety and professional development" ;
-    rdfs:subClassOf proeth:Constraint .
-
-:InterdisciplinaryCoordinationConstraint a proeth:EntityType,
-        proeth:Constraint,
-        owl:Class ;
-    rdfs:label "Interdisciplinary Coordination Constraint"@en ;
-    rdfs:comment "Requirement for proper coordination and communication between different engineering disciplines and stakeholders"@en ;
-    dc:source "Systems engineering principles; NSPE Code of Ethics Section I.1" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Critical for complex projects involving multiple disciplines and safety-critical systems" ;
-    rdfs:subClassOf proeth:Constraint .
 
 # Provenance for the ontology itself
 

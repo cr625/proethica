@@ -274,133 +274,25 @@ class OntologyEntityService:
         # Find subjects that are instances of this concept type
         entity_subjects = set()
         
+        # SIMPLIFIED APPROACH: Only use direct type matching to prevent false positives
         # Method 1: Direct instances of the intermediate ontology type
         entity_subjects.update(graph.subjects(RDF.type, concept_type_ref))
         
-        # Method 2: Look for namespace-specific types with the same name
-        # e.g., engineering-ethics#Role, engineering-ethics#State, etc.
-        namespace = self._detect_namespace(graph)
-        local_type_ref = getattr(namespace, concept_type_name, None)
-        if local_type_ref:
-            entity_subjects.update(graph.subjects(RDF.type, local_type_ref))
-        
-        # Method 3: Check meta-types in both namespaces
-        # e.g., things typed as ResourceType, EventType, etc.
-        meta_type_mapping = {
-            "Role": "Role",
-            "State": "State", 
-            "Resource": "ResourceType",
-            "Event": "EventType",
-            "Action": "ActionType",
-            "Capability": "CapabilityType",
-            "Principle": "PrincipleType",
-            "Obligation": "ObligationType"
-        }
-        
-        if concept_type_name in meta_type_mapping:
-            meta_type = meta_type_mapping[concept_type_name]
-            # Try both intermediate namespace and local namespace
-            meta_type_refs = [
-                getattr(proeth_namespace, meta_type, None),
-                getattr(namespace, meta_type, None)
-            ]
-            
-            for meta_type_ref in meta_type_refs:
-                if meta_type_ref:
-                    # Find entities that have this meta-type
-                    meta_entities = list(graph.subjects(RDF.type, meta_type_ref))
-                    entity_subjects.update(meta_entities)
-                    logger.debug(f"Found {len(meta_entities)} entities with meta-type {meta_type_ref}")
-        
-        # Method 4: Entities that are both EntityType and this GuidelineConceptType
+        # Method 2: Entities that are both EntityType and this GuidelineConceptType (more precise)
         entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
         for s in entity_type_subjects:
-            # Check if it has any of the type references we're looking for
-            if ((s, RDF.type, concept_type_ref) in graph or
-                (local_type_ref and (s, RDF.type, local_type_ref) in graph)):
+            # Only include if it has the exact concept type we're looking for
+            if (s, RDF.type, concept_type_ref) in graph:
                 entity_subjects.add(s)
         
-        # Method 5: Look for subclasses of the concept type
-        for subclass in graph.subjects(RDFS.subClassOf, concept_type_ref):
-            entity_subjects.update(graph.subjects(RDF.type, subclass))
+        # Method 3: Handle specific meta-types (ResourceType, etc.) that use different naming
+        if concept_type_name == "Resource":
+            # Look for entities typed as ResourceType
+            resource_type_ref = proeth_namespace.ResourceType
+            entity_subjects.update(graph.subjects(RDF.type, resource_type_ref))
+        # Note: Constraints follow standard pattern (proeth:Constraint) so no special handling needed
         
-        # Method 6: For Capabilities, find classes that end with "Capability" or are subclasses of capability classes
-        if concept_type_name == "Capability":
-            # Find all classes that end with "Capability"
-            for s, p, o in graph.triples((None, RDF.type, rdflib.OWL.Class)):
-                class_uri = str(s)
-                if class_uri.endswith("Capability") or "Capability" in class_uri:
-                    entity_subjects.add(s)
-                    logger.debug(f"Found capability class by name: {class_uri}")
-            
-            # Find classes that are subclasses of any capability-related class
-            capability_base_classes = set()
-            for s in graph.subjects():
-                if str(s).endswith("Capability") or "Capability" in str(s):
-                    capability_base_classes.add(s)
-            
-            # Find all subclasses of capability base classes
-            for base_class in capability_base_classes:
-                for subclass in graph.subjects(RDFS.subClassOf, base_class):
-                    entity_subjects.add(subclass)
-                    logger.debug(f"Found capability subclass: {subclass} -> {base_class}")
-                    # Also include the base class itself if it's a capability
-                    if str(base_class).endswith("Capability"):
-                        entity_subjects.add(base_class)
-        
-        # Method 7: For Obligations, find classes that contain obligation-related terms
-        elif concept_type_name == "Obligation":
-            obligation_terms = ["Duty", "Obligation", "Responsibility", "Requirement", "Must", "Shall"]
-            
-            # Find all classes that contain obligation-related terms
-            for s, p, o in graph.triples((None, RDF.type, rdflib.OWL.Class)):
-                class_uri = str(s)
-                class_local_name = class_uri.split('#')[-1].split('/')[-1]
-                
-                # Check if the class name contains obligation-related terms
-                for term in obligation_terms:
-                    if term in class_local_name:
-                        entity_subjects.add(s)
-                        logger.debug(f"Found obligation class by name pattern: {class_uri}")
-                        break
-                
-                # Also check rdfs:label and rdfs:comment for obligation-related content
-                label = next(graph.objects(s, RDFS.label), None)
-                comment = next(graph.objects(s, RDFS.comment), None)
-                
-                obligation_indicators = []
-                if label:
-                    obligation_indicators.append(str(label).lower())
-                if comment:
-                    obligation_indicators.append(str(comment).lower())
-                
-                for indicator_text in obligation_indicators:
-                    # Look for obligation-related keywords in labels/comments
-                    obligation_keywords = ["must", "shall", "required", "duty", "obligation", "responsibility", "accountable"]
-                    if any(keyword in indicator_text for keyword in obligation_keywords):
-                        # Additional check: make sure it's not just a dilemma or decision about obligations
-                        if not any(exclusion in indicator_text for exclusion in ["dilemma", "decision", "conflict"]):
-                            entity_subjects.add(s)
-                            logger.debug(f"Found obligation class by content: {class_uri} - {indicator_text[:50]}...")
-                            break
-            
-            # Find classes that are subclasses of any obligation-related class
-            obligation_base_classes = set()
-            for s in graph.subjects():
-                class_uri = str(s)
-                class_local_name = class_uri.split('#')[-1].split('/')[-1]
-                if any(term in class_local_name for term in obligation_terms):
-                    obligation_base_classes.add(s)
-            
-            # Find all subclasses of obligation base classes
-            for base_class in obligation_base_classes:
-                for subclass in graph.subjects(RDFS.subClassOf, base_class):
-                    entity_subjects.add(subclass)
-                    logger.debug(f"Found obligation subclass: {subclass} -> {base_class}")
-                    # Also include the base class itself
-                    entity_subjects.add(base_class)
-        
-        # Create entity objects
+        # Create entity objects from the found subjects
         for s in entity_subjects:
             # Skip the concept type definition itself
             if s == concept_type_ref:

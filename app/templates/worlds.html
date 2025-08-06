@@ -17,9 +17,8 @@
         <div class="col">
             <div class="card h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="mb-2">
                         <h5 class="card-title">{{ world.name }}</h5>
-                        {{ get_data_type_badge(world)|safe }}
                     </div>
                     <p class="card-text text-truncate" id="description-{{ world.id }}">
                         {{ world.description }}
