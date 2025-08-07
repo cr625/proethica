@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Data Overview - Admin - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>
+                        Data Overview
+                    </h1>
+                    <p class="text-muted mb-0">System and user data breakdown</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Type Overview -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        System Data (Protected)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                                <div class="h2 text-success mb-1">{{ data_stats.system.total }}</div>
+                                <small class="text-muted">Total Items</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled mb-0">
+                                <li><i class="fas fa-globe me-2 text-success"></i>{{ data_stats.system.worlds }} Worlds</li>
+                                <li><i class="fas fa-file-alt me-2 text-success"></i>{{ data_stats.system.documents }} Documents</li>
+                                <li><i class="fas fa-book me-2 text-success"></i>{{ data_stats.system.guidelines }} Guidelines</li>
+                                <li><i class="fas fa-play-circle me-2 text-success"></i>{{ data_stats.system.scenarios }} Scenarios</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        System data is protected from user resets and can only be managed by administrators.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-edit me-2"></i>
+                        User Data (Resettable)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                                <div class="h2 text-warning mb-1">{{ data_stats.user.total }}</div>
+                                <small class="text-muted">Total Items</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled mb-0">
+                                <li><i class="fas fa-globe me-2 text-warning"></i>{{ data_stats.user.worlds }} Worlds</li>
+                                <li><i class="fas fa-file-alt me-2 text-warning"></i>{{ data_stats.user.documents }} Documents</li>
+                                <li><i class="fas fa-book me-2 text-warning"></i>{{ data_stats.user.guidelines }} Guidelines</li>
+                                <li><i class="fas fa-play-circle me-2 text-warning"></i>{{ data_stats.user.scenarios }} Scenarios</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        User data can be reset by administrators and is associated with individual users.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Breakdown -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Detailed Data Breakdown
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Data Type</th>
+                                    <th class="text-center">System</th>
+                                    <th class="text-center">User</th>
+                                    <th class="text-center">Total</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-globe me-2 text-primary"></i>
+                                        <strong>Worlds</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ data_stats.system.worlds }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ data_stats.user.worlds }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ data_stats.system.worlds + data_stats.user.worlds }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">Ethical decision-making contexts and environments</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-alt me-2 text-primary"></i>
+                                        <strong>Documents</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ data_stats.system.documents }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ data_stats.user.documents }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ data_stats.system.documents + data_stats.user.documents }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">Case studies, reports, and reference materials</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-book me-2 text-primary"></i>
+                                        <strong>Guidelines</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ data_stats.system.guidelines }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ data_stats.user.guidelines }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ data_stats.system.guidelines + data_stats.user.guidelines }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">Ethical principles and decision-making frameworks</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-play-circle me-2 text-primary"></i>
+                                        <strong>Scenarios</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ data_stats.system.scenarios }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ data_stats.user.scenarios }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ data_stats.system.scenarios + data_stats.user.scenarios }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">Interactive ethical decision-making scenarios</small>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Management Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Data Management Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-2x text-info mb-3"></i>
+                                    <h6>User Management</h6>
+                                    <p class="text-muted small">Manage individual users and their data</p>
+                                    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-info">
+                                        <i class="fas fa-users me-1"></i>
+                                        Manage Users
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-redo fa-2x text-warning mb-3"></i>
+                                    <h6>Bulk Reset</h6>
+                                    <p class="text-muted small">Reset all test user data at once</p>
+                                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-warning">
+                                        <i class="fas fa-redo me-1"></i>
+                                        Bulk Operations
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-heartbeat fa-2x text-success mb-3"></i>
+                                    <h6>System Health</h6>
+                                    <p class="text-muted small">Monitor system status and performance</p>
+                                    <a href="{{ url_for('admin.system_health') }}" class="btn btn-outline-success">
+                                        <i class="fas fa-heartbeat me-1"></i>
+                                        System Status
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Protection Information -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Data Protection Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">
+                                <i class="fas fa-shield-alt me-2"></i>
+                                Protected System Data
+                            </h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>NSPE Engineering Ethics Cases</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Core Ethical Guidelines</li>
+                                <li><i class="fas fa-check text-success me-2"></i>System Ontologies</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Reference Materials</li>
+                            </ul>
+                            <p class="text-muted small">
+                                This data is permanently protected and cannot be deleted by user resets.
+                                It forms the foundation of the ProEthica system.
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning">
+                                <i class="fas fa-user-edit me-2"></i>
+                                User-Created Data
+                            </h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-times text-warning me-2"></i>Personal Worlds</li>
+                                <li><i class="fas fa-times text-warning me-2"></i>Custom Documents</li>
+                                <li><i class="fas fa-times text-warning me-2"></i>User Guidelines</li>
+                                <li><i class="fas fa-times text-warning me-2"></i>Personal Scenarios</li>
+                            </ul>
+                            <p class="text-muted small">
+                                This data can be reset by administrators to provide clean environments
+                                for testing and demonstration purposes.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

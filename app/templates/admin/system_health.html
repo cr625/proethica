@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}System Health - Admin - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="fas fa-heartbeat text-primary me-2"></i>
+                        System Health
+                    </h1>
+                    <p class="text-muted mb-0">Monitor system status and performance</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="fas fa-database fa-2x text-success mb-2"></i>
+                    <h6>Database</h6>
+                    <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>
+                        Connected
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                    <h6>Authentication</h6>
+                    <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>
+                        Active
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="fas fa-server fa-2x text-info mb-2"></i>
+                    <h6>MCP Server</h6>
+                    <span class="badge bg-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Optional
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="fas fa-cogs fa-2x text-success mb-2"></i>
+                    <h6>Application</h6>
+                    <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>
+                        Running
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        System Statistics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-primary bg-opacity-10 rounded mb-3">
+                                <div class="h4 text-primary mb-0">{{ health_stats.total_users }}</div>
+                                <small class="text-muted">Total Users</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-info bg-opacity-10 rounded mb-3">
+                                <div class="h4 text-info mb-0">{{ health_stats.active_sessions }}</div>
+                                <small class="text-muted">Active Sessions</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                                <div class="h4 text-success mb-0">{{ health_stats.total_data_items }}</div>
+                                <small class="text-muted">Data Items</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                                <div class="h4 text-warning mb-0">{{ health_stats.system_uptime }}</div>
+                                <small class="text-muted">Uptime (hrs)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        System Alerts
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if health_stats.alerts %}
+                        {% for alert in health_stats.alerts %}
+                        <div class="alert alert-{{ alert.type }} alert-dismissible fade show" role="alert">
+                            <i class="fas fa-{{ alert.icon }} me-2"></i>
+                            <strong>{{ alert.title }}</strong> {{ alert.message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <p class="mb-0">No system alerts</p>
+                            <small>All systems operating normally</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Health -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-database me-2"></i>
+                        Database Health
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <div class="p-3">
+                                <i class="fas fa-table fa-2x text-primary mb-2"></i>
+                                <h6>Tables</h6>
+                                <div class="h5 text-primary">{{ health_stats.db_tables }}</div>
+                                <small class="text-muted">Active tables</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="p-3">
+                                <i class="fas fa-link fa-2x text-success mb-2"></i>
+                                <h6>Connections</h6>
+                                <div class="h5 text-success">{{ health_stats.db_connections }}</div>
+                                <small class="text-muted">Pool connections</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="p-3">
+                                <i class="fas fa-clock fa-2x text-info mb-2"></i>
+                                <h6>Response Time</h6>
+                                <div class="h5 text-info">{{ health_stats.db_response_time }}ms</div>
+                                <small class="text-muted">Average query time</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="p-3">
+                                <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
+                                <h6>Storage</h6>
+                                <div class="h5 text-warning">{{ health_stats.db_size }}MB</div>
+                                <small class="text-muted">Database size</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Recent Admin Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if health_stats.recent_admin_actions %}
+                        <div class="list-group list-group-flush">
+                            {% for action in health_stats.recent_admin_actions %}
+                            <div class="list-group-item d-flex justify-content-between align-items-start px-0">
+                                <div>
+                                    <strong>{{ action.action }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ action.timestamp }}</small>
+                                </div>
+                                <span class="badge bg-{{ action.status_color }}">{{ action.status }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="fas fa-history fa-2x mb-2"></i>
+                            <p class="mb-0">No recent admin actions</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        User Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if health_stats.recent_user_activity %}
+                        <div class="list-group list-group-flush">
+                            {% for activity in health_stats.recent_user_activity %}
+                            <div class="list-group-item d-flex justify-content-between align-items-start px-0">
+                                <div>
+                                    <strong>{{ activity.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ activity.action }} - {{ activity.timestamp }}</small>
+                                </div>
+                                <span class="badge bg-secondary">{{ activity.type }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="fas fa-user-clock fa-2x mb-2"></i>
+                            <p class="mb-0">No recent user activity</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Configuration -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        System Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Application Settings</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Environment:</strong> {{ health_stats.environment }}</li>
+                                <li><strong>Debug Mode:</strong> 
+                                    {% if health_stats.debug_mode %}
+                                        <span class="badge bg-warning">Enabled</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Disabled</span>
+                                    {% endif %}
+                                </li>
+                                <li><strong>Authentication:</strong> 
+                                    <span class="badge bg-success">Required</span>
+                                </li>
+                                <li><strong>Session Timeout:</strong> {{ health_stats.session_timeout }} minutes</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Security Status</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>CSRF Protection:</strong> 
+                                    <span class="badge bg-success">Active</span>
+                                </li>
+                                <li><strong>Secure Cookies:</strong> 
+                                    {% if health_stats.secure_cookies %}
+                                        <span class="badge bg-success">Enabled</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Development</span>
+                                    {% endif %}
+                                </li>
+                                <li><strong>Admin Routes:</strong> 
+                                    <span class="badge bg-success">Protected</span>
+                                </li>
+                                <li><strong>Data Isolation:</strong> 
+                                    <span class="badge bg-success">Active</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh system health every 30 seconds
+setInterval(function() {
+    // Only refresh if the page is visible
+    if (!document.hidden) {
+        location.reload();
+    }
+}, 30000);
+
+// Add timestamp to show when page was last updated
+document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString();
+    
+    // Add a small timestamp indicator
+    const header = document.querySelector('h1');
+    if (header) {
+        const small = document.createElement('small');
+        small.className = 'text-muted ms-2';
+        small.textContent = `(Updated: ${timestamp})`;
+        header.appendChild(small);
+    }
+});
+</script>
+{% endblock %}
