@@ -562,7 +562,7 @@ def get_system_statistics():
     
     # Basic counts
     world_count = World.query.count()
-    guideline_count = Guideline.query.count()
+    guideline_count = Document.query.filter_by(document_type='guideline').count()
     document_count = Document.query.count()
     case_count = Document.query.filter(
         Document.doc_metadata.op('->>')('case_number').isnot(None)
@@ -584,8 +584,10 @@ def get_system_statistics():
     ).count()
     
     # Guideline analysis statistics
-    analyzed_guidelines = Guideline.query.filter(
-        Guideline.guideline_metadata.op('->>')('concepts').isnot(None)
+    # Count Documents with guideline type that have concept metadata
+    analyzed_guidelines = Document.query.filter(
+        Document.document_type == 'guideline',
+        Document.doc_metadata.op('->>')('concepts_extracted').isnot(None)
     ).count()
     
     # Association statistics
@@ -640,7 +642,7 @@ def get_recent_activity():
     recent_docs = Document.query.order_by(desc(Document.created_at)).limit(5).all()
     
     # Recent guidelines
-    recent_guidelines = Guideline.query.order_by(desc(Guideline.created_at)).limit(5).all()
+    recent_guidelines = Document.query.filter_by(document_type='guideline').order_by(desc(Document.created_at)).limit(5).all()
     
     # Recent worlds
     recent_worlds = World.query.order_by(desc(World.created_at)).limit(5).all()
@@ -838,7 +840,7 @@ def get_world_statistics(world_id):
         return {}
     
     # Guidelines in this world
-    guidelines = Guideline.query.filter_by(world_id=world_id).all()
+    guidelines = Document.query.filter_by(world_id=world_id, document_type='guideline').all()
     
     # Documents/cases in this world
     # This is tricky since documents aren't directly linked to worlds
@@ -880,10 +882,11 @@ def get_world_analysis_status(world_id):
     """Get analysis status for a specific world."""
     
     # Count guidelines with concept analysis
-    total_guidelines = Guideline.query.filter_by(world_id=world_id).count()
-    analyzed_guidelines = Guideline.query.filter(
-        Guideline.world_id == world_id,
-        Guideline.guideline_metadata.op('->>')('concepts').isnot(None)
+    total_guidelines = Document.query.filter_by(world_id=world_id, document_type='guideline').count()
+    analyzed_guidelines = Document.query.filter(
+        Document.world_id == world_id,
+        Document.document_type == 'guideline',
+        Document.doc_metadata.op('->>')('concepts_extracted').isnot(None)
     ).count()
     
     # Get entity triples for analysis
