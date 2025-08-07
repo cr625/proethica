@@ -526,13 +526,40 @@ def get_ontology_sync_status():
                     'ontology_id': None
                 })
         
-        # Count guideline-derived ontologies (database only)
-        guideline_ontology_count = Ontology.query.filter(
+        # Get detailed guideline-derived ontologies (database only)
+        guideline_ontologies = Ontology.query.filter(
             Ontology.domain_id.like('%guideline-%')
-        ).count()
+        ).all()
+        
+        guideline_ontology_list = []
+        for ont in guideline_ontologies:
+            # Extract document ID from domain (e.g., "guideline-27-concepts" -> 27)
+            try:
+                doc_id = int(ont.domain_id.split('guideline-')[1].split('-')[0])
+                # Get related document for guideline title
+                from app.models.document import Document
+                doc = Document.query.get(doc_id)
+                related_guideline_title = doc.title if doc else f"Document {doc_id}"
+                related_document_id = doc_id if doc else None
+                related_world_id = doc.world_id if doc else None
+            except (ValueError, IndexError):
+                related_guideline_title = "Unknown Guideline"
+                related_document_id = None
+                related_world_id = None
+            
+            guideline_ontology_list.append({
+                'id': ont.id,
+                'name': ont.name,
+                'domain_id': ont.domain_id,
+                'related_guideline_title': related_guideline_title,
+                'related_document_id': related_document_id,
+                'related_world_id': related_world_id,
+                'created_at': ont.created_at
+            })
         
         sync_status['guideline_ontologies'] = {
-            'count': guideline_ontology_count,
+            'count': len(guideline_ontologies),
+            'list': guideline_ontology_list,
             'note': 'Guideline ontologies exist only in database (no TTL files)'
         }
         

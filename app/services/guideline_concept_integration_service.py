@@ -264,7 +264,7 @@ class GuidelineConceptIntegrationService:
             
             # Create the derived ontology
             derived_ontology = Ontology(
-                name=f"Guideline {guideline_id} Concepts",
+                name=f"{guideline_title} - Concepts",
                 domain_id=derived_domain,
                 description=f"Derived ontology containing concepts extracted from guideline: {guideline_title}",
                 content=derived_content,
