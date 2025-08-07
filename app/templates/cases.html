@@ -133,15 +133,12 @@
                             <div class="mb-3">
                                 <h6 class="text-success">Conclusions:</h6>
                                 {% if case.conclusion_items|length == 1 %}
-                                <p class="mb-2">{{ case.conclusion_items[0]|striptags|truncate(200) }}</p>
+                                <p class="mb-2">{{ case.conclusion_items[0]|striptags }}</p>
                                 {% else %}
                                 <ol class="mb-2">
-                                    {% for conclusion in case.conclusion_items[:2] %}
-                                    <li>{{ conclusion|striptags|truncate(150) }}</li>
+                                    {% for conclusion in case.conclusion_items %}
+                                    <li>{{ conclusion|striptags }}</li>
                                     {% endfor %}
-                                    {% if case.conclusion_items|length > 2 %}
-                                    <li class="text-muted">... and {{ case.conclusion_items|length - 2 }} more</li>
-                                    {% endif %}
                                 </ol>
                                 {% endif %}
                             </div>
