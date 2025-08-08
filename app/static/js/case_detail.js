@@ -516,9 +516,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Use the first link's data for the highlight (they should be similar)
             const link = links[0];
             
-            // Create the tooltip content with RDF triple information
-            const tooltipContent = createTooltipContent(link);
-            
             // Find all text nodes and highlight the term
             const walker = document.createTreeWalker(
                 sectionElement,
@@ -561,10 +558,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 span.setAttribute('data-uri', link.ontology_uri);
                                 span.setAttribute('data-label', link.ontology_label);
                                 span.setAttribute('data-definition', link.definition || '');
-                                span.title = tooltipContent;
+                                // Remove conflicting title attribute - use modal instead
                                 span.textContent = matches[i];
                                 
-                                // Add hover events
+                                // Add hover events for floating modal
                                 addTermHoverEvents(span);
                                 
                                 docFragment.appendChild(span);
@@ -581,18 +578,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Applied highlighting to ${highlightedCount} terms in section`);
     }
     
-    /**
-     * Create tooltip content with RDF triple information
-     */
-    function createTooltipContent(link) {
-        let content = `Term: ${link.term_text}\n`;
-        content += `Label: ${link.ontology_label}\n`;
-        content += `URI: ${link.ontology_uri}\n`;
-        if (link.definition) {
-            content += `Definition: ${link.definition}`;
-        }
-        return content;
-    }
     
     /**
      * Add hover events to a highlighted term
@@ -624,7 +609,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     /**
-     * Create a floating tooltip with RDF triple information
+     * Create a floating tooltip with Term, Label, URI, definition format
      */
     function createFloatingTooltip(termElement) {
         const tooltip = document.createElement('div');
@@ -635,11 +620,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const label = termElement.getAttribute('data-label');
         const definition = termElement.getAttribute('data-definition');
         
-        // Create RDF triple format
-        const subject = `<case_${documentId || 'unknown'}>`;
-        const predicate = '<http://proethica.org/ontology#hasOntologyTerm>';
-        const object = `<${uri}>`;
-        
         tooltip.innerHTML = `
             <div class="tooltip-header">
                 <strong>Ontology Term</strong>
@@ -648,15 +628,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="term-info">
                     <div><strong>Term:</strong> ${escapeHtml(termText)}</div>
                     <div><strong>Label:</strong> ${escapeHtml(label)}</div>
+                    <div><strong>URI:</strong> <code>${escapeHtml(uri)}</code></div>
                     ${definition ? `<div><strong>Definition:</strong> ${escapeHtml(definition)}</div>` : ''}
-                </div>
-                <div class="rdf-triple">
-                    <div class="rdf-header"><strong>RDF Triple:</strong></div>
-                    <div class="rdf-content">
-                        <div class="triple-line"><span class="subject">${subject}</span></div>
-                        <div class="triple-line"><span class="predicate">${predicate}</span></div>
-                        <div class="triple-line"><span class="object">${object}</span> .</div>
-                    </div>
                 </div>
             </div>
         `;
@@ -747,34 +720,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             .ontology-term-tooltip .term-info > div {
-                margin-bottom: 4px;
+                margin-bottom: 6px;
             }
             
-            .ontology-term-tooltip .rdf-triple {
+            .ontology-term-tooltip .term-info code {
                 background: #f8f9fa;
                 border: 1px solid #dee2e6;
                 border-radius: 4px;
-                padding: 8px;
-            }
-            
-            .ontology-term-tooltip .rdf-header {
-                margin-bottom: 8px;
-                color: #495057;
-            }
-            
-            .ontology-term-tooltip .rdf-content {
-                font-family: 'Courier New', monospace;
+                padding: 2px 6px;
                 font-size: 0.8rem;
-                line-height: 1.3;
+                color: #0d6efd;
             }
-            
-            .ontology-term-tooltip .triple-line {
-                margin-bottom: 2px;
-            }
-            
-            .ontology-term-tooltip .subject { color: #d63384; }
-            .ontology-term-tooltip .predicate { color: #198754; }
-            .ontology-term-tooltip .object { color: #0d6efd; }
         `;
         
         document.head.appendChild(style);

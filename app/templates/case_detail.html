@@ -3,6 +3,7 @@
 {% block title %}{{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
 <style>
     /* Show more/less functionality */
     .collapsible-section {
@@ -55,6 +56,36 @@
 {% endblock %}
 
 {% block content %}
+<!-- Floating Table of Contents -->
+<div id="toc-nav" class="toc-navigation">
+    <div class="toc-header">
+        <h6 class="mb-0">
+            <i class="bi bi-list"></i> Navigation
+        </h6>
+        <button type="button" class="btn-close btn-close-white" id="toc-close" aria-label="Close"></button>
+    </div>
+    <div class="toc-content">
+        <ul class="toc-list">
+            <li><a href="#case-details" class="toc-link">Case Details</a></li>
+            {% if case.doc_metadata and case.doc_metadata.subject_tags %}
+            <li><a href="#subject-tags" class="toc-link">Subject Tags</a></li>
+            {% endif %}
+            {% if entity_triples %}
+            <li><a href="#rdf-properties" class="toc-link">RDF Properties</a></li>
+            {% endif %}
+            {% if case.document_id and case.doc_metadata and case.doc_metadata.rdf_triples %}
+            <li><a href="#rdf-metadata" class="toc-link">RDF Triple Metadata</a></li>
+            {% endif %}
+            <li><a href="#scenario-section" class="toc-link">Scenario</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- TOC Toggle Button -->
+<button id="toc-toggle" class="toc-toggle-btn" title="Show Navigation">
+    <i class="bi bi-list"></i>
+</button>
+
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
@@ -94,7 +125,7 @@
         </div>
     </div>
 
-    <div class="card mb-4">
+    <div id="case-details" class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3>Case Details</h3>
             {% if case.case_number or case.year %}
@@ -110,13 +141,18 @@
                     <i class="bi bi-calendar"></i> {{ case.doc_metadata.full_date }}
                 </span>
                 {% endif %}
+                {% if world %}
+                <span class="badge bg-success ms-2">
+                    <i class="bi bi-globe"></i> {{ world.name }}
+                </span>
+                {% endif %}
             </div>
             {% endif %}
         </div>
         
         <!-- Subject Tags in Header -->
         {% if case.doc_metadata and case.doc_metadata.subject_tags %}
-        <div class="card-header border-top">
+        <div id="subject-tags" class="card-header border-top">
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <strong class="text-muted me-2">Subject Tags:</strong>
                 {% for tag in case.doc_metadata.subject_tags %}
@@ -129,11 +165,6 @@
         {% endif %}
         
         <div class="card-body">
-            {% if world %}
-            <div class="mb-3">
-                <span class="badge bg-success">World: {{ world.name }}</span>
-            </div>
-            {% endif %}
 
             {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
             <div data-extraction-style="true">
@@ -254,7 +285,7 @@
 
     <!-- RDF Property-Value Labels (Clickable) -->
     {% if entity_triples %}
-    <div class="card mb-4">
+    <div id="rdf-properties" class="card mb-4">
         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
             <h3>RDF Properties</h3>
             <button id="clearSelection" class="btn btn-sm btn-light" style="display: none;">
@@ -305,7 +336,7 @@
 
     <!-- RDF Triples Metadata Display -->
     {% if case.document_id and case.doc_metadata and case.doc_metadata.rdf_triples %}
-    <div class="card mb-4">
+    <div id="rdf-metadata" class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h3>RDF Triple Metadata</h3>
         </div>
@@ -357,7 +388,7 @@
 
     <!-- Scenario Generation - At bottom of page -->
     {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
-    <div class="card mb-4">
+    <div id="scenario-section" class="card mb-4">
         <div class="card-header">
             <h3><i class="bi bi-diagram-3"></i> Scenario</h3>
         </div>
@@ -513,5 +544,102 @@ document.addEventListener('DOMContentLoaded', function() {
     {% else %}
     window.termLinksData = {};
     {% endif %}
+    
+    // Table of Contents functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const tocNav = document.getElementById('toc-nav');
+        const tocToggle = document.getElementById('toc-toggle');
+        const tocClose = document.getElementById('toc-close');
+        const tocLinks = document.querySelectorAll('.toc-link');
+        
+        // Toggle TOC visibility
+        function showTOC() {
+            if (tocNav) {
+                tocNav.classList.add('visible');
+            }
+            if (tocToggle) {
+                tocToggle.classList.add('hidden');
+            }
+        }
+        
+        function hideTOC() {
+            if (tocNav) {
+                tocNav.classList.remove('visible');
+            }
+            if (tocToggle) {
+                tocToggle.classList.remove('hidden');
+            }
+        }
+        
+        // Event listeners
+        if (tocToggle) {
+            tocToggle.addEventListener('click', showTOC);
+        }
+        
+        if (tocClose) {
+            tocClose.addEventListener('click', hideTOC);
+        }
+        
+        // Smooth scrolling for navigation links
+        tocLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    // Remove active class from all links
+                    tocLinks.forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked link
+                    this.classList.add('active');
+                    
+                    // Smooth scroll to target
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    
+                    // Hide TOC after navigation on mobile
+                    if (window.innerWidth <= 768) {
+                        hideTOC();
+                    }
+                }
+            });
+        });
+        
+        // Highlight active section based on scroll position
+        function updateActiveSection() {
+            const sections = ['case-details', 'subject-tags', 'rdf-properties', 'rdf-metadata', 'scenario-section'];
+            let currentSection = '';
+            
+            sections.forEach(sectionId => {
+                const element = document.getElementById(sectionId);
+                if (element) {
+                    const rect = element.getBoundingClientRect();
+                    if (rect.top <= 100) {
+                        currentSection = sectionId;
+                    }
+                }
+            });
+            
+            // Update active link
+            tocLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + currentSection) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        
+        // Update active section on scroll (throttled)
+        let scrollTimeout;
+        window.addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(updateActiveSection, 100);
+        });
+        
+        // Initial active section update
+        updateActiveSection();
+    });
 </script>
 {% endblock %}
