@@ -263,6 +263,80 @@
         </div>
     </div>
 
+    <!-- Direct Scenario Generation (Phase A) -->
+    {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
+        <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3><i class="bi bi-diagram-3"></i> Direct Scenario Timeline (Prototype)</h3>
+            {% if latest_scenario %}
+            <span class="badge bg-success">{{ latest_scenario.stats.event_count }} events / {{ latest_scenario.stats.decision_count }} decisions</span>
+            {% else %}
+            <span class="badge bg-secondary">Not Generated</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if latest_scenario %}
+                        {% if latest_scenario.participants %}
+                        <div class="mb-2 small">
+                                <strong>Participants:</strong>
+                                {% for p in latest_scenario.participants %}
+                                    <span class="badge bg-info text-dark me-1">{{ p }}</span>
+                                {% endfor %}
+                        </div>
+                        {% endif %}
+            <ol class="list-group list-group-numbered mb-3">
+                {% for ev_id in latest_scenario.ordering[:10] %}
+                    {% set ev = (latest_scenario.events | selectattr('id','equalto',ev_id) | list)[0] %}
+                    <li class="list-group-item py-2 {% if ev.kind == 'decision' %}list-group-item-warning{% endif %}">
+                                                <strong>{{ ev.kind|capitalize }}</strong>
+                                                {% if ev.refined %}<span class="badge bg-primary ms-1">Refined</span>{% endif %}
+                                                : {{ ev.text[:220] }}{% if ev.text|length > 220 %}...{% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+            <button id="regenerate-direct-scenario" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Regenerate
+            </button>
+            {% else %}
+            <p class="text-muted">Generate a preliminary timeline directly from the case text (no full deconstruction required).</p>
+            <button id="generate-direct-scenario" class="btn btn-success btn-sm">
+                <i class="bi bi-magic"></i> Generate Direct Scenario
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+        {% if latest_scenario and latest_scenario.ontology_summary %}
+        <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3><i class="bi bi-diagram-2"></i> Ontology Snapshot (Interim)</h3>
+                        <span class="badge bg-secondary">Heuristic</span>
+                </div>
+                <div class="card-body small">
+                        <div class="row">
+                                {% for cat, items in latest_scenario.ontology_summary.items() %}
+                                    <div class="col-md-3 mb-3">
+                                        <strong>{{ cat }}</strong>
+                                        <div class="mt-1">
+                                            {% if cat == 'Role' %}
+                                                {% for r in items %}<span class="badge bg-info text-dark me-1 mb-1">{{ r }}</span>{% endfor %}
+                                            {% elif cat in ['Action','Event'] %}
+                                                <span class="text-muted">{{ items|length }} IDs</span>
+                                            {% else %}
+                                                {% for it in items[:6] %}
+                                                     {% if it.term %}<span class="badge bg-light text-dark border me-1 mb-1">{{ it.term }}</span>{% endif %}
+                                                {% endfor %}
+                                                {% if items|length > 6 %}<span class="badge bg-light text-dark border">+{{ items|length - 6 }}</span>{% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                        </div>
+                        <div class="mt-2"><em class="text-muted">Categories derived heuristically from text; will be ontology-backed in a later phase.</em></div>
+                </div>
+        </div>
+        {% endif %}
+
     <!-- RDF Property-Value Labels (Clickable) -->
     {% if entity_triples %}
     <div class="card mb-4">
@@ -759,7 +833,7 @@ class ScenarioGenerationManager {
 
 // Initialize scenario generation when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    const caseId = {{ case.id }};
+    const caseId = JSON.parse('{{ case.id | tojson | safe }}');
     const scenarioManager = new ScenarioGenerationManager(caseId);
     
     // Event delegation for dynamically created buttons
@@ -774,6 +848,25 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const templateId = e.target.getAttribute('data-template-id');
             scenarioManager.createScenarioFromTemplate(templateId);
+        }
+        // Direct scenario generation buttons
+        if (e.target.id === 'generate-direct-scenario' || e.target.id === 'regenerate-direct-scenario') {
+            e.preventDefault();
+            const btn = e.target;
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Working...';
+            fetch(`/cases/${caseId}/direct_scenario`, {method: 'POST'})
+              .then(r => r.json())
+              .then(data => {
+                  if (data.success) {
+                      location.reload();
+                  } else {
+                      alert('Failed to generate direct scenario: ' + (data.error || 'Unknown error'));
+                  }
+              })
+              .catch(err => alert('Error: ' + err.message))
+              .finally(() => { btn.disabled = false; btn.innerHTML = originalHtml; });
         }
     });
 });

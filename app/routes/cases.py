@@ -16,6 +16,7 @@ from app.services.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
 from app.services.case_to_scenario_service import CaseToScenarioService
 from app.services.scenario_generation_service import ScenarioGenerationService
+from app.services.scenario_pipeline.scenario_generation_phase_a import DirectScenarioPipelineService
 from app.services.agents.case_creation_agent import CaseCreationAgent
 from app.services.conversation_to_case_service import ConversationToCaseService
 from app.models.agent_conversation import AgentConversation
@@ -1867,6 +1868,69 @@ def create_scenario_from_template(template_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@cases_bp.route('/<int:case_id>/direct_scenario', methods=['POST'])
+def generate_direct_scenario(case_id):
+    """Generate a direct scenario (Phase A pipeline) from case sections without full deconstruction."""
+    try:
+        case = Document.query.get_or_404(case_id)
+        overwrite = (request.args.get('overwrite', 'false').lower() == 'true')
+        pipeline = DirectScenarioPipelineService()
+        data = pipeline.generate(case, overwrite=overwrite)
+
+        # Optionally include full events list; default now True for developer inspection.
+        include_events = request.args.get('include_events', 'true').lower() != 'false'
+        payload = {
+            'success': True,
+            'case_id': case_id,
+            'version_number': data.get('version_number'),
+            'stats': data.get('stats'),
+            'event_count': data['stats']['event_count'],
+            'decision_count': data['stats']['decision_count']
+        }
+        if include_events:
+            # Optionally allow truncated mode if query param trim is provided
+            if request.args.get('trim'):
+                trimmed = []
+                for ev in data['events']:
+                    trimmed.append({
+                        'id': ev.get('id'),
+                        'kind': ev.get('kind'),
+                        'section': ev.get('section'),
+                        'text': (ev.get('text','')[:160] + ('…' if len(ev.get('text',''))>160 else '')),
+                        'options': ev.get('options') and [o.get('label') for o in ev['options']],
+                        'refined': ev.get('refined')
+                    })
+                payload['events'] = trimmed
+                payload['trimmed'] = True
+            else:
+                payload['events'] = data['events']
+        return jsonify(payload)
+    except Exception as e:
+        logger.error(f"Direct scenario generation failed for case {case_id}: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cases_bp.route('/<int:case_id>/scenario_interim', methods=['GET'])
+def view_interim_scenario(case_id):
+    """Interim scenario view: shows direct scenario timeline with ontology summary and participants.
+
+    This is a read-only visualization layer over latest_scenario produced by the Phase A pipeline.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+        latest = None
+        if case.doc_metadata and isinstance(case.doc_metadata, dict):
+            latest = case.doc_metadata.get('latest_scenario')
+        if not latest:
+            flash('No direct scenario generated yet. Click Regenerate on case page first.', 'warning')
+            return redirect(url_for('cases.view_case', case_id=case_id))
+        return render_template('scenario_interim.html', case=case, scenario=latest)
+    except Exception as e:
+        logger.error(f"Error loading interim scenario for case {case_id}: {e}")
+        flash(f"Error loading interim scenario: {e}", 'danger')
+        return redirect(url_for('cases.view_case', case_id=case_id))
 
 
 @cases_bp.route('/new/agent', methods=['GET'])

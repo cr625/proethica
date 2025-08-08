@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Interim Scenario - Case {{ case.id }}{% endblock %}
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Interim Scenario View <small class="text-muted">Case {{ case.id }}</small></h1>
+    <a href="{{ url_for('cases.view_case', case_id=case.id) }}" class="btn btn-sm btn-outline-secondary">Back to Case</a>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>Timeline ({{ scenario.stats.event_count }} events / {{ scenario.stats.decision_count }} decisions)</strong>
+          <span class="badge bg-info text-dark">Phase A</span>
+        </div>
+        <div class="card-body">
+          <ol class="list-group list-group-numbered">
+            {% for ev_id in scenario.ordering %}
+              {% set ev = (scenario.events | selectattr('id','equalto',ev_id) | list)[0] %}
+              <li class="list-group-item py-2 {% if ev.kind == 'decision' %}list-group-item-warning{% endif %}">
+                <div class="d-flex justify-content-between">
+                  <div>
+                    <strong>{{ ev.kind|capitalize }}</strong>
+                    {% if ev.refined %}<span class="badge bg-primary ms-1">Refined</span>{% endif %}
+                    {% if ev.participants %}
+                      {% for p in ev.participants %}<span class="badge bg-light text-dark border ms-1">{{ p }}</span>{% endfor %}
+                    {% endif %}
+                    <span class="text-muted small ms-2">Section: {{ ev.section }}</span>
+                  </div>
+                  <div class="text-end small text-muted">
+                    {% if ev.temporal.interval %}{{ ev.temporal.interval }}{% endif %}
+                  </div>
+                </div>
+                <div class="mt-1">{{ ev.text }}</div>
+                {% if ev.kind == 'decision' and ev.options %}
+                  <div class="mt-2">
+                    <strong class="small">Options:</strong>
+                    <ul class="small mb-0">
+                      {% for opt in ev.options %}
+                        <li><em>{{ opt.label }}</em>{% if opt.description %}: {{ opt.description }}{% endif %}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card mb-4">
+        <div class="card-header"><strong>Participants</strong></div>
+        <div class="card-body small">
+          {% if scenario.participants %}
+            {% for p in scenario.participants %}<span class="badge bg-info text-dark me-1 mb-1">{{ p }}</span>{% endfor %}
+          {% else %}<em class="text-muted">None detected</em>{% endif %}
+        </div>
+      </div>
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>Ontology Categories (Heuristic)</strong>
+          <a href="#" class="small text-decoration-none" data-bs-toggle="collapse" data-bs-target="#ontHelp">Help</a>
+        </div>
+        <div class="card-body small">
+          <div class="row">
+            {% for cat, items in scenario.ontology_summary.items() %}
+              <div class="col-6 mb-3">
+                <strong>{{ cat }}</strong>
+                <div class="mt-1">
+                  {% if cat == 'Role' %}
+                    {% for r in items %}<span class="badge bg-light text-dark border me-1 mb-1">{{ r }}</span>{% endfor %}
+                  {% elif cat in ['Action','Event'] %}
+                    <span class="text-muted">{{ items|length }} IDs</span>
+                  {% else %}
+                    {% for it in items[:6] %}
+                      {% if it.term %}<span class="badge bg-light text-dark border me-1 mb-1">{{ it.term }}</span>{% endif %}
+                    {% endfor %}
+                    {% if items|length > 6 %}<span class="badge bg-light text-dark border">+{{ items|length - 6 }}</span>{% endif %}
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          <div id="ontHelp" class="collapse mt-2">
+            <em class="text-muted">Derived via simple keyword/role heuristics from the intermediate ontology categories (Role, Principle, Obligation, State, Resource, Action, Event, Capability, Constraint). Future version will use full ontology reasoning and SHACL validation.</em>
+          </div>
+        </div>
+      </div>
+      <div class="card mb-4">
+        <div class="card-header"><strong>Meta</strong></div>
+        <div class="card-body small">
+          <div>Generated: {{ scenario.generated_at }}</div>
+          <div>Version: {{ scenario.version_number }} / hash {{ scenario.hash }}</div>
+          <div>Pipeline: {{ scenario.pipeline_version }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
