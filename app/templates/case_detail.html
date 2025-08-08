@@ -56,37 +56,42 @@
 
 {% block content %}
 <div class="container">
-    <div class="mb-4">
-        <div class="d-flex justify-content-end mb-2">
-            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary me-2">Back to Cases</a>
-            {% if case.document_id %}
-            <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-success me-2">
-                <i class="bi bi-pencil"></i> Edit Details
-            </a>
-            <a href="{{ url_for('doc_structure.view_structure', id=case.document_id) }}" class="btn btn-primary me-2">
-                <i class="bi bi-diagram-3"></i> View Structure
-                {% if case.document_id and case.doc_metadata and case.doc_metadata.document_structure and
-                case.doc_metadata.document_structure.section_embeddings %}
-                <span class="badge bg-success ms-1" title="Section embeddings available">
-                    <i class="bi bi-cpu"></i> {{ case.doc_metadata.document_structure.section_embeddings.count }}
-                    sections
-                </span>
-                {% endif %}
-            </a>
-            <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                <i class="bi bi-trash"></i> Delete Case
-            </button>
-            {% endif %}
-            {% if case.source %}
-            <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
-            {% endif %}
-        </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
             {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated_sample' %}
             <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
             {% endif %}
             {{ case.title }}
         </h2>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Cases
+            </a>
+            {% if case.document_id %}
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-secondary">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <a href="{{ url_for('doc_structure.view_structure', id=case.document_id) }}" class="btn btn-primary">
+                    <i class="bi bi-diagram-3"></i> Structure
+                    {% if case.document_id and case.doc_metadata and case.doc_metadata.document_structure and
+                    case.doc_metadata.document_structure.section_embeddings %}
+                    <span class="badge bg-light text-dark ms-1" title="Section embeddings available">
+                        {{ case.doc_metadata.document_structure.section_embeddings.count }}
+                    </span>
+                    {% endif %}
+                </a>
+                {% if case.source %}
+                <a href="{{ case.source }}" class="btn btn-info" target="_blank">
+                    <i class="bi bi-box-arrow-up-right"></i> Source
+                </a>
+                {% endif %}
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            {% endif %}
+        </div>
     </div>
 
     <div class="card mb-4">
@@ -107,19 +112,22 @@
                 {% endif %}
             </div>
             {% endif %}
-            
-            <!-- Subject Tags Section -->
-            {% if case.doc_metadata and case.doc_metadata.subject_tags %}
-            <div class="mt-2">
-                <strong>Subject Tags:</strong>
+        </div>
+        
+        <!-- Subject Tags in Header -->
+        {% if case.doc_metadata and case.doc_metadata.subject_tags %}
+        <div class="card-header border-top">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <strong class="text-muted me-2">Subject Tags:</strong>
                 {% for tag in case.doc_metadata.subject_tags %}
-                <span class="badge bg-warning text-dark me-1 mb-1" title="NSPE Subject Classification">
+                <span class="badge bg-warning text-dark me-1" title="NSPE Subject Classification">
                     <i class="bi bi-tag"></i> {{ tag }}
                 </span>
                 {% endfor %}
             </div>
-            {% endif %}
         </div>
+        {% endif %}
+        
         <div class="card-body">
             {% if world %}
             <div class="mb-3">
@@ -243,72 +251,6 @@
         </div>
     </div>
 
-    <!-- Scenario Generation -->
-    {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h3><i class="bi bi-diagram-3"></i> Scenario</h3>
-            {% if latest_scenario %}
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-success">{{ latest_scenario.stats.event_count }} events / {{ latest_scenario.stats.decision_count }} decisions</span>
-                {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                <span class="badge bg-info" title="LLM-generated semantic timeline">🧠 Enhanced</span>
-                {% endif %}
-                {% if latest_scenario.scenario_id %}
-                <span class="badge bg-success" title="Interactive scenario available">🎮 Available</span>
-                {% endif %}
-            </div>
-            {% else %}
-            <span class="badge bg-secondary">Not Generated</span>
-            {% endif %}
-        </div>
-        <div class="card-body">
-            {% if latest_scenario %}
-                {% if latest_scenario.scenario_id %}
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="mb-2">Interactive scenario generated with {{ latest_scenario.stats.event_count }} events and {{ latest_scenario.stats.decision_count }} decisions.</p>
-                        {% if latest_scenario.participants %}
-                        <div class="mb-2 small">
-                            <strong>Participants:</strong>
-                            {% for p in latest_scenario.participants %}
-                                <span class="badge bg-info text-dark me-1">{{ p }}</span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        {% if latest_scenario.ontology_enrichment_status == 'failed' %}
-                        <div class="alert alert-warning py-1 px-2 mb-2 small">
-                            <i class="bi bi-exclamation-triangle"></i> MCP server unavailable - running without ontology enrichment
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-primary">
-                        <i class="bi bi-eye"></i> View Scenario
-                    </a>
-                    <button id="regenerate-scenario" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-clockwise"></i> Regenerate
-                    </button>
-                </div>
-                {% else %}
-                <div class="text-center">
-                    <p class="text-muted">Scenario data generated but interactive scenario not created.</p>
-                    <button id="regenerate-scenario" class="btn btn-primary">
-                        <i class="bi bi-arrow-clockwise"></i> Generate Scenario
-                    </button>
-                </div>
-                {% endif %}
-            {% else %}
-            <div class="text-center">
-                <p class="text-muted">Generate an interactive ethical decision scenario from this case.</p>
-                <button id="generate-scenario" class="btn btn-success">
-                    <i class="bi bi-magic"></i> Generate Scenario
-                </button>
-            </div>
-            {% endif %}
-        </div>
-    </div>
 
     <!-- RDF Property-Value Labels (Clickable) -->
     {% if entity_triples %}
@@ -412,6 +354,60 @@
     {% endif %}
 
     <!-- Knowledge Graph Connections section has been replaced by interactive Triple Labels -->
+
+    <!-- Scenario Generation - At bottom of page -->
+    {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3><i class="bi bi-diagram-3"></i> Scenario</h3>
+        </div>
+        <div class="card-body">
+            {% if latest_scenario %}
+                {% if latest_scenario.scenario_id %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-2">Interactive scenario generated with {{ latest_scenario.stats.event_count }} events and {{ latest_scenario.stats.decision_count }} decisions.</p>
+                        {% if latest_scenario.participants %}
+                        <div class="mb-2 small">
+                            <strong>Participants:</strong>
+                            {% for p in latest_scenario.participants %}
+                                <span class="badge bg-info text-dark me-1">{{ p }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if latest_scenario.ontology_enrichment_status == 'failed' %}
+                        <div class="alert alert-warning py-1 px-2 mb-2 small">
+                            <i class="bi bi-exclamation-triangle"></i> MCP server unavailable - running without ontology enrichment
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-primary">
+                        <i class="bi bi-eye"></i> View Scenario
+                    </a>
+                    <button id="regenerate-scenario" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Regenerate
+                    </button>
+                </div>
+                {% else %}
+                <div class="text-center">
+                    <p class="text-muted">Scenario data generated but interactive scenario not created.</p>
+                    <button id="regenerate-scenario" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Generate Scenario
+                    </button>
+                </div>
+                {% endif %}
+            {% else %}
+            <div class="text-center">
+                <p class="text-muted">Generate an interactive ethical decision scenario from this case.</p>
+                <button id="generate-scenario" class="btn btn-success">
+                    <i class="bi bi-magic"></i> Generate Scenario
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 
 </div>
 

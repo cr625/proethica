@@ -6,12 +6,18 @@
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>{{ scenario.name }}</h1>
-        <div class="btn-group" role="group">
-            <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-secondary">Edit</a>
-            <a href="/scenarios/{{ scenario.id }}/references" class="btn btn-info">References</a>
-            <a href="/scenarios/{{ scenario.id }}/simulate" class="btn btn-primary">Simulate</a>
-            <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                data-bs-target="#deleteModal">Delete</button>
+        <div class="d-flex gap-2">
+            {% if scenario.scenario_metadata and scenario.scenario_metadata.source_case_id %}
+            <a href="/cases/{{ scenario.scenario_metadata.source_case_id }}" class="btn btn-outline-info">
+                <i class="bi bi-arrow-left"></i> Back to Case
+            </a>
+            {% endif %}
+            <div class="btn-group" role="group">
+                <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-secondary">Edit</a>
+                <a href="/scenarios/{{ scenario.id }}/simulate" class="btn btn-primary disabled" aria-disabled="true">Simulate</a>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                    data-bs-target="#deleteModal">Delete</button>
+            </div>
         </div>
     </div>
 
