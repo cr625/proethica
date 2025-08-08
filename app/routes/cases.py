@@ -1877,31 +1877,20 @@ def generate_direct_scenario(case_id):
         case = Document.query.get_or_404(case_id)
         overwrite = (request.args.get('overwrite', 'false').lower() == 'true')
         
-        # Handle enhanced generation toggle from JSON body
-        enhanced_generation = None
-        if request.is_json:
-            data = request.get_json()
-            if 'enhanced_generation' in data:
-                enhanced_generation = data['enhanced_generation'].lower() == 'true'
-                overwrite = data.get('overwrite', overwrite)
-        
-        # Temporarily set environment variable for this request if specified
-        original_enhanced_setting = None
-        if enhanced_generation is not None:
-            import os
-            original_enhanced_setting = os.environ.get('ENHANCED_SCENARIO_GENERATION')
-            os.environ['ENHANCED_SCENARIO_GENERATION'] = 'true' if enhanced_generation else 'false'
+        # Always use enhanced generation by default 
+        import os
+        original_enhanced_setting = os.environ.get('ENHANCED_SCENARIO_GENERATION')
+        os.environ['ENHANCED_SCENARIO_GENERATION'] = 'true'
         
         try:
             pipeline = DirectScenarioPipelineService()
-            data = pipeline.generate(case, overwrite=overwrite)
+            data = pipeline.generate(case, overwrite=True)  # Always regenerate for simplicity
         finally:
             # Restore original setting
             if original_enhanced_setting is not None:
-                if original_enhanced_setting is None:
-                    os.environ.pop('ENHANCED_SCENARIO_GENERATION', None)
-                else:
-                    os.environ['ENHANCED_SCENARIO_GENERATION'] = original_enhanced_setting
+                os.environ['ENHANCED_SCENARIO_GENERATION'] = original_enhanced_setting
+            else:
+                os.environ.pop('ENHANCED_SCENARIO_GENERATION', None)
 
         # Optionally include full events list; default now True for developer inspection.
         include_events = request.args.get('include_events', 'true').lower() != 'false'

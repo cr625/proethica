@@ -193,26 +193,6 @@
             </div>
             {% endif %}
 
-            <!-- Scenario Generation Section -->
-            <div class="mb-4">
-                <div class="card border-success">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">
-                            <i class="bi bi-play-circle text-success"></i> Generate Interactive Scenario
-                        </h4>
-                        <span id="scenario-status-badge" class="badge bg-secondary">Checking...</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="scenario-generation-content">
-                            <div class="d-flex justify-content-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Display ontology information if available -->
             {% if case.doc_metadata and case.doc_metadata.ontology_info %}
@@ -263,28 +243,19 @@
         </div>
     </div>
 
-    <!-- Direct Scenario Generation (Phase A) -->
+    <!-- Scenario Generation -->
     {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
-        <div class="card mb-4">
+    <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3><i class="bi bi-diagram-3"></i> Direct Scenario Timeline
-            {% if latest_scenario and latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                <span class="badge bg-primary ms-2">Enhanced</span>
-            {% elif latest_scenario %}
-                <span class="badge bg-secondary ms-2">Legacy</span>
-            {% endif %}
-            </h3>
+            <h3><i class="bi bi-diagram-3"></i> Scenario</h3>
             {% if latest_scenario %}
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-success">{{ latest_scenario.stats.event_count }} events / {{ latest_scenario.stats.decision_count }} decisions</span>
                 {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                <span class="badge bg-info" title="LLM-generated semantic timeline">🧠 LLM</span>
-                {% endif %}
-                {% if latest_scenario.ontology_enrichment_status == 'success' %}
-                <span class="badge bg-warning" title="MCP ontology enriched">🔗 MCP</span>
+                <span class="badge bg-info" title="LLM-generated semantic timeline">🧠 Enhanced</span>
                 {% endif %}
                 {% if latest_scenario.scenario_id %}
-                <span class="badge bg-success" title="Interactive scenario available">🎮 Interactive</span>
+                <span class="badge bg-success" title="Interactive scenario available">🎮 Available</span>
                 {% endif %}
             </div>
             {% else %}
@@ -293,10 +264,10 @@
         </div>
         <div class="card-body">
             {% if latest_scenario %}
-                <!-- Enhanced scenario metadata -->
-                {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                <div class="row mb-3">
-                    <div class="col-md-6">
+                {% if latest_scenario.scenario_id %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-2">Interactive scenario generated with {{ latest_scenario.stats.event_count }} events and {{ latest_scenario.stats.decision_count }} decisions.</p>
                         {% if latest_scenario.participants %}
                         <div class="mb-2 small">
                             <strong>Participants:</strong>
@@ -305,129 +276,39 @@
                             {% endfor %}
                         </div>
                         {% endif %}
-                    </div>
-                    <div class="col-md-6">
-                        {% if latest_scenario.temporal_evidence %}
-                        <div class="mb-2 small">
-                            <strong>Temporal Evidence:</strong>
-                            <span class="badge bg-light text-dark border">{{ latest_scenario.temporal_evidence|length }} markers</span>
+                        {% if latest_scenario.ontology_enrichment_status == 'failed' %}
+                        <div class="alert alert-warning py-1 px-2 mb-2 small">
+                            <i class="bi bi-exclamation-triangle"></i> MCP server unavailable - running without ontology enrichment
                         </div>
                         {% endif %}
                     </div>
                 </div>
-                {% else %}
-                        {% if latest_scenario.participants %}
-                        <div class="mb-2 small">
-                                <strong>Participants:</strong>
-                                {% for p in latest_scenario.participants %}
-                                    <span class="badge bg-info text-dark me-1">{{ p }}</span>
-                                {% endfor %}
-                        </div>
-                        {% endif %}
-                {% endif %}
-            
-            <ol class="list-group list-group-numbered mb-3">
-                {% for ev_id in latest_scenario.ordering[:10] %}
-                    {% set ev = (latest_scenario.events | selectattr('id','equalto',ev_id) | list)[0] %}
-                    <li class="list-group-item py-2 {% if ev.get('kind') == 'decision' %}list-group-item-warning{% endif %}">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <strong>{{ (ev.get('kind') or 'event')|capitalize }}</strong>
-                                {% if ev.get('refined') %}<span class="badge bg-primary ms-1">Refined</span>{% endif %}
-                                {% if ev.get('enhanced_decision') %}<span class="badge bg-success ms-1">Enhanced</span>{% endif %}
-                                {% if ev.get('question_source') %}<span class="badge bg-info ms-1">Q-Source</span>{% endif %}
-                                {% if ev.get('extraction_method') == 'llm_semantic' %}<span class="badge bg-warning ms-1">LLM</span>{% endif %}
-                                <br>
-                                {{ (ev.get('text') or ev.get('description') or ev.get('title') or 'No description available')[:220] }}{% if (ev.get('text') or ev.get('description') or ev.get('title') or 'No description available')|length > 220 %}...{% endif %}
-                                {% if ev.get('context') and latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                                <br><small class="text-muted">Context: {{ ev.get('context')[:100] }}{% if ev.get('context')|length > 100 %}...{% endif %}</small>
-                                {% endif %}
-                            </div>
-                            <div class="text-end small">
-                                {% if ev.get('sequence_number') %}
-                                <span class="badge bg-light text-dark">#{{ ev.get('sequence_number') }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </li>
-                {% endfor %}
-            </ol>
-            <div class="d-flex justify-content-between align-items-center">
-                <button id="regenerate-direct-scenario" class="btn btn-outline-success btn-sm">
-                    <i class="bi bi-arrow-clockwise"></i> Regenerate
-                </button>
-                <div class="btn-group" role="group">
-                    {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                    <a href="/cases/{{ case.id }}/scenario_interim" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-eye"></i> View Details
+                <div class="mt-3">
+                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-primary">
+                        <i class="bi bi-eye"></i> View Scenario
                     </a>
-                    {% if latest_scenario.scenario_id %}
-                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-primary btn-sm" target="_blank">
-                        <i class="bi bi-play-circle"></i> View Interactive Scenario
-                    </a>
-                    {% endif %}
-                    {% endif %}
-                    <button id="toggle-enhancement-mode" class="btn btn-outline-info btn-sm" 
-                            data-current-mode="{% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}enhanced{% else %}legacy{% endif %}">
-                        {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                        <i class="bi bi-cpu"></i> Switch to Legacy
-                        {% else %}
-                        <i class="bi bi-magic"></i> Try Enhanced
-                        {% endif %}
+                    <button id="regenerate-scenario" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Regenerate
                     </button>
                 </div>
-            </div>
+                {% else %}
+                <div class="text-center">
+                    <p class="text-muted">Scenario data generated but interactive scenario not created.</p>
+                    <button id="regenerate-scenario" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Generate Scenario
+                    </button>
+                </div>
+                {% endif %}
             {% else %}
-            <p class="text-muted">Generate a preliminary timeline directly from the case text (no full deconstruction required).</p>
-            <button id="generate-direct-scenario" class="btn btn-success btn-sm">
-                <i class="bi bi-magic"></i> Generate Direct Scenario
-            </button>
+            <div class="text-center">
+                <p class="text-muted">Generate an interactive ethical decision scenario from this case.</p>
+                <button id="generate-scenario" class="btn btn-success">
+                    <i class="bi bi-magic"></i> Generate Scenario
+                </button>
+            </div>
             {% endif %}
         </div>
     </div>
-
-        {% if latest_scenario and latest_scenario.ontology_summary %}
-        <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                        <h3><i class="bi bi-diagram-2"></i> Ontology Analysis</h3>
-                        <div class="d-flex align-items-center gap-2">
-                            {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
-                                {% if latest_scenario.ontology_enrichment_status == 'success' %}
-                                <span class="badge bg-success">MCP Enhanced</span>
-                                {% elif latest_scenario.ontology_enrichment_status == 'failed' %}
-                                <span class="badge bg-warning">MCP Failed, Fallback</span>
-                                {% else %}
-                                <span class="badge bg-info">Enhanced Semantic</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="badge bg-secondary">Heuristic</span>
-                            {% endif %}
-                        </div>
-                </div>
-                <div class="card-body small">
-                        <div class="row">
-                                {% for cat, items in latest_scenario.ontology_summary.items() %}
-                                    <div class="col-md-3 mb-3">
-                                        <strong>{{ cat }}</strong>
-                                        <div class="mt-1">
-                                            {% if cat == 'Role' %}
-                                                {% for r in items %}<span class="badge bg-info text-dark me-1 mb-1">{{ r }}</span>{% endfor %}
-                                            {% elif cat in ['Action','Event'] %}
-                                                <span class="text-muted">{{ items|length }} IDs</span>
-                                            {% else %}
-                                                {% for it in items[:6] %}
-                                                     {% if it.term %}<span class="badge bg-light text-dark border me-1 mb-1">{{ it.term }}</span>{% endif %}
-                                                {% endfor %}
-                                                {% if items|length > 6 %}<span class="badge bg-light text-dark border">+{{ items|length - 6 }}</span>{% endif %}
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                        </div>
-                        <div class="mt-2"><em class="text-muted">Categories derived heuristically from text; will be ontology-backed in a later phase.</em></div>
-                </div>
-        </div>
-        {% endif %}
 
     <!-- RDF Property-Value Labels (Clickable) -->
     {% if entity_triples %}
@@ -562,442 +443,31 @@
 <!-- Include the external case detail JS file -->
 <script src="{{ url_for('static', filename='js/case_detail.js') }}"></script>
 
-<!-- Scenario Generation JavaScript -->
+<!-- Scenario Generation JavaScript (Simplified) -->
 <script>
-// Scenario Generation Management
-class ScenarioGenerationManager {
-    constructor(caseId) {
-        this.caseId = caseId;
-        this.statusCheckInterval = null;
-        this.progressInterval = null;
-        this.init();
-    }
-    
-    init() {
-        this.checkScenarioStatus();
-    }
-    
-    async checkScenarioStatus() {
-        try {
-            const response = await fetch(`/cases/${this.caseId}/scenario_status`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.updateStatusDisplay(data);
-            } else {
-                this.showError('Failed to check scenario status: ' + data.error);
-            }
-        } catch (error) {
-            this.showError('Error checking scenario status: ' + error.message);
-        }
-    }
-    
-    updateStatusDisplay(status) {
-        const badge = document.getElementById('scenario-status-badge');
-        const content = document.getElementById('scenario-generation-content');
-        
-        if (status.has_scenarios) {
-            // Case has playable scenarios - show scenario links
-            badge.className = 'badge bg-success';
-            badge.textContent = `${status.scenario_count} Scenario${status.scenario_count !== 1 ? 's' : ''} Available`;
-            
-            content.innerHTML = this.renderScenarioLinks(status.scenarios);
-        } else if (status.is_deconstructed && status.has_templates) {
-            // Case is deconstructed and has templates - show scenario creation options
-            badge.className = 'badge bg-warning';
-            badge.textContent = `${status.template_count} Template${status.template_count !== 1 ? 's' : ''} Available`;
-            
-            content.innerHTML = this.renderTemplateOptions(status.templates);
-        } else if (status.is_deconstructed) {
-            // Case is deconstructed but no templates - offer to create template
-            badge.className = 'badge bg-warning';
-            badge.textContent = 'Ready for Template Creation';
-            
-            content.innerHTML = this.renderCreateTemplateOption();
-        } else if (status.can_deconstruct) {
-            // Case can be deconstructed - show generation option
-            badge.className = 'badge bg-info';
-            badge.textContent = 'Ready for Generation';
-            
-            content.innerHTML = this.renderGenerationOption();
-        } else {
-            // Case cannot be deconstructed
-            badge.className = 'badge bg-danger';
-            badge.textContent = 'Not Compatible';
-            
-            content.innerHTML = this.renderNotCompatible(status.deconstruct_reason);
-        }
-    }
-    
-    renderGenerationOption() {
-        return `
-            <div class="text-center">
-                <h5>Transform this case into an interactive scenario</h5>
-                <p class="text-muted">This will analyze the case to extract stakeholders, decision points, and reasoning chains.</p>
-                <button id="generate-scenario-btn" class="btn btn-success btn-lg">
-                    <i class="bi bi-play-circle"></i> Generate Scenario
-                </button>
-            </div>
-        `;
-    }
-    
-    renderCreateTemplateOption() {
-        return `
-            <div class="text-center">
-                <h5>Case has been analyzed</h5>
-                <p class="text-muted">Create a scenario template from the analyzed case data.</p>
-                <button id="create-template-btn" class="btn btn-primary btn-lg">
-                    <i class="bi bi-file-earmark-plus"></i> Create Scenario Template
-                </button>
-            </div>
-        `;
-    }
-    
-    renderTemplateOptions(templates) {
-        let html = `
-            <div class="text-center">
-                <h5>Scenario Templates Available</h5>
-                <p class="text-muted">Create playable scenarios from these templates.</p>
-                <div class="row">
-        `;
-        
-        templates.forEach(template => {
-            html += `
-                <div class="col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title">${template.title}</h6>
-                            <button class="btn btn-success create-scenario-btn" data-template-id="${template.id}">
-                                <i class="bi bi-play"></i> Create Scenario
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += `
-                </div>
-                <button id="create-template-btn" class="btn btn-outline-primary">
-                    <i class="bi bi-plus"></i> Create Another Template
-                </button>
-            </div>
-        `;
-        
-        return html;
-    }
-    
-    renderScenarioLinks(scenarios) {
-        let html = `
-            <div class="text-center">
-                <h5><i class="bi bi-play-circle text-success"></i> Interactive Scenarios Ready!</h5>
-                <p class="text-muted">This case has been transformed into playable scenarios. Click to explore:</p>
-                <div class="row justify-content-center">
-        `;
-        
-        scenarios.forEach(scenario => {
-            html += `
-                <div class="col-md-8 mb-3">
-                    <div class="card border-success">
-                        <div class="card-body">
-                            <h6 class="card-title">${scenario.name}</h6>
-                            <a href="${scenario.url}" class="btn btn-success btn-lg w-100" target="_blank">
-                                <i class="bi bi-play-circle"></i> Play Scenario
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += `
-                </div>
-                <div class="mt-3">
-                    <a href="/scenarios/" class="btn btn-outline-primary">
-                        <i class="bi bi-list"></i> View All Scenarios
-                    </a>
-                </div>
-            </div>
-        `;
-        
-        return html;
-    }
-    
-    renderNotCompatible(reason) {
-        return `
-            <div class="text-center">
-                <h5 class="text-muted">Scenario Generation Not Available</h5>
-                <p class="text-muted">${reason}</p>
-                <small class="text-muted">This case may need additional processing or may not be compatible with scenario generation.</small>
-            </div>
-        `;
-    }
-    
-    async generateScenario() {
-        const btn = document.getElementById('generate-scenario-btn');
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
-        
-        try {
-            const response = await fetch(`/cases/${this.caseId}/generate_scenario`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showProgress();
-                this.startProgressPolling();
-            } else {
-                this.showError('Failed to start generation: ' + data.error);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            this.showError('Error starting generation: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-    
-    async createTemplate() {
-        const btn = document.getElementById('create-template-btn');
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
-        
-        try {
-            const response = await fetch(`/cases/${this.caseId}/create_scenario_template`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showSuccess('Template created successfully!');
-                // Refresh status to show new template
-                setTimeout(() => this.checkScenarioStatus(), 1000);
-            } else {
-                this.showError('Failed to create template: ' + data.error);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            this.showError('Error creating template: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-    
-    async createScenarioFromTemplate(templateId) {
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
-        
-        try {
-            const response = await fetch(`/cases/templates/${templateId}/create_scenario`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    difficulty: 'intermediate',
-                    time_limits: 'normal'
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showSuccess('Scenario created successfully! Redirecting...');
-                setTimeout(() => {
-                    window.location.href = data.redirect_url;
-                }, 1500);
-            } else {
-                this.showError('Failed to create scenario: ' + data.error);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            this.showError('Error creating scenario: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-    
-    showProgress() {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5>Generating Scenario...</h5>
-                <div class="progress mb-3">
-                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                         role="progressbar" style="width: 10%">10%</div>
-                </div>
-                <p id="progress-message" class="text-muted">Starting analysis...</p>
-            </div>
-        `;
-    }
-    
-    startProgressPolling() {
-        this.progressInterval = setInterval(async () => {
-            try {
-                const response = await fetch(`/cases/${this.caseId}/scenario_generation_progress`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.updateProgress(data.progress);
-                    
-                    if (data.progress.status === 'COMPLETED') {
-                        clearInterval(this.progressInterval);
-                        this.showCompleted();
-                    } else if (data.progress.status === 'FAILED') {
-                        clearInterval(this.progressInterval);
-                        this.showError('Generation failed: ' + data.progress.message);
-                    }
-                }
-            } catch (error) {
-                console.error('Error polling progress:', error);
-            }
-        }, 2000);
-    }
-    
-    updateProgress(progress) {
-        const progressBar = document.getElementById('progress-bar');
-        const progressMessage = document.getElementById('progress-message');
-        
-        if (progressBar) {
-            progressBar.style.width = progress.progress + '%';
-            progressBar.textContent = progress.progress + '%';
-        }
-        
-        if (progressMessage) {
-            progressMessage.textContent = progress.message || 'Processing...';
-        }
-    }
-    
-    showCompleted() {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5 class="text-success"><i class="bi bi-check-circle"></i> Generation Complete!</h5>
-                <p class="text-muted">The case has been analyzed. You can now create scenario templates.</p>
-                <button class="btn btn-primary" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh Page
-                </button>
-            </div>
-        `;
-    }
-    
-    showSuccess(message) {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5 class="text-success"><i class="bi bi-check-circle"></i> ${message}</h5>
-            </div>
-        `;
-    }
-    
-    showError(message) {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5 class="text-danger"><i class="bi bi-exclamation-circle"></i> Error</h5>
-                <p class="text-muted">${message}</p>
-                <button class="btn btn-outline-primary" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise"></i> Try Again
-                </button>
-            </div>
-        `;
-    }
-}
-
-// Initialize scenario generation when page loads
 document.addEventListener('DOMContentLoaded', function() {
     const caseId = JSON.parse('{{ case.id | tojson | safe }}');
-    const scenarioManager = new ScenarioGenerationManager(caseId);
     
-    // Event delegation for dynamically created buttons
+    // Event delegation for scenario generation buttons
     document.addEventListener('click', function(e) {
-        if (e.target.id === 'generate-scenario-btn') {
-            e.preventDefault();
-            scenarioManager.generateScenario();
-        } else if (e.target.id === 'create-template-btn') {
-            e.preventDefault();
-            scenarioManager.createTemplate();
-        } else if (e.target.classList.contains('create-scenario-btn')) {
-            e.preventDefault();
-            const templateId = e.target.getAttribute('data-template-id');
-            scenarioManager.createScenarioFromTemplate(templateId);
-        }
-        // Direct scenario generation buttons
-        if (e.target.id === 'generate-direct-scenario' || e.target.id === 'regenerate-direct-scenario') {
+        // Scenario generation buttons
+        if (e.target.id === 'generate-scenario' || e.target.id === 'regenerate-scenario') {
             e.preventDefault();
             const btn = e.target;
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Working...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
             fetch(`/cases/${caseId}/direct_scenario`, {method: 'POST'})
               .then(r => r.json())
               .then(data => {
                   if (data.success) {
                       location.reload();
                   } else {
-                      alert('Failed to generate direct scenario: ' + (data.error || 'Unknown error'));
+                      alert('Failed to generate scenario: ' + (data.error || 'Unknown error'));
                   }
               })
               .catch(err => alert('Error: ' + err.message))
               .finally(() => { btn.disabled = false; btn.innerHTML = originalHtml; });
-        }
-        
-        // Toggle enhancement mode button
-        if (e.target.id === 'toggle-enhancement-mode') {
-            e.preventDefault();
-            const btn = e.target;
-            const currentMode = btn.getAttribute('data-current-mode');
-            const newMode = currentMode === 'enhanced' ? 'legacy' : 'enhanced';
-            const originalHtml = btn.innerHTML;
-            
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Switching...';
-            
-            // Set the enhancement flag based on mode
-            const enhancedEnabled = newMode === 'enhanced' ? 'true' : 'false';
-            
-            fetch(`/cases/${caseId}/direct_scenario`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    enhanced_generation: enhancedEnabled,
-                    overwrite: true
-                })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert(`Failed to generate ${newMode} scenario: ` + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(err => alert('Error: ' + err.message))
-            .finally(() => { 
-                btn.disabled = false; 
-                btn.innerHTML = originalHtml; 
-            });
         }
     });
 });

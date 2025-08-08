@@ -64,7 +64,7 @@ class MCPOntologyClient:
         """
         self.server_url = server_url or os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')
         self.timeout = timeout
-        self.fallback_enabled = os.environ.get('MCP_FALLBACK_ENABLED', 'true').lower() == 'true'
+        self.fallback_enabled = False  # No fallbacks - fail explicitly when MCP is unavailable
         self._session = None
         self._entity_cache = {}  # Cache for frequently requested entities
         

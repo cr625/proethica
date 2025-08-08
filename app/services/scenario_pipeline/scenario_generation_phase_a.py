@@ -94,8 +94,17 @@ class DirectScenarioPipelineService:
                 logger.warning(f"Enhanced generation failed: {timeline_data['error']}, falling back to legacy")
                 return self._generate_legacy(case, metadata, sections, overwrite)
             
-            # Enrich with MCP ontology integration (async)
-            enhanced_timeline = asyncio.run(self._enrich_with_ontology(timeline_data))
+            # Try to enrich with MCP ontology integration (async)
+            try:
+                enhanced_timeline = asyncio.run(self._enrich_with_ontology(timeline_data))
+            except Exception as e:
+                logger.error(f"MCP ontology enrichment failed: {e}")
+                logger.warning("⚠️  MCP server is not responding - continuing without ontology enrichment")
+                logger.warning(f"⚠️  MCP URL: {os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')}")
+                logger.warning("⚠️  Please ensure MCP server is running for full ontology integration")
+                enhanced_timeline = timeline_data
+                enhanced_timeline['ontology_enrichment_status'] = 'failed'
+                enhanced_timeline['ontology_enrichment_error'] = f"MCP server unavailable: {str(e)}"
             
             # Generate proper database models (Character, Resource, Event, Action)
             try:
