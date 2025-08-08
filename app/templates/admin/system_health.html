@@ -28,50 +28,54 @@
     <!-- System Status Overview -->
     <div class="row mb-4">
         <div class="col-md-3 mb-3">
-            <div class="card border-success">
+            <div class="card">
                 <div class="card-body text-center">
-                    <i class="fas fa-database fa-2x text-success mb-2"></i>
+                    <i class="fas fa-database fa-2x text-primary mb-2"></i>
                     <h6>Database</h6>
-                    <span class="badge bg-success">
-                        <i class="fas fa-check me-1"></i>
-                        Connected
-                    </span>
+                    {% if health_stats.technical_status.system_status.database.status == 'connected' %}
+                        <span class="text-success">Connected</span>
+                        <br><small class="text-muted">{{ health_stats.db_response_time }}ms</small>
+                    {% else %}
+                        <span class="text-danger">Error</span>
+                    {% endif %}
                 </div>
             </div>
         </div>
         <div class="col-md-3 mb-3">
-            <div class="card border-success">
+            <div class="card">
                 <div class="card-body text-center">
-                    <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
-                    <h6>Authentication</h6>
-                    <span class="badge bg-success">
-                        <i class="fas fa-check me-1"></i>
-                        Active
-                    </span>
+                    <i class="fas fa-memory fa-2x text-primary mb-2"></i>
+                    <h6>Memory</h6>
+                    {% if health_stats.memory_usage %}
+                        <span class="{% if health_stats.memory_usage.used_percent < 80 %}text-success{% else %}text-warning{% endif %}">{{ health_stats.memory_usage.used_percent|round|int }}%</span>
+                        <br><small class="text-muted">{{ health_stats.memory_usage.available_gb }}GB free</small>
+                    {% else %}
+                        <span class="text-muted">Unknown</span>
+                    {% endif %}
                 </div>
             </div>
         </div>
         <div class="col-md-3 mb-3">
-            <div class="card border-info">
+            <div class="card">
                 <div class="card-body text-center">
-                    <i class="fas fa-server fa-2x text-info mb-2"></i>
-                    <h6>MCP Server</h6>
-                    <span class="badge bg-warning">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        Optional
-                    </span>
+                    <i class="fas fa-hdd fa-2x text-primary mb-2"></i>
+                    <h6>Disk</h6>
+                    {% if health_stats.disk_usage %}
+                        <span class="{% if health_stats.disk_usage.used_percent < 80 %}text-success{% else %}text-warning{% endif %}">{{ health_stats.disk_usage.used_percent|round|int }}%</span>
+                        <br><small class="text-muted">{{ health_stats.disk_usage.free_gb }}GB free</small>
+                    {% else %}
+                        <span class="text-muted">Unknown</span>
+                    {% endif %}
                 </div>
             </div>
         </div>
         <div class="col-md-3 mb-3">
-            <div class="card border-success">
+            <div class="card">
                 <div class="card-body text-center">
-                    <i class="fas fa-cogs fa-2x text-success mb-2"></i>
-                    <h6>Application</h6>
-                    <span class="badge bg-success">
-                        <i class="fas fa-check me-1"></i>
-                        Running
-                    </span>
+                    <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                    <h6>Uptime</h6>
+                    <span class="text-success">{{ health_stats.system_uptime }} hrs</span>
+                    <br><small class="text-muted">Since restart</small>
                 </div>
             </div>
         </div>
@@ -90,27 +94,27 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-6">
-                            <div class="text-center p-3 bg-primary bg-opacity-10 rounded mb-3">
-                                <div class="h4 text-primary mb-0">{{ health_stats.total_users }}</div>
+                            <div class="text-center p-3 border rounded mb-3">
+                                <div class="h4 mb-0">{{ health_stats.total_users }}</div>
                                 <small class="text-muted">Total Users</small>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="text-center p-3 bg-info bg-opacity-10 rounded mb-3">
-                                <div class="h4 text-info mb-0">{{ health_stats.active_sessions }}</div>
-                                <small class="text-muted">Active Sessions</small>
+                            <div class="text-center p-3 border rounded mb-3">
+                                <div class="h4 mb-0">{{ health_stats.active_sessions }}</div>
+                                <small class="text-muted">Active (1hr)</small>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
-                                <div class="h4 text-success mb-0">{{ health_stats.total_data_items }}</div>
+                            <div class="text-center p-3 border rounded">
+                                <div class="h4 mb-0">{{ health_stats.total_data_items }}</div>
                                 <small class="text-muted">Data Items</small>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
-                                <div class="h4 text-warning mb-0">{{ health_stats.system_uptime }}</div>
-                                <small class="text-muted">Uptime (hrs)</small>
+                            <div class="text-center p-3 border rounded">
+                                <div class="h4 mb-0">{{ health_stats.db_tables }}</div>
+                                <small class="text-muted">DB Tables</small>
                             </div>
                         </div>
                     </div>
@@ -147,51 +151,79 @@
         </div>
     </div>
 
-    <!-- Database Health -->
+    <!-- Database Diagnostics -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-database me-2"></i>
-                        Database Health
+                        Database Diagnostics
                     </h5>
                 </div>
                 <div class="card-body">
+                    {% if health_stats.technical_status.system_status.database.status == 'connected' %}
                     <div class="row">
-                        <div class="col-md-3 text-center">
-                            <div class="p-3">
-                                <i class="fas fa-table fa-2x text-primary mb-2"></i>
-                                <h6>Tables</h6>
-                                <div class="h5 text-primary">{{ health_stats.db_tables }}</div>
-                                <small class="text-muted">Active tables</small>
-                            </div>
+                        <div class="col-md-3">
+                            <strong>Version:</strong><br>
+                            <code>{{ health_stats.technical_status.system_status.database.detail.version }}</code>
                         </div>
-                        <div class="col-md-3 text-center">
-                            <div class="p-3">
-                                <i class="fas fa-link fa-2x text-success mb-2"></i>
-                                <h6>Connections</h6>
-                                <div class="h5 text-success">{{ health_stats.db_connections }}</div>
-                                <small class="text-muted">Pool connections</small>
-                            </div>
+                        <div class="col-md-3">
+                            <strong>Size:</strong> {{ health_stats.db_size }}MB<br>
+                            <strong>Tables:</strong> {{ health_stats.db_tables }}
                         </div>
-                        <div class="col-md-3 text-center">
-                            <div class="p-3">
-                                <i class="fas fa-clock fa-2x text-info mb-2"></i>
-                                <h6>Response Time</h6>
-                                <div class="h5 text-info">{{ health_stats.db_response_time }}ms</div>
-                                <small class="text-muted">Average query time</small>
-                            </div>
+                        <div class="col-md-3">
+                            <strong>Connections:</strong> {{ health_stats.db_connections }}<br>
+                            <strong>Query Time:</strong> {{ health_stats.db_response_time }}ms
                         </div>
-                        <div class="col-md-3 text-center">
-                            <div class="p-3">
-                                <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
-                                <h6>Storage</h6>
-                                <div class="h5 text-warning">{{ health_stats.db_size }}MB</div>
-                                <small class="text-muted">Database size</small>
-                            </div>
+                        <div class="col-md-3">
+                            <strong>Status:</strong> 
+                            {% if health_stats.technical_status.system_status.database.detail.has_critical_tables %}
+                                <span class="text-success">All critical tables present</span>
+                            {% else %}
+                                <span class="text-warning">Missing: {{ health_stats.technical_status.system_status.database.detail.missing_tables|join(', ') }}</span>
+                            {% endif %}
                         </div>
                     </div>
+                    {% if health_stats.technical_status.system_status.database.detail.tables %}
+                    <div class="row mt-3 pt-3 border-top">
+                        <div class="col-12">
+                            <h6>Database Tables ({{ health_stats.technical_status.system_status.database.detail.table_count }}):</h6>
+                            
+                            <!-- Show first 20 tables initially -->
+                            <div class="row" id="tableListPreview">
+                                {% for table in health_stats.technical_status.system_status.database.detail.tables[:20] %}
+                                <div class="col-md-3 col-sm-4 col-6 mb-1">
+                                    <small><code>{{ table }}</code></small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if health_stats.technical_status.system_status.database.detail.table_count > 20 %}
+                            <!-- Show remaining tables when expanded (continues the same row structure) -->
+                            <div class="row" id="tableListFull" style="display: none;">
+                                {% for table in health_stats.technical_status.system_status.database.detail.tables[20:] %}
+                                <div class="col-md-3 col-sm-4 col-6 mb-1">
+                                    <small><code>{{ table }}</code></small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="mt-2">
+                                <a href="#" onclick="toggleTableList(); return false;" id="toggleTableLink">
+                                    <small>Show {{ health_stats.technical_status.system_status.database.detail.table_count - 20 }} more tables</small>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-danger mb-0">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Database connection failed: {{ health_stats.technical_status.system_status.database.error }}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -264,55 +296,53 @@
         </div>
     </div>
 
-    <!-- System Configuration -->
+    <!-- System Environment -->
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-cog me-2"></i>
-                        System Configuration
+                        <i class="fas fa-info-circle me-2"></i>
+                        System Environment
                     </h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
-                            <h6>Application Settings</h6>
-                            <ul class="list-unstyled">
-                                <li><strong>Environment:</strong> {{ health_stats.environment }}</li>
-                                <li><strong>Debug Mode:</strong> 
-                                    {% if health_stats.debug_mode %}
-                                        <span class="badge bg-warning">Enabled</span>
-                                    {% else %}
-                                        <span class="badge bg-success">Disabled</span>
-                                    {% endif %}
-                                </li>
-                                <li><strong>Authentication:</strong> 
-                                    <span class="badge bg-success">Required</span>
-                                </li>
-                                <li><strong>Session Timeout:</strong> {{ health_stats.session_timeout }} minutes</li>
-                            </ul>
+                        <div class="col-md-4">
+                            <h6>Application</h6>
+                            <table class="table table-sm">
+                                <tr><td>Environment:</td><td><code>{{ health_stats.technical_status.environment }}</code></td></tr>
+                                <tr><td>Python:</td><td><code>{{ health_stats.technical_status.python_version }}</code></td></tr>
+                                <tr><td>Debug Mode:</td><td>{% if health_stats.debug_mode %}Yes{% else %}No{% endif %}</td></tr>
+                                <tr><td>Session Timeout:</td><td>{{ health_stats.session_timeout|round|int }} min</td></tr>
+                            </table>
                         </div>
-                        <div class="col-md-6">
-                            <h6>Security Status</h6>
-                            <ul class="list-unstyled">
-                                <li><strong>CSRF Protection:</strong> 
-                                    <span class="badge bg-success">Active</span>
-                                </li>
-                                <li><strong>Secure Cookies:</strong> 
-                                    {% if health_stats.secure_cookies %}
-                                        <span class="badge bg-success">Enabled</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">Development</span>
-                                    {% endif %}
-                                </li>
-                                <li><strong>Admin Routes:</strong> 
-                                    <span class="badge bg-success">Protected</span>
-                                </li>
-                                <li><strong>Data Isolation:</strong> 
-                                    <span class="badge bg-success">Active</span>
-                                </li>
-                            </ul>
+                        <div class="col-md-4">
+                            <h6>Resources</h6>
+                            {% if health_stats.memory_usage %}
+                            <table class="table table-sm">
+                                <tr><td>Process Memory:</td><td>{{ health_stats.memory_usage.process_mb|round|int }} MB</td></tr>
+                                <tr><td>System Memory:</td><td>{{ health_stats.memory_usage.used_percent|round|int }}% used</td></tr>
+                                <tr><td>Disk Space:</td><td>{{ health_stats.disk_usage.used_percent|round|int }}% used</td></tr>
+                                <tr><td>Uptime:</td><td>{{ health_stats.system_uptime }} hours</td></tr>
+                            </table>
+                            {% else %}
+                            <p class="text-muted">Resource data unavailable</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Quick Actions</h6>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="location.reload()">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh Status
+                                </button>
+                                <a href="{{ url_for('admin.system_health') }}?format=json" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                    <i class="fas fa-code me-1"></i>View Raw JSON
+                                </a>
+                                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-tachometer-alt me-1"></i>Admin Dashboard
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -344,5 +374,24 @@ document.addEventListener('DOMContentLoaded', function() {
         header.appendChild(small);
     }
 });
+
+// Toggle table list expansion
+function toggleTableList() {
+    const full = document.getElementById('tableListFull');
+    const link = document.getElementById('toggleTableLink');
+    
+    if (full.style.display === 'none' || full.style.display === '') {
+        // Show remaining tables
+        full.style.display = 'block';
+        link.innerHTML = '<small>Show fewer tables</small>';
+    } else {
+        // Hide remaining tables
+        full.style.display = 'none';
+        // Get the count from the original link text
+        const totalTables = parseInt(link.closest('.col-12').querySelector('h6').textContent.match(/\d+/)[0]);
+        const remainingCount = totalTables - 20;
+        link.innerHTML = `<small>Show ${remainingCount} more tables</small>`;
+    }
+}
 </script>
 {% endblock %}

@@ -115,9 +115,16 @@
                                     <li><a class="dropdown-item" href="/experiment">
                                         <i class="bi bi-flask me-2"></i>Experiments
                                     </a></li>
-                                    <li><a class="dropdown-item" href="/debug/status">
-                                        <i class="bi bi-bug me-2"></i>Debug Status
+                                    {% if current_user and current_user.is_authenticated and current_user.is_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">Admin Tools</h6></li>
+                                    <li><a class="dropdown-item" href="/admin">
+                                        <i class="bi bi-shield-check me-2"></i>Admin Dashboard
                                     </a></li>
+                                    <li><a class="dropdown-item" href="/admin/system-health">
+                                        <i class="bi bi-activity me-2"></i>System Health
+                                    </a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                         </ul>

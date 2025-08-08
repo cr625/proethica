@@ -8,9 +8,14 @@ Provides admin-only interfaces for:
 - Audit logging
 """
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+import sys
+import os
+import requests
+import psycopg2
+import json
 from app.utils.auth_utils import admin_required
 from app.services.test_data_reset_service import TestDataResetService
 from app.models.user import User
@@ -18,9 +23,77 @@ from app.models.world import World
 from app.models.document import Document
 from app.models.guideline import Guideline
 from app.models.scenario import Scenario
-from app import db
+from app.models.ontology import Ontology
+from app.models.entity_triple import EntityTriple
+from app.models.document_section import DocumentSection
+from app.models.deconstructed_case import DeconstructedCase
+from app.services.ontology_entity_service import OntologyEntityService
+from app import db, create_app
+import traceback
+
+import psutil
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+
+def get_ontology_sync_status():
+    """Check synchronization status between TTL files and database."""
+    import hashlib
+    
+    sync_status = {
+        'core_ontologies': [],
+        'guideline_ontologies': [],
+        'last_sync': None,
+        'needs_sync': False
+    }
+    
+    try:
+        # Check core ontology files
+        core_ontologies = ['bfo', 'proethica-intermediate', 'engineering-ethics']
+        for domain in core_ontologies:
+            ttl_path = f'ontologies/{domain}.ttl'
+            
+            if os.path.exists(ttl_path):
+                # Get file modification time
+                file_mtime = datetime.fromtimestamp(os.path.getmtime(ttl_path))
+                
+                # Check database version
+                db_ontology = Ontology.query.filter_by(domain_id=domain).first()
+                
+                status_info = {
+                    'domain': domain,
+                    'file_exists': True,
+                    'file_modified': file_mtime.isoformat(),
+                    'in_database': db_ontology is not None,
+                    'synced': False
+                }
+                
+                if db_ontology:
+                    status_info['db_updated'] = db_ontology.updated_at.isoformat() if db_ontology.updated_at else None
+                    # Simple check: if file is newer than DB, needs sync
+                    if db_ontology.updated_at:
+                        status_info['synced'] = file_mtime <= db_ontology.updated_at
+                    
+                sync_status['core_ontologies'].append(status_info)
+                
+                if not status_info['synced']:
+                    sync_status['needs_sync'] = True
+        
+        # Check guideline-derived ontologies
+        guideline_onts = Ontology.query.filter(
+            Ontology.domain_id.like('guideline-%')
+        ).limit(5).all()
+        
+        for ont in guideline_onts:
+            sync_status['guideline_ontologies'].append({
+                'domain': ont.domain_id,
+                'name': ont.name,
+                'triple_count': len(ont.content.split('\n')) if ont.content else 0
+            })
+            
+    except Exception as e:
+        sync_status['error'] = str(e)
+    
+    return sync_status
 
 @admin_bp.route('/')
 @login_required
@@ -28,7 +101,7 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 def dashboard():
     """Admin dashboard with system overview and management tools."""
     
-    # Get system statistics
+    # Get comprehensive system statistics
     stats = {
         'users': {
             'total': User.query.count(),
@@ -45,11 +118,48 @@ def dashboard():
             'total_documents': Document.query.count(),
             'system_documents': Document.query.filter_by(data_type='system').count(),
             'user_documents': Document.query.filter_by(data_type='user').count(),
-            'total_guidelines': Guideline.query.count(),
-            'system_guidelines': Guideline.query.filter_by(data_type='system').count(),
-            'user_guidelines': Guideline.query.filter_by(data_type='user').count(),
+            'total_guidelines': Document.query.filter_by(document_type='guideline').count(),
+            'system_guidelines': Document.query.filter_by(document_type='guideline', data_type='system').count(),
+            'user_guidelines': Document.query.filter_by(document_type='guideline', data_type='user').count(),
+            'total_cases': Document.query.filter(
+                Document.doc_metadata.op('->>')('case_number').isnot(None)
+            ).count(),
             'total_scenarios': Scenario.query.count()
+        },
+        'ontology': {
+            'total_ontologies': Ontology.query.count(),
+            'entity_triples': EntityTriple.query.count(),
+            'guideline_derived': Ontology.query.filter(
+                Ontology.domain_id.like('guideline-%')
+            ).count()
+        },
+        'processing': {
+            'embedded_sections': DocumentSection.query.filter(
+                DocumentSection.embedding.isnot(None)
+            ).count(),
+            'total_sections': DocumentSection.query.count(),
+            'processed_docs': Document.query.filter(
+                Document.doc_metadata.op('->>')('document_structure').isnot(None)
+            ).count(),
+            'deconstructed_cases': DeconstructedCase.query.count()
         }
+    }
+    
+    # Calculate workflow completion
+    workflow_steps = [
+        ('Document Import', stats['data']['total_documents'] > 0),
+        ('Structure Annotation', stats['processing']['processed_docs'] > 0),
+        ('Section Embedding', stats['processing']['embedded_sections'] > 0),
+        ('Concept Extraction', EntityTriple.query.count() > 0),
+        ('Association Generation', stats['processing']['processed_docs'] > 5),
+        ('Decision Visualization', stats['data']['total_scenarios'] > 0),
+        ('Recommendation Engine', False),  # Not yet implemented
+        ('Outcome Tracking', False)  # Not yet implemented
+    ]
+    
+    stats['workflow'] = {
+        'steps': workflow_steps,
+        'completion': sum(1 for _, completed in workflow_steps) / len(workflow_steps) * 100
     }
     
     # Get recent user activity
@@ -60,10 +170,18 @@ def dashboard():
         User.last_data_reset.desc()
     ).limit(5).all()
     
+    # Get recent documents
+    recent_docs = Document.query.order_by(Document.created_at.desc()).limit(5).all()
+    
+    # Get ontology sync status
+    ontology_status = get_ontology_sync_status()
+    
     return render_template('admin/dashboard.html',
                          stats=stats,
                          recent_users=recent_users,
-                         reset_users=reset_users)
+                         reset_users=reset_users,
+                         recent_docs=recent_docs,
+                         ontology_status=ontology_status)
 
 @admin_bp.route('/users')
 @login_required
@@ -260,19 +378,263 @@ def audit_log():
 @login_required
 @admin_required
 def system_health():
-    """System health and diagnostics."""
+    """System diagnostics page showing real-time technical status and debugging information."""
     
-    # Get system statistics
+    # Get actual system uptime
+    try:
+        # Get Flask process info
+        current_process = psutil.Process(os.getpid())
+        process_create_time = datetime.fromtimestamp(current_process.create_time())
+        uptime_delta = datetime.now() - process_create_time
+        uptime_hours = round(uptime_delta.total_seconds() / 3600, 2)
+    except:
+        uptime_hours = 0
+    
+    # Initialize diagnostic data
+    diagnostics = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "environment": os.environ.get("ENVIRONMENT", "development"),
+        "python_version": sys.version.split()[0],
+        "app_name": current_app.name,
+        "debug_mode": current_app.debug,
+        "uptime_hours": uptime_hours,
+        "system_status": {
+            "mcp_server": {"status": "unknown", "detail": {}, "error": None},
+            "database": {"status": "unknown", "detail": {}, "error": None},
+            "memory": {"status": "unknown", "detail": {}, "error": None},
+            "disk": {"status": "unknown", "detail": {}, "error": None}
+        }
+    }
+    
+    # Check MCP server status
+    try:
+        mcp_url = os.environ.get("MCP_SERVER_URL", "http://localhost:5001")
+        response = requests.post(
+            f"{mcp_url}/jsonrpc",
+            json={
+                "jsonrpc": "2.0",
+                "method": "list_tools",
+                "params": {},
+                "id": 1
+            },
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if "result" in result and isinstance(result["result"], dict) and "tools" in result["result"]:
+                tools = result["result"]["tools"]
+                guideline_tools = [t for t in tools if "guideline" in t["name"].lower()]
+                
+                diagnostics["system_status"]["mcp_server"] = {
+                    "status": "online",
+                    "detail": {
+                        "url": mcp_url,
+                        "tool_count": len(tools),
+                        "available_tools": [t["name"] for t in tools],
+                        "guideline_tools_available": len(guideline_tools) > 0,
+                        "guideline_tools": [t["name"] for t in guideline_tools]
+                    },
+                    "error": None
+                }
+                
+                # Set ontology status based on available tools
+                if any("entity" in t["name"].lower() for t in tools) or any(t["name"] == "get_world_entities" for t in tools):
+                    try:
+                        from app.models.ontology import Ontology
+                        ontologies = Ontology.query.all()
+                        
+                        diagnostics["system_status"]["ontology"] = {
+                            "status": "available",
+                            "detail": {
+                                "entity_tools_available": True,
+                                "entity_tools": [t["name"] for t in tools if "entity" in t["name"].lower() or t["name"] == "get_world_entities"],
+                                "ontology_count": len(ontologies),
+                                "ontologies": [
+                                    {
+                                        "id": o.id,
+                                        "name": o.name,
+                                        "triple_count": len(o.content.split('\n')) if o.content else 0
+                                    } 
+                                    for o in ontologies[:5]
+                                ] if ontologies else []
+                            },
+                            "error": None
+                        }
+                    except Exception as e:
+                        diagnostics["system_status"]["ontology"] = {
+                            "status": "available",
+                            "detail": {
+                                "entity_tools_available": True,
+                                "entity_tools": [t["name"] for t in tools if "entity" in t["name"].lower() or t["name"] == "get_world_entities"],
+                                "db_error": str(e)
+                            },
+                            "error": None
+                        }
+                
+                # Set guidelines status
+                if guideline_tools:
+                    diagnostics["system_status"]["guidelines"] = {
+                        "status": "available",
+                        "detail": {
+                            "guideline_tools_available": True,
+                            "guideline_tools": [t["name"] for t in guideline_tools]
+                        },
+                        "error": None
+                    }
+            else:
+                diagnostics["system_status"]["mcp_server"] = {
+                    "status": "error",
+                    "detail": {"response": result},
+                    "error": "Invalid response format from MCP server"
+                }
+        else:
+            diagnostics["system_status"]["mcp_server"] = {
+                "status": "error",
+                "detail": {"status_code": response.status_code},
+                "error": f"MCP server returned HTTP {response.status_code}"
+            }
+    except Exception as e:
+        diagnostics["system_status"]["mcp_server"] = {
+            "status": "offline",
+            "detail": {},
+            "error": str(e)
+        }
+    
+    # Check database connection and performance
+    try:
+        # Test query performance
+        import time
+        start_time = time.time()
+        
+        # Try multiple ways to get the database URL
+        db_url = None
+        
+        # First try Flask config
+        if hasattr(current_app, 'config') and current_app.config:
+            db_url = current_app.config.get("DATABASE_URL") or current_app.config.get("SQLALCHEMY_DATABASE_URI")
+        
+        # Then try environment variables
+        if not db_url:
+            db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+        
+        if db_url:
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor()
+            
+            # Get database info
+            cur.execute("SELECT version();")
+            db_version = cur.fetchone()[0].split('(')[0].strip()
+            
+            # Get database size
+            cur.execute("""
+                SELECT pg_database_size(current_database()) / 1024 / 1024 AS size_mb;
+            """)
+            db_size_mb = round(cur.fetchone()[0], 2)
+            
+            # Get connection count
+            cur.execute("""
+                SELECT count(*) FROM pg_stat_activity 
+                WHERE datname = current_database();
+            """)
+            connection_count = cur.fetchone()[0]
+            
+            # Get table count and check for critical tables
+            cur.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema='public'
+                ORDER BY table_name;
+            """)
+            all_rows = cur.fetchall()
+            tables = [row[0] for row in all_rows]
+            
+            
+            # Check for critical tables
+            critical_tables = ['users', 'documents', 'worlds', 'guidelines', 'ontologies']
+            missing_tables = [t for t in critical_tables if t not in tables]
+            
+            conn.close()
+            
+            query_time = round((time.time() - start_time) * 1000, 2)  # Convert to ms
+            
+            
+            diagnostics["system_status"]["database"] = {
+                "status": "connected",
+                "detail": {
+                    "version": db_version,
+                    "size_mb": db_size_mb,
+                    "table_count": len(tables),
+                    "tables": tables,  # Include all table names
+                    "connection_count": connection_count,
+                    "query_time_ms": query_time,
+                    "missing_tables": missing_tables,
+                    "has_critical_tables": len(missing_tables) == 0,
+                    "db_url_found": db_url is not None,
+                    "db_url_source": "Flask config" if hasattr(current_app, 'config') and current_app.config and current_app.config.get("DATABASE_URL") else "Environment"
+                },
+                "error": None
+            }
+            
+        else:
+            diagnostics["system_status"]["database"] = {
+                "status": "error",
+                "detail": {},
+                "error": "DATABASE_URL not configured"
+            }
+    except Exception as e:
+        diagnostics["system_status"]["database"] = {
+            "status": "error",
+            "detail": {},
+            "error": str(e)
+        }
+    
+    # Get memory usage
+    try:
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        process_mb = round(current_process.memory_info().rss / (1024**2), 2)
+        
+        diagnostics["system_status"]["memory"] = {
+            "status": "ok" if memory.percent < 80 else "warning",
+            "detail": {
+                "total_gb": round(memory.total / (1024**3), 2),
+                "available_gb": round(memory.available / (1024**3), 2),
+                "used_percent": memory.percent,
+                "process_mb": process_mb
+            },
+            "error": None
+        }
+        
+        diagnostics["system_status"]["disk"] = {
+            "status": "ok" if disk.percent < 80 else "warning",
+            "detail": {
+                "total_gb": round(disk.total / (1024**3), 2),
+                "free_gb": round(disk.free / (1024**3), 2),
+                "used_percent": disk.percent
+            },
+            "error": None
+        }
+    except Exception as e:
+        diagnostics["system_status"]["memory"] = {
+            "status": "error",
+            "detail": {},
+            "error": str(e)
+        }
+        diagnostics["system_status"]["disk"] = {
+            "status": "error", 
+            "detail": {},
+            "error": str(e)
+        }
+    
+    # Get actual data statistics
     total_users = User.query.count()
-    total_data_items = World.query.count() + Document.query.count() + Guideline.query.count() + Scenario.query.count()
+    total_data_items = World.query.count() + Document.query.count() + Scenario.query.count()
     
-    # Calculate approximate uptime (placeholder - in production you'd track actual uptime)
-    uptime_hours = 24  # Placeholder value
-    
-    # Check for any data integrity issues
+    # Check for data integrity issues
     alerts = []
     try:
-        # Check for unclassified data
         unclassified_worlds = World.query.filter(World.data_type.is_(None)).count()
         unclassified_docs = Document.query.filter(Document.data_type.is_(None)).count()
         unclassified_guidelines = Guideline.query.filter(Guideline.data_type.is_(None)).count()
@@ -285,7 +647,6 @@ def system_health():
                 'message': f'Found unclassified data: {unclassified_worlds} worlds, {unclassified_docs} documents, {unclassified_guidelines} guidelines'
             })
         
-        # Check for orphaned data
         orphaned_worlds = World.query.filter(World.created_by.is_(None)).count()
         if orphaned_worlds > 0:
             alerts.append({
@@ -303,23 +664,7 @@ def system_health():
             'message': f'Error checking data integrity: {str(e)}'
         })
     
-    # Get recent admin actions (placeholder data)
-    recent_admin_actions = [
-        {
-            'action': 'User Data Reset',
-            'timestamp': 'Today at 2:30 PM',
-            'status': 'Success',
-            'status_color': 'success'
-        },
-        {
-            'action': 'System Health Check',
-            'timestamp': 'Today at 1:15 PM',
-            'status': 'Complete',
-            'status_color': 'info'
-        }
-    ]
-    
-    # Get recent user activity (placeholder data)
+    # Get recent user activity
     recent_user_activity = []
     recent_users = User.query.order_by(User.last_login.desc().nullslast()).limit(5).all()
     for user in recent_users:
@@ -331,26 +676,43 @@ def system_health():
                 'type': 'login'
             })
     
-    # Prepare health statistics
+    # Prepare health statistics for template with real data
     health_stats = {
         'total_users': total_users,
-        'active_sessions': 1,  # Placeholder - would need session tracking
+        'active_sessions': User.query.filter(
+            User.last_login >= datetime.now() - timedelta(hours=1)
+        ).count(),
         'total_data_items': total_data_items,
         'system_uptime': uptime_hours,
         'alerts': alerts,
-        'db_tables': 15,  # Approximate number of main tables
-        'db_connections': 5,  # Placeholder
-        'db_response_time': 25,  # Placeholder in ms
-        'db_size': 150,  # Placeholder in MB
-        'recent_admin_actions': recent_admin_actions,
+        'db_tables': len(diagnostics["system_status"]["database"]["detail"].get("tables", [])) if diagnostics["system_status"]["database"]["status"] == "connected" else 0,
+        'db_connections': diagnostics["system_status"]["database"]["detail"].get("connection_count", 0) if diagnostics["system_status"]["database"]["status"] == "connected" else 0,
+        'db_response_time': diagnostics["system_status"]["database"]["detail"].get("query_time_ms", 0) if diagnostics["system_status"]["database"]["status"] == "connected" else 0,
+        'db_size': diagnostics["system_status"]["database"]["detail"].get("size_mb", 0) if diagnostics["system_status"]["database"]["status"] == "connected" else 0,
+        'recent_admin_actions': [
+            {
+                'action': 'System Health Check',
+                'timestamp': datetime.now().strftime('%I:%M %p'),
+                'status': 'Complete',
+                'status_color': 'info'
+            }
+        ],
         'recent_user_activity': recent_user_activity,
-        'environment': 'Development',
-        'debug_mode': True,  # Would check actual Flask debug mode
-        'session_timeout': 30,  # Minutes
-        'secure_cookies': False  # Would check actual config
+        'environment': diagnostics["environment"],
+        'debug_mode': diagnostics["debug_mode"],
+        'session_timeout': current_app.config.get('PERMANENT_SESSION_LIFETIME', timedelta(minutes=30)).total_seconds() / 60,
+        'secure_cookies': current_app.config.get('SESSION_COOKIE_SECURE', False),
+        # Add real diagnostic data
+        'technical_status': diagnostics,
+        'memory_usage': diagnostics["system_status"]["memory"]["detail"] if diagnostics["system_status"]["memory"]["status"] != "error" else {},
+        'disk_usage': diagnostics["system_status"]["disk"]["detail"] if diagnostics["system_status"]["disk"]["status"] != "error" else {}
     }
     
-    return render_template('admin/system_health.html', health_stats=health_stats)
+    # Return either JSON or HTML based on Accept header or query parameter
+    if "application/json" in request.headers.get("Accept", "") or request.args.get('format') == 'json':
+        return jsonify(diagnostics)
+    else:
+        return render_template('admin/system_health.html', health_stats=health_stats)
 
 # Error handlers for admin routes
 @admin_bp.errorhandler(403)
