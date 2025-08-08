@@ -267,15 +267,55 @@
     {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
         <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h3><i class="bi bi-diagram-3"></i> Direct Scenario Timeline (Prototype)</h3>
+            <h3><i class="bi bi-diagram-3"></i> Direct Scenario Timeline
+            {% if latest_scenario and latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                <span class="badge bg-primary ms-2">Enhanced</span>
+            {% elif latest_scenario %}
+                <span class="badge bg-secondary ms-2">Legacy</span>
+            {% endif %}
+            </h3>
             {% if latest_scenario %}
-            <span class="badge bg-success">{{ latest_scenario.stats.event_count }} events / {{ latest_scenario.stats.decision_count }} decisions</span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success">{{ latest_scenario.stats.event_count }} events / {{ latest_scenario.stats.decision_count }} decisions</span>
+                {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                <span class="badge bg-info" title="LLM-generated semantic timeline">🧠 LLM</span>
+                {% endif %}
+                {% if latest_scenario.ontology_enrichment_status == 'success' %}
+                <span class="badge bg-warning" title="MCP ontology enriched">🔗 MCP</span>
+                {% endif %}
+                {% if latest_scenario.scenario_id %}
+                <span class="badge bg-success" title="Interactive scenario available">🎮 Interactive</span>
+                {% endif %}
+            </div>
             {% else %}
             <span class="badge bg-secondary">Not Generated</span>
             {% endif %}
         </div>
         <div class="card-body">
             {% if latest_scenario %}
+                <!-- Enhanced scenario metadata -->
+                {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        {% if latest_scenario.participants %}
+                        <div class="mb-2 small">
+                            <strong>Participants:</strong>
+                            {% for p in latest_scenario.participants %}
+                                <span class="badge bg-info text-dark me-1">{{ p }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {% if latest_scenario.temporal_evidence %}
+                        <div class="mb-2 small">
+                            <strong>Temporal Evidence:</strong>
+                            <span class="badge bg-light text-dark border">{{ latest_scenario.temporal_evidence|length }} markers</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
                         {% if latest_scenario.participants %}
                         <div class="mb-2 small">
                                 <strong>Participants:</strong>
@@ -284,19 +324,59 @@
                                 {% endfor %}
                         </div>
                         {% endif %}
+                {% endif %}
+            
             <ol class="list-group list-group-numbered mb-3">
                 {% for ev_id in latest_scenario.ordering[:10] %}
                     {% set ev = (latest_scenario.events | selectattr('id','equalto',ev_id) | list)[0] %}
-                    <li class="list-group-item py-2 {% if ev.kind == 'decision' %}list-group-item-warning{% endif %}">
-                                                <strong>{{ ev.kind|capitalize }}</strong>
-                                                {% if ev.refined %}<span class="badge bg-primary ms-1">Refined</span>{% endif %}
-                                                : {{ ev.text[:220] }}{% if ev.text|length > 220 %}...{% endif %}
+                    <li class="list-group-item py-2 {% if ev.get('kind') == 'decision' %}list-group-item-warning{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <strong>{{ (ev.get('kind') or 'event')|capitalize }}</strong>
+                                {% if ev.get('refined') %}<span class="badge bg-primary ms-1">Refined</span>{% endif %}
+                                {% if ev.get('enhanced_decision') %}<span class="badge bg-success ms-1">Enhanced</span>{% endif %}
+                                {% if ev.get('question_source') %}<span class="badge bg-info ms-1">Q-Source</span>{% endif %}
+                                {% if ev.get('extraction_method') == 'llm_semantic' %}<span class="badge bg-warning ms-1">LLM</span>{% endif %}
+                                <br>
+                                {{ (ev.get('text') or ev.get('description') or ev.get('title') or 'No description available')[:220] }}{% if (ev.get('text') or ev.get('description') or ev.get('title') or 'No description available')|length > 220 %}...{% endif %}
+                                {% if ev.get('context') and latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                                <br><small class="text-muted">Context: {{ ev.get('context')[:100] }}{% if ev.get('context')|length > 100 %}...{% endif %}</small>
+                                {% endif %}
+                            </div>
+                            <div class="text-end small">
+                                {% if ev.get('sequence_number') %}
+                                <span class="badge bg-light text-dark">#{{ ev.get('sequence_number') }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
                     </li>
                 {% endfor %}
             </ol>
-            <button id="regenerate-direct-scenario" class="btn btn-outline-success btn-sm">
-                <i class="bi bi-arrow-clockwise"></i> Regenerate
-            </button>
+            <div class="d-flex justify-content-between align-items-center">
+                <button id="regenerate-direct-scenario" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-arrow-clockwise"></i> Regenerate
+                </button>
+                <div class="btn-group" role="group">
+                    {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                    <a href="/cases/{{ case.id }}/scenario_interim" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-eye"></i> View Details
+                    </a>
+                    {% if latest_scenario.scenario_id %}
+                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-primary btn-sm" target="_blank">
+                        <i class="bi bi-play-circle"></i> View Interactive Scenario
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                    <button id="toggle-enhancement-mode" class="btn btn-outline-info btn-sm" 
+                            data-current-mode="{% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}enhanced{% else %}legacy{% endif %}">
+                        {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                        <i class="bi bi-cpu"></i> Switch to Legacy
+                        {% else %}
+                        <i class="bi bi-magic"></i> Try Enhanced
+                        {% endif %}
+                    </button>
+                </div>
+            </div>
             {% else %}
             <p class="text-muted">Generate a preliminary timeline directly from the case text (no full deconstruction required).</p>
             <button id="generate-direct-scenario" class="btn btn-success btn-sm">
@@ -309,8 +389,20 @@
         {% if latest_scenario and latest_scenario.ontology_summary %}
         <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                        <h3><i class="bi bi-diagram-2"></i> Ontology Snapshot (Interim)</h3>
-                        <span class="badge bg-secondary">Heuristic</span>
+                        <h3><i class="bi bi-diagram-2"></i> Ontology Analysis</h3>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if latest_scenario.pipeline_version == 'enhanced_llm_v1' %}
+                                {% if latest_scenario.ontology_enrichment_status == 'success' %}
+                                <span class="badge bg-success">MCP Enhanced</span>
+                                {% elif latest_scenario.ontology_enrichment_status == 'failed' %}
+                                <span class="badge bg-warning">MCP Failed, Fallback</span>
+                                {% else %}
+                                <span class="badge bg-info">Enhanced Semantic</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">Heuristic</span>
+                            {% endif %}
+                        </div>
                 </div>
                 <div class="card-body small">
                         <div class="row">
@@ -867,6 +959,45 @@ document.addEventListener('DOMContentLoaded', function() {
               })
               .catch(err => alert('Error: ' + err.message))
               .finally(() => { btn.disabled = false; btn.innerHTML = originalHtml; });
+        }
+        
+        // Toggle enhancement mode button
+        if (e.target.id === 'toggle-enhancement-mode') {
+            e.preventDefault();
+            const btn = e.target;
+            const currentMode = btn.getAttribute('data-current-mode');
+            const newMode = currentMode === 'enhanced' ? 'legacy' : 'enhanced';
+            const originalHtml = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Switching...';
+            
+            // Set the enhancement flag based on mode
+            const enhancedEnabled = newMode === 'enhanced' ? 'true' : 'false';
+            
+            fetch(`/cases/${caseId}/direct_scenario`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    enhanced_generation: enhancedEnabled,
+                    overwrite: true
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(`Failed to generate ${newMode} scenario: ` + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Error: ' + err.message))
+            .finally(() => { 
+                btn.disabled = false; 
+                btn.innerHTML = originalHtml; 
+            });
         }
     });
 });

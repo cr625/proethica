@@ -264,6 +264,59 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Ontology Categories Section -->
+    {% if scenario.scenario_metadata and scenario.scenario_metadata.ontology_summary %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Ontology Categories</h3>
+            <small class="text-muted">Elements identified from ethical analysis</small>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for category, items in scenario.scenario_metadata.ontology_summary.items() %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-light">
+                            <h6 class="card-title mb-0">
+                                {% if category == 'Role' %}
+                                    <i class="bi bi-person-badge"></i>
+                                {% elif category == 'Principle' %}
+                                    <i class="bi bi-compass"></i>
+                                {% elif category == 'Obligation' %}
+                                    <i class="bi bi-check-square"></i>
+                                {% elif category == 'State' %}
+                                    <i class="bi bi-gear"></i>
+                                {% elif category == 'Resource' %}
+                                    <i class="bi bi-box"></i>
+                                {% elif category == 'Action' %}
+                                    <i class="bi bi-play-circle"></i>
+                                {% elif category == 'Event' %}
+                                    <i class="bi bi-calendar-event"></i>
+                                {% elif category == 'Capability' %}
+                                    <i class="bi bi-lightning"></i>
+                                {% elif category == 'Constraint' %}
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                {% endif %}
+                                {{ category }}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if items %}
+                                {% for item in items %}
+                                    <span class="badge bg-secondary me-1 mb-1">{{ item }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">None identified</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Delete Scenario Confirmation Modal -->
