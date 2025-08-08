@@ -18,6 +18,7 @@ from .assembler import assemble_events
 from .decisions import enrich_decisions
 from .participant_extractor import extract_participants
 from .ontology_summary import build_ontology_summary
+from .question_based_decisions import extract_question_decisions, extract_question_decisions_from_metadata
 from .ontology_mapper import map_events
 from .ordering import build_ordering
 from .llm_decision_refiner import refine_decisions_with_llm
@@ -49,6 +50,17 @@ class DirectScenarioPipelineService:
         # 3. Participants extraction (optional enrich) then heuristic decision enrichment
         participant_meta = extract_participants(events) if os.environ.get('DIRECT_SCENARIO_INCLUDE_PARTICIPANTS', 'true').lower() != 'false' else {'unique_participants': []}
         enrich_decisions(events)
+
+        # 3b. Question-derived decision injection (ensures high-quality decision questions)
+        # Prefer metadata-based explicit questions list for higher fidelity
+        q_decisions = extract_question_decisions_from_metadata(metadata, sections)
+        if not q_decisions:  # fallback to section parsing
+            q_decisions = extract_question_decisions(sections)
+        if q_decisions:
+            # Avoid duplicate text collisions (simple check)
+            existing_texts = {e['text'] for e in events}
+            new_q = [qd for qd in q_decisions if qd['text'] not in existing_texts]
+            events.extend(new_q)
 
         # 4. Optional LLM refinement
         refine_decisions_with_llm(events)

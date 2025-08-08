@@ -22,6 +22,7 @@
                 <div class="d-flex justify-content-between">
                   <div>
                     <strong>{{ ev.kind|capitalize }}</strong>
+                    {% if ev.question_source %}<span class="badge bg-success ms-1">QSrc</span>{% endif %}
                     {% if ev.refined %}<span class="badge bg-primary ms-1">Refined</span>{% endif %}
                     {% if ev.participants %}
                       {% for p in ev.participants %}<span class="badge bg-light text-dark border ms-1">{{ p }}</span>{% endfor %}
