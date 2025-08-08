@@ -228,7 +228,7 @@ class EnhancedLLMScenarioService:
         context_text = "\n\n".join(context_sections)
         
         # Create LLM prompt for timeline extraction
-        timeline_prompt = """You are analyzing an engineering ethics case to extract a chronological timeline of events.
+        timeline_prompt = """You are analyzing an engineering ethics case to extract a chronological timeline of events and identify all participants with their professional roles.
 
 CONTEXT:
 {context}
@@ -240,16 +240,27 @@ TASK: Extract key events that form the chronological backbone of this case. Focu
 4. Decision points or moments of choice
 5. Outcomes or consequences
 
+PARTICIPANT IDENTIFICATION: For each participant mentioned, identify their professional role from the context:
+- Professional Engineer, Engineering Consultant, Engineering Manager
+- County Client, Municipal Client, State Agency, Government Department
+- Corporate Client, Private Client
+- Regulatory Body, Professional Society, Ethics Committee
+- Contractor, Vendor, Supplier
+- Public, Community, Stakeholder
+
 GUIDELINES:
 - Extract 5-15 significant events
 - Each event should be a concrete occurrence, not abstract concepts
 - Maintain chronological order when evident
 - Focus on events that advance the narrative
 - Include the main ethical dilemma emergence
+- Extract professional roles directly from case text, not generic labels
 
 FORMAT: Return JSON only with structure:
 - timeline_events: array of event objects
+- participants: array of participant objects with name and professional_role
 - Each event should have: id, title, description, participants, event_type, section_source, chronological_indicators
+- Each participant should have: name, professional_role, role_evidence (brief quote showing role)
 
 Return only valid JSON, no explanations."""
 
@@ -273,12 +284,17 @@ Return only valid JSON, no explanations."""
             # Parse JSON response
             timeline_data = json.loads(response_clean)
             events = timeline_data.get("timeline_events", [])
+            participants = timeline_data.get("participants", [])
             
-            # Add sequence numbers and additional metadata
+            # Add sequence numbers and additional metadata to events
             for i, event in enumerate(events):
                 event["sequence_number"] = i + 1
                 event["extraction_method"] = "llm_semantic"
                 event["confidence_score"] = 0.85  # Base confidence for LLM extraction
+            
+            # Store participants for later use
+            self.extracted_participants = participants
+            logger.info(f"Extracted {len(participants)} participants: {[p.get('name') for p in participants]}")
                 
             return events[:self.max_timeline_events]
             
@@ -382,99 +398,56 @@ Return only valid JSON."""
             return []
 
     def _extract_participants(self, sections: Dict[str, Any], timeline_events: List[Dict[str, Any]]) -> List[ParticipantMapping]:
-        """Extract and map participants to ontological roles."""
+        """Extract and map participants to ontological roles using LLM-extracted data."""
         participants = []
         
-        # Collect all mentioned participants
+        # Use LLM-extracted participants if available (preferred method)
+        if hasattr(self, 'extracted_participants') and self.extracted_participants:
+            logger.info(f"Using LLM-extracted participants: {len(self.extracted_participants)}")
+            
+            for participant_data in self.extracted_participants:
+                name = participant_data.get('name', '').strip()
+                professional_role = participant_data.get('professional_role', '').strip()
+                role_evidence = participant_data.get('role_evidence', '').strip()
+                
+                if name and professional_role:
+                    participant = ParticipantMapping(
+                        name=name,
+                        role_type='stakeholder',
+                        ontology_label=professional_role,
+                        capabilities=[],  # Will be populated by MCP
+                        obligations=[],   # Will be populated by MCP
+                        context_mentions=[f"LLM extracted with evidence: {role_evidence}"]
+                    )
+                    participants.append(participant)
+                    logger.info(f"LLM participant: {name} -> {professional_role}")
+            
+            # Limit to reasonable number
+            return participants[:8]
+        
+        # Fallback: Extract from timeline events if LLM extraction failed
+        logger.info("Falling back to timeline-based participant extraction")
         participant_mentions = {}
         
-        # From timeline events
         for event in timeline_events:
             for participant in event.get("participants", []):
                 if participant not in participant_mentions:
                     participant_mentions[participant] = []
                 participant_mentions[participant].append(f"Event: {event.get('title', '')}")
         
-        # From sections text
-        for section_name, content in sections.items():
-            if not content:
-                continue
-                
-            text_content = content
-            if isinstance(content, dict):
-                text_content = content.get('text', content.get('content', str(content)))
-            
-            # Conservative participant extraction - only clear role indicators
-            participant_patterns = [
-                r'\b(Engineer\s+[A-Z])\b',  # Engineer A, Engineer B, etc.
-                r'\b(Project\s+Manager|Engineering\s+Manager|Manager)\b',
-                r'\b(Client|Customer)\b',
-                r'\b(Supervisor|Boss)\b',
-                r'\b(Company|Firm|Corporation)\b'
-            ]
-            
-            for pattern in participant_patterns:
-                matches = re.findall(pattern, str(text_content), re.IGNORECASE)
-                for match in matches:
-                    participant = match.strip()
-                    # Filter out common words that aren't actually participants
-                    if (len(participant) > 2 and 
-                        participant.lower() not in ['the', 'and', 'for', 'are', 'was', 'were', 'has', 'had']):
-                        if participant not in participant_mentions:
-                            participant_mentions[participant] = []
-                        participant_mentions[participant].append(f"Section {section_name}")
+        # Create basic participant mappings with minimal role inference
+        for participant_name in participant_mentions.keys():
+            participant = ParticipantMapping(
+                name=participant_name,
+                role_type='stakeholder',
+                ontology_label='Stakeholder',  # Generic fallback role
+                capabilities=[],
+                obligations=[],
+                context_mentions=participant_mentions[participant_name][:2]
+            )
+            participants.append(participant)
         
-        # Map to ontological roles with deduplication and limits
-        unique_participants = {}
-        
-        for participant_name, mentions in participant_mentions.items():
-            # Normalize names (e.g., "engineer a" and "Engineer A" should be the same)
-            normalized_name = participant_name.lower().strip()
-            
-            # Skip if we already have a similar participant
-            if normalized_name not in unique_participants:
-                role_type = self._map_participant_to_role_type(participant_name)
-                unique_participants[normalized_name] = ParticipantMapping(
-                    name=participant_name,
-                    role_type=role_type,
-                    ontology_label=self._get_ontology_label(participant_name, role_type),
-                    capabilities=[],  # Will be populated by MCP integration
-                    obligations=[],   # Will be populated by MCP integration
-                    context_mentions=mentions
-                )
-        
-        # Limit to reasonable number of participants (max 10)
-        participants = list(unique_participants.values())[:10]
-        
-        logger.info(f"Extracted {len(participants)} participants: {[p.name for p in participants]}")
-        return participants
-
-    def _map_participant_to_role_type(self, participant_name: str) -> str:
-        """Map participant to ProEthica Role type."""
-        name_lower = participant_name.lower()
-        
-        if 'engineer' in name_lower:
-            return 'ProfessionalEngineer'
-        elif 'manager' in name_lower or 'supervisor' in name_lower:
-            return 'Manager'
-        elif 'client' in name_lower:
-            return 'Client'
-        elif 'company' in name_lower or 'firm' in name_lower:
-            return 'Organization'
-        else:
-            return 'Stakeholder'
-
-    def _get_ontology_label(self, participant_name: str, role_type: str) -> Optional[str]:
-        """Get ontology label for participant (will be enhanced with MCP integration)."""
-        # Basic mapping - will be replaced with MCP server queries
-        label_map = {
-            'ProfessionalEngineer': 'Professional Engineer',
-            'Manager': 'Engineering Manager', 
-            'Client': 'Client Representative',
-            'Organization': 'Engineering Organization',
-            'Stakeholder': 'Project Stakeholder'
-        }
-        return label_map.get(role_type)
+        return participants[:8]  # Limit to reasonable number
 
     def _split_questions(self, text: str) -> List[str]:
         """Split question text into individual questions."""

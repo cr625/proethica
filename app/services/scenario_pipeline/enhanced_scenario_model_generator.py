@@ -131,31 +131,52 @@ class EnhancedScenarioModelGenerator:
         for participant in participants:
             name = participant.get('name', 'Unknown Participant')
             
-            # Get ontology role if available
-            ontology_role = participant.get('ontology_role', {})
-            role_name = ontology_role.get('label', participant.get('role', 'Participant'))
+            # Get ontology label if available (from ParticipantMapping)
+            ontology_label = participant.get('ontology_label', '')
+            
+            # Enhanced role extraction based on participant name and LLM data
+            role_name = self._extract_professional_role(name, ontology_label)
             
             # Create attributes from ontology enrichment
             attributes = {
-                'participation_type': participant.get('participation_type', 'stakeholder')
+                'participation_type': participant.get('role_type', 'stakeholder'),
+                'ontology_label': ontology_label
             }
-            
-            if ontology_role:
-                attributes.update({
-                    'ontology_uri': ontology_role.get('uri', ''),
-                    'ontology_confidence': ontology_role.get('confidence', 0.0)
-                })
             
             character = Character(
                 scenario_id=scenario_id,
                 name=name,
                 role=role_name,  # Legacy field
-                attributes=attributes
+                attributes=attributes,
+                bfo_class='BFO_0000040',  # material entity (agent)
+                proethica_category='role',
+                ontology_uri=None  # MCP server can populate this later
             )
             
             characters.append(character)
         
         return characters
+    
+    def _extract_professional_role(self, participant_name: str, ontology_label: str) -> str:
+        """Extract professional role - prioritizes LLM-extracted role from ontology_label."""
+        
+        # Primary: Use LLM-extracted role if available
+        if ontology_label and ontology_label.strip():
+            logger.info(f"Using LLM-extracted role for {participant_name}: {ontology_label}")
+            return ontology_label
+        
+        # Fallback: Basic role inference (minimal pattern matching)
+        name_lower = participant_name.lower()
+        
+        if 'county' in name_lower:
+            return 'County/Government Client'
+        elif 'engineer' in name_lower:
+            return 'Professional Engineer'  
+        elif 'firm' in name_lower or 'company' in name_lower:
+            return 'Engineering Firm'
+        else:
+            # Generic fallback - should rarely be used with proper LLM extraction
+            return 'Stakeholder'
     
     def _create_resources(self, scenario_id: int, enhanced_timeline: Dict[str, Any]) -> List[Resource]:
         """Create Resource records from timeline and decisions."""
@@ -260,7 +281,10 @@ class EnhancedScenarioModelGenerator:
                     'section_source': timeline_event.get('section_source', ''),
                     'extraction_method': timeline_event.get('extraction_method', 'llm_semantic'),
                     'participants': timeline_event.get('participants', [])
-                }
+                },
+                bfo_class='BFO_0000015',  # process
+                proethica_category='event',
+                ontology_uri=timeline_event.get('ontology_uri')
             )
             
             events.append(event)
@@ -298,7 +322,10 @@ class EnhancedScenarioModelGenerator:
                 description=description,
                 is_decision=True,
                 options=options,
-                action_type='ethical_decision',
+                action_type='ethical_decision',  # Legacy field
+                bfo_class='BFO_0000016',  # disposition (decision)
+                proethica_category='action',  # Could be 'decision' based on classification
+                ontology_uri=getattr(decision, 'ontology_uri', None),
                 parameters={
                     'question': decision.question,
                     'context': decision.context,
