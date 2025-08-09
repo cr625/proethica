@@ -235,12 +235,11 @@ class EnhancedLLMScenarioService:
 CONTEXT:
 {context}
 
-TASK: Extract key events that form the chronological backbone of this case. Focus on:
+TASK: Extract the most important events that form the chronological backbone of this case. Focus on:
 1. Concrete actions taken by participants
-2. Key discoveries or realizations
-3. External events that influenced the situation
-4. Decision points or moments of choice
-5. Outcomes or consequences
+2. Key discoveries or realizations  
+3. Decision points or moments of choice
+4. Outcomes or consequences
 
 PARTICIPANT IDENTIFICATION: For each participant mentioned, identify their professional role from the context:
 - Professional Engineer, Engineering Consultant, Engineering Manager
@@ -251,21 +250,21 @@ PARTICIPANT IDENTIFICATION: For each participant mentioned, identify their profe
 - Public, Community, Stakeholder
 
 GUIDELINES:
-- Extract 5-10 significant events (focus on quality over quantity)
-- Each event should be a concrete occurrence, not abstract concepts
+- Extract exactly 3-5 most significant events only
+- Keep event descriptions very brief (under 50 words each)
 - Maintain chronological order when evident
 - Focus on events that advance the narrative
 - Include the main ethical dilemma emergence
-- Extract professional roles directly from case text, not generic labels
-- Keep descriptions concise (under 100 words each)
+- Extract professional roles directly from case text
+- Keep participant descriptions brief
 
-FORMAT: Return JSON only with structure:
-- timeline_events: array of event objects
+FORMAT: Return JSON only with this exact structure:
+- timeline_events: array of 3-5 event objects
 - participants: array of participant objects with name and professional_role
-- Each event should have: id, title, description, participants, event_type, section_source, chronological_indicators
-- Each participant should have: name, professional_role, role_evidence (brief quote showing role)
+- Each event: id, title, description (max 50 words), participants, event_type
+- Each participant: name, professional_role, role_evidence (one brief quote)
 
-Return only valid JSON, no explanations."""
+Return only valid JSON, no explanations. Keep responses concise to avoid truncation."""
 
         try:
             # Create and run the chain
@@ -305,17 +304,44 @@ Return only valid JSON, no explanations."""
             logger.error(f"Failed to parse LLM timeline response: {e}")
             logger.error(f"Raw response: '{response}'")
             
-            # Try to extract participants at least from the raw response
+            # Enhanced fallback: Try to extract both timeline events and participants from partial response
+            timeline_events = []
+            partial_participants = []
+            
             try:
-                # Look for participants array in the partial response
-                participants_match = re.search(r'"participants"\s*:\s*\[([^]]*)', response, re.DOTALL)
+                # Try to extract timeline events from partial response
+                events_match = re.search(r'"timeline_events"\s*:\s*\[([^\]]*)', response, re.DOTALL)
+                if events_match:
+                    events_content = events_match.group(1)
+                    # Extract individual event objects using regex
+                    event_pattern = r'\{\s*"id"\s*:\s*(\d+)[^}]*"title"\s*:\s*"([^"]+)"[^}]*"description"\s*:\s*"([^"]*)"'
+                    event_matches = re.findall(event_pattern, events_content, re.DOTALL)
+                    
+                    for event_id, title, description in event_matches:
+                        timeline_events.append({
+                            "id": int(event_id),
+                            "title": title,
+                            "description": description[:200] + "..." if len(description) > 200 else description,
+                            "participants": [],  # Will be populated from participants
+                            "event_type": "recovered_from_partial",
+                            "section_source": "FACTS",
+                            "chronological_indicators": [],
+                            "sequence_number": int(event_id),
+                            "extraction_method": "partial_recovery",
+                            "confidence_score": 0.6  # Lower confidence for recovered events
+                        })
+                    
+                    if timeline_events:
+                        logger.info(f"Recovered {len(timeline_events)} timeline events from partial response")
+                
+                # Try to extract participants from partial response
+                participants_match = re.search(r'"participants"\s*:\s*\[([^\]]*)', response, re.DOTALL)
                 if participants_match:
                     participants_content = participants_match.group(1)
                     # Extract individual participant objects
                     participant_pattern = r'\{\s*"name"\s*:\s*"([^"]+)"[^}]*"professional_role"\s*:\s*"([^"]+)"'
                     matches = re.findall(participant_pattern, participants_content)
                     
-                    partial_participants = []
                     for name, role in matches:
                         partial_participants.append({
                             'name': name,
@@ -326,11 +352,12 @@ Return only valid JSON, no explanations."""
                     if partial_participants:
                         self.extracted_participants = partial_participants
                         logger.info(f"Recovered {len(partial_participants)} participants from partial response")
-            except:
-                pass
+                        
+            except Exception as recovery_error:
+                logger.error(f"Error in partial response recovery: {recovery_error}")
             
-            # Return empty events but participants may have been extracted
-            return []
+            # Return recovered timeline events (may be empty)
+            return timeline_events
         except Exception as e:
             logger.error(f"Error generating timeline events: {e}")
             return []

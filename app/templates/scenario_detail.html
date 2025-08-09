@@ -53,8 +53,6 @@
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">{{ character.name }}</h5>
                                 <div>
-                                    <small class="me-2">{{ character.role_from_role.name if character.role_from_role
-                                        else character.role }}</small>
                                     <a href="/scenarios/{{ scenario.id }}/characters/{{ character.id }}/edit"
                                         class="btn btn-sm btn-outline-secondary" title="Edit character">
                                         <i class="bi bi-pencil"></i>
@@ -66,6 +64,43 @@
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
+                            </div>
+                            
+                            <!-- Role Matching Display -->
+                            <div class="role-matching-info">
+                                {% if character.matched_ontology_role_id %}
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-success me-2">
+                                        <i class="bi bi-check-circle"></i> Matched
+                                    </span>
+                                    <strong>{{ character.role }}</strong>
+                                    {% if character.matching_confidence %}
+                                    <span class="badge bg-light text-dark ms-2">{{ (character.matching_confidence * 100)|round }}% confidence</span>
+                                    {% endif %}
+                                </div>
+                                {% if character.original_llm_role and character.original_llm_role != character.role %}
+                                <small class="text-muted">
+                                    Originally: "{{ character.original_llm_role }}" → matched to ontology role
+                                </small>
+                                {% endif %}
+                                {% else %}
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-warning me-2">
+                                        <i class="bi bi-exclamation-triangle"></i> Unmatched
+                                    </span>
+                                    <strong>{{ character.role }}</strong>
+                                </div>
+                                {% if character.original_llm_role %}
+                                <small class="text-muted">
+                                    LLM extracted: "{{ character.original_llm_role }}" - no ontology match found
+                                </small>
+                                {% endif %}
+                                {% if character.matching_reasoning %}
+                                <small class="text-muted d-block">
+                                    <em>{{ character.matching_reasoning }}</em>
+                                </small>
+                                {% endif %}
+                                {% endif %}
                             </div>
 
                             {% if character.conditions %}
