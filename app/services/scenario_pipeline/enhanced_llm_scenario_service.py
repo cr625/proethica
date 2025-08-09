@@ -51,6 +51,7 @@ class ParticipantMapping:
     name: str
     role_type: str
     ontology_label: Optional[str]
+    role_description: Optional[str]  # Added for ontology integration
     capabilities: List[str]
     obligations: List[str]
     context_mentions: List[str]
@@ -260,11 +261,11 @@ GUIDELINES:
 
 FORMAT: Return JSON only with this exact structure:
 - timeline_events: array of 3-5 event objects
-- participants: array of participant objects with name and professional_role
+- participants: array of participant objects with name, professional_role, and role_description
 - Each event: id, title, description (max 50 words), participants, event_type
-- Each participant: name, professional_role, role_evidence (one brief quote)
+- Each participant: name, professional_role, role_evidence (brief quote), role_description (2-3 sentences describing responsibilities)
 
-Return only valid JSON, no explanations. Keep responses concise to avoid truncation."""
+Return only valid JSON, no explanations. Keep responses concise to avoid truncation.
 
         try:
             # Create and run the chain
@@ -338,16 +339,30 @@ Return only valid JSON, no explanations. Keep responses concise to avoid truncat
                 participants_match = re.search(r'"participants"\s*:\s*\[([^\]]*)', response, re.DOTALL)
                 if participants_match:
                     participants_content = participants_match.group(1)
-                    # Extract individual participant objects
-                    participant_pattern = r'\{\s*"name"\s*:\s*"([^"]+)"[^}]*"professional_role"\s*:\s*"([^"]+)"'
+                    # Extract individual participant objects with role_description
+                    participant_pattern = r'\{\s*"name"\s*:\s*"([^"]+)"[^}]*"professional_role"\s*:\s*"([^"]+)"[^}]*"role_description"\s*:\s*"([^"]*)"'
                     matches = re.findall(participant_pattern, participants_content)
                     
-                    for name, role in matches:
+                    for name, role, description in matches:
                         partial_participants.append({
                             'name': name,
                             'professional_role': role,
-                            'role_evidence': 'Recovered from partial response'
+                            'role_evidence': 'Recovered from partial response',
+                            'role_description': description if description else f"Participant with role: {role}"
                         })
+                    
+                    # Fallback: If no descriptions found, try simpler pattern
+                    if not matches:
+                        simple_pattern = r'\{\s*"name"\s*:\s*"([^"]+)"[^}]*"professional_role"\s*:\s*"([^"]+)"'
+                        simple_matches = re.findall(simple_pattern, participants_content)
+                        
+                        for name, role in simple_matches:
+                            partial_participants.append({
+                                'name': name,
+                                'professional_role': role,
+                                'role_evidence': 'Recovered from partial response',
+                                'role_description': f"Participant with role: {role}"
+                            })
                     
                     if partial_participants:
                         self.extracted_participants = partial_participants
@@ -465,18 +480,20 @@ Return only valid JSON."""
                 name = participant_data.get('name', '').strip()
                 professional_role = participant_data.get('professional_role', '').strip()
                 role_evidence = participant_data.get('role_evidence', '').strip()
+                role_description = participant_data.get('role_description', '').strip()
                 
                 if name and professional_role:
                     participant = ParticipantMapping(
                         name=name,
                         role_type='stakeholder',
                         ontology_label=professional_role,
+                        role_description=role_description if role_description else f"Participant with role: {professional_role}",
                         capabilities=[],  # Will be populated by MCP
                         obligations=[],   # Will be populated by MCP
                         context_mentions=[f"LLM extracted with evidence: {role_evidence}"]
                     )
                     participants.append(participant)
-                    logger.info(f"LLM participant: {name} -> {professional_role}")
+                    logger.info(f"LLM participant: {name} -> {professional_role} ({role_description[:50]}...)")
             
             # Limit to reasonable number
             return participants[:8]
@@ -503,6 +520,7 @@ Return only valid JSON."""
                 name=participant_name,
                 role_type='stakeholder',
                 ontology_label='Stakeholder',  # Generic fallback role
+                role_description='Participant involved in the ethical case scenario.',
                 capabilities=[],
                 obligations=[],
                 context_mentions=participant_mentions[participant_name][:2]
@@ -555,6 +573,7 @@ Return only valid JSON."""
                                 name=match,
                                 role_type='stakeholder',
                                 ontology_label=role,
+                                role_description=f"Participant with role: {role}. Responsibilities and duties typical of a {role.lower()}.",
                                 capabilities=[],
                                 obligations=[],
                                 context_mentions=[f"Found in {section_name} section"]
@@ -567,6 +586,7 @@ Return only valid JSON."""
                 name='Primary Engineer',
                 role_type='stakeholder',
                 ontology_label='Professional Engineer',
+                role_description='Licensed professional engineer responsible for engineering decisions and public safety.',
                 capabilities=[],
                 obligations=[],
                 context_mentions=['Default participant - extraction failed']
@@ -610,6 +630,7 @@ Return only valid JSON."""
             "name": participant.name,
             "role_type": participant.role_type,
             "ontology_label": participant.ontology_label,
+            "role_description": participant.role_description,
             "capabilities": participant.capabilities,
             "obligations": participant.obligations,
             "context_mentions": participant.context_mentions
