@@ -14,6 +14,8 @@ from app.models.character import Character
 from app.models.resource import Resource
 from app.models.event import Event, Action
 from app.models.document import Document
+from app.services.case_role_matching_service import CaseRoleMatchingService
+from app.services.ontology_entity_service import OntologyEntityService
 
 logger = logging.getLogger(__name__)
 
@@ -123,30 +125,79 @@ class EnhancedScenarioModelGenerator:
         return scenario
     
     def _create_characters(self, scenario_id: int, enhanced_timeline: Dict[str, Any]) -> List[Character]:
-        """Create Character records from participants."""
+        """Create Character records from participants with intelligent role matching."""
         
         characters = []
         participants = enhanced_timeline.get('participants', [])
+        
+        if not participants:
+            return characters
+        
+        # Initialize role matching service and get ontology roles
+        role_matcher = CaseRoleMatchingService()
+        ontology_service = OntologyEntityService.get_instance()
+        
+        # Get the world from scenario to load ontology roles
+        scenario = db.session.get(Scenario, scenario_id)
+        if scenario and scenario.world_id:
+            from app.models.world import World
+            world = db.session.get(World, scenario.world_id)
+            if world:
+                entities = ontology_service.get_entities_for_world(world)
+                ontology_roles = entities.get('entities', {}).get('role', [])
+                
+                # Batch match all participant roles for efficiency
+                participant_names = [p.get('name', '') for p in participants]
+                role_matches = role_matcher.batch_match_roles(participant_names, ontology_roles)
+                
+                logger.info(f"Role matching results for {len(participant_names)} participants")
+            else:
+                role_matches = {}
+                ontology_roles = []
+        else:
+            role_matches = {}
+            ontology_roles = []
         
         for participant in participants:
             name = participant.get('name', 'Unknown Participant')
             
             # Get ontology label if available (from ParticipantMapping)
-            ontology_label = participant.get('ontology_label', '')
+            original_llm_role = participant.get('ontology_label', '')
             
-            # Enhanced role extraction based on participant name and LLM data
-            role_name = self._extract_professional_role(name, ontology_label)
+            # Try to match role to ontology
+            role_match = role_matches.get(name, {})
+            if role_match.get('matched_role'):
+                # Use matched ontology role
+                matched_role = role_match['matched_role']['label']
+                matched_ontology_id = role_match['matched_role']['id']
+                matching_confidence = role_match.get('semantic_confidence', 0.0)
+                matching_reasoning = role_match.get('llm_reasoning', '')
+                
+                logger.info(f"✅ Role matched: {name} ({original_llm_role}) → {matched_role}")
+            else:
+                # No match found - use original LLM role
+                matched_role = original_llm_role or self._extract_professional_role(name, original_llm_role)
+                matched_ontology_id = None
+                matching_confidence = None
+                matching_reasoning = "No ontology match found"
+                
+                logger.info(f"❌ No role match: {name} → keeping '{matched_role}'")
             
             # Create attributes from ontology enrichment
             attributes = {
                 'participation_type': participant.get('role_type', 'stakeholder'),
-                'ontology_label': ontology_label
+                'ontology_label': original_llm_role
             }
             
             character = Character(
                 scenario_id=scenario_id,
                 name=name,
-                role=role_name,  # Legacy field
+                role=matched_role,  # Use matched role or fallback
+                original_llm_role=original_llm_role,  # Store original LLM extraction
+                matched_ontology_role_id=matched_ontology_id,  # Ontology role ID if matched
+                matching_confidence=matching_confidence,  # Confidence score
+                matching_method='semantic_llm_validated' if matched_ontology_id else None,
+                matching_reasoning=matching_reasoning,  # LLM reasoning
                 attributes=attributes,
                 bfo_class='BFO_0000040',  # material entity (agent)
                 proethica_category='role',

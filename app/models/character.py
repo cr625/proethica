@@ -17,6 +17,13 @@ class Character(db.Model):
     proethica_category = db.Column(db.String(50), default='role')
     ontology_uri = db.Column(db.String(500))
     
+    # Role matching fields (added 2025-08-09)
+    original_llm_role = db.Column(db.String(255))  # Original role extracted by LLM
+    matched_ontology_role_id = db.Column(db.String(500))  # ID of matched ontology role
+    matching_confidence = db.Column(db.Float)  # Confidence score of the match
+    matching_method = db.Column(db.String(50), default='semantic_llm_validated')  # Method used for matching
+    matching_reasoning = db.Column(db.Text)  # LLM reasoning for the match
+    
     # Relationships
     conditions = db.relationship('Condition', backref='character', cascade='all, delete-orphan')
     events = db.relationship('Event', backref='character')
@@ -40,5 +47,10 @@ class Character(db.Model):
             'conditions': [condition.to_dict() for condition in self.conditions],
             'bfo_class': self.bfo_class,
             'proethica_category': self.proethica_category,
-            'ontology_uri': self.ontology_uri
+            'ontology_uri': self.ontology_uri,
+            'original_llm_role': self.original_llm_role,
+            'matched_ontology_role_id': self.matched_ontology_role_id,
+            'matching_confidence': self.matching_confidence,
+            'matching_method': self.matching_method,
+            'matching_reasoning': self.matching_reasoning
         }

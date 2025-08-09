@@ -221,8 +221,10 @@ class EnhancedLLMScenarioService:
                 if isinstance(content, dict):
                     text_content = content.get('text', content.get('content', str(content)))
                 
-                # Clean and truncate
-                text_content = re.sub(r'<[^>]+>', ' ', str(text_content))[:1000]
+                # Clean HTML tags but keep more content
+                text_content = re.sub(r'<[^>]+>', ' ', str(text_content))
+                # Take more content for better context (3000 chars instead of 1000)
+                text_content = text_content[:3000]
                 context_sections.append(f"[{section_name.upper()}]\n{text_content}")
         
         context_text = "\n\n".join(context_sections)
@@ -249,12 +251,13 @@ PARTICIPANT IDENTIFICATION: For each participant mentioned, identify their profe
 - Public, Community, Stakeholder
 
 GUIDELINES:
-- Extract 5-15 significant events
+- Extract 5-10 significant events (focus on quality over quantity)
 - Each event should be a concrete occurrence, not abstract concepts
 - Maintain chronological order when evident
 - Focus on events that advance the narrative
 - Include the main ethical dilemma emergence
 - Extract professional roles directly from case text, not generic labels
+- Keep descriptions concise (under 100 words each)
 
 FORMAT: Return JSON only with structure:
 - timeline_events: array of event objects
@@ -301,6 +304,32 @@ Return only valid JSON, no explanations."""
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM timeline response: {e}")
             logger.error(f"Raw response: '{response}'")
+            
+            # Try to extract participants at least from the raw response
+            try:
+                # Look for participants array in the partial response
+                participants_match = re.search(r'"participants"\s*:\s*\[([^]]*)', response, re.DOTALL)
+                if participants_match:
+                    participants_content = participants_match.group(1)
+                    # Extract individual participant objects
+                    participant_pattern = r'\{\s*"name"\s*:\s*"([^"]+)"[^}]*"professional_role"\s*:\s*"([^"]+)"'
+                    matches = re.findall(participant_pattern, participants_content)
+                    
+                    partial_participants = []
+                    for name, role in matches:
+                        partial_participants.append({
+                            'name': name,
+                            'professional_role': role,
+                            'role_evidence': 'Recovered from partial response'
+                        })
+                    
+                    if partial_participants:
+                        self.extracted_participants = partial_participants
+                        logger.info(f"Recovered {len(partial_participants)} participants from partial response")
+            except:
+                pass
+            
+            # Return empty events but participants may have been extracted
             return []
         except Exception as e:
             logger.error(f"Error generating timeline events: {e}")
@@ -435,6 +464,12 @@ Return only valid JSON."""
                     participant_mentions[participant] = []
                 participant_mentions[participant].append(f"Event: {event.get('title', '')}")
         
+        # If no participants from timeline, try basic extraction from text
+        if not participant_mentions:
+            logger.info("No participants from timeline, attempting basic text extraction")
+            participants = self._extract_participants_from_text(sections)
+            return participants[:8]
+        
         # Create basic participant mappings with minimal role inference
         for participant_name in participant_mentions.keys():
             participant = ParticipantMapping(
@@ -448,6 +483,71 @@ Return only valid JSON."""
             participants.append(participant)
         
         return participants[:8]  # Limit to reasonable number
+
+    def _extract_participants_from_text(self, sections: Dict[str, Any]) -> List[ParticipantMapping]:
+        """Basic extraction of participants from case text using pattern matching."""
+        participants = []
+        seen_names = set()
+        
+        # Common patterns for identifying participants
+        patterns = [
+            r'Engineer\s+[A-Z]\b',  # Engineer A, Engineer L, etc.
+            r'Client\s+[A-Z]\b',    # Client X, Client Y, etc.
+            r'Company\s+[A-Z]+',    # Company ABC, etc.
+            r'[A-Z][A-Z]+\s+(?:Corporation|Corp|Inc)',  # XYZ Corporation
+            r'(?:County|City|State|Town)\s+(?:of\s+)?[A-Z]\w+',  # County Client, City of Austin
+            r'Mr\.\s+[A-Z]\w+|Ms\.\s+[A-Z]\w+|Dr\.\s+[A-Z]\w+',  # Mr. Smith, Dr. Jones
+        ]
+        
+        # Search in facts and discussion sections
+        for section_name in ['facts', 'discussion']:
+            if section_name in sections:
+                content = sections[section_name]
+                if isinstance(content, dict):
+                    content = content.get('text', content.get('content', ''))
+                
+                text = str(content)[:3000]  # Look at first 3000 chars
+                
+                for pattern in patterns:
+                    matches = re.findall(pattern, text)
+                    for match in matches:
+                        match = match.strip()
+                        if match not in seen_names:
+                            seen_names.add(match)
+                            
+                            # Infer role from name pattern
+                            role = 'Professional'
+                            if 'Engineer' in match:
+                                role = 'Professional Engineer'
+                            elif 'Client' in match or 'County' in match or 'City' in match:
+                                role = 'Client Representative'
+                            elif 'Corporation' in match or 'Corp' in match or 'Inc' in match:
+                                role = 'Corporate Entity'
+                            
+                            participant = ParticipantMapping(
+                                name=match,
+                                role_type='stakeholder',
+                                ontology_label=role,
+                                capabilities=[],
+                                obligations=[],
+                                context_mentions=[f"Found in {section_name} section"]
+                            )
+                            participants.append(participant)
+        
+        if not participants:
+            # Last resort: Create at least one generic participant
+            participant = ParticipantMapping(
+                name='Primary Engineer',
+                role_type='stakeholder',
+                ontology_label='Professional Engineer',
+                capabilities=[],
+                obligations=[],
+                context_mentions=['Default participant - extraction failed']
+            )
+            participants.append(participant)
+        
+        logger.info(f"Text extraction found {len(participants)} participants: {[p.name for p in participants]}")
+        return participants
 
     def _split_questions(self, text: str) -> List[str]:
         """Split question text into individual questions."""
