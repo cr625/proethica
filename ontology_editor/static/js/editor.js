@@ -655,10 +655,14 @@ function saveOntology() {
     
     const content = editor.getValue();
     const commitMessage = document.getElementById('commitMessage').value;
-    
-    // Close the modal
-    const saveModal = bootstrap.Modal.getInstance(document.getElementById('saveVersionModal'));
-    saveModal.show();
+    const modalEl = document.getElementById('saveVersionModal');
+    const saveModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    // Hide the modal immediately on confirm
+    saveModal.hide();
+
+    // Prevent double-submits while saving
+    const confirmBtn = document.getElementById('confirmSaveBtn');
+    if (confirmBtn) confirmBtn.disabled = true;
     
     // Show loading indicator
     const editorContainer = document.getElementById('editorContainer');
@@ -692,6 +696,9 @@ function saveOntology() {
         // Update UI state
         isEditorDirty = false;
         document.getElementById('saveBtn').disabled = true;
+    // Clear commit message for next save
+    const cm = document.getElementById('commitMessage');
+    if (cm) cm.value = '';
         
         // Reload versions list
         loadVersions(currentOntologyId);
@@ -701,6 +708,10 @@ function saveOntology() {
         
         // Show success message
         alert('Ontology saved successfully');
+
+    // Ensure modal is hidden and re-enable confirm button
+    saveModal.hide();
+    if (confirmBtn) confirmBtn.disabled = false;
     })
     .catch(error => {
         console.error('Error saving ontology:', error);
@@ -710,6 +721,10 @@ function saveOntology() {
         
         // Show error message
         alert(`Error saving ontology: ${error.message}`);
+
+    // Re-enable confirm button and re-open modal to allow retry
+    if (confirmBtn) confirmBtn.disabled = false;
+    saveModal.show();
     });
 }
 

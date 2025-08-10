@@ -297,28 +297,27 @@ def create_api_routes(config):
             if hasattr(ontology, 'is_editable') and not ontology.is_editable:
                 return jsonify({'error': f'Ontology {ontology_id} is not editable'}), 403
 
-            # Extract new content: support JSON body {content, commit_message} and raw TTL
+            # Extract new content: support JSON body {content, commit_message}, form 'content', and raw TTL
             new_content = None
             commit_message = 'Updated ontology content'
 
-            # Try JSON first
-            data = request.get_json(silent=True)
-            if isinstance(data, dict):
+            content_type = (request.content_type or '').lower()
+            if 'application/json' in content_type:
+                data = request.get_json(force=True, silent=False)
+                if not isinstance(data, dict) or 'content' not in data:
+                    return jsonify({'error': 'JSON body must include "content"'}), 400
                 new_content = data.get('content')
                 commit_message = data.get('commit_message', commit_message)
-            if not new_content:
-                # Fallback to raw request data
-                raw_body = request.get_data(cache=True, as_text=True) or ''
-                # If raw body looks like JSON, try parsing and extracting content
-                if raw_body.strip().startswith('{'):
-                    try:
-                        parsed = json.loads(raw_body)
-                        new_content = parsed.get('content') or ''
-                        commit_message = parsed.get('commit_message', commit_message)
-                    except Exception:
-                        # Treat as raw TTL (will likely fail validation if not TTL)
-                        new_content = raw_body
-                else:
+            else:
+                # Try form field
+                new_content = request.form.get('content')
+                if not new_content:
+                    # Fallback to raw request data
+                    raw_body = request.get_data(cache=True, as_text=True) or ''
+                    # Sanitize accidental bytes-repr strings (e.g., "b'...'")
+                    if (raw_body.startswith("b'") and raw_body.endswith("'")) or (raw_body.startswith('b"') and raw_body.endswith('"')):
+                        raw_body = raw_body[2:-1]
+                    # Treat raw body as TTL (do not parse as JSON)
                     new_content = raw_body
 
             # Debug: log content length for troubleshooting
