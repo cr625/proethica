@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
-from app.utils.auth_utils import login_required
+from flask_login import login_required
 import json
 from app import db
 from app.models.scenario import Scenario
@@ -18,6 +18,52 @@ scenarios_bp = Blueprint('scenarios', __name__, url_prefix='/scenarios')
 
 # Get singleton instance of MCPClient
 mcp_client = MCPClient.get_instance()
+
+def _cleanup_case_scenario_references(scenario):
+    """Clean up scenario references in case metadata when deleting a scenario."""
+    if not scenario.scenario_metadata:
+        return
+    
+    source_case_id = scenario.scenario_metadata.get('source_case_id')
+    if not source_case_id:
+        return
+    
+    # Import here to avoid circular imports
+    from app.models.document import Document
+    from sqlalchemy.orm.attributes import flag_modified
+    
+    case = Document.query.get(source_case_id)
+    if not case or not case.doc_metadata:
+        return
+    
+    scenario_id = scenario.id
+    metadata_updated = False
+    
+    # Clean up latest_scenario reference
+    latest_scenario = case.doc_metadata.get('latest_scenario', {})
+    if latest_scenario.get('scenario_id') == scenario_id:
+        case.doc_metadata['latest_scenario'] = {}
+        metadata_updated = True
+        print(f"Removed scenario {scenario_id} from latest_scenario in case {source_case_id}")
+    
+    # Clean up scenario_versions array
+    scenario_versions = case.doc_metadata.get('scenario_versions', [])
+    original_count = len(scenario_versions)
+    
+    # Remove all versions that reference this scenario_id
+    case.doc_metadata['scenario_versions'] = [
+        version for version in scenario_versions 
+        if version.get('scenario_id') != scenario_id
+    ]
+    
+    removed_count = original_count - len(case.doc_metadata['scenario_versions'])
+    if removed_count > 0:
+        metadata_updated = True
+        print(f"Removed {removed_count} scenario version(s) for scenario {scenario_id} from case {source_case_id}")
+    
+    # Mark metadata as modified for SQLAlchemy to detect changes
+    if metadata_updated:
+        flag_modified(case, 'doc_metadata')
 
 # API endpoints
 @scenarios_bp.route('/api', methods=['GET'])
@@ -1546,6 +1592,10 @@ def update_scenario(id):
 def delete_scenario(id):
     """Delete a scenario via API."""
     scenario = Scenario.query.get_or_404(id)
+    
+    # Clean up case metadata references before deleting scenario
+    _cleanup_case_scenario_references(scenario)
+    
     db.session.delete(scenario)
     db.session.commit()
     
@@ -1559,6 +1609,10 @@ def delete_scenario(id):
 def delete_scenario_form(id):
     """Delete a scenario from web form."""
     scenario = Scenario.query.get_or_404(id)
+    
+    # Clean up case metadata references before deleting scenario
+    _cleanup_case_scenario_references(scenario)
+    
     db.session.delete(scenario)
     db.session.commit()
     

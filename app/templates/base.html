@@ -7,6 +7,7 @@
     <title>{% block title %}AI Ethical Decision-Making Simulator{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/concept-hierarchy.css') }}" rel="stylesheet">
     <style>
         body {
             padding-top: 20px;
@@ -81,6 +82,9 @@
                                     <li><a class="dropdown-item" href="/scenarios">
                                         <i class="bi bi-collection-play me-2"></i>All Scenarios
                                     </a></li>
+                                    <li><a class="dropdown-item" href="/guidelines">
+                                        <i class="bi bi-book me-2"></i>All Guidelines
+                                    </a></li>
                                 </ul>
                             </li>
                             <li class="nav-item dropdown">
@@ -108,36 +112,30 @@
                                     <i class="bi bi-tools"></i> Tools
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
-                                    <li><a class="dropdown-item" href="/agent">
-                                        <i class="bi bi-robot me-2"></i>Ethics Agent
-                                    </a></li>
-                                    <li><a class="dropdown-item" href="/agent/ontology">
-                                        <i class="bi bi-diagram-3 me-2"></i>Ontology Agent
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="/experiment">
                                         <i class="bi bi-flask me-2"></i>Experiments
                                     </a></li>
-                                    <li><a class="dropdown-item" href="/debug">
-                                        <i class="bi bi-bug me-2"></i>Debug Tools
+                                    {% if current_user and current_user.is_authenticated and current_user.is_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">Admin Tools</h6></li>
+                                    <li><a class="dropdown-item" href="/admin">
+                                        <i class="bi bi-shield-check me-2"></i>Admin Dashboard
                                     </a></li>
+                                    <li><a class="dropdown-item" href="/admin/system-health">
+                                        <i class="bi bi-activity me-2"></i>System Health
+                                    </a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                         </ul>
                         <ul class="navbar-nav">
-                            <!-- Auth Status Indicator -->
+                            <!-- Environment Indicator (Development Only) -->
                             <li class="nav-item">
                                 <span class="navbar-text me-2">
                                     {% if environment == 'development' %}
-                                        {% if bypass_auth %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="bi bi-shield-exclamation"></i> Auth Bypassed
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-success">
-                                                <i class="bi bi-shield-check"></i> Auth Active
-                                            </span>
-                                        {% endif %}
+                                        <span class="badge bg-info">
+                                            <i class="bi bi-gear"></i> Development
+                                        </span>
                                     {% endif %}
                                 </span>
                             </li>

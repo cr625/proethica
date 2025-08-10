@@ -22,9 +22,13 @@ class Action(db.Model):
     options = db.Column(JSON, default=list)  # Available options (for decisions)
     selected_option = db.Column(db.String(255))  # The option selected (for decisions)
     
-    # Ontology integration
-    ontology_uri = db.Column(db.String(255))  # Link to the ontology
-    action_type = db.Column(db.String(255))  # Type of action from ontology
+    # BFO Ontology classification fields (added 2025-08-08)
+    bfo_class = db.Column(db.String(255), default='BFO_0000015')  # process
+    proethica_category = db.Column(db.String(50), default='action')
+    ontology_uri = db.Column(db.String(500))  # Full ontology URI
+    
+    # Legacy ontology fields (deprecated)
+    action_type = db.Column(db.String(255))  # Type of action from ontology (legacy)
     
     # Relationships
     events = db.relationship('Event', backref='action')
@@ -50,8 +54,10 @@ class Action(db.Model):
             'action_time': self.action_time.isoformat() if self.action_time else None,
             'parameters': self.parameters,
             'is_decision': self.is_decision,
+            'bfo_class': self.bfo_class,
+            'proethica_category': self.proethica_category,
             'ontology_uri': self.ontology_uri,
-            'action_type': self.action_type
+            'action_type': self.action_type  # Legacy field
         }
         
         # Include decision-specific fields if this is a decision
@@ -76,6 +82,11 @@ class Event(db.Model):
     description = db.Column(db.Text)
     parameters = db.Column(JSON, default=dict)  # Specific parameters for this event instance
     
+    # BFO Ontology classification fields (added 2025-08-08)
+    bfo_class = db.Column(db.String(255), default='BFO_0000015')  # process
+    proethica_category = db.Column(db.String(50), default='event')
+    ontology_uri = db.Column(db.String(500))
+    
     # Relationships
     entities = db.relationship('Entity', secondary='event_entity', back_populates='events')
     
@@ -98,5 +109,8 @@ class Event(db.Model):
             'event_time': self.event_time.isoformat() if self.event_time else None,
             'description': self.description,
             'parameters': self.parameters,
-            'action': self.action.to_dict() if self.action else None
+            'action': self.action.to_dict() if self.action else None,
+            'bfo_class': self.bfo_class,
+            'proethica_category': self.proethica_category,
+            'ontology_uri': self.ontology_uri
         }

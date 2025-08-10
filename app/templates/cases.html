@@ -34,6 +34,23 @@
             <a href="{{ url_for('cases.case_options') }}" class="btn btn-success">Add New Case</a>
         </div>
     </div>
+    
+    <!-- Processing Status Legend -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-end text-muted small">
+                <span class="me-3">Processing Status:</span>
+                <span class="badge bg-success me-2">
+                    <i class="bi bi-link-45deg"></i> EGA
+                </span>
+                <span class="me-3">Enhanced Guideline Associations</span>
+                <span class="badge bg-primary me-2">
+                    <i class="bi bi-diagram-3"></i> OTL
+                </span>
+                <span class="me-2">Ontology Term Links</span>
+            </div>
+        </div>
+    </div>
 
     {% if grouped_cases %}
     {% for year, year_cases in grouped_cases.items() %}
@@ -47,13 +64,49 @@
                 <div class="col-12 mb-3">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">{{ case.title }}</h5>
+                            <h5 class="mb-0">
+                                {% if case.doc_metadata and (case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata.get('source') == 'agent_generated_sample') %}
+                                <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
+                                {% endif %}
+                                {{ case.title }}
+                            </h5>
                             <div>
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
                                 {% endif %}
                                 {% if case.full_date %}
-                                <span class="badge bg-info">{{ case.full_date }}</span>
+                                <span class="badge bg-info me-2">{{ case.full_date }}</span>
+                                {% endif %}
+                                <!-- Subject Tags -->
+                                {% set subject_tags = [] %}
+                                {% if case.doc_metadata %}
+                                    {% set doc_metadata = case.doc_metadata %}
+                                    {% if doc_metadata.subject_tags %}
+                                        {% set subject_tags = doc_metadata.subject_tags %}
+                                    {% endif %}
+                                {% endif %}
+                                {% if subject_tags %}
+                                    {% for tag in subject_tags[:2] %}
+                                    <span class="badge bg-warning text-dark me-1" title="NSPE Subject: {{ tag }}">
+                                        <i class="bi bi-tag-fill"></i> {{ tag }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if subject_tags|length > 2 %}
+                                    <span class="badge bg-light text-dark me-1" title="{{ subject_tags|length - 2 }} more tags">
+                                        +{{ subject_tags|length - 2 }}
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
+                                <!-- Processing Status Icons -->
+                                {% if case.has_enhanced_associations %}
+                                <span class="badge bg-success me-1" title="Enhanced Guideline Associations available">
+                                    <i class="bi bi-link-45deg"></i> EGA
+                                </span>
+                                {% endif %}
+                                {% if case.has_term_links %}
+                                <span class="badge bg-primary me-1" title="Ontology Term Links available">
+                                    <i class="bi bi-diagram-3"></i> OTL
+                                </span>
                                 {% endif %}
                             </div>
                         </div>
@@ -80,15 +133,12 @@
                             <div class="mb-3">
                                 <h6 class="text-success">Conclusions:</h6>
                                 {% if case.conclusion_items|length == 1 %}
-                                <p class="mb-2">{{ case.conclusion_items[0]|striptags|truncate(200) }}</p>
+                                <p class="mb-2">{{ case.conclusion_items[0]|striptags }}</p>
                                 {% else %}
                                 <ol class="mb-2">
-                                    {% for conclusion in case.conclusion_items[:2] %}
-                                    <li>{{ conclusion|striptags|truncate(150) }}</li>
+                                    {% for conclusion in case.conclusion_items %}
+                                    <li>{{ conclusion|striptags }}</li>
                                     {% endfor %}
-                                    {% if case.conclusion_items|length > 2 %}
-                                    <li class="text-muted">... and {{ case.conclusion_items|length - 2 }} more</li>
-                                    {% endif %}
                                 </ol>
                                 {% endif %}
                             </div>

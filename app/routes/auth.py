@@ -15,8 +15,11 @@ def login():
     
     form = LoginForm()
     if form.validate_on_submit():
-        # Find the user by username
-        user = User.query.filter_by(username=form.username.data).first()
+        # Find the user by username or email
+        login_input = form.username.data
+        user = User.query.filter(
+            (User.username == login_input) | (User.email == login_input)
+        ).first()
         
         # Check if user exists and password is correct
         if user and user.check_password(form.password.data):

@@ -8,9 +8,11 @@ from flask import render_template, flash, redirect, url_for, jsonify, session
 import traceback
 import json
 import logging
+from datetime import datetime
 
 from app.models.document import Document
 from app.models.ontology import Ontology
+from app.services.guideline_analysis_service_v2 import GuidelineAnalysisServiceV2
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +74,17 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         
         logger.info(f"Extracting concepts for guideline {guideline.title} with world {world.name}")
         
-        # Extract concepts from the guideline content
-        concepts_result = guideline_analysis_service.extract_concepts(content, ontology_source)
+        # Use enhanced V2 service for ontology-aware concept extraction
+        logger.info("Using GuidelineAnalysisServiceV2 for enhanced ontology matching")
+        enhanced_service = GuidelineAnalysisServiceV2()
+        
+        # Extract concepts with ontology matching
+        concepts_result = enhanced_service.extract_concepts_v2(
+            content=content, 
+            guideline_id=document_id, 
+            world_id=world.id
+        )
+        logger.info(f"V2 extraction result keys: {list(concepts_result.keys())}")
         
         if "error" in concepts_result:
             logger.warning(f"Error during concept extraction: {concepts_result['error']}")
@@ -85,8 +96,21 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                        error_title='Concept Extraction Error',
                                        error_message=f'Error extracting concepts: {concepts_result["error"]}'))
         
-        # Get the extracted concepts
+        # Get the extracted concepts with match information
         concepts_list = concepts_result.get("concepts", [])
+        term_candidates = concepts_result.get("term_candidates", [])
+        stats = concepts_result.get("stats", {})
+        
+        # Log matching results
+        if stats:
+            logger.info(f"Concept extraction stats: {stats}")
+            logger.info(f"Found {stats.get('matched_concepts', 0)} existing ontology matches")
+            logger.info(f"Identified {stats.get('new_terms', 0)} new term candidates")
+        
+        # Log warning if concepts are missing enhanced fields but don't modify them
+        for concept in concepts_list:
+            if 'is_new' not in concept and 'ontology_match' not in concept:
+                logger.error(f"CRITICAL: Concept '{concept.get('label', 'Unknown')}' missing enhanced match fields - V2 service not working properly!")
         if not concepts_list:
             # Check if this is an MCP server issue
             error_message = 'No concepts were extracted from this guideline'
@@ -101,47 +125,60 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                    error_title='No Concepts Found',
                                    error_message=error_message))
             
-        # Don't store concepts in session, we'll include them in the form as hidden fields
-        # and pass them directly through the form submission
+        # Cache extracted concepts in document metadata to avoid re-extraction during save
+        try:
+            from app import db
+            
+            # Ensure we have fresh guideline from DB
+            db.session.refresh(guideline)
+            
+            if not guideline.doc_metadata:
+                guideline.doc_metadata = {}
+            
+            # Store the concepts
+            guideline.doc_metadata['extracted_concepts'] = concepts_list
+            guideline.doc_metadata['extraction_timestamp'] = datetime.utcnow().isoformat()
+            
+            # Mark the field as modified for SQLAlchemy
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(guideline, 'doc_metadata')
+            
+            db.session.add(guideline)
+            db.session.commit()
+            logger.info(f"Cached {len(concepts_list)} extracted concepts in document metadata")
+            
+            # Verify it was saved
+            db.session.refresh(guideline)
+            saved_concepts = guideline.doc_metadata.get('extracted_concepts', [])
+            logger.info(f"Verified: {len(saved_concepts)} concepts saved to database")
+            
+        except Exception as cache_error:
+            logger.error(f"Failed to cache concepts in document metadata: {cache_error}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Skip session storage to avoid cookie size limits
+        logger.info("Skipping Flask session storage to avoid cookie size limits")
+        
+        # Also prepare JSON for form submission as backup
         concepts_json = json.dumps(concepts_list)
         
         logger.info(f"Successfully extracted {len(concepts_list)} concepts")
         
-        # Try to use the guideline_concepts_review.html template, which is more robust
-        # than guideline_extracted_concepts.html and has proper URL routing
-        try:
-            # Debug log the concepts list to help with troubleshooting
-            logger.info(f"Passing {len(concepts_list)} concepts to template guideline_concepts_review.html")
-            
-            # First try the better template with additional logging
-            return render_template('guideline_concepts_review.html', 
+        # Use the primary template - no fallbacks
+        logger.info(f"Passing {len(concepts_list)} concepts to template guideline_concepts_review.html")
+        
+        # Render the enhanced concepts review template with match information
+        return render_template('guideline_concepts_review.html', 
                                world=world, 
                                guideline=guideline,
                                concepts=concepts_list,
+                               term_candidates=term_candidates,
+                               stats=stats,
                                world_id=world.id,
                                document_id=document_id,
-                               ontology_source=ontology_source)  # Pass ontology_source explicitly
-        except Exception as template_error:
-            # Fall back to the original template if needed
-            logger.warning(f"Error using guideline_concepts_review.html template: {str(template_error)}. Falling back to guideline_extracted_concepts.html")
-            try:
-                # Fallback template
-                return render_template('guideline_extracted_concepts.html', 
-                                    world=world, 
-                                    guideline=guideline,
-                                    concepts=concepts_list,
-                                    world_id=world.id,
-                                    document_id=document_id)
-            except Exception as fallback_error:
-                # If both templates fail, redirect to error page
-                logger.error(f"Both templates failed. Error: {str(fallback_error)}")
-                error_details = traceback.format_exc()
-                return redirect(url_for('worlds.guideline_processing_error', 
-                                       world_id=world.id, 
-                                       document_id=document_id,
-                                       error_title='Template Rendering Error',
-                                       error_message='Successfully extracted concepts, but encountered an error displaying them.',
-                                       error_details=error_details))
+                               ontology_source=ontology_source,
+                               matched_entities={})  # Add empty matched_entities to fix any missing variable issues
     except Exception as e:
         logger.exception(f"Error in direct_concept_extraction: {str(e)}")
         error_details = traceback.format_exc()

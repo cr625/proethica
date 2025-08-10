@@ -57,6 +57,11 @@ class EntityTriple(db.Model):
     needs_type_review = db.Column(Boolean, default=False)  # Flag for human review needed
     mapping_justification = db.Column(Text, nullable=True)  # Explanation of mapping decision
     
+    # Two-tier concept type storage (added 2025-07-19)
+    semantic_label = db.Column(String(255), nullable=True)  # Semantic description from LLM (e.g., "stakeholder", "ethical duty")
+    primary_type = db.Column(String(255), nullable=True)  # One of 8 fundamental types (Role, Principle, etc.)
+    mapping_source = db.Column(String(50), nullable=True)  # 'historical' | 'semantic_rules' | 'manual' | 'exact_match'
+    
     # Polymorphic entity reference
     entity_type = db.Column(String(50), nullable=False)  # 'character', 'action', 'event', 'resource'
     entity_id = db.Column(Integer, nullable=False)
@@ -118,7 +123,11 @@ class EntityTriple(db.Model):
             'original_llm_type': self.original_llm_type,
             'type_mapping_confidence': self.type_mapping_confidence,
             'needs_type_review': self.needs_type_review,
-            'mapping_justification': self.mapping_justification
+            'mapping_justification': self.mapping_justification,
+            # Two-tier concept type fields
+            'semantic_label': self.semantic_label,
+            'primary_type': self.primary_type,
+            'mapping_source': self.mapping_source
         }
     
     def to_rdf_tuple(self):

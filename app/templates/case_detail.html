@@ -3,6 +3,7 @@
 {% block title %}{{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/structure-viewer.css') }}">
 <style>
     /* Show more/less functionality */
     .collapsible-section {
@@ -55,36 +56,76 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="mb-4">
-        <div class="d-flex justify-content-end mb-2">
-            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-secondary me-2">Back to Cases</a>
-            {% if case.document_id %}
-            <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-success me-2">
-                <i class="bi bi-pencil"></i> Edit Details
-            </a>
-            <a href="{{ url_for('doc_structure.view_structure', id=case.document_id) }}" class="btn btn-primary me-2">
-                <i class="bi bi-diagram-3"></i> View Structure
-                {% if case.document_id and case.doc_metadata and case.doc_metadata.document_structure and
-                case.doc_metadata.document_structure.section_embeddings %}
-                <span class="badge bg-success ms-1" title="Section embeddings available">
-                    <i class="bi bi-cpu"></i> {{ case.doc_metadata.document_structure.section_embeddings.count }}
-                    sections
-                </span>
-                {% endif %}
-            </a>
-            <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                <i class="bi bi-trash"></i> Delete Case
-            </button>
+<!-- Floating Table of Contents -->
+<div id="toc-nav" class="toc-navigation">
+    <div class="toc-header">
+        <h6 class="mb-0">
+            <i class="bi bi-list"></i> Navigation
+        </h6>
+        <button type="button" class="btn-close btn-close-white" id="toc-close" aria-label="Close"></button>
+    </div>
+    <div class="toc-content">
+        <ul class="toc-list">
+            <li><a href="#case-details" class="toc-link">Case Details</a></li>
+            {% if case.doc_metadata and case.doc_metadata.subject_tags %}
+            <li><a href="#subject-tags" class="toc-link">Subject Tags</a></li>
             {% endif %}
-            {% if case.source %}
-            <a href="{{ case.source }}" class="btn btn-info" target="_blank">View Original Source</a>
+            {% if entity_triples %}
+            <li><a href="#rdf-properties" class="toc-link">RDF Properties</a></li>
+            {% endif %}
+            {% if case.document_id and case.doc_metadata and case.doc_metadata.rdf_triples %}
+            <li><a href="#rdf-metadata" class="toc-link">RDF Triple Metadata</a></li>
+            {% endif %}
+            <li><a href="#scenario-section" class="toc-link">Scenario</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- TOC Toggle Button -->
+<button id="toc-toggle" class="toc-toggle-btn" title="Show Navigation">
+    <i class="bi bi-list"></i>
+</button>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated_sample' %}
+            <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
+            {% endif %}
+            {{ case.title }}
+        </h2>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Cases
+            </a>
+            {% if case.document_id %}
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-secondary">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <a href="{{ url_for('doc_structure.view_structure', id=case.document_id) }}" class="btn btn-primary">
+                    <i class="bi bi-diagram-3"></i> Structure
+                    {% if case.document_id and case.doc_metadata and case.doc_metadata.document_structure and
+                    case.doc_metadata.document_structure.section_embeddings %}
+                    <span class="badge bg-light text-dark ms-1" title="Section embeddings available">
+                        {{ case.doc_metadata.document_structure.section_embeddings.count }}
+                    </span>
+                    {% endif %}
+                </a>
+                {% if case.source %}
+                <a href="{{ case.source }}" class="btn btn-info" target="_blank">
+                    <i class="bi bi-box-arrow-up-right"></i> Source
+                </a>
+                {% endif %}
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
             {% endif %}
         </div>
-        <h2>{{ case.title }}</h2>
     </div>
 
-    <div class="card mb-4">
+    <div id="case-details" class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3>Case Details</h3>
             {% if case.case_number or case.year %}
@@ -100,15 +141,30 @@
                     <i class="bi bi-calendar"></i> {{ case.doc_metadata.full_date }}
                 </span>
                 {% endif %}
+                {% if world %}
+                <span class="badge bg-success ms-2">
+                    <i class="bi bi-globe"></i> {{ world.name }}
+                </span>
+                {% endif %}
             </div>
             {% endif %}
         </div>
-        <div class="card-body">
-            {% if world %}
-            <div class="mb-3">
-                <span class="badge bg-success">World: {{ world.name }}</span>
+        
+        <!-- Subject Tags in Header -->
+        {% if case.doc_metadata and case.doc_metadata.subject_tags %}
+        <div id="subject-tags" class="card-header border-top">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <strong class="text-muted me-2">Subject Tags:</strong>
+                {% for tag in case.doc_metadata.subject_tags %}
+                <span class="badge bg-warning text-dark me-1" title="NSPE Subject Classification">
+                    <i class="bi bi-tag"></i> {{ tag }}
+                </span>
+                {% endfor %}
             </div>
-            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="card-body">
 
             {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
             <div data-extraction-style="true">
@@ -176,26 +232,6 @@
             </div>
             {% endif %}
 
-            <!-- Scenario Generation Section -->
-            <div class="mb-4">
-                <div class="card border-success">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">
-                            <i class="bi bi-play-circle text-success"></i> Generate Interactive Scenario
-                        </h4>
-                        <span id="scenario-status-badge" class="badge bg-secondary">Checking...</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="scenario-generation-content">
-                            <div class="d-flex justify-content-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Display ontology information if available -->
             {% if case.doc_metadata and case.doc_metadata.ontology_info %}
@@ -246,9 +282,10 @@
         </div>
     </div>
 
+
     <!-- RDF Property-Value Labels (Clickable) -->
     {% if entity_triples %}
-    <div class="card mb-4">
+    <div id="rdf-properties" class="card mb-4">
         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
             <h3>RDF Properties</h3>
             <button id="clearSelection" class="btn btn-sm btn-light" style="display: none;">
@@ -299,7 +336,7 @@
 
     <!-- RDF Triples Metadata Display -->
     {% if case.document_id and case.doc_metadata and case.doc_metadata.rdf_triples %}
-    <div class="card mb-4">
+    <div id="rdf-metadata" class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h3>RDF Triple Metadata</h3>
         </div>
@@ -349,6 +386,60 @@
 
     <!-- Knowledge Graph Connections section has been replaced by interactive Triple Labels -->
 
+    <!-- Scenario Generation - At bottom of page -->
+    {% set latest_scenario = case.doc_metadata.latest_scenario if case.doc_metadata else None %}
+    <div id="scenario-section" class="card mb-4">
+        <div class="card-header">
+            <h3><i class="bi bi-diagram-3"></i> Scenario</h3>
+        </div>
+        <div class="card-body">
+            {% if latest_scenario %}
+                {% if latest_scenario.scenario_id %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-2">Interactive scenario generated with {{ latest_scenario.stats.event_count }} events and {{ latest_scenario.stats.decision_count }} decisions.</p>
+                        {% if latest_scenario.participants %}
+                        <div class="mb-2 small">
+                            <strong>Participants:</strong>
+                            {% for p in latest_scenario.participants %}
+                                <span class="badge bg-info text-dark me-1">{{ p }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if latest_scenario.ontology_enrichment_status == 'failed' %}
+                        <div class="alert alert-warning py-1 px-2 mb-2 small">
+                            <i class="bi bi-exclamation-triangle"></i> MCP server unavailable - running without ontology enrichment
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <a href="/scenarios/{{ latest_scenario.scenario_id }}" class="btn btn-primary">
+                        <i class="bi bi-eye"></i> View Scenario
+                    </a>
+                    <button id="regenerate-scenario" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Regenerate
+                    </button>
+                </div>
+                {% else %}
+                <div class="text-center">
+                    <p class="text-muted">Scenario data generated but interactive scenario not created.</p>
+                    <button id="regenerate-scenario" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Generate Scenario
+                    </button>
+                </div>
+                {% endif %}
+            {% else %}
+            <div class="text-center">
+                <p class="text-muted">Generate an interactive ethical decision scenario from this case.</p>
+                <button id="generate-scenario" class="btn btn-success">
+                    <i class="bi bi-magic"></i> Generate Scenario
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -379,342 +470,31 @@
 <!-- Include the external case detail JS file -->
 <script src="{{ url_for('static', filename='js/case_detail.js') }}"></script>
 
-<!-- Scenario Generation JavaScript -->
+<!-- Scenario Generation JavaScript (Simplified) -->
 <script>
-// Scenario Generation Management
-class ScenarioGenerationManager {
-    constructor(caseId) {
-        this.caseId = caseId;
-        this.statusCheckInterval = null;
-        this.progressInterval = null;
-        this.init();
-    }
-    
-    init() {
-        this.checkScenarioStatus();
-    }
-    
-    async checkScenarioStatus() {
-        try {
-            const response = await fetch(`/cases/${this.caseId}/scenario_status`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.updateStatusDisplay(data);
-            } else {
-                this.showError('Failed to check scenario status: ' + data.error);
-            }
-        } catch (error) {
-            this.showError('Error checking scenario status: ' + error.message);
-        }
-    }
-    
-    updateStatusDisplay(status) {
-        const badge = document.getElementById('scenario-status-badge');
-        const content = document.getElementById('scenario-generation-content');
-        
-        if (status.is_deconstructed && status.has_templates) {
-            // Case is deconstructed and has templates - show scenario creation options
-            badge.className = 'badge bg-success';
-            badge.textContent = `${status.template_count} Template${status.template_count !== 1 ? 's' : ''} Available`;
-            
-            content.innerHTML = this.renderTemplateOptions(status.templates);
-        } else if (status.is_deconstructed) {
-            // Case is deconstructed but no templates - offer to create template
-            badge.className = 'badge bg-warning';
-            badge.textContent = 'Ready for Template Creation';
-            
-            content.innerHTML = this.renderCreateTemplateOption();
-        } else if (status.can_deconstruct) {
-            // Case can be deconstructed - show generation option
-            badge.className = 'badge bg-info';
-            badge.textContent = 'Ready for Generation';
-            
-            content.innerHTML = this.renderGenerationOption();
-        } else {
-            // Case cannot be deconstructed
-            badge.className = 'badge bg-danger';
-            badge.textContent = 'Not Compatible';
-            
-            content.innerHTML = this.renderNotCompatible(status.deconstruct_reason);
-        }
-    }
-    
-    renderGenerationOption() {
-        return `
-            <div class="text-center">
-                <h5>Transform this case into an interactive scenario</h5>
-                <p class="text-muted">This will analyze the case to extract stakeholders, decision points, and reasoning chains.</p>
-                <button id="generate-scenario-btn" class="btn btn-success btn-lg">
-                    <i class="bi bi-play-circle"></i> Generate Scenario
-                </button>
-            </div>
-        `;
-    }
-    
-    renderCreateTemplateOption() {
-        return `
-            <div class="text-center">
-                <h5>Case has been analyzed</h5>
-                <p class="text-muted">Create a scenario template from the analyzed case data.</p>
-                <button id="create-template-btn" class="btn btn-primary btn-lg">
-                    <i class="bi bi-file-earmark-plus"></i> Create Scenario Template
-                </button>
-            </div>
-        `;
-    }
-    
-    renderTemplateOptions(templates) {
-        let html = `
-            <div class="text-center">
-                <h5>Scenario Templates Available</h5>
-                <p class="text-muted">Create playable scenarios from these templates.</p>
-                <div class="row">
-        `;
-        
-        templates.forEach(template => {
-            html += `
-                <div class="col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title">${template.title}</h6>
-                            <button class="btn btn-success create-scenario-btn" data-template-id="${template.id}">
-                                <i class="bi bi-play"></i> Create Scenario
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += `
-                </div>
-                <button id="create-template-btn" class="btn btn-outline-primary">
-                    <i class="bi bi-plus"></i> Create Another Template
-                </button>
-            </div>
-        `;
-        
-        return html;
-    }
-    
-    renderNotCompatible(reason) {
-        return `
-            <div class="text-center">
-                <h5 class="text-muted">Scenario Generation Not Available</h5>
-                <p class="text-muted">${reason}</p>
-                <small class="text-muted">This case may need additional processing or may not be compatible with scenario generation.</small>
-            </div>
-        `;
-    }
-    
-    async generateScenario() {
-        const btn = document.getElementById('generate-scenario-btn');
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
-        
-        try {
-            const response = await fetch(`/cases/${this.caseId}/generate_scenario`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showProgress();
-                this.startProgressPolling();
-            } else {
-                this.showError('Failed to start generation: ' + data.error);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            this.showError('Error starting generation: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-    
-    async createTemplate() {
-        const btn = document.getElementById('create-template-btn');
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
-        
-        try {
-            const response = await fetch(`/cases/${this.caseId}/create_scenario_template`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showSuccess('Template created successfully!');
-                // Refresh status to show new template
-                setTimeout(() => this.checkScenarioStatus(), 1000);
-            } else {
-                this.showError('Failed to create template: ' + data.error);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            this.showError('Error creating template: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-    
-    async createScenarioFromTemplate(templateId) {
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
-        
-        try {
-            const response = await fetch(`/cases/templates/${templateId}/create_scenario`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    difficulty: 'intermediate',
-                    time_limits: 'normal'
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showSuccess('Scenario created successfully! Redirecting...');
-                setTimeout(() => {
-                    window.location.href = data.redirect_url;
-                }, 1500);
-            } else {
-                this.showError('Failed to create scenario: ' + data.error);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            this.showError('Error creating scenario: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-    
-    showProgress() {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5>Generating Scenario...</h5>
-                <div class="progress mb-3">
-                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                         role="progressbar" style="width: 10%">10%</div>
-                </div>
-                <p id="progress-message" class="text-muted">Starting analysis...</p>
-            </div>
-        `;
-    }
-    
-    startProgressPolling() {
-        this.progressInterval = setInterval(async () => {
-            try {
-                const response = await fetch(`/cases/${this.caseId}/scenario_generation_progress`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.updateProgress(data.progress);
-                    
-                    if (data.progress.status === 'COMPLETED') {
-                        clearInterval(this.progressInterval);
-                        this.showCompleted();
-                    } else if (data.progress.status === 'FAILED') {
-                        clearInterval(this.progressInterval);
-                        this.showError('Generation failed: ' + data.progress.message);
-                    }
-                }
-            } catch (error) {
-                console.error('Error polling progress:', error);
-            }
-        }, 2000);
-    }
-    
-    updateProgress(progress) {
-        const progressBar = document.getElementById('progress-bar');
-        const progressMessage = document.getElementById('progress-message');
-        
-        if (progressBar) {
-            progressBar.style.width = progress.progress + '%';
-            progressBar.textContent = progress.progress + '%';
-        }
-        
-        if (progressMessage) {
-            progressMessage.textContent = progress.message || 'Processing...';
-        }
-    }
-    
-    showCompleted() {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5 class="text-success"><i class="bi bi-check-circle"></i> Generation Complete!</h5>
-                <p class="text-muted">The case has been analyzed. You can now create scenario templates.</p>
-                <button class="btn btn-primary" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh Page
-                </button>
-            </div>
-        `;
-    }
-    
-    showSuccess(message) {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5 class="text-success"><i class="bi bi-check-circle"></i> ${message}</h5>
-            </div>
-        `;
-    }
-    
-    showError(message) {
-        const content = document.getElementById('scenario-generation-content');
-        content.innerHTML = `
-            <div class="text-center">
-                <h5 class="text-danger"><i class="bi bi-exclamation-circle"></i> Error</h5>
-                <p class="text-muted">${message}</p>
-                <button class="btn btn-outline-primary" onclick="location.reload()">
-                    <i class="bi bi-arrow-clockwise"></i> Try Again
-                </button>
-            </div>
-        `;
-    }
-}
-
-// Initialize scenario generation when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    const caseId = {{ case.id }};
-    const scenarioManager = new ScenarioGenerationManager(caseId);
+    const caseId = JSON.parse('{{ case.id | tojson | safe }}');
     
-    // Event delegation for dynamically created buttons
+    // Event delegation for scenario generation buttons
     document.addEventListener('click', function(e) {
-        if (e.target.id === 'generate-scenario-btn') {
+        // Scenario generation buttons
+        if (e.target.id === 'generate-scenario' || e.target.id === 'regenerate-scenario') {
             e.preventDefault();
-            scenarioManager.generateScenario();
-        } else if (e.target.id === 'create-template-btn') {
-            e.preventDefault();
-            scenarioManager.createTemplate();
-        } else if (e.target.classList.contains('create-scenario-btn')) {
-            e.preventDefault();
-            const templateId = e.target.getAttribute('data-template-id');
-            scenarioManager.createScenarioFromTemplate(templateId);
+            const btn = e.target;
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+            fetch(`/cases/${caseId}/direct_scenario`, {method: 'POST'})
+              .then(r => r.json())
+              .then(data => {
+                  if (data.success) {
+                      location.reload();
+                  } else {
+                      alert('Failed to generate scenario: ' + (data.error || 'Unknown error'));
+                  }
+              })
+              .catch(err => alert('Error: ' + err.message))
+              .finally(() => { btn.disabled = false; btn.innerHTML = originalHtml; });
         }
     });
 });
@@ -764,5 +544,102 @@ document.addEventListener('DOMContentLoaded', function() {
     {% else %}
     window.termLinksData = {};
     {% endif %}
+    
+    // Table of Contents functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const tocNav = document.getElementById('toc-nav');
+        const tocToggle = document.getElementById('toc-toggle');
+        const tocClose = document.getElementById('toc-close');
+        const tocLinks = document.querySelectorAll('.toc-link');
+        
+        // Toggle TOC visibility
+        function showTOC() {
+            if (tocNav) {
+                tocNav.classList.add('visible');
+            }
+            if (tocToggle) {
+                tocToggle.classList.add('hidden');
+            }
+        }
+        
+        function hideTOC() {
+            if (tocNav) {
+                tocNav.classList.remove('visible');
+            }
+            if (tocToggle) {
+                tocToggle.classList.remove('hidden');
+            }
+        }
+        
+        // Event listeners
+        if (tocToggle) {
+            tocToggle.addEventListener('click', showTOC);
+        }
+        
+        if (tocClose) {
+            tocClose.addEventListener('click', hideTOC);
+        }
+        
+        // Smooth scrolling for navigation links
+        tocLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    // Remove active class from all links
+                    tocLinks.forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked link
+                    this.classList.add('active');
+                    
+                    // Smooth scroll to target
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    
+                    // Hide TOC after navigation on mobile
+                    if (window.innerWidth <= 768) {
+                        hideTOC();
+                    }
+                }
+            });
+        });
+        
+        // Highlight active section based on scroll position
+        function updateActiveSection() {
+            const sections = ['case-details', 'subject-tags', 'rdf-properties', 'rdf-metadata', 'scenario-section'];
+            let currentSection = '';
+            
+            sections.forEach(sectionId => {
+                const element = document.getElementById(sectionId);
+                if (element) {
+                    const rect = element.getBoundingClientRect();
+                    if (rect.top <= 100) {
+                        currentSection = sectionId;
+                    }
+                }
+            });
+            
+            // Update active link
+            tocLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + currentSection) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        
+        // Update active section on scroll (throttled)
+        let scrollTimeout;
+        window.addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(updateActiveSection, 100);
+        });
+        
+        // Initial active section update
+        updateActiveSection();
+    });
 </script>
 {% endblock %}

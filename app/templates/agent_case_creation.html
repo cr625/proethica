@@ -1,0 +1,1163 @@
+{% extends "base.html" %}
+
+{% block title %}Language Model-Assisted Case Creation - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block styles %}
+<style>
+/* Agent Window Styling - Based on existing patterns */
+.agent-window {
+    display: flex;
+    height: 75vh;
+    min-height: 600px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: white;
+}
+
+/* Left Panel - Ontology Categories */
+.ontology-panel {
+    width: 300px;
+    background-color: #f8f9fa;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+}
+
+.ontology-panel.collapsed {
+    width: 60px;
+}
+
+.ontology-panel-header {
+    padding: 15px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+}
+
+.ontology-panel.collapsed .ontology-panel-header {
+    padding: 15px 10px;
+}
+
+.ontology-panel.collapsed .panel-title {
+    display: none;
+}
+
+.panel-toggle {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+.ontology-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.ontology-panel.collapsed .ontology-content {
+    display: none;
+}
+
+/* Category Selection Styling */
+.category-section {
+    margin-bottom: 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.category-header {
+    background-color: #e9ecef;
+    padding: 10px 15px;
+    font-weight: bold;
+    cursor: pointer;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.category-header:hover {
+    background-color: #dee2e6;
+}
+
+.category-header.expanded {
+    background-color: #007bff;
+    color: white;
+}
+
+.category-expand-icon {
+    transition: transform 0.2s;
+}
+
+.category-header.expanded .category-expand-icon {
+    transform: rotate(90deg);
+}
+
+.category-content {
+    padding: 10px 15px;
+    background-color: #f8f9fa;
+    display: none;
+}
+
+.category-content.expanded {
+    display: block;
+}
+
+.category-checkbox {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.category-checkbox input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.category-checkbox label {
+    margin-bottom: 0;
+    font-weight: 500;
+    cursor: pointer;
+    flex: 1;
+}
+
+.concept-list {
+    margin-top: 10px;
+    padding-left: 20px;
+    max-height: 200px;
+    overflow-y: auto;
+    border-left: 2px solid #007bff;
+}
+
+.concept-item {
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    padding: 3px 5px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.concept-item:hover {
+    background-color: #e3f2fd;
+}
+
+.concept-item input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.concept-item label {
+    margin-bottom: 0;
+    font-size: 0.9em;
+    cursor: pointer;
+    flex: 1;
+}
+
+.concept-description {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-left: 20px;
+    font-style: italic;
+}
+
+.concept-count {
+    background-color: #6c757d;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+
+.concept-count.has-selections {
+    background-color: #007bff;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { background-color: #007bff; }
+    50% { background-color: #0056b3; }
+    100% { background-color: #007bff; }
+}
+
+.category-header.has-selected-concepts {
+    background-color: #e3f2fd;
+    border-left: 4px solid #007bff;
+}
+
+.category-header.has-selected-concepts.expanded {
+    background-color: #007bff;
+    color: white;
+}
+
+.concept-preview {
+    margin-top: 8px;
+    padding-left: 20px;
+}
+
+.concept-preview small {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Center Panel - Agent Conversation */
+.conversation-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    min-width: 0; /* Prevents flex item from overflowing */
+}
+
+.conversation-header {
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    border-bottom: 1px solid #ddd;
+}
+
+.conversation-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.conversation-area {
+    flex: 1;
+    min-height: 300px;
+    margin-bottom: 20px;
+}
+
+.message {
+    margin-bottom: 20px;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.user-message {
+    text-align: right;
+}
+
+.user-message .message-bubble {
+    background: #007bff;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 18px 18px 4px 18px;
+    display: inline-block;
+    max-width: 80%;
+    text-align: left;
+}
+
+.agent-message {
+    text-align: left;
+}
+
+.agent-message .message-bubble {
+    background: #f8f9fa;
+    color: #333;
+    padding: 12px 16px;
+    border-radius: 18px 18px 18px 4px;
+    display: inline-block;
+    max-width: 80%;
+    border: 1px solid #e9ecef;
+}
+
+.agent-message .message-header {
+    font-weight: bold;
+    color: #28a745;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+/* Input Area */
+.input-area {
+    border-top: 1px solid #ddd;
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.input-group textarea {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 12px 16px;
+    resize: none;
+    min-height: 45px;
+    max-height: 120px;
+}
+
+.input-group button {
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Suggestions and Next Steps */
+.agent-suggestions {
+    margin-top: 15px;
+}
+
+.suggestion-item {
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 5px 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.suggestion-item:hover {
+    background: #bbdefb;
+    transform: translateX(3px);
+}
+
+.next-steps {
+    margin-top: 15px;
+}
+
+.next-step {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+}
+
+.next-step:last-child {
+    border-bottom: none;
+}
+
+.step-number {
+    background: #28a745;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    margin-right: 10px;
+}
+
+/* Status Indicators */
+.processing {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.spinner-border {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .agent-window {
+        flex-direction: column;
+        height: auto;
+        min-height: 400px;
+    }
+    
+    .ontology-panel {
+        width: 100%;
+        max-height: 300px;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .ontology-panel.collapsed {
+        max-height: 60px;
+    }
+    
+    .conversation-content {
+        min-height: 300px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: none; padding-left: 15px; padding-right: 15px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Language Model-Assisted Case Creation</h1>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('cases.case_options') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Options
+            </a>
+            <div class="btn-group">
+                <button id="generateCase" class="btn btn-success" disabled>
+                    <i class="bi bi-file-earmark-plus"></i> Generate Case
+                </button>
+                <button id="clearConversation" class="btn btn-outline-warning">
+                    <i class="bi bi-trash"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Agent Interface -->
+    <div class="agent-window" id="agentWindow">
+        <!-- Left Panel: Ontology Categories -->
+        <div class="ontology-panel" id="ontologyPanel">
+            <div class="ontology-panel-header">
+                <h5 class="panel-title mb-0">Ontology Categories</h5>
+                <button class="panel-toggle" id="ontologyToggle">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+            </div>
+            <div class="ontology-content" id="ontologyContent">
+                <div class="p-3">
+                    <small class="text-muted d-block mb-3">
+                        Select ontological categories to guide case development:
+                    </small>
+                    
+                    {% for category in ontology_categories %}
+                    <div class="category-section">
+                        <div class="category-header" data-category="{{ category.name }}" onclick="toggleCategoryExpansion('{{ category.name }}')">
+                            <div class="d-flex align-items-center">
+                                <strong>{{ category.name }}</strong>
+                                <span class="concept-count">{{ category.count }}</span>
+                            </div>
+                            <i class="bi bi-chevron-right category-expand-icon"></i>
+                        </div>
+                        <div class="category-content" id="category_content_{{ category.name }}">
+                            <div class="concept-list" id="concepts_{{ category.name }}">
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <small class="d-block mt-2 text-muted">Loading {{ category.name|lower }} concepts...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-primary w-100" id="selectAllCategories">
+                            <i class="bi bi-check-all"></i> Select All Concepts
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="clearCategories">
+                            <i class="bi bi-x-circle"></i> Clear All Selections
+                        </button>
+                    </div>
+                    
+                    <div class="selected-summary mt-3 p-2 bg-light rounded" id="selectedSummary" style="display: none;">
+                        <small>
+                            <strong>Selected:</strong> 
+                            <span id="selectedCount">0</span> categories, 
+                            <span id="selectedConceptCount">0</span> concepts
+                        </small>
+                        <div id="selectedDetails" class="mt-2" style="display: none;">
+                            <div id="selectedConceptsList" class="small text-muted"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Conversation -->
+        <div class="conversation-panel">
+            <div class="conversation-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-chat-dots"></i> Case Development Support
+                </h5>
+                <small class="text-light">
+                    World: {{ default_world.name if default_world else 'No world selected' }}
+                </small>
+            </div>
+            
+            <div class="conversation-content">
+                <div class="conversation-area" id="conversationArea">
+                    <!-- Welcome Message -->
+                    <div class="message agent-message">
+                        <div class="message-header">
+                            <i class="bi bi-robot"></i> Language Model
+                        </div>
+                        <div class="message-bubble">
+                            <strong>Welcome to Language Model-Assisted Case Creation!</strong>
+                            <br><br>
+                            This interface helps you develop comprehensive engineering ethics cases. To get started:
+                            <ol>
+                                <li>Select relevant ontological categories from the left panel</li>
+                                <li>Tell me what kind of case you'd like to create</li>
+                                <li>Receive structured guidance through the development process</li>
+                            </ol>
+                            
+                            <p><strong>Example prompts:</strong></p>
+                            <div class="agent-suggestions">
+                                <div class="suggestion-item" data-prompt="I want to create a case about a structural engineer facing pressure to approve unsafe designs">
+                                    "I want to create a case about a structural engineer facing pressure to approve unsafe designs"
+                                </div>
+                                <div class="suggestion-item" data-prompt="Help me develop a case involving conflicts between professional obligations">
+                                    "Help me develop a case involving conflicts between professional obligations"
+                                </div>
+                                <div class="suggestion-item" data-prompt="Create a case about whistleblowing in engineering consulting">
+                                    "Create a case about whistleblowing in engineering consulting"
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <div class="input-group">
+                        <textarea id="userInput" 
+                                  placeholder="Describe the kind of case you'd like to create..." 
+                                  rows="2"></textarea>
+                        <button id="sendMessage" class="btn btn-primary" disabled>
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                    <div class="processing mt-2" id="processingIndicator" style="display: none;">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <span>Processing...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden form data -->
+    <input type="hidden" id="worldId" value="{{ default_world.id if default_world else '' }}">
+    <input type="hidden" id="currentUser" value="{{ current_user.username if current_user else '' }}">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Vue.js App for Agent Case Creation
+const AgentCaseCreation = {
+    data() {
+        return {
+            worldId: document.getElementById('worldId').value,
+            selectedConcepts: {},
+            conversationHistory: [],
+            isProcessing: false,
+            ontologyCollapsed: false,
+            expandedCategories: {},
+            loadedConcepts: {},
+            conversationId: null,
+            canGenerateCase: false
+        }
+    },
+    mounted() {
+        this.initializeEventListeners();
+        this.updateSelectedSummary();
+    },
+    methods: {
+        initializeEventListeners() {
+            // No category checkboxes anymore - concepts are selected individually
+            
+            // Panel toggle
+            const ontologyToggle = document.getElementById('ontologyToggle');
+            if (ontologyToggle) {
+                ontologyToggle.addEventListener('click', this.toggleOntologyPanel);
+            }
+            
+            // Input handling
+            const userInput = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendMessage');
+            
+            if (userInput) {
+                userInput.addEventListener('input', this.handleInputChange);
+                userInput.addEventListener('keydown', this.handleKeyDown);
+            }
+            if (sendButton) {
+                sendButton.addEventListener('click', this.sendMessage);
+            }
+            
+            // Suggestion clicks
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('suggestion-item')) {
+                    userInput.value = e.target.dataset.prompt;
+                    this.handleInputChange();
+                }
+            });
+            
+            // Utility buttons
+            const selectAllBtn = document.getElementById('selectAllCategories');
+            const clearCategoriesBtn = document.getElementById('clearCategories');
+            const clearConversationBtn = document.getElementById('clearConversation');
+            const generateCaseBtn = document.getElementById('generateCase');
+            
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', this.selectAllCategories);
+            }
+            if (clearCategoriesBtn) {
+                clearCategoriesBtn.addEventListener('click', this.clearCategories);
+            }
+            if (clearConversationBtn) {
+                clearConversationBtn.addEventListener('click', this.clearConversation);
+            }
+            if (generateCaseBtn) {
+                generateCaseBtn.addEventListener('click', this.generateCase);
+            }
+        },
+        
+        
+        updateSelectedSummary() {
+            const summary = document.getElementById('selectedSummary');
+            const count = document.getElementById('selectedCount');
+            const conceptCount = document.getElementById('selectedConceptCount');
+            
+            const totalConcepts = Object.values(this.selectedConcepts).reduce((sum, concepts) => sum + concepts.length, 0);
+            const categoriesWithConcepts = Object.keys(this.selectedConcepts).filter(cat => this.selectedConcepts[cat].length > 0).length;
+            
+            count.textContent = categoriesWithConcepts;
+            conceptCount.textContent = totalConcepts;
+            
+            if (totalConcepts > 0) {
+                summary.style.display = 'block';
+                this.updateSelectedDetails();
+            } else {
+                summary.style.display = 'none';
+            }
+        },
+        
+        updateSelectedDetails() {
+            const details = document.getElementById('selectedDetails');
+            const conceptsList = document.getElementById('selectedConceptsList');
+            
+            if (Object.keys(this.selectedConcepts).length > 0) {
+                let html = '';
+                for (const [category, concepts] of Object.entries(this.selectedConcepts)) {
+                    if (concepts.length > 0) {
+                        html += `<strong>${category}:</strong> ${concepts.join(', ')}<br>`;
+                    }
+                }
+                conceptsList.innerHTML = html;
+                details.style.display = 'block';
+            } else {
+                details.style.display = 'none';
+            }
+        },
+        
+        selectAllCategories() {
+            // Expand all categories and select all their concepts
+            const categories = document.querySelectorAll('.category-header');
+            categories.forEach(async (header) => {
+                const categoryName = header.dataset.category;
+                // Expand if not already expanded
+                if (!this.expandedCategories[categoryName]) {
+                    await this.toggleCategoryExpansion(categoryName);
+                }
+                // Wait for concepts to load, then select all
+                setTimeout(() => {
+                    const conceptCheckboxes = document.querySelectorAll(`input[data-category="${categoryName}"].concept-select`);
+                    conceptCheckboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                        this.handleConceptChange(categoryName, checkbox.value, true);
+                    });
+                }, 500);
+            });
+        },
+        
+        clearCategories() {
+            // Clear all selected concepts
+            document.querySelectorAll('.concept-select').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            this.selectedConcepts = {};
+            // Remove visual feedback from all category headers
+            document.querySelectorAll('.category-header').forEach(header => {
+                header.classList.remove('has-selected-concepts');
+                const conceptCount = header.querySelector('.concept-count');
+                conceptCount.classList.remove('has-selections');
+                if (conceptCount.dataset.originalCount) {
+                    conceptCount.textContent = conceptCount.dataset.originalCount;
+                }
+            });
+            this.updateSelectedSummary();
+        },
+        
+        async toggleCategoryExpansion(categoryName) {
+            const header = document.querySelector(`[data-category="${categoryName}"]`);
+            const content = document.getElementById(`category_content_${categoryName}`);
+            const icon = header.querySelector('.category-expand-icon');
+            
+            if (this.expandedCategories[categoryName]) {
+                // Collapse
+                content.classList.remove('expanded');
+                header.classList.remove('expanded');
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-right');
+                this.expandedCategories[categoryName] = false;
+            } else {
+                // Expand
+                content.classList.add('expanded');
+                header.classList.add('expanded');
+                icon.classList.remove('bi-chevron-right');
+                icon.classList.add('bi-chevron-down');
+                this.expandedCategories[categoryName] = true;
+                
+                // Load concepts if not already loaded
+                if (!this.loadedConcepts[categoryName]) {
+                    await this.loadCategoryConcepts(categoryName);
+                }
+            }
+        },
+        
+        async loadCategoryConcepts(categoryName) {
+            const conceptsContainer = document.getElementById(`concepts_${categoryName}`);
+            
+            try {
+                const response = await fetch(`/cases/new/agent/concepts/${categoryName}?world_id=${this.worldId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.renderConcepts(categoryName, result.concepts);
+                    this.loadedConcepts[categoryName] = true;
+                } else {
+                    conceptsContainer.innerHTML = `
+                        <div class="text-center text-muted">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <small class="d-block">Error loading concepts</small>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading concepts:', error);
+                conceptsContainer.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-wifi-off"></i>
+                        <small class="d-block">Connection error</small>
+                    </div>
+                `;
+            }
+        },
+        
+        renderConcepts(categoryName, concepts) {
+            const conceptsContainer = document.getElementById(`concepts_${categoryName}`);
+            
+            if (!concepts || concepts.length === 0) {
+                conceptsContainer.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-inbox"></i>
+                        <small class="d-block">No concepts available</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            concepts.forEach(concept => {
+                const conceptName = concept.label || concept.name || concept;
+                const conceptDescription = concept.description || '';
+                const conceptId = `concept_${categoryName}_${conceptName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                
+                html += `
+                    <div class="concept-item">
+                        <input type="checkbox" 
+                               id="${conceptId}"
+                               value="${conceptName}"
+                               class="concept-select"
+                               data-category="${categoryName}"
+                               onchange="handleConceptChange('${categoryName}', '${conceptName}', this.checked)">
+                        <label for="${conceptId}">${conceptName}</label>
+                    </div>
+                `;
+                
+                if (conceptDescription) {
+                    html += `<div class="concept-description">${conceptDescription}</div>`;
+                }
+            });
+            
+            conceptsContainer.innerHTML = html;
+        },
+        
+        handleConceptChange(categoryName, conceptName, isSelected) {
+            if (!this.selectedConcepts[categoryName]) {
+                this.selectedConcepts[categoryName] = [];
+            }
+            
+            if (isSelected) {
+                if (!this.selectedConcepts[categoryName].includes(conceptName)) {
+                    this.selectedConcepts[categoryName].push(conceptName);
+                }
+            } else {
+                this.selectedConcepts[categoryName] = this.selectedConcepts[categoryName].filter(name => name !== conceptName);
+            }
+            
+            // Update visual feedback
+            this.updateCategoryVisualFeedback(categoryName);
+            this.updateSelectedSummary();
+        },
+        
+        updateCategoryVisualFeedback(categoryName) {
+            const header = document.querySelector(`[data-category="${categoryName}"]`);
+            const conceptCount = header.querySelector('.concept-count');
+            const hasSelectedConcepts = this.selectedConcepts[categoryName] && this.selectedConcepts[categoryName].length > 0;
+            
+            if (hasSelectedConcepts) {
+                header.classList.add('has-selected-concepts');
+                conceptCount.classList.add('has-selections');
+                conceptCount.textContent = `${conceptCount.dataset.originalCount || conceptCount.textContent} (${this.selectedConcepts[categoryName].length} selected)`;
+            } else {
+                header.classList.remove('has-selected-concepts');
+                conceptCount.classList.remove('has-selections');
+                conceptCount.textContent = conceptCount.dataset.originalCount || conceptCount.textContent.split(' (')[0];
+            }
+            
+            // Store original count if not already stored
+            if (!conceptCount.dataset.originalCount) {
+                conceptCount.dataset.originalCount = conceptCount.textContent.split(' (')[0];
+            }
+        },
+        
+        toggleOntologyPanel() {
+            const panel = document.getElementById('ontologyPanel');
+            const toggle = document.getElementById('ontologyToggle');
+            
+            this.ontologyCollapsed = !this.ontologyCollapsed;
+            
+            if (this.ontologyCollapsed) {
+                panel.classList.add('collapsed');
+                toggle.innerHTML = '<i class="bi bi-chevron-right"></i>';
+            } else {
+                panel.classList.remove('collapsed');
+                toggle.innerHTML = '<i class="bi bi-chevron-left"></i>';
+            }
+        },
+        
+        handleInputChange() {
+            const input = document.getElementById('userInput');
+            const button = document.getElementById('sendMessage');
+            
+            button.disabled = input.value.trim().length === 0;
+        },
+        
+        handleKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        },
+        
+        async sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            
+            if (!message || this.isProcessing) return;
+            
+            // Add user message to conversation
+            this.addMessage('user', message);
+            
+            // Clear input and show processing
+            input.value = '';
+            this.handleInputChange();
+            this.showProcessing(true);
+            
+            try {
+                // Send to API
+                const response = await fetch('/cases/new/agent/api', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: message,
+                        world_id: this.worldId,
+                        selected_categories: Object.keys(this.selectedConcepts).filter(cat => this.selectedConcepts[cat].length > 0),
+                        selected_concepts: this.selectedConcepts,
+                        conversation_history: this.conversationHistory
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.addAgentResponse(result.response);
+                } else {
+                    this.addMessage('error', result.error || 'An error occurred');
+                }
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                this.addMessage('error', 'Failed to communicate with language model');
+            } finally {
+                this.showProcessing(false);
+            }
+        },
+        
+        addMessage(type, content) {
+            const area = document.getElementById('conversationArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            if (type === 'user') {
+                messageDiv.innerHTML = `
+                    <div class="message-bubble">${this.escapeHtml(content)}</div>
+                `;
+            } else if (type === 'error') {
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <i class="bi bi-exclamation-triangle text-danger"></i> Error
+                    </div>
+                    <div class="message-bubble bg-danger text-white">${this.escapeHtml(content)}</div>
+                `;
+            }
+            
+            area.appendChild(messageDiv);
+            area.scrollTop = area.scrollHeight;
+            
+            // Add to history
+            this.conversationHistory.push({
+                type: type,
+                content: content,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Update case generation capability
+            this.updateCaseGenerationStatus();
+        },
+        
+        addAgentResponse(response) {
+            const area = document.getElementById('conversationArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message agent-message';
+            
+            let html = `
+                <div class="message-header">
+                    <i class="bi bi-robot"></i> AI Assistant
+                </div>
+                <div class="message-bubble">
+                    ${this.escapeHtml(response.message)}
+            `;
+            
+            // Add suggestions
+            if (response.suggestions && response.suggestions.length > 0) {
+                html += '<div class="agent-suggestions"><strong>Suggestions:</strong>';
+                response.suggestions.forEach(suggestion => {
+                    html += `
+                        <div class="suggestion-item" data-prompt="${this.escapeHtml(suggestion.description)}">
+                            <strong>${this.escapeHtml(suggestion.title)}</strong><br>
+                            <small>${this.escapeHtml(suggestion.description)}</small>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Add next steps
+            if (response.next_steps && response.next_steps.length > 0) {
+                html += '<div class="next-steps"><strong>Next Steps:</strong>';
+                response.next_steps.forEach((step, index) => {
+                    html += `
+                        <div class="next-step">
+                            <div class="step-number">${index + 1}</div>
+                            <div>${this.escapeHtml(step)}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            messageDiv.innerHTML = html;
+            
+            area.appendChild(messageDiv);
+            area.scrollTop = area.scrollHeight;
+            
+            // Add to history
+            this.conversationHistory.push({
+                type: 'agent',
+                content: response,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Update case generation capability
+            this.updateCaseGenerationStatus();
+        },
+        
+        showProcessing(show) {
+            const indicator = document.getElementById('processingIndicator');
+            const button = document.getElementById('sendMessage');
+            
+            this.isProcessing = show;
+            
+            if (show) {
+                indicator.style.display = 'flex';
+                button.disabled = true;
+            } else {
+                indicator.style.display = 'none';
+                this.handleInputChange(); // Re-enable based on input
+            }
+        },
+        
+        updateCaseGenerationStatus() {
+            const generateBtn = document.getElementById('generateCase');
+            
+            // Need at least 2 user messages and 1 agent response, plus some ontology selections
+            const userMessages = this.conversationHistory.filter(msg => msg.type === 'user').length;
+            const agentMessages = this.conversationHistory.filter(msg => msg.type === 'agent').length;
+            const hasOntologySelections = Object.values(this.selectedConcepts).some(concepts => concepts.length > 0);
+            
+            this.canGenerateCase = userMessages >= 2 && agentMessages >= 1 && hasOntologySelections;
+            
+            if (generateBtn) {
+                generateBtn.disabled = !this.canGenerateCase;
+                
+                if (this.canGenerateCase) {
+                    generateBtn.title = 'Generate NSPE-format case from this conversation';
+                } else {
+                    generateBtn.title = 'Need more conversation and ontology selections to generate case';
+                }
+            }
+        },
+        
+        async generateCase() {
+            if (!this.canGenerateCase) {
+                alert('Need more conversation and ontology selections to generate a case.');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generateCase');
+            
+            try {
+                // Show processing state
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
+                
+                // Send conversation and selections to backend for case generation
+                const response = await fetch('/cases/new/agent/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        world_id: this.worldId,
+                        conversation_history: this.conversationHistory,
+                        selected_concepts: this.selectedConcepts,
+                        conversation_metadata: {
+                            total_messages: this.conversationHistory.length,
+                            concept_count: Object.values(this.selectedConcepts).reduce((sum, concepts) => sum + concepts.length, 0),
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success message
+                    this.addMessage('system', `✅ Case generated successfully! Case ID: ${result.case_id}`);
+                    
+                    // Redirect to the generated case
+                    setTimeout(() => {
+                        window.location.href = result.case_url;
+                    }, 2000);
+                } else {
+                    this.addMessage('error', `Failed to generate case: ${result.error || 'Unknown error'}`);
+                }
+                
+            } catch (error) {
+                console.error('Error generating case:', error);
+                this.addMessage('error', 'Failed to communicate with case generation service');
+            } finally {
+                // Reset button
+                generateBtn.disabled = !this.canGenerateCase;
+                generateBtn.innerHTML = '<i class="bi bi-file-earmark-plus"></i> Generate Case';
+            }
+        },
+        
+        clearConversation() {
+            if (confirm('Clear the entire conversation?')) {
+                document.getElementById('conversationArea').innerHTML = `
+                    <div class="message agent-message">
+                        <div class="message-header">
+                            <i class="bi bi-robot"></i> Language Model
+                        </div>
+                        <div class="message-bubble">
+                            <strong>Conversation cleared.</strong> How can I help you create a new case?
+                        </div>
+                    </div>
+                `;
+                this.conversationHistory = [];
+                this.conversationId = null;
+                this.updateCaseGenerationStatus();
+            }
+        },
+        
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    }
+};
+
+// Global functions for onclick handlers  
+function toggleCategoryExpansion(categoryName) {
+    if (window.agentApp && window.agentApp.toggleCategoryExpansion) {
+        window.agentApp.toggleCategoryExpansion(categoryName);
+    } else {
+        console.error('Agent app not initialized or method not found');
+    }
+}
+
+function handleConceptChange(categoryName, conceptName, isSelected) {
+    if (window.agentApp && window.agentApp.handleConceptChange) {
+        window.agentApp.handleConceptChange(categoryName, conceptName, isSelected);
+    } else {
+        console.error('Agent app not initialized or method not found');
+    }
+}
+
+// Initialize the Vue app
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing Agent Case Creation interface...');
+    
+    // Create the app instance properly
+    window.agentApp = {};
+    
+    // Initialize data
+    const appData = AgentCaseCreation.data();
+    Object.keys(appData).forEach(key => {
+        window.agentApp[key] = appData[key];
+    });
+    
+    // Bind methods to the instance with proper 'this' context
+    Object.keys(AgentCaseCreation.methods).forEach(methodName => {
+        window.agentApp[methodName] = AgentCaseCreation.methods[methodName].bind(window.agentApp);
+    });
+    
+    // Initialize the app
+    if (window.agentApp.initializeEventListeners) {
+        window.agentApp.initializeEventListeners();
+    }
+    if (window.agentApp.updateSelectedSummary) {
+        window.agentApp.updateSelectedSummary();
+    }
+    
+    console.log('Agent Case Creation interface initialized');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Ethical Decision Wizard - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block styles %}
+<style>
+    .wizard-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    
+    .wizard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .session-card {
+        border-left: 4px solid #007bff;
+    }
+    
+    .session-card.in-progress {
+        border-left-color: #28a745;
+    }
+    
+    .session-card.completed {
+        border-left-color: #6c757d;
+    }
+    
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        margin: 0 auto 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h1 class="display-4 mb-3">
+                <i class="bi bi-compass text-primary"></i>
+                Ethical Decision Wizard
+            </h1>
+            <p class="lead text-muted">
+                Navigate complex ethical scenarios with guided analysis and expert recommendations
+            </p>
+        </div>
+    </div>
+
+    <!-- Quick Start Section -->
+    <div class="row mb-5">
+        <div class="col-md-8 mx-auto">
+            <div class="card wizard-card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h3 class="mb-0">
+                        <i class="bi bi-play-circle-fill me-2"></i>
+                        {{ scenario.name }}
+                    </h3>
+                </div>
+                <div class="card-body text-center">
+                    <p class="card-text mb-4">
+                        {{ scenario.description }}
+                    </p>
+                    
+                    <div class="mb-4">
+                        <div class="row text-start">
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-clock text-primary me-2"></i>
+                                    <strong>Duration:</strong> 15-20 minutes
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-list-ol text-primary me-2"></i>
+                                    <strong>Steps:</strong> {{ total_steps }} decisions
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-award text-primary me-2"></i>
+                                    <strong>Level:</strong> Professional
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="startWizardBtn" class="btn btn-primary btn-lg" onclick="startNewSession()">
+                        <i class="bi bi-arrow-right-circle me-2"></i>
+                        {% if current_step > 1 %}Continue from Step {{ current_step }}{% else %}Start Ethical Analysis{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Overview -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="text-center mb-4">How the Wizard Helps</h3>
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <div class="text-center">
+                        <div class="feature-icon">
+                            <i class="bi bi-question-circle"></i>
+                        </div>
+                        <h5>Guided Questions</h5>
+                        <p class="text-muted small">
+                            Step-by-step questions help you analyze all aspects of the ethical dilemma
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="text-center">
+                        <div class="feature-icon">
+                            <i class="bi bi-search"></i>
+                        </div>
+                        <h5>Case Matching</h5>
+                        <p class="text-muted small">
+                            Find similar cases and precedents from professional ethics databases
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="text-center">
+                        <div class="feature-icon">
+                            <i class="bi bi-lightbulb"></i>
+                        </div>
+                        <h5>AI Recommendations</h5>
+                        <p class="text-muted small">
+                            Get intelligent suggestions based on ethical principles and case law
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="text-center">
+                        <div class="feature-icon">
+                            <i class="bi bi-file-text"></i>
+                        </div>
+                        <h5>Analysis Report</h5>
+                        <p class="text-muted small">
+                            Receive a comprehensive analysis with reasoning and action items
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Existing Sessions -->
+    {% if sessions %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Your Sessions
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for session in sessions %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card session-card {{ session.status }}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="card-title">{{ session.title or 'Untitled Session' }}</h6>
+                                            <p class="card-text small text-muted mb-2">
+                                                World: {{ session.world.name if session.world else 'Unknown' }}
+                                            </p>
+                                            <p class="card-text small text-muted">
+                                                Created: {{ session.created_at.strftime('%b %d, %Y at %I:%M %p') if session.created_at else 'Unknown' }}
+                                            </p>
+                                        </div>
+                                        <div class="text-end">
+                                            {% if session.status == 'in_progress' %}
+                                                <span class="badge bg-success">In Progress</span>
+                                                <div class="small text-muted mt-1">
+                                                    Step {{ session.current_step + 1 }} of {{ session.total_steps }}
+                                                </div>
+                                            {% elif session.status == 'completed' %}
+                                                <span class="badge bg-secondary">Completed</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Draft</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        {% if session.status == 'in_progress' %}
+                                            <button class="btn btn-primary btn-sm" onclick="resumeSession('{{ session.session_id }}')">
+                                                <i class="bi bi-play me-1"></i>Resume
+                                            </button>
+                                        {% elif session.status == 'completed' %}
+                                            <button class="btn btn-outline-primary btn-sm" onclick="viewSession('{{ session.session_id }}')">
+                                                <i class="bi bi-eye me-1"></i>View Report
+                                            </button>
+                                        {% endif %}
+                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteSession('{{ session.session_id }}')">
+                                            <i class="bi bi-trash me-1"></i>Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Help Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        About the Ethical Decision Wizard
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">
+                        The Ethical Decision Wizard guides you through complex ethical dilemmas using a structured approach:
+                    </p>
+                    <ol>
+                        <li><strong>Situation Analysis:</strong> Define the problem and identify stakeholders</li>
+                        <li><strong>Ethical Framework:</strong> Apply relevant ethical principles and guidelines</li>
+                        <li><strong>Options Evaluation:</strong> Consider possible courses of action</li>
+                        <li><strong>Precedent Review:</strong> Examine similar cases and outcomes</li>
+                        <li><strong>Recommendation:</strong> Get AI-powered analysis and suggestions</li>
+                        <li><strong>Action Planning:</strong> Create concrete next steps</li>
+                    </ol>
+                    <p class="mb-0 text-muted">
+                        Each session is saved and can be resumed at any time. Completed sessions generate 
+                        comprehensive reports that can be exported or shared.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Starting Your Session...</h5>
+                <p class="text-muted">Please wait while we prepare your ethical decision wizard.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startNewSession() {
+    // Show loading modal
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    loadingModal.show();
+    
+    // Navigate to first step - this will create the session automatically
+    setTimeout(() => {
+        window.location.href = `/scenarios/{{ scenario.id }}/wizard/step/1`;
+    }, 1000);
+}
+
+function resumeSession(sessionId) {
+    window.location.href = `/scenarios/{{ scenario.id }}/wizard/step/{{ wizard_session.current_step }}`;
+}
+
+function viewSession(sessionId) {
+    window.location.href = `/scenarios/{{ scenario.id }}/wizard/summary`;
+}
+
+function deleteSession(sessionId) {
+    if (confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+        fetch(`/wizard/session/${sessionId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error deleting session: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting session. Please try again.');
+        });
+    }
+}
+</script>
+{% endblock %}

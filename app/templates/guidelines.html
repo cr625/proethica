@@ -60,6 +60,7 @@
           <p class="card-text">{{ guideline.get_content_excerpt(150) }}</p>
 
           <div class="small text-muted mb-3">
+            <div><strong>Created by:</strong> {{ get_creator_name(guideline) }}</div>
             <div><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d') }}</div>
             <div><strong>Concepts:</strong>
               {% if guideline.doc_metadata and guideline.doc_metadata.triples_created %}
@@ -88,24 +89,79 @@
               class="btn btn-primary">
               <i class="fas fa-book"></i> View
             </a>
-            {#
+            
             <div class="btn-group" role="group">
+              {% set concept_count = 0 %}
+              {% if guideline.doc_metadata and guideline.doc_metadata.triples_created %}
+                {% set concept_count = guideline.doc_metadata.triples_created %}
+              {% elif guideline.entity_triples is defined %}
+                {% set concept_count = guideline.entity_triples.count() %}
+              {% endif %}
+              
+              {% if concept_count > 0 %}
+                {% if guideline_ontologies and guideline.id in guideline_ontologies %}
+                  <!-- Derived ontology exists, show View button -->
+                  <a href="/ontology-editor/?ontology_id={{ guideline_ontologies[guideline.id].id }}&view=full"
+                    class="btn btn-outline-success" target="_blank" title="View the derived ontology for this guideline">
+                    <i class="bi bi-diagram-3"></i> View Ontology
+                  </a>
+                {% else %}
+                  <!-- Concepts exist but no ontology yet -->
+                  <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}#associated-concepts"
+                    class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> View Concepts ({{ concept_count }})
+                  </a>
+                {% endif %}
+              {% else %}
               <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
                 class="btn btn-outline-info">
-                <i class="fas fa-brain"></i> Analyze
+                <i class="bi bi-lightbulb"></i> Extract Concepts
               </a>
-              <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
-                class="btn btn-outline-success">
-                <i class="fas fa-microscope"></i> Extract Concepts
-              </a>
-              <!-- Edit functionality not yet implemented -->
+              {% endif %}
+              
+              {% if can_edit_item(guideline) %}
+              <!-- Edit functionality for future implementation -->
+              {% endif %}
+              {% if can_delete_item(guideline) %}
+              <button type="button" class="btn btn-outline-danger" 
+                      data-bs-toggle="modal" data-bs-target="#deleteGuidelineModal{{ guideline.id }}">
+                <i class="bi bi-trash"></i> Delete
+              </button>
+              {% endif %}
             </div>
-            #}
           </div>
         </div>
       </div>
     </div>
     {% endfor %}
+    
+    <!-- Delete Guideline Modals -->
+    {% for guideline in guidelines %}
+    {% if can_delete_item(guideline) %}
+    <div class="modal fade" id="deleteGuidelineModal{{ guideline.id }}" tabindex="-1"
+         aria-labelledby="deleteGuidelineModalLabel{{ guideline.id }}" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteGuidelineModalLabel{{ guideline.id }}">Confirm Deletion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Are you sure you want to delete the guideline "{{ guideline.title }}"?</p>
+            <p class="text-danger">This action cannot be undone. All associated concepts and analysis will be permanently deleted.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-danger">Delete Guideline</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    
     {% else %}
     <div class="col-12">
       <div class="alert alert-info">

@@ -46,8 +46,13 @@ class Document(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Define relationship to world
+    # User ownership and data classification
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    data_type = db.Column(db.String(20), default='user')  # 'system' or 'user'
+    
+    # Define relationships
     world = db.relationship('World', backref='documents')
+    creator = db.relationship('User', backref='created_documents')
     
     def get_content(self):
         """Get document content from file if not already loaded"""
@@ -94,6 +99,40 @@ class Document(db.Model):
             excerpt = clean_content.strip()
         
         return excerpt
+    
+    def can_edit(self, user):
+        """Check if the user can edit this document."""
+        if not user or not user.is_authenticated:
+            return False
+        
+        # Admin can edit everything
+        if getattr(user, 'is_admin', False):
+            return True
+        
+        # System data can only be edited by admins
+        if self.data_type == 'system':
+            return False
+        
+        # User can edit their own content
+        return self.created_by == user.id
+    
+    def can_delete(self, user):
+        """Check if the user can delete this document."""
+        # Same rules as editing
+        return self.can_edit(user)
+    
+    def can_view(self, user):
+        """Check if the user can view this document."""
+        # All users can view all documents (read-only for system data)
+        return True
+    
+    def is_system_data(self):
+        """Check if this is system data (read-only for non-admins)."""
+        return self.data_type == 'system'
+    
+    def is_user_data(self):
+        """Check if this is user-created data."""
+        return self.data_type == 'user'
     
     def __repr__(self):
         return f"<Document {self.id}: {self.title} ({self.document_type})>"

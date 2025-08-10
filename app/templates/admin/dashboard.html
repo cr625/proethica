@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="fas fa-shield-alt text-primary me-2"></i>
+                        Admin Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">System management and user administration</p>
+                </div>
+                <div>
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        System Operational
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Statistics Cards -->
+    <div class="row mb-4">
+        <!-- Users Statistics -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-primary mb-1">
+                                <i class="fas fa-users me-1"></i>
+                                Users
+                            </h6>
+                            <h3 class="mb-0">{{ stats.users.total }}</h3>
+                            <small class="text-muted">
+                                {{ stats.users.admin }} admin, {{ stats.users.test_users }} test users
+                            </small>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-users fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Statistics -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-info mb-1">
+                                <i class="fas fa-database me-1"></i>
+                                Total Data
+                            </h6>
+                            <h3 class="mb-0">{{ stats.data.total_worlds + stats.data.total_documents + stats.data.total_guidelines }}</h3>
+                            <small class="text-muted">
+                                {{ stats.data.total_worlds }} worlds, {{ stats.data.total_documents }} docs, {{ stats.data.total_guidelines }} guidelines
+                            </small>
+                        </div>
+                        <div class="text-info">
+                            <i class="fas fa-database fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Data -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-success mb-1">
+                                <i class="fas fa-lock me-1"></i>
+                                System Data
+                            </h6>
+                            <h3 class="mb-0">{{ stats.data.system_worlds + stats.data.system_documents + stats.data.system_guidelines }}</h3>
+                            <small class="text-muted">
+                                Protected from resets
+                            </small>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-shield-alt fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Data -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-warning mb-1">
+                                <i class="fas fa-user-edit me-1"></i>
+                                User Data
+                            </h6>
+                            <h3 class="mb-0">{{ stats.data.user_worlds + stats.data.user_documents + stats.data.user_guidelines }}</h3>
+                            <small class="text-muted">
+                                Can be reset
+                            </small>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-user-edit fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-users me-2"></i>
+                                Manage Users
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('admin.data_overview') }}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                Data Overview
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-outline-warning w-100" onclick="showBulkResetModal()">
+                                <i class="fas fa-redo me-2"></i>
+                                Bulk Reset
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('admin.system_health') }}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-heartbeat me-2"></i>
+                                System Health
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity and Reset History -->
+    <div class="row">
+        <!-- Recent User Activity -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Recent User Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                        <div class="list-group list-group-flush">
+                            {% for user in recent_users %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong>{{ user.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        {% if user.last_login %}
+                                            Last login: {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                            Never logged in
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div>
+                                    {% if user.is_admin %}
+                                        <span class="badge bg-primary">Admin</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Test User</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No user activity recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Reset History -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Recent Reset History
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if reset_users %}
+                        <div class="list-group list-group-flush">
+                            {% for user in reset_users %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong>{{ user.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        Reset {{ user.data_reset_count }} time(s)
+                                        <br>
+                                        Last: {{ user.last_data_reset.strftime('%Y-%m-%d %H:%M') }}
+                                    </small>
+                                </div>
+                                <div>
+                                    <span class="badge bg-warning">{{ user.data_reset_count }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No reset history available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Reset Modal -->
+<div class="modal fade" id="bulkResetModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Bulk Reset All Test Users
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>Warning:</strong> This will permanently delete all user-created data for ALL test users.
+                    System data (admin-owned content) will be preserved.
+                </div>
+                
+                <p>This action will:</p>
+                <ul>
+                    <li>Delete all user-created worlds, documents, and guidelines</li>
+                    <li>Reset user statistics (login counts, etc.)</li>
+                    <li>Reset database ID sequences for clean numbering</li>
+                    <li>Preserve all system data (NSPE cases, etc.)</li>
+                </ul>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirmBulkReset">
+                    <label class="form-check-label" for="confirmBulkReset">
+                        I understand this action cannot be undone
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-info" onclick="performBulkReset(true)">
+                    <i class="fas fa-eye me-1"></i>
+                    Dry Run (Preview)
+                </button>
+                <button type="button" class="btn btn-warning" onclick="performBulkReset(false)" disabled id="confirmBulkResetBtn">
+                    <i class="fas fa-redo me-1"></i>
+                    Reset All Test Users
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal fade" id="resultsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resultsModalTitle">Operation Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resultsContent">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable/disable bulk reset button based on confirmation checkbox
+document.getElementById('confirmBulkReset').addEventListener('change', function() {
+    document.getElementById('confirmBulkResetBtn').disabled = !this.checked;
+});
+
+function showBulkResetModal() {
+    new bootstrap.Modal(document.getElementById('bulkResetModal')).show();
+}
+
+function performBulkReset(dryRun) {
+    const confirmed = document.getElementById('confirmBulkReset').checked;
+    
+    if (!dryRun && !confirmed) {
+        alert('Please confirm that you understand this action cannot be undone.');
+        return;
+    }
+    
+    // Show loading state
+    const button = dryRun ? 
+        document.querySelector('button[onclick="performBulkReset(true)"]') :
+        document.getElementById('confirmBulkResetBtn');
+    
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
+    button.disabled = true;
+    
+    // Perform the reset
+    fetch('/admin/users/bulk-reset', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            confirm: !dryRun,
+            dry_run: dryRun
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide the bulk reset modal
+        bootstrap.Modal.getInstance(document.getElementById('bulkResetModal')).hide();
+        
+        // Show results
+        showResults(data, dryRun);
+        
+        // Reset button
+        button.innerHTML = originalText;
+        button.disabled = dryRun ? false : !confirmed;
+        
+        // Reload page if actual reset was performed
+        if (!dryRun && data.success) {
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred during the reset operation.');
+        
+        // Reset button
+        button.innerHTML = originalText;
+        button.disabled = dryRun ? false : !confirmed;
+    });
+}
+
+function showResults(data, dryRun) {
+    const modal = new bootstrap.Modal(document.getElementById('resultsModal'));
+    const title = document.getElementById('resultsModalTitle');
+    const content = document.getElementById('resultsContent');
+    
+    title.textContent = dryRun ? 'Dry Run Results (Preview)' : 'Reset Results';
+    
+    let html = '';
+    
+    if (data.success) {
+        html += `<div class="alert alert-${dryRun ? 'info' : 'success'}">
+            <h6><i class="fas fa-${dryRun ? 'eye' : 'check'} me-2"></i>${dryRun ? 'Preview Complete' : 'Reset Successful'}</h6>
+            <p>Processed ${data.overall_stats.users_processed} users</p>
+        </div>`;
+        
+        // Show statistics
+        if (data.overall_stats.total_deleted) {
+            html += '<h6>Data Summary:</h6><ul>';
+            for (const [key, count] of Object.entries(data.overall_stats.total_deleted)) {
+                if (count > 0) {
+                    html += `<li>${key.replace('_', ' ')}: ${count}</li>`;
+                }
+            }
+            html += '</ul>';
+        }
+        
+        // Show per-user results
+        if (data.user_results && data.user_results.length > 0) {
+            html += '<h6>Per-User Results:</h6>';
+            html += '<div class="table-responsive"><table class="table table-sm">';
+            html += '<thead><tr><th>User</th><th>Status</th><th>Data Deleted</th></tr></thead><tbody>';
+            
+            for (const result of data.user_results) {
+                const status = result.success ? 
+                    '<span class="badge bg-success">Success</span>' : 
+                    '<span class="badge bg-danger">Failed</span>';
+                
+                let deletedSummary = '';
+                if (result.deleted_counts) {
+                    const counts = Object.entries(result.deleted_counts)
+                        .filter(([key, count]) => count > 0)
+                        .map(([key, count]) => `${count} ${key.replace('_', ' ')}`)
+                        .join(', ');
+                    deletedSummary = counts || 'None';
+                }
+                
+                html += `<tr>
+                    <td>${result.username}</td>
+                    <td>${status}</td>
+                    <td><small>${deletedSummary}</small></td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table></div>';
+        }
+        
+    } else {
+        html += `<div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Operation Failed</h6>
+            <p>${data.error || 'Unknown error occurred'}</p>
+        </div>`;
+    }
+    
+    // Show log if available
+    if (data.reset_log && data.reset_log.length > 0) {
+        html += '<h6>Operation Log:</h6>';
+        html += '<div class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">';
+        html += '<pre class="mb-0" style="font-size: 0.8em;">';
+        html += data.reset_log.join('\n');
+        html += '</pre></div>';
+    }
+    
+    content.innerHTML = html;
+    modal.show();
+}
+</script>
+{% endblock %}

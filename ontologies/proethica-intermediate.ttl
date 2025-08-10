@@ -88,6 +88,13 @@
     rdfs:label "Capability"@en ;
     rdfs:comment "A skill, ability, or competency that can be realized in professional contexts. Examples include Technical Design, Project Management, Risk Assessment, Ethical Reasoning."@en .
 
+:Constraint rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdf:type :GuidelineConceptType ;
+    rdfs:subClassOf bfo:BFO_0000017 ; # realizable entity from BFO
+    rdfs:label "Constraint"@en ;
+    rdfs:comment "A boundary condition, limitation, or requirement that restricts or governs the world state. Examples include Time Constraints, Budget Constraints, License Requirements, Experience Requirements, Safety Standards, Compliance Requirements."@en .
+
 # Legacy type references (maintained for backward compatibility)
 :Condition rdfs:subClassOf :State ;
     rdfs:label "Condition"@en ;
@@ -142,6 +149,7 @@
 
 :ProfessionalObligation rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000017 ; # realizable entity
+    rdfs:subClassOf :Obligation ;
     rdfs:label "Professional Obligation"@en ;
     rdfs:comment "A duty or responsibility arising from professional role or standards"@en .
 
@@ -161,7 +169,7 @@
 
 :EthicalCode rdf:type owl:Class ;
     rdf:type :EntityType ;
-    rdfs:subClassOf :Standard ;
+    rdfs:subClassOf :Principle ;
     rdfs:label "Ethical Code"@en ;
     rdfs:comment "A standard that establishes ethical principles and professional conduct requirements"@en .
 

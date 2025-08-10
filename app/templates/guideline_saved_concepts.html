@@ -78,11 +78,41 @@
                                 {% if concepts %}
                                 {% for concept in concepts %}
                                 <tr>
-                                    <td><strong>{{ concept.label }}</strong></td>
                                     <td>
-                                        <span class="badge bg-secondary">{{ concept.category|capitalize if
-                                            concept.category else
-                                            (concept.type|capitalize if concept.type else "Concept") }}</span>
+                                        <div class="d-flex align-items-center">
+                                            {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                                            {% set type_colors = {
+                                              'role': 'bg-primary',
+                                              'principle': 'bg-success', 
+                                              'obligation': 'bg-warning',
+                                              'state': 'bg-info',
+                                              'resource': 'bg-secondary',
+                                              'action': 'bg-danger',
+                                              'event': 'bg-dark',
+                                              'capability': 'bg-light text-dark'
+                                            } %}
+                                            {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                                            {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                                            <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                                            <strong>{{ concept.label }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="concept-hierarchy">
+                                            {% set semantic_category = concept.category %}
+                                            {% set ontology_type = (concept.primary_type or concept.type or 'concept').capitalize() %}
+                                            <div class="hierarchy-path">
+                                                <small class="d-block" style="line-height: 1.4;">
+                                                    <strong class="hierarchy-display text-dark">{{ ontology_type }}</strong>
+                                                    {% if semantic_category and semantic_category != (concept.primary_type or concept.type) %}
+                                                        <br>↳ <span class="text-primary fst-italic">{{ semantic_category }}</span>
+                                                        <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                                                    {% else %}
+                                                        <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>{{ concept.description }}</td>
                                 </tr>
@@ -104,9 +134,9 @@
         </div>
     </div>
 
-    <!-- Form for extracting ontology terms from saved concepts -->
+    <!-- Form for adding concepts to engineering-ethics ontology -->
     <form method="post"
-        action="{{ url_for('worlds.generate_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
+        action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}">
         <!-- Hidden fields to pass necessary data -->
         <input type="hidden" name="concepts_data" value='{{ concepts_json }}' />
         {% for idx in selected_indices %}
@@ -120,8 +150,8 @@
                 class="btn btn-secondary">Back to Guideline</a>
 
             {% if concepts %}
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-search"></i> Extract Ontology Terms
+            <button type="submit" class="btn btn-success" id="addToOntologyBtn">
+                <i class="fas fa-plus-circle"></i> Add to Ontology
             </button>
             {% else %}
             <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-primary">
@@ -130,6 +160,50 @@
             {% endif %}
         </div>
     </form>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="addToOntologyModalLabel">
+                        <i class="fas fa-plus-circle"></i> Add Concepts to Engineering Ethics Ontology
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> What will happen:</h6>
+                        <ul class="mb-0">
+                            <li><strong>{{ concepts|length }} concepts</strong> will be added to the engineering-ethics ontology</li>
+                            <li>A new <strong>ontology version</strong> will be created automatically</li>
+                            <li>Concepts will be mapped to their appropriate <strong>intermediate classes</strong> (Principle, Obligation, etc.)</li>
+                            <li>All <strong>semantic metadata</strong> from the analysis will be preserved</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="commitMessage" class="form-label">Commit Message (optional):</label>
+                        <textarea class="form-control" id="commitMessage" name="commit_message" rows="2" 
+                                  placeholder="Added concepts from NSPE Code of Ethics analysis">Added {{ concepts|length }} concepts from NSPE Code of Ethics guideline analysis</textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmAddition" required>
+                        <label class="form-check-label" for="confirmAddition">
+                            I confirm that I want to add these concepts to the engineering-ethics ontology
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirmAddBtn" disabled>
+                        <i class="fas fa-plus-circle"></i> Add to Ontology
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -137,7 +211,62 @@
 {{ super() }}
 <style>
     .table td {
-        vertical-align: middle;
+        vertical-align: top;
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .concept-hierarchy {
+        word-wrap: break-word;
+        white-space: normal;
+    }
+    
+    .hierarchy-path {
+        padding: 0.25rem 0;
     }
 </style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addToOntologyBtn = document.getElementById('addToOntologyBtn');
+    const addToOntologyModal = new bootstrap.Modal(document.getElementById('addToOntologyModal'));
+    const confirmAddBtn = document.getElementById('confirmAddBtn');
+    const confirmCheckbox = document.getElementById('confirmAddition');
+    const commitMessageTextarea = document.getElementById('commitMessage');
+    const form = addToOntologyBtn.closest('form');
+
+    // Show modal when "Add to Ontology" button is clicked
+    addToOntologyBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        addToOntologyModal.show();
+    });
+
+    // Enable/disable confirm button based on checkbox
+    confirmCheckbox.addEventListener('change', function() {
+        confirmAddBtn.disabled = !this.checked;
+    });
+
+    // Handle form submission when confirmed
+    confirmAddBtn.addEventListener('click', function() {
+        // Add commit message to form
+        const commitMessage = commitMessageTextarea.value.trim();
+        if (commitMessage) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'commit_message';
+            hiddenInput.value = commitMessage;
+            form.appendChild(hiddenInput);
+        }
+
+        // Change button to show processing
+        confirmAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding to Ontology...';
+        confirmAddBtn.disabled = true;
+        
+        // Submit the form
+        form.submit();
+    });
+});
+</script>
 {% endblock %}

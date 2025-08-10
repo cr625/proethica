@@ -126,6 +126,26 @@
                 }
             },
             "problemMatcher": []
+        },
+        {
+            "label": "kill-python-processes",
+            "type": "shell",
+            "command": "pkill -f 'python.*app.py|mcp.*server|run_enhanced_mcp' || true",
+            "presentation": {
+                "reveal": "silent",
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "sleep",
+            "type": "shell",
+            "command": "sleep 2",
+            "presentation": {
+                "reveal": "silent",
+                "close": true
+            },
+            "problemMatcher": []
         }
     ]
 }

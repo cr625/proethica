@@ -1,0 +1,181 @@
+/**
+ * Concept Hierarchy Display Styles
+ * 
+ * Styles for displaying ontological concept hierarchies in the UI.
+ */
+
+.concept-type-display {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.concept-hierarchy {
+    font-size: 0.75rem;
+    color: #6c757d;
+    line-height: 1.2;
+}
+
+.concept-hierarchy .hierarchy-arrow {
+    color: #adb5bd;
+    margin: 0 0.25rem;
+}
+
+.concept-hierarchy strong {
+    color: #495057;
+    font-weight: 600;
+}
+
+/* Primary type badges with semantic colors */
+.badge.bg-primary {
+    /* Role - Professional positions */
+    background-color: #0d6efd !important;
+}
+
+.badge.bg-success {
+    /* Principle - Ethical values */
+    background-color: #198754 !important;
+}
+
+.badge.bg-warning {
+    /* Obligation - Duties */
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.badge.bg-info {
+    /* State - Conditions */
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
+}
+
+.badge.bg-secondary {
+    /* Resource - Entities */
+    background-color: #6c757d !important;
+}
+
+.badge.bg-danger {
+    /* Action - Activities */
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-dark {
+    /* Event - Occurrences */
+    background-color: #212529 !important;
+}
+
+.badge.bg-light {
+    /* Capability - Skills */
+    background-color: #f8f9fa !important;
+    color: #212529 !important;
+    border: 1px solid #dee2e6;
+}
+
+/* Hover effects for concept displays */
+.concept-type-display:hover .concept-hierarchy {
+    color: #495057;
+    transition: color 0.2s ease;
+}
+
+.concept-type-display:hover .badge {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+/* Compact hierarchy display */
+.concept-hierarchy.compact {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    border: 1px solid #e9ecef;
+}
+
+/* Tree hierarchy display for detailed views */
+.concept-hierarchy.tree {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    white-space: pre;
+    background-color: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    border-left: 3px solid #0d6efd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .concept-type-display {
+        align-items: flex-start;
+    }
+    
+    .concept-hierarchy {
+        font-size: 0.6875rem;
+    }
+    
+    .badge {
+        font-size: 0.6875rem;
+    }
+}
+
+/* Table-specific adjustments */
+.table .concept-type-display {
+    min-width: 120px;
+}
+
+.table .concept-hierarchy {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tooltip support for full hierarchy in condensed views */
+.concept-hierarchy[title] {
+    cursor: help;
+    border-bottom: 1px dotted #6c757d;
+}
+
+/* Animation for hierarchy reveal */
+.concept-hierarchy {
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.concept-type-display:hover .concept-hierarchy {
+    opacity: 1;
+}
+
+/* Special styling for extracted concepts in review */
+.extracted-concept .concept-type-display {
+    border-left: 3px solid transparent;
+    padding-left: 0.5rem;
+    transition: border-color 0.3s ease;
+}
+
+.extracted-concept.selected .concept-type-display {
+    border-left-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* Type legend for forms with many concepts */
+.type-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.type-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.type-legend-item .badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.25rem;
+}

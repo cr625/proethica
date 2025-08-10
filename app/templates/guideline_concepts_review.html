@@ -19,16 +19,35 @@
   </nav>
 
   <div class="alert alert-info">
-    <h4 class="alert-heading">Three-Phase Analysis</h4>
+    <h4 class="alert-heading">Enhanced Ontology-Aware Analysis</h4>
     <p>You are at step 2 of the guideline analysis process:</p>
     <ol>
-      <li><strong>Extract concepts</strong> ✓ - Completed</li>
+      <li><strong>Extract concepts</strong> ✓ - Completed with ontology matching</li>
       <li><strong>Review concepts</strong> - You are here</li>
       <li><strong>Review and save triples</strong> - Next step</li>
     </ol>
+    {% if stats %}
+    <div class="mt-3">
+      <h6>Analysis Results:</h6>
+      <div class="row">
+        <div class="col-md-3">
+          <span class="badge bg-primary fs-6">{{ stats.total_concepts or concepts|length }} Total</span>
+        </div>
+        <div class="col-md-3">
+          <span class="badge bg-success fs-6">{{ stats.matched_concepts or 0 }} Matched</span>
+        </div>
+        <div class="col-md-3">
+          <span class="badge bg-warning fs-6">{{ stats.new_terms or 0 }} New</span>
+        </div>
+        <div class="col-md-3">
+          <span class="badge bg-info fs-6">{{ stats.relationships or 0 }} Relations</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     <hr>
-    <p class="mb-0">Select the concepts that accurately represent important ethical principles in this guideline.
-      <strong>Checked concepts will be used to generate triples</strong> in the next step.
+    <p class="mb-0">Select concepts that accurately represent important ethical principles. 
+      <strong>✅ Green badges</strong> show existing ontology matches, <strong>🆕 orange badges</strong> show new concepts.
     </p>
   </div>
 
@@ -42,6 +61,21 @@
     </ul>
     <p class="mb-0">You can still review and save the extracted concepts, but some advanced features may not work fully.
     </p>
+  </div>
+  {% endif %}
+
+  {% set has_error_concepts = false %}
+  {% for concept in concepts %}
+    {% if not concept.is_new and not concept.ontology_match %}
+      {% set has_error_concepts = true %}
+    {% endif %}
+  {% endfor %}
+
+  {% if has_error_concepts %}
+  <div class="alert alert-danger">
+    <h4 class="alert-heading"><i class="fas fa-exclamation-circle"></i> Enhanced Matching Service Error</h4>
+    <p>The enhanced ontology matching service (GuidelineAnalysisServiceV2) is not working properly. Concepts are missing required matching data.</p>
+    <p class="mb-0"><strong>Debug Info:</strong> Check server logs for "CRITICAL: Concept missing enhanced match fields" errors.</p>
   </div>
   {% endif %}
 
@@ -91,8 +125,9 @@
   <form method="post"
     action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
     <!-- CSRF token removed due to configuration issue -->
-    <!-- Include concepts data as hidden field with proper JSON escaping -->
-    <input type="hidden" name="concepts_data" id="concepts_data" />
+    <!-- Include lightweight concepts reference instead of full JSON data -->
+    <input type="hidden" name="concepts_data" id="concepts_data" value="cached_in_session" />
+    <input type="hidden" name="concepts_count" value="{{ concepts|length }}" />
     <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
 
     <!-- Preview of the triples that will be generated -->
@@ -193,10 +228,10 @@
                 <thead class="table-light">
                   <tr>
                     <th style="width: 50px;">Select</th>
-                    <th>Concept</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Ontology Match</th>
+                    <th style="width: 25%;">Concept</th>
+                    <th style="width: 30%;">Type & Classification</th>
+                    <th style="width: 30%;">Description</th>
+                    <th style="width: 15%;">Ontology Match</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -210,13 +245,95 @@
                         <label class="form-check-label" for="concept{{ loop.index }}"></label>
                       </div>
                     </td>
-                    <td><strong>{{ concept.label }}</strong></td>
                     <td>
-                      <span class="badge bg-secondary">{{ concept.category|capitalize if concept.category else
-                        (concept.type|capitalize if concept.type else "Concept") }}</span>
+                      <div class="d-flex align-items-center">
+                        {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                        {% set type_colors = {
+                          'role': 'bg-primary',
+                          'principle': 'bg-success', 
+                          'obligation': 'bg-warning',
+                          'state': 'bg-info',
+                          'resource': 'bg-secondary',
+                          'action': 'bg-danger',
+                          'event': 'bg-dark',
+                          'capability': 'bg-light text-dark'
+                        } %}
+                        {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                        {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                        <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                        <strong>{{ concept.label }}</strong>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="concept-type-display">
+                        <!-- Manual Type Override Dropdown -->
+                        {% set actual_type = concept.type or concept.primary_type or 'concept' %}
+                        {% set dropdown_type = actual_type.lower() %}
+                        <select class="form-select form-select-sm concept-type-override" 
+                                data-concept-index="{{ loop.index0 }}"
+                                data-original-type="{{ dropdown_type }}"
+                                style="width: auto; margin-bottom: 0.25rem;">
+                            <option value="role" {% if dropdown_type == 'role' %}selected{% endif %} class="text-primary">Role</option>
+                            <option value="principle" {% if dropdown_type == 'principle' %}selected{% endif %} class="text-success">Principle</option>
+                            <option value="obligation" {% if dropdown_type == 'obligation' %}selected{% endif %} class="text-warning">Obligation</option>
+                            <option value="state" {% if dropdown_type == 'state' %}selected{% endif %} class="text-info">State</option>
+                            <option value="resource" {% if dropdown_type == 'resource' %}selected{% endif %} class="text-secondary">Resource</option>
+                            <option value="action" {% if dropdown_type == 'action' %}selected{% endif %} class="text-danger">Action</option>
+                            <option value="event" {% if dropdown_type == 'event' %}selected{% endif %} class="text-dark">Event</option>
+                            <option value="capability" {% if dropdown_type == 'capability' %}selected{% endif %}>Capability</option>
+                        </select>
+                        
+                        <div class="concept-hierarchy mt-2">
+                          {% set semantic_category = concept.category %}
+                          {% set ontology_type = actual_type.capitalize() %}
+                          <div class="hierarchy-path mb-1">
+                            <small class="d-block" style="line-height: 1.4;">
+                              <strong class="hierarchy-display text-dark">{{ ontology_type }}</strong>
+                              {% if semantic_category and semantic_category != actual_type %}
+                                <br>↳ <span class="text-primary fst-italic">{{ semantic_category }}</span>
+                                <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                              {% else %}
+                                <br>↳ <strong class="text-success">{{ concept.label }}</strong>
+                              {% endif %}
+                            </small>
+                          </div>
+                          
+                          <!-- Show if user has made manual changes -->
+                          <div class="manual-change-indicator" style="display: none;">
+                            <small class="text-info d-block" style="font-size: 0.75rem;">
+                              <i class="bi bi-pencil-square"></i> Manually adjusted
+                            </small>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td>{{ concept.description }}</td>
                     <td>
+                      {% if concept.ontology_match %}
+                      <!-- Existing ontology match found -->
+                      <div class="mb-1">
+                        <span class="badge bg-success">✅ Match</span>
+                        <strong>{{ concept.ontology_match.label }}</strong>
+                        <small class="text-muted d-block">
+                          Confidence: {{ (concept.match_confidence * 100)|round|int }}%
+                          {% if concept.ontology_match.category %}
+                          <br>Category: {{ concept.ontology_match.category|title }}
+                          {% endif %}
+                        </small>
+                      </div>
+                      {% elif concept.is_new %}
+                      <!-- New concept -->
+                      <div class="mb-1">
+                        <span class="badge bg-warning text-dark">🆕 New</span>
+                        {% if concept.suggested_parent %}
+                        <small class="text-muted d-block">
+                          Parent: {{ concept.suggested_parent.label }}
+                          <br>Confidence: {{ (concept.suggested_parent.confidence * 100)|round|int }}%
+                        </small>
+                        {% endif %}
+                      </div>
+                      {% else %}
+                      <!-- Fallback to legacy match display -->
                       {% if concept.label in matched_entities and matched_entities[concept.label]|length > 0 %}
                       {% for match in matched_entities[concept.label] %}
                       <div class="mb-1">
@@ -226,7 +343,8 @@
                       </div>
                       {% endfor %}
                       {% else %}
-                      <span class="badge bg-warning text-dark">New Concept</span>
+                      <span class="badge bg-danger">❌ ERROR: Missing match data</span>
+                      {% endif %}
                       {% endif %}
                     </td>
                   </tr>
@@ -243,6 +361,62 @@
                   {% endif %}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept Types Reference -->
+    <div class="card mt-4 mb-4">
+      <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="fas fa-tags"></i> Concept Types</h6>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="text-primary">🏛️ Ontological Types (8 Fundamental Categories)</h6>
+            <p class="small text-muted mb-2">Formal ontology classes - stored as permanent classifications</p>
+            
+            <dl class="small mb-3">
+              <dt><span class="badge bg-primary">Role</span></dt>
+              <dd>Professional positions, occupations, or stakeholder categories (e.g., Engineer, Client, Manager). <strong>NOT duties or relationships.</strong></dd>
+              
+              <dt><span class="badge bg-success">Principle</span></dt>
+              <dd>Core ethical values, fundamental beliefs, or guiding standards (e.g., Safety First, Honesty).</dd>
+              
+              <dt><span class="badge bg-warning">Obligation</span></dt>
+              <dd>Professional duties, requirements, or things that MUST be done (e.g., Faithful Agency, Confidentiality).</dd>
+              
+              <dt><span class="badge bg-info">State</span></dt>
+              <dd>Conditions, situations, or circumstances that exist (e.g., Conflict of Interest, Risk State).</dd>
+              
+              <dt><span class="badge bg-secondary">Resource</span></dt>
+              <dd>Physical or informational entities, documents, or tools (e.g., Technical Standards, Specifications).</dd>
+              
+              <dt><span class="badge bg-danger">Action</span></dt>
+              <dd>Intentional activities or processes performed (e.g., Design Review, Communication).</dd>
+              
+              <dt><span class="badge bg-dark">Event</span></dt>
+              <dd>Occurrences, incidents, or happenings (e.g., Safety Incident, Project Milestone).</dd>
+              
+              <dt><span class="badge bg-light text-dark">Capability</span></dt>
+              <dd>Skills, competencies, or abilities (e.g., Technical Expertise, Problem Solving).</dd>
+            </dl>
+          </div>
+          <div class="col-md-6">
+            <h6 class="text-primary">🤖 Semantic Categories (LLM Insights)</h6>
+            <p class="small text-muted mb-2">AI-generated classifications - stored as metadata for future ontology evolution</p>
+            <div class="mb-3">
+              <span class="text-primary fst-italic">Examples: Fundamental Duty, Professional Standard, Ethical Principle</span>
+            </div>
+            
+            <div class="alert alert-info mb-0">
+              <small>
+                <strong>Display Format:</strong><br>
+                <strong>Concept Column:</strong> <span class="badge bg-success">Ontological Type</span> <strong>Concept Name</strong><br>
+                <strong>Type Column:</strong> Dropdown + <strong>Ontological Type</strong> → <span class="text-primary fst-italic">LLM Semantic Category</span> → <strong>Concept Name</strong>
+              </small>
             </div>
           </div>
         </div>
@@ -277,10 +451,14 @@
     const checkboxes = document.querySelectorAll('.concept-checkbox');
     const conceptsDataField = document.getElementById('concepts_data');
 
-    // Initialize concepts data field with properly formatted JSON
-    const conceptsData = {{ concepts| tojson | safe
-  }};
-  conceptsDataField.value = JSON.stringify(conceptsData);
+    // Concepts data is now set directly in the HTML template
+    // Just verify it's there for debugging
+    if (conceptsDataField) {
+        console.log('Concepts data field found with length:', conceptsDataField.value.length);
+        console.log('Preview:', conceptsDataField.value.substring(0, 100) + '...');
+    } else {
+        console.error('concepts_data field not found!');
+    }
 
   // Select all concepts
   selectAllBtn.addEventListener('click', function () {
@@ -296,6 +474,55 @@
     });
   });
   });
+
+  // Handle type override changes
+  const typeOverrideSelects = document.querySelectorAll('.concept-type-override');
+    
+    typeOverrideSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const newType = this.value;
+            const conceptIndex = this.dataset.conceptIndex;
+            const conceptDiv = this.closest('.concept-type-display');
+            const hierarchySpan = conceptDiv.querySelector('.hierarchy-display');
+            
+            const typeColors = {
+                'role': 'bg-primary',
+                'principle': 'bg-success',
+                'obligation': 'bg-warning',
+                'state': 'bg-info',
+                'resource': 'bg-secondary',
+                'action': 'bg-danger',
+                'event': 'bg-dark',
+                'capability': 'bg-light text-dark'
+            };
+            
+            // Update the hierarchy display
+            if (hierarchySpan) {
+                hierarchySpan.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            }
+            
+            // Update the concept column badge
+            const row = this.closest('tr');
+            const conceptBadge = row.querySelector('td:nth-child(2) .badge');
+            if (conceptBadge) {
+                // Remove old color classes
+                conceptBadge.className = 'badge me-2';
+                // Add new color class
+                conceptBadge.classList.add(typeColors[newType] || 'bg-secondary');
+                conceptBadge.textContent = newType.charAt(0).toUpperCase() + newType.slice(1);
+            }
+            
+            // Show manual adjustment indicator if different from original
+            const originalType = this.dataset.originalType;
+            const manualIndicator = conceptDiv.querySelector('.manual-change-indicator');
+            if (newType !== originalType) {
+                manualIndicator.style.display = 'block';
+            } else {
+                manualIndicator.style.display = 'none';
+            }
+            console.log('Type manually changed for concept', conceptIndex, 'from', originalType, 'to', newType);
+        });
+    });
 </script>
 {% endblock %}
 
@@ -311,6 +538,25 @@
 
   .table td {
     vertical-align: middle;
+  }
+  
+  .concept-type-override {
+    min-width: 120px;
+    font-size: 0.875rem;
+  }
+  
+  .concept-hierarchy {
+    word-wrap: break-word;
+    white-space: normal;
+  }
+  
+  .hierarchy-path {
+    padding: 0.25rem 0;
+  }
+  
+  .table td {
+    vertical-align: top;
+    padding: 0.75rem 0.5rem;
   }
 </style>
 {% endblock %}

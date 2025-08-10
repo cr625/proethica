@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concept Hierarchy Display Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Include the concept hierarchy CSS */
+        .concept-type-display {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .concept-hierarchy {
+            font-size: 0.75rem;
+            color: #6c757d;
+            line-height: 1.2;
+        }
+
+        .concept-hierarchy strong {
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .badge.bg-primary { background-color: #0d6efd !important; }
+        .badge.bg-success { background-color: #198754 !important; }
+        .badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
+        .badge.bg-info { background-color: #0dcaf0 !important; color: #000 !important; }
+        .badge.bg-secondary { background-color: #6c757d !important; }
+        .badge.bg-danger { background-color: #dc3545 !important; }
+        .badge.bg-dark { background-color: #212529 !important; }
+        .badge.bg-light { background-color: #f8f9fa !important; color: #212529 !important; border: 1px solid #dee2e6; }
+
+        .type-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .type-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-4">
+        <h1>🏗️ Concept Hierarchy Display Demo</h1>
+        <p class="lead">This demonstrates how extracted concepts now show their ontological hierarchy.</p>
+        
+        <!-- Type Legend -->
+        <div class="type-legend mb-4">
+            <div class="type-legend-item">
+                <span class="badge bg-primary">Role</span>
+                <span>Professional positions & stakeholders</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-success">Principle</span>
+                <span>Ethical values & standards</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-warning">Obligation</span>
+                <span>Professional duties & responsibilities</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-info">State</span>
+                <span>Conditions & situations</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-secondary">Resource</span>
+                <span>Physical & informational entities</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-danger">Action</span>
+                <span>Intentional activities</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-dark">Event</span>
+                <span>Occurrences & happenings</span>
+            </div>
+            <div class="type-legend-item">
+                <span class="badge bg-light text-dark">Capability</span>
+                <span>Skills & competencies</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Sample Extracted Concepts with Hierarchical Display</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Concept</th>
+                                    <th>Type & Hierarchy</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Public Stakeholder</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-primary">Role</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Role → Stakeholder Role → <strong>Public Stakeholder</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Members of the public affected by engineering decisions</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Safety First</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-success">Principle</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Principle → Safety Principle → <strong>Safety First</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Fundamental principle that safety must be the highest priority</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Professional Integrity</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-warning">Obligation</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Obligation → Professional Obligation → <strong>Professional Integrity</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Duty to maintain honesty and ethical standards in professional practice</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Technical Competence</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-light text-dark">Capability</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Capability → Professional Capability → <strong>Technical Competence</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Ability to perform engineering tasks with appropriate skill and knowledge</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Design Review</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-danger">Action</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Action → Engineering Process → <strong>Design Review</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Systematic examination of engineering designs for quality and safety</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Conflict of Interest</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-info">State</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">State → Professional State → <strong>Conflict of Interest</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Situation where personal interests may compromise professional judgment</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Safety Incident</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-dark">Event</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Event → Safety Event → <strong>Safety Incident</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Occurrence that results in or could result in harm or damage</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Technical Standard</strong></td>
+                                    <td>
+                                        <div class="concept-type-display">
+                                            <span class="badge bg-secondary">Resource</span>
+                                            <div class="concept-hierarchy mt-1">
+                                                <small class="text-muted">Resource → Technical Resource → <strong>Technical Standard</strong></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Documented requirements and specifications for engineering practice</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h6><strong>🎯 Key Benefits of Hierarchical Display:</strong></h6>
+                    <ul class="mb-0">
+                        <li><strong>Transparent Relationships:</strong> No hidden mappings - you can see exactly how concepts relate to the ontology</li>
+                        <li><strong>Ontological Structure:</strong> Shows the path from BFO → Intermediate Types → Domain Categories → Specific Concepts</li>
+                        <li><strong>Semantic Preservation:</strong> Keeps LLM insights (like "stakeholder") while maintaining ontological rigor</li>
+                        <li><strong>Color Coding:</strong> Each of the 8 fundamental types has a distinct color for quick recognition</li>
+                        <li><strong>Adaptive Learning:</strong> System gets smarter by learning from concept extractions and user feedback</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h6><strong>✅ Phase 1 Complete: Hierarchical Display</strong></h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>What's Implemented:</strong></p>
+                        <ul>
+                            <li>✅ Concept hierarchy service with intelligent domain-level inference</li>
+                            <li>✅ Template filters for hierarchical display in multiple formats</li>
+                            <li>✅ Color-coded badges for the 8 fundamental ontology types</li>
+                            <li>✅ CSS styling for professional display</li>
+                            <li>✅ Type legend for user education</li>
+                        </ul>
+                        
+                        <p><strong>Next Phases (when ready):</strong></p>
+                        <ul class="text-muted">
+                            <li><strong>Phase 2:</strong> Guideline-specific TTL generation (create actual ontology classes)</li>
+                            <li><strong>Phase 3:</strong> Database-ontology sync (integrate with existing ontology system)</li>
+                            <li><strong>Phase 4:</strong> Ontology evolution logic (promote concepts to permanent ontology)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

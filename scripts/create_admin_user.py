@@ -48,8 +48,8 @@ def create_user(username, email, password):
         # Execute SQL directly to avoid potential ORM issues
         db.session.execute(
             text("""
-            INSERT INTO users (username, email, password_hash, created_at, is_active)
-            VALUES (:username, :email, :password_hash, NOW(), TRUE)
+            INSERT INTO users (username, email, password_hash, created_at, is_active, is_admin)
+            VALUES (:username, :email, :password_hash, NOW(), TRUE, TRUE)
             """),
             {
                 'username': username,

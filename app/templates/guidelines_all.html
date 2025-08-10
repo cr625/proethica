@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}All Guidelines - ProEthica{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>All Guidelines</h1>
+            <p class="text-muted">
+                Browse all ethical guidelines across all professional worlds.
+                <span class="badge bg-secondary">{{ total_guidelines }} Total Guidelines</span>
+            </p>
+        </div>
+    </div>
+
+    {% if guidelines_by_world %}
+        {% for world_name, world_data in guidelines_by_world.items() %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-globe2 me-2"></i>
+                    <a href="/worlds/{{ world_data.world.id }}" class="text-white text-decoration-none">
+                        {{ world_name }}
+                    </a>
+                    <span class="badge bg-light text-dark float-end">
+                        {{ world_data.guidelines|length }} Guidelines
+                    </span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for guideline in world_data.guidelines %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">
+                                <a href="/worlds/{{ world_data.world.id }}/guidelines/{{ guideline.id }}" 
+                                   class="text-decoration-none">
+                                    {{ guideline.title }}
+                                </a>
+                            </h6>
+                            <small class="text-muted">
+                                {{ guideline.created_at.strftime('%Y-%m-%d') }}
+                            </small>
+                        </div>
+                        {% if guideline.source %}
+                        <p class="mb-1 text-muted small">
+                            <i class="bi bi-link-45deg"></i> 
+                            <a href="{{ guideline.source }}" target="_blank" class="text-muted">
+                                {{ guideline.source|truncate(60) }}
+                            </a>
+                        </p>
+                        {% endif %}
+                        <div class="mt-2">
+                            <a href="/worlds/{{ world_data.world.id }}/guidelines/{{ guideline.id }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>View Details
+                            </a>
+                            <a href="/worlds/{{ world_data.world.id }}/guidelines/{{ guideline.id }}/sections" 
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-list-ul me-1"></i>View Sections
+                            </a>
+                            {% if guideline.doc_metadata and guideline.doc_metadata.get('processed_triples') %}
+                            <a href="/worlds/{{ world_data.world.id }}/guidelines/{{ guideline.id }}/manage_triples" 
+                               class="btn btn-sm btn-outline-info">
+                                <i class="bi bi-diagram-3 me-1"></i>Manage Triples
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            No guidelines have been added yet. Start by <a href="/worlds">selecting a world</a> 
+            and adding guidelines to it.
+        </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col text-center">
+            <a href="/worlds" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Worlds
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

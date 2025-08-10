@@ -218,6 +218,64 @@ class NSPECaseExtractionStep(BaseStep):
                         return self.extract_full_date(mini_soup)
         
         return None
+    
+    def extract_subject_tags(self, soup):
+        """
+        Extract subject tags from NSPE case HTML.
+        Subject tags can appear in multiple formats:
+        1. <span class="subjects"> elements (comma-separated)
+        2. <a href="/categories/subject-reference-guide-code-ethics/..."> links
+        3. Within field--name-field-subject-reference divs
+        
+        Args:
+            soup: BeautifulSoup object of the page
+            
+        Returns:
+            list: List of subject tag strings, or empty list if none found
+        """
+        subject_tags = []
+        
+        # Method 1: Find all span elements with class "subjects"
+        subject_spans = soup.find_all('span', class_='subjects')
+        
+        for span in subject_spans:
+            # Extract the text content and split by commas
+            subjects_text = span.get_text().strip()
+            if subjects_text:
+                # Split by comma and clean up each tag
+                tags = [tag.strip() for tag in subjects_text.split(',')]
+                # Add non-empty tags to our list
+                subject_tags.extend([tag for tag in tags if tag])
+        
+        # Method 2: Find anchor tags that link to subject categories
+        # Look for links that contain "/categories/subject-reference-guide-code-ethics/"
+        subject_links = soup.find_all('a', href=lambda href: href and '/categories/subject-reference-guide-code-ethics/' in href)
+        
+        for link in subject_links:
+            tag_text = link.get_text().strip()
+            if tag_text and tag_text not in subject_tags:
+                subject_tags.append(tag_text)
+        
+        # Method 3: Find subject references within field divs
+        subject_ref_divs = soup.find_all('div', class_='field--name-field-subject-reference')
+        
+        for div in subject_ref_divs:
+            # Find all anchor tags within this div
+            links = div.find_all('a')
+            for link in links:
+                tag_text = link.get_text().strip()
+                if tag_text and tag_text not in subject_tags:
+                    subject_tags.append(tag_text)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_tags = []
+        for tag in subject_tags:
+            if tag not in seen:
+                seen.add(tag)
+                unique_tags.append(tag)
+        
+        return unique_tags
         
     def extract_facts_section(self, soup):
         """Extract the facts section using specific HTML structure."""
@@ -971,6 +1029,9 @@ class NSPECaseExtractionStep(BaseStep):
             case_number = self.extract_case_number(soup)
             year = self.extract_year(soup, case_number)
             
+            # Extract subject tags
+            subject_tags = self.extract_subject_tags(soup)
+            
             # Extract full date information if available
             date_info = self.extract_full_date(soup)
             full_date = None
@@ -1107,6 +1168,7 @@ class NSPECaseExtractionStep(BaseStep):
                 'full_date': full_date,  # Full date string if available
                 'date_parts': date_parts,  # Parsed date components
                 'pdf_url': pdf_url,
+                'subject_tags': subject_tags,  # NSPE subject tags from <span class="subjects">
                 'questions_list': questions_list,  # List of individual questions
                 'conclusion_items': conclusion_items,  # List of individual conclusion items
                 'url': url,

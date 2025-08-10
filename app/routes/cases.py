@@ -7,7 +7,7 @@ import re
 import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from app.utils.auth_utils import login_required, get_current_user
+from flask_login import login_required, current_user
 from app.models.document import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
@@ -16,6 +16,10 @@ from app.services.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
 from app.services.case_to_scenario_service import CaseToScenarioService
 from app.services.scenario_generation_service import ScenarioGenerationService
+from app.services.scenario_pipeline.scenario_generation_phase_a import DirectScenarioPipelineService
+from app.services.agents.case_creation_agent import CaseCreationAgent
+from app.services.conversation_to_case_service import ConversationToCaseService
+from app.models.agent_conversation import AgentConversation
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -37,6 +41,10 @@ def list_cases():
     error = None
     
     try:
+        # Import necessary models
+        from sqlalchemy import text
+        from app.models.section_term_link import SectionTermLink
+        
         # Filter cases by world if specified
         if world_id:
             # Get document-based cases for the specified world
@@ -49,6 +57,39 @@ def list_cases():
             document_cases = Document.query.filter(
                 Document.document_type.in_(['case_study', 'case'])
             ).all()
+        
+        # Get all case IDs for bulk status checking
+        case_ids = [doc.id for doc in document_cases]
+        
+        # Bulk check for enhanced associations
+        enhanced_associations_status = {}
+        if case_ids:
+            with db.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT DISTINCT case_id 
+                        FROM case_guideline_associations 
+                        WHERE case_id = ANY(:case_ids)
+                    """),
+                    {"case_ids": case_ids}
+                )
+                for row in result:
+                    enhanced_associations_status[row[0]] = True
+        
+        # Bulk check for term links
+        term_links_status = {}
+        if case_ids:
+            with db.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT DISTINCT document_id 
+                        FROM section_term_links 
+                        WHERE document_id = ANY(:document_ids)
+                    """),
+                    {"document_ids": case_ids}
+                )
+                for row in result:
+                    term_links_status[row[0]] = True
         
         # Convert documents to case format
         for doc in document_cases:
@@ -101,7 +142,10 @@ def list_cases():
                 'questions_list': questions_list,
                 'conclusion_items': conclusion_items,
                 'case_number': metadata.get('case_number', ''),
-                'full_date': metadata.get('full_date', '')
+                'full_date': metadata.get('full_date', ''),
+                'has_enhanced_associations': enhanced_associations_status.get(doc.id, False),
+                'has_term_links': term_links_status.get(doc.id, False),
+                'doc_metadata': metadata  # Include full metadata for subject tags
             }
             
             cases.append(case)
@@ -232,7 +276,8 @@ def search_cases():
                     'questions_list': questions_list,
                     'conclusion_items': conclusion_items,
                     'case_number': metadata.get('case_number', ''),
-                    'full_date': metadata.get('full_date', '')
+                    'full_date': metadata.get('full_date', ''),
+                    'doc_metadata': metadata  # Include full metadata for subject tags
                 }
                 
                 cases.append(case)
@@ -485,6 +530,7 @@ def process_url_pipeline():
         # Get structured list data
         questions_list = final_result.get('questions_list', [])
         conclusion_items = final_result.get('conclusion_items', [])
+        subject_tags = final_result.get('subject_tags', [])
             
         # Generate HTML content that matches the extraction page display format
         html_content = ""
@@ -620,6 +666,7 @@ def process_url_pipeline():
             'full_date': full_date,
             'date_parts': date_parts,
             'pdf_url': pdf_url,
+            'subject_tags': subject_tags,  # NSPE subject tags
             'sections': {
                 'facts': facts,
                 'question': question_html,
@@ -918,7 +965,7 @@ def create_from_url():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1268,7 +1315,7 @@ def save_and_view_case():
     # Safe way to get user_id without relying on Flask-Login being initialized
     user_id = None
     try:
-        current_user = get_current_user()
+        # current_user is now directly available from flask_login
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             user_id = current_user.id
     except Exception:
@@ -1300,6 +1347,20 @@ def save_and_view_case():
         conclusion = request.form.get('conclusion', '')
         dissenting_opinion = request.form.get('dissenting_opinion', '')
         pdf_url = request.form.get('pdf_url', '')
+        
+        # Extract subject tags
+        subject_tags = []
+        try:
+            import json
+            subject_tags_str = request.form.get('subject_tags')
+            if subject_tags_str:
+                subject_tags = json.loads(subject_tags_str)
+        except Exception as e:
+            print(f"Warning: Error parsing subject_tags: {str(e)}")
+            # Try to get as a single string if JSON parsing fails
+            subject_tags_str = request.form.get('subject_tags', '')
+            if subject_tags_str:
+                subject_tags = [subject_tags_str]
         
         # Try to parse JSON lists if available
         questions_list = []
@@ -1498,6 +1559,7 @@ def save_and_view_case():
             'full_date': full_date,
             'date_parts': date_parts,
             'pdf_url': pdf_url,
+            'subject_tags': subject_tags,  # NSPE subject tags
             'sections': {
                 'facts': facts,
                 'question': question_html,
@@ -1686,8 +1748,24 @@ def get_scenario_status(case_id):
         
         # Check if scenario templates exist
         templates = []
+        scenarios = []
         if deconstructed:
-            templates = ScenarioTemplate.query.filter_by(deconstructed_case_id=deconstructed.id).all()
+            try:
+                templates = ScenarioTemplate.query.filter_by(deconstructed_case_id=deconstructed.id).all()
+            except Exception as e:
+                logger.warning(f"Error querying scenario templates: {str(e)}")
+                templates = []
+                
+            # Find playable scenarios for this case
+            try:
+                from app.models.scenario import Scenario
+                all_scenarios = Scenario.query.filter_by(world_id=case.world_id).all()
+                for scenario in all_scenarios:
+                    if scenario.scenario_metadata and scenario.scenario_metadata.get('source_case_id') == case_id:
+                        scenarios.append(scenario)
+            except Exception as e:
+                logger.warning(f"Error querying scenarios: {str(e)}")
+                scenarios = []
         
         return jsonify({
             'success': True,
@@ -1697,7 +1775,10 @@ def get_scenario_status(case_id):
             'deconstructed_case_id': deconstructed.id if deconstructed else None,
             'has_templates': len(templates) > 0,
             'template_count': len(templates),
-            'templates': [{'id': t.id, 'title': t.title} for t in templates]
+            'templates': [{'id': t.id, 'title': t.title} for t in templates],
+            'has_scenarios': len(scenarios) > 0,
+            'scenario_count': len(scenarios),
+            'scenarios': [{'id': s.id, 'name': s.name, 'url': f'/scenarios/{s.id}'} for s in scenarios]
         })
         
     except Exception as e:
@@ -1764,7 +1845,7 @@ def create_scenario_from_template(template_id):
         generation_service = ScenarioGenerationService()
         scenario = generation_service.create_scenario_instance(
             template, 
-            get_current_user().id,
+            current_user.id,
             customizations
         )
         
@@ -1783,6 +1864,306 @@ def create_scenario_from_template(template_id):
         
     except Exception as e:
         logger.error(f"Error creating scenario from template {template_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/<int:case_id>/direct_scenario', methods=['POST'])
+def generate_direct_scenario(case_id):
+    """Generate a direct scenario (Phase A pipeline) from case sections without full deconstruction."""
+    try:
+        case = Document.query.get_or_404(case_id)
+        overwrite = (request.args.get('overwrite', 'false').lower() == 'true')
+        
+        # Always use enhanced generation by default 
+        import os
+        original_enhanced_setting = os.environ.get('ENHANCED_SCENARIO_GENERATION')
+        os.environ['ENHANCED_SCENARIO_GENERATION'] = 'true'
+        
+        try:
+            pipeline = DirectScenarioPipelineService()
+            data = pipeline.generate(case, overwrite=True)  # Always regenerate for simplicity
+        finally:
+            # Restore original setting
+            if original_enhanced_setting is not None:
+                os.environ['ENHANCED_SCENARIO_GENERATION'] = original_enhanced_setting
+            else:
+                os.environ.pop('ENHANCED_SCENARIO_GENERATION', None)
+
+        # Optionally include full events list; default now True for developer inspection.
+        include_events = request.args.get('include_events', 'true').lower() != 'false'
+        payload = {
+            'success': True,
+            'case_id': case_id,
+            'version_number': data.get('version_number'),
+            'stats': data.get('stats'),
+            'event_count': data['stats']['event_count'],
+            'decision_count': data['stats']['decision_count']
+        }
+        if include_events:
+            # Optionally allow truncated mode if query param trim is provided
+            if request.args.get('trim'):
+                trimmed = []
+                for ev in data['events']:
+                    trimmed.append({
+                        'id': ev.get('id'),
+                        'kind': ev.get('kind'),
+                        'section': ev.get('section'),
+                        'text': (ev.get('text','')[:160] + ('…' if len(ev.get('text',''))>160 else '')),
+                        'options': ev.get('options') and [o.get('label') for o in ev['options']],
+                        'refined': ev.get('refined')
+                    })
+                payload['events'] = trimmed
+                payload['trimmed'] = True
+            else:
+                payload['events'] = data['events']
+        return jsonify(payload)
+    except Exception as e:
+        logger.error(f"Direct scenario generation failed for case {case_id}: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cases_bp.route('/<int:case_id>/scenario_interim', methods=['GET'])
+def view_interim_scenario(case_id):
+    """Interim scenario view: shows direct scenario timeline with ontology summary and participants.
+
+    This is a read-only visualization layer over latest_scenario produced by the Phase A pipeline.
+    """
+    try:
+        case = Document.query.get_or_404(case_id)
+        latest = None
+        if case.doc_metadata and isinstance(case.doc_metadata, dict):
+            latest = case.doc_metadata.get('latest_scenario')
+        if not latest:
+            flash('No direct scenario generated yet. Click Regenerate on case page first.', 'warning')
+            return redirect(url_for('cases.view_case', case_id=case_id))
+        return render_template('scenario_interim.html', case=case, scenario=latest)
+    except Exception as e:
+        logger.error(f"Error loading interim scenario for case {case_id}: {e}")
+        flash(f"Error loading interim scenario: {e}", 'danger')
+        return redirect(url_for('cases.view_case', case_id=case_id))
+
+
+@cases_bp.route('/new/agent', methods=['GET'])
+@login_required
+def agent_assisted_creation():
+    """Display agent-assisted case creation interface with ontology integration."""
+    try:
+        # Get current user and available worlds
+        from app.models.world import World
+        worlds = World.query.all()
+        # current_user is now directly available from flask_login
+        
+        # Get default world (first available world)
+        default_world = worlds[0] if worlds else None
+        
+        # Initialize case creation agent
+        case_agent = CaseCreationAgent(world_id=default_world.id if default_world else None)
+        
+        # Get ontology categories from the service
+        ontology_categories = []
+        if default_world:
+            entities = case_agent.ontology_service.get_entities_for_world(default_world)
+            for category_name, concepts in entities.get("entities", {}).items():
+                ontology_categories.append({
+                    "name": category_name,
+                    "count": len(concepts),
+                    "concepts": concepts[:5]  # Show first 5 as preview
+                })
+        
+        # Fallback categories if no world available
+        if not ontology_categories:
+            fallback_categories = ["Role", "Principle", "Obligation", "State", "Resource", "Action", "Event", "Capability"]
+            ontology_categories = [{"name": cat, "count": 0, "concepts": []} for cat in fallback_categories]
+        
+        return render_template('agent_case_creation.html', 
+                             worlds=worlds,
+                             ontology_categories=ontology_categories,
+                             default_world=default_world,
+                             current_user=current_user)
+                             
+    except Exception as e:
+        logger.error(f"Error loading agent case creation interface: {e}")
+        flash(f"Error loading AI assistant: {str(e)}", 'error')
+        return redirect(url_for('cases.case_options'))
+
+
+@cases_bp.route('/new/agent/api', methods=['POST'])
+@login_required
+def agent_creation_api():
+    """API endpoint for agent interactions with ontology integration."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Get parameters
+        prompt = data.get('prompt', '')
+        world_id = data.get('world_id')
+        selected_categories = data.get('selected_categories', [])
+        selected_concepts = data.get('selected_concepts', {})
+        conversation_history = data.get('conversation_history', [])
+        
+        if not prompt:
+            return jsonify({
+                'success': False,
+                'error': 'No prompt provided'
+            }), 400
+        
+        # Initialize case creation agent
+        case_agent = CaseCreationAgent(world_id=world_id)
+        case_agent.set_selected_categories(selected_categories)
+        case_agent.set_selected_concepts(selected_concepts)
+        
+        # Prepare scenario data
+        scenario_data = {
+            'world_id': world_id,
+            'conversation_history': conversation_history,
+            'request_type': 'case_creation'
+        }
+        
+        # Get analysis from agent
+        analysis = case_agent.analyze(
+            scenario_data=scenario_data,
+            decision_text=prompt,
+            options=[],  # No predefined options for case creation
+            previous_results=None
+        )
+        
+        # Format response for UI
+        formatted_response = case_agent.format_response_for_ui(analysis)
+        
+        return jsonify({
+            'success': True,
+            'response': formatted_response
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in agent creation API: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/new/agent/concepts/<category>', methods=['GET'])
+@login_required 
+def get_category_concepts(category):
+    """Get concepts for a specific ontological category."""
+    try:
+        world_id = request.args.get('world_id', type=int)
+        
+        if not world_id:
+            return jsonify({
+                'success': False,
+                'error': 'World ID required'
+            }), 400
+        
+        # Initialize case creation agent
+        case_agent = CaseCreationAgent(world_id=world_id)
+        
+        # Get concepts for the category
+        concepts = case_agent.get_category_concepts(category, world_id)
+        
+        return jsonify({
+            'success': True,
+            'category': category,
+            'concepts': concepts
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting concepts for category {category}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@cases_bp.route('/new/agent/generate', methods=['POST'])
+@login_required
+def generate_case_from_conversation():
+    """Generate NSPE-format case from agent conversation."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No conversation data provided'
+            }), 400
+        
+        # Get conversation data
+        world_id = data.get('world_id')
+        conversation_history = data.get('conversation_history', [])
+        selected_concepts = data.get('selected_concepts', {})
+        conversation_metadata = data.get('conversation_metadata', {})
+        
+        if not conversation_history:
+            return jsonify({
+                'success': False,
+                'error': 'No conversation history provided'
+            }), 400
+        
+        # Get current user
+        # current_user is now directly available from flask_login
+        
+        # Create AgentConversation record
+        import uuid
+        session_id = str(uuid.uuid4())
+        
+        conversation = AgentConversation(
+            session_id=session_id,
+            user_id=current_user.username if current_user else None,
+            world_id=world_id,
+            title="Language Model-Assisted Case Creation",
+            metadata=conversation_metadata
+        )
+        
+        # Add messages to conversation
+        for msg in conversation_history:
+            conversation.add_message(
+                content=msg.get('content', ''),
+                role=msg.get('type', 'user'),  # Convert 'type' to 'role'
+                metadata=msg.get('metadata', {})
+            )
+        
+        # Add ontology selections
+        for category, concepts in selected_concepts.items():
+            if concepts:
+                conversation.update_ontology_selections(category, concepts)
+        
+        # Save conversation
+        db.session.add(conversation)
+        db.session.flush()  # Get ID
+        
+        # Generate case using the conversation
+        case_service = ConversationToCaseService()
+        generated_case = case_service.generate_case_from_conversation(conversation)
+        
+        if not generated_case:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to generate case from conversation'
+            }), 500
+        
+        # Return success with case details
+        return jsonify({
+            'success': True,
+            'case_id': generated_case.id,
+            'case_title': generated_case.title,
+            'case_url': url_for('cases.view_case', id=generated_case.id),
+            'conversation_id': conversation.id,
+            'message': 'Case generated successfully from conversation'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating case from conversation: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

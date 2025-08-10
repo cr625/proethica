@@ -1,24 +1,44 @@
 # AI Ethical DM Project Progress
 
-## 🚀 CURRENT FOCUS: Domain Generalization Project (2025-01-27)
+## 🚀 CURRENT FOCUS: Automated Case-to-Scenario Generation (2025-07-22)
 
-**We are currently transforming ProEthica from an engineering ethics system into a domain-agnostic framework.** 
-See `/docs/DOMAIN_GENERALIZATION_IMPLEMENTATION.md` for the detailed implementation plan.
+**After completing the Interactive Wizard Implementation (Phase 5), we are now building automated case generation to convert NSPE cases into interactive ethical decision scenarios.**
 
-### Key Discovery
-ProEthica is already well-architected for domain generalization! The existing adapter pattern (`BaseCaseDeconstructionAdapter`), modular services, and flexible data models provide an excellent foundation. This is an enhancement project, not a major refactoring.
+### ✅ JUST COMPLETED: Interactive Wizard Implementation
+- **Achievement**: Full working wizard at `http://127.0.0.1:3333/scenarios/7/wizard`
+- **What Works**: 
+  - Timeline progression through actual Scenario 7 events and decisions
+  - Event steps with "Continue" button (no data entry)
+  - Decision steps with NSPE code references, precedent cases, and color-coded options
+  - Professional terminology ("Ethical Analysis" not "Ethical Journey")
+- **Strategic Value**: This manual implementation is our TARGET EXAMPLE for automation
+- **Documentation**: See `/docs/WIZARD_INTERACTIVE_TIMELINE_IMPLEMENTATION.md`
 
-### Implementation Timeline: ~5 weeks
-- **Phase 1** (Current): Domain Registry & Factory System (1 week)
-- **Phase 2**: Extend Processing Pipeline (1 week)
-- **Phase 3**: Validate with Medical Ethics Domain (1 week)
-- **Phase 4**: Advanced Multi-Domain Features (2 weeks)
+### 🎯 NEXT UP: Case Generation System
+**Goal**: Automate the creation of wizard-style scenarios from any NSPE case, replicating what we manually built for Case 7.
 
-### Key Files Being Created
-- `app/services/domain_registry.py` - Central domain management
-- `app/models/domain_config.py` - Domain configuration model
-- `config/domains/engineering.yaml` - Engineering domain config
-- `config/domains/medical.yaml` - Medical domain config (for validation)
+### Key Components to Build:
+1. **Case Timeline Extraction**: Automatically identify chronological events from case facts
+2. **Decision Point Detection**: Extract ethical decisions from case questions  
+3. **Option Generation**: Create decision options with NSPE conclusions and alternatives
+4. **Supporting Evidence Mapping**: Link code references and precedent cases
+5. **Wizard Step Generation**: Convert timeline into interactive wizard steps
+
+### Implementation Strategy: From Manual to Automated
+- **Phase 5** ✅: Manual wizard implementation (COMPLETE - serves as target)
+- **Phase 6** 🎯: Automated case-to-scenario pipeline (STARTING NOW)
+- **Phase 7**: Production deployment with bulk case processing
+
+### Primary Content Sources
+- [NSPE Code of Ethics](https://www.nspe.org/career-growth/ethics/code-ethics)
+- [NSPE Board of Ethical Review Cases](https://www.nspe.org/career-growth/ethics/board-ethical-review-cases)
+- Existing engineering ethics ontology concepts
+
+### Key Files
+- **Progress Tracking**: `/docs/ENGINEERING_ETHICS_ONTOLOGY_ORGANIZATION_PROGRESS.md`
+- **Main Ontology**: `/ontologies/engineering-ethics.ttl`
+- **Intermediate Ontology**: `/ontologies/proethica-intermediate.ttl`
+- **Extraction Service**: `/app/services/ontology_entity_service.py`
 
 ## 📊 ProEthica Unified Dashboard (2025-01-27)
 

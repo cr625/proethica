@@ -104,8 +104,8 @@ class GuidelineAnalysisService:
             if not concept_types:
                 raise RuntimeError("No GuidelineConceptTypes found in ontology")
                 
-            # Validate we have the expected 8 types
-            expected_types = {"role", "principle", "obligation", "state", "resource", "action", "event", "capability"}
+            # Validate we have the expected 9 types (including constraint)
+            expected_types = {"role", "principle", "obligation", "state", "resource", "action", "event", "capability", "constraint"}
             found_types = set(concept_types.keys())
             
             if found_types != expected_types:

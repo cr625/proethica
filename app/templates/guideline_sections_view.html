@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Guideline Sections - {{ document.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h1>Guideline Sections</h1>
+
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}">{{ document.title }}</a></li>
+      <li class="breadcrumb-item active">Sections</li>
+    </ol>
+  </nav>
+
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">{{ document.title }}</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-8">
+          <p class="text-muted mb-2">
+            <strong>Total Sections:</strong> {{ sections|length }}
+          </p>
+          {% if guideline_id %}
+          <p class="text-muted mb-0">
+            <strong>Guideline ID:</strong> {{ guideline_id }}
+          </p>
+          {% endif %}
+        </div>
+        <div class="col-md-4 text-end">
+          <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-arrow-left"></i> Back to Guideline
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if sections_by_category %}
+    {% for category, category_sections in sections_by_category.items() %}
+    <div class="card mb-4">
+      <div class="card-header {% if category == 'Fundamental Canons' %}bg-success{% elif category == 'Rules of Practice' %}bg-info{% elif category == 'Professional Obligations' %}bg-warning{% else %}bg-secondary{% endif %} text-white">
+        <h5 class="mb-0">
+          {{ category }}
+          <span class="badge bg-light text-dark ms-2">{{ category_sections|length }} sections</span>
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 100px;">Code</th>
+                <th style="width: 40%;">Title</th>
+                <th>Text</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for section in category_sections %}
+              <tr>
+                <td>
+                  <span class="badge {% if category == 'Fundamental Canons' %}bg-success{% elif category == 'Rules of Practice' %}bg-info{% elif category == 'Professional Obligations' %}bg-warning{% else %}bg-secondary{% endif %}">
+                    {{ section.section_code }}
+                  </span>
+                </td>
+                <td>
+                  {% if section.section_title %}
+                    <strong>{{ section.section_title }}</strong>
+                  {% else %}
+                    <em class="text-muted">No title</em>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="section-text">
+                    {{ section.section_text }}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-warning">
+      <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> No Sections Found</h4>
+      <p>No guideline sections have been extracted for this document.</p>
+      <hr>
+      <p class="mb-0">
+        This could happen if:
+        <ul class="mb-0">
+          <li>The guideline structure annotation step hasn't been run</li>
+          <li>The document format wasn't recognized</li>
+          <li>There was an error during section extraction</li>
+        </ul>
+      </p>
+    </div>
+  {% endif %}
+
+  <!-- Summary Statistics -->
+  {% if sections %}
+  <div class="card mt-4">
+    <div class="card-header bg-light">
+      <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Section Statistics</h6>
+    </div>
+    <div class="card-body">
+      <div class="row text-center">
+        {% for category, category_sections in sections_by_category.items() %}
+        <div class="col-md-4 mb-3">
+          <div class="border rounded p-3 h-100">
+            <h5 class="{% if category == 'Fundamental Canons' %}text-success{% elif category == 'Rules of Practice' %}text-info{% elif category == 'Professional Obligations' %}text-warning{% else %}text-secondary{% endif %}">
+              {{ category_sections|length }}
+            </h5>
+            <p class="text-muted small mb-0">{{ category }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Reference Information -->
+  <div class="card mt-4">
+    <div class="card-header bg-light">
+      <h6 class="mb-0"><i class="fas fa-info-circle"></i> About These Sections</h6>
+    </div>
+    <div class="card-body">
+      <p class="small text-muted mb-0">
+        These sections were automatically extracted from the guideline document using the Guideline Structure Annotation process. 
+        Each section has a unique code (e.g., I.1, II.1.a, III.2.b) that can be used for referencing in ethical analysis and case studies.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+  .section-text {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  
+  .table td {
+    vertical-align: top;
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .badge {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}

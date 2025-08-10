@@ -14,13 +14,21 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
-    is_admin = db.Column(db.Boolean, default=False)  # Added is_admin field
+    is_admin = db.Column(db.Boolean, default=False)
+    
+    # New fields for enhanced user management
+    role = db.Column(db.String(20), default='test_user')  # 'admin', 'test_user'
+    last_login = db.Column(db.DateTime)
+    login_count = db.Column(db.Integer, default=0)
+    data_reset_count = db.Column(db.Integer, default=0)
+    last_data_reset = db.Column(db.DateTime)
 
-    def __init__(self, username, email, password, is_admin=False):
+    def __init__(self, username, email, password, is_admin=False, role=None):
         self.username = username
         self.email = email
         self.set_password(password)
         self.is_admin = is_admin
+        self.role = role or ('admin' if is_admin else 'test_user')
 
     def set_password(self, password):
         """Set the password hash from a plaintext password."""
@@ -38,7 +46,12 @@ class User(UserMixin, db.Model):
             'email': self.email,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_active': self.is_active,
-            'is_admin': self.is_admin
+            'is_admin': self.is_admin,
+            'role': self.role,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'login_count': self.login_count,
+            'data_reset_count': self.data_reset_count,
+            'last_data_reset': self.last_data_reset.isoformat() if self.last_data_reset else None
         }
 
     def __repr__(self):
