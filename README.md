@@ -14,27 +14,22 @@ This project simulates event-based scenarios like military medical triage to tra
 - Ethical reasoning framework
 - Integration with LLMs via LangChain and LangGraph
 - Model Context Protocol for extensibility
-- Zotero integration for academic references and citations
 - World and scenario reference management
 - Asynchronous document processing for guidelines and references
 - Vector embeddings for semantic search of documents
 
 ## Architecture
-
 The application is built with:
 
 - **Backend**: Flask, SQLAlchemy, PostgreSQL
 - **AI Components**: LangChain, LangGraph
 - **Extension**: Model Context Protocol
-
 ## Setup
 
 ### Prerequisites
 
 - Python 3.8+
 - PostgreSQL
-- OpenAI API key (for LLM integration)
-
 ### Quick Setup
 
 1. Clone the repository:

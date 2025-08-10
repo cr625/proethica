@@ -614,6 +614,18 @@ def get_ontology_sync_status():
             {'domain': 'proethica-intermediate', 'file_exists': False, 'db_exists': False, 'is_synced': False, 'ontology_id': None},
             {'domain': 'engineering-ethics', 'file_exists': False, 'db_exists': False, 'is_synced': False, 'ontology_id': None}
         ]
+        sync_status['guideline_ontologies'] = {
+            'count': 0,
+            'list': [],
+            'note': 'Guideline ontologies exist only in database (no TTL files)'
+        }
+        sync_status['cases_ontologies'] = {
+            'count': 0,
+            'list': [],
+            'note': 'Per-world editable ontologies for scenario/case concepts'
+        }
+        sync_status['last_sync'] = None
+        sync_status['needs_sync'] = False
     
     return sync_status
 

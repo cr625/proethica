@@ -292,31 +292,65 @@ def create_api_routes(config):
         """Update the content of a specific ontology"""
         try:
             ontology = Ontology.query.get_or_404(ontology_id)
-            
+
             # Check if ontology is editable
             if hasattr(ontology, 'is_editable') and not ontology.is_editable:
                 return jsonify({'error': f'Ontology {ontology_id} is not editable'}), 403
-            
-            # Get the new content
-            new_content = request.data.decode('utf-8')
-            
+
+            # Extract new content: support JSON body {content, commit_message} and raw TTL
+            new_content = None
+            commit_message = 'Updated ontology content'
+
+            # Try JSON first
+            data = request.get_json(silent=True)
+            if isinstance(data, dict):
+                new_content = data.get('content')
+                commit_message = data.get('commit_message', commit_message)
+            if not new_content:
+                # Fallback to raw request data
+                raw_body = request.get_data(cache=True, as_text=True) or ''
+                # If raw body looks like JSON, try parsing and extracting content
+                if raw_body.strip().startswith('{'):
+                    try:
+                        parsed = json.loads(raw_body)
+                        new_content = parsed.get('content') or ''
+                        commit_message = parsed.get('commit_message', commit_message)
+                    except Exception:
+                        # Treat as raw TTL (will likely fail validation if not TTL)
+                        new_content = raw_body
+                else:
+                    new_content = raw_body
+
+            # Debug: log content length for troubleshooting
+            try:
+                current_app.logger.debug(f"Ontology update payload length: {len(new_content) if new_content else 0}")
+                preview = (new_content or '')[:100].replace('\n', ' ')
+                current_app.logger.debug(f"Ontology update payload preview: {preview}")
+            except Exception:
+                pass
+
+            if not new_content or not new_content.strip():
+                return jsonify({'error': 'No ontology content provided'}), 400
+
             # Validate the content
             validator = OntologyValidator()
             validation_result = validator.validate(new_content)
-            
+
             if not validation_result['valid']:
                 return jsonify({
                     'error': 'Invalid ontology content',
                     'validation': validation_result
                 }), 400
-            
-            # Create a new version
-            commit_message = request.json.get('commit_message', 'Updated ontology content')
-            
-            # Get the current highest version number
-            latest_version = OntologyVersion.query.filter_by(ontology_id=ontology_id).order_by(OntologyVersion.version_number.desc()).first()
+
+            # Determine next version number
+            latest_version = (
+                OntologyVersion.query
+                .filter_by(ontology_id=ontology_id)
+                .order_by(OntologyVersion.version_number.desc())
+                .first()
+            )
             new_version_number = (latest_version.version_number + 1) if latest_version else 1
-            
+
             # Create new version
             new_version = OntologyVersion(
                 ontology_id=ontology_id,
@@ -324,16 +358,16 @@ def create_api_routes(config):
                 content=new_content,
                 commit_message=commit_message
             )
-            
+
             # Update the ontology with the new content
             ontology.content = new_content
-            
+
             # Save changes
             db.session.add(new_version)
             db.session.commit()
-            
+
             return jsonify({
-                'status': 'success', 
+                'status': 'success',
                 'message': 'Ontology updated successfully',
                 'version': new_version_number
             })
