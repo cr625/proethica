@@ -422,6 +422,19 @@ def edit_character(id, character_id):
         except Exception as e:
             print(f"Error retrieving entities from ontology: {str(e)}")
     
+    # If role is unmatched, generate a suggested description to prefill
+    suggested_role_description = None
+    if not character.matched_ontology_role_id and (character.original_llm_role or character.role):
+        try:
+            from app.services.role_description_service import RoleDescriptionService
+            from app.models.world import World as W
+            rds = RoleDescriptionService()
+            world_obj = World.query.get(scenario.world_id)
+            desc_payload = rds.generate(character.original_llm_role or character.role, world=world_obj)
+            suggested_role_description = desc_payload.get('description')
+        except Exception as e:
+            print(f"Role description suggestion failed: {e}")
+
     return render_template(
         'edit_character.html', 
         scenario=scenario,
@@ -430,7 +443,8 @@ def edit_character(id, character_id):
         ontology_roles=ontology_roles,
         condition_types=condition_types,
         ontology_condition_types=ontology_condition_types,
-        ontology_role_uri=ontology_role_uri
+        ontology_role_uri=ontology_role_uri,
+        suggested_role_description=suggested_role_description
     )
 
 @scenarios_bp.route('/<int:id>/characters/<int:character_id>/update', methods=['POST'])
@@ -438,6 +452,7 @@ def edit_character(id, character_id):
 def update_character(id, character_id):
     """Update a character."""
     from app.services.rdf_service import RDFService
+    from app.services.cases_ontology_service import CasesOntologyService
     
     scenario = Scenario.query.get_or_404(id)
     character = Character.query.get_or_404(character_id)
@@ -466,11 +481,18 @@ def update_character(id, character_id):
         character.attributes = attributes
     
     # Always update role if provided in the request
+    role_assigned = False
+    proposed_selected = False
     if 'role_id' in data:
         role_id = data['role_id']
-        
-        # Check if the role_id is an ontology URI (starts with http)
-        if isinstance(role_id, str) and role_id.startswith('http'):
+
+        # Treat empty string or None as no selection
+        if not role_id:
+            pass
+        elif isinstance(role_id, str) and role_id == '__proposed__':
+            # User wants to keep proposed for potential add-to-ontology
+            proposed_selected = True
+        elif isinstance(role_id, str) and role_id.startswith('http'):
             # This is an ontology role
             # Get the role name and description from the ontology
             world = World.query.get(scenario.world_id)
@@ -482,7 +504,7 @@ def update_character(id, character_id):
                             if role['id'] == role_id:
                                 role_name = role['label']
                                 role_description = role['description']
-                                
+
                                 # Create or find a role in the database
                                 db_role = Role.query.filter_by(ontology_uri=role_id, world_id=scenario.world_id).first()
                                 if not db_role:
@@ -496,10 +518,11 @@ def update_character(id, character_id):
                                     )
                                     db.session.add(db_role)
                                     db.session.flush()  # Get the ID without committing
-                                
+
                                 # Update both role_id and legacy role field
                                 character.role_id = db_role.id
                                 character.role = role_name  # Update the legacy role field
+                                role_assigned = True
                                 print(f"Updated character role to ontology role: {role_name} (ID: {db_role.id})")
                                 break
                 except Exception as e:
@@ -507,19 +530,45 @@ def update_character(id, character_id):
         else:
             # This is a database role ID - convert to integer
             try:
-                role_id = int(role_id)
+                role_int = int(role_id)
                 # Update role_id
-                character.role_id = role_id
-                
+                character.role_id = role_int
+
                 # Always update the legacy role field when role_id changes
-                role = Role.query.get(role_id)
+                role = Role.query.get(role_int)
                 if role:
                     character.role = role.name
-                    print(f"Updated character role to database role: {role.name} (ID: {role_id})")
+                    role_assigned = True
+                    print(f"Updated character role to database role: {role.name} (ID: {role_int})")
                 else:
-                    print(f"Warning: Role with ID {role_id} not found in database")
+                    print(f"Warning: Role with ID {role_int} not found in database")
             except ValueError:
+                # Ignore invalid special strings
                 print(f"Warning: Invalid role_id format: {role_id}")
+
+    # Optionally add suggested role to cases ontology when unmatched
+    if data.get('add_to_cases_ontology'):
+        suggested_name = (data.get('suggested_role_name') or '').strip()
+        if suggested_name:
+            world = World.query.get(scenario.world_id)
+            svc = CasesOntologyService()
+            try:
+                ontology_uri, role_row = svc.add_role_to_cases_ontology(
+                    world=world,
+                    label=suggested_name,
+                    description=(data.get('suggested_role_description') or '').strip()
+                )
+                # Set the character's role to the newly created role only if no explicit role was chosen
+                # or the user explicitly selected the proposed option
+                if not role_assigned or proposed_selected:
+                    character.role_id = role_row.id
+                    character.role = role_row.name
+                    character.matched_ontology_role_id = ontology_uri
+                    character.matching_confidence = 1.0
+                    character.matching_method = 'user_add_cases_ontology'
+                    character.matching_reasoning = 'User accepted LLM suggestion and added role to cases ontology.'
+            except Exception as e:
+                print(f"Error adding role to cases ontology: {e}")
     
     # Update conditions
     # First, handle existing conditions that were updated

@@ -19,6 +19,8 @@ import json
 
 from app.services.llm_service import LLMService
 from app.services.embedding_service import EmbeddingService
+from app.models.world import World
+from app.services.role_description_service import RoleDescriptionService
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ class CaseRoleMatchingService:
     def __init__(self):
         self.llm_service = LLMService()
         self.embedding = EmbeddingService()
+        self.role_desc = RoleDescriptionService()
         # Semantic similarity threshold and number of candidates
         self.confidence_threshold = 0.4
         self.top_k_candidates = 3
@@ -40,7 +43,7 @@ class CaseRoleMatchingService:
             logger.error(f"Failed to embed texts: {e}")
             return None
     
-    def match_role_to_ontology(self, llm_role: str, ontology_roles: List[Dict]) -> Dict:
+    def match_role_to_ontology(self, llm_role: str, ontology_roles: List[Dict], world: Optional[World] = None) -> Dict:
         """
         Match an LLM-extracted role to ontology roles using semantic similarity + LLM validation.
         
@@ -78,6 +81,9 @@ class CaseRoleMatchingService:
             # Step 3: Combine results
             best_match = self._select_best_match(semantic_candidates, llm_validation)
             
+            # Generate standardized description regardless of match success
+            desc_payload = self.role_desc.generate(llm_role, world=world)
+
             result = {
                 "matched_role": best_match["role"] if best_match else None,
                 "semantic_confidence": best_match["semantic_score"] if best_match else 0.0,
@@ -85,7 +91,10 @@ class CaseRoleMatchingService:
                 "llm_reasoning": llm_validation.get("reasoning", ""),
                 "semantic_candidates": semantic_candidates,
                 "matching_method": "semantic_llm_validated",
-                "original_llm_role": llm_role
+                "original_llm_role": llm_role,
+                "suggested_description": desc_payload.get("description", ""),
+                "suggested_obligations": desc_payload.get("obligations", []),
+                "parent_suggestion": desc_payload.get("parent_suggestion")
             }
             
             if best_match:
@@ -250,14 +259,14 @@ Return only valid JSON, no explanations."""
             "combined_confidence": (candidate["semantic_score"] + llm_confidence) / 2.0
         }
     
-    def batch_match_roles(self, llm_roles: List[str], ontology_roles: List[Dict]) -> Dict[str, Dict]:
+    def batch_match_roles(self, llm_roles: List[str], ontology_roles: List[Dict], world: Optional[World] = None) -> Dict[str, Dict]:
         """Batch match multiple LLM roles to ontology roles for efficiency."""
         results = {}
         
         logger.info(f"Batch matching {len(llm_roles)} LLM roles against {len(ontology_roles)} ontology roles")
         
         for llm_role in llm_roles:
-            results[llm_role] = self.match_role_to_ontology(llm_role, ontology_roles)
+            results[llm_role] = self.match_role_to_ontology(llm_role, ontology_roles, world=world)
         
         # Log summary
         matched_count = sum(1 for r in results.values() if r.get("matched_role"))
