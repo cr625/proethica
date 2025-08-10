@@ -209,6 +209,50 @@
                 </div>
             </div>
 
+            <!-- Cases Ontologies (per-world) -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Cases Ontologies</h5>
+                </div>
+                <div class="card-body">
+                    {% if sync_status.cases_ontologies.list %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Ontology Name</th>
+                                    <th>World</th>
+                                    <th>Domain</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ont in sync_status.cases_ontologies.list %}
+                                <tr>
+                                    <td>{{ ont.name }}</td>
+                                    <td>{{ ont.related_world_name or ('World ' ~ ont.related_world_id) }}</td>
+                                    <td><small class="text-muted">{{ ont.domain_id }}</small></td>
+                                    <td>
+                                        <a href="/ontology-editor/?ontology_id={{ ont.id }}&view=full" class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted">{{ sync_status.cases_ontologies.note }}</small>
+                    {% else %}
+                    <p class="mb-0">
+                        <strong>{{ sync_status.cases_ontologies.count }}</strong> cases ontologies
+                        <br>
+                        <small class="text-muted">{{ sync_status.cases_ontologies.note }}</small>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Recent Activity -->
             <div class="card">
                 <div class="card-header">
