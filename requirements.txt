@@ -54,3 +54,9 @@ chromadb              # Vector database
 # ZOTERO INTEGRATION
 pyzotero              # Zotero API client
 python-slugify==8.0.4
+
+# GRAPH DATABASE
+neo4j==5.28.2         # Official Neo4j Python driver
+
+# SYSTEM METRICS
+psutil                # Used by admin system health diagnostics

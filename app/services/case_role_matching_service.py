@@ -14,11 +14,11 @@ Example:
 import logging
 from typing import List, Dict, Optional, Tuple
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import json
 
 from app.services.llm_service import LLMService
+from app.services.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +27,18 @@ class CaseRoleMatchingService:
     
     def __init__(self):
         self.llm_service = LLMService()
-        self.embedding_model = None
-        self.confidence_threshold = 0.4  # Minimum semantic similarity for consideration
-        self.top_k_candidates = 3  # Number of candidates to send to LLM
+        self.embedding = EmbeddingService()
+        # Semantic similarity threshold and number of candidates
+        self.confidence_threshold = 0.4
+        self.top_k_candidates = 3
         
-    def _get_embedding_model(self):
-        """Lazy load the embedding model to avoid startup delays."""
-        if self.embedding_model is None:
-            try:
-                # Use the same model as document embeddings for consistency
-                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                logger.info("Loaded embedding model for role matching")
-            except Exception as e:
-                logger.error(f"Failed to load embedding model: {e}")
-                self.embedding_model = None
-        return self.embedding_model
+    def _embed_texts(self, texts):
+        """Embed a list of texts using the shared EmbeddingService."""
+        try:
+            return np.array([self.embedding.get_embedding(t) for t in texts])
+        except Exception as e:
+            logger.error(f"Failed to embed texts: {e}")
+            return None
     
     def match_role_to_ontology(self, llm_role: str, ontology_roles: List[Dict]) -> Dict:
         """
@@ -53,8 +50,8 @@ class CaseRoleMatchingService:
             
         Returns:
             Dict with matching results:
-            {
-                "matched_role": {...} or None,
+        
+        try:
                 "semantic_confidence": 0.85,
                 "llm_agreed": True,
                 "llm_reasoning": "County Client is a specific type of client representative...",
@@ -105,31 +102,26 @@ class CaseRoleMatchingService:
     
     def _find_semantic_candidates(self, llm_role: str, ontology_roles: List[Dict]) -> List[Dict]:
         """Find top semantic similarity candidates using embeddings."""
-        model = self._get_embedding_model()
-        if not model:
-            logger.warning("Embedding model not available, skipping semantic matching")
+        # Build texts and compute embeddings via provider-priority service
+        llm_role_text = self._create_role_text(llm_role, "")
+        ontology_role_texts = [
+            self._create_role_text(role.get('label', ''), role.get('description', ''))
+            for role in ontology_roles
+        ]
+        all_texts = [llm_role_text] + ontology_role_texts
+        embeddings = self._embed_texts(all_texts)
+        if embeddings is None:
+            logger.warning("Embedding provider unavailable, skipping semantic matching")
             return []
-        
         try:
-            # Create role texts for embedding
-            llm_role_text = self._create_role_text(llm_role, "")
-            ontology_role_texts = [
-                self._create_role_text(role.get('label', ''), role.get('description', ''))
-                for role in ontology_roles
-            ]
-            
-            # Generate embeddings
-            all_texts = [llm_role_text] + ontology_role_texts
-            embeddings = model.encode(all_texts)
-            
             # Calculate similarities
-            llm_embedding = embeddings[0:1]  # First embedding
-            ontology_embeddings = embeddings[1:]  # Rest
-            
+            llm_embedding = embeddings[0:1]
+            ontology_embeddings = embeddings[1:]
+
             similarities = cosine_similarity(llm_embedding, ontology_embeddings)[0]
-            
+
             # Create candidates with scores
-            candidates = []
+            candidates: List[Dict] = []
             for i, similarity in enumerate(similarities):
                 if similarity >= self.confidence_threshold:
                     candidates.append({
@@ -137,16 +129,16 @@ class CaseRoleMatchingService:
                         "semantic_score": float(similarity),
                         "rank": len(candidates) + 1
                     })
-            
+
             # Sort by similarity and take top K
             candidates = sorted(candidates, key=lambda x: x["semantic_score"], reverse=True)[:self.top_k_candidates]
-            
+
             logger.info(f"Found {len(candidates)} semantic candidates above threshold {self.confidence_threshold}")
             for c in candidates:
                 logger.info(f"  - {c['role']['label']}: {c['semantic_score']:.3f}")
-            
+
             return candidates
-            
+
         except Exception as e:
             logger.error(f"Error in semantic matching: {e}")
             return []

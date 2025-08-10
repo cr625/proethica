@@ -76,3 +76,9 @@ pyzotero              # Zotero API client
 # VISUALIZATION (Optional)
 matplotlib>=3.8.0     # Plotting library
 networkx>=3.2.0       # Network analysis
+
+# GRAPH DATABASE
+neo4j==5.28.2         # Official Neo4j Python driver
+
+# SYSTEM METRICS
+psutil                # Used by admin system health diagnostics

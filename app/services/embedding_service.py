@@ -29,15 +29,17 @@ class EmbeddingService:
         
         # Provider priority (configurable through environment)
         self.provider_priority = os.environ.get(
-            "EMBEDDING_PROVIDER_PRIORITY", 
+            "EMBEDDING_PROVIDER_PRIORITY",
+            # Default keeps current behavior; set to "openai,gemini,claude,local" to prefer hosted
             "local,claude,openai"
         ).lower().split(',')
         
         # Model dimensions (these will be used if embeddings need to be generated from scratch)
         self.dimensions = {
-            "local": embedding_dimension or 384,  # Default for all-MiniLM-L6-v2
-            "claude": 1024,  # Claude embedding dimension
-            "openai": 1536   # OpenAI ada-002 dimension
+            "local": embedding_dimension or 384,   # all-MiniLM-L6-v2
+            "claude": 1024,                       # Claude embeddings
+            "openai": 1536,                      # text-embedding-ada-002
+            "gemini": 768                        # text-embedding-004
         }
         
         # Default dimension based on first provider in priority
@@ -252,18 +254,22 @@ class EmbeddingService:
         if "local" in self.provider_priority:
             try:
                 from sentence_transformers import SentenceTransformer
-                import os
+                import torch
                 
                 # Configure offline mode to avoid HuggingFace Hub requests
                 os.environ["HF_HUB_OFFLINE"] = "1"
                 os.environ["TRANSFORMERS_OFFLINE"] = "1"
+                # Device selection with CPU fallback option
+                requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
+                device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
                 
                 self.providers["local"] = {
-                    "model": SentenceTransformer(self.model_name, local_files_only=True),
+                    "model": SentenceTransformer(self.model_name, local_files_only=True, device=device),
                     "available": True,
-                    "dimension": self.dimensions["local"]
+                    "dimension": self.dimensions["local"],
+                    "device": device
                 }
-                print(f"Local embedding provider ready: {self.model_name}")
+                print(f"Local embedding provider ready: {self.model_name} (device={device})")
             except Exception as e:
                 print(f"Local embedding provider unavailable: {str(e)}")
                 self.providers["local"] = {"available": False}
@@ -300,6 +306,22 @@ class EmbeddingService:
             else:
                 print(f"OpenAI embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
                 self.providers["openai"] = {"available": False}
+
+        # Gemini API setup (Google Generative Language API)
+        if "gemini" in self.provider_priority:
+            gkey = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+            if gkey and len(gkey) > 20:
+                self.providers["gemini"] = {
+                    "api_key": gkey,
+                    "available": True,
+                    "api_base": os.environ.get("GEMINI_API_BASE", "https://generativelanguage.googleapis.com/v1beta"),
+                    "model": os.environ.get("GEMINI_EMBEDDING_MODEL", "text-embedding-004"),
+                    "dimension": self.dimensions["gemini"]
+                }
+                print("Gemini embedding provider ready: text-embedding-004")
+            else:
+                print("Gemini embedding provider unavailable: Missing or invalid API key")
+                self.providers["gemini"] = {"available": False}
                 
     def get_embedding(self, text: str) -> List[float]:
         """
@@ -333,6 +355,10 @@ class EmbeddingService:
                     embedding = self._get_openai_embedding(text)
                     self.embedding_dimension = len(embedding)  # Update dimension based on result
                     return embedding
+                elif provider == "gemini":
+                    embedding = self._get_gemini_embedding(text)
+                    self.embedding_dimension = len(embedding)
+                    return embedding
             except Exception as e:
                 print(f"Error using {provider} embeddings: {str(e)}")
                 continue
@@ -343,8 +369,46 @@ class EmbeddingService:
     
     def _get_local_embedding(self, text: str) -> List[float]:
         """Get embedding from local sentence-transformers model."""
-        embedding = self.providers["local"]["model"].encode(text)
+        model = self.providers["local"]["model"]
+        try:
+            embedding = model.encode(text)
+        except Exception as e:
+            # Force CPU fallback if a CUDA-related error occurs
+            if "CUDA" in str(e).upper():
+                try:
+                    from sentence_transformers import SentenceTransformer
+                    model_name = self.model_name
+                    self.providers["local"]["model"] = SentenceTransformer(model_name, local_files_only=True, device="cpu")
+                    print("Local embedding: CUDA error detected, falling back to CPU")
+                    embedding = self.providers["local"]["model"].encode(text)
+                except Exception:
+                    raise
+            else:
+                raise
         return embedding.tolist()
+
+    def _get_gemini_embedding(self, text: str) -> List[float]:
+        """Get embedding from Google Gemini embeddings API (text-embedding-004)."""
+        provider = self.providers.get("gemini", {})
+        api_key = provider.get("api_key")
+        api_base = provider.get("api_base", "https://generativelanguage.googleapis.com/v1beta")
+        model = provider.get("model", "text-embedding-004")
+        url = f"{api_base.rstrip('/')}/models/{model}:embedText?key={api_key}"
+        payload = {"text": text}
+        headers = {"Content-Type": "application/json"}
+        resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
+        if resp.status_code != 200:
+            raise Exception(f"Gemini embeddings error {resp.status_code}: {resp.text}")
+        data = resp.json()
+        # Response shape: { "embedding": { "value": [floats] } }
+        if "embedding" in data and isinstance(data["embedding"], dict) and "value" in data["embedding"]:
+            return data["embedding"]["value"]
+        # Some SDKs return { "embeddings": [ { "value": [...] } ] }
+        if "embeddings" in data and isinstance(data["embeddings"], list) and data["embeddings"]:
+            emb = data["embeddings"][0]
+            if isinstance(emb, dict) and "value" in emb:
+                return emb["value"]
+        raise Exception(f"Unexpected Gemini embedding response: {data}")
 
     def _get_claude_embedding(self, text: str) -> List[float]:
         """Get embedding from Claude API."""

@@ -265,7 +265,7 @@ FORMAT: Return JSON only with this exact structure:
 - Each event: id, title, description (max 50 words), participants, event_type
 - Each participant: name, professional_role, role_evidence (brief quote), role_description (2-3 sentences describing responsibilities)
 
-Return only valid JSON, no explanations. Keep responses concise to avoid truncation.
+Return only valid JSON, no explanations. Keep responses concise to avoid truncation."""
 
         try:
             # Create and run the chain
