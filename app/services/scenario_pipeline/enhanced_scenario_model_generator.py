@@ -139,6 +139,9 @@ class EnhancedScenarioModelGenerator:
         
         # Get the world from scenario to load ontology roles
         scenario = db.session.get(Scenario, scenario_id)
+        role_matches_by_index = {}
+        ontology_roles = []
+        world = None
         if scenario and scenario.world_id:
             from app.models.world import World
             world = db.session.get(World, scenario.world_id)
@@ -146,17 +149,11 @@ class EnhancedScenarioModelGenerator:
                 # Aggregate roles across base + derived ontologies for this world
                 ontology_roles = ontology_service.get_roles_across_world(world)
 
-                # Batch match all participant roles for efficiency; pass world so matcher can aggregate too
-                participant_names = [p.get('name', '') for p in participants]
-                role_matches = role_matcher.batch_match_roles(participant_names, ontology_roles, world=world)
-                
-                logger.info(f"Role matching results for {len(participant_names)} participants")
-            else:
-                role_matches = {}
-                ontology_roles = []
-        else:
-            role_matches = {}
-            ontology_roles = []
+                # Match each participant using the LLM-extracted ontology label (fallback to name)
+                for idx, p in enumerate(participants):
+                    llm_term = (p.get('ontology_label') or p.get('name') or '').strip()
+                    role_matches_by_index[idx] = role_matcher.match_role_to_ontology(llm_term, ontology_roles, world=world)
+                logger.info(f"Role matching completed for {len(participants)} participants (per-participant matching)")
         
         for participant in participants:
             name = participant.get('name', 'Unknown Participant')
@@ -165,7 +162,8 @@ class EnhancedScenarioModelGenerator:
             original_llm_role = participant.get('ontology_label', '')
             
             # Try to match role to ontology
-            role_match = role_matches.get(name, {})
+            # Retrieve the match result computed above for this participant
+            role_match = role_matches_by_index.get(participants.index(participant), {})
             if role_match.get('matched_role'):
                 # Use matched ontology role
                 matched_role = role_match['matched_role']['label']

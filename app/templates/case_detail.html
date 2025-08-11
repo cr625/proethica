@@ -87,17 +87,14 @@
 </button>
 
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated_sample' %}
-            <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
-            {% endif %}
-            {{ case.title }}
-        </h2>
-        <div class="d-flex gap-2">
+    <!-- Top action bar placed above the title to avoid layout issues when the title wraps -->
+    <div class="d-flex justify-content-between gap-2 mb-2 flex-wrap">
+        <div>
             <a href="{{ url_for('cases.list_cases') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Cases
             </a>
+        </div>
+        <div class="d-flex gap-2">
             {% if case.document_id %}
             <div class="btn-group" role="group">
                 <a href="{{ url_for('cases.edit_case_form', id=case.id) }}" class="btn btn-secondary">
@@ -124,6 +121,14 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Title on its own line below the actions -->
+    <h1 class="mb-4">
+        {% if case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated' or case.doc_metadata and case.doc_metadata.get('source') == 'agent_generated_sample' %}
+        <i class="bi bi-robot text-primary me-2" title="Generated with Language Model assistance"></i>
+        {% endif %}
+        {{ case.title }}
+    </h1>
 
     <div id="case-details" class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
