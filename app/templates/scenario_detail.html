@@ -138,21 +138,34 @@
             </div>
         </div>
         <div class="card-body">
+            <!-- Legend -->
+            <div class="d-flex align-items-center gap-2 mb-3 small text-muted">
+                <span class="me-1">Legend:</span>
+                <span class="badge bg-info">Event</span>
+                <span class="badge bg-warning">Decision</span>
+                <span class="badge bg-primary">Action</span>
+                <span class="d-inline-flex align-items-center" title="Generated automatically">
+                    <i class="bi bi-lightning-charge-fill text-warning"></i>
+                    <span class="ms-1">Generated</span>
+                </span>
+            </div>
             {% if scenario.actions or scenario.events %}
             <div class="timeline">
                 {% set combined_items = [] %}
                 {% if scenario.actions %}
                 {% for action in scenario.actions %}
-                {% set _ = combined_items.append((action.action_time, 'action', action)) %}
+                {# Order key: 0=event, 1=decision, 2=action #}
+                {% set order_key = 1 if (action.is_decision) else 2 %}
+                {% set _ = combined_items.append((action.action_time, order_key, 'action', action)) %}
                 {% endfor %}
                 {% endif %}
                 {% if scenario.events %}
                 {% for event in scenario.events %}
-                {% set _ = combined_items.append((event.event_time, 'event', event)) %}
+                {% set _ = combined_items.append((event.event_time, 0, 'event', event)) %}
                 {% endfor %}
                 {% endif %}
 
-                {% for time, item_type, item in combined_items|sort %}
+                {% for time, _order, item_type, item in combined_items|sort %}
                 <div class="timeline-item">
                     <div
                         class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
@@ -164,8 +177,14 @@
                             <span class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
                                 {{ 'Decision' if item.is_decision else 'Action' }}
                             </span>
+                                                        {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
+                                                        <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
+                                                        {% endif %}
                             {% else %}
                             <span class="badge bg-info">Event</span>
+                                                        {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
+                                                        <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
+                                                        {% endif %}
                             {% endif %}
                         </h4>
 

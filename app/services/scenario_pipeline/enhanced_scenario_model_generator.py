@@ -56,13 +56,17 @@ class EnhancedScenarioModelGenerator:
             for resource in resources:
                 db.session.add(resource)
             
-            # Create Event records from timeline_events
-            events = self._create_events(scenario.id, enhanced_timeline, characters)
+            # Use a shared base time for consistent interleaving between events and decisions
+            from datetime import timedelta
+            base_time = datetime.utcnow()
+
+            # Create Event records from timeline_events (even-minute slots)
+            events = self._create_events(scenario.id, enhanced_timeline, characters, base_time)
             for event in events:
                 db.session.add(event)
             
-            # Create Action records from enhanced_decisions
-            actions = self._create_actions(scenario.id, enhanced_timeline, characters)
+            # Create Action records from enhanced_decisions (odd-minute slots)
+            actions = self._create_actions(scenario.id, enhanced_timeline, characters, base_time)
             for action in actions:
                 db.session.add(action)
             
@@ -296,16 +300,17 @@ class EnhancedScenarioModelGenerator:
         
         return resources[:5]  # Limit to 5 resources to avoid noise
     
-    def _create_events(self, scenario_id: int, enhanced_timeline: Dict[str, Any], characters: List[Character]) -> List[Event]:
-        """Create Event records from timeline_events."""
+    def _create_events(self, scenario_id: int, enhanced_timeline: Dict[str, Any], characters: List[Character], base_time: datetime) -> List[Event]:
+        """Create Event records from timeline_events with interleaved timestamps and LLM origin flags."""
         
         events = []
         timeline_events = enhanced_timeline.get('timeline_events', [])
         
         # Create character name to ID mapping
         character_map = {char.name.lower(): char.id for char in characters}
-        
-        for timeline_event in timeline_events:
+
+        from datetime import timedelta
+        for idx, timeline_event in enumerate(timeline_events):
             description = timeline_event.get('description', timeline_event.get('text', ''))
             
             # Try to find associated character
@@ -315,9 +320,9 @@ class EnhancedScenarioModelGenerator:
                 participant_name = participants[0].lower()  # Use first participant
                 character_id = character_map.get(participant_name)
             
-            # Create event time from sequence
-            sequence = timeline_event.get('sequence_number', 0)
-            event_time = datetime.utcnow().replace(hour=9 + sequence, minute=0, second=0, microsecond=0)
+            # Create event time in even-minute slots based on sequence order
+            sequence = timeline_event.get('sequence_number', idx)
+            event_time = base_time + timedelta(minutes=2 * sequence)
             
             event = Event(
                 scenario_id=scenario_id,
@@ -329,7 +334,10 @@ class EnhancedScenarioModelGenerator:
                     'event_type': timeline_event.get('event_type', 'action'),
                     'section_source': timeline_event.get('section_source', ''),
                     'extraction_method': timeline_event.get('extraction_method', 'llm_semantic'),
-                    'participants': timeline_event.get('participants', [])
+                    'participants': timeline_event.get('participants', []),
+                    'timeline_sequence': 2 * sequence,
+                    'origin': 'llm',
+                    'llm_generated': True
                 },
                 bfo_class='BFO_0000015',  # process
                 proethica_category='event',
@@ -340,15 +348,16 @@ class EnhancedScenarioModelGenerator:
         
         return events
     
-    def _create_actions(self, scenario_id: int, enhanced_timeline: Dict[str, Any], characters: List[Character]) -> List[Action]:
-        """Create Action records from enhanced_decisions."""
+    def _create_actions(self, scenario_id: int, enhanced_timeline: Dict[str, Any], characters: List[Character], base_time: datetime) -> List[Action]:
+        """Create Action records from enhanced_decisions with interleaved timestamps and LLM origin flags."""
         
         actions = []
         decisions = enhanced_timeline.get('enhanced_decisions', [])
         
         # Create character name to ID mapping
         character_map = {char.name.lower(): char.id for char in characters}
-        
+
+        from datetime import timedelta
         for i, decision in enumerate(decisions):
             name = decision.title or f"Decision {i+1}"
             description = decision.question
@@ -381,8 +390,13 @@ class EnhancedScenarioModelGenerator:
                     'section_source': decision.section_source,
                     'temporal_triggers': decision.temporal_triggers,
                     'ontology_categories': decision.ontology_categories,
-                    'evidence_text': decision.evidence_text
-                }
+                    'evidence_text': decision.evidence_text,
+                    'decision_sequence': i + 1,
+                    'timeline_sequence': 2 * i + 1,
+                    'origin': 'llm',
+                    'llm_generated': True
+                },
+                action_time=(base_time + timedelta(minutes=2 * i + 1))
             )
             
             actions.append(action)

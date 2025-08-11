@@ -61,11 +61,14 @@ class ScenarioPopulationService:
             # 3. STATES - Create conditions representing states
             conditions = cls._create_conditions(scenario, characters, deconstructed_case)
             
+            # A single base_time ensures interleaved ordering between events and decisions
+            base_time = datetime.utcnow()
+
             # 4. ACTIONS - Create actions from decision options and reasoning
-            actions = cls._create_actions(scenario, deconstructed_case)
+            actions = cls._create_actions(scenario, deconstructed_case, base_time)
             
             # 5. EVENTS - Create events from timeline and outcomes
-            events = cls._create_events(scenario, deconstructed_case)
+            events = cls._create_events(scenario, deconstructed_case, base_time)
             
             # 6. Update scenario metadata with principles, obligations, and capabilities
             cls._update_scenario_metadata(scenario, deconstructed_case, characters)
@@ -202,28 +205,44 @@ class ScenarioPopulationService:
         return conditions
     
     @classmethod
-    def _create_actions(cls, scenario: Scenario, deconstructed_case: DeconstructedCase) -> List[Action]:
-        """Create Action objects from decision options and reasoning steps."""
-        actions = []
-        
-        # Extract actions from decision points
-        for decision in deconstructed_case.decision_points or []:
+    def _create_actions(cls, scenario: Scenario, deconstructed_case: DeconstructedCase, base_time: datetime) -> List[Action]:
+        """Create Action objects from decision options and reasoning steps with interleaved timestamps."""
+        actions: List[Action] = []
+
+    # Base time provided by caller for consistent interleaving
+
+        # Extract actions from decision points and assign interleaved timestamps
+        decision_points = deconstructed_case.decision_points or []
+        for i, decision in enumerate(decision_points):
+            # Each decision group gets an odd timeline position (events occupy even positions)
+            decision_time = base_time.replace()  # copy naive dt
+            # Offset: 2 minutes per step, decisions at + (2*i + 1) minutes
+            from datetime import timedelta
+            decision_time = decision_time + timedelta(minutes=(2 * i + 1))
+
             for option in decision.get('primary_options', []):
+                params = {
+                    'decision_id': decision.get('decision_id'),
+                    'decision_sequence': i + 1,
+                    'option_id': option.get('option_id'),
+                    'ethical_principles': option.get('alignment_with_principles', {}),
+                    'predicted_outcomes': option.get('predicted_outcomes', []),
+                    'risk_factors': option.get('risk_factors', []),
+                    'complexity': decision.get('complexity_level', 0.5),
+                    'urgency': decision.get('urgency_level', 0.5),
+                    'timeline_sequence': 2 * i + 1,
+                    'origin': 'llm',
+                    'llm_generated': True
+                }
+
                 action = Action(
                     scenario_id=scenario.id,
                     name=option.get('title', 'Unknown Action'),
                     description=option.get('ethical_justification', ''),
                     action_type=decision.get('decision_type', 'general'),
                     is_decision=True,
-                    parameters={
-                        'decision_id': decision.get('decision_id'),
-                        'option_id': option.get('option_id'),
-                        'ethical_principles': option.get('alignment_with_principles', {}),
-                        'predicted_outcomes': option.get('predicted_outcomes', []),
-                        'risk_factors': option.get('risk_factors', []),
-                        'complexity': decision.get('complexity_level', 0.5),
-                        'urgency': decision.get('urgency_level', 0.5)
-                    }
+                    action_time=decision_time,
+                    parameters=params
                 )
                 db.session.add(action)
                 actions.append(action)
@@ -236,14 +255,26 @@ class ScenarioPopulationService:
             {'name': 'Monitor Outcomes', 'type': 'monitoring', 'description': 'Track results of decisions'}
         ]
         
-        for action_data in standard_actions:
+        # Place standard actions after the main timeline so they don't interleave confusingly
+        if decision_points:
+            from datetime import timedelta
+            tail_time = base_time + timedelta(minutes=(2 * len(decision_points) + 10))
+        else:
+            tail_time = base_time
+
+        for idx, action_data in enumerate(standard_actions):
+            # Stagger by 1 minute each after tail_time
+            from datetime import timedelta
+            at = tail_time + timedelta(minutes=idx)
             action = Action(
                 scenario_id=scenario.id,
                 name=action_data['name'],
                 description=action_data['description'],
                 action_type=action_data['type'],
+                action_time=at,
                 parameters={
                     'source': 'standard_professional',
+                    'origin': 'system',
                     'availability': 'always'
                 }
             )
@@ -254,16 +285,21 @@ class ScenarioPopulationService:
         return actions
     
     @classmethod
-    def _create_events(cls, scenario: Scenario, deconstructed_case: DeconstructedCase) -> List[Event]:
-        """Create Event objects from timeline and reasoning chain."""
-        events = []
+    def _create_events(cls, scenario: Scenario, deconstructed_case: DeconstructedCase, base_time: datetime) -> List[Event]:
+        """Create Event objects from timeline and reasoning chain with interleaved timestamps."""
+        events: List[Event] = []
         reasoning = deconstructed_case.reasoning_chain or {}
-        
-        # Create events from reasoning steps
+
+    # Base time provided by caller for consistent interleaving
+
+        # Create events from reasoning steps at even positions
         reasoning_steps = reasoning.get('reasoning_steps', [])
+        from datetime import timedelta
         for i, step in enumerate(reasoning_steps):
+            event_time = base_time + timedelta(minutes=(2 * i))
             event = Event(
                 scenario_id=scenario.id,
+                event_time=event_time,
                 description=f"Reasoning Step {i+1}: {cls._clean_description(step.get('reasoning_logic', ''))}",
                 parameters={
                     'name': f"Reasoning Step {i+1}",
@@ -271,29 +307,35 @@ class ScenarioPopulationService:
                     'step_order': step.get('step_order', i+1),
                     'reasoning_type': step.get('reasoning_type', 'analysis'),
                     'input_elements': step.get('input_elements', []),
-                    'timeline_position': i / len(reasoning_steps) if reasoning_steps else 0
+                    'timeline_position': i / len(reasoning_steps) if reasoning_steps else 0,
+                    'timeline_sequence': 2 * i,
+                    'origin': 'llm',
+                    'llm_generated': True
                 }
             )
             db.session.add(event)
             events.append(event)
-        
-        # Add milestone events
+
+        # Add milestone events after the main interleaved sequence
         milestone_events = [
             {'name': 'Case Initiation', 'type': 'milestone', 'description': 'Engineering project begins'},
             {'name': 'Problem Identification', 'type': 'milestone', 'description': 'Ethical dilemma becomes apparent'},
-            {'name': 'Decision Point Reached', 'type': 'decision', 'description': 'Critical decision must be made'},
             {'name': 'Outcome Evaluation', 'type': 'milestone', 'description': 'Results of decisions are assessed'}
         ]
-        
-        for event_data in milestone_events:
+
+        tail_offset = max(2 * len(reasoning_steps), 0)
+        for j, event_data in enumerate(milestone_events):
+            event_time = base_time + timedelta(minutes=(tail_offset + j))
             event = Event(
                 scenario_id=scenario.id,
+                event_time=event_time,
                 description=event_data['description'],
                 parameters={
                     'name': event_data['name'],
                     'event_type': event_data['type'],
                     'source': 'timeline_generation',
-                    'importance': 'high'
+                    'importance': 'high',
+                    'origin': 'system'
                 }
             )
             db.session.add(event)
