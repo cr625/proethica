@@ -1,3 +1,23 @@
+#!/usr/bin/env bash
+# docker_restore.sh
+# Convenience wrapper to restore the newest backup into the Docker Postgres container.
+# Uses backups/restore_db.sh under the hood.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+FILE=$(ls -1t backups/*.dump backups/*.sql.gz 2>/dev/null | head -n 1 || true)
+if [ -z "${FILE}" ]; then
+  echo "No backups found in backups/*.dump or backups/*.sql.gz" >&2
+  exit 1
+fi
+
+echo "Restoring from ${FILE}"
+bash backups/restore_db.sh "${FILE}" --no-prompt
+
+echo "Done."
+
 #!/bin/bash
 # docker_restore.sh: Restore ai_ethical_dm database from a backup using the running Docker container
 # Usage: bash backups/docker_restore.sh <backup_file>

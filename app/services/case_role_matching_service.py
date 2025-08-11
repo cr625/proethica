@@ -21,6 +21,7 @@ from app.services.llm_service import LLMService
 from app.services.embedding_service import EmbeddingService
 from app.models.world import World
 from app.services.role_description_service import RoleDescriptionService
+from app.services.ontology_entity_service import OntologyEntityService
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class CaseRoleMatchingService:
         self.llm_service = LLMService()
         self.embedding = EmbeddingService()
         self.role_desc = RoleDescriptionService()
+        self.ontology_service = OntologyEntityService.get_instance()
         # Semantic similarity threshold and number of candidates
         self.confidence_threshold = 0.4
         self.top_k_candidates = 3
@@ -62,6 +64,16 @@ class CaseRoleMatchingService:
                 "matching_method": "semantic_llm_validated"
             }
         """
+        # If a world is provided, prefer aggregating roles across base and derived ontologies
+        if world is not None:
+            try:
+                aggregated = self.ontology_service.get_roles_across_world(world)
+                if aggregated:
+                    ontology_roles = aggregated
+                    logger.info(f"Using aggregated {len(ontology_roles)} roles across world ontologies for matching")
+            except Exception as e:
+                logger.warning(f"Falling back to provided ontology_roles due to aggregation error: {e}")
+
         if not llm_role or not ontology_roles:
             return self._create_no_match_result(llm_role)
         

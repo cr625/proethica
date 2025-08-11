@@ -129,6 +129,90 @@ class OntologyEntityService:
             logger.info(f"Found {len(entity_list)} {entity_type} in ontology {ontology.id}")
         
         return result
+
+    def get_roles_across_world(self, world):
+        """Collect Role entities from the world's base ontology and all derived ontologies.
+
+        This includes:
+        - Roles from the world's primary/base ontology (world.ontology_id)
+        - Roles from the per-world cases ontology (domain_id = f"world-cases-{world.id}") if present
+        - Roles from any ontologies that import the world's base ontology (via OntologyImport)
+
+        Returns a de-duplicated list of role dicts by label (case-insensitive).
+        """
+        from app.models.ontology import Ontology
+        from app.models.ontology_import import OntologyImport
+        import re
+
+        roles: list[dict] = []
+
+        def _norm_label(s: str) -> str:
+            return re.sub(r"\s+", " ", (s or "")).strip().casefold()
+
+        seen = set()
+
+        # 1) Base ontology roles via existing method
+        try:
+            base_entities = self.get_entities_for_world(world)
+            base_roles = (base_entities.get("entities", {}).get("role")
+                          or base_entities.get("entities", {}).get("roles")
+                          or [])
+            for r in base_roles:
+                label = r.get("label")
+                key = _norm_label(label)
+                if key and key not in seen:
+                    roles.append(r)
+                    seen.add(key)
+        except Exception as e:
+            logger.warning(f"Failed getting base roles for world {getattr(world, 'id', '?')}: {e}")
+
+        # Helper to extract roles from a specific Ontology row
+        def _roles_from_ontology(ont: Ontology) -> list[dict]:
+            try:
+                ents = self._extract_entities_from_ontology(ont)
+                return (ents.get("entities", {}).get("role")
+                        or ents.get("entities", {}).get("roles")
+                        or [])
+            except Exception as ex:
+                logger.warning(f"Error extracting roles from ontology {ont.id if ont else 'None'}: {ex}")
+                return []
+
+        # 2) Per-world cases ontology (world-cases-<world.id>)
+        try:
+            cases_domain = f"world-cases-{world.id}"
+            cases_ont = Ontology.query.filter_by(domain_id=cases_domain).first()
+            if cases_ont:
+                for r in _roles_from_ontology(cases_ont):
+                    label = r.get("label")
+                    key = _norm_label(label)
+                    if key and key not in seen:
+                        roles.append(r)
+                        seen.add(key)
+        except Exception as e:
+            logger.warning(f"Failed checking world-cases ontology for world {getattr(world,'id','?')}: {e}")
+
+        # 3) Any ontologies that import the world's base ontology
+        try:
+            if world.ontology_id:
+                importing = (Ontology.query
+                             .join(OntologyImport, Ontology.id == OntologyImport.importing_ontology_id)
+                             .filter(OntologyImport.imported_ontology_id == world.ontology_id)
+                             .all())
+                for ont in importing:
+                    # Skip the base ontology itself if present due to joins
+                    if ont.id == world.ontology_id:
+                        continue
+                    for r in _roles_from_ontology(ont):
+                        label = r.get("label")
+                        key = _norm_label(label)
+                        if key and key not in seen:
+                            roles.append(r)
+                            seen.add(key)
+        except Exception as e:
+            logger.warning(f"Failed aggregating roles from derived ontologies for world {getattr(world,'id','?')}: {e}")
+
+        logger.info(f"Aggregated {len(roles)} unique roles across base+derived ontologies for world {getattr(world,'id','?')}")
+        return roles
     
     def _detect_namespace(self, graph):
         """

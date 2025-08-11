@@ -133,7 +133,7 @@ class EnhancedScenarioModelGenerator:
         if not participants:
             return characters
         
-        # Initialize role matching service and get ontology roles
+    # Initialize role matching service and get ontology roles
         role_matcher = CaseRoleMatchingService()
         ontology_service = OntologyEntityService.get_instance()
         
@@ -143,12 +143,12 @@ class EnhancedScenarioModelGenerator:
             from app.models.world import World
             world = db.session.get(World, scenario.world_id)
             if world:
-                entities = ontology_service.get_entities_for_world(world)
-                ontology_roles = entities.get('entities', {}).get('role', [])
-                
-                # Batch match all participant roles for efficiency
+                # Aggregate roles across base + derived ontologies for this world
+                ontology_roles = ontology_service.get_roles_across_world(world)
+
+                # Batch match all participant roles for efficiency; pass world so matcher can aggregate too
                 participant_names = [p.get('name', '') for p in participants]
-                role_matches = role_matcher.batch_match_roles(participant_names, ontology_roles)
+                role_matches = role_matcher.batch_match_roles(participant_names, ontology_roles, world=world)
                 
                 logger.info(f"Role matching results for {len(participant_names)} participants")
             else:

@@ -16,6 +16,7 @@ from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
 from app.models.ontology_import import OntologyImport
 from app.models.role import Role
+from app.services.ontology_entity_service import OntologyEntityService
 
 
 class CasesOntologyService:
@@ -92,6 +93,31 @@ class CasesOntologyService:
 
         Returns: (ontology_uri, role_db)
         """
+        # Before creating, check across base+derived ontologies for an existing role with same label
+        try:
+            aggregator = OntologyEntityService.get_instance()
+            existing_roles = aggregator.get_roles_across_world(world)
+            existing_labels = { (r.get('label') or '').strip().casefold(): r for r in existing_roles }
+            if (label or '').strip().casefold() in existing_labels:
+                # If exists, avoid creating duplicate; instead, mirror into Role table if needed
+                existing = existing_labels[(label or '').strip().casefold()]
+                ontology_uri = existing.get('id') or existing.get('uri')
+                # Ensure a Role row exists for this world/uri
+                role_db = Role.query.filter_by(world_id=world.id, ontology_uri=ontology_uri).first()
+                if not role_db:
+                    role_db = Role(
+                        name=label,
+                        description=description,
+                        world_id=world.id,
+                        ontology_uri=ontology_uri,
+                    )
+                    db.session.add(role_db)
+                    db.session.flush()
+                return ontology_uri, role_db
+        except Exception:
+            # Non-blocking; proceed to create if aggregation fails
+            pass
+
         cases_ont = self.get_or_create_world_cases_ontology(world)
 
         # Generate a stable fragment identifier for the class

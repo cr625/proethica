@@ -350,6 +350,7 @@ class EntityService:
                 if not any(r['id'] == base_class['id'] for r in results):
                     print(f"Adding {base_class['label']} explicitly to action parent options")
                     results.append(base_class)
+
                     
         elif entity_type == 'event':
             # Add special event base classes if missing
@@ -476,6 +477,140 @@ class EntityService:
         results.sort(key=lambda x: x['label'])
         
         return results
+
+    @classmethod
+    def deduplicate_roles(cls, ontology_id: int, dry_run: bool = False) -> dict:
+        """Deduplicate Role classes within an ontology by rdfs:label.
+
+        See strategy in method docstring. Keeps best per label and rewrites references.
+        """
+        from rdflib import Graph, URIRef, Namespace
+        from rdflib.namespace import RDF, RDFS, OWL
+
+        summary = {"ontology_id": ontology_id, "groups": [], "duplicates_removed": 0}
+        ontology = Ontology.query.get(ontology_id)
+        if not ontology or not ontology.content:
+            return {**summary, "error": "Ontology not found or empty content"}
+
+        g = Graph()
+        g.parse(data=ontology.content, format="turtle")
+
+        PROETH = Namespace("http://proethica.org/ontology/intermediate#")
+
+        def is_role_node(s: URIRef) -> bool:
+            return ((s, RDF.type, PROETH.Role) in g) or ((s, RDFS.subClassOf, PROETH.Role) in g)
+
+        def get_label(s: URIRef) -> str:
+            lab = next(g.objects(s, RDFS.label), None)
+            return str(lab) if lab else str(s).split('#')[-1]
+
+        def get_comment_len(s: URIRef) -> int:
+            com = next(g.objects(s, RDFS.comment), None)
+            return len(str(com)) if com else 0
+
+        def frag(uri: URIRef) -> str:
+            return str(uri).split('#')[-1]
+
+        def ends_with_digits(text: str) -> bool:
+            import re
+            return re.search(r"\d+$", text or "") is not None
+
+        # Collect role nodes by normalized label
+        label_groups: dict[str, list[URIRef]] = {}
+        role_nodes = set()
+        for s in g.subjects(RDF.type, OWL.Class):
+            if is_role_node(s):
+                role_nodes.add(s)
+        for s in g.subjects(RDF.type, PROETH.Role):
+            role_nodes.add(s)
+        for s in g.subjects(RDFS.subClassOf, PROETH.Role):
+            role_nodes.add(s)
+
+        for s in role_nodes:
+            if not isinstance(s, URIRef):
+                continue
+            lab = get_label(s).strip()
+            if not lab:
+                continue
+            key = lab.casefold()
+            label_groups.setdefault(key, []).append(s)
+
+        # Evaluate groups and perform merges
+        duplicates_removed = 0
+        decisions = []
+
+        for key, uris in label_groups.items():
+            if len(uris) <= 1:
+                continue
+
+            # Choose winner per heuristics
+            sorted_uris = sorted(
+                uris,
+                key=lambda u: (
+                    ends_with_digits(frag(u)),              # False (no digits) < True (digits)
+                    -get_comment_len(u),                     # longer comment preferred
+                    str(u)                                   # tie-breaker
+                )
+            )
+            winner = sorted_uris[0]
+            losers = sorted_uris[1:]
+
+            decisions.append({
+                "label": key,
+                "winner": str(winner),
+                "losers": [str(l) for l in losers]
+            })
+
+            if dry_run:
+                continue
+
+            # Merge: replace objects pointing to losers with winner
+            for loser in losers:
+                # Merge comments if winner has no comment and loser does
+                if get_comment_len(winner) == 0:
+                    for com in g.objects(loser, RDFS.comment):
+                        g.add((winner, RDFS.comment, com))
+
+                # Replace object references
+                to_replace = []
+                for s, p, o in g.triples((None, None, loser)):
+                    to_replace.append((s, p, o))
+                for s, p, o in to_replace:
+                    g.remove((s, p, o))
+                    g.add((s, p, winner))
+
+                # Remove all triples where loser is subject
+                to_remove = list(g.triples((loser, None, None)))
+                for t in to_remove:
+                    g.remove(t)
+
+                duplicates_removed += 1
+
+        if dry_run:
+            return {**summary, "groups": decisions, "duplicates_removed": duplicates_removed, "dry_run": True}
+
+        # Persist changes
+        new_ttl = g.serialize(format="turtle")
+        ontology.content = new_ttl
+        db.session.add(ontology)
+
+        # Versioning
+        latest = (
+            OntologyVersion.query.filter_by(ontology_id=ontology.id)
+            .order_by(OntologyVersion.version_number.desc())
+            .first()
+        )
+        next_version = (latest.version_number + 1) if latest else 1
+        version = OntologyVersion(
+            ontology_id=ontology.id,
+            version_number=next_version,
+            content=new_ttl,
+            commit_message=f"Deduplicate roles by label; removed {duplicates_removed} duplicates"
+        )
+        db.session.add(version)
+        db.session.commit()
+
+        return {**summary, "groups": decisions, "duplicates_removed": duplicates_removed, "dry_run": False}
     
     @classmethod
     def create_entity(cls, ontology_id, entity_type, data):
