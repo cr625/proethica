@@ -194,13 +194,37 @@
                                                         <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
                                                         {% endif %}
                             {% else %}
-                            <span class="badge bg-info">Event</span>
+                                    <span class="badge bg-info">Event</span>
                                                         {% if item.parameters and item.parameters.synthetic %}
                                                         <span class="badge bg-light text-dark ms-1" title="Context event (auto-generated)">Context</span>
                                                         {% endif %}
-                                                        {% if item.parameters and item.parameters.justification %}
-                                                        <i class="bi bi-info-circle ms-1 text-secondary" title="Why is this here?" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" data-bs-content="{{ item.parameters.justification | e }}"></i>
-                                                        {% endif %}
+                                                                {# Hidden rich content for the event popover #}
+                                                                <div id="popover-event-{{ item.id }}" class="d-none">
+                                                                    <div><strong>Time:</strong> {{ time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown' }}</div>
+                                                                    <div><strong>Type:</strong> {{ (item.parameters.event_type if item.parameters and item.parameters.event_type else '—') }}</div>
+                                                                    {% if item.character %}
+                                                                    <div><strong>Character:</strong> {{ item.character.name }}</div>
+                                                                    {% endif %}
+                                                                    {% if item.description %}
+                                                                    <div class="mt-1"><strong>Description:</strong> {{ item.description }}</div>
+                                                                    {% endif %}
+                                                                    {% if item.parameters %}
+                                                                    <div class="mt-1"><strong>Details:</strong>
+                                                                        <ul class="mb-0 ps-3">
+                                                                            {% if item.parameters.name %}<li>Name: {{ item.parameters.name }}</li>{% endif %}
+                                                                            {% if item.parameters.reasoning_type %}<li>Reasoning: {{ item.parameters.reasoning_type }}</li>{% endif %}
+                                                                            {% if item.parameters.step_order %}<li>Step: {{ item.parameters.step_order }}</li>{% endif %}
+                                                                            {% if item.parameters.input_elements %}<li>Inputs: {{ item.parameters.input_elements|length }} item(s)</li>{% endif %}
+                                                                            {% if item.parameters.origin %}<li>Origin: {{ item.parameters.origin }}</li>{% endif %}
+                                                                            {% if item.parameters.synthetic is not none %}<li>Synthetic: {{ 'yes' if item.parameters.synthetic else 'no' }}</li>{% endif %}
+                                                                        </ul>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                    {% if item.parameters and item.parameters.justification %}
+                                                                    <div class="mt-1"><em>{{ item.parameters.justification }}</em></div>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <i class="bi bi-info-circle ms-1 text-secondary" title="Details" tabindex="0" role="button" data-bs-toggle="popover" data-popover-target="#popover-event-{{ item.id }}" data-bs-trigger="hover focus" data-bs-placement="right"></i>
                                                         {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
                                                         <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
                                                         {% endif %}
@@ -527,11 +551,20 @@
 
 {% block scripts %}
 <script>
-    // Initialize Bootstrap popovers for justification info icons
+    // Initialize Bootstrap popovers (support HTML from hidden target when data-popover-target is provided)
     document.addEventListener('DOMContentLoaded', function () {
         var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
-        popoverTriggerList.map(function (popoverTriggerEl) {
-            return new bootstrap.Popover(popoverTriggerEl)
+        popoverTriggerList.map(function (el) {
+            var targetSel = el.getAttribute('data-popover-target');
+            var opts = { trigger: 'hover focus', placement: 'right' };
+            if (targetSel) {
+                var target = document.querySelector(targetSel);
+                if (target) {
+                    opts.html = true;
+                    opts.content = target.innerHTML;
+                }
+            }
+            return new bootstrap.Popover(el, opts);
         })
     });
 
