@@ -102,11 +102,20 @@
                                         class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
                                         {{ 'Decision' if item.is_decision else 'Action' }}
                                     </span>
+                                    {% if item.parameters and item.parameters.justification %}
+                                    <i class="bi bi-info-circle ms-1 text-secondary" title="Why is this here?" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" data-bs-content="{{ item.parameters.justification | e }}"></i>
+                                    {% endif %}
                                     {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
                                     <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
                                     {% endif %}
                                     {% else %}
                                     <span class="badge bg-info">Event</span>
+                                    {% if item.parameters and item.parameters.synthetic %}
+                                    <span class="badge bg-light text-dark ms-1" title="Context event (auto-generated)">Context</span>
+                                    {% endif %}
+                                    {% if item.parameters and item.parameters.justification %}
+                                    <i class="bi bi-info-circle ms-1 text-secondary" title="Why is this here?" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" data-bs-content="{{ item.parameters.justification | e }}"></i>
+                                    {% endif %}
                                     {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
                                     <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
                                     {% endif %}
@@ -291,6 +300,15 @@
                     {% else %}
                     <p class="text-muted">No actions or events added yet.</p>
                     {% endif %}
+                <!-- Bottom Legend -->
+                <div class="mt-4 small text-muted border-top pt-2">
+                    <span class="badge bg-info me-1">Event</span>
+                    <span class="badge bg-warning me-1">Decision</span>
+                    <span class="badge bg-primary me-1">Action</span>
+                    <span class="badge bg-light text-dark me-1" title="Context event (auto-generated)">Context</span>
+                    <i class="bi bi-lightning-charge-fill text-warning me-1" title="Generated automatically"></i>
+                    <i class="bi bi-info-circle text-secondary" title="Click or hover for justification"></i> Justification
+                </div>
                 </div>
             </div>
         </div>
@@ -327,4 +345,13 @@
 <!-- Include analysis formatter and simulation.js -->
 <script src="{{ url_for('static', filename='js/simulation/analysis-formatter.js') }}"></script>
 <script src="{{ url_for('static', filename='js/simulation.js') }}"></script>
+<script>
+    // Initialize Bootstrap popovers for justification info icons
+    document.addEventListener('DOMContentLoaded', function () {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl)
+        })
+    });
+</script>
 {% endblock %}

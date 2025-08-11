@@ -69,6 +69,9 @@ class EnhancedScenarioModelGenerator:
             actions = self._create_actions(scenario.id, enhanced_timeline, characters, base_time)
             for action in actions:
                 db.session.add(action)
+
+            # Phase 1 guardrail: ensure context exists before any decisions
+            self._ensure_context_before_decisions(scenario.id, base_time)
             
             # Update scenario metadata with ontology summary
             scenario.scenario_metadata.update({
@@ -299,17 +302,85 @@ class EnhancedScenarioModelGenerator:
                             break  # Only take the first good match per keyword
         
         return resources[:5]  # Limit to 5 resources to avoid noise
+
+    def _ensure_context_before_decisions(self, scenario_id: int, base_time: datetime) -> None:
+        """Ensure at least one context event exists before the first decision.
+
+        If the earliest timeline item would be a decision, insert a synthetic context event
+        just before it in an even-minute slot aligned with our interleaving scheme.
+        """
+        from datetime import timedelta
+        # Import here to avoid circulars at module import time
+        from app.models.event import Event, Action
+        from app import db as _db
+
+        decisions = _db.session.query(Action).filter_by(scenario_id=scenario_id, is_decision=True).order_by(Action.action_time.asc()).all()
+        if not decisions:
+            return
+        events = _db.session.query(Event).filter_by(scenario_id=scenario_id).order_by(Event.event_time.asc()).all()
+
+        # Build context text once
+        scenario = _db.session.get(Scenario, scenario_id)
+        def build_context_text(decision_name: str) -> str:
+            txt = ""
+            try:
+                if scenario and scenario.description:
+                    import re
+                    first_sentence = re.split(r"(?<=[.!?])\s+", scenario.description.strip())[0]
+                    txt = first_sentence[:160]
+            except Exception:
+                txt = ""
+            if not txt:
+                txt = f"Context: Situation leading to decision '{decision_name}'"
+            return txt
+
+        for decision in decisions:
+            if any(ev.event_time and ev.event_time < decision.action_time for ev in events):
+                continue
+
+            seq = 0
+            try:
+                if decision.parameters and 'decision_sequence' in decision.parameters:
+                    seq = max(int(decision.parameters.get('decision_sequence')) - 1, 0)
+            except Exception:
+                seq = 0
+
+            synthetic_time = base_time + timedelta(minutes=2 * seq)
+            if synthetic_time >= decision.action_time:
+                synthetic_time = decision.action_time - timedelta(minutes=1)
+
+            synthetic_event = Event(
+                scenario_id=scenario_id,
+                event_time=synthetic_time,
+                description=build_context_text(decision.name),
+                parameters={
+                    'name': 'Context',
+                    'event_type': 'context',
+                    'synthetic': True,
+                    'origin': 'system',
+                    'llm_generated': False
+                },
+                bfo_class='BFO_0000015',
+                proethica_category='event'
+            )
+            _db.session.add(synthetic_event)
+            events.append(synthetic_event)
     
     def _create_events(self, scenario_id: int, enhanced_timeline: Dict[str, Any], characters: List[Character], base_time: datetime) -> List[Event]:
-        """Create Event records from timeline_events with interleaved timestamps and LLM origin flags."""
+        """Create Event records grouped to precede their associated decisions with justifications."""
         
         events = []
         timeline_events = enhanced_timeline.get('timeline_events', [])
+        decisions = enhanced_timeline.get('enhanced_decisions', [])
         
         # Create character name to ID mapping
         character_map = {char.name.lower(): char.id for char in characters}
 
         from datetime import timedelta
+        D = len(decisions)
+        N = len(timeline_events)
+        # Track per-group event counters
+        group_event_counters = [0] * D if D > 0 else []
         for idx, timeline_event in enumerate(timeline_events):
             description = timeline_event.get('description', timeline_event.get('text', ''))
             
@@ -321,8 +392,16 @@ class EnhancedScenarioModelGenerator:
                 character_id = character_map.get(participant_name)
             
             # Create event time in even-minute slots based on sequence order
-            sequence = timeline_event.get('sequence_number', idx)
-            event_time = base_time + timedelta(minutes=2 * sequence)
+            if D > 0:
+                group_index = min(int(idx * D / max(N, 1)), D - 1)
+            else:
+                group_index = 0
+            group_id = f"group_{group_index+1}" if D > 0 else "group_1"
+            intra_seq = (group_event_counters[group_index] if D > 0 else idx)
+            if D > 0:
+                group_event_counters[group_index] += 1
+            # Offset groups by 10 minutes each; events at even offsets
+            event_time = base_time + timedelta(minutes=(group_index * 10 + 2 * intra_seq))
             
             event = Event(
                 scenario_id=scenario_id,
@@ -330,14 +409,19 @@ class EnhancedScenarioModelGenerator:
                 description=description,
                 event_time=event_time,
                 parameters={
-                    'sequence_number': sequence,
+                    'sequence_number': timeline_event.get('sequence_number', idx),
                     'event_type': timeline_event.get('event_type', 'action'),
                     'section_source': timeline_event.get('section_source', ''),
                     'extraction_method': timeline_event.get('extraction_method', 'llm_semantic'),
                     'participants': timeline_event.get('participants', []),
-                    'timeline_sequence': 2 * sequence,
+                    'timeline_sequence': 2 * idx,
                     'origin': 'llm',
-                    'llm_generated': True
+                    'llm_generated': True,
+                    'group_index': group_index,
+                    'group_id': group_id,
+                    'intra_group_sequence': intra_seq,
+                    'justification': f"Provides context for decision group {group_index+1}",
+                    'justification_source': {'method': 'heuristic'}
                 },
                 bfo_class='BFO_0000015',  # process
                 proethica_category='event',
@@ -358,6 +442,16 @@ class EnhancedScenarioModelGenerator:
         character_map = {char.name.lower(): char.id for char in characters}
 
         from datetime import timedelta
+        # Determine how many events belong to each decision group to place the decision at the end
+        D = len(decisions)
+        timeline_events = enhanced_timeline.get('timeline_events', [])
+        N = len(timeline_events)
+        events_per_group = [0] * D if D > 0 else []
+        if D > 0 and N > 0:
+            for s in range(N):
+                g = min(int(s * D / max(N, 1)), D - 1)
+                events_per_group[g] += 1
+
         for i, decision in enumerate(decisions):
             name = decision.title or f"Decision {i+1}"
             description = decision.question
@@ -373,6 +467,9 @@ class EnhancedScenarioModelGenerator:
             # Create decision options from enhanced decision
             options = self._create_decision_options(decision, enhanced_timeline)
             
+            group_index = i
+            group_id = f"group_{i+1}"
+            intra_group_sequence = (events_per_group[i] if i < len(events_per_group) else 0)
             action = Action(
                 scenario_id=scenario_id,
                 character_id=character_id,
@@ -394,9 +491,14 @@ class EnhancedScenarioModelGenerator:
                     'decision_sequence': i + 1,
                     'timeline_sequence': 2 * i + 1,
                     'origin': 'llm',
-                    'llm_generated': True
+                    'llm_generated': True,
+                    'group_index': group_index,
+                    'group_id': group_id,
+                    'intra_group_sequence': intra_group_sequence,
+                    'justification': f"Decision follows from the preceding context for group {i+1}",
+                    'justification_source': {'method': 'heuristic'}
                 },
-                action_time=(base_time + timedelta(minutes=2 * i + 1))
+                action_time=(base_time + timedelta(minutes=(group_index * 10 + 2 * intra_group_sequence + 1)))
             )
             
             actions.append(action)
