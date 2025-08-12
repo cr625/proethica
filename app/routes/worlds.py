@@ -1779,24 +1779,49 @@ def save_guideline_concepts(world_id, document_id):
         
         logger.info(f"Successfully saved {len(selected_indices)} concepts for guideline {new_guideline.id}")
         
-        # Get the selected concepts for display in the template
-        selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
+        # Automatically add concepts to the derived ontology attached to this guideline document
+        integration_result = None
+        try:
+            commit_msg = f"Auto-added {len(selected_indices)} concepts from guideline analysis"
+            from app.services.guideline_concept_integration_service import GuidelineConceptIntegrationService
+            integration_result = GuidelineConceptIntegrationService.add_concepts_to_ontology(
+                concepts=[],  # service will retrieve from DB using document metadata
+                guideline_id=document_id,  # use document id; service resolves actual guideline id
+                ontology_domain='engineering-ethics',
+                commit_message=commit_msg
+            )
+            if integration_result.get('success'):
+                summary = integration_result.get('summary', {})
+                added = summary.get('successful_additions', 0)
+                skipped = summary.get('skipped_duplicates', 0)
+                if added or skipped:
+                    flash(f"Derived ontology updated: {added} added, {skipped} skipped as duplicates.", 'success')
+                else:
+                    flash("No new concepts were added to the derived ontology (all duplicates).", 'info')
+            else:
+                flash(f"Concepts saved, but ontology integration failed: {integration_result.get('error','unknown error')}", 'warning')
+        except Exception as integ_err:
+            logger.error(f"Auto-integration error: {integ_err}")
+            flash("Concepts saved, but automatic ontology integration encountered an error.", 'warning')
         
-        # Convert to JSON for passing to the template
+        # Prepare selected concepts for display
+        selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
         concepts_json = json.dumps(selected_concepts)
         
-        # Render the intermediate page showing saved concepts with a Generate Triples button
+        # Show Saved Concepts page with auto-added status
         return render_template('guideline_saved_concepts.html',
-                              world=world,
-                              guideline=guideline,
-                              concepts=selected_concepts,
-                              concepts_json=concepts_json,
-                              selected_indices=selected_indices,
-                              concept_count=len(selected_indices),
-                              guideline_id=new_guideline.id,
-                              world_id=world_id,
-                              document_id=document_id,
-                              ontology_source=ontology_source)
+                               world=world,
+                               guideline=guideline,
+                               concepts=selected_concepts,
+                               concepts_json=concepts_json,
+                               selected_indices=selected_indices,
+                               concept_count=len(selected_indices),
+                               guideline_id=new_guideline.id,
+                               world_id=world_id,
+                               document_id=document_id,
+                               ontology_source=ontology_source,
+                               auto_added=True,
+                               integration_result=integration_result)
         
     except Exception as e:
         db.session.rollback()

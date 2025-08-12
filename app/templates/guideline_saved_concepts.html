@@ -34,9 +34,12 @@
             <li><strong>Review and save triples</strong> - Next step</li>
         </ol>
         <hr>
+        {% if auto_added %}
+        <p class="mb-0">Selected concepts were also automatically added to the derived ontology for this guideline.</p>
+        {% else %}
         <p class="mb-0">You've successfully saved the selected concepts to the database. The next step is to generate
-            triples from these concepts.
-        </p>
+            triples from these concepts.</p>
+        {% endif %}
     </div>
 
     <div class="card mb-4">
@@ -135,8 +138,12 @@
     </div>
 
     <!-- Form for adding concepts to engineering-ethics ontology -->
+    {% if not auto_added %}
     <form method="post"
         action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}">
+        {% if csrf_token %}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        {% endif %}
         <!-- Hidden fields to pass necessary data -->
         <input type="hidden" name="concepts_data" value='{{ concepts_json }}' />
         {% for idx in selected_indices %}
@@ -149,7 +156,7 @@
             <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
                 class="btn btn-secondary">Back to Guideline</a>
 
-            {% if concepts %}
+        {% if concepts %}
             <button type="submit" class="btn btn-success" id="addToOntologyBtn">
                 <i class="fas fa-plus-circle"></i> Add to Ontology
             </button>
@@ -160,8 +167,10 @@
             {% endif %}
         </div>
     </form>
+    {% endif %}
 
     <!-- Confirmation Modal -->
+    {% if not auto_added %}
     <div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -204,6 +213,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 

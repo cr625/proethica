@@ -124,7 +124,10 @@
   <!-- Use the worlds.save_guideline_concepts route for saving concepts first -->
   <form method="post"
     action="{{ url_for('worlds.save_guideline_concepts', world_id=world.id, document_id=guideline.id) }}">
-    <!-- CSRF token removed due to configuration issue -->
+  <!-- CSRF token for Flask-WTF -->
+  {% if csrf_token %}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  {% endif %}
     <!-- Include lightweight concepts reference instead of full JSON data -->
     <input type="hidden" name="concepts_data" id="concepts_data" value="cached_in_session" />
     <input type="hidden" name="concepts_count" value="{{ concepts|length }}" />

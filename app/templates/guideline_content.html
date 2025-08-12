@@ -3,7 +3,7 @@
 {% block title %}{{ guideline.title }} - Guideline{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5" id="page-root" data-auth="{{ 'true' if current_user and current_user.is_authenticated else 'false' }}">
   <h1>{{ guideline.title }}</h1>
   
   <nav aria-label="breadcrumb">
@@ -218,7 +218,8 @@
                     <i class="fas fa-external-link-alt"></i> View Ontology
                   </a>
                 {% else %}
-                  <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" data-bs-toggle="modal" data-bs-target="#addToOntologyModal">
+                  <!-- Auto-add on save is enabled; hide manual button to reduce confusion -->
+                  <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" style="display:none;" disabled>
                     <i class="fas fa-plus-circle"></i> Add to Ontology
                   </button>
                 {% endif %}
@@ -285,7 +286,7 @@
 </div>
 
 <!-- Add to Ontology Modal -->
-<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true">
+<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true" style="display:none;">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
@@ -332,6 +333,9 @@
 
 <!-- Hidden form for submission -->
 <form id="addToOntologyForm" method="post" action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}" style="display: none;">
+  {% if csrf_token %}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  {% endif %}
   <input type="hidden" name="commit_message" id="hiddenCommitMessage" value="">
 </form>
 {% endblock %}
@@ -372,10 +376,18 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const rootEl = document.getElementById('page-root');
+  const isAuthenticated = (rootEl?.dataset?.auth === 'true');
+  const loginUrl = "{{ url_for('auth.login') }}";
   // Bind delete extracted concepts buttons
   document.querySelectorAll('.js-remove-concepts').forEach((btn) => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();
+      if (!isAuthenticated) {
+        const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+        window.location.href = `${loginUrl}?next=${nextUrl}`;
+        return;
+      }
       const id = this.getAttribute('data-guideline-id');
       removeExtractedConcepts(this, id);
     });
@@ -432,7 +444,7 @@ function removeExtractedConcepts(el, guidelineId) {
         // Send DELETE request
   // Acquire CSRF token from meta if present
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-  fetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
+  appFetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -445,6 +457,12 @@ function removeExtractedConcepts(el, guidelineId) {
                 // Reload the page to show updated state
                 window.location.reload();
             } else {
+                // If unauthorized/forbidden/CSRF error, redirect to login
+                if (response.status === 401 || response.status === 403 || response.status === 400) {
+                  const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+                  window.location.href = `${window.APP_LOGIN_URL}?next=${nextUrl}`;
+                  return;
+                }
                 throw new Error('Failed to remove concepts');
             }
         })
