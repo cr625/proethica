@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scenario S-24-02 — Compact Snapshot</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+  body { background: #ffffff; }
+  .card { border: 1px solid #e5e7eb; box-shadow: none; }
+    .kpi { font-weight: 700; font-size: 1.25rem; }
+    .muted { color: #6c757d; }
+    .list-compact li { margin-bottom: .4rem; }
+    .chip { display: inline-block; padding: .15rem .5rem; border-radius: 999px; font-size: .8rem; border: 1px solid #e1e4e8; background:#fff; margin-right: .25rem; margin-bottom: .25rem; }
+    .role { background: #e7f1ff; border-color:#bfd8ff; color:#0b5ed7; }
+    .principle { background: #eafaf1; border-color:#b7e4cc; color:#157347; }
+    .obligation { background:#fff7e6; border-color:#ffe8b3; color:#b58105; }
+    .state { background:#e8f6fa; border-color:#bfe6f2; color:#0aa2c0; }
+    .resource { background:#eceef1; border-color:#d7dbe0; color:#495057; }
+    .action { background:#fde9ec; border-color:#f7c2cb; color:#c1121f; }
+    .event { background:#e9ecef; border-color:#d3d8dd; color:#343a40; }
+    .capability { background:#f6f7fa; border-color:#e9ebf0; color:#343a40; }
+    .constraint { background:#f3f0ff; border-color:#e2dbff; color:#5f3dc4; }
+  .section-title { font-size: 0.95rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color:#495057; }
+    .logo { font-weight: 800; letter-spacing: .02em; }
+    .small-note { font-size: .85rem; }
+    .divider { height: 1px; background:#e9ecef; margin: .75rem 0; }
+    /* Make the whole composition more width-dominant for paper */
+    .panel { max-width: 1200px; margin: 8px auto; }
+  .as-link { text-decoration: none; }
+  /* Print: render underlines as vector hairlines to avoid distortion when scaled */
+  @media print {
+    @page { margin: 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .as-link { text-decoration: none !important; background-image: none !important; }
+  }
+  </style>
+  <!-- Compact hero banner page showcasing Case 24-02 (NSPE BER) with system capabilities -->
+</head>
+<body>
+  <main class="panel container my-2">
+  <div class="d-flex justify-content-between align-items-baseline mb-2">
+      <div>
+    <h5 class="mb-0">Scenario S-24-02 · AI in Engineering Practice</h5>
+    <div class="small muted">Derived from engineering ethics case corpus</div>
+      </div>
+      <div class="small muted">Snapshot · Roles-first · Derived ontology integration</div>
+    </div>
+    <!-- Overview at full width to balance columns -->
+    <div class="card mb-2">
+      <div class="card-body">
+        <div class="section-title mb-1">Overview</div>
+        <p class="mb-2">Engineer A, an experienced environmental engineer, considers AI tools to draft report text and assist design documents after losing a mentor’s review support. Key tensions: confidentiality, responsible charge, competence, and attribution.</p>
+        <div class="small muted">From ProEthica’s analysis of this scenario using the internal ethics corpus and guidelines.</div>
+      </div>
+    </div>
+
+  <div class="row g-3">
+  <!-- Left column: Decision points -->
+  <div class="col-12 col-lg-7">
+        <div class="card mb-2">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-baseline mb-1">
+              <div class="section-title mb-0">Decision focus (1 of 3)</div>
+              <div class="small muted">…plus 2 more</div>
+            </div>
+            <div class="p-2 border rounded mb-2">
+              <div class="d-flex justify-content-between">
+                <strong>DP2 · AI-assisted design documents</strong>
+                <span class="badge text-bg-danger">Responsible charge</span>
+              </div>
+              <div class="row g-2 mt-1">
+                <div class="col-12 col-md-7">
+                  <div class="small fw-semibold">In favor (benefits/conditions)</div>
+                  <ul class="list-compact small mb-1">
+                    <li>Efficiency boost and drafting support for complex details <span class="chip obligation">II.2.b</span></li>
+                    <li>Consistency checks across drawings/specs <span class="chip principle">I.1</span></li>
+                    <li>Condition: retain personal direction and seal only after full verification <span class="chip obligation">II.2.b</span></li>
+                  </ul>
+                  <div class="tiny muted">Related: <span class="chip principle">Public Welfare (I.1)</span></div>
+                </div>
+                <div class="col-12 col-md-5">
+                  <div class="small fw-semibold">Against (risks/concerns)</div>
+                  <ul class="list-compact small mb-1">
+                    <li>Overreliance risks inadequate review prior to sealing <span class="chip obligation">II.2.b</span></li>
+                    <li>Model hallucinations or missed edge cases <span class="chip principle">I.1</span></li>
+                    <li>Potential confidentiality exposure via tool settings <span class="chip obligation">II.1.c</span></li>
+                  </ul>
+                  <div class="tiny muted">Related: <span class="chip action">Detailed Technical Review</span></div>
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="small">
+                <span class="fw-semibold">Evaluation summary:</span>
+                <ol class="tiny mb-0">
+                  <li>Identify role and obligations (Engineer A; II.2.b responsible charge)</li>
+                  <li>Assess AI’s contribution to the technical work product</li>
+                  <li>Weigh public welfare vs. efficiency; check confidentiality constraints</li>
+                </ol>
+              </div>
+              <div class="mt-1 small"><span class="fw-semibold">Recommendation:</span> Approved with conditions: document personal direction, fully verify before sealing, and enable confidentiality controls <span class="badge text-bg-secondary">Confidence: Med–High</span></div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Moved from right column to balance height -->
+        <div class="card mb-2">
+          <div class="card-body">
+            <div class="section-title mb-2">System snapshot</div>
+            <ul class="list-compact small mb-2">
+              <li>LLM pipeline: Gemini roles-first pass → merge/dedupe → semantic guard (drop/reclassify non-roles) ✓</li>
+              <li>Guideline flow: Save Concepts → auto-add to per-guideline derived ontology ✓</li>
+              <li>Observability: debug_info (kept/dropped/reclassified counts) ✓</li>
+              <li>Next: Non-role categories extraction + Stage 2 triple linking (Role→Obligation/Principle/End/Code)</li>
+            </ul>
+            <!-- System cues removed for compact layout -->
+          </div>
+        </div>
+      </div>
+
+  <!-- Right column: Ontology-oriented summary -->
+      <div class="col-12 col-lg-5">
+  <div class="card mb-2">
+          <div class="card-body">
+            <div class="section-title mb-2">Ontology links</div>
+            <div class="mb-2">
+              <span class="chip role"><i class="bi bi-person-badge"></i> Engineer A</span>
+              <span class="chip role"><i class="bi bi-building"></i> Client W</span>
+            </div>
+            <div class="small muted">Roles-first extraction ✓ · Professional vs Participant classification ✓</div>
+            <div class="divider"></div>
+            <ul class="list-compact small mb-0">
+              <li>Engineer A → hasObligation → Client Confidentiality (II.1.c)</li>
+              <li>Engineer A → adheresToPrinciple → Public Welfare (I.1)</li>
+              <li>Engineer A → pursuesEnd → Safety/Welfare</li>
+              <li>Engineer A → governedByCode → NSPE Code</li>
+            </ul>
+          </div>
+        </div>
+
+  <div class="card mb-2">
+          <div class="card-body">
+            <div class="section-title mb-2">Precedent cases (themes)</div>
+            <ul class="list-compact small mb-0">
+              <li><i class="bi bi-box-arrow-up-right me-1"></i><span class="as-link">Responsible charge in sealed documents (BER precedents)</span></li>
+              <li><i class="bi bi-box-arrow-up-right me-1"></i><span class="as-link">Confidentiality with third‑party/cloud tools</span></li>
+              <li><i class="bi bi-box-arrow-up-right me-1"></i><span class="as-link">Attribution and professional credit in mixed drafting</span></li>
+            </ul>
+          </div>
+        </div>
+
+  <div class="card mb-2">
+          <div class="card-body">
+            <div class="section-title mb-2">Guidelines references</div>
+            <ul class="list-compact small mb-0">
+              <li><i class="bi bi-link-45deg me-1"></i><span class="as-link">I.1 Public Welfare (NSPE Code)</span></li>
+              <li><i class="bi bi-link-45deg me-1"></i><span class="as-link">II.1.c Client Confidentiality</span></li>
+              <li><i class="bi bi-link-45deg me-1"></i><span class="as-link">II.2.b Responsible Charge</span></li>
+              <li><i class="bi bi-link-45deg me-1"></i><span class="as-link">III.9 Professional Credit</span></li>
+              <li><i class="bi bi-link-45deg me-1"></i><span class="as-link">NSPE Position Statement 10-1778</span></li>
+            </ul>
+          </div>
+        </div>
+
+        
+
+    <div class="card">
+          <div class="card-body">
+            <div class="section-title mb-2">Provenance</div>
+            <div class="small">
+      <div><i class="bi bi-database"></i> Data: ProEthica scenario corpus and engineering ethics guidelines</div>
+      <div class="muted">Compact mockup reflecting current and near-term system capabilities.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="container my-3">
+    <div class="d-flex justify-content-between align-items-center small muted">
+      <div>ProEthica (demo)</div>
+      <div>Width-optimized panel for paper figure slot</div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
