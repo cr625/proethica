@@ -182,6 +182,13 @@
                                                             {% else %}
                                                                 <br>↳ <strong class="text-success">{{ concept.label }}</strong>
                                                             {% endif %}
+                                                            {% if dropdown_type == 'role' and (concept.role_classification or concept.suggested_parent_class_uri) %}
+                                                                <br>
+                                                                <span class="badge bg-outline-secondary text-dark" style="border:1px solid #ccc;">Classification: {{ (concept.role_classification or 'unknown')|capitalize }}</span>
+                                                                {% if concept.role_signals %}
+                                                                    <br><span class="text-muted">Signals: {{ ", ".join(concept.role_signals) }}</span>
+                                                                {% endif %}
+                                                            {% endif %}
                                                         </small>
                                                     </div>
                                                 </div>

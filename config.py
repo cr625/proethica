@@ -28,6 +28,9 @@ app_config = {
     'USE_CLAUDE': os.getenv('USE_CLAUDE', 'true').lower() == 'true',
     'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY'),
     'ANTHROPIC_API_KEY': os.getenv('ANTHROPIC_API_KEY'),
+    'GOOGLE_API_KEY': os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY'),
+    'USE_GEMINI_FOR_GUIDELINES': os.getenv('USE_GEMINI_FOR_GUIDELINES', 'false').lower() == 'true',
+    'GEMINI_MODEL': os.getenv('GEMINI_MODEL', 'gemini-1.5-pro'),
     'CLAUDE_MODEL_VERSION': os.getenv('CLAUDE_MODEL_VERSION'),  # Will be handled by ModelConfig
     'EMBEDDING_PROVIDER_PRIORITY': os.getenv('EMBEDDING_PROVIDER_PRIORITY', 'local'),
     'LOCAL_EMBEDDING_MODEL': os.getenv('LOCAL_EMBEDDING_MODEL', 'all-MiniLM-L6-v2'),

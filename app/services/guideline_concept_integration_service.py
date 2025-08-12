@@ -128,6 +128,16 @@ class GuidelineConceptIntegrationService:
                     
                     # Map to intermediate ontology parent class
                     parent_class = cls.TYPE_TO_PARENT_CLASS_MAP.get(concept_type)
+                    # If a role came with suggested parent (professional/participant), use it
+                    if concept_type == 'role':
+                        suggested_parent = concept.get('suggested_parent_class_uri')
+                        role_classification = concept.get('role_classification')
+                        if suggested_parent:
+                            parent_class = suggested_parent
+                        elif role_classification == 'professional':
+                            parent_class = 'http://proethica.org/ontology/intermediate#ProfessionalRole'
+                        elif role_classification == 'participant':
+                            parent_class = 'http://proethica.org/ontology/intermediate#ParticipantRole'
                     if not parent_class:
                         logger.warning(f"Unknown concept type '{concept_type}' for concept '{concept_label}', using generic parent")
                         parent_class = 'http://proethica.org/ontology/intermediate#Entity'
@@ -144,6 +154,12 @@ class GuidelineConceptIntegrationService:
                         entity_data['semantic_category'] = semantic_label
                         if 'description' in entity_data:
                             entity_data['description'] += f" (Semantic category: {semantic_label})"
+                    # Preserve role classification hints
+                    if concept_type == 'role':
+                        if concept.get('role_classification'):
+                            entity_data['role_classification'] = concept.get('role_classification')
+                        if concept.get('role_signals'):
+                            entity_data['role_signals'] = concept.get('role_signals')
                     
                     # Create entity in derived ontology using existing EntityService
                     success, result = EntityService.create_entity(
@@ -390,6 +406,10 @@ class GuidelineConceptIntegrationService:
                     'mapping_source': triple.mapping_source,
                     'confidence': triple.type_mapping_confidence
                 }
+                # Enrich with role classification metadata from description triple if present
+                role_meta = cls._get_role_metadata(guideline_id, triple.subject)
+                if role_meta:
+                    concept.update(role_meta)
                 concepts.append(concept)
             
             logger.info(f"Retrieved {len(concepts)} concepts from guideline {guideline_id}")
@@ -398,6 +418,27 @@ class GuidelineConceptIntegrationService:
         except Exception as e:
             logger.error(f"Error retrieving concepts from guideline {guideline_id}: {str(e)}")
             return []
+
+    @classmethod
+    def _get_role_metadata(cls, guideline_id: int, concept_uri: str) -> Dict[str, Any]:
+        """Fetch role-related metadata stored in the description triple."""
+        try:
+            desc = EntityTriple.query.filter(
+                and_(
+                    EntityTriple.guideline_id == guideline_id,
+                    EntityTriple.subject == concept_uri,
+                    EntityTriple.predicate == 'http://purl.org/dc/elements/1.1/description'
+                )
+            ).first()
+            meta = (desc.triple_metadata or {}) if desc else {}
+            result: Dict[str, Any] = {}
+            for k in ["role_classification", "role_signals", "suggested_parent_class_uri"]:
+                if k in meta:
+                    result[k] = meta[k]
+            return result
+        except Exception as e:
+            logger.debug(f"No role metadata for {concept_uri}: {e}")
+            return {}
     
     @classmethod
     def check_concepts_added_to_ontology(cls, guideline_id: int, ontology_domain: str = 'engineering-ethics') -> Dict[str, Any]:

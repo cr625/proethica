@@ -25,6 +25,17 @@
 
 # Engineering Roles with proper source attribution
 
+# Broad professional role often referred to as "PE" in jurisdictions
+:ProfessionalEngineerRole a proeth:EntityType,
+        proeth:Role,
+        owl:Class ;
+    rdfs:label "Professional Engineer Role"@en ;
+    rdfs:comment "Licensed engineer recognized by a jurisdiction as meeting standards for professional practice (PE)."@en ;
+    dc:source "NSPE Code of Ethics; State licensure boards" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
+    skos:note "Represents the licensed professional role category often abbreviated as PE." ;
+    rdfs:subClassOf proeth:EngineerRole , proeth:ProfessionalRole .
+
 :StructuralEngineerRole a proeth:EntityType,
         proeth:Role,
         owl:Class ;

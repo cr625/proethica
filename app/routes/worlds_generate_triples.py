@@ -25,7 +25,12 @@ ALIGNMENT_PREDICATES = [
     'http://proethica.org/ontology/requiresCapability',
     'http://proethica.org/ontology/addressesCondition',
     'http://proethica.org/ontology/isNewTermCandidate',
-    'http://proethica.org/ontology/suggestedParent'
+    'http://proethica.org/ontology/suggestedParent',
+    # Stage 2 inferred role links (intermediate ontology namespace)
+    'http://proethica.org/ontology/intermediate#hasObligation',
+    'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+    'http://proethica.org/ontology/intermediate#pursuesEnd',
+    'http://proethica.org/ontology/intermediate#governedByCode'
 ]
 
 def generate_triples_direct(world_id, document_id):
@@ -105,12 +110,96 @@ def generate_triples_direct(world_id, document_id):
             if 'triples' in triples_result:
                 unique_triples = triples_result.get('unique_triples', triples_result['triples'])
                 duplicate_count = triples_result.get('duplicate_count', 0)
+
+                # Infer Role -> (Principle|Obligation|End|Code) links from extracted triples
+                try:
+                    role_uris = set()
+                    principle_uris = set()
+                    obligation_uris = set()
+                    code_uris = set()
+                    end_uris = set()
+
+                    def _is_category(meta, cat):
+                        try:
+                            return (meta or {}).get('category', '').lower() == cat.lower()
+                        except Exception:
+                            return False
+
+                    # Collect referenced class URIs by category/predicate
+                    for t in unique_triples:
+                        pred = (t.get('predicate') or '').lower()
+                        obj_uri = t.get('object_uri')
+                        obj_label = (t.get('object_label') or '')
+                        meta = t.get('triple_metadata') or {}
+                        if not obj_uri:
+                            continue
+
+                        # Roles
+                        if pred.endswith('definesrole') or _is_category(meta, 'role'):
+                            role_uris.add(obj_uri)
+
+                        # Principles
+                        if pred.endswith('embodiesprinciple') or _is_category(meta, 'principle'):
+                            principle_uris.add(obj_uri)
+
+                        # Obligations
+                        if pred.endswith('emphasizesobligation') or _is_category(meta, 'obligation'):
+                            obligation_uris.add(obj_uri)
+
+                        # Ethical Codes (heuristic: label/URI mention Code or EthicalCode)
+                        if ('ethicalcode' in obj_uri.lower() or ' code' in obj_label.lower() or obj_label.lower().endswith('code')):
+                            code_uris.add(obj_uri)
+
+                        # Ends/Goals (heuristic)
+                        if _is_category(meta, 'end') or _is_category(meta, 'goal') or ('end' in obj_uri.lower() or 'goal' in obj_uri.lower()):
+                            end_uris.add(obj_uri)
+
+                    inferred = []
+                    # Helper to add inferred triple if not already present
+                    def _add_inferred(role_uri, predicate, predicate_label, target_uri):
+                        # Avoid duplicates against existing list
+                        for ut in unique_triples:
+                            if ut.get('subject') == role_uri and ut.get('predicate') == predicate and ut.get('object_uri') == target_uri:
+                                return
+                        inferred.append({
+                            'subject': role_uri,
+                            'subject_label': role_uri.split('/')[-1],
+                            'predicate': predicate,
+                            'predicate_label': predicate_label,
+                            'object_uri': target_uri,
+                            'object_label': target_uri.split('/')[-1],
+                            'triple_metadata': {
+                                'confidence': 0.6,
+                                'inferred_from': 'guideline alignment co-occurrence',
+                                'note': 'Heuristic link; refine with LLM when available'
+                            }
+                        })
+
+                    # Build inferred links
+                    for r in sorted(role_uris):
+                        for p in sorted(principle_uris):
+                            _add_inferred(r, 'http://proethica.org/ontology/intermediate#adheresToPrinciple', 'adheres to principle', p)
+                        for o in sorted(obligation_uris):
+                            _add_inferred(r, 'http://proethica.org/ontology/intermediate#hasObligation', 'has obligation', o)
+                        for c in sorted(code_uris):
+                            _add_inferred(r, 'http://proethica.org/ontology/intermediate#governedByCode', 'governed by code', c)
+                        for e in sorted(end_uris):
+                            _add_inferred(r, 'http://proethica.org/ontology/intermediate#pursuesEnd', 'pursues end', e)
+
+                    if inferred:
+                        logger.info(f"Inferred {len(inferred)} role linkage triples from guideline context")
+                        unique_triples.extend(inferred)
+                except Exception:
+                    logger.exception("Failed to infer role linkage triples; continuing with base triples only")
                 
                 logger.info(f"Saving {len(unique_triples)} unique triples (skipping {duplicate_count} duplicates)")
                 
                 for triple_data in unique_triples:
                     # Handle confidence in metadata since EntityTriple doesn't have a confidence field
                     metadata = {}
+                    # Merge through any provided triple-level metadata
+                    if isinstance(triple_data.get('triple_metadata'), dict):
+                        metadata.update(triple_data.get('triple_metadata'))
                     if 'confidence' in triple_data:
                         metadata['confidence'] = triple_data['confidence']
                     

@@ -5,6 +5,7 @@ Flask application initialization module.
 import os
 from flask import Flask
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 
 from app.models import db
 from app.template_filters import init_app as init_filters
@@ -99,6 +100,22 @@ def create_app(config_module='app.config'):
     from app.utils.template_helpers import register_template_helpers
     register_template_helpers(app)
     
+    # Enable CSRF protection for forms and API (reads X-CSRFToken header for AJAX)
+    try:
+        csrf = CSRFProtect()
+        csrf.init_app(app)
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"CSRFProtect initialization failed: {e}")
+
+    # Expose csrf_token() helper in templates
+    @app.context_processor
+    def inject_csrf_token():
+        try:
+            return dict(csrf_token=generate_csrf)
+        except Exception:
+            # In case CSRF not fully configured, avoid breaking templates
+            return {}
+
     # Register blueprints
     from app.routes.index import index_bp
     from app.routes.auth import auth_bp

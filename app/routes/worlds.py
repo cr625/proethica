@@ -1696,6 +1696,16 @@ def save_guideline_concepts(world_id, document_id):
                 db.session.add(type_triple)
                 created_triple_count += 1
                 
+                # Persist role classification metadata in description triple metadata for later integration
+                role_meta = {}
+                if (concept.get("type", "").lower() == "role"):
+                    if concept.get("role_classification"):
+                        role_meta["role_classification"] = concept.get("role_classification")
+                    if concept.get("role_signals"):
+                        role_meta["role_signals"] = concept.get("role_signals")
+                    if concept.get("suggested_parent_class_uri"):
+                        role_meta["suggested_parent_class_uri"] = concept.get("suggested_parent_class_uri")
+
                 # 2. Label triple
                 label_triple = EntityTriple(
                     subject=concept_uri,
@@ -1714,7 +1724,7 @@ def save_guideline_concepts(world_id, document_id):
                 db.session.add(label_triple)
                 created_triple_count += 1
                 
-                # 3. Description triple if available
+        # 3. Description triple if available
                 if concept_description:
                     description_triple = EntityTriple(
                         subject=concept_uri,
@@ -1728,7 +1738,8 @@ def save_guideline_concepts(world_id, document_id):
                         entity_id=new_guideline.id,
                         guideline_id=new_guideline.id,
                         world_id=world_id,
-                        graph=f"guideline_{new_guideline.id}"
+            graph=f"guideline_{new_guideline.id}",
+            triple_metadata=role_meta or None
                     )
                     db.session.add(description_triple)
                     created_triple_count += 1
@@ -2209,91 +2220,95 @@ def add_concepts_to_ontology(world_id, document_id):
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/concepts', methods=['DELETE'])
 @login_required
+
 def remove_extracted_concepts(id, document_id):
     """Remove extracted concepts from a guideline and associated ontology entries."""
     from flask import jsonify
-    
+    from app.models.document import Document
+    from app.models.guideline import Guideline
     try:
-        # Get the world and guideline
+        # Get the world and guideline document
         world = World.query.get_or_404(id)
-        guideline = Guideline.query.filter_by(id=document_id, world_id=id).first_or_404()
-        
-        # Check permissions
-        if not guideline.can_edit(current_user):
-            logger.warning(f"User {current_user.id} attempted to remove concepts from guideline {document_id} without permission")
+        guideline = Document.query.get_or_404(document_id)
+        # Check if document belongs to this world
+        if guideline.world_id != world.id:
+            return jsonify({'error': 'Document does not belong to this world'}), 403
+        # Check if document is a guideline
+        if guideline.document_type != "guideline":
+            return jsonify({'error': 'Document is not a guideline'}), 400
+        # Check permissions: allow if user can edit the document OR the world OR is admin
+        try:
+            can_edit_doc = guideline.can_edit(current_user)
+        except Exception:
+            can_edit_doc = False
+        try:
+            can_edit_world = world.can_edit(current_user)
+        except Exception:
+            can_edit_world = False
+        is_admin = getattr(current_user, 'is_admin', False)
+        if not (can_edit_doc or can_edit_world or is_admin):
+            logger.warning(f"Permission denied: user {getattr(current_user, 'id', '?')} remove concepts from guideline {document_id}")
             return jsonify({'error': 'Permission denied'}), 403
-        
-        logger.info(f"User {current_user.id} removing extracted concepts from guideline {document_id}")
-        
-        # Track what we're removing for logging
+        logger.info(f"User {current_user.id} removing extracted concepts from guideline document {document_id}")
+
+        # Determine associated Guideline record (Stage 1 saved concepts)
+        associated_guideline_id = None
+        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+            associated_guideline_id = guideline.doc_metadata.get('guideline_id')
+
         concepts_removed = 0
-        ontology_entries_removed = 0
-        
-        # 1. Remove extracted concepts from document metadata
-        if hasattr(guideline, 'doc_metadata') and guideline.doc_metadata:
-            if 'extracted_concepts' in guideline.doc_metadata:
-                concepts_removed = len(guideline.doc_metadata.get('extracted_concepts', []))
-                
-                # Remove concept extraction data
-                extraction_keys = [
-                    'extracted_concepts', 
-                    'extraction_timestamp',
-                    'concept_extraction_method',
-                    'llm_extraction_metadata'
-                ]
-                
-                for key in extraction_keys:
-                    guideline.doc_metadata.pop(key, None)
-                
-                # Mark as modified for SQLAlchemy
-                from sqlalchemy.orm.attributes import flag_modified
-                flag_modified(guideline, 'doc_metadata')
-        
-        # 2. Check if there's a derived ontology and remove related entries
-        from app.models.ontology import Ontology
-        derived_ontology = Ontology.query.filter(
-            Ontology.domain_id.like(f'%guideline-{document_id}%')
-        ).first()
-        
-        if derived_ontology:
-            logger.info(f"Found derived ontology {derived_ontology.id} for guideline {document_id}")
-            
-            # Count ontology entries before deletion
-            from app.models.entity_triple import EntityTriple
-            ontology_triples = EntityTriple.query.filter_by(
-                guideline_id=document_id,
-                ontology_id=derived_ontology.id
-            ).all()
-            ontology_entries_removed = len(ontology_triples)
-            
-            # Remove entity triples associated with this guideline
-            for triple in ontology_triples:
-                db.session.delete(triple)
-            
-            # If this was the only guideline using this derived ontology, remove the ontology too
-            remaining_triples = EntityTriple.query.filter_by(
-                ontology_id=derived_ontology.id
-            ).filter(EntityTriple.guideline_id != document_id).count()
-            
-            if remaining_triples == 0:
-                logger.info(f"No other guidelines use derived ontology {derived_ontology.id}, removing it")
-                db.session.delete(derived_ontology)
-        
-        # 3. Reset any triple counters or metadata
-        if hasattr(guideline, 'doc_metadata') and guideline.doc_metadata:
-            guideline.doc_metadata.pop('triples_created', None)
+        triples_removed = 0
+
+        # 1) Remove EntityTriples associated with this guideline extraction (both basic + alignment)
+        from app.models.entity_triple import EntityTriple
+        if associated_guideline_id:
+            triples_removed = EntityTriple.query.filter(
+                EntityTriple.guideline_id == associated_guideline_id,
+                EntityTriple.entity_type == 'guideline_concept'
+            ).delete(synchronize_session=False)
+        else:
+            # Fallback: delete any alignment triples linked directly to this document id
+            triples_removed = EntityTriple.query.filter(
+                EntityTriple.entity_id == guideline.id,
+                EntityTriple.entity_type == 'guideline_concept',
+                EntityTriple.world_id == world.id
+            ).delete(synchronize_session=False)
+
+        # 2) Remove the Guideline record created during save_concepts, if present
+        removed_guideline = 0
+        if associated_guideline_id:
+            related = Guideline.query.get(associated_guideline_id)
+            if related:
+                # Count concepts saved in metadata for reporting
+                if related.guideline_metadata and 'concepts' in related.guideline_metadata:
+                    try:
+                        concepts_removed = len(related.guideline_metadata['concepts'])
+                    except Exception:
+                        concepts_removed = 0
+                db.session.delete(related)
+                removed_guideline = 1
+
+        # 3) Clean document metadata flags and linkage
+        if hasattr(guideline, 'doc_metadata') and isinstance(guideline.doc_metadata, dict):
+            for key in [
+                'guideline_id', 'analyzed', 'concepts_extracted', 'concepts_selected',
+                'triples_created', 'triples_saved', 'triples_generated', 'analysis_date'
+            ]:
+                guideline.doc_metadata.pop(key, None)
+            from sqlalchemy.orm.attributes import flag_modified
             flag_modified(guideline, 'doc_metadata')
-        
-        # Commit all changes
+
         db.session.commit()
-        
-        logger.info(f"Successfully removed {concepts_removed} concepts and {ontology_entries_removed} ontology entries from guideline {document_id}")
-        
+
+        logger.info(
+            f"Removed {triples_removed} triples and {removed_guideline} associated guideline(s) for document {document_id}"
+        )
         return jsonify({
             'success': True,
-            'message': 'Concepts removed successfully',
+            'message': 'Extracted concepts and triples removed',
             'concepts_removed': concepts_removed,
-            'ontology_entries_removed': ontology_entries_removed
+            'triples_removed': int(triples_removed),
+            'guideline_removed': bool(removed_guideline)
         }), 200
         
     except Exception as e:

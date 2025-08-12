@@ -315,13 +315,19 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
         
         Return the concepts as a JSON array.
         """
-        
+
         # Use existing extraction method
         response = super().extract_concepts(content)
-        
+
         # Check if we got concepts
         if response and isinstance(response, dict):
             if response.get('concepts'):
+                # Surface debug info if present (provider, guard stats)
+                try:
+                    if 'debug_info' in response:
+                        logger.info(f"Extraction debug_info: {response['debug_info']}")
+                except Exception:
+                    pass
                 logger.info(f"Raw concept extraction returned {len(response['concepts'])} concepts")
                 # Log first concept for debugging
                 if response['concepts']:
@@ -331,7 +337,7 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             elif response.get('success') is False:
                 logger.warning(f"Raw concept extraction failed: {response.get('error', 'Unknown error')}")
                 return []
-        
+
         # If response doesn't have expected structure, it might be returning just concepts
         logger.warning(f"Unexpected response format from parent extract_concepts: {type(response)}")
         return []

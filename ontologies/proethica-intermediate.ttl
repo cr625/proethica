@@ -37,7 +37,7 @@
     rdf:type :GuidelineConceptType ;
     rdfs:subClassOf bfo:BFO_0000023 ; # role from BFO
     rdfs:label "Role"@en ;
-    rdfs:comment "A socially recognized status that carries a set of responsibilities, expectations, and norms established by a professional or social community. Examples include Engineer, Manager, Client, Regulator."@en .
+    rdfs:comment "A socially recognized status borne by an agent that is defined by: (1) central ends/goals that guide action within the practice, and (2) a coherent set of norms and commitments (obligations) internal to that practice. Professional roles (e.g., Engineer, Project Manager, Public Official) pursue their characteristic ends while being governed by obligations typically formalized in codes of ethics and standards. Participant roles (e.g., Client, Community Member) may be stakeholders without professional obligations. Use hasObligation to relate Roles to obligations, adheresToPrinciple for governing principles, and pursuesEnd for characteristic ends/goals."@en .
 
 :Principle rdf:type owl:Class ;
     rdf:type :EntityType ;
@@ -160,6 +160,26 @@
     rdfs:label "Engineer Role"@en ;
     rdfs:comment "A professional role involving engineering practice and responsibilities"@en .
 
+# Role specializations for classification of roles mentioned in guidelines and cases
+:ProfessionalRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Role ;
+    rdfs:label "Professional Role"@en ;
+    rdfs:comment "A role within a profession that entails recognized ends/goals of practice (e.g., safeguarding public safety, delivering competent technical solutions) and a coherent set of obligations codified in standards and codes (e.g., NSPE). Often associated with licensure or formal accountability. Examples: Professional Engineer, Project Manager, Public Official."@en .
+
+:ParticipantRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Role ;
+    rdfs:label "Participant Role"@en ;
+    rdfs:comment "A role of an involved party or stakeholder that does not itself establish professional obligations (e.g., Client, The Public, Community Member)."@en .
+
+# Ends / Goals of roles
+:End rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant
+    rdfs:label "End/Goal"@en ;
+    rdfs:comment "A characteristic end or goal toward which a role is directed (e.g., in engineering: protecting public safety, serving the public welfare, providing competent service)."@en .
+
 # Standards and regulatory frameworks
 :Standard rdf:type owl:Class ;
     rdf:type :EntityType ;
@@ -246,6 +266,31 @@
     rdfs:range :Obligation ;
     rdfs:label "fulfills obligation"@en ;
     rdfs:comment "Relates an action to an obligation it fulfills"@en .
+
+# Properties connecting roles to obligations and principles
+:hasObligation rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :Obligation ;
+    rdfs:label "has obligation"@en ;
+    rdfs:comment "Relates a role to the professional obligations borne by entities bearing that role"@en .
+
+:adheresToPrinciple rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :Principle ;
+    rdfs:label "adheres to principle"@en ;
+    rdfs:comment "Relates a role to ethical principles that normatively govern that role"@en .
+
+:pursuesEnd rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :End ;
+    rdfs:label "pursues end"@en ;
+    rdfs:comment "Relates a role to its characteristic ends/goals."@en .
+
+:governedByCode rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :EthicalCode ;
+    rdfs:label "governed by code"@en ;
+    rdfs:comment "Relates a professional role to an ethical code that formalizes its obligations and norms."@en .
 
 #################################################################
 #    SPARQL Query Support                                        

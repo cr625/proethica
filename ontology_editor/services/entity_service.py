@@ -237,6 +237,13 @@ class EntityService:
                     'id': int_role_id,
                     'label': "Role (Base)"
                 })
+            # Also explicitly include ProfessionalRole and ParticipantRole to guide classification
+            professional_role_id = "http://proethica.org/ontology/intermediate#ProfessionalRole"
+            if not any(r['id'] == professional_role_id for r in results):
+                results.append({'id': professional_role_id, 'label': 'Professional Role'})
+            participant_role_id = "http://proethica.org/ontology/intermediate#ParticipantRole"
+            if not any(r['id'] == participant_role_id for r in results):
+                results.append({'id': participant_role_id, 'label': 'Participant Role'})
         
         elif entity_type == 'condition':
             # Add special condition base classes if missing

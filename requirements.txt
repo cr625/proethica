@@ -41,6 +41,7 @@ flake8
 ## LLM providers
 anthropic==0.51.0            # Anthropic Python SDK (latest verified)
 openai>=1.12.0               # OpenAI API client
+google-generativeai>=0.7.2   # Google Gemini API client
 
 ## LangChain / LangGraph
 langchain

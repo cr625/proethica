@@ -101,7 +101,7 @@
                   <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
                     <i class="bi bi-trash"></i> Remove Concepts & Ontology Entries
                   </a></li>
                 </ul>
@@ -116,7 +116,7 @@
                   <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
                     <i class="bi bi-trash"></i> Remove Extracted Concepts
                   </a></li>
                 </ul>
@@ -131,7 +131,7 @@
                   <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
                     <i class="bi bi-trash"></i> Remove Extracted Concepts
                   </a></li>
                 </ul>
@@ -372,6 +372,14 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Bind delete extracted concepts buttons
+  document.querySelectorAll('.js-remove-concepts').forEach((btn) => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const id = this.getAttribute('data-guideline-id');
+      removeExtractedConcepts(this, id);
+    });
+  });
     const confirmAddBtn = document.getElementById('confirmAddBtn');
     const confirmCheckbox = document.getElementById('confirmAddition');
     const commitMessageTextarea = document.getElementById('commitMessage');
@@ -401,7 +409,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Function to remove extracted concepts
-function removeExtractedConcepts(guidelineId) {
+function removeExtractedConcepts(el, guidelineId) {
     const confirmMessage = 'Are you sure you want to remove all extracted concepts?\n\n' +
                           'This will delete:\n' +
                           '• All concept extractions from this guideline\n' +
@@ -411,17 +419,24 @@ function removeExtractedConcepts(guidelineId) {
     
     if (confirm(confirmMessage)) {
         // Show loading state
-        const button = event.target.closest('.btn-group');
-        if (button) {
-            button.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
-                              '<i class="bi bi-hourglass-split"></i> Removing...</button>';
-        }
+    try {
+      const group = el && (el.closest('.btn-group'));
+      if (group) {
+        group.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
+                  '<i class="bi bi-hourglass-split"></i> Removing...</button>';
+      }
+    } catch (e) {
+      // Ignore UI loading errors
+    }
         
         // Send DELETE request
-        fetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
+  // Acquire CSRF token from meta if present
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  fetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
+    'X-CSRFToken': csrfToken,
             },
             credentials: 'same-origin'
         })
