@@ -36,6 +36,14 @@
           <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-arrow-left"></i> Back to Guideline
           </a>
+          <form action="{{ url_for('worlds.regenerate_guideline_sections', id=world.id, document_id=document.id) }}" method="post" class="d-inline ms-2">
+            {% if csrf_token %}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            {% endif %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Re-run section extraction in the background">
+              <i class="bi bi-arrow-repeat"></i> Regenerate
+            </button>
+          </form>
         </div>
       </div>
     </div>

@@ -277,7 +277,9 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="post">
-          <!-- CSRF token removed due to configuration issue -->
+          {% if csrf_token %}
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          {% endif %}
           <button type="submit" class="btn btn-danger">Delete</button>
         </form>
       </div>

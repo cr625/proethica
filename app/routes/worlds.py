@@ -700,6 +700,35 @@ def view_guideline_sections(id, document_id):
                          sections_by_category=sections_by_category,
                          guideline_id=actual_guideline_id)
 
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/sections/regenerate', methods=['POST'])
+@login_required
+def regenerate_guideline_sections(id, document_id):
+    """Regenerate extracted sections for a guideline document via background processing."""
+    world = World.query.get_or_404(id)
+
+    from app.models.document import Document
+    document = Document.query.get_or_404(document_id)
+
+    # Validate ownership and type
+    if document.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    if document.document_type != 'guideline':
+        flash('Document is not a guideline', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+
+    try:
+        from app.services.task_queue import BackgroundTaskQueue
+        task_queue = BackgroundTaskQueue.get_instance()
+        # Re-run processing which includes guideline structure annotation when content exists
+        task_queue.process_document_async(document.id)
+        flash('Section regeneration started. This may take a moment; refresh to see results.', 'info')
+    except Exception as e:
+        logger.error(f"Error starting section regeneration: {e}")
+        flash(f'Error starting section regeneration: {str(e)}', 'error')
+
+    return redirect(url_for('worlds.view_guideline_sections', id=world.id, document_id=document.id))
+
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>', methods=['GET'])
 def view_guideline(id, document_id):
     """Display a specific guideline document."""
