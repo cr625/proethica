@@ -664,8 +664,8 @@ class EntityService:
                 # Fallback to generating one based on ontology domain
                 base_uri = f"http://proethica.org/ontology/{ontology.domain_id.lower()}#"
             
-            # Create sanitized ID from label
-            entity_id = cls._sanitize_for_uri(data['label'])
+            # Create sanitized ID from label (allow explicit override via 'id_fragment')
+            entity_id = data.get('id_fragment') or cls._sanitize_for_uri(data['label'])
             entity_uri = URIRef(f"{base_uri}{entity_id}")
             
             # Check if entity already exists

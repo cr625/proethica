@@ -146,8 +146,9 @@ class OntologyEntityService:
 
         roles: list[dict] = []
 
+        from app.utils.label_normalization import normalize_role_label
         def _norm_label(s: str) -> str:
-            return re.sub(r"\s+", " ", (s or "")).strip().casefold()
+            return normalize_role_label(s)
 
         seen = set()
 

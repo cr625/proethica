@@ -22,6 +22,7 @@ from app.services.embedding_service import EmbeddingService
 from app.models.world import World
 from app.services.role_description_service import RoleDescriptionService
 from app.services.ontology_entity_service import OntologyEntityService
+from app.utils.label_normalization import normalize_role_label
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ class CaseRoleMatchingService:
         
         try:
             logger.info(f"Matching LLM role '{llm_role}' against {len(ontology_roles)} ontology roles")
+            norm_llm = normalize_role_label(llm_role)
             
             # Step 1: Semantic similarity matching
             semantic_candidates = self._find_semantic_candidates(llm_role, ontology_roles)
@@ -92,6 +94,21 @@ class CaseRoleMatchingService:
             
             # Step 3: Combine results
             best_match = self._select_best_match(semantic_candidates, llm_validation)
+
+            # If no best match, attempt exact-normalized label equality as a fallback
+            if not best_match:
+                for idx, c in enumerate(semantic_candidates):
+                    cand_label = c["role"].get("label", "")
+                    if normalize_role_label(cand_label) == norm_llm:
+                        best_match = {
+                            "role": c["role"],
+                            "semantic_score": c["semantic_score"],
+                            "llm_confidence": 0.6,
+                            "llm_agreed": True,
+                            "combined_confidence": c["semantic_score"]
+                        }
+                        logger.info(f"Normalization fallback matched '{llm_role}' -> '{cand_label}'")
+                        break
             
             # Generate standardized description regardless of match success
             desc_payload = self.role_desc.generate(llm_role, world=world)
@@ -104,6 +121,7 @@ class CaseRoleMatchingService:
                 "semantic_candidates": semantic_candidates,
                 "matching_method": "semantic_llm_validated",
                 "original_llm_role": llm_role,
+                "normalized_llm_role": norm_llm,
                 "suggested_description": desc_payload.get("description", ""),
                 "suggested_obligations": desc_payload.get("obligations", []),
                 "parent_suggestion": desc_payload.get("parent_suggestion")

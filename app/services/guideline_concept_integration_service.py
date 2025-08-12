@@ -23,6 +23,7 @@ from app.models.entity_triple import EntityTriple
 from app.models.guideline import Guideline
 from ontology_editor.services.entity_service import EntityService
 from datetime import datetime
+from app.utils.label_normalization import ensure_no_role_suffix, normalize_role_label, make_role_uri_fragment
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,8 @@ class GuidelineConceptIntegrationService:
             
             # Check for existing entities to avoid duplicates
             existing_entities = cls._get_existing_entity_labels(derived_ontology.id)
+            # Precompute normalized labels for duplicate detection on roles
+            existing_norm = {normalize_role_label(lbl): lbl for lbl in existing_entities}
             logger.info(f"Found {len(existing_entities)} existing entities in derived ontology")
             
             results = []
@@ -116,7 +119,18 @@ class GuidelineConceptIntegrationService:
                     logger.info(f"Processing concept {i+1}/{len(concepts)}: {concept_label} ({concept_type})")
                     
                     # Check for duplicates (case-insensitive)
-                    if any(existing.lower() == concept_label.lower() for existing in existing_entities):
+                    # Duplicate detection: for roles use normalized, for others case-insensitive
+                    if concept_type == 'role':
+                        if normalize_role_label(concept_label) in existing_norm:
+                            logger.info(f"Skipping duplicate concept (role, normalized): {concept_label}")
+                            results.append({
+                                'concept': concept_label,
+                                'status': 'skipped',
+                                'reason': 'Duplicate role (normalized) exists in derived ontology'
+                            })
+                            skipped_duplicates += 1
+                            continue
+                    elif any(existing.lower() == concept_label.lower() for existing in existing_entities):
                         logger.info(f"Skipping duplicate concept: {concept_label}")
                         results.append({
                             'concept': concept_label,
@@ -143,8 +157,10 @@ class GuidelineConceptIntegrationService:
                         parent_class = 'http://proethica.org/ontology/intermediate#Entity'
                     
                     # Prepare entity data for EntityService
+                    # Enforce suffix-less policy for role labels (URIs still use *Role classes)
+                    label_out = ensure_no_role_suffix(concept_label) if concept_type == 'role' else concept_label
                     entity_data = {
-                        'label': concept_label,
+                        'label': label_out,
                         'description': concept_description,
                         'parent_class': parent_class
                     }
@@ -162,16 +178,29 @@ class GuidelineConceptIntegrationService:
                             entity_data['role_signals'] = concept.get('role_signals')
                     
                     # Create entity in derived ontology using existing EntityService
+                    payload = {
+                        'label': label_out,
+                        'description': entity_data['description'],
+                        'parent_class': entity_data['parent_class']
+                    }
+                    # Preserve optional metadata
+                    for k in ('semantic_category','role_classification','role_signals','capabilities'):
+                        if k in entity_data:
+                            payload[k] = entity_data[k]
+                    # For roles, force Role-suffixed URI fragment
+                    if concept_type == 'role':
+                        payload['id_fragment'] = make_role_uri_fragment(concept_label)
+
                     success, result = EntityService.create_entity(
                         ontology_id=derived_ontology.id,
                         entity_type=concept_type,
-                        data=entity_data
+                        data=payload
                     )
                     
                     if success:
                         logger.info(f"Successfully created entity: {concept_label}")
                         results.append({
-                            'concept': concept_label,
+                            'concept': label_out,
                             'status': 'created',
                             'entity_type': concept_type,
                             'entity_id': result.get('entity_id'),
@@ -179,7 +208,9 @@ class GuidelineConceptIntegrationService:
                         })
                         successful_additions += 1
                         # Add to existing entities list to prevent duplicates in this batch
-                        existing_entities.append(concept_label)
+                        existing_entities.append(label_out)
+                        if concept_type == 'role':
+                            existing_norm[normalize_role_label(label_out)] = label_out
                     else:
                         error_msg = result.get('error', 'Unknown error occurred')
                         logger.error(f"Failed to create entity '{concept_label}': {error_msg}")

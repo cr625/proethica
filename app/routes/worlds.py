@@ -2087,6 +2087,10 @@ def delete_guideline(id, document_id):
         flash('You do not have permission to delete this guideline.', 'error')
         return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
     
+    # User option: delete associated derived ontology too
+    delete_derived = request.form.get('delete_derived_ontology') in ('on', 'true', '1')
+    derived_ontology_id = request.form.get('derived_ontology_id')
+
     # Get the associated guideline ID if exists
     actual_guideline_id = None
     if document.doc_metadata and 'guideline_id' in document.doc_metadata:
@@ -2116,6 +2120,17 @@ def delete_guideline(id, document_id):
                     deleted_counts['guideline'] = 1
                     logger.info(f"Deleted guideline {actual_guideline_id}")
             
+            # Optionally delete derived ontology first to avoid orphan
+            if delete_derived and derived_ontology_id:
+                try:
+                    from app.models.ontology import Ontology
+                    derived_ont = Ontology.query.get(int(derived_ontology_id))
+                    if derived_ont:
+                        logger.info(f"Deleting derived ontology {derived_ontology_id} as requested")
+                        db.session.delete(derived_ont)
+                except Exception as e:
+                    logger.warning(f"Could not delete derived ontology {derived_ontology_id}: {e}")
+
             # 3. Delete document chunks first (due to NOT NULL constraint on document_id)
             from app.models.document import DocumentChunk
             deleted_chunks = DocumentChunk.query.filter_by(document_id=document.id).delete(synchronize_session=False)
@@ -2141,6 +2156,8 @@ def delete_guideline(id, document_id):
             flash(f'Guideline deleted successfully along with {deleted_counts["triples"]} associated triples', 'success')
         else:
             flash('Guideline deleted successfully', 'success')
+        if delete_derived and derived_ontology_id:
+            flash('Derived ontology deleted as well.', 'info')
             
     except Exception as e:
         db.session.rollback()

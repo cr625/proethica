@@ -17,6 +17,7 @@ from app.models.ontology_version import OntologyVersion
 from app.models.ontology_import import OntologyImport
 from app.models.role import Role
 from app.services.ontology_entity_service import OntologyEntityService
+from app.utils.label_normalization import normalize_role_label, strip_role_suffix, ensure_no_role_suffix
 
 
 class CasesOntologyService:
@@ -97,16 +98,16 @@ class CasesOntologyService:
         try:
             aggregator = OntologyEntityService.get_instance()
             existing_roles = aggregator.get_roles_across_world(world)
-            existing_labels = { (r.get('label') or '').strip().casefold(): r for r in existing_roles }
-            if (label or '').strip().casefold() in existing_labels:
+            existing_labels = { normalize_role_label(r.get('label')): r for r in existing_roles }
+            if normalize_role_label(label) in existing_labels:
                 # If exists, avoid creating duplicate; instead, mirror into Role table if needed
-                existing = existing_labels[(label or '').strip().casefold()]
+                existing = existing_labels[normalize_role_label(label)]
                 ontology_uri = existing.get('id') or existing.get('uri')
                 # Ensure a Role row exists for this world/uri
                 role_db = Role.query.filter_by(world_id=world.id, ontology_uri=ontology_uri).first()
                 if not role_db:
                     role_db = Role(
-                        name=label,
+                        name=strip_role_suffix(existing.get('label') or label),
                         description=description,
                         world_id=world.id,
                         ontology_uri=ontology_uri,
@@ -119,9 +120,12 @@ class CasesOntologyService:
             pass
 
         cases_ont = self.get_or_create_world_cases_ontology(world)
+        # Display label policy: suffix-less for human readability
+        display_label = strip_role_suffix(label)
+        # Generate a stable fragment identifier for the class (without spaces)
+        base_fragment = self._to_camel_case(re.sub(r"\broles?\b\s*$", "", label, flags=re.IGNORECASE)) + "Role"
+        class_fragment = base_fragment
 
-        # Generate a stable fragment identifier for the class
-        class_fragment = self._to_camel_case(label) + "Role"
         # Ensure uniqueness by checking current content
         content = cases_ont.content or ""
         suffix = 1
@@ -133,7 +137,7 @@ class CasesOntologyService:
         # Build TTL for the new class
         ttl_snippet = (
             f"world:{unique_fragment} a owl:Class, proethica:Role ;\n"
-            f"  rdfs:label \"{self._escape_literal(label)}\" ;\n"
+            f"  rdfs:label \"{self._escape_literal(display_label)}\" ;\n"
             f"  rdfs:comment \"{self._escape_literal(description or '')}\" ;\n"
             f"  rdfs:subClassOf proethica:Role .\n\n"
         )
@@ -161,7 +165,7 @@ class CasesOntologyService:
         # Mirror into relational Role table (scoped to this world)
         ontology_uri = f"{cases_ont.base_uri}{unique_fragment}"
         role_db = Role(
-            name=label,
+            name=display_label,
             description=description,
             world_id=world.id,
             ontology_uri=ontology_uri,

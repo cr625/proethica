@@ -194,6 +194,39 @@
                                             class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteOntologyModal-{{ ont.id }}">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+
+                                        <!-- Delete Modal -->
+                                        <div class="modal fade" id="deleteOntologyModal-{{ ont.id }}" tabindex="-1" aria-labelledby="deleteOntologyLabel-{{ ont.id }}" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteOntologyLabel-{{ ont.id }}">Delete Ontology</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        Are you sure you want to delete the ontology "{{ ont.name }}"?
+                                                        <div class="mt-2">
+                                                            <small class="text-muted">Domain: {{ ont.domain_id }}</small>
+                                                        </div>
+                                                        <div class="alert alert-warning mt-3 mb-0">
+                                                            This will permanently delete this derived ontology and its version history. This action cannot be undone.
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{{ url_for('ontology.delete_ontology', ontology_id=ont.id) }}" class="d-inline">
+                                                            {% if csrf_token %}
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                            {% endif %}
+                                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -239,6 +272,39 @@
                                             class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteOntologyModal-{{ ont.id }}-cases">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+
+                                        <!-- Delete Modal for Cases Ontology -->
+                                        <div class="modal fade" id="deleteOntologyModal-{{ ont.id }}-cases" tabindex="-1" aria-labelledby="deleteOntologyLabel-{{ ont.id }}-cases" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteOntologyLabel-{{ ont.id }}-cases">Delete Cases Ontology</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        Are you sure you want to delete the ontology "{{ ont.name }}"?
+                                                        <div class="mt-2">
+                                                            <small class="text-muted">Domain: {{ ont.domain_id }}</small>
+                                                        </div>
+                                                        <div class="alert alert-warning mt-3 mb-0">
+                                                            This will permanently delete this cases ontology and its version history. This action cannot be undone.
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{{ url_for('ontology.delete_ontology', ontology_id=ont.id) }}" class="d-inline">
+                                                            {% if csrf_token %}
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                            {% endif %}
+                                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}

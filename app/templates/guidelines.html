@@ -149,12 +149,27 @@
           <div class="modal-body">
             <p>Are you sure you want to delete the guideline "{{ guideline.title }}"?</p>
             <p class="text-danger">This action cannot be undone. All associated concepts and analysis will be permanently deleted.</p>
+            {% if guideline_ontologies and guideline.id in guideline_ontologies %}
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" value="on" id="deleteDerivedOnt{{ guideline.id }}" name="delete_derived_ontology">
+              <label class="form-check-label" for="deleteDerivedOnt{{ guideline.id }}">
+                Also delete derived ontology
+                <span class="badge bg-secondary ms-1">{{ guideline_ontologies[guideline.id].name }}</span>
+              </label>
+              <input type="hidden" name="derived_ontology_id" value="{{ guideline_ontologies[guideline.id].id }}">
+            </div>
+            <div class="form-text">If unchecked, the derived ontology is preserved and can be managed later.</div>
+            {% endif %}
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="POST" class="d-inline">
               {% if csrf_token %}
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              {% endif %}
+              {% if guideline_ontologies and guideline.id in guideline_ontologies %}
+              <!-- Duplicate the selected choice from the modal body via JS is overkill; include fields in the same form -->
+              <input type="hidden" name="derived_ontology_id" value="{{ guideline_ontologies[guideline.id].id }}">
               {% endif %}
               <button type="submit" class="btn btn-danger">Delete Guideline</button>
             </form>
