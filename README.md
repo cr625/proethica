@@ -137,6 +137,8 @@ The project includes detailed documentation in the `docs/` directory:
 - `multiple_guidelines.md`: How to use multiple guidelines per world
 - `async_document_processing.md`: Details about the asynchronous document processing implementation
 - `mcp_server_integration.md`: Information about the MCP server integration for ontology access
+- `INTERMEDIATE_ONTOLOGY_COVERAGE_ANALYSIS.md`: Coverage analysis vs. McLaren (2003) and Berreby et al. (2017), plus minimal, non-breaking additions to the intermediate ontology
+- `NORMATIVE_MODELING_EXAMPLES.md`: Concrete TTL patterns and SPARQL queries for Permission, Prohibition, Violation, and Justification usage
 
 ## License
 

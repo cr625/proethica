@@ -215,6 +215,47 @@
     rdfs:comment "A quantitative or qualitative assessment or evaluation"@en .
 
 #################################################################
+#    Normative refinements (subclasses, non-breaking)            
+#################################################################
+
+# Modalities (kept as subclasses to avoid new primaries)
+:Permission rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Obligation ;
+    rdfs:label "Permission"@en ;
+    rdfs:comment "A normative allowance indicating that an action or state is permitted under certain conditions."@en .
+
+:Prohibition rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Obligation ;
+    rdfs:label "Prohibition"@en ;
+    rdfs:comment "A normative restriction indicating that an action or state is disallowed."@en .
+
+# Compliance tracking
+:Violation rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Event ;
+    rdfs:label "Violation"@en ;
+    rdfs:comment "An event indicating that an obligation, prohibition, or standard has been breached."@en .
+
+# Explainability / rationale
+:Justification rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Resource ;
+    rdfs:label "Justification"@en ;
+    rdfs:comment "A rationale, argument, or evidence artifact supporting a decision or interpretation in an ethical case."@en .
+
+#################################################################
+#    Annotation properties                                        
+#################################################################
+
+:hasValueLabel rdf:type owl:AnnotationProperty ;
+    rdfs:label "has value label"@en ;
+    rdfs:comment "Annotation for recording the value-oriented reading of a principle (e.g., 'Integrity', 'Justice')."@en ;
+    rdfs:domain :Principle ;
+    rdfs:range xsd:string .
+
+#################################################################
 #    Object Properties                                           
 #################################################################
 
