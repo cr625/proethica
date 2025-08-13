@@ -231,11 +231,16 @@
                                     {% for entity in tab.entities %}
                                     <div class="col-md-6 col-lg-4">
                                         <div class="card entity-item">
-                                            <div class="card-header">{{ entity.label }}</div>
+                                            <div class="card-header">
+                                                {{ entity.label }}
+                                                {% if entity.from_base %}
+                                                    <i class="bi bi-globe2 ms-2" title="Base Ontology"></i>
+                                                {% endif %}
+                                            </div>
                                             <div class="card-body">
                                                 <p class="card-text">{{ entity.description or "No description available" }}</p>
                                                 
-                                                {% if tab.key == 'roles' and entity.capabilities and entity.capabilities|length > 0 %}
+                                                {% if tab.key in ['role','roles'] and entity.capabilities and entity.capabilities|length > 0 %}
                                                 <div class="mt-2">
                                                     <strong>Capabilities:</strong>
                                                     <ul class="list-group list-group-flush">

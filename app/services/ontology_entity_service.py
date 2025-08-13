@@ -94,14 +94,17 @@ class OntologyEntityService:
         except Exception as e:
             logger.error(f"Error parsing ontology {ontology.id}: {e}")
             return {"entities": {}, "is_mock": False, "error": f"Parse error: {str(e)}"}
-        
+
+        # Detect primary namespace for origin flagging
+        primary_ns = self._detect_namespace(g)
+
         # First, get the proethica-intermediate ontology to extract GuidelineConceptTypes
         guideline_concept_types = self._extract_guideline_concept_types(g)
-        
+
         # Extract entities for each GuidelineConceptType found
         entities = {}
         for concept_type_name, concept_type_uri in guideline_concept_types.items():
-            entity_list = self._extract_entities_by_type(g, concept_type_name, concept_type_uri)
+            entity_list = self._extract_entities_by_type(g, concept_type_name, concept_type_uri, primary_ns)
             if entity_list:  # Only include types that have entities
                 entities[concept_type_name.lower()] = entity_list
         
@@ -109,7 +112,7 @@ class OntologyEntityService:
         if not entities:
             logger.warning(f"No GuidelineConceptTypes found in ontology {ontology.id}, using legacy extraction")
             entities = {
-                "role": self._extract_roles(g),
+                "role": self._extract_roles(g, primary_ns),
                 "principle": self._extract_principles(g),
                 "obligation": self._extract_obligations(g),
                 "state": self._extract_condition_types(g),  # conditions -> states
@@ -331,88 +334,68 @@ class OntologyEntityService:
         
         return guideline_concept_types
     
-    def _extract_entities_by_type(self, graph, concept_type_name, concept_type_uri):
-        """
-        Extract entities of a specific GuidelineConceptType from the graph.
-        
-        Args:
-            graph: RDFLib Graph
-            concept_type_name: Name of the concept type (e.g., "Role", "Principle")
-            concept_type_uri: URI of the concept type
-            
-        Returns:
-            List of entity dictionaries
-        """
+    def _extract_entities_by_type(self, graph, concept_type_name, concept_type_uri, primary_ns=None):
+        """Extract entities of a specific GuidelineConceptType from the graph."""
         entities = []
         proeth_namespace = self.namespaces["intermediate"]
-        
-        # Helper functions
+
+        # Helpers
         def label_or_id(s):
             return str(next(graph.objects(s, RDFS.label), s.split('/')[-1].split('#')[-1]))
-        
+
         def get_description(s):
             return str(next(graph.objects(s, RDFS.comment), ""))
-        
-        # Find all instances of this GuidelineConceptType
+
         concept_type_ref = rdflib.URIRef(concept_type_uri)
-        
-        # Find subjects that are instances of this concept type
+
+        # Gather subjects for this type
         entity_subjects = set()
-        
-        # SIMPLIFIED APPROACH: Only use direct type matching to prevent false positives
-        # Method 1: Direct instances of the intermediate ontology type
         entity_subjects.update(graph.subjects(RDF.type, concept_type_ref))
-        
-        # Method 2: Entities that are both EntityType and this GuidelineConceptType (more precise)
         entity_type_subjects = set(graph.subjects(RDF.type, proeth_namespace.EntityType))
         for s in entity_type_subjects:
-            # Only include if it has the exact concept type we're looking for
             if (s, RDF.type, concept_type_ref) in graph:
                 entity_subjects.add(s)
-        
-        # Method 3: Handle specific meta-types (ResourceType, etc.) that use different naming
         if concept_type_name == "Resource":
-            # Look for entities typed as ResourceType
-            resource_type_ref = proeth_namespace.ResourceType
-            entity_subjects.update(graph.subjects(RDF.type, resource_type_ref))
-        # Note: Constraints follow standard pattern (proeth:Constraint) so no special handling needed
-        
-        # Create entity objects from the found subjects
+            entity_subjects.update(graph.subjects(RDF.type, proeth_namespace.ResourceType))
+
+        # Build entity dicts
         for s in entity_subjects:
-            # Skip the concept type definition itself
             if s == concept_type_ref:
                 continue
-                
-            # Get parent class (RDFS.subClassOf)
             parent_class = next(graph.objects(s, RDFS.subClassOf), None)
             parent_class_uri = str(parent_class) if parent_class else None
-            
+
+            is_from_base = False
+            try:
+                if primary_ns is not None and str(primary_ns):
+                    is_from_base = str(s).startswith(str(primary_ns))
+            except Exception:
+                is_from_base = False
+
             entity = {
                 "id": str(s),
-                "uri": str(s), 
+                "uri": str(s),
                 "label": label_or_id(s),
                 "description": get_description(s),
                 "parent_class": parent_class_uri,
-                "type": concept_type_name.lower()
+                "type": concept_type_name.lower(),
+                "from_base": is_from_base,
             }
-            
-            # For roles, also include capabilities
             if concept_type_name.lower() == "role":
                 entity["capabilities"] = [
                     {
                         "id": str(o),
                         "label": label_or_id(o),
-                        "description": get_description(o)
+                        "description": get_description(o),
                     }
                     for o in graph.objects(s, proeth_namespace.hasCapability)
                 ]
-            
             entities.append(entity)
-        
+
         logger.info(f"Found {len(entities)} entities for concept type {concept_type_name}")
         return entities
     
-    def _extract_roles(self, graph):
+    def _extract_roles(self, graph, primary_ns=None):
         """Extract Role entities from the graph."""
         roles = []
         namespace = self._detect_namespace(graph)
@@ -447,6 +430,14 @@ class OntologyEntityService:
             # Get parent class (RDFS.subClassOf)
             parent_class = next(graph.objects(s, RDFS.subClassOf), None)
             parent_class_uri = str(parent_class) if parent_class else None
+
+            # Origin flag: entity URI starts with this ontology's primary namespace
+            is_from_base = False
+            try:
+                if primary_ns is not None and str(primary_ns):
+                    is_from_base = str(s).startswith(str(primary_ns))
+            except Exception:
+                is_from_base = False
             
             roles.append({
                 "id": str(s),
@@ -454,6 +445,7 @@ class OntologyEntityService:
                 "description": get_description(s),
                 "tier": safe_get_property(s, namespace.hasTier),
                 "parent_class": parent_class_uri,
+                "from_base": is_from_base,
                 "capabilities": [
                     {
                         "id": str(o),
