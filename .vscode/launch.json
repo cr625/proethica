@@ -27,7 +27,10 @@
                 "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
                 "EMBEDDING_MODEL": "text-embedding-3-small",
                 // Optional model selectors (reads ANTHROPIC_API_KEY/OPENAI_API_KEY from .env)
-                "ANTHROPIC_MODEL": "claude-sonnet-4-20250514"
+                "ANTHROPIC_MODEL": "claude-sonnet-4-20250514",
+                // Intermediate extraction toggles
+                "ENABLE_OBLIGATIONS_EXTRACTION": "true",
+                "ENABLE_PRINCIPLES_EXTRACTION": "true"
             },
             "cwd": "${workspaceFolder}"
         },
@@ -60,7 +63,10 @@
                 "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
                 "EMBEDDING_MODEL": "text-embedding-3-small",
                 // Optional model selectors (reads ANTHROPIC_API_KEY/OPENAI_API_KEY from .env)
-                "ANTHROPIC_MODEL": "claude-sonnet-4-20250514"
+                "ANTHROPIC_MODEL": "claude-sonnet-4-20250514",
+                // Intermediate extraction toggles
+                "ENABLE_OBLIGATIONS_EXTRACTION": "true",
+                "ENABLE_PRINCIPLES_EXTRACTION": "true"
             }
         },
         {

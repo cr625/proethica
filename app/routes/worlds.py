@@ -828,10 +828,30 @@ def generate_triples_direct(world_id, document_id):
 def manage_guideline_triples(world_id, guideline_id):
     """Display and manage triples for a guideline."""
     world = World.query.get_or_404(world_id)
-    
+
     from app.models.document import Document
     from app.models.guideline import Guideline
     guideline = Document.query.get_or_404(guideline_id)
+
+    # Cleanup: remove triples pointing to deleted guidelines (orphan records)
+    try:
+        from sqlalchemy import text as _text
+        del_sql = _text(
+                        """
+                        DELETE FROM entity_triples et
+                        WHERE et.entity_type = 'guideline_concept'
+                            AND et.guideline_id IS NOT NULL
+                            AND NOT EXISTS (
+                                SELECT 1 FROM guidelines g WHERE g.id = et.guideline_id
+                            )
+                        """
+        )
+        res = db.session.execute(del_sql)
+        if res.rowcount and res.rowcount > 0:
+            logger.info(f"Cleanup removed {res.rowcount} orphan guideline triples")
+        db.session.commit()
+    except Exception as _cleanup_err:
+        logger.debug(f"Guideline triple cleanup skipped/failed: {_cleanup_err}")
     
     # Check if document belongs to this world
     if guideline.world_id != world.id:
@@ -885,6 +905,20 @@ def manage_guideline_triples(world_id, guideline_id):
         
         # Add the duplicate check result to the triple
         triple.ontology_status = duplicate_result
+
+        # Also annotate whether subject/object concepts already exist independently
+        try:
+            subj_presence = duplicate_service.check_concept_presence(triple.subject)
+        except Exception:
+            subj_presence = {'in_ontology': False, 'in_database': False}
+        try:
+            obj_uri = None if triple.is_literal else (triple.object_uri or getattr(triple, 'object', None))
+            obj_presence = duplicate_service.check_concept_presence(obj_uri) if obj_uri else {'in_ontology': False, 'in_database': False}
+        except Exception:
+            obj_presence = {'in_ontology': False, 'in_database': False}
+        # Attach lightweight flags for template use
+        triple.subject_known = subj_presence
+        triple.object_known = obj_presence
         
         # Enhanced categorization logic
         if duplicate_result['in_ontology']:

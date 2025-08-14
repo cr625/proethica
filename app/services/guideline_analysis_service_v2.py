@@ -84,6 +84,120 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             # Phase 4: Generate semantic relationships
             relationships = self._discover_relationships(matched_concepts, content)
             logger.info(f"Phase 4: Discovered {len(relationships)} relationships")
+
+            # Phase 4b (optional, modular pass): Obligations extraction and linking
+            try:
+                from app import config as app_config
+            except Exception:
+                app_config = None
+            enable_ob = False
+            if app_config and hasattr(app_config, 'ENABLE_OBLIGATIONS_EXTRACTION'):
+                enable_ob = bool(getattr(app_config, 'ENABLE_OBLIGATIONS_EXTRACTION'))
+            elif os.environ.get('ENABLE_OBLIGATIONS_EXTRACTION'):
+                enable_ob = os.environ.get('ENABLE_OBLIGATIONS_EXTRACTION', 'false').lower() in ('1','true','yes')
+
+            if enable_ob:
+                try:
+                    from app.services.extraction.obligations import ObligationsExtractor, ObligationsLinker, SimpleObligationMatcher
+                    from app.services.extraction.base import NoopPostProcessor
+                except Exception as imp_err:
+                    logger.debug(f"Obligations module not available: {imp_err}\n")
+                else:
+                    provider = None
+                    if app_config and hasattr(app_config, 'OBLIGATIONS_EXTRACTOR_PROVIDER'):
+                        provider = getattr(app_config, 'OBLIGATIONS_EXTRACTOR_PROVIDER')
+                    extractor = ObligationsExtractor(provider=provider)
+                    post = NoopPostProcessor()
+                    matcher = SimpleObligationMatcher()
+
+                    ob_raw = extractor.extract(content, world_id=world_id, guideline_id=guideline_id) or []
+                    ob_clean = post.process(ob_raw)
+                    ob_matches = matcher.match(ob_clean, world_id=world_id)
+
+                    # Merge matches for linking perspective (roles + obligations)
+                    link_input = []
+                    # Convert existing matched_concepts (dicts) into MatchedConcept-like dicts where we have URIs
+                    for c in matched_concepts:
+                        if c.get('ontology_match') and c['ontology_match'].get('uri'):
+                            # shim into the fields obligations linker expects
+                            link_input.append(type('MC', (), {
+                                'candidate': type('Cand', (), {
+                                    'primary_type': (c.get('type') or c.get('primary_type'))
+                                })(),
+                                'ontology_match': {'uri': c['ontology_match']['uri']}
+                            }))
+
+                    link_input.extend(ob_matches)
+
+                    linker = ObligationsLinker()
+                    new_triples = linker.link(link_input, world_id=world_id, guideline_id=guideline_id)
+                    # Map to the format used by _save_semantic_triples
+                    rel_triples = [
+                        {
+                            'subject': t.subject_uri,
+                            'predicate': self.PREDICATES.get('hasObligation', 'http://proethica.org/ontology/intermediate#hasObligation'),
+                            'object': t.object_uri,
+                            'confidence': 1.0,
+                            'inference_type': 'extracted',
+                            'explanation': ''
+                        }
+                        for t in new_triples
+                    ]
+                    relationships.extend(rel_triples)
+                    logger.info(f"Obligations pass added {len(rel_triples)} hasObligation triples")
+
+            # Phase 4c (optional): Principles extraction and linking
+            enable_pr = False
+            if app_config and hasattr(app_config, 'ENABLE_PRINCIPLES_EXTRACTION'):
+                enable_pr = bool(getattr(app_config, 'ENABLE_PRINCIPLES_EXTRACTION'))
+            elif os.environ.get('ENABLE_PRINCIPLES_EXTRACTION'):
+                enable_pr = os.environ.get('ENABLE_PRINCIPLES_EXTRACTION', 'false').lower() in ('1','true','yes')
+
+            if enable_pr:
+                try:
+                    from app.services.extraction.principles import PrinciplesExtractor, SimplePrincipleMatcher, PrinciplesLinker
+                    from app.services.extraction.base import NoopPostProcessor
+                except Exception as imp_err:
+                    logger.debug(f"Principles module not available: {imp_err}\n")
+                else:
+                    pr_provider = None
+                    if app_config and hasattr(app_config, 'PRINCIPLES_EXTRACTOR_PROVIDER'):
+                        pr_provider = getattr(app_config, 'PRINCIPLES_EXTRACTOR_PROVIDER')
+                    pr_extractor = PrinciplesExtractor(provider=pr_provider)
+                    pr_post = NoopPostProcessor()
+                    pr_matcher = SimplePrincipleMatcher()
+
+                    pr_raw = pr_extractor.extract(content, world_id=world_id, guideline_id=guideline_id) or []
+                    pr_clean = pr_post.process(pr_raw)
+                    pr_matches = pr_matcher.match(pr_clean, world_id=world_id)
+
+                    # Prepare link input including roles from matched_concepts
+                    pr_link_input = []
+                    for c in matched_concepts:
+                        if c.get('ontology_match') and c['ontology_match'].get('uri'):
+                            pr_link_input.append(type('MC', (), {
+                                'candidate': type('Cand', (), {
+                                    'primary_type': (c.get('type') or c.get('primary_type'))
+                                })(),
+                                'ontology_match': {'uri': c['ontology_match']['uri']}
+                            }))
+                    pr_link_input.extend(pr_matches)
+
+                    pr_linker = PrinciplesLinker()
+                    pr_triples = pr_linker.link(pr_link_input, world_id=world_id, guideline_id=guideline_id)
+                    pr_rel_triples = [
+                        {
+                            'subject': t.subject_uri,
+                            'predicate': self.PREDICATES.get('adheresToPrinciple', 'http://proethica.org/ontology/intermediate#adheresToPrinciple'),
+                            'object': t.object_uri,
+                            'confidence': 1.0,
+                            'inference_type': 'extracted',
+                            'explanation': ''
+                        }
+                        for t in pr_triples
+                    ]
+                    relationships.extend(pr_rel_triples)
+                    logger.info(f"Principles pass added {len(pr_rel_triples)} adheresToPrinciple triples")
             
             result = {
                 'success': True,

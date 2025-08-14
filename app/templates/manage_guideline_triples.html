@@ -240,6 +240,11 @@
                   </td>
                   <td>
                     <small class="text-muted">{{ triple.subject_label or triple.subject }}</small>
+                    {% if triple.subject_known and (triple.subject_known.in_ontology or triple.subject_known.in_database) %}
+                      <span class="badge bg-secondary ms-1" title="Subject exists in ontology/database">
+                        <i class="fas fa-check"></i> Known Subject
+                      </span>
+                    {% endif %}
                   </td>
                   <td>
                     {% if triple.object_label %}
@@ -248,6 +253,11 @@
                       <em>{{ triple.object_literal }}</em>
                     {% else %}
                       <small class="text-muted">{{ triple.object_uri }}</small>
+                    {% endif %}
+                    {% if triple.object_known and (triple.object_known.in_ontology or triple.object_known.in_database) %}
+                      <span class="badge bg-secondary ms-1" title="Object exists in ontology/database">
+                        <i class="fas fa-check"></i> Known Object
+                      </span>
                     {% endif %}
                   </td>
                   <td>

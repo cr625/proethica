@@ -74,7 +74,7 @@ def generate_triples_direct(world_id, document_id):
         
         # Get ontology source from world
         ontology_source = world.ontology_source if world.ontology_source else 'engineering-ethics'
-        
+
         # Always extract ontology terms from text for Stage 2 (not from saved concepts)
         triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
             guideline_text=guideline.content,
@@ -82,7 +82,7 @@ def generate_triples_direct(world_id, document_id):
             guideline_id=actual_guideline_id or guideline.id,
             ontology_source=ontology_source
         )
-                    
+
         if triples_result.get('success'):
             triple_count = triples_result.get('triple_count', 0)
             
@@ -110,6 +110,22 @@ def generate_triples_direct(world_id, document_id):
             if 'triples' in triples_result:
                 unique_triples = triples_result.get('unique_triples', triples_result['triples'])
                 duplicate_count = triples_result.get('duplicate_count', 0)
+
+                # Augment with concept presence to avoid flagging known Role links as "brand new"
+                try:
+                    from app.services.triple_duplicate_detection_service import get_duplicate_detection_service
+                    dupsvc = get_duplicate_detection_service()
+                    for t in unique_triples:
+                        subj = t.get('subject') or t.get('subject_uri')
+                        obj = t.get('object_uri') if 'object_uri' in t else (None if t.get('is_literal') else t.get('object'))
+                        pres_s = dupsvc.check_concept_presence(subj)
+                        pres_o = dupsvc.check_concept_presence(obj)
+                        meta = t.setdefault('triple_metadata', {}) if isinstance(t.get('triple_metadata'), dict) else {}
+                        meta['subject_known'] = pres_s
+                        meta['object_known'] = pres_o
+                        t['triple_metadata'] = meta
+                except Exception:
+                    logger.debug("Concept presence augmentation failed; continuing")
 
                 # Infer Role -> (Principle|Obligation|End|Code) links from extracted triples
                 try:
@@ -229,7 +245,7 @@ def generate_triples_direct(world_id, document_id):
             db.session.commit()
             term_count = triples_result.get('term_count', triple_count // 2)
             unique_count = len(unique_triples)
-            
+
             if duplicate_count > 0:
                 flash(f'Successfully extracted {term_count} ontology terms ({unique_count} new triples, {duplicate_count} duplicates skipped)', 'success')
             else:
