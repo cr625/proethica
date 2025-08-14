@@ -137,6 +137,38 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Relationship Triples</h5>
+                    {% if semantic_triple_count and semantic_triple_count > 0 %}
+                        <span class="badge bg-light text-dark">{{ semantic_triple_count }} found</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">None yet</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">These are role-centric links like hasObligation, adheresToPrinciple, pursuesEnd, and governedByCode discovered during extraction.</p>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-primary" href="{{ url_for('worlds.manage_guideline_triples', world_id=world.id, guideline_id=document_id) }}">
+                            <i class="fas fa-project-diagram"></i> Review Triples
+                        </a>
+                        <form method="post" action="{{ url_for('worlds.world_backfill_triples', world_id=world.id) }}">
+                            {% if csrf_token %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />{% endif %}
+                            <button type="submit" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync"></i> Backfill from Cache
+                            </button>
+                        </form>
+                        <a class="btn btn-outline-success" href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=document_id) }}">
+                            <i class="fas fa-magic"></i> Re-Extract with Relationships
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Form for adding concepts to engineering-ethics ontology -->
     {% if not auto_added %}
     <form method="post"

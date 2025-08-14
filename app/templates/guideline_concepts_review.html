@@ -300,6 +300,44 @@
                               {% endif %}
                             </small>
                           </div>
+                          {% if actual_type|lower == 'role' and concept.suggested_links %}
+                          <div class="suggested-links mt-2">
+                            <small class="text-muted d-block mb-1"><i class="bi bi-link-45deg"></i> Suggested links</small>
+                            {% set links = concept.suggested_links %}
+                            {% if links.obligations and links.obligations|length > 0 %}
+                              <div class="mb-1">
+                                <small class="d-block"><strong class="text-warning">Obligations:</strong></small>
+                                {% for item in links.obligations %}
+                                  <span class="badge bg-warning text-dark me-1 mb-1" title="{{ (item.confidence * 100)|round|int if item.confidence is not none else '' }}%">{{ item.label }}</span>
+                                {% endfor %}
+                              </div>
+                            {% endif %}
+                            {% if links.principles and links.principles|length > 0 %}
+                              <div class="mb-1">
+                                <small class="d-block"><strong class="text-success">Principles:</strong></small>
+                                {% for item in links.principles %}
+                                  <span class="badge bg-success me-1 mb-1" title="{{ (item.confidence * 100)|round|int if item.confidence is not none else '' }}%">{{ item.label }}</span>
+                                {% endfor %}
+                              </div>
+                            {% endif %}
+                            {% if links.ends and links.ends|length > 0 %}
+                              <div class="mb-1">
+                                <small class="d-block"><strong class="text-info">Ends:</strong></small>
+                                {% for item in links.ends %}
+                                  <span class="badge bg-info text-dark me-1 mb-1" title="{{ (item.confidence * 100)|round|int if item.confidence is not none else '' }}%">{{ item.label }}</span>
+                                {% endfor %}
+                              </div>
+                            {% endif %}
+                            {% if links.codes and links.codes|length > 0 %}
+                              <div class="mb-1">
+                                <small class="d-block"><strong class="text-secondary">Codes:</strong></small>
+                                {% for item in links.codes %}
+                                  <span class="badge bg-secondary me-1 mb-1" title="{{ (item.confidence * 100)|round|int if item.confidence is not none else '' }}%">{{ item.label }}</span>
+                                {% endfor %}
+                              </div>
+                            {% endif %}
+                          </div>
+                          {% endif %}
                           
                           <!-- Show if user has made manual changes -->
                           <div class="manual-change-indicator" style="display: none;">

@@ -63,7 +63,7 @@
 :Resource rdf:type owl:Class ;
     rdf:type :EntityType ;
     rdf:type :GuidelineConceptType ;
-    rdfs:subClassOf bfo:BFO_0000040 ; # material entity from BFO
+    rdfs:subClassOf bfo:BFO_0000001 ; # entity (allows both material and informational resources)
     rdfs:label "Resource"@en ;
     rdfs:comment "A physical or informational entity used in ethical scenarios. Examples include Technical Specifications, Safety Equipment, Project Budget, Design Documents."@en .
 
@@ -138,14 +138,16 @@
 # Common Ethical Concepts
 :EthicalDilemma rdf:type owl:Class ;
     rdf:type :EntityType ;
-    rdfs:subClassOf bfo:BFO_0000144 ; # process aggregate
+    rdfs:subClassOf :State ; # treat dilemmas as contextual states for decision-making
     rdfs:label "Ethical Dilemma"@en ;
     rdfs:comment "A situation involving a difficult ethical choice between competing moral considerations that applies across all professional domains"@en .
 
 :EthicalPrinciple rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant
     rdfs:label "Ethical Principle"@en ;
-    rdfs:comment "A fundamental ethical value or norm that guides behavior"@en .
+    rdfs:comment "Legacy synonym for Principle. Use :Principle for new concepts."@en ;
+    owl:deprecated true ;
+    rdfs:seeAlso :Principle .
 
 :ProfessionalObligation rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000017 ; # realizable entity
@@ -158,20 +160,40 @@
     rdf:type :EntityType ;
     rdfs:subClassOf :Role ;
     rdfs:label "Engineer Role"@en ;
-    rdfs:comment "A professional role involving engineering practice and responsibilities"@en .
+    rdfs:comment "A professional role involving engineering practice and responsibilities"@en ;
+    rdfs:subClassOf :ProfessionalRole .
 
 # Role specializations for classification of roles mentioned in guidelines and cases
 :ProfessionalRole rdf:type owl:Class ;
     rdf:type :EntityType ;
     rdfs:subClassOf :Role ;
     rdfs:label "Professional Role"@en ;
-    rdfs:comment "A role within a profession that entails recognized ends/goals of practice (e.g., safeguarding public safety, delivering competent technical solutions) and a coherent set of obligations codified in standards and codes (e.g., NSPE). Often associated with licensure or formal accountability. Examples: Professional Engineer, Project Manager, Public Official."@en .
+        rdfs:comment "A role within a profession that entails recognized ends/goals of practice (e.g., safeguarding public safety, delivering competent technical solutions) and a coherent set of obligations codified in standards and codes (e.g., NSPE). Often associated with licensure or formal accountability. Examples: Professional Engineer, Project Manager, Public Official."@en ;
+        # Professional roles characteristically bear obligations and are governed by codes
+        rdfs:subClassOf [ a owl:Restriction ;
+                                         owl:onProperty :hasObligation ;
+                                         owl:someValuesFrom :Obligation
+                                     ] ;
+        rdfs:subClassOf [ a owl:Restriction ;
+                                         owl:onProperty :governedByCode ;
+                                         owl:someValuesFrom :EthicalCode
+                                     ] .
 
 :ParticipantRole rdf:type owl:Class ;
     rdf:type :EntityType ;
     rdfs:subClassOf :Role ;
     rdfs:label "Participant Role"@en ;
     rdfs:comment "A role of an involved party or stakeholder that does not itself establish professional obligations (e.g., Client, The Public, Community Member)."@en .
+
+# Alias for clarity when classifying roles extracted from text
+:StakeholderRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :ParticipantRole ;
+    rdfs:label "Stakeholder Role"@en ;
+    rdfs:comment "A participant role borne by stakeholders such as Clients, Employers, and the Public. Typically not the bearer of professional obligations, but may be linked to principles in explicit statements."@en .
+
+# Keep ProfessionalRole and ParticipantRole disjoint to avoid mixing semantics
+:ProfessionalRole owl:disjointWith :ParticipantRole .
 
 # Ends / Goals of roles
 :End rdf:type owl:Class ;

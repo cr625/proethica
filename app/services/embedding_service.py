@@ -28,10 +28,16 @@ class EmbeddingService:
         self.model_name = model_name or os.environ.get("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
         
         # Provider priority (configurable through environment)
+        # Determine default priority: if any hosted API key exists, prefer hosted first unless overridden
+        any_hosted_key = any([
+            bool(os.environ.get("OPENAI_API_KEY")),
+            bool(os.environ.get("ANTHROPIC_API_KEY")),
+            bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        ])
+        default_priority = "openai,gemini,claude,local" if any_hosted_key else "local,openai,gemini,claude"
         self.provider_priority = os.environ.get(
             "EMBEDDING_PROVIDER_PRIORITY",
-            # Default keeps current behavior; set to "openai,gemini,claude,local" to prefer hosted
-            "local,claude,openai"
+            default_priority
         ).lower().split(',')
         
         # Model dimensions (these will be used if embeddings need to be generated from scratch)
@@ -50,7 +56,7 @@ class EmbeddingService:
         else:
             self.embedding_dimension = embedding_dimension or 384  # Fallback
         
-        # Provider setup and validation
+    # Provider setup and validation
         self.providers = {}
         self._setup_providers()
         
@@ -250,19 +256,23 @@ class EmbeddingService:
     
     def _setup_providers(self):
         """Initialize and validate all configured providers."""
+        # Emit basic diagnostics for priority and switches
+        priority_str = ",".join(self.provider_priority)
+        disable_local = os.environ.get("DISABLE_LOCAL_EMBEDDINGS", "false").lower() in ("1", "true", "yes")
+        print(f"Embedding providers priority: {priority_str} | DISABLE_LOCAL_EMBEDDINGS={disable_local}")
         # Local model setup
-        if "local" in self.provider_priority:
+        if "local" in self.provider_priority and not disable_local:
             try:
                 from sentence_transformers import SentenceTransformer
                 import torch
-                
+
                 # Configure offline mode to avoid HuggingFace Hub requests
                 os.environ["HF_HUB_OFFLINE"] = "1"
                 os.environ["TRANSFORMERS_OFFLINE"] = "1"
                 # Device selection with CPU fallback option
                 requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
                 device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
-                
+
                 self.providers["local"] = {
                     "model": SentenceTransformer(self.model_name, local_files_only=True, device=device),
                     "available": True,
@@ -271,9 +281,39 @@ class EmbeddingService:
                 }
                 print(f"Local embedding provider ready: {self.model_name} (device={device})")
             except Exception as e:
-                print(f"Local embedding provider unavailable: {str(e)}")
-                self.providers["local"] = {"available": False}
-        
+                # If we hit a meta-tensor or device move issue, mark local unavailable and proceed
+                err_msg = str(e)
+                # Optional fallback: allow one-time download if cache is missing
+                allow_dl = os.environ.get("ALLOW_HF_DOWNLOAD", "false").lower() in ("1", "true", "yes")
+                tried_download = False
+                if allow_dl:
+                    try:
+                        from sentence_transformers import SentenceTransformer
+                        # Reconfigure to allow online download
+                        os.environ["HF_HUB_OFFLINE"] = "0"
+                        os.environ["TRANSFORMERS_OFFLINE"] = "0"
+                        import torch
+                        requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
+                        device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
+                        print("Local embedding provider: attempting online download of model (ALLOW_HF_DOWNLOAD=true)")
+                        model = SentenceTransformer(self.model_name, local_files_only=False, device=device)
+                        self.providers["local"] = {
+                            "model": model,
+                            "available": True,
+                            "dimension": self.dimensions["local"],
+                            "device": device
+                        }
+                        print(f"Local embedding provider ready after download: {self.model_name} (device={device})")
+                        tried_download = True
+                    except Exception as e2:
+                        print(f"Local embedding provider download failed: {str(e2)}")
+                if not tried_download:
+                    if "meta" in err_msg.lower() and "tensor" in err_msg.lower():
+                        print("Local embedding provider unavailable due to meta-tensor issue; disabling local embeddings for this session")
+                    else:
+                        print(f"Local embedding provider unavailable: {err_msg}")
+                    self.providers["local"] = {"available": False, "reason": err_msg}
+
         # Claude API setup
         if "claude" in self.provider_priority:
             api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -288,8 +328,8 @@ class EmbeddingService:
                 print(f"Claude embedding provider ready: {self.providers['claude']['model']} (API key: {api_key[:5]}...{api_key[-4:]})")
             else:
                 print(f"Claude embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
-                self.providers["claude"] = {"available": False}
-        
+                self.providers["claude"] = {"available": False, "reason": "invalid_api_key"}
+
         # OpenAI API setup
         if "openai" in self.provider_priority:
             # Get API key from .env file - read the actual .env variable
@@ -299,13 +339,13 @@ class EmbeddingService:
                     "api_key": api_key,
                     "available": True,
                     "api_base": os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1"),
-                    "model": os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"),
+                    "model": os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
                     "dimension": self.dimensions["openai"]
                 }
                 print(f"OpenAI embedding provider ready: {self.providers['openai']['model']} (API key: {api_key[:5]}...{api_key[-4:]})")
             else:
                 print(f"OpenAI embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
-                self.providers["openai"] = {"available": False}
+                self.providers["openai"] = {"available": False, "reason": "invalid_api_key"}
 
         # Gemini API setup (Google Generative Language API)
         if "gemini" in self.provider_priority:
@@ -321,7 +361,7 @@ class EmbeddingService:
                 print("Gemini embedding provider ready: text-embedding-004")
             else:
                 print("Gemini embedding provider unavailable: Missing or invalid API key")
-                self.providers["gemini"] = {"available": False}
+                self.providers["gemini"] = {"available": False, "reason": "invalid_api_key"}
                 
     def get_embedding(self, text: str) -> List[float]:
         """
@@ -364,7 +404,12 @@ class EmbeddingService:
                 continue
         
         # Fallback to random if all providers fail
-        print("Warning: All embedding providers failed. Using random embeddings.")
+        try:
+            states = {p: (self.providers.get(p, {}).get("available", False)) for p in self.provider_priority}
+            reasons = {p: self.providers.get(p, {}).get("reason") for p in self.provider_priority}
+            print(f"Warning: All embedding providers failed. Using random embeddings. States={states} Reasons={reasons}")
+        except Exception:
+            print("Warning: All embedding providers failed. Using random embeddings.")
         return self._get_random_embedding()
     
     def _get_local_embedding(self, text: str) -> List[float]:

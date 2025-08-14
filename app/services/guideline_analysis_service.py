@@ -315,6 +315,69 @@ class GuidelineAnalysisService:
                 concepts_merged = list(merged.values())
                 concepts_final = self._prioritize_and_enrich_roles(concepts_merged)
                 logger.info(f"Gemini extraction debug: {debug_info}")
+                # If Gemini produced no concepts, fall back to MCP server call
+                if not concepts_final:
+                    try:
+                        mcp_url = self.mcp_client.mcp_url
+                        if mcp_url:
+                            logger.info("Gemini returned 0 concepts; attempting MCP fallback extract_guideline_concepts")
+                            response = requests.post(
+                                f"{mcp_url}/jsonrpc",
+                                json={
+                                    "jsonrpc": "2.0",
+                                    "method": "call_tool",
+                                    "params": {
+                                        "name": "extract_guideline_concepts",
+                                        "arguments": {
+                                            "content": content[:50000],
+                                            "ontology_source": None,
+                                            "concept_types": list(concept_types.keys())
+                                        }
+                                    },
+                                    "id": 1
+                                },
+                                timeout=60
+                            )
+                            if response.status_code == 200:
+                                result = response.json()
+                                if "result" in result and "concepts" in result["result"]:
+                                    concepts = result["result"]["concepts"]
+                                    # Normalize types and enrich like in the MCP-first branch
+                                    valid_types = set(concept_types.keys())
+                                    for concept in concepts:
+                                        original_type = concept.get("type") or concept.get("category")
+                                        concept["type"] = original_type
+                                        if original_type not in valid_types:
+                                            mapping_result = self.type_mapper.map_concept_type(
+                                                llm_type=original_type,
+                                                concept_description=concept.get("description", ""),
+                                                concept_name=concept.get("label", "")
+                                            )
+                                            concept["original_llm_type"] = original_type
+                                            concept["type"] = mapping_result.mapped_type
+                                            concept["type_mapping_confidence"] = mapping_result.confidence
+                                            concept["needs_type_review"] = mapping_result.needs_review
+                                            concept["mapping_justification"] = mapping_result.justification
+                                            concept["semantic_label"] = mapping_result.semantic_label
+                                            concept["mapping_source"] = mapping_result.mapping_source
+                                        else:
+                                            concept["original_llm_type"] = original_type
+                                            concept["type_mapping_confidence"] = 1.0
+                                            concept["needs_type_review"] = False
+                                            concept["mapping_justification"] = f"Exact match to ontology type '{original_type}'"
+                                            concept["semantic_label"] = original_type
+                                            concept["mapping_source"] = "exact_match"
+                                    # Heuristic augmentation if category-only
+                                    if self._looks_category_only(concepts):
+                                        roles = self._extract_roles_heuristic(content)
+                                        if roles:
+                                            concepts.extend(roles)
+                                    concepts_final = self._prioritize_and_enrich_roles(concepts)
+                                    debug_info["provider"] = "gemini->mcp_fallback"
+                                    logger.info("MCP fallback produced %d concepts", len(concepts_final))
+                                    return {"concepts": concepts_final, "debug_info": debug_info}
+                    except Exception as fb_err:
+                        logger.warning(f"MCP fallback after Gemini failure errored: {fb_err}")
                 return {"concepts": concepts_final, "debug_info": debug_info}
             else:
                 # Non-Gemini path remains as before
@@ -520,6 +583,11 @@ class GuidelineAnalysisService:
             return False
 
         cleaned: List[Dict[str, Any]] = []
+        stakeholder_terms = {
+            'client', 'clients', 'employer', 'employers', 'public', 'customer', 'customers', 'user', 'users',
+            'community', 'communities', 'supplier', 'suppliers', 'vendor', 'vendors', 'regulator', 'regulators',
+            'authority', 'authorities', 'government', 'governments', 'stakeholder', 'stakeholders'
+        }
         for c in concepts:
             t = (c.get('type') or c.get('primary_type') or '').lower()
             if t != 'role':
@@ -529,6 +597,16 @@ class GuidelineAnalysisService:
             if looks_like_role(label):
                 cleaned.append(c)
             else:
+                # Treat common stakeholders as roles (stakeholder classification)
+                lbl_norm = (label or '').strip().lower()
+                if lbl_norm in stakeholder_terms:
+                    c2 = dict(c)
+                    c2['type'] = 'role'
+                    c2['role_classification'] = c2.get('role_classification') or 'stakeholder'
+                    c2['mapping_justification'] = 'semantic_guard: preserved as stakeholder role for scenario participation'
+                    c2['needs_type_review'] = False
+                    cleaned.append(c2)
+                    continue
                 # Reclassify obvious non-roles if we can infer; otherwise drop and mark
                 text = f"{label} {c.get('description','')}".lower()
                 new_type = None

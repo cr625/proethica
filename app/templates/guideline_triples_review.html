@@ -43,6 +43,7 @@
         <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
         <input type="hidden" name="selected_concept_indices" value="{{ selected_concept_indices }}" />
         <input type="hidden" name="triples_data" id="triples_data" data-triples="{{ triples_json }}" value="" />
+    <input type="hidden" name="next_action" id="next_action" value="" />
 
         <div class="row mb-4">
             <div class="col">
@@ -159,14 +160,43 @@
             </div>
         </div>
 
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card border-secondary">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Ontology Relations Guidance</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">Common relationship predicates from the intermediate ontology (role-centric):</p>
+                        <ul class="mb-0">
+                            <li><code>intermediate#hasObligation</code> — Attach obligations to professional/agent roles.</li>
+                            <li><code>intermediate#adheresToPrinciple</code> — Link roles to ethical principles they should adhere to.</li>
+                            <li><code>intermediate#pursuesEnd</code> — Link roles to ends/outcomes they aim to achieve.</li>
+                            <li><code>intermediate#governedByCode</code> — Link roles to codes/standards/policies that govern them.</li>
+                        </ul>
+                        <small class="text-muted d-block mt-2">Note: If your selected concepts aren’t roles, these predicates may not apply. You can still save label/description/type triples and revisit relationships later.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-between">
-            <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
-                class="btn btn-secondary">Cancel</a>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+                    class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Concepts Review</a>
+                <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
+                    class="btn btn-secondary">Cancel</a>
+            </div>
 
             {% if triples %}
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Save Selected Triples
-            </button>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Selected Triples
+                </button>
+                <button type="submit" class="btn btn-success" id="saveAndViewRolesBtn">
+                    <i class="fas fa-share-square"></i> Save and View Role Suggestions
+                </button>
+            </div>
             {% else %}
             <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
                 class="btn btn-primary">
@@ -196,6 +226,15 @@
         form.addEventListener('submit', function (e) {
             triplesDataInput.value = triplesJson;
         });
+
+        // Save and view role suggestions
+        const nextActionInput = document.getElementById('next_action');
+        const saveAndViewBtn = document.getElementById('saveAndViewRolesBtn');
+        if (saveAndViewBtn) {
+            saveAndViewBtn.addEventListener('click', function() {
+                nextActionInput.value = 'view_roles';
+            });
+        }
 
         // Select all triples
         selectAllBtn.addEventListener('click', function () {

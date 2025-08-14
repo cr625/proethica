@@ -5,6 +5,7 @@ without trying to match them to the ontology or generate triples.
 """
 
 from flask import render_template, flash, redirect, url_for, jsonify, session
+from slugify import slugify
 import traceback
 import json
 import logging
@@ -22,6 +23,12 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
     This bypasses the matching and triples generation steps to just show what was extracted.
     """
     try:
+        # Make sure no stale aborted transaction is lingering from a prior op in this request
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
         guideline = Document.query.get_or_404(document_id)
         
         # Check if document belongs to this world
@@ -82,7 +89,7 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         concepts_result = enhanced_service.extract_concepts_v2(
             content=content, 
             guideline_id=document_id, 
-            world_id=world.id
+            world_id=id  # avoid accessing possibly expired world object
         )
         logger.info(f"V2 extraction result keys: {list(concepts_result.keys())}")
         
@@ -98,6 +105,7 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         
         # Get the extracted concepts with match information
         concepts_list = concepts_result.get("concepts", [])
+        relationships = concepts_result.get("relationships", [])
         term_candidates = concepts_result.get("term_candidates", [])
         stats = concepts_result.get("stats", {})
         
@@ -107,6 +115,51 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
             logger.info(f"Found {stats.get('matched_concepts', 0)} existing ontology matches")
             logger.info(f"Identified {stats.get('new_terms', 0)} new term candidates")
         
+        # Enrich concepts with suggested links (for roles)
+        try:
+            def gen_uri(label: str) -> str:
+                return f"http://proethica.ai/ontology#{slugify(label or '', separator='_')}"
+
+            # Map URIs to labels/types from the concept list
+            uri_to_info = {}
+            for c in concepts_list:
+                uri = (c.get('ontology_match') or {}).get('uri') or gen_uri(c.get('label', ''))
+                uri_to_info[uri] = {
+                    'label': c.get('label', uri.split('#')[-1]),
+                    'type': (c.get('type') or c.get('primary_type') or '').lower() or 'concept'
+                }
+
+            # Aggregate suggestions by subject
+            by_subject = {}
+            for r in relationships or []:
+                subj = r.get('subject') or r.get('subject_uri')
+                obj = r.get('object') or r.get('object_uri')
+                pred = r.get('predicate', '')
+                if not subj or not obj or not pred:
+                    continue
+                by_subject.setdefault(subj, {'obligations': [], 'principles': [], 'ends': [], 'codes': []})
+                bucket = None
+                if pred.endswith('#hasObligation'):
+                    bucket = 'obligations'
+                elif pred.endswith('#adheresToPrinciple'):
+                    bucket = 'principles'
+                elif pred.endswith('#pursuesEnd'):
+                    bucket = 'ends'
+                elif pred.endswith('#governedByCode'):
+                    bucket = 'codes'
+                if bucket:
+                    info = uri_to_info.get(obj, {'label': obj.split('#')[-1], 'type': 'concept'})
+                    by_subject[subj][bucket].append({
+                        'label': info['label'], 'uri': obj, 'type': info['type'], 'confidence': r.get('confidence')
+                    })
+
+            for c in concepts_list:
+                if (c.get('type') or c.get('primary_type') or '').lower() == 'role':
+                    uri = (c.get('ontology_match') or {}).get('uri') or gen_uri(c.get('label', ''))
+                    c['suggested_links'] = by_subject.get(uri)
+        except Exception as enrich_err:
+            logger.warning(f"Could not enrich concepts with suggested links: {enrich_err}")
+
         # Log warning if concepts are missing enhanced fields but don't modify them
         for concept in concepts_list:
             if 'is_new' not in concept and 'ontology_match' not in concept:
@@ -135,8 +188,10 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
             if not guideline.doc_metadata:
                 guideline.doc_metadata = {}
             
-            # Store the concepts
+            # Store the concepts and discovered relationships
             guideline.doc_metadata['extracted_concepts'] = concepts_list
+            guideline.doc_metadata['extracted_relationships'] = relationships or []
+            guideline.doc_metadata['extraction_stats'] = stats or {}
             guideline.doc_metadata['extraction_timestamp'] = datetime.utcnow().isoformat()
             
             # Mark the field as modified for SQLAlchemy
@@ -150,11 +205,11 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
             # Verify it was saved
             db.session.refresh(guideline)
             saved_concepts = guideline.doc_metadata.get('extracted_concepts', [])
-            logger.info(f"Verified: {len(saved_concepts)} concepts saved to database")
+            saved_relationships = guideline.doc_metadata.get('extracted_relationships', [])
+            logger.info(f"Verified: {len(saved_concepts)} concepts and {len(saved_relationships)} relationships saved to database")
             
         except Exception as cache_error:
             logger.error(f"Failed to cache concepts in document metadata: {cache_error}")
-            import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
         
         # Skip session storage to avoid cookie size limits
@@ -173,6 +228,7 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                world=world, 
                                guideline=guideline,
                                concepts=concepts_list,
+                               relationships=relationships,
                                term_candidates=term_candidates,
                                stats=stats,
                                world_id=world.id,

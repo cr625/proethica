@@ -19,7 +19,15 @@
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
                 "PYTHONPATH": "${workspaceFolder}",
-                "PATH": "${env:PATH}"
+                "PATH": "${env:PATH}",
+                // Embedding + LLM toggles (keys live in .env)
+                "DISABLE_LOCAL_EMBEDDINGS": "false",
+                "ALLOW_HF_DOWNLOAD": "true",
+                "EMBEDDINGS_DEVICE": "cpu",
+                "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
+                "EMBEDDING_MODEL": "text-embedding-3-small",
+                // Optional model selectors (reads ANTHROPIC_API_KEY/OPENAI_API_KEY from .env)
+                "ANTHROPIC_MODEL": "claude-sonnet-4-20250514"
             },
             "cwd": "${workspaceFolder}"
         },
@@ -44,7 +52,15 @@
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
                 "PYTHONPATH": "${workspaceFolder}",
-                "PATH": "${env:PATH}"
+                "PATH": "${env:PATH}",
+                // Embedding + LLM toggles (keys live in .env)
+                "DISABLE_LOCAL_EMBEDDINGS": "false",
+                "ALLOW_HF_DOWNLOAD": "true",
+                "EMBEDDINGS_DEVICE": "cpu",
+                "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
+                "EMBEDDING_MODEL": "text-embedding-3-small",
+                // Optional model selectors (reads ANTHROPIC_API_KEY/OPENAI_API_KEY from .env)
+                "ANTHROPIC_MODEL": "claude-sonnet-4-20250514"
             }
         },
         {

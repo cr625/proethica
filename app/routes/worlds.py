@@ -22,6 +22,7 @@ from app.services.ontology_entity_service import OntologyEntityService
 from app.services.guideline_analysis_service import GuidelineAnalysisService
 from app.services.guideline_concept_integration_service import GuidelineConceptIntegrationService
 from app.models.entity_triple import EntityTriple
+from app.services.role_property_suggestions import RolePropertySuggestionsService
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -1135,6 +1136,7 @@ def analyze_guideline(id, document_id):
     """Analyze a guideline document and extract ontology concepts."""
     # Import the direct extraction function
     from app.routes.worlds_direct_concepts import direct_concept_extraction
+    from app.services.role_property_suggestions import RolePropertySuggestionsService
     
     # Get world object
     world = World.query.get_or_404(id)
@@ -1148,7 +1150,13 @@ def extract_and_display_concepts(id, document_id):
     try:
         # Import the direct concept extraction function
         from app.routes.worlds_direct_concepts import direct_concept_extraction
-        
+        # Reset any failed transaction state before starting DB work
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+
         world = World.query.get_or_404(id)
         
         logger.info(f"Attempting to extract concepts for world {id}, document {document_id}")
@@ -1402,6 +1410,28 @@ def guideline_processing_error(world_id, document_id):
         logger.exception(f"Error in error handler: {str(e)}")
         flash(f"An unexpected error occurred: {str(e)}", "error")
         return redirect(url_for('worlds.list_worlds'))
+@worlds_bp.route('/<int:world_id>/roles/property_suggestions', methods=['GET'])
+def world_role_property_suggestions(world_id):
+    """Return aggregated role property suggestions for a world as JSON."""
+    try:
+        world = World.query.get_or_404(world_id)
+        data = RolePropertySuggestionsService.build_for_world(world.id)
+        return jsonify(data)
+    except Exception as e:
+        logger.exception(f"Error building role property suggestions: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@worlds_bp.route('/<int:world_id>/roles/backfill_triples', methods=['POST'])
+def world_backfill_triples(world_id):
+    """Backfill guideline_semantic_triples from cached relationships for this world."""
+    try:
+        world = World.query.get_or_404(world_id)
+        from app.services.role_property_suggestions import RolePropertySuggestionsService
+        result = RolePropertySuggestionsService.backfill_triples_from_cache(world.id)
+        return jsonify({ 'success': True, **result })
+    except Exception as e:
+        logger.exception(f"Error backfilling triples: {e}")
+        return jsonify({ 'success': False, 'error': str(e) }), 500
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_guideline_triples(world_id, document_id):
@@ -1837,6 +1867,14 @@ def save_guideline_concepts(world_id, document_id):
         selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
         concepts_json = json.dumps(selected_concepts)
         
+        # Count any existing semantic relationship triples for this document
+        try:
+            from app.models.guideline_semantic_triple import GuidelineSemanticTriple
+            existing_semantic_triples = GuidelineSemanticTriple.get_by_guideline(document_id, approved_only=False)
+            semantic_triple_count = len(existing_semantic_triples)
+        except Exception:
+            semantic_triple_count = 0
+
         # Show Saved Concepts page with auto-added status
         return render_template('guideline_saved_concepts.html',
                                world=world,
@@ -1850,7 +1888,8 @@ def save_guideline_concepts(world_id, document_id):
                                document_id=document_id,
                                ontology_source=ontology_source,
                                auto_added=True,
-                               integration_result=integration_result)
+                               integration_result=integration_result,
+                               semantic_triple_count=semantic_triple_count)
         
     except Exception as e:
         db.session.rollback()

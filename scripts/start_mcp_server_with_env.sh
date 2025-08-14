@@ -22,6 +22,13 @@ fi
 export USE_MOCK_GUIDELINE_RESPONSES=false
 echo "Setting USE_MOCK_GUIDELINE_RESPONSES=false"
 
-# Start the MCP server
+# Start the MCP server using the project virtualenv if available
 echo "Starting MCP server with environment variables..."
-python mcp/run_enhanced_mcp_server_with_guidelines.py
+VENV_PY="$(pwd)/venv/bin/python"
+if [ -x "$VENV_PY" ]; then
+  echo "Using venv Python: $VENV_PY"
+  "$VENV_PY" mcp/run_enhanced_mcp_server_with_guidelines.py
+else
+  echo "Venv Python not found; falling back to system python"
+  python mcp/run_enhanced_mcp_server_with_guidelines.py
+fi
