@@ -19,9 +19,24 @@ class Participant(db.Model):
     
     # Relationships
     conditions = db.relationship('Condition', backref='participant', cascade='all, delete-orphan')
-    events = db.relationship('Event', backref='participant')
+    # Legacy join: Event.character_id historically pointed to characters.id.
+    # We expose related events by joining on Event.character_id = Participant.id.
+    # Mark as viewonly to avoid write-side confusion.
+    events = db.relationship(
+        'Event',
+        primaryjoin='Participant.id==Event.character_id',
+        foreign_keys='Event.character_id',
+        backref='participant',
+        viewonly=True,
+    )
     role_from_role = db.relationship('Role', foreign_keys=[role_id], overlaps="participants")
-    entity_triples = db.relationship('EntityTriple', back_populates='participant', foreign_keys='EntityTriple.participant_id')
+    # Expose related triples by joining on the legacy character_id pointing to this participant's id
+    entity_triples = db.relationship(
+        'EntityTriple',
+        primaryjoin='Participant.id==EntityTriple.character_id',
+        foreign_keys='EntityTriple.character_id',
+        viewonly=True,
+    )
     
     def __repr__(self):
         return f'<Participant {self.name}>'

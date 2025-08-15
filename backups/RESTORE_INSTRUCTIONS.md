@@ -6,27 +6,27 @@ Backups of the database are stored in the `backups/` directory with filenames fo
 
 ## How to Restore from a Backup
 
-### In CodeSpace Environment
+### One unified command
 
-To restore the database in a CodeSpace environment (with Docker containers):
-
-```bash
-cd /workspaces/ai-ethical-dm
-bash backups/restore_codespace_db.sh backups/ai_ethical_dm_backup_YYYYMMDD_HHMMSS.dump
-```
-
-When prompted, type `y` to confirm the restoration.
-
-### In Local Development Environment
-
-To restore the database in a local development environment:
+Use the consolidated script which works with Docker (default) or local tools and supports .dump, .sql, .sql.gz:
 
 ```bash
 cd /path/to/ai-ethical-dm
-bash backups/restore_database.sh backups/ai_ethical_dm_backup_YYYYMMDD_HHMMSS.dump
+bash backups/restore_db.sh backups/ai_ethical_dm_backup_YYYYMMDD_HHMMSS.dump
 ```
 
-When prompted, type `y` to confirm the restoration.
+Options:
+
+```bash
+# Restore into a specific DB name
+bash backups/restore_db.sh backups/file.dump --db ai_ethical_dm
+
+# Local restore (psql tools), specifying host/port
+bash backups/restore_db.sh backups/file.sql.gz --mode local --host localhost --port 5433
+
+# Non-interactive
+bash backups/restore_db.sh backups/file.dump --no-prompt
+```
 
 ### What happens during restoration
 
@@ -49,35 +49,24 @@ ls -lh backups/ai_ethical_dm_backup_*.dump
 
 To restore from any backup, specify its filename:
 
-For CodeSpace environment:
+Use the unified script for any file:
 ```bash
-bash backups/restore_codespace_db.sh backups/FILENAME.dump
-```
-
-For local environment:
-```bash
-bash backups/restore_database.sh backups/FILENAME.dump
+bash backups/restore_db.sh backups/FILENAME.dump
+# or .sql / .sql.gz
+bash backups/restore_db.sh backups/FILENAME.sql.gz
 ```
 
 ## Database Configuration
 
-### CodeSpace Environment 
+### Defaults
 
-The CodeSpace scripts use these settings:
+- Container: `proethica-postgres`
+- Database: `ai_ethical_dm`
+- User: `postgres`
+- Host: `localhost`
+- Port: `5433` (as mapped in docker-compose)
 
-- **Container name**: `proethica-postgres`
-- **Database name**: `ai_ethical_dm`
-- **Database user**: `postgres`
-- **Database password**: `PASS` (default for CodeSpace)
-
-### Local Environment
-
-The local environment scripts use these settings:
-
-- **Database name**: `ai_ethical_dm`
-- **Database user**: `postgres`
-- **Database host**: `localhost`
-- **Database port**: `5433` (CodeSpace) or `5432` (local)
+You can override via flags: `--db`, `--user`, `--host`, `--port`, `--container`, `--mode`.
 
 ## Creating Additional Backups
 

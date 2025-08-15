@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import re
 from slugify import slugify
+from app.utils.label_normalization import normalize_role_label
 
 from app.models import db
 from app.services.guideline_analysis_service import GuidelineAnalysisService
@@ -35,6 +36,14 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
         self.embedding_service = EmbeddingService()
         self._ontology_index = None
         self._ontology_embeddings = None
+        self._label_index = {}
+        # Common predicate IRIs (intermediate ontology)
+        self.PREDICATES = {
+            'hasObligation': 'http://proethica.org/ontology/intermediate#hasObligation',
+            'adheresToPrinciple': 'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+            'pursuesEnd': 'http://proethica.org/ontology/intermediate#pursuesEnd',
+            'governedByCode': 'http://proethica.org/ontology/intermediate#governedByCode'
+        }
         
     def extract_concepts_v2(self, content: str, guideline_id: Optional[int] = None, 
                            world_id: Optional[int] = None) -> Dict[str, Any]:
@@ -75,6 +84,120 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             # Phase 4: Generate semantic relationships
             relationships = self._discover_relationships(matched_concepts, content)
             logger.info(f"Phase 4: Discovered {len(relationships)} relationships")
+
+            # Phase 4b (optional, modular pass): Obligations extraction and linking
+            try:
+                from app import config as app_config
+            except Exception:
+                app_config = None
+            enable_ob = False
+            if app_config and hasattr(app_config, 'ENABLE_OBLIGATIONS_EXTRACTION'):
+                enable_ob = bool(getattr(app_config, 'ENABLE_OBLIGATIONS_EXTRACTION'))
+            elif os.environ.get('ENABLE_OBLIGATIONS_EXTRACTION'):
+                enable_ob = os.environ.get('ENABLE_OBLIGATIONS_EXTRACTION', 'false').lower() in ('1','true','yes')
+
+            if enable_ob:
+                try:
+                    from app.services.extraction.obligations import ObligationsExtractor, ObligationsLinker, SimpleObligationMatcher
+                    from app.services.extraction.base import NoopPostProcessor
+                except Exception as imp_err:
+                    logger.debug(f"Obligations module not available: {imp_err}\n")
+                else:
+                    provider = None
+                    if app_config and hasattr(app_config, 'OBLIGATIONS_EXTRACTOR_PROVIDER'):
+                        provider = getattr(app_config, 'OBLIGATIONS_EXTRACTOR_PROVIDER')
+                    extractor = ObligationsExtractor(provider=provider)
+                    post = NoopPostProcessor()
+                    matcher = SimpleObligationMatcher()
+
+                    ob_raw = extractor.extract(content, world_id=world_id, guideline_id=guideline_id) or []
+                    ob_clean = post.process(ob_raw)
+                    ob_matches = matcher.match(ob_clean, world_id=world_id)
+
+                    # Merge matches for linking perspective (roles + obligations)
+                    link_input = []
+                    # Convert existing matched_concepts (dicts) into MatchedConcept-like dicts where we have URIs
+                    for c in matched_concepts:
+                        if c.get('ontology_match') and c['ontology_match'].get('uri'):
+                            # shim into the fields obligations linker expects
+                            link_input.append(type('MC', (), {
+                                'candidate': type('Cand', (), {
+                                    'primary_type': (c.get('type') or c.get('primary_type'))
+                                })(),
+                                'ontology_match': {'uri': c['ontology_match']['uri']}
+                            }))
+
+                    link_input.extend(ob_matches)
+
+                    linker = ObligationsLinker()
+                    new_triples = linker.link(link_input, world_id=world_id, guideline_id=guideline_id)
+                    # Map to the format used by _save_semantic_triples
+                    rel_triples = [
+                        {
+                            'subject': t.subject_uri,
+                            'predicate': self.PREDICATES.get('hasObligation', 'http://proethica.org/ontology/intermediate#hasObligation'),
+                            'object': t.object_uri,
+                            'confidence': 1.0,
+                            'inference_type': 'extracted',
+                            'explanation': ''
+                        }
+                        for t in new_triples
+                    ]
+                    relationships.extend(rel_triples)
+                    logger.info(f"Obligations pass added {len(rel_triples)} hasObligation triples")
+
+            # Phase 4c (optional): Principles extraction and linking
+            enable_pr = False
+            if app_config and hasattr(app_config, 'ENABLE_PRINCIPLES_EXTRACTION'):
+                enable_pr = bool(getattr(app_config, 'ENABLE_PRINCIPLES_EXTRACTION'))
+            elif os.environ.get('ENABLE_PRINCIPLES_EXTRACTION'):
+                enable_pr = os.environ.get('ENABLE_PRINCIPLES_EXTRACTION', 'false').lower() in ('1','true','yes')
+
+            if enable_pr:
+                try:
+                    from app.services.extraction.principles import PrinciplesExtractor, SimplePrincipleMatcher, PrinciplesLinker
+                    from app.services.extraction.base import NoopPostProcessor
+                except Exception as imp_err:
+                    logger.debug(f"Principles module not available: {imp_err}\n")
+                else:
+                    pr_provider = None
+                    if app_config and hasattr(app_config, 'PRINCIPLES_EXTRACTOR_PROVIDER'):
+                        pr_provider = getattr(app_config, 'PRINCIPLES_EXTRACTOR_PROVIDER')
+                    pr_extractor = PrinciplesExtractor(provider=pr_provider)
+                    pr_post = NoopPostProcessor()
+                    pr_matcher = SimplePrincipleMatcher()
+
+                    pr_raw = pr_extractor.extract(content, world_id=world_id, guideline_id=guideline_id) or []
+                    pr_clean = pr_post.process(pr_raw)
+                    pr_matches = pr_matcher.match(pr_clean, world_id=world_id)
+
+                    # Prepare link input including roles from matched_concepts
+                    pr_link_input = []
+                    for c in matched_concepts:
+                        if c.get('ontology_match') and c['ontology_match'].get('uri'):
+                            pr_link_input.append(type('MC', (), {
+                                'candidate': type('Cand', (), {
+                                    'primary_type': (c.get('type') or c.get('primary_type'))
+                                })(),
+                                'ontology_match': {'uri': c['ontology_match']['uri']}
+                            }))
+                    pr_link_input.extend(pr_matches)
+
+                    pr_linker = PrinciplesLinker()
+                    pr_triples = pr_linker.link(pr_link_input, world_id=world_id, guideline_id=guideline_id)
+                    pr_rel_triples = [
+                        {
+                            'subject': t.subject_uri,
+                            'predicate': self.PREDICATES.get('adheresToPrinciple', 'http://proethica.org/ontology/intermediate#adheresToPrinciple'),
+                            'object': t.object_uri,
+                            'confidence': 1.0,
+                            'inference_type': 'extracted',
+                            'explanation': ''
+                        }
+                        for t in pr_triples
+                    ]
+                    relationships.extend(pr_rel_triples)
+                    logger.info(f"Principles pass added {len(pr_rel_triples)} adheresToPrinciple triples")
             
             result = {
                 'success': True,
@@ -92,6 +215,23 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             # Save term candidates if guideline_id provided
             if guideline_id:
                 self._save_term_candidates(guideline_id, term_candidates)
+                # Persist discovered relationship triples as part of extraction for downstream aggregation
+                try:
+                    if relationships:
+                        self._save_semantic_triples(guideline_id, relationships)
+                except Exception as save_tri_err:
+                    logger.debug(f"Saving semantic triples during extraction failed: {save_tri_err}")
+            # Record extraction progress for tracking
+            try:
+                self._record_extraction_progress(
+                    world_id=world_id,
+                    guideline_id=guideline_id,
+                    concepts=matched_concepts,
+                    relationships=relationships,
+                    stats=result.get('stats', {})
+                )
+            except Exception as rec_err:
+                logger.debug(f"Progress logging failed: {rec_err}")
             
             return result
             
@@ -101,6 +241,41 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
                 'success': False,
                 'error': str(e)
             }
+
+    def _record_extraction_progress(self, world_id: Optional[int], guideline_id: Optional[int],
+                                    concepts: List[Dict[str, Any]],
+                                    relationships: List[Dict[str, Any]],
+                                    stats: Dict[str, Any]) -> None:
+        """Append a JSONL record with extraction summary for progress tracking.
+
+        Fields captured: timestamp, world_id, guideline_id, totals, counts_by_type, matched_by_type.
+        """
+        from collections import Counter
+        ts = datetime.utcnow().isoformat()
+        type_counts = Counter(((c.get('type') or c.get('primary_type') or '').lower() or 'unknown') for c in concepts)
+        matched_by_type = Counter(((c.get('type') or c.get('primary_type') or '').lower() or 'unknown')
+                                  for c in concepts if not c.get('is_new'))
+        record = {
+            'timestamp': ts,
+            'world_id': world_id,
+            'guideline_id': guideline_id,
+            'totals': {
+                'concepts': len(concepts),
+                'relationships': len(relationships),
+                'matched_concepts': stats.get('matched_concepts'),
+                'new_terms': stats.get('new_terms')
+            },
+            'counts_by_type': dict(type_counts),
+            'matched_by_type': dict(matched_by_type)
+        }
+        try:
+            os.makedirs('logs', exist_ok=True)
+            path = os.path.join('logs', 'extraction_runs.jsonl')
+            with open(path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(record) + "\n")
+            logger.info(f"Recorded extraction progress to {path}")
+        except Exception as e:
+            logger.debug(f"Failed to write extraction progress: {e}")
     
     def _build_ontology_index(self, world_id: int):
         """Build an index of ontology terms with embeddings for similarity matching."""
@@ -134,6 +309,7 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
                 # Generate embeddings for entities
                 self._ontology_index = entities
                 self._generate_ontology_embeddings()
+                self._build_label_index()
                 return
                 
         except Exception as e:
@@ -169,6 +345,53 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
         # Generate embeddings for entities
         self._ontology_index = entities
         self._generate_ontology_embeddings()
+        self._build_label_index()
+
+    def _build_label_index(self):
+        """Build a case-insensitive, normalized label index for fast exact matches.
+
+        For roles, use normalize_role_label (strips 'role' suffix, articles, etc.).
+        For others, use a simple normalization (lowercase, trim, collapse spaces).
+        """
+        self._label_index = {}
+        if not self._ontology_index:
+            return
+
+        import re
+
+        def simple_norm(s: str) -> str:
+            if not s:
+                return ""
+            s = re.sub(r"[\-_]+", " ", s)
+            s = re.sub(r"\s+", " ", s).strip().lower()
+            return s
+
+        for ent in self._ontology_index:
+            label = (ent.get('label') or '').strip()
+            if not label:
+                continue
+            etype = (ent.get('category') or ent.get('type') or '').lower()
+            key = normalize_role_label(label) if etype == 'role' else simple_norm(label)
+            # Prefer domain-specific over intermediate if duplicates occur
+            prev = self._label_index.get(key)
+            if not prev:
+                self._label_index[key] = {
+                    'uri': ent.get('uri'),
+                    'label': label,
+                    'category': etype
+                }
+            else:
+                # Heuristic: prefer URIs not in intermediate namespace when available
+                try:
+                    if str(prev.get('uri','')).startswith('http://proethica.org/ontology/intermediate#') \
+                       and not str(ent.get('uri','')).startswith('http://proethica.org/ontology/intermediate#'):
+                        self._label_index[key] = {
+                            'uri': ent.get('uri'),
+                            'label': label,
+                            'category': etype
+                        }
+                except Exception:
+                    pass
         
     def _map_entity_type_to_category(self, entity_type: str) -> str:
         """Map ontology entity types to guideline concept categories."""
@@ -315,13 +538,19 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
         
         Return the concepts as a JSON array.
         """
-        
+
         # Use existing extraction method
         response = super().extract_concepts(content)
-        
+
         # Check if we got concepts
         if response and isinstance(response, dict):
             if response.get('concepts'):
+                # Surface debug info if present (provider, guard stats)
+                try:
+                    if 'debug_info' in response:
+                        logger.info(f"Extraction debug_info: {response['debug_info']}")
+                except Exception:
+                    pass
                 logger.info(f"Raw concept extraction returned {len(response['concepts'])} concepts")
                 # Log first concept for debugging
                 if response['concepts']:
@@ -331,27 +560,98 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             elif response.get('success') is False:
                 logger.warning(f"Raw concept extraction failed: {response.get('error', 'Unknown error')}")
                 return []
-        
-        # If response doesn't have expected structure, it might be returning just concepts
-        logger.warning(f"Unexpected response format from parent extract_concepts: {type(response)}")
+
+        # If response doesn't have expected structure or empty, try a lightweight heuristic roles extraction
+        logger.warning(f"Unexpected or empty response from parent extract_concepts (type={type(response)}); trying heuristic roles extraction")
+        try:
+            roles = self._extract_roles_heuristic(content)
+            if roles:
+                logger.info(f"Heuristic roles extraction produced {len(roles)} roles as fallback")
+                return roles
+        except Exception as _heur_err:
+            logger.debug(f"Heuristic roles fallback failed: {_heur_err}")
         return []
     
     def _match_concepts_to_ontology(self, concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Match extracted concepts to existing ontology terms using embeddings."""
         matched_concepts = []
         
-        # Check if we have embeddings
+        def simple_norm(s: str) -> str:
+            if not s:
+                return ""
+            s = re.sub(r"[\-_]+", " ", s)
+            s = re.sub(r"\s+", " ", s).strip().lower()
+            return s
+
+        # If embeddings are missing, still try exact label match via label index first
         if not self._ontology_embeddings:
-            logger.warning("No ontology embeddings available, marking all concepts as new")
+            logger.warning("No ontology embeddings available; attempting exact label matches before marking new")
             for concept in concepts:
-                concept['is_new'] = True
-                concept['suggested_parent'] = self._suggest_parent_class(concept, [])
-                matched_concepts.append(concept)
+                try:
+                    c_label = concept.get('label', '')
+                    c_type = (concept.get('type') or concept.get('category') or '').lower()
+                    key = normalize_role_label(c_label) if c_type == 'role' else simple_norm(c_label)
+                    exact = self._label_index.get(key)
+                    if exact:
+                        concept['ontology_match'] = {
+                            'uri': exact['uri'],
+                            'label': exact['label'],
+                            'category': exact['category'],
+                            'similarity': 0.99
+                        }
+                        concept['is_new'] = False
+                        concept['match_confidence'] = 0.99
+                        logger.info(f"Exact label match (no-embeddings): '{concept['label']}' -> '{exact['label']}' ({exact['uri']})")
+                    else:
+                        # Fallback: known role canonical mapping (e.g., Engineer)
+                        fallback = self._role_label_fallback_match(concept)
+                        if fallback:
+                            concept['ontology_match'] = fallback
+                            concept['is_new'] = False
+                            concept['match_confidence'] = fallback.get('similarity', 0.9)
+                            logger.info(f"Role fallback match (no-embeddings): '{concept['label']}' -> '{fallback['label']}' ({fallback['uri']})")
+                        else:
+                            concept['is_new'] = True
+                            concept['suggested_parent'] = self._suggest_parent_class(concept, [])
+                    matched_concepts.append(concept)
+                except Exception as e:
+                    logger.error(f"Error in exact-match (no-embeddings) for '{concept.get('label','Unknown')}': {e}")
+                    concept['is_new'] = True
+                    concept['suggested_parent'] = self._suggest_parent_class(concept, [])
+                    matched_concepts.append(concept)
             return matched_concepts
-        
+
         for concept in concepts:
             try:
-                # Generate embedding for concept
+                # 0) Fast path: exact normalized label match
+                c_label = concept.get('label', '')
+                c_type = (concept.get('type') or concept.get('category') or '').lower()
+                key = normalize_role_label(c_label) if c_type == 'role' else simple_norm(c_label)
+                exact = self._label_index.get(key)
+                if exact:
+                    concept['ontology_match'] = {
+                        'uri': exact['uri'],
+                        'label': exact['label'],
+                        'category': exact['category'],
+                        'similarity': 0.99
+                    }
+                    concept['is_new'] = False
+                    concept['match_confidence'] = 0.99
+                    logger.info(f"Exact label match: '{concept['label']}' -> '{exact['label']}' ({exact['uri']})")
+                    matched_concepts.append(concept)
+                    continue
+                else:
+                    # Try fallback canonical mapping for roles before embeddings
+                    fallback = self._role_label_fallback_match(concept)
+                    if fallback:
+                        concept['ontology_match'] = fallback
+                        concept['is_new'] = False
+                        concept['match_confidence'] = fallback.get('similarity', 0.9)
+                        logger.info(f"Role fallback match: '{concept['label']}' -> '{fallback['label']}' ({fallback['uri']})")
+                        matched_concepts.append(concept)
+                        continue
+
+                # 1) Embedding-based match
                 concept_text = f"{concept['label']}. {concept.get('description', '')}"
                 concept_embedding = self.embedding_service.get_embedding(concept_text)
                 
@@ -382,7 +682,9 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
                     # New concept
                     concept['is_new'] = True
                     concept['suggested_parent'] = self._suggest_parent_class(concept, similarities)
-                    logger.info(f"'{concept['label']}' is a new concept (best match: {best_match['similarity']:.2f if best_match else 0})")
+                    # Safely format best-match similarity when present
+                    best_sim_str = f"{best_match['similarity']:.2f}" if best_match else "0.00"
+                    logger.info(f"'{concept['label']}' is a new concept (best match: {best_sim_str})")
                     
             except Exception as e:
                 logger.error(f"Error matching concept '{concept.get('label', 'Unknown')}': {str(e)}")
@@ -444,6 +746,73 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             'label': category.title(),
             'confidence': 0.6
         }
+
+    def _role_label_fallback_match(self, concept: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Fallback exact matching for common Role labels when embeddings/index are weak.
+
+        - Normalizes role label using normalize_role_label.
+        - Attempts to find best candidate within label index keys for roles.
+        - Prefers domain URIs over intermediate if both exist.
+        """
+        try:
+            c_type = (concept.get('type') or concept.get('category') or '').lower()
+            if c_type != 'role':
+                return None
+
+            raw = concept.get('label') or ''
+            key = normalize_role_label(raw)
+            if not key:
+                return None
+
+            exact = self._label_index.get(key)
+            if exact and (exact.get('category') == 'role'):
+                return {
+                    'uri': exact['uri'],
+                    'label': exact['label'],
+                    'category': 'role',
+                    'similarity': 0.95
+                }
+
+            # Some additional canonical mappings
+            canonical = {
+                'engineer': ['Engineer', 'Engineer Role', 'http://proethica.org/ontology/engineering-ethics#Engineer',
+                             'http://proethica.org/ontology/intermediate#EngineerRole'],
+            }
+            if key in canonical:
+                # Try to resolve the first matching candidate in the label index by URI
+                candidates = canonical[key]
+                for cand in candidates:
+                    # try URI lookup via embeddings metadata or build a temp
+                    # First, attempt to find by label index entries with same normalized key
+                    ex = self._label_index.get(key)
+                    if ex:
+                        return {
+                            'uri': ex['uri'],
+                            'label': ex['label'],
+                            'category': 'role',
+                            'similarity': 0.93
+                        }
+                # If still nothing, but we know typical URIs, choose domain-first
+                for cand in candidates:
+                    if isinstance(cand, str) and cand.startswith('http://'):
+                        # choose domain-first
+                        if 'engineering-ethics#Engineer' in cand:
+                            return {
+                                'uri': cand,
+                                'label': 'Engineer',
+                                'category': 'role',
+                                'similarity': 0.9
+                            }
+                # Fallback to intermediate EngineerRole URI
+                return {
+                    'uri': 'http://proethica.org/ontology/intermediate#EngineerRole',
+                    'label': 'Engineer Role',
+                    'category': 'role',
+                    'similarity': 0.88
+                }
+        except Exception:
+            return None
+        return None
     
     def _identify_term_candidates(self, concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Identify concepts that are candidates for new ontology terms."""
@@ -474,7 +843,7 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
                                content: str) -> List[Dict[str, Any]]:
         """Discover semantic relationships between concepts."""
         relationships = []
-        
+
         # Relationship patterns
         patterns = {
             'requires': [r'requires?', r'needs?', r'necessary for', r'prerequisite'],
@@ -483,28 +852,169 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
             'conflictsWith': [r'conflicts? with', r'incompatible', r'opposes?', r'contradicts?'],
             'supports': [r'supports?', r'reinforces?', r'strengthens?', r'upholds?']
         }
-        
+
+        # First, add role-centric ontology relationships using proximity heuristics
+        relationships.extend(self._discover_role_relationships(concepts, content))
+
         # Check each concept pair
         for i, concept1 in enumerate(concepts):
-            for j, concept2 in enumerate(concepts[i+1:], i+1):
+            for j, concept2 in enumerate(concepts[i + 1 :], i + 1):
                 # Look for relationships in text references
                 rel = self._find_relationship_in_text(
                     concept1, concept2, content, patterns
                 )
-                
+
                 if rel:
                     relationships.append({
-                        'subject_uri': concept1.get('ontology_match', {}).get('uri', 
-                                                   self._generate_uri(concept1['label'])),
+                        'subject': concept1.get('ontology_match', {}).get('uri',
+                                                self._generate_uri(concept1['label'])),
                         'predicate': rel['type'],
-                        'object_uri': concept2.get('ontology_match', {}).get('uri',
-                                                  self._generate_uri(concept2['label'])),
+                        'object': concept2.get('ontology_match', {}).get('uri',
+                                               self._generate_uri(concept2['label'])),
                         'confidence': rel['confidence'],
                         'inference_type': rel['inference_type'],
                         'explanation': rel['explanation']
                     })
-        
+
         return relationships
+
+    def _discover_role_relationships(self, concepts: List[Dict[str, Any]], content: str) -> List[Dict[str, Any]]:
+        """Link Role concepts to Obligations, Principles, Ends, and Codes using simple proximity heuristics.
+
+        Strategy:
+        - For each Role, find nearest mentions of obligations/principles/ends/codes by label proximity in content.
+        - Create up to top_k links per predicate with moderate confidence.
+        """
+        content_lower = content.lower() if content else ""
+        if not content_lower:
+            return []
+
+        # Partition concepts by normalized type/category
+        def ctype(c):
+            return (c.get('type') or c.get('category') or '').lower()
+
+        roles = [c for c in concepts if ctype(c) == 'role']
+        obligations = [c for c in concepts if ctype(c) == 'obligation']
+        principles = [c for c in concepts if ctype(c) == 'principle']
+        # Ends may appear as 'end', 'goal', or sometimes principle/state; keep it narrow and also allow label keyword match
+        ends = [c for c in concepts if ctype(c) in ('end', 'goal')]
+        # Codes are resources often labeled with 'Code' or 'Standard' (e.g., NSPE Code)
+        resources = [c for c in concepts if ctype(c) == 'resource']
+
+        def first_index(lbl: str) -> int:
+            if not lbl:
+                return 10**9
+            i = content_lower.find(lbl.lower())
+            return i if i >= 0 else 10**9
+
+        def uri_for(c: Dict[str, Any]) -> str:
+            return c.get('ontology_match', {}).get('uri', self._generate_uri(c['label']))
+
+        links = []
+        top_k = 2
+
+        for role in roles:
+            r_uri = uri_for(role)
+            r_label = role.get('label', '')
+            r_pos = first_index(r_label)
+            role_class = (role.get('role_classification') or '').lower()
+            is_stakeholder = role_class == 'stakeholder'
+            allow_stakeholder_principles = os.environ.get('ALLOW_STAKEHOLDER_PRINCIPLE_LINKS', 'false').lower() in ('1','true','yes')
+
+            # Helper to pick nearest concepts to role mention
+            def nearest(candidates: List[Dict[str, Any]]) -> List[Tuple[int, Dict[str, Any]]]:
+                scored = []
+                for c in candidates:
+                    # Bias by distance to role mention; if role not found, fall back to concept index
+                    pos = first_index(c.get('label', ''))
+                    dist = abs(pos - r_pos) if r_pos < 10**9 and pos < 10**9 else pos
+                    scored.append((dist, c))
+                scored.sort(key=lambda t: t[0])
+                return scored[:top_k]
+
+            # hasObligation — only attach to professional/agent roles, not stakeholder-only
+            if not is_stakeholder:
+                for _, obl in nearest(obligations):
+                    links.append({
+                        'subject': r_uri,
+                        'predicate': self.PREDICATES['hasObligation'],
+                        'object': uri_for(obl),
+                        'confidence': 0.65,
+                        'inference_type': 'proximity',
+                        'explanation': 'Linked by textual proximity in guideline'
+                    })
+
+            # adheresToPrinciple
+            if not is_stakeholder:
+                for _, pr in nearest(principles):
+                    links.append({
+                        'subject': r_uri,
+                        'predicate': self.PREDICATES['adheresToPrinciple'],
+                        'object': uri_for(pr),
+                        'confidence': 0.6,
+                        'inference_type': 'proximity',
+                        'explanation': 'Linked by textual proximity in guideline'
+                    })
+            else:
+                # Optionally allow stakeholder→principle only when explicit textual signal is present
+                if allow_stakeholder_principles and r_pos < 10**9:
+                    def explicit_principle(pr_c):
+                        p_label = (pr_c.get('label') or '').lower()
+                        p_pos = first_index(p_label)
+                        if p_pos >= 10**9:
+                            return False
+                        # Check a window covering both mentions
+                        start = max(0, min(r_pos, p_pos) - 120)
+                        end = min(len(content_lower), max(r_pos, p_pos) + 120)
+                        window = content_lower[start:end]
+                        return any(v in window for v in ['should', 'must', 'shall', 'adhere', 'uphold', 'follow', 'respect'])
+                    for _, pr in nearest(principles):
+                        if explicit_principle(pr):
+                            links.append({
+                                'subject': r_uri,
+                                'predicate': self.PREDICATES['adheresToPrinciple'],
+                                'object': uri_for(pr),
+                                'confidence': 0.5,
+                                'inference_type': 'explicit_text',
+                                'explanation': 'Stakeholder linked to principle via explicit modal/verb near both mentions'
+                            })
+
+            # pursuesEnd
+            # If no explicit ends extracted, detect simple goal keywords near role label to avoid spurious links
+            ends_candidates = ends
+            if not ends and r_pos < 10**9:
+                window = content_lower[max(0, r_pos - 200) : r_pos + 200]
+                if any(k in window for k in ['goal', 'goals', 'end', 'objective', 'aim']):
+                    ends_candidates = []  # avoid creating anonymous ends without extraction
+            if not is_stakeholder:
+                for _, e in nearest(ends_candidates):
+                    links.append({
+                        'subject': r_uri,
+                        'predicate': self.PREDICATES['pursuesEnd'],
+                        'object': uri_for(e),
+                        'confidence': 0.55,
+                        'inference_type': 'proximity',
+                        'explanation': 'Linked by textual proximity in guideline'
+                    })
+
+            # governedByCode — detect resources whose labels contain 'code' or 'standard' (professional roles only)
+            code_like = [
+                c
+                for c in resources
+                if re.search(r'\b(code|standard|guideline|policy)\b', c.get('label', ''), flags=re.I)
+            ]
+            if not is_stakeholder:
+                for _, res in nearest(code_like):
+                    links.append({
+                        'subject': r_uri,
+                        'predicate': self.PREDICATES['governedByCode'],
+                        'object': uri_for(res),
+                        'confidence': 0.6,
+                        'inference_type': 'proximity',
+                        'explanation': 'Linked to nearby code/standard mention'
+                    })
+
+        return links
     
     def _find_relationship_in_text(self, concept1: Dict[str, Any], 
                                   concept2: Dict[str, Any], 
@@ -534,28 +1044,33 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
     
     def _save_term_candidates(self, guideline_id: int, candidates: List[Dict[str, Any]]):
         """Save term candidates to database."""
-        for candidate in candidates:
-            query = text("""
-                INSERT INTO guideline_term_candidates 
-                (guideline_id, term_label, term_uri, category, parent_class_uri, 
-                 definition, confidence, is_existing, status)
-                VALUES 
-                (:guideline_id, :label, :uri, :category, :parent_uri,
-                 :definition, :confidence, false, 'pending')
-            """)
-            
-            db.session.execute(query, {
-                'guideline_id': guideline_id,
-                'label': candidate['term_label'],
-                'uri': candidate['term_uri'],
-                'category': candidate['category'],
-                'parent_uri': candidate['parent_class_uri'],
-                'definition': candidate['definition'],
-                'confidence': candidate['confidence']
-            })
-        
-        db.session.commit()
-        logger.info(f"Saved {len(candidates)} term candidates for guideline {guideline_id}")
+        try:
+            for candidate in candidates:
+                query = text("""
+                    INSERT INTO guideline_term_candidates 
+                    (guideline_id, term_label, term_uri, category, parent_class_uri, 
+                     definition, confidence, is_existing, status)
+                    VALUES 
+                    (:guideline_id, :label, :uri, :category, :parent_uri,
+                     :definition, :confidence, false, 'pending')
+                """)
+                db.session.execute(query, {
+                    'guideline_id': guideline_id,
+                    'label': candidate['term_label'],
+                    'uri': candidate['term_uri'],
+                    'category': candidate['category'],
+                    'parent_uri': candidate['parent_class_uri'],
+                    'definition': candidate['definition'],
+                    'confidence': candidate['confidence']
+                })
+            db.session.commit()
+            logger.info(f"Saved {len(candidates)} term candidates for guideline {guideline_id}")
+        except Exception as e:
+            logger.debug(f"Saving term candidates failed: {e}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
     
     def generate_semantic_triples(self, concepts: List[Dict[str, Any]], 
                                  relationships: List[Dict[str, Any]],
@@ -614,27 +1129,55 @@ class GuidelineAnalysisServiceV2(GuidelineAnalysisService):
     
     def _save_semantic_triples(self, guideline_id: int, triples: List[Dict[str, Any]]):
         """Save semantic triples to database."""
-        for triple in triples:
-            if triple.get('predicate') != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type':
-                # Skip basic type triples for now
-                query = text("""
-                    INSERT INTO guideline_semantic_triples
-                    (guideline_id, subject_uri, predicate, object_uri, 
-                     confidence, inference_type, explanation)
-                    VALUES
-                    (:guideline_id, :subject, :predicate, :object,
-                     :confidence, :inference_type, :explanation)
-                """)
-                
-                db.session.execute(query, {
-                    'guideline_id': guideline_id,
-                    'subject': triple['subject'],
-                    'predicate': triple['predicate'],
-                    'object': triple['object'],
-                    'confidence': triple.get('confidence', 1.0),
-                    'inference_type': triple.get('inference_type', 'explicit'),
-                    'explanation': triple.get('explanation', '')
-                })
-        
-        db.session.commit()
-        logger.info(f"Saved {len(triples)} semantic triples for guideline {guideline_id}")
+        # Remove existing triples for this guideline for the key predicates to avoid duplicates
+        try:
+            del_q = text(
+                """
+                DELETE FROM guideline_semantic_triples
+                WHERE guideline_id = :guideline_id AND predicate IN (
+                    'http://proethica.org/ontology/intermediate#hasObligation',
+                    'http://proethica.org/ontology/intermediate#adheresToPrinciple',
+                    'http://proethica.org/ontology/intermediate#pursuesEnd',
+                    'http://proethica.org/ontology/intermediate#governedByCode'
+                )
+                """
+            )
+            db.session.execute(del_q, { 'guideline_id': guideline_id })
+        except Exception as del_err:
+            logger.debug(f"Could not clear previous triples: {del_err}")
+
+        try:
+            # Dedupe incoming triples by (s,p,o)
+            seen = set()
+            for triple in triples:
+                if triple.get('predicate') != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type':
+                    # Skip basic type triples for now
+                    key = (triple.get('subject'), triple.get('predicate'), triple.get('object'))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    query = text("""
+                        INSERT INTO guideline_semantic_triples
+                        (guideline_id, subject_uri, predicate, object_uri, 
+                         confidence, inference_type, explanation)
+                        VALUES
+                        (:guideline_id, :subject, :predicate, :object,
+                         :confidence, :inference_type, :explanation)
+                    """)
+                    db.session.execute(query, {
+                        'guideline_id': guideline_id,
+                        'subject': triple['subject'],
+                        'predicate': triple['predicate'],
+                        'object': triple['object'],
+                        'confidence': triple.get('confidence', 1.0),
+                        'inference_type': triple.get('inference_type', 'explicit'),
+                        'explanation': triple.get('explanation', '')
+                    })
+            db.session.commit()
+            logger.info(f"Saved {len(triples)} semantic triples for guideline {guideline_id}")
+        except Exception as ins_err:
+            logger.debug(f"Inserting semantic triples failed: {ins_err}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass

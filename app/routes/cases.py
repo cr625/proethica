@@ -1253,7 +1253,7 @@ def create_from_document():
         # Update document status
         document.processing_status = PROCESSING_STATUS['COMPLETED']
         document.processing_progress = 100
-        db.session.commit()
+        db.session.commit();
         
         flash('Document processed and case created successfully', 'success')
         return redirect(url_for('cases.edit_case_form', id=document.id))
@@ -2168,3 +2168,13 @@ def generate_case_from_conversation():
             'success': False,
             'error': str(e)
         }), 500
+
+@cases_bp.route('/24-02/hero', methods=['GET'])
+def case_24_02_hero():
+    """Compact hero banner showcase for Case 24-02 (read-only)."""
+    return render_template('case24_02_hero.html')
+
+@cases_bp.route('/24-02/hero/compact', methods=['GET'])
+def case_24_02_hero_compact():
+    """Compact hero banner snapshot for Case 24-02 (width-optimized)."""
+    return render_template('demo/case24_02_compact.html')

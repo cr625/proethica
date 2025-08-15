@@ -25,7 +25,16 @@ class Character(db.Model):
     matching_reasoning = db.Column(db.Text)  # LLM reasoning for the match
     
     # Relationships
-    conditions = db.relationship('Condition', backref='character', cascade='all, delete-orphan')
+    # Legacy relationship; Condition.character_id now references participants.id.
+    # Provide explicit join and mark as viewonly to avoid FK configuration errors.
+    conditions = db.relationship(
+        'Condition',
+        primaryjoin='Character.id==Condition.character_id',
+        foreign_keys='Condition.character_id',
+        backref='character',
+        cascade='all, delete-orphan',
+        viewonly=True,
+    )
     events = db.relationship('Event', backref='character')
     role_from_role = db.relationship('Role', foreign_keys=[role_id], overlaps="characters")
     entity_triples = db.relationship('EntityTriple', back_populates='character', foreign_keys='EntityTriple.character_id')

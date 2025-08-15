@@ -1,9 +1,15 @@
 """
 Routes for the ontology editor integration with the main application.
+Includes secure endpoints to edit, fetch, refresh, and delete ontologies.
 """
 
 from flask import Blueprint, redirect, request, jsonify, current_app, url_for, flash, render_template
 from flask_login import login_required, current_user 
+from app.models import db
+from app.models.ontology import Ontology
+from app.models.ontology_import import OntologyImport
+from app.models.ontology_version import OntologyVersion
+from app.models.world import World
 from app.services import MCPClient
 
 ontology_bp = Blueprint('ontology', __name__, url_prefix='/ontology')
@@ -169,3 +175,53 @@ def edit_entity():
         
     # Redirect to the ontology editor with the entity highlighted
     return redirect(f'/ontology-editor?source={ontology_source}&highlight_entity={entity_id}&entity_type={entity_type}')
+
+
+@ontology_bp.route('/<int:ontology_id>/delete', methods=['POST'])
+@login_required
+def delete_ontology(ontology_id):
+    """Delete an ontology by ID with safety checks.
+
+    Only admins may delete ontologies. Base ontologies and non-editable ontologies
+    cannot be deleted. If any World references the ontology as its base ontology,
+    deletion is blocked.
+    """
+    # Admin check
+    if not getattr(current_user, 'is_admin', False):
+        flash('You must be an admin to delete ontologies', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    ontology = Ontology.query.get_or_404(ontology_id)
+
+    # Safety checks
+    if ontology.is_base or not ontology.is_editable:
+        flash('This ontology is protected and cannot be deleted.', 'warning')
+        return redirect(url_for('dashboard.index'))
+
+    # Check for worlds referencing this ontology
+    referencing_worlds = World.query.filter_by(ontology_id=ontology_id).count()
+    if referencing_worlds > 0:
+        flash('Ontology is in use by one or more Worlds and cannot be deleted.', 'warning')
+        return redirect(url_for('dashboard.index'))
+
+    try:
+        # Manually remove import relationships (both directions) for safety
+        OntologyImport.query.filter(
+            (OntologyImport.importing_ontology_id == ontology_id) |
+            (OntologyImport.imported_ontology_id == ontology_id)
+        ).delete(synchronize_session=False)
+
+        # Remove version history
+        OntologyVersion.query.filter_by(ontology_id=ontology_id).delete(synchronize_session=False)
+
+        # Finally delete the ontology
+        db.session.delete(ontology)
+        db.session.commit()
+        flash('Ontology deleted successfully.', 'success')
+    except Exception as e:
+        current_app.logger.error(f"Failed to delete ontology {ontology_id}: {e}")
+        db.session.rollback()
+        flash(f'Failed to delete ontology: {e}', 'danger')
+
+    # Return to dashboard
+    return redirect(url_for('dashboard.index'))

@@ -8,6 +8,7 @@ from app.models import db
 import os
 import re
 from sqlalchemy.dialects.postgresql import JSON
+from app.models.pgvector import Vector
 
 # Processing status constants
 PROCESSING_STATUS = {
@@ -148,7 +149,10 @@ class DocumentChunk(db.Model):
     document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
     chunk_index = db.Column(db.Integer, nullable=False)
     content = db.Column(db.Text, nullable=False)
-    embedding = db.Column(db.ARRAY(db.Float), nullable=True)
+    # Use pgvector for better similarity search performance (existing data uses 1536-dim)
+    embedding = db.Column(Vector(1536), nullable=True)
+    # New: local 384-dim embedding column to support fast pgvector search without hosted APIs
+    embedding_384 = db.Column(Vector(384), nullable=True)
     chunk_metadata = db.Column(JSON, nullable=True)  # Renamed from metadata which is reserved
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

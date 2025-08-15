@@ -49,14 +49,14 @@ print(f"Running in {environment.upper()} mode")
 # Set environment variable
 os.environ['ENVIRONMENT'] = environment
 
-# Determine MCP server port - default to 5001 to match expected MCP server port
-mcp_port = args.mcp_port
+# Determine MCP server settings
+mcp_port = int(os.environ.get('MCP_SERVER_PORT', args.mcp_port))
 os.environ['MCP_SERVER_PORT'] = str(mcp_port)
 
-# Set the MCP server URL environment variable - use raw string to avoid escape issues
-mcp_url = f"http://localhost:{mcp_port}"
+# Respect pre-set MCP_SERVER_URL (e.g., Docker compose: http://mcp:5001)
+mcp_url = os.environ.get('MCP_SERVER_URL') or f"http://localhost:{mcp_port}"
 os.environ['MCP_SERVER_URL'] = mcp_url
-print(f"Set MCP_SERVER_URL to {mcp_url}")
+print(f"MCP_SERVER_URL set to {mcp_url}")
 
 # Log a clear message about MCP server port configuration
 print(f"MCP server will be available at {mcp_url}")
@@ -67,7 +67,8 @@ print("Checking enhanced MCP server status...")
 mcp_running = False
 try:
     # Use raw literal URL to avoid escape sequence issues
-    test_url = "http://localhost:{}/api/guidelines/engineering-ethics".format(mcp_port)
+    # Use configured URL to probe
+    test_url = f"{mcp_url}/api/guidelines/engineering-ethics"
     print(f"Testing connection to MCP server at {test_url}...")
     response = requests.get(test_url, timeout=2)
     if response.status_code == 200:

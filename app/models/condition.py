@@ -6,7 +6,8 @@ class Condition(db.Model):
     __tablename__ = 'conditions'
     
     id = db.Column(db.Integer, primary_key=True)
-    character_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=False)
+    # Legacy name kept as character_id for backward compatibility, but FK now points to participants
+    character_id = db.Column(db.Integer, db.ForeignKey('participants.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)  # Legacy field, kept for backward compatibility
     condition_type_id = db.Column(db.Integer, db.ForeignKey('condition_types.id'))
     description = db.Column(db.Text)

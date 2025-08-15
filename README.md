@@ -14,27 +14,22 @@ This project simulates event-based scenarios like military medical triage to tra
 - Ethical reasoning framework
 - Integration with LLMs via LangChain and LangGraph
 - Model Context Protocol for extensibility
-- Zotero integration for academic references and citations
 - World and scenario reference management
 - Asynchronous document processing for guidelines and references
 - Vector embeddings for semantic search of documents
 
 ## Architecture
-
 The application is built with:
 
 - **Backend**: Flask, SQLAlchemy, PostgreSQL
 - **AI Components**: LangChain, LangGraph
 - **Extension**: Model Context Protocol
-
 ## Setup
 
 ### Prerequisites
 
 - Python 3.8+
 - PostgreSQL
-- OpenAI API key (for LLM integration)
-
 ### Quick Setup
 
 1. Clone the repository:
@@ -142,6 +137,8 @@ The project includes detailed documentation in the `docs/` directory:
 - `multiple_guidelines.md`: How to use multiple guidelines per world
 - `async_document_processing.md`: Details about the asynchronous document processing implementation
 - `mcp_server_integration.md`: Information about the MCP server integration for ontology access
+- `INTERMEDIATE_ONTOLOGY_COVERAGE_ANALYSIS.md`: Coverage analysis vs. McLaren (2003) and Berreby et al. (2017), plus minimal, non-breaking additions to the intermediate ontology
+- `NORMATIVE_MODELING_EXAMPLES.md`: Concrete TTL patterns and SPARQL queries for Permission, Prohibition, Violation, and Justification usage
 
 ## License
 
@@ -154,3 +151,39 @@ GPL 3
 ## External Repositories
 
 The external repository `agent_module` is now located in the `_src/agent_module` directory. Please ensure to update your local setup accordingly.
+
+## pgvector migration for document_chunks
+
+The `document_chunks.embedding` column was switched to pgvector for faster similarity search.
+
+
+```bash
+psql -h localhost -p 5433 -U postgres -d ai_ethical_dm -f migrations/010_document_chunks_to_pgvector.sql
+```
+
+### Vector Search
+
+We now support a dedicated 384‑dim local embedding column (`document_chunks.embedding_384`) for fast pgvector search with SentenceTransformers (`all-MiniLM-L6-v2`).
+
+Quick steps:
+
+1) Apply migration to add the column and index:
+
+   - Run the SQL in `migrations/011_add_embedding_384.sql` against your Postgres instance.
+
+2) Backfill 384‑dim embeddings (offline by default):
+
+   - Ensure `sentence-transformers` is installed and the model cache is available locally, or set `ALLOW_HF_DOWNLOAD=true` to permit a one-time download.
+   - Run `scripts/backfill_embedding_384.py` to fill `embedding_384`. You can scope with `WHERE_CLAUSE`, e.g. `document_type='guideline'`.
+
+3) Enable DB vector search:
+
+   - Set `USE_DB_VECTOR_SEARCH=true` in your environment. The system will use `embedding_384` and fall back to Python cosine if unavailable.
+
+Legacy 1536‑dim vectors remain stored in `document_chunks.embedding` for compatibility; the service prefers `embedding_384` when present.
+
+```bash
+export USE_DB_VECTOR_SEARCH=true
+```
+
+If you prefer to avoid DB vector search, omit the env var (the system falls back to Python cosine similarity).

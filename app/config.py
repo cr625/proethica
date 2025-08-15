@@ -59,6 +59,15 @@ ZOTERO_GROUP_ID = os.getenv('ZOTERO_GROUP_ID')
 MCP_SERVER_URL = os.getenv('MCP_SERVER_URL', 'http://localhost:5001')
 USE_MOCK_FALLBACK = os.getenv('USE_MOCK_FALLBACK', 'false').lower() == 'true'
 
+# Intermediate extraction toggles (modular passes)
+ENABLE_OBLIGATIONS_EXTRACTION = os.getenv('ENABLE_OBLIGATIONS_EXTRACTION', 'false').lower() == 'true'
+OBLIGATIONS_EXTRACTOR_PROVIDER = os.getenv('OBLIGATIONS_EXTRACTOR_PROVIDER')
+ALLOW_STAKEHOLDER_OBLIGATIONS = os.getenv('ALLOW_STAKEHOLDER_OBLIGATIONS', 'false').lower() == 'true'
+
+# Principles extraction toggle
+ENABLE_PRINCIPLES_EXTRACTION = os.getenv('ENABLE_PRINCIPLES_EXTRACTION', 'false').lower() == 'true'
+PRINCIPLES_EXTRACTOR_PROVIDER = os.getenv('PRINCIPLES_EXTRACTOR_PROVIDER')
+
 # Detect Codespace environment
 is_codespace = os.getenv('CODESPACES') == 'true'
 if is_codespace and ENVIRONMENT != 'codespace':

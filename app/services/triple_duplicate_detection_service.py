@@ -125,6 +125,35 @@ class TripleDuplicateDetectionService:
             query = query.filter(EntityTriple.guideline_id != exclude_guideline_id)
         
         return query.first()
+
+    def check_concept_presence(self, uri: Optional[str]) -> Dict[str, bool]:
+        """Check whether a concept URI appears in core ontologies or database triples.
+
+        Returns a dict: { 'in_ontology': bool, 'in_database': bool }
+        """
+        result = { 'in_ontology': False, 'in_database': False }
+        if not uri:
+            return result
+
+        try:
+            ref = URIRef(uri)
+            # In ontology: appears as subject or object anywhere
+            if (ref, None, None) in self.ontology_graph or (None, None, ref) in self.ontology_graph:
+                result['in_ontology'] = True
+        except Exception:
+            pass
+
+        try:
+            # In database: referenced as subject or object_uri in any triple
+            exists = (
+                EntityTriple.query.filter_by(subject=uri).first() is not None or
+                EntityTriple.query.filter_by(object_uri=uri).first() is not None
+            )
+            result['in_database'] = bool(exists)
+        except Exception:
+            pass
+
+        return result
     
     def find_equivalent_concepts(self, concept_uri: str) -> Set[str]:
         """

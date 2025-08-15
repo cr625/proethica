@@ -147,8 +147,9 @@
                                     </td>
                                     <td>
                                         {% if ont.ontology_id %}
-                                        <a href="/ontology-editor/?ontology={{ ont.ontology_id }}&ontology_id={{ ont.ontology_id }}&view=full" 
-                                           class="btn btn-sm btn-outline-primary" title="Edit {{ ont.domain }} ontology">
+                                        <a href="/ontology-editor/?ontology={{ ont.ontology_id }}&ontology_id={{ ont.ontology_id }}&view=full"
+                                            class="btn btn-sm btn-outline-primary"
+                                            title="Edit {{ ont.domain }} ontology">
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
                                         {% else %}
@@ -160,51 +161,163 @@
                             </tbody>
                         </table>
                     </div>
-                    
+
                     <h6 class="mt-3">Guideline Ontologies</h6>
                     {% if sync_status.guideline_ontologies.list %}
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Ontology Name</th>
-                                        <th>Related Guideline</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ont in sync_status.guideline_ontologies.list %}
-                                    <tr>
-                                        <td>{{ ont.name }}</td>
-                                        <td>
-                                            {% if ont.related_document_id and ont.related_world_id %}
-                                                <a href="{{ url_for('worlds.view_guideline', id=ont.related_world_id, document_id=ont.related_document_id) }}" class="text-primary text-decoration-none">
-                                                    {{ ont.related_guideline_title }}
-                                                </a>
-                                            {% else %}
-                                                <span class="text-muted">{{ ont.related_guideline_title }}</span>
-                                            {% endif %}
-                                            <br>
-                                            <small class="text-muted">{{ ont.domain_id }}</small>
-                                        </td>
-                                        <td>
-                                            <a href="/ontology-editor/?ontology_id={{ ont.id }}&view=full" 
-                                               class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <small class="text-muted">{{ sync_status.guideline_ontologies.note }}</small>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Ontology Name</th>
+                                    <th>Related Guideline</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ont in sync_status.guideline_ontologies.list %}
+                                <tr>
+                                    <td>{{ ont.name }}</td>
+                                    <td>
+                                        {% if ont.related_document_id and ont.related_world_id %}
+                                        <a href="{{ url_for('worlds.view_guideline', id=ont.related_world_id, document_id=ont.related_document_id) }}"
+                                            class="text-primary text-decoration-none">
+                                            {{ ont.related_guideline_title }}
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">{{ ont.related_guideline_title }}</span>
+                                        {% endif %}
+                                        <br>
+                                        <small class="text-muted">{{ ont.domain_id }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="/ontology-editor/?ontology_id={{ ont.id }}&view=full"
+                                            class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteOntologyModal-{{ ont.id }}">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+
+                                        <!-- Delete Modal -->
+                                        <div class="modal fade" id="deleteOntologyModal-{{ ont.id }}" tabindex="-1" aria-labelledby="deleteOntologyLabel-{{ ont.id }}" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteOntologyLabel-{{ ont.id }}">Delete Ontology</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        Are you sure you want to delete the ontology "{{ ont.name }}"?
+                                                        <div class="mt-2">
+                                                            <small class="text-muted">Domain: {{ ont.domain_id }}</small>
+                                                        </div>
+                                                        <div class="alert alert-warning mt-3 mb-0">
+                                                            This will permanently delete this derived ontology and its version history. This action cannot be undone.
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{{ url_for('ontology.delete_ontology', ontology_id=ont.id) }}" class="d-inline">
+                                                            {% if csrf_token %}
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                            {% endif %}
+                                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted">{{ sync_status.guideline_ontologies.note }}</small>
                     {% else %}
-                        <p class="mb-0">
-                            <strong>{{ sync_status.guideline_ontologies.count }}</strong> guideline-derived ontologies
-                            <br>
-                            <small class="text-muted">{{ sync_status.guideline_ontologies.note }}</small>
-                        </p>
+                    <p class="mb-0">
+                        <strong>{{ sync_status.guideline_ontologies.count }}</strong> guideline-derived ontologies
+                        <br>
+                        <small class="text-muted">{{ sync_status.guideline_ontologies.note }}</small>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cases Ontologies (per-world) -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Cases Ontologies</h5>
+                </div>
+                <div class="card-body">
+                    {% if sync_status.cases_ontologies.list %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Ontology Name</th>
+                                    <th>World</th>
+                                    <th>Domain</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ont in sync_status.cases_ontologies.list %}
+                                <tr>
+                                    <td>{{ ont.name }}</td>
+                                    <td>{{ ont.related_world_name or ('World ' ~ ont.related_world_id) }}</td>
+                                    <td><small class="text-muted">{{ ont.domain_id }}</small></td>
+                                    <td>
+                                        <a href="/ontology-editor/?ontology_id={{ ont.id }}&view=full"
+                                            class="btn btn-sm btn-outline-primary" title="Edit {{ ont.name }}">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteOntologyModal-{{ ont.id }}-cases">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+
+                                        <!-- Delete Modal for Cases Ontology -->
+                                        <div class="modal fade" id="deleteOntologyModal-{{ ont.id }}-cases" tabindex="-1" aria-labelledby="deleteOntologyLabel-{{ ont.id }}-cases" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteOntologyLabel-{{ ont.id }}-cases">Delete Cases Ontology</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        Are you sure you want to delete the ontology "{{ ont.name }}"?
+                                                        <div class="mt-2">
+                                                            <small class="text-muted">Domain: {{ ont.domain_id }}</small>
+                                                        </div>
+                                                        <div class="alert alert-warning mt-3 mb-0">
+                                                            This will permanently delete this cases ontology and its version history. This action cannot be undone.
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{{ url_for('ontology.delete_ontology', ontology_id=ont.id) }}" class="d-inline">
+                                                            {% if csrf_token %}
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                            {% endif %}
+                                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted">{{ sync_status.cases_ontologies.note }}</small>
+                    {% else %}
+                    <p class="mb-0">
+                        <strong>{{ sync_status.cases_ontologies.count }}</strong> cases ontologies
+                        <br>
+                        <small class="text-muted">{{ sync_status.cases_ontologies.note }}</small>
+                    </p>
                     {% endif %}
                 </div>
             </div>
@@ -262,7 +375,8 @@
                         <div class="col-6">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Document Structure</span>
-                                <small>{{ stats.processing.processed_documents }}/{{ stats.processing.total_documents }}</small>
+                                <small>{{ stats.processing.processed_documents }}/{{ stats.processing.total_documents
+                                    }}</small>
                             </div>
                             <div class="progress mb-2">
                                 <div class="progress-bar" style="width: {{ stats.processing.structure_percentage }}%">
@@ -273,10 +387,12 @@
                         <div class="col-6">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Section Embeddings</span>
-                                <small>{{ stats.processing.embedded_sections }}/{{ stats.processing.total_sections }}</small>
+                                <small>{{ stats.processing.embedded_sections }}/{{ stats.processing.total_sections
+                                    }}</small>
                             </div>
                             <div class="progress mb-2">
-                                <div class="progress-bar bg-info" style="width: {{ stats.processing.embeddings_percentage }}%">
+                                <div class="progress-bar bg-info"
+                                    style="width: {{ stats.processing.embeddings_percentage }}%">
                                     {{ stats.processing.embeddings_percentage }}%
                                 </div>
                             </div>
@@ -287,81 +403,81 @@
                     <h6>Available Actions</h6>
                     <div class="row">
                         <!-- Document Processing Actions -->
-                        {% if stats.processing.structure_percentage < 100 %}
-                        <div class="col-6 mb-2">
+                        {% if stats.processing.structure_percentage < 100 %} <div class="col-6 mb-2">
                             <a href="/cases" class="btn btn-block btn-sm btn-outline-warning">
                                 <i class="fas fa-cogs"></i> Process Documents
                             </a>
-                            <small class="text-muted">{{ stats.processing.total_documents - stats.processing.processed_documents }} need structure</small>
-                        </div>
-                        {% endif %}
-
-                        {% if stats.processing.embeddings_percentage < 100 %}
-                        <div class="col-6 mb-2">
-                            <a href="/documents" class="btn btn-block btn-sm btn-outline-info">
-                                <i class="fas fa-vector-square"></i> Generate Embeddings
-                            </a>
-                            <small class="text-muted">{{ stats.processing.total_sections - stats.processing.embedded_sections }} sections need embeddings</small>
-                        </div>
-                        {% endif %}
-
-                        <!-- Guidelines Actions -->
-                        <div class="col-6 mb-2">
-                            <a href="/guidelines" class="btn btn-block btn-sm btn-outline-success">
-                                <i class="fas fa-book"></i> Manage Guidelines
-                            </a>
-                            <small class="text-muted">{{ stats.overview.guidelines }} guidelines</small>
-                        </div>
-
-                        <!-- Ontology Actions -->
-                        {% if sync_status.needs_sync %}
-                        <div class="col-6 mb-2">
-                            <button class="btn btn-block btn-sm btn-outline-danger" onclick="syncOntologies()">
-                                <i class="fas fa-sync"></i> Sync Ontologies
-                            </button>
-                            <small class="text-muted">TTL files need sync</small>
-                        </div>
-                        {% else %}
-                        <div class="col-6 mb-2">
-                            <a href="/ontology-editor" class="btn btn-block btn-sm btn-outline-secondary">
-                                <i class="fas fa-sitemap"></i> Edit Ontologies
-                            </a>
-                            <small class="text-muted">All ontologies synced</small>
-                        </div>
-                        {% endif %}
-
-                        <!-- Association Generation (if there are unprocessed documents) -->
-                        {% if stats.analysis.associations < stats.overview.documents %}
-                        <div class="col-6 mb-2">
-                            <a href="/cases" class="btn btn-block btn-sm btn-outline-primary">
-                                <i class="fas fa-link"></i> Generate Associations
-                            </a>
-                            <small class="text-muted">{{ stats.overview.documents - stats.analysis.associations }} documents need associations</small>
-                        </div>
-                        {% endif %}
-
-                        <!-- Always show worlds management -->
-                        <div class="col-6 mb-2">
-                            <a href="/worlds" class="btn btn-block btn-sm btn-outline-primary">
-                                <i class="fas fa-globe"></i> Manage Worlds
-                            </a>
-                            <small class="text-muted">{{ stats.overview.worlds }} worlds</small>
-                        </div>
+                            <small class="text-muted">{{ stats.processing.total_documents -
+                                stats.processing.processed_documents }} need structure</small>
                     </div>
+                    {% endif %}
+
+                    {% if stats.processing.embeddings_percentage < 100 %} <div class="col-6 mb-2">
+                        <a href="/documents" class="btn btn-block btn-sm btn-outline-info">
+                            <i class="fas fa-vector-square"></i> Generate Embeddings
+                        </a>
+                        <small class="text-muted">{{ stats.processing.total_sections -
+                            stats.processing.embedded_sections }} sections need embeddings</small>
                 </div>
+                {% endif %}
+
+                <!-- Guidelines Actions -->
+                <div class="col-6 mb-2">
+                    <a href="/guidelines" class="btn btn-block btn-sm btn-outline-success">
+                        <i class="fas fa-book"></i> Manage Guidelines
+                    </a>
+                    <small class="text-muted">{{ stats.overview.guidelines }} guidelines</small>
+                </div>
+
+                <!-- Ontology Actions -->
+                {% if sync_status.needs_sync %}
+                <div class="col-6 mb-2">
+                    <button class="btn btn-block btn-sm btn-outline-danger" onclick="syncOntologies()">
+                        <i class="fas fa-sync"></i> Sync Ontologies
+                    </button>
+                    <small class="text-muted">TTL files need sync</small>
+                </div>
+                {% else %}
+                <div class="col-6 mb-2">
+                    <a href="/ontology-editor" class="btn btn-block btn-sm btn-outline-secondary">
+                        <i class="fas fa-sitemap"></i> Edit Ontologies
+                    </a>
+                    <small class="text-muted">All ontologies synced</small>
+                </div>
+                {% endif %}
+
+                <!-- Association Generation (if there are unprocessed documents) -->
+                {% if stats.analysis.associations < stats.overview.documents %} <div class="col-6 mb-2">
+                    <a href="/cases" class="btn btn-block btn-sm btn-outline-primary">
+                        <i class="fas fa-link"></i> Generate Associations
+                    </a>
+                    <small class="text-muted">{{ stats.overview.documents - stats.analysis.associations }} documents
+                        need associations</small>
+            </div>
+            {% endif %}
+
+            <!-- Always show worlds management -->
+            <div class="col-6 mb-2">
+                <a href="/worlds" class="btn btn-block btn-sm btn-outline-primary">
+                    <i class="fas fa-globe"></i> Manage Worlds
+                </a>
+                <small class="text-muted">{{ stats.overview.worlds }} worlds</small>
             </div>
         </div>
     </div>
+</div>
+</div>
+</div>
 
 </div>
 
 <script>
-function syncOntologies() {
-    if (!confirm('Sync TTL files to database? This will update the database with the latest ontology definitions.')) {
-        return;
+    function syncOntologies() {
+        if (!confirm('Sync TTL files to database? This will update the database with the latest ontology definitions.')) {
+            return;
+        }
+
+        alert('Please run: python scripts/sync_ontology_to_database.py\n\nThis operation should be run from the command line.');
     }
-    
-    alert('Please run: python scripts/sync_ontology_to_database.py\n\nThis operation should be run from the command line.');
-}
 </script>
 {% endblock %}

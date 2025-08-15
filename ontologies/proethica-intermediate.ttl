@@ -37,7 +37,7 @@
     rdf:type :GuidelineConceptType ;
     rdfs:subClassOf bfo:BFO_0000023 ; # role from BFO
     rdfs:label "Role"@en ;
-    rdfs:comment "A socially recognized status that carries a set of responsibilities, expectations, and norms established by a professional or social community. Examples include Engineer, Manager, Client, Regulator."@en .
+    rdfs:comment "A socially recognized status borne by an agent that is defined by: (1) central ends/goals that guide action within the practice, and (2) a coherent set of norms and commitments (obligations) internal to that practice. Professional roles (e.g., Engineer, Project Manager, Public Official) pursue their characteristic ends while being governed by obligations typically formalized in codes of ethics and standards. Participant roles (e.g., Client, Community Member) may be stakeholders without professional obligations. Use hasObligation to relate Roles to obligations, adheresToPrinciple for governing principles, and pursuesEnd for characteristic ends/goals."@en .
 
 :Principle rdf:type owl:Class ;
     rdf:type :EntityType ;
@@ -63,7 +63,7 @@
 :Resource rdf:type owl:Class ;
     rdf:type :EntityType ;
     rdf:type :GuidelineConceptType ;
-    rdfs:subClassOf bfo:BFO_0000040 ; # material entity from BFO
+    rdfs:subClassOf bfo:BFO_0000001 ; # entity (allows both material and informational resources)
     rdfs:label "Resource"@en ;
     rdfs:comment "A physical or informational entity used in ethical scenarios. Examples include Technical Specifications, Safety Equipment, Project Budget, Design Documents."@en .
 
@@ -138,14 +138,16 @@
 # Common Ethical Concepts
 :EthicalDilemma rdf:type owl:Class ;
     rdf:type :EntityType ;
-    rdfs:subClassOf bfo:BFO_0000144 ; # process aggregate
+    rdfs:subClassOf :State ; # treat dilemmas as contextual states for decision-making
     rdfs:label "Ethical Dilemma"@en ;
     rdfs:comment "A situation involving a difficult ethical choice between competing moral considerations that applies across all professional domains"@en .
 
 :EthicalPrinciple rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant
     rdfs:label "Ethical Principle"@en ;
-    rdfs:comment "A fundamental ethical value or norm that guides behavior"@en .
+    rdfs:comment "Legacy synonym for Principle. Use :Principle for new concepts."@en ;
+    owl:deprecated true ;
+    rdfs:seeAlso :Principle .
 
 :ProfessionalObligation rdf:type owl:Class ;
     rdfs:subClassOf bfo:BFO_0000017 ; # realizable entity
@@ -158,7 +160,47 @@
     rdf:type :EntityType ;
     rdfs:subClassOf :Role ;
     rdfs:label "Engineer Role"@en ;
-    rdfs:comment "A professional role involving engineering practice and responsibilities"@en .
+    rdfs:comment "A professional role involving engineering practice and responsibilities"@en ;
+    rdfs:subClassOf :ProfessionalRole .
+
+# Role specializations for classification of roles mentioned in guidelines and cases
+:ProfessionalRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Role ;
+    rdfs:label "Professional Role"@en ;
+        rdfs:comment "A role within a profession that entails recognized ends/goals of practice (e.g., safeguarding public safety, delivering competent technical solutions) and a coherent set of obligations codified in standards and codes (e.g., NSPE). Often associated with licensure or formal accountability. Examples: Professional Engineer, Project Manager, Public Official."@en ;
+        # Professional roles characteristically bear obligations and are governed by codes
+        rdfs:subClassOf [ a owl:Restriction ;
+                                         owl:onProperty :hasObligation ;
+                                         owl:someValuesFrom :Obligation
+                                     ] ;
+        rdfs:subClassOf [ a owl:Restriction ;
+                                         owl:onProperty :governedByCode ;
+                                         owl:someValuesFrom :EthicalCode
+                                     ] .
+
+:ParticipantRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Role ;
+    rdfs:label "Participant Role"@en ;
+    rdfs:comment "A role of an involved party or stakeholder that does not itself establish professional obligations (e.g., Client, The Public, Community Member)."@en .
+
+# Alias for clarity when classifying roles extracted from text
+:StakeholderRole rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :ParticipantRole ;
+    rdfs:label "Stakeholder Role"@en ;
+    rdfs:comment "A participant role borne by stakeholders such as Clients, Employers, and the Public. Typically not the bearer of professional obligations, but may be linked to principles in explicit statements."@en .
+
+# Keep ProfessionalRole and ParticipantRole disjoint to avoid mixing semantics
+:ProfessionalRole owl:disjointWith :ParticipantRole .
+
+# Ends / Goals of roles
+:End rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf bfo:BFO_0000031 ; # generically dependent continuant
+    rdfs:label "End/Goal"@en ;
+    rdfs:comment "A characteristic end or goal toward which a role is directed (e.g., in engineering: protecting public safety, serving the public welfare, providing competent service)."@en .
 
 # Standards and regulatory frameworks
 :Standard rdf:type owl:Class ;
@@ -193,6 +235,47 @@
     rdfs:subClassOf :Resource ;
     rdfs:label "Measurement"@en ;
     rdfs:comment "A quantitative or qualitative assessment or evaluation"@en .
+
+#################################################################
+#    Normative refinements (subclasses, non-breaking)            
+#################################################################
+
+# Modalities (kept as subclasses to avoid new primaries)
+:Permission rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Obligation ;
+    rdfs:label "Permission"@en ;
+    rdfs:comment "A normative allowance indicating that an action or state is permitted under certain conditions."@en .
+
+:Prohibition rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Obligation ;
+    rdfs:label "Prohibition"@en ;
+    rdfs:comment "A normative restriction indicating that an action or state is disallowed."@en .
+
+# Compliance tracking
+:Violation rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Event ;
+    rdfs:label "Violation"@en ;
+    rdfs:comment "An event indicating that an obligation, prohibition, or standard has been breached."@en .
+
+# Explainability / rationale
+:Justification rdf:type owl:Class ;
+    rdf:type :EntityType ;
+    rdfs:subClassOf :Resource ;
+    rdfs:label "Justification"@en ;
+    rdfs:comment "A rationale, argument, or evidence artifact supporting a decision or interpretation in an ethical case."@en .
+
+#################################################################
+#    Annotation properties                                        
+#################################################################
+
+:hasValueLabel rdf:type owl:AnnotationProperty ;
+    rdfs:label "has value label"@en ;
+    rdfs:comment "Annotation for recording the value-oriented reading of a principle (e.g., 'Integrity', 'Justice')."@en ;
+    rdfs:domain :Principle ;
+    rdfs:range xsd:string .
 
 #################################################################
 #    Object Properties                                           
@@ -246,6 +329,31 @@
     rdfs:range :Obligation ;
     rdfs:label "fulfills obligation"@en ;
     rdfs:comment "Relates an action to an obligation it fulfills"@en .
+
+# Properties connecting roles to obligations and principles
+:hasObligation rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :Obligation ;
+    rdfs:label "has obligation"@en ;
+    rdfs:comment "Relates a role to the professional obligations borne by entities bearing that role"@en .
+
+:adheresToPrinciple rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :Principle ;
+    rdfs:label "adheres to principle"@en ;
+    rdfs:comment "Relates a role to ethical principles that normatively govern that role"@en .
+
+:pursuesEnd rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :End ;
+    rdfs:label "pursues end"@en ;
+    rdfs:comment "Relates a role to its characteristic ends/goals."@en .
+
+:governedByCode rdf:type owl:ObjectProperty ;
+    rdfs:domain :Role ;
+    rdfs:range :EthicalCode ;
+    rdfs:label "governed by code"@en ;
+    rdfs:comment "Relates a professional role to an ethical code that formalizes its obligations and norms."@en .
 
 #################################################################
 #    SPARQL Query Support                                        

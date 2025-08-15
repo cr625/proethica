@@ -28,16 +28,24 @@ class EmbeddingService:
         self.model_name = model_name or os.environ.get("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
         
         # Provider priority (configurable through environment)
+        # Determine default priority: if any hosted API key exists, prefer hosted first unless overridden
+        any_hosted_key = any([
+            bool(os.environ.get("OPENAI_API_KEY")),
+            bool(os.environ.get("ANTHROPIC_API_KEY")),
+            bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        ])
+        default_priority = "openai,gemini,claude,local" if any_hosted_key else "local,openai,gemini,claude"
         self.provider_priority = os.environ.get(
-            "EMBEDDING_PROVIDER_PRIORITY", 
-            "local,claude,openai"
+            "EMBEDDING_PROVIDER_PRIORITY",
+            default_priority
         ).lower().split(',')
         
         # Model dimensions (these will be used if embeddings need to be generated from scratch)
         self.dimensions = {
-            "local": embedding_dimension or 384,  # Default for all-MiniLM-L6-v2
-            "claude": 1024,  # Claude embedding dimension
-            "openai": 1536   # OpenAI ada-002 dimension
+            "local": embedding_dimension or 384,   # all-MiniLM-L6-v2
+            "claude": 1024,                       # Claude embeddings
+            "openai": 1536,                      # text-embedding-ada-002
+            "gemini": 768                        # text-embedding-004
         }
         
         # Default dimension based on first provider in priority
@@ -48,7 +56,7 @@ class EmbeddingService:
         else:
             self.embedding_dimension = embedding_dimension or 384  # Fallback
         
-        # Provider setup and validation
+    # Provider setup and validation
         self.providers = {}
         self._setup_providers()
         
@@ -64,7 +72,7 @@ class EmbeddingService:
             Extracted text content
         """
         file_type = file_type.lower() if file_type else ''
-        
+
         try:
             # Handle different file types
             if file_type == 'pdf':
@@ -79,7 +87,7 @@ class EmbeddingService:
                 return self._extract_from_url(file_path)  # In this case, file_path would be the URL
             else:
                 raise ValueError(f"Unsupported file type: {file_type}")
-                
+
         except Exception as e:
             # Log the error and re-raise
             print(f"Error extracting text from {file_path} ({file_type}): {str(e)}")
@@ -248,26 +256,64 @@ class EmbeddingService:
     
     def _setup_providers(self):
         """Initialize and validate all configured providers."""
+        # Emit basic diagnostics for priority and switches
+        priority_str = ",".join(self.provider_priority)
+        disable_local = os.environ.get("DISABLE_LOCAL_EMBEDDINGS", "false").lower() in ("1", "true", "yes")
+        print(f"Embedding providers priority: {priority_str} | DISABLE_LOCAL_EMBEDDINGS={disable_local}")
         # Local model setup
-        if "local" in self.provider_priority:
+        if "local" in self.provider_priority and not disable_local:
             try:
                 from sentence_transformers import SentenceTransformer
-                import os
-                
+                import torch
+
                 # Configure offline mode to avoid HuggingFace Hub requests
                 os.environ["HF_HUB_OFFLINE"] = "1"
                 os.environ["TRANSFORMERS_OFFLINE"] = "1"
-                
+                # Device selection with CPU fallback option
+                requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
+                device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
+
                 self.providers["local"] = {
-                    "model": SentenceTransformer(self.model_name, local_files_only=True),
+                    "model": SentenceTransformer(self.model_name, local_files_only=True, device=device),
                     "available": True,
-                    "dimension": self.dimensions["local"]
+                    "dimension": self.dimensions["local"],
+                    "device": device
                 }
-                print(f"Local embedding provider ready: {self.model_name}")
+                print(f"Local embedding provider ready: {self.model_name} (device={device})")
             except Exception as e:
-                print(f"Local embedding provider unavailable: {str(e)}")
-                self.providers["local"] = {"available": False}
-        
+                # If we hit a meta-tensor or device move issue, mark local unavailable and proceed
+                err_msg = str(e)
+                # Optional fallback: allow one-time download if cache is missing
+                allow_dl = os.environ.get("ALLOW_HF_DOWNLOAD", "false").lower() in ("1", "true", "yes")
+                tried_download = False
+                if allow_dl:
+                    try:
+                        from sentence_transformers import SentenceTransformer
+                        # Reconfigure to allow online download
+                        os.environ["HF_HUB_OFFLINE"] = "0"
+                        os.environ["TRANSFORMERS_OFFLINE"] = "0"
+                        import torch
+                        requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
+                        device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
+                        print("Local embedding provider: attempting online download of model (ALLOW_HF_DOWNLOAD=true)")
+                        model = SentenceTransformer(self.model_name, local_files_only=False, device=device)
+                        self.providers["local"] = {
+                            "model": model,
+                            "available": True,
+                            "dimension": self.dimensions["local"],
+                            "device": device
+                        }
+                        print(f"Local embedding provider ready after download: {self.model_name} (device={device})")
+                        tried_download = True
+                    except Exception as e2:
+                        print(f"Local embedding provider download failed: {str(e2)}")
+                if not tried_download:
+                    if "meta" in err_msg.lower() and "tensor" in err_msg.lower():
+                        print("Local embedding provider unavailable due to meta-tensor issue; disabling local embeddings for this session")
+                    else:
+                        print(f"Local embedding provider unavailable: {err_msg}")
+                    self.providers["local"] = {"available": False, "reason": err_msg}
+
         # Claude API setup
         if "claude" in self.provider_priority:
             api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -282,8 +328,8 @@ class EmbeddingService:
                 print(f"Claude embedding provider ready: {self.providers['claude']['model']} (API key: {api_key[:5]}...{api_key[-4:]})")
             else:
                 print(f"Claude embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
-                self.providers["claude"] = {"available": False}
-        
+                self.providers["claude"] = {"available": False, "reason": "invalid_api_key"}
+
         # OpenAI API setup
         if "openai" in self.provider_priority:
             # Get API key from .env file - read the actual .env variable
@@ -293,13 +339,29 @@ class EmbeddingService:
                     "api_key": api_key,
                     "available": True,
                     "api_base": os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1"),
-                    "model": os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"),
+                    "model": os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
                     "dimension": self.dimensions["openai"]
                 }
                 print(f"OpenAI embedding provider ready: {self.providers['openai']['model']} (API key: {api_key[:5]}...{api_key[-4:]})")
             else:
                 print(f"OpenAI embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
-                self.providers["openai"] = {"available": False}
+                self.providers["openai"] = {"available": False, "reason": "invalid_api_key"}
+
+        # Gemini API setup (Google Generative Language API)
+        if "gemini" in self.provider_priority:
+            gkey = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+            if gkey and len(gkey) > 20:
+                self.providers["gemini"] = {
+                    "api_key": gkey,
+                    "available": True,
+                    "api_base": os.environ.get("GEMINI_API_BASE", "https://generativelanguage.googleapis.com/v1beta"),
+                    "model": os.environ.get("GEMINI_EMBEDDING_MODEL", "text-embedding-004"),
+                    "dimension": self.dimensions["gemini"]
+                }
+                print("Gemini embedding provider ready: text-embedding-004")
+            else:
+                print("Gemini embedding provider unavailable: Missing or invalid API key")
+                self.providers["gemini"] = {"available": False, "reason": "invalid_api_key"}
                 
     def get_embedding(self, text: str) -> List[float]:
         """
@@ -333,18 +395,65 @@ class EmbeddingService:
                     embedding = self._get_openai_embedding(text)
                     self.embedding_dimension = len(embedding)  # Update dimension based on result
                     return embedding
+                elif provider == "gemini":
+                    embedding = self._get_gemini_embedding(text)
+                    self.embedding_dimension = len(embedding)
+                    return embedding
             except Exception as e:
                 print(f"Error using {provider} embeddings: {str(e)}")
                 continue
         
         # Fallback to random if all providers fail
-        print("Warning: All embedding providers failed. Using random embeddings.")
+        try:
+            states = {p: (self.providers.get(p, {}).get("available", False)) for p in self.provider_priority}
+            reasons = {p: self.providers.get(p, {}).get("reason") for p in self.provider_priority}
+            print(f"Warning: All embedding providers failed. Using random embeddings. States={states} Reasons={reasons}")
+        except Exception:
+            print("Warning: All embedding providers failed. Using random embeddings.")
         return self._get_random_embedding()
     
     def _get_local_embedding(self, text: str) -> List[float]:
         """Get embedding from local sentence-transformers model."""
-        embedding = self.providers["local"]["model"].encode(text)
+        model = self.providers["local"]["model"]
+        try:
+            embedding = model.encode(text)
+        except Exception as e:
+            # Force CPU fallback if a CUDA-related error occurs
+            if "CUDA" in str(e).upper():
+                try:
+                    from sentence_transformers import SentenceTransformer
+                    model_name = self.model_name
+                    self.providers["local"]["model"] = SentenceTransformer(model_name, local_files_only=True, device="cpu")
+                    print("Local embedding: CUDA error detected, falling back to CPU")
+                    embedding = self.providers["local"]["model"].encode(text)
+                except Exception:
+                    raise
+            else:
+                raise
         return embedding.tolist()
+
+    def _get_gemini_embedding(self, text: str) -> List[float]:
+        """Get embedding from Google Gemini embeddings API (text-embedding-004)."""
+        provider = self.providers.get("gemini", {})
+        api_key = provider.get("api_key")
+        api_base = provider.get("api_base", "https://generativelanguage.googleapis.com/v1beta")
+        model = provider.get("model", "text-embedding-004")
+        url = f"{api_base.rstrip('/')}/models/{model}:embedText?key={api_key}"
+        payload = {"text": text}
+        headers = {"Content-Type": "application/json"}
+        resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
+        if resp.status_code != 200:
+            raise Exception(f"Gemini embeddings error {resp.status_code}: {resp.text}")
+        data = resp.json()
+        # Response shape: { "embedding": { "value": [floats] } }
+        if "embedding" in data and isinstance(data["embedding"], dict) and "value" in data["embedding"]:
+            return data["embedding"]["value"]
+        # Some SDKs return { "embeddings": [ { "value": [...] } ] }
+        if "embeddings" in data and isinstance(data["embeddings"], list) and data["embeddings"]:
+            emb = data["embeddings"][0]
+            if isinstance(emb, dict) and "value" in emb:
+                return emb["value"]
+        raise Exception(f"Unexpected Gemini embedding response: {data}")
 
     def _get_claude_embedding(self, text: str) -> List[float]:
         """Get embedding from Claude API."""
@@ -547,65 +656,107 @@ class EmbeddingService:
         """
         from app import db
         from app.models.document import Document, DocumentChunk
-        
+
+        # Helper cosine
+        def cosine(a: List[float], b: List[float]) -> float:
+            if not a or not b:
+                return 0.0
+            n = min(len(a), len(b))
+            if n == 0:
+                return 0.0
+            dot = sum(a[i] * b[i] for i in range(n))
+            na = sum(a[i] * a[i] for i in range(n)) ** 0.5
+            nb = sum(b[i] * b[i] for i in range(n)) ** 0.5
+            if na == 0 or nb == 0:
+                return 0.0
+            return dot / (na * nb)
+
+        # Prefer local 384-dim embedding (matches embedding_384)
         try:
-            # Generate embedding for the query text
-            embedding = self.get_embedding(query)
-            
-            # Convert the embedding to a string representation for SQL
-            embedding_str = f"[{','.join(str(x) for x in embedding)}]"
-            
-            # Build the base query
-            query_parts = [
-                "SELECT dc.id, dc.chunk_text, dc.chunk_index, d.title, d.document_type,",
-                "dc.embedding <-> :embedding AS distance",
-                "FROM document_chunks dc",
-                "JOIN documents d ON dc.document_id = d.id",
-                "WHERE dc.embedding IS NOT NULL"
-            ]
-            
-            # Add filters if provided
-            params = {"embedding": embedding_str}
-            
-            if world_id is not None:
-                query_parts.append("AND d.world_id = :world_id")
-                params["world_id"] = world_id
-                
-            if document_type is not None:
-                query_parts.append("AND d.document_type = :document_type")
-                params["document_type"] = document_type
-                
-            # Add ordering and limit
-            query_parts.append("ORDER BY distance")
-            query_parts.append("LIMIT :k")
-            params["k"] = k
-            
-            # Combine query parts
-            query_str = " ".join(query_parts)
-            
-            # Execute the query
-            result = db.session.execute(text(query_str), params)
-            
-            # Format results
-            similar_chunks = []
-            for row in result:
-                similar_chunks.append({
-                    "id": row.id,
-                    "chunk_text": row.chunk_text,
-                    "chunk_index": row.chunk_index,
-                    "title": row.title,
-                    "document_type": row.document_type,
-                    "distance": row.distance,
-                    "similarity": 1.0 - float(row.distance) if row.distance is not None else 0.0
-                })
-            
-            return similar_chunks
-            
-        except Exception as e:
-            import traceback
-            logger.error(f"Error in search_similar_chunks: {str(e)}")
-            logger.error(traceback.format_exc())
-            return []
+            qvec_384 = self._get_local_embedding(query)
+        except Exception:
+            qvec_384 = []
+
+        use_db_vector = os.environ.get("USE_DB_VECTOR_SEARCH", "false").lower() in ("1", "true", "yes")
+        can_use_db = use_db_vector and len(qvec_384) == 384
+
+        if can_use_db:
+            try:
+                embedding_str = f"[{','.join(str(x) for x in qvec_384)}]"
+                parts = [
+                    "SELECT dc.id, dc.content AS chunk_text, dc.chunk_index, d.title, d.document_type,",
+                    "dc.embedding_384 <-> (:embedding)::vector AS distance",
+                    "FROM document_chunks dc",
+                    "JOIN documents d ON dc.document_id = d.id",
+                    "WHERE dc.embedding_384 IS NOT NULL",
+                ]
+                params = {"embedding": embedding_str, "k": k}
+                if world_id is not None:
+                    parts.append("AND d.world_id = :world_id")
+                    params["world_id"] = world_id
+                if document_type is not None:
+                    parts.append("AND d.document_type = :document_type")
+                    params["document_type"] = document_type
+                parts.append("ORDER BY distance")
+                parts.append("LIMIT :k")
+                sql = text(" ".join(parts))
+                res = db.session.execute(sql, params)
+                out = []
+                for row in res:
+                    out.append({
+                        "id": row.id,
+                        "chunk_text": row.chunk_text,
+                        "chunk_index": row.chunk_index,
+                        "title": row.title,
+                        "document_type": row.document_type,
+                        "distance": row.distance,
+                        "similarity": 1.0 - float(row.distance) if row.distance is not None else 0.0,
+                    })
+                return out
+            except Exception as e:
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                logger.warning(f"DB vector search failed, falling back to Python cosine: {e}")
+
+        # Python fallback: support both 384 and legacy embeddings
+        # Lazily compute a generic embedding if needed
+        qvec_legacy: Optional[List[float]] = None
+        q = db.session.query(DocumentChunk, Document).join(Document, DocumentChunk.document_id == Document.id)
+        q = q.filter((DocumentChunk.embedding_384.isnot(None)) | (DocumentChunk.embedding.isnot(None)))
+        if world_id is not None:
+            q = q.filter(Document.world_id == world_id)
+        if document_type is not None:
+            q = q.filter(Document.document_type == document_type)
+
+        rows = q.all()
+        scored: List[Dict[str, Any]] = []
+        for dc, d in rows:
+            emb = dc.embedding_384 if getattr(dc, "embedding_384", None) is not None else dc.embedding
+            if emb is None:
+                continue
+            if len(emb) == 384 and qvec_384:
+                sim = cosine(qvec_384, emb)
+            else:
+                if qvec_legacy is None:
+                    try:
+                        qvec_legacy = self.get_embedding(query)
+                    except Exception:
+                        qvec_legacy = []
+                sim = cosine(qvec_legacy or [], emb)
+            scored.append({
+                "id": dc.id,
+                "chunk_text": dc.content,
+                "chunk_index": dc.chunk_index,
+                "title": d.title,
+                "document_type": d.document_type,
+                "distance": 1.0 - sim,
+                "similarity": sim,
+            })
+
+        scored.sort(key=lambda x: x["similarity"], reverse=True)
+        return scored[:k]
     
     def find_similar_triples(self, text: str, field: str = "subject", limit: int = 10) -> List[Dict[str, Any]]:
         """

@@ -149,10 +149,28 @@
           <div class="modal-body">
             <p>Are you sure you want to delete the guideline "{{ guideline.title }}"?</p>
             <p class="text-danger">This action cannot be undone. All associated concepts and analysis will be permanently deleted.</p>
+            {% if guideline_ontologies and guideline.id in guideline_ontologies %}
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" value="on" id="deleteDerivedOnt{{ guideline.id }}" name="delete_derived_ontology">
+              <label class="form-check-label" for="deleteDerivedOnt{{ guideline.id }}">
+                Also delete derived ontology
+                <span class="badge bg-secondary ms-1">{{ guideline_ontologies[guideline.id].name }}</span>
+              </label>
+              <input type="hidden" name="derived_ontology_id" value="{{ guideline_ontologies[guideline.id].id }}">
+            </div>
+            <div class="form-text">If unchecked, the derived ontology is preserved and can be managed later.</div>
+            {% endif %}
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="POST" class="d-inline">
+              {% if csrf_token %}
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              {% endif %}
+              {% if guideline_ontologies and guideline.id in guideline_ontologies %}
+              <!-- Duplicate the selected choice from the modal body via JS is overkill; include fields in the same form -->
+              <input type="hidden" name="derived_ontology_id" value="{{ guideline_ontologies[guideline.id].id }}">
+              {% endif %}
               <button type="submit" class="btn btn-danger">Delete Guideline</button>
             </form>
           </div>
@@ -257,16 +275,19 @@
             <div class="tab-pane fade show active" id="upload" role="tabpanel" aria-labelledby="upload-tab">
               <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='file') }}" method="post"
                 enctype="multipart/form-data">
-                <!-- CSRF token removed due to configuration issue -->
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                {% endif %}
+                <input type="hidden" name="input_type" value="file">
 
                 <div class="mb-3">
-                  <label for="title" class="form-label">Title</label>
-                  <input type="text" class="form-control" id="title" name="title" required>
+                  <label for="guidelines_title_file" class="form-label">Title</label>
+                  <input type="text" class="form-control" id="guidelines_title_file" name="guidelines_title" required>
                 </div>
 
                 <div class="mb-3">
-                  <label for="file" class="form-label">Guideline File</label>
-                  <input type="file" class="form-control" id="file" name="file" accept=".pdf,.doc,.docx,.txt,.md,.html"
+                  <label for="guidelines_file_modal" class="form-label">Guideline File</label>
+                  <input type="file" class="form-control" id="guidelines_file_modal" name="guidelines_file" accept=".pdf,.doc,.docx,.txt,.md,.html"
                     required>
                   <small class="form-text text-muted">Accepted file types: PDF, DOC, DOCX, TXT, MD, HTML</small>
                 </div>
@@ -283,16 +304,19 @@
             <!-- URL Tab -->
             <div class="tab-pane fade" id="url" role="tabpanel" aria-labelledby="url-tab">
               <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='url') }}" method="post">
-                <!-- CSRF token removed due to configuration issue -->
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                {% endif %}
+                <input type="hidden" name="input_type" value="url">
 
                 <div class="mb-3">
-                  <label for="title_url" class="form-label">Title</label>
-                  <input type="text" class="form-control" id="title_url" name="title" required>
+                  <label for="guidelines_title_url" class="form-label">Title</label>
+                  <input type="text" class="form-control" id="guidelines_title_url" name="guidelines_title" required>
                 </div>
 
                 <div class="mb-3">
-                  <label for="url" class="form-label">URL</label>
-                  <input type="url" class="form-control" id="url" name="url" required>
+                  <label for="guidelines_url_modal" class="form-label">URL</label>
+                  <input type="url" class="form-control" id="guidelines_url_modal" name="guidelines_url" required>
                   <small class="form-text text-muted">Enter the web address of the guideline document</small>
                 </div>
 
@@ -308,16 +332,19 @@
             <!-- Manual Entry Tab -->
             <div class="tab-pane fade" id="manual" role="tabpanel" aria-labelledby="manual-tab">
               <form action="{{ url_for('worlds.add_guideline', id=world.id, source_type='manual') }}" method="post">
-                <!-- CSRF token removed due to configuration issue -->
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                {% endif %}
+                <input type="hidden" name="input_type" value="text">
 
                 <div class="mb-3">
-                  <label for="title_manual" class="form-label">Title</label>
-                  <input type="text" class="form-control" id="title_manual" name="title" required>
+                  <label for="guidelines_title_manual" class="form-label">Title</label>
+                  <input type="text" class="form-control" id="guidelines_title_manual" name="guidelines_title" required>
                 </div>
 
                 <div class="mb-3">
-                  <label for="content" class="form-label">Content</label>
-                  <textarea class="form-control" id="content" name="content" rows="10" required></textarea>
+                  <label for="guidelines_text_modal" class="form-label">Content</label>
+                  <textarea class="form-control" id="guidelines_text_modal" name="guidelines_text" rows="10" required></textarea>
                 </div>
 
                 <div class="mb-3">

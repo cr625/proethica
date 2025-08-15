@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scenario S-24-02 — Appendix Snapshot (Larger)</title>
+  <style>
+    :root { --gap: 14px; --pad: 14px; --muted:#6c757d; }
+    html, body { margin:0; padding:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif; }
+    .panel { max-width: 1400px; margin: 10px auto; padding: var(--pad); }
+    h4 { font-size: 1.25rem; margin:0; }
+    .small { font-size: 0.9rem; }
+    .tiny { font-size: 0.82rem; color: var(--muted); }
+    .chip { display:inline-block; border:1px solid #e2e5e9; padding:.12rem .5rem; border-radius:999px; font-size:.82rem; margin:2px; background:#f8f9fa; }
+    .role { background:#e9f2ff; border-color:#cfe0ff; }
+    .ob { background:#fff3cd; border-color:#ffe69c; }
+    .pr { background:#eafaf1; border-color:#ccead9; }
+    .rc { background:#f1f3f5; border-color:#dee2e6; }
+    .title { font-weight:700; letter-spacing:.02em; text-transform:uppercase; color:#495057; font-size:.95rem; margin-bottom:8px; }
+    .section { border:1px solid #e9ecef; border-radius:10px; padding: var(--pad); background:#fff; }
+    .list-compact { margin:0; padding-left: 1rem; }
+    .list-compact li { margin-bottom: .35rem; }
+    .grid { display:grid; grid-template-columns: 3fr 2fr; gap: var(--gap); align-items:start; }
+    .row-tight { display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    .divider { height:1px; background:#e9ecef; margin:8px 0; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+      <div>
+  <h4>Scenario S-24-02 · AI in Engineering Practice</h4>
+  <div class="tiny">Derived from engineering ethics case corpus</div>
+      </div>
+  <div class="tiny" style="text-align:right;">Appendix view · Wider spacing and larger text</div>
+    </div>
+    <div class="grid">
+      <div class="section">
+        <div class="title">Overview</div>
+        <div class="small" style="margin-bottom:10px;">Engineer A considers using AI to draft report text and assist design documents after losing senior review support. Key tensions: confidentiality, responsible charge, competence, attribution.</div>
+        <div class="title">Timeline decisions and recommendations</div>
+        <ul class="list-compact small" style="margin-bottom:10px;">
+          <li><strong>DP1 · AI-generated report text — Recommendation:</strong> Use with strict redaction and full human rewrite; acknowledge assistance when material is retained. <span class="chip pr">Honesty/Transparency</span> <span class="chip ob">II.1.c Confidentiality</span> <span class="chip ob">III.9 Credit</span></li>
+          <li><strong>DP2 · AI-assisted design documents — Recommendation:</strong> Retain responsible charge; perform comprehensive verification before sealing; document personal direction. <span class="chip ob">II.2.b Responsible Charge</span> <span class="chip pr">Public Welfare (I.1)</span></li>
+          <li><strong>DP3 · Disclosure of AI use — Recommendation:</strong> Disclose when it materially influences technical work or attribution; follow contract terms; otherwise optional transparency note. <span class="chip pr">Avoid Deception (I.5)</span> <span class="chip rc">Contract Terms</span></li>
+        </ul>
+        <div class="row-tight">
+          <div>
+            <div class="title">Roles</div>
+            <div>
+              <span class="chip role">Engineer A (ProfessionalRole)</span>
+              <span class="chip role">Client W (ParticipantRole)</span>
+            </div>
+          </div>
+          <div>
+            <div class="title">System cues</div>
+            <div class="tiny">Roles kept: 2 · dropped: 0 · reclassified: 0</div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="row-tight">
+          <div>
+            <div class="title">Precedent cases (themes)</div>
+            <ul class="list-compact tiny">
+              <li>🔗 <span style="text-decoration:underline;">Responsible charge in sealed documents (BER precedents)</span></li>
+              <li>🔗 <span style="text-decoration:underline;">Confidentiality with third‑party/cloud tools</span></li>
+              <li>🔗 <span style="text-decoration:underline;">Attribution and professional credit in mixed drafting</span></li>
+            </ul>
+          </div>
+          <div>
+            <div class="title">Guidelines references</div>
+            <ul class="list-compact tiny">
+              <li>🔗 <span style="text-decoration:underline;">I.1 Public Welfare (NSPE Code)</span></li>
+              <li>🔗 <span style="text-decoration:underline;">II.1.c Client Confidentiality</span></li>
+              <li>🔗 <span style="text-decoration:underline;">II.2.b Responsible Charge</span></li>
+              <li>🔗 <span style="text-decoration:underline;">III.9 Professional Credit</span></li>
+              <li>🔗 <span style="text-decoration:underline;">NSPE Position Statement 10-1778</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div class="title">Ontology links</div>
+          <ul class="list-compact tiny" style="margin-bottom:0;">
+            <li>Engineer A → hasObligation → Confidentiality (II.1.c)</li>
+            <li>Engineer A → adheresToPrinciple → Public Welfare (I.1)</li>
+            <li>Engineer A → governedByCode → NSPE Code</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="tiny" style="margin-top:8px;">Appendix panel. Suitable for larger print or on-screen presentation.</div>
+  </div>
+</body>
+</html>

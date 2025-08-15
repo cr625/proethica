@@ -23,41 +23,32 @@
     owl:imports <http://proethica.org/ontology/intermediate>,
         bfo:bfo.owl .
 
-# Engineering Roles with proper source attribution
+### Engineering Roles: prefer base Engineer for obligations, keep specializations light
 
-:StructuralEngineerRole a proeth:EntityType,
+# Broad professional role often referred to as "Engineer" (may be licensed PE)
+:Engineer a proeth:EntityType,
         proeth:Role,
         owl:Class ;
+    rdfs:label "Engineer"@en ;
+    rdfs:comment "Engineer as a professional role category. Use this base role to attach core obligations and principles derived from NSPE. Specialized sub-roles can remain but should inherit obligations via this base role."@en ;
+    rdfs:subClassOf proeth:EngineerRole .
+
+# Keep specific sub-roles minimal (inherit semantics from base Engineer)
+:StructuralEngineerRole a proeth:EntityType, proeth:Role, owl:Class ;
     rdfs:label "Structural Engineer Role"@en ;
-    rdfs:comment "Engineer specializing in structural analysis and design of buildings and infrastructure"@en ;
-    dc:source "NSPE Professional Categories; IFC/ISO 16739-1:2018" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
-    skos:note "Role definition based on NSPE professional categories and IFC building standards" ;
-    rdfs:subClassOf proeth:EngineerRole ;
-    owl:equivalentClass ifc:IfcStructuralEngineer .
+    rdfs:subClassOf :Engineer ;
+    owl:equivalentClass ifc:IfcStructuralEngineer ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
 
-:ElectricalEngineerRole a proeth:EntityType,
-        proeth:Role,
-        owl:Class ;
+:ElectricalEngineerRole a proeth:EntityType, proeth:Role, owl:Class ;
     rdfs:label "Electrical Engineer Role"@en ;
-    rdfs:comment "Engineer specializing in electrical power systems and electronics"@en ;
-    dc:source "NSPE Professional Categories; IEC 61508 Functional Safety" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    rdfs:seeAlso <https://www.nspe.org/resources/ethics/code-ethics> ;
-    skos:note "Role definition includes competencies from IEC electrical safety standards" ;
-    rdfs:subClassOf proeth:EngineerRole .
+    rdfs:subClassOf :Engineer ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
 
-:MechanicalEngineerRole a proeth:EntityType,
-        proeth:Role,
-        owl:Class ;
+:MechanicalEngineerRole a proeth:EntityType, proeth:Role, owl:Class ;
     rdfs:label "Mechanical Engineer Role"@en ;
-    rdfs:comment "Engineer specializing in mechanical systems, HVAC, and thermal analysis"@en ;
-    dc:source "NSPE Professional Categories; ASME Standards" ;
-    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    rdfs:seeAlso <https://www.asme.org/codes-standards> ;
-    skos:note "Role encompasses ASME mechanical engineering standards" ;
-    rdfs:subClassOf proeth:EngineerRole .
+    rdfs:subClassOf :Engineer ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
 
 :ClientRepresentativeRole a proeth:EntityType,
         proeth:Role,
@@ -369,6 +360,30 @@
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
     skos:note "Core engineering activity involving creative problem solving and technical analysis" ;
     rdfs:subClassOf proeth:Action .
+
+#################################################################
+#    NSPE-derived Associations to Base Engineer Role             
+#################################################################
+
+# Attach core code
+:NSPECodeOfEthics rdfs:label "NSPE Code of Ethics"@en .
+
+# Core ends/goals for Engineer (derived from Fundamental Canons)
+:ProtectPublicEnd a proeth:End, owl:Class ;
+    rdfs:label "Protect Public Safety, Health, and Welfare"@en ;
+    dc:source "NSPE Code I.1" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
+
+:TruthfulnessEnd a proeth:End, owl:Class ;
+    rdfs:label "Truthful and Objective Public Communication"@en ;
+    dc:source "NSPE Code I.3" ;
+    rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
+
+# Link Engineer role to obligations, principles, and code
+:Engineer proeth:hasObligation :PublicWelfareObligation , :HonestServiceObligation , :ContinuousLearningObligation ;
+          proeth:adheresToPrinciple :PublicSafetyPrinciple , :ProfessionalIntegrityPrinciple , :CompetencePrinciple ;
+          proeth:pursuesEnd :ProtectPublicEnd , :TruthfulnessEnd ;
+          proeth:governedByCode :NSPECodeOfEthics .
 
 :SafetyReportingAction a proeth:EntityType,
         proeth:Action,

@@ -67,16 +67,17 @@
                         {% set combined_items = [] %}
                         {% if scenario.actions %}
                         {% for action in scenario.actions %}
-                        {% set _ = combined_items.append((action.action_time, 'action', action)) %}
+                        {% set order_key = 1 if (action.is_decision) else 2 %}
+                        {% set _ = combined_items.append((action.action_time, order_key, 'action', action)) %}
                         {% endfor %}
                         {% endif %}
                         {% if scenario.events %}
                         {% for event in scenario.events %}
-                        {% set _ = combined_items.append((event.event_time, 'event', event)) %}
+                        {% set _ = combined_items.append((event.event_time, 0, 'event', event)) %}
                         {% endfor %}
                         {% endif %}
 
-                        {% for time, item_type, item in combined_items|sort %}
+                        {% for time, _order, item_type, item in combined_items|sort %}
                         {% set timeline_index = loop.index0 %}
                         <div 
                             class="timeline-item" 
@@ -101,8 +102,33 @@
                                         class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
                                         {{ 'Decision' if item.is_decision else 'Action' }}
                                     </span>
+                                                {% set etype = (item.parameters.event_type if item.parameters and item.parameters.event_type else (item.action_type if item.action_type else '—')) %}
+                                                {% set chname = (item.character.name if item.character else '') %}
+                                                {% set just = (item.parameters.justification if item.parameters and item.parameters.justification else '') %}
+                                                {% set popover_html = "<div><strong>Time:</strong> " ~ (time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown') ~ "</div>" ~
+                                                    "<div><strong>Type:</strong> " ~ (etype|e) ~ "</div>" ~
+                                                    (chname and ("<div><strong>Character:</strong> " ~ (chname|e) ~ "</div>") or "") ~
+                                                    (just and ("<div class='mt-1'><em>" ~ (just|e) ~ "</em></div>") or "") %}
+                                                <i class="bi bi-info-circle ms-1 text-secondary" title="Details" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" data-bs-html="true" data-bs-content='{{ popover_html|safe }}'></i>
+                                    {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
+                                    <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
+                                    {% endif %}
                                     {% else %}
                                     <span class="badge bg-info">Event</span>
+                                    {% if item.parameters and item.parameters.synthetic %}
+                                    <span class="badge bg-light text-dark ms-1" title="Context event (auto-generated)">Context</span>
+                                    {% endif %}
+                                                {% set etype = (item.parameters.event_type if item.parameters and item.parameters.event_type else (item.action_type if item.action_type else '—')) %}
+                                                {% set chname = (item.character.name if item.character else '') %}
+                                                {% set just = (item.parameters.justification if item.parameters and item.parameters.justification else '') %}
+                                                {% set popover_html = "<div><strong>Time:</strong> " ~ (time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown') ~ "</div>" ~
+                                                    "<div><strong>Type:</strong> " ~ (etype|e) ~ "</div>" ~
+                                                    (chname and ("<div><strong>Character:</strong> " ~ (chname|e) ~ "</div>") or "") ~
+                                                    (just and ("<div class='mt-1'><em>" ~ (just|e) ~ "</em></div>") or "") %}
+                                                <i class="bi bi-info-circle ms-1 text-secondary" title="Details" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" data-bs-html="true" data-bs-content='{{ popover_html|safe }}'></i>
+                                    {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
+                                    <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
+                                    {% endif %}
                                     {% endif %}
                                 </h4>
 
@@ -284,6 +310,15 @@
                     {% else %}
                     <p class="text-muted">No actions or events added yet.</p>
                     {% endif %}
+                <!-- Bottom Legend -->
+                <div class="mt-4 small text-muted border-top pt-2">
+                    <span class="badge bg-info me-1">Event</span>
+                    <span class="badge bg-warning me-1">Decision</span>
+                    <span class="badge bg-primary me-1">Action</span>
+                    <span class="badge bg-light text-dark me-1" title="Context event (auto-generated)">Context</span>
+                    <i class="bi bi-lightning-charge-fill text-warning me-1" title="Generated automatically"></i>
+                    <i class="bi bi-info-circle text-secondary" title="Click or hover for justification"></i> Justification
+                </div>
                 </div>
             </div>
         </div>
@@ -320,4 +355,13 @@
 <!-- Include analysis formatter and simulation.js -->
 <script src="{{ url_for('static', filename='js/simulation/analysis-formatter.js') }}"></script>
 <script src="{{ url_for('static', filename='js/simulation.js') }}"></script>
+<script>
+    // Initialize Bootstrap popovers for justification info icons
+    document.addEventListener('DOMContentLoaded', function () {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl)
+        })
+    });
+</script>
 {% endblock %}

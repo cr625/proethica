@@ -9,38 +9,7 @@ from sqlalchemy.dialects.postgresql import JSON, ARRAY
 from sqlalchemy import Index, UniqueConstraint
 from sqlalchemy import text
 from sqlalchemy.types import TypeDecorator, UserDefinedType
-
-class Vector(UserDefinedType):
-    """PostgreSQL vector type via pgvector extension."""
-    
-    def __init__(self, dim=384):
-        """Initialize with the vector dimension."""
-        self.dim = dim
-
-    def get_col_spec(self, **kw):
-        return f"vector({self.dim})"
-    
-    def bind_processor(self, dialect):
-        def process(value):
-            if value is None:
-                return None
-            # Convert Python list to PostgreSQL vector format
-            if isinstance(value, list) or isinstance(value, tuple):
-                return f"[{','.join(str(x) for x in value)}]"
-            # If already a string representation, return as is
-            return value
-        return process
-    
-    def result_processor(self, dialect, coltype):
-        def process(value):
-            if value is None:
-                return None
-            # Convert back to Python list if needed
-            if isinstance(value, str) and value.startswith('[') and value.endswith(']'):
-                # Parse the vector string format into a Python list
-                return [float(x) for x in value[1:-1].split(',')]
-            return value
-        return process
+from app.models.pgvector import Vector
 
 class DocumentSection(db.Model):
     """

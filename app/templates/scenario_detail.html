@@ -4,22 +4,23 @@
 
 {% block content %}
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ scenario.name }}</h1>
-        <div class="d-flex gap-2">
-            {% if scenario.scenario_metadata and scenario.scenario_metadata.source_case_id %}
-            <a href="/cases/{{ scenario.scenario_metadata.source_case_id }}" class="btn btn-outline-info">
-                <i class="bi bi-arrow-left"></i> Back to Case
-            </a>
-            {% endif %}
-            <div class="btn-group" role="group">
-                <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-secondary">Edit</a>
-                <a href="/scenarios/{{ scenario.id }}/simulate" class="btn btn-primary disabled" aria-disabled="true">Simulate</a>
-                <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                    data-bs-target="#deleteModal">Delete</button>
-            </div>
+    <!-- Top action bar on its own line to avoid wrapping with the title -->
+    <div class="d-flex justify-content-end gap-2 mb-2 flex-wrap">
+        {% if scenario.scenario_metadata and scenario.scenario_metadata.source_case_id %}
+        <a href="/cases/{{ scenario.scenario_metadata.source_case_id }}" class="btn btn-outline-info">
+            <i class="bi bi-arrow-left"></i> Back to Case
+        </a>
+        {% endif %}
+        <div class="btn-group" role="group">
+            <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-secondary">Edit</a>
+            <a href="/scenarios/{{ scenario.id }}/simulate" class="btn btn-primary disabled" aria-disabled="true">Simulate</a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                data-bs-target="#deleteModal">Delete</button>
         </div>
     </div>
+
+    <!-- Title on its own line below the action bar -->
+    <h1 class="mb-4">{{ scenario.name }}</h1>
 
     <div class="card mb-4">
         <div class="card-header">
@@ -137,21 +138,44 @@
             </div>
         </div>
         <div class="card-body">
+            <!-- Legend -->
+            <div class="d-flex align-items-center gap-2 mb-3 small text-muted">
+                <span class="me-1">Legend:</span>
+                <span class="badge bg-info">Event</span>
+                <span class="badge bg-light text-dark" title="Context event (auto-generated)">Context</span>
+                <span class="badge bg-warning">Decision</span>
+                <span class="badge bg-primary">Action</span>
+                <span class="d-inline-flex align-items-center" title="Generated automatically">
+                    <i class="bi bi-lightning-charge-fill text-warning"></i>
+                    <span class="ms-1">Generated</span>
+                </span>
+            </div>
             {% if scenario.actions or scenario.events %}
             <div class="timeline">
+                {% set ns = namespace(last_group=-1) %}
                 {% set combined_items = [] %}
                 {% if scenario.actions %}
                 {% for action in scenario.actions %}
-                {% set _ = combined_items.append((action.action_time, 'action', action)) %}
+                {# Order key: 0=event, 1=decision, 2=action #}
+                {% set order_key = 1 if (action.is_decision) else 2 %}
+                {% set _ = combined_items.append((action.action_time, order_key, 'action', action)) %}
                 {% endfor %}
                 {% endif %}
                 {% if scenario.events %}
                 {% for event in scenario.events %}
-                {% set _ = combined_items.append((event.event_time, 'event', event)) %}
+                {% set _ = combined_items.append((event.event_time, 0, 'event', event)) %}
                 {% endfor %}
                 {% endif %}
 
-                {% for time, item_type, item in combined_items|sort %}
+                {% for time, _order, item_type, item in combined_items|sort %}
+                {% set current_group = (item.parameters.group_index if item.parameters and item.parameters.group_index is not none else 0) %}
+                {% if current_group != ns.last_group %}
+                <div class="mt-3 mb-2">
+                    <hr class="mt-2 mb-2"/>
+                    <div class="text-muted small">Decision Group {{ (current_group + 1) if current_group is number else '?' }}</div>
+                </div>
+                {% set ns.last_group = current_group %}
+                {% endif %}
                 <div class="timeline-item">
                     <div
                         class="timeline-marker {% if item_type == 'action' and item.is_decision %}bg-warning{% elif item_type == 'event' %}bg-info{% endif %}">
@@ -163,8 +187,47 @@
                             <span class="badge {% if item.is_decision %}bg-warning{% else %}bg-primary{% endif %}">
                                 {{ 'Decision' if item.is_decision else 'Action' }}
                             </span>
+                                                        {% if item.parameters and item.parameters.justification %}
+                                                        <i class="bi bi-info-circle ms-1 text-secondary" title="Why is this here?" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" data-bs-content="{{ item.parameters.justification | e }}"></i>
+                                                        {% endif %}
+                                                        {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
+                                                        <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
+                                                        {% endif %}
                             {% else %}
-                            <span class="badge bg-info">Event</span>
+                                    <span class="badge bg-info">Event</span>
+                                                        {% if item.parameters and item.parameters.synthetic %}
+                                                        <span class="badge bg-light text-dark ms-1" title="Context event (auto-generated)">Context</span>
+                                                        {% endif %}
+                                                                {# Hidden rich content for the event popover #}
+                                                                <div id="popover-event-{{ item.id }}" class="d-none">
+                                                                    <div><strong>Time:</strong> {{ time.strftime('%Y-%m-%d %H:%M') if time else 'Unknown' }}</div>
+                                                                    <div><strong>Type:</strong> {{ (item.parameters.event_type if item.parameters and item.parameters.event_type else '—') }}</div>
+                                                                    {% if item.character %}
+                                                                    <div><strong>Character:</strong> {{ item.character.name }}</div>
+                                                                    {% endif %}
+                                                                    {% if item.description %}
+                                                                    <div class="mt-1"><strong>Description:</strong> {{ item.description }}</div>
+                                                                    {% endif %}
+                                                                    {% if item.parameters %}
+                                                                    <div class="mt-1"><strong>Details:</strong>
+                                                                        <ul class="mb-0 ps-3">
+                                                                            {% if item.parameters.name %}<li>Name: {{ item.parameters.name }}</li>{% endif %}
+                                                                            {% if item.parameters.reasoning_type %}<li>Reasoning: {{ item.parameters.reasoning_type }}</li>{% endif %}
+                                                                            {% if item.parameters.step_order %}<li>Step: {{ item.parameters.step_order }}</li>{% endif %}
+                                                                            {% if item.parameters.input_elements %}<li>Inputs: {{ item.parameters.input_elements|length }} item(s)</li>{% endif %}
+                                                                            {% if item.parameters.origin %}<li>Origin: {{ item.parameters.origin }}</li>{% endif %}
+                                                                            {% if item.parameters.synthetic is not none %}<li>Synthetic: {{ 'yes' if item.parameters.synthetic else 'no' }}</li>{% endif %}
+                                                                        </ul>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                    {% if item.parameters and item.parameters.justification %}
+                                                                    <div class="mt-1"><em>{{ item.parameters.justification }}</em></div>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <i class="bi bi-info-circle ms-1 text-secondary" title="Details" tabindex="0" role="button" data-bs-toggle="popover" data-popover-target="#popover-event-{{ item.id }}" data-bs-trigger="hover focus" data-bs-placement="right"></i>
+                                                        {% if item.parameters and (item.parameters.llm_generated or item.parameters.origin == 'llm') %}
+                                                        <i class="bi bi-lightning-charge-fill text-warning ms-1" title="Generated automatically"></i>
+                                                        {% endif %}
                             {% endif %}
                         </h4>
 
@@ -217,16 +280,16 @@
                             {% for evaluation in item.evaluations %}
                             <div class="progress mb-2">
                                 <div class="progress-bar" role="progressbar"
-                                    style="width: {{ evaluation.rules_compliance * 100 }}%;"
-                                    aria-valuenow="{{ evaluation.rules_compliance * 100 }}" aria-valuemin="0"
+                                    style="width: {{ (evaluation.rules_compliance * 100)|int }}%;"
+                                    aria-valuenow="{{ (evaluation.rules_compliance * 100)|int }}" aria-valuemin="0"
                                     aria-valuemax="100">
                                     Rules Compliance: {{ (evaluation.rules_compliance * 100)|int }}%
                                 </div>
                             </div>
                             <div class="progress mb-2">
                                 <div class="progress-bar bg-info" role="progressbar"
-                                    style="width: {{ evaluation.ethical_score * 100 }}%;"
-                                    aria-valuenow="{{ evaluation.ethical_score * 100 }}" aria-valuemin="0"
+                                    style="width: {{ (evaluation.ethical_score * 100)|int }}%;"
+                                    aria-valuenow="{{ (evaluation.ethical_score * 100)|int }}" aria-valuemin="0"
                                     aria-valuemax="100">
                                     Ethical Score: {{ (evaluation.ethical_score * 100)|int }}%
                                 </div>
@@ -267,6 +330,15 @@
             {% else %}
             <p class="text-muted">No actions or events added yet.</p>
             {% endif %}
+            <!-- Bottom Legend -->
+            <div class="mt-4 small text-muted border-top pt-2">
+                <span class="badge bg-info me-1">Event</span>
+                <span class="badge bg-warning me-1">Decision</span>
+                <span class="badge bg-primary me-1">Action</span>
+                <span class="badge bg-light text-dark me-1" title="Context event (auto-generated)">Context</span>
+                <i class="bi bi-lightning-charge-fill text-warning me-1" title="Generated automatically"></i>
+                <i class="bi bi-info-circle text-secondary" title="Click or hover for justification"></i> Justification
+            </div>
         </div>
     </div>
 
@@ -359,6 +431,8 @@
     </div>
     {% endif %}
 </div>
+
+ 
 
 <!-- Delete Scenario Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -477,6 +551,23 @@
 
 {% block scripts %}
 <script>
+    // Initialize Bootstrap popovers (support HTML from hidden target when data-popover-target is provided)
+    document.addEventListener('DOMContentLoaded', function () {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        popoverTriggerList.map(function (el) {
+            var targetSel = el.getAttribute('data-popover-target');
+            var opts = { trigger: 'hover focus', placement: 'right' };
+            if (targetSel) {
+                var target = document.querySelector(targetSel);
+                if (target) {
+                    opts.html = true;
+                    opts.content = target.innerHTML;
+                }
+            }
+            return new bootstrap.Popover(el, opts);
+        })
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         // Handle resource deletion modal
         const deleteResourceModal = document.getElementById('deleteResourceModal');

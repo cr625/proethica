@@ -338,16 +338,17 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
             return response
         
-        self.app.middlewares.append(cors_middleware)
+    self.app.middlewares.append(cors_middleware)
         
-        # Start the server
-        port = int(os.environ.get("MCP_SERVER_PORT", 5001))
-        self.runner = web.AppRunner(self.app)
-        await self.runner.setup()
-        self.site = web.TCPSite(self.runner, 'localhost', port)
-        await self.site.start()
+    # Start the server
+    port = int(os.environ.get("MCP_SERVER_PORT", 5001))
+    host = os.environ.get("MCP_HOST", "0.0.0.0")
+    self.runner = web.AppRunner(self.app)
+    await self.runner.setup()
+    self.site = web.TCPSite(self.runner, host, port)
+    await self.site.start()
         
-        logger.info(f"Server started at http://localhost:{port}")
+    logger.info(f"Server started at http://{host}:{port}")
     
     async def stop(self):
         """Stop the server."""
@@ -580,14 +581,15 @@ async def run_server():
     
     # Start the web server
     PORT = int(os.environ.get("MCP_SERVER_PORT", 5001))
+    HOST = os.environ.get("MCP_HOST", "0.0.0.0")
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, 'localhost', PORT)
+    site = web.TCPSite(runner, HOST, PORT)
     await site.start()
     
-    logger.info(f"Enhanced MCP Server with WebVOWL and Neo4j running on http://localhost:{PORT}")
-    logger.info(f"WebVOWL visualizations available at: http://localhost:{PORT}/visualization")
-    logger.info(f"Neo4j browser interface available at: http://localhost:{PORT}/neo4j")
+    logger.info(f"Enhanced MCP Server with WebVOWL and Neo4j running on http://{HOST}:{PORT}")
+    logger.info(f"WebVOWL visualizations available at: http://{HOST}:{PORT}/visualization")
+    logger.info(f"Neo4j browser interface available at: http://{HOST}:{PORT}/neo4j")
     
     # Keep running until interrupted
     try:

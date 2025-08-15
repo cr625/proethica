@@ -34,9 +34,12 @@
             <li><strong>Review and save triples</strong> - Next step</li>
         </ol>
         <hr>
+        {% if auto_added %}
+        <p class="mb-0">Selected concepts were also automatically added to the derived ontology for this guideline.</p>
+        {% else %}
         <p class="mb-0">You've successfully saved the selected concepts to the database. The next step is to generate
-            triples from these concepts.
-        </p>
+            triples from these concepts.</p>
+        {% endif %}
     </div>
 
     <div class="card mb-4">
@@ -134,9 +137,45 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Relationship Triples</h5>
+                    {% if semantic_triple_count and semantic_triple_count > 0 %}
+                        <span class="badge bg-light text-dark">{{ semantic_triple_count }} found</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">None yet</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">These are role-centric links like hasObligation, adheresToPrinciple, pursuesEnd, and governedByCode discovered during extraction.</p>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-primary" href="{{ url_for('worlds.manage_guideline_triples', world_id=world.id, guideline_id=document_id) }}">
+                            <i class="fas fa-project-diagram"></i> Review Triples
+                        </a>
+                        <form method="post" action="{{ url_for('worlds.world_backfill_triples', world_id=world.id) }}">
+                            {% if csrf_token %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />{% endif %}
+                            <button type="submit" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync"></i> Backfill from Cache
+                            </button>
+                        </form>
+                        <a class="btn btn-outline-success" href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=document_id) }}">
+                            <i class="fas fa-magic"></i> Re-Extract with Relationships
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Form for adding concepts to engineering-ethics ontology -->
+    {% if not auto_added %}
     <form method="post"
         action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}">
+        {% if csrf_token %}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        {% endif %}
         <!-- Hidden fields to pass necessary data -->
         <input type="hidden" name="concepts_data" value='{{ concepts_json }}' />
         {% for idx in selected_indices %}
@@ -149,7 +188,7 @@
             <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
                 class="btn btn-secondary">Back to Guideline</a>
 
-            {% if concepts %}
+        {% if concepts %}
             <button type="submit" class="btn btn-success" id="addToOntologyBtn">
                 <i class="fas fa-plus-circle"></i> Add to Ontology
             </button>
@@ -160,8 +199,10 @@
             {% endif %}
         </div>
     </form>
+    {% endif %}
 
     <!-- Confirmation Modal -->
+    {% if not auto_added %}
     <div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -204,6 +245,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 

@@ -4,8 +4,8 @@
         {
             "label": "Start MCP Server with Live LLM",
             "type": "shell",
-            "command": "./start_mcp_server_with_env.sh",
-            "args": [],
+            "command": "bash",
+            "args": ["-lc", "scripts/start_mcp_server_with_env.sh"],
             "isBackground": true,
             "problemMatcher": {
                 "pattern": {
@@ -48,7 +48,7 @@
         {
             "label": "Start Flask App",
             "type": "shell",
-            "command": "python3",
+            "command": "${workspaceFolder}/venv/bin/python",
             "args": ["run.py"],
             "group": "build",
             "presentation": {
@@ -59,8 +59,23 @@
             },
             "options": {
                 "env": {
-                    "PYTHONPATH": "${workspaceFolder}:/home/chris/.local/lib/python3.12/site-packages",
-                    "PATH": "${env:PATH}:/home/chris/.local/bin"
+                    "PYTHONPATH": "${workspaceFolder}",
+                    "PATH": "${env:PATH}",
+                    "USE_MOCK_GUIDELINE_RESPONSES": "false",
+                    "FORCE_MOCK_LLM": "false",
+                    "ENVIRONMENT": "development",
+                    "DEBUG": "true",
+                    "BYPASS_AUTH": "true",
+                    "MCP_SERVER_PORT": "5001",
+                    "MCP_SERVER_URL": "http://localhost:5001",
+                    "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
+                    "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
+                    "DISABLE_LOCAL_EMBEDDINGS": "false",
+                    "ALLOW_HF_DOWNLOAD": "true",
+                    "EMBEDDINGS_DEVICE": "cpu",
+                    "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
+                    "EMBEDDING_MODEL": "text-embedding-3-small",
+                    "ANTHROPIC_MODEL": "claude-sonnet-4-20250514"
                 }
             },
             "problemMatcher": []
@@ -144,6 +159,24 @@
             "presentation": {
                 "reveal": "silent",
                 "close": true
+            },
+            "problemMatcher": []
+        }
+        ,
+        {
+            "label": "Restore Latest Backup",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-lc",
+                "bash backups/docker_restore.sh"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
             },
             "problemMatcher": []
         }

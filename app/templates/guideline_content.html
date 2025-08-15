@@ -3,7 +3,7 @@
 {% block title %}{{ guideline.title }} - Guideline{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5" id="page-root" data-auth="{{ 'true' if current_user and current_user.is_authenticated else 'false' }}">
   <h1>{{ guideline.title }}</h1>
   
   <nav aria-label="breadcrumb">
@@ -101,7 +101,7 @@
                   <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
                     <i class="bi bi-trash"></i> Remove Concepts & Ontology Entries
                   </a></li>
                 </ul>
@@ -116,7 +116,7 @@
                   <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
                     <i class="bi bi-trash"></i> Remove Extracted Concepts
                   </a></li>
                 </ul>
@@ -131,7 +131,7 @@
                   <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger" href="#" onclick="removeExtractedConcepts({{ guideline.id }})">
+                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
                     <i class="bi bi-trash"></i> Remove Extracted Concepts
                   </a></li>
                 </ul>
@@ -218,7 +218,8 @@
                     <i class="fas fa-external-link-alt"></i> View Ontology
                   </a>
                 {% else %}
-                  <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" data-bs-toggle="modal" data-bs-target="#addToOntologyModal">
+                  <!-- Auto-add on save is enabled; hide manual button to reduce confusion -->
+                  <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" style="display:none;" disabled>
                     <i class="fas fa-plus-circle"></i> Add to Ontology
                   </button>
                 {% endif %}
@@ -276,7 +277,9 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="post">
-          <!-- CSRF token removed due to configuration issue -->
+          {% if csrf_token %}
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          {% endif %}
           <button type="submit" class="btn btn-danger">Delete</button>
         </form>
       </div>
@@ -285,7 +288,7 @@
 </div>
 
 <!-- Add to Ontology Modal -->
-<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true">
+<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true" style="display:none;">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
@@ -332,6 +335,9 @@
 
 <!-- Hidden form for submission -->
 <form id="addToOntologyForm" method="post" action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}" style="display: none;">
+  {% if csrf_token %}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  {% endif %}
   <input type="hidden" name="commit_message" id="hiddenCommitMessage" value="">
 </form>
 {% endblock %}
@@ -372,6 +378,22 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const rootEl = document.getElementById('page-root');
+  const isAuthenticated = (rootEl?.dataset?.auth === 'true');
+  const loginUrl = "{{ url_for('auth.login') }}";
+  // Bind delete extracted concepts buttons
+  document.querySelectorAll('.js-remove-concepts').forEach((btn) => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!isAuthenticated) {
+        const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+        window.location.href = `${loginUrl}?next=${nextUrl}`;
+        return;
+      }
+      const id = this.getAttribute('data-guideline-id');
+      removeExtractedConcepts(this, id);
+    });
+  });
     const confirmAddBtn = document.getElementById('confirmAddBtn');
     const confirmCheckbox = document.getElementById('confirmAddition');
     const commitMessageTextarea = document.getElementById('commitMessage');
@@ -401,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Function to remove extracted concepts
-function removeExtractedConcepts(guidelineId) {
+function removeExtractedConcepts(el, guidelineId) {
     const confirmMessage = 'Are you sure you want to remove all extracted concepts?\n\n' +
                           'This will delete:\n' +
                           '• All concept extractions from this guideline\n' +
@@ -411,17 +433,24 @@ function removeExtractedConcepts(guidelineId) {
     
     if (confirm(confirmMessage)) {
         // Show loading state
-        const button = event.target.closest('.btn-group');
-        if (button) {
-            button.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
-                              '<i class="bi bi-hourglass-split"></i> Removing...</button>';
-        }
+    try {
+      const group = el && (el.closest('.btn-group'));
+      if (group) {
+        group.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
+                  '<i class="bi bi-hourglass-split"></i> Removing...</button>';
+      }
+    } catch (e) {
+      // Ignore UI loading errors
+    }
         
         // Send DELETE request
-        fetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
+  // Acquire CSRF token from meta if present
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  appFetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
+    'X-CSRFToken': csrfToken,
             },
             credentials: 'same-origin'
         })
@@ -430,6 +459,12 @@ function removeExtractedConcepts(guidelineId) {
                 // Reload the page to show updated state
                 window.location.reload();
             } else {
+                // If unauthorized/forbidden/CSRF error, redirect to login
+                if (response.status === 401 || response.status === 403 || response.status === 400) {
+                  const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+                  window.location.href = `${window.APP_LOGIN_URL}?next=${nextUrl}`;
+                  return;
+                }
                 throw new Error('Failed to remove concepts');
             }
         })

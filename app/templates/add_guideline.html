@@ -18,6 +18,9 @@
         <div class="card-body">
             <form action="{{ url_for('worlds.add_guideline', id=world.id) }}" method="POST"
                 enctype="multipart/form-data" id="guidelineForm">
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                {% endif %}
 
                 <div class="mb-3">
                     <label for="guidelines_title" class="form-label">Title</label>

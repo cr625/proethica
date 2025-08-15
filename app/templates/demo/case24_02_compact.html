@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scenario S-24-02 — Compact Snapshot</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root { --gap: 8px; --pad: 8px; --muted:#6c757d; }
+    body { background:#fff; }
+  .panel { max-width: 1180px; margin: 6px auto; padding: var(--pad); }
+    .h6, h6 { font-size: 0.92rem; margin:0; }
+    .small { font-size: 0.84rem; }
+    .tiny { font-size: 0.76rem; color: var(--muted); }
+    .chip { display:inline-block; border:1px solid #e2e5e9; padding:.06rem .36rem; border-radius:999px; font-size:.76rem; margin:1px; background:#f8f9fa; }
+    .role { background:#e9f2ff; border-color:#cfe0ff; }
+    .ob { background:#fff3cd; border-color:#ffe69c; }
+    .pr { background:#eafaf1; border-color:#ccead9; }
+    .rc { background:#f1f3f5; border-color:#dee2e6; }
+  .section { border:1px solid #e9ecef; border-radius:8px; padding: 8px 8px 6px; }
+  .title { font-weight:600; letter-spacing:.02em; text-transform:uppercase; color:#495057; font-size:.83rem; margin-bottom:4px; }
+  .grid { display:grid; grid-template-columns: 7fr 5fr; gap: var(--gap); align-items:start; }
+  .list-compact { margin:0; padding-left: .9rem; }
+  .list-compact li { margin-bottom: .2rem; }
+    .row-tight { display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+  .divider { height:1px; background:#e9ecef; margin:4px 0; }
+  .as-link { text-decoration: none; }
+    /* Print: vector hairline underline to prevent wavy artifacts when scaled */
+    @media print {
+      @page { margin: 0; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .as-link { text-decoration: none !important; background-image: none !important; }
+    }
+    /* Make width > height when embedded: prefer a single fold */
+    @media print { body { zoom: 0.95; } }
+  </style>
+</head>
+<body>
+  <div class="panel">
+  <div class="d-flex justify-content-between align-items-baseline mb-0">
+      <div>
+  <h5 class="mb-0">Scenario S-24-02 · AI in Engineering Practice</h5>
+  <div class="tiny">Derived from engineering ethics case corpus</div>
+      </div>
+      <div class="tiny text-end">Snapshot · Roles-first · Derived ontology integration</div>
+    </div>
+    <div class="grid">
+      <!-- Left: Single decision focus with evaluative split -->
+      <div class="section">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <div class="title mb-0">Decision focus (1 of 3)</div>
+          <div class="tiny">…plus 2 more</div>
+        </div>
+        <div class="p-2 border rounded">
+          <div class="d-flex justify-content-between">
+            <strong>DP2 · AI-assisted design documents</strong>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col-12 col-md-7">
+              <div class="small fw-semibold">In favor</div>
+              <ul class="list-compact small mb-1">
+                <li>Efficiency and drafting support for complex details <span class="chip ob">II.2.b</span></li>
+                <li>Consistency checks across drawings/specs <span class="chip pr">I.1</span></li>
+                <li>Condition: retain personal direction; seal only after full verification <span class="chip ob">II.2.b</span></li>
+              </ul>
+              
+            </div>
+            <div class="col-12 col-md-5">
+              <div class="small fw-semibold">Against</div>
+              <ul class="list-compact small mb-1">
+                <li>Overreliance risks inadequate review prior to sealing <span class="chip ob">II.2.b</span></li>
+                <li>Model hallucinations or missed edge cases <span class="chip pr">I.1</span></li>
+                <li>Potential confidentiality exposure via tool settings <span class="chip ob">II.1.c</span></li>
+              </ul>
+              
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="small">
+            <span class="fw-semibold">Evaluation summary:</span>
+            <ol class="tiny mb-0">
+              <li>Identify role and obligations (Engineer A; II.2.b responsible charge)</li>
+              <li>Assess AI’s contribution to the technical work product</li>
+              <li>Weigh public welfare vs. efficiency; check confidentiality constraints</li>
+            </ol>
+          </div>
+          <div class="mt-1 small"><span class="fw-semibold">Recommendation:</span> Approved with conditions: document personal direction, fully verify before sealing, and enable confidentiality controls <span class="badge text-bg-secondary">Confidence: Med–High</span></div>
+        </div>
+      </div>
+
+      <!-- Right: Overview + Precedents + Guidelines References -->
+      <div class="section">
+        <div class="title">Overview</div>
+        <div class="tiny" style="margin-bottom:6px;">Engineer A considers using AI for drafting and design; key tensions include confidentiality, responsible charge, competence, and attribution.</div>
+        <div class="row-tight">
+          <div>
+            <div class="title">Precedent cases (themes)</div>
+            <ul class="list-compact tiny">
+              <li>🔗 <span class="as-link">Responsible charge in sealed documents (BER precedents)</span></li>
+              <li>🔗 <span class="as-link">Confidentiality with third‑party/cloud tools</span></li>
+              <li>🔗 <span class="as-link">Attribution and professional credit in mixed drafting</span></li>
+            </ul>
+          </div>
+          <div>
+            <div class="title">Guidelines references</div>
+            <ul class="list-compact tiny">
+              <li>🔗 <span class="as-link">I.1 Public Welfare (NSPE Code)</span></li>
+              <li>🔗 <span class="as-link">II.1.c Client Confidentiality</span></li>
+              <li>🔗 <span class="as-link">II.2.b Responsible Charge</span></li>
+              <li>🔗 <span class="as-link">III.9 Professional Credit</span></li>
+              <li>🔗 <span class="as-link">NSPE Position Statement 10-1778</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div class="title">Ontology links</div>
+          <div class="mb-1">
+            <span class="chip role">Engineer A (ProfessionalRole)</span>
+            <span class="chip role">Client W (ParticipantRole)</span>
+          </div>
+          <ul class="list-compact tiny" style="margin-bottom:0;">
+            <li>Engineer A → hasObligation → Confidentiality (II.1.c)</li>
+            <li>Engineer A → adheresToPrinciple → Public Welfare (I.1)</li>
+            <li>Engineer A → governedByCode → NSPE Code</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <!-- Bottom footnote removed to reduce height -->
+  </div>
+</body>
+</html>

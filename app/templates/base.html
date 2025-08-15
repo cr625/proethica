@@ -8,6 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/concept-hierarchy.css') }}" rel="stylesheet">
+        {% if csrf_token %}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+        {% endif %}
     <style>
         body {
             padding-top: 20px;
@@ -191,6 +194,42 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global fetch helper with CSRF and auth redirect
+        (function () {
+            const loginUrl = "{{ url_for('auth.login') }}";
+            function getCsrfToken() {
+                const el = document.querySelector('meta[name="csrf-token"]');
+                return el ? el.content : null;
+            }
+            function redirectToLogin() {
+                const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+                window.location.href = `${loginUrl}?next=${nextUrl}`;
+            }
+            async function appFetch(url, options = {}) {
+                const opts = { credentials: 'same-origin', ...options };
+                const method = (opts.method || 'GET').toUpperCase();
+                const headers = new Headers(opts.headers || {});
+                if (method !== 'GET' && !headers.has('X-CSRFToken')) {
+                    const token = getCsrfToken();
+                    if (token) headers.set('X-CSRFToken', token);
+                }
+                opts.headers = headers;
+                const resp = await fetch(url, opts);
+                if (resp.status === 401 || resp.status === 403) {
+                    redirectToLogin();
+                    return resp;
+                }
+                if (resp.redirected && resp.url && resp.url.includes('/auth/login')) {
+                    redirectToLogin();
+                    return resp;
+                }
+                return resp;
+            }
+            window.APP_LOGIN_URL = loginUrl;
+            window.appFetch = appFetch;
+        })();
+    </script>
     {% block scripts %}
     <script>
         function toggleDescription(worldId) {

@@ -462,6 +462,7 @@ def get_ontology_sync_status():
     sync_status = {
         'core_ontologies': [],
         'guideline_ontologies': [],
+        'cases_ontologies': [],
         'last_sync': None,
         'needs_sync': False
     }
@@ -563,6 +564,39 @@ def get_ontology_sync_status():
             'note': 'Guideline ontologies exist only in database (no TTL files)'
         }
         
+        # Collect per-world cases ontologies stored in DB
+        cases_ontologies = Ontology.query.filter(
+            Ontology.domain_id.like('world-cases-%')
+        ).all()
+
+        cases_ontology_list = []
+        for ont in cases_ontologies:
+            # Extract world_id from domain_id pattern 'world-cases-<id>'
+            related_world_id = None
+            related_world_name = None
+            try:
+                related_world_id = int(ont.domain_id.split('world-cases-')[1].split('-')[0])
+                world = World.query.get(related_world_id)
+                if world:
+                    related_world_name = world.name
+            except Exception:
+                pass
+
+            cases_ontology_list.append({
+                'id': ont.id,
+                'name': ont.name,
+                'domain_id': ont.domain_id,
+                'related_world_id': related_world_id,
+                'related_world_name': related_world_name,
+                'created_at': ont.created_at
+            })
+
+        sync_status['cases_ontologies'] = {
+            'count': len(cases_ontologies),
+            'list': cases_ontology_list,
+            'note': 'Per-world editable ontologies for scenario/case concepts'
+        }
+
         # Get last sync time
         last_sync = OntologyVersion.query.order_by(
             OntologyVersion.created_at.desc()
@@ -580,6 +614,18 @@ def get_ontology_sync_status():
             {'domain': 'proethica-intermediate', 'file_exists': False, 'db_exists': False, 'is_synced': False, 'ontology_id': None},
             {'domain': 'engineering-ethics', 'file_exists': False, 'db_exists': False, 'is_synced': False, 'ontology_id': None}
         ]
+        sync_status['guideline_ontologies'] = {
+            'count': 0,
+            'list': [],
+            'note': 'Guideline ontologies exist only in database (no TTL files)'
+        }
+        sync_status['cases_ontologies'] = {
+            'count': 0,
+            'list': [],
+            'note': 'Per-world editable ontologies for scenario/case concepts'
+        }
+        sync_status['last_sync'] = None
+        sync_status['needs_sync'] = False
     
     return sync_status
 

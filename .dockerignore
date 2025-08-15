@@ -1,0 +1,29 @@
+# VCS and environment
+.git
+.gitmodules
+.gitignore
+.env
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Local artifacts
+*.log
+logs/
+archive/
+backups/
+screenshots/
+
+# Dev/test/docs (keep README.md)
+tests/
+docs/
+**/*.md
+!README.md
+
+# Node/npm
+node_modules/
+dist/
+build/
