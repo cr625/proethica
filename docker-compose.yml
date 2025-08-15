@@ -40,7 +40,7 @@ services:
       - db
       - mcp
     ports:
-  - "${HOST_HTTP_PORT:-8080}:8000"
+  - "8080:8000"
     restart: unless-stopped
 
 volumes:
