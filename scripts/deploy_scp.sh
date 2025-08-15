@@ -4,7 +4,7 @@
 set -euo pipefail
 
 REMOTE_HOST=${REMOTE_HOST:-digitalocean}
-REMOTE_DIR=${REMOTE_DIR:-/opt/proethica}
+REMOTE_DIR=${REMOTE_DIR:-~/proethica}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo workspace)}
 STAMP=$(date +%Y%m%d%H%M%S)
 PKG_BASENAME=proethica-${BRANCH}-${STAMP}
@@ -46,14 +46,29 @@ scp -q "$PKG_TAR_GZ" "$REMOTE_HOST:/tmp/${PKG_BASENAME}.tar.gz"
 cat <<'REMOTE_SCRIPT' > /tmp/proethica_remote_install.sh
 set -euo pipefail
 PKG="$1"
-TARGET_DIR="${2:-/opt/proethica}"
-STAMP=$(date +%Y%m%d%H%M%S)
-if [ -d "$TARGET_DIR" ]; then
-  sudo mkdir -p /opt && sudo chown "$USER":"$USER" /opt || true
-  echo "[remote] Backing up existing $TARGET_DIR to ${TARGET_DIR}_bak_${STAMP}"
-  sudo mv "$TARGET_DIR" "${TARGET_DIR}_bak_${STAMP}" || true
+TARGET_DIR="${2:-$HOME/proethica}"
+# Expand ~ if provided
+if [ "${TARGET_DIR:0:1}" = "~" ]; then
+  TARGET_DIR="${HOME}${TARGET_DIR#~}"
 fi
-mkdir -p "$TARGET_DIR"
+STAMP=$(date +%Y%m%d%H%M%S)
+
+# Ensure base directory exists and is writable (handles first-time deploy)
+BASE_DIR=$(dirname "$TARGET_DIR")
+if [ ! -d "$BASE_DIR" ]; then
+  echo "[remote] Creating base directory $BASE_DIR"
+  mkdir -p "$BASE_DIR" 2>/dev/null || sudo mkdir -p "$BASE_DIR" || true
+fi
+chown "$USER":"$USER" "$BASE_DIR" 2>/dev/null || sudo chown "$USER":"$USER" "$BASE_DIR" 2>/dev/null || true
+
+# Backup existing install if present
+if [ -d "$TARGET_DIR" ]; then
+  echo "[remote] Backing up existing $TARGET_DIR to ${TARGET_DIR}_bak_${STAMP}"
+  mv "$TARGET_DIR" "${TARGET_DIR}_bak_${STAMP}" 2>/dev/null || sudo mv "$TARGET_DIR" "${TARGET_DIR}_bak_${STAMP}" || true
+fi
+# Create target dir (use sudo if needed) and ensure ownership
+mkdir -p "$TARGET_DIR" 2>/dev/null || sudo mkdir -p "$TARGET_DIR" || true
+chown -R "$USER":"$USER" "$TARGET_DIR" 2>/dev/null || sudo chown -R "$USER":"$USER" "$TARGET_DIR" 2>/dev/null || true
 
 echo "[remote] Extracting package to $TARGET_DIR"
 # Extract preserving perms
@@ -68,17 +83,50 @@ if ! command -v docker &>/dev/null; then
   sudo usermod -aG docker "$USER" || true
 fi
 
+# Ensure Docker Compose is available (prefer v2 plugin)
+COMPOSE_CMD=""
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+else
+  echo "[remote] Docker Compose not found. Installing plugin to user home..."
+  mkdir -p "$HOME/.docker/cli-plugins"
+  OS=$(uname -s)
+  ARCH=$(uname -m)
+  # Normalize ARCH
+  case "$ARCH" in
+    x86_64|amd64) ARCH=amd64;;
+    aarch64|arm64) ARCH=arm64;;
+  esac
+  COMPOSE_VERSION="v2.29.2"
+  URL="https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-${OS}-${ARCH}"
+  curl -fsSL "$URL" -o "$HOME/.docker/cli-plugins/docker-compose"
+  chmod +x "$HOME/.docker/cli-plugins/docker-compose"
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+  else
+    echo "[remote] Failed to install Docker Compose. Please install it manually." >&2
+    exit 1
+  fi
+fi
+
 # Build and start
-echo "[remote] docker compose up -d --build"
-docker compose up -d --build
+echo "[remote] Pre-clean existing stack (down + remove stale containers)"
+${COMPOSE_CMD} down || true
+docker rm -f proethica-postgres 2>/dev/null || true
+echo "[remote] ${COMPOSE_CMD} up -d --build"
+HOST_HTTP_PORT=${HOST_HTTP_PORT:-8080} ${COMPOSE_CMD} up -d --build
 
 # Ensure pgvector extension exists (init script should handle first-run)
-if docker compose ps db >/dev/null 2>&1; then
-  docker compose exec -T db psql -U postgres -d ai_ethical_dm -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+if ${COMPOSE_CMD} ps db >/dev/null 2>&1; then
+  HOST_HTTP_PORT=${HOST_HTTP_PORT:-8080} ${COMPOSE_CMD} exec -T db psql -U postgres -d ai_ethical_dm -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
 fi
 
 echo "[remote] Done. Recent app logs:"
-docker compose logs --since=3m app | tail -n 200 || true
+HOST_HTTP_PORT=${HOST_HTTP_PORT:-8080} ${COMPOSE_CMD} logs --since=3m app | tail -n 200 || true
 REMOTE_SCRIPT
 
 # Copy and run remote script
