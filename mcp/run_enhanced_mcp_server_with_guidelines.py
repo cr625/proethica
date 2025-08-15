@@ -28,7 +28,7 @@ from mcp.enhanced_ontology_server_with_guidelines import run_server
 if __name__ == "__main__":
     # Check if we're using mock responses or live LLM
     use_mock = os.environ.get("USE_MOCK_GUIDELINE_RESPONSES", "false").lower() == "true"
-    logger.info(f"Starting Enhanced Ontology MCP Server with Guidelines Support...")
+    logger.info("Starting Enhanced Ontology MCP Server with Guidelines Support...")
     logger.info(f"USE_MOCK_GUIDELINE_RESPONSES: {use_mock}")
     if not use_mock:
         logger.info("LIVE LLM MODE ENABLED - Using actual Claude API for guidelines")

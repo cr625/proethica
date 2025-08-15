@@ -12,7 +12,6 @@ import json
 import logging
 # from mcp.enhanced_debug_logging import log_debug_point, log_json_rpc_request, log_method_call
 import asyncio
-import aiohttp
 from aiohttp import web
 from typing import Dict, List, Any, Optional, Union
 from pathlib import Path
@@ -323,12 +322,12 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         """Start the server."""
         # Initialize web application
         self.app = web.Application()
-        
+
         # Register routes
         self.app.router.add_post('/jsonrpc', self.handle_jsonrpc)
         # Health check endpoint
         self.app.router.add_get('/health', self.handle_health)
-        
+
         # Add CORS middleware
         @web.middleware
         async def cors_middleware(request, handler):
@@ -337,19 +336,19 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
             return response
-        
-    # Register middleware
-    self.app.middlewares.append(cors_middleware)
-        
-    # Start the server
-    port = int(os.environ.get("MCP_SERVER_PORT", 5001))
-    host = os.environ.get("MCP_HOST", "0.0.0.0")
-    self.runner = web.AppRunner(self.app)
-    await self.runner.setup()
-    self.site = web.TCPSite(self.runner, host, port)
-    await self.site.start()
-        
-    logger.info(f"Server started at http://{host}:{port}")
+
+        # Register middleware
+        self.app.middlewares.append(cors_middleware)
+
+        # Start the server
+        port = int(os.environ.get("MCP_SERVER_PORT", 5001))
+        host = os.environ.get("MCP_HOST", "0.0.0.0")
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        self.site = web.TCPSite(self.runner, host, port)
+        await self.site.start()
+
+        logger.info(f"Server started at http://{host}:{port}")
     
     async def stop(self):
         """Stop the server."""
