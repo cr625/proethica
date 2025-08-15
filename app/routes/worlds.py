@@ -886,6 +886,16 @@ def manage_guideline_triples(world_id, guideline_id):
     orphaned_terms = []          # No clear source
     guideline_specific_terms = [] # New unique terms
     
+    # Optional: ignore duplicates sourced from configured guideline IDs (comma-separated env)
+    import os
+    ignore_ids_env = os.getenv('IGNORE_DUPLICATE_GUIDELINE_IDS', '').strip()
+    ignore_guideline_ids = set()
+    if ignore_ids_env:
+        try:
+            ignore_guideline_ids = {int(x) for x in ignore_ids_env.split(',') if x.strip().isdigit()}
+        except Exception:
+            ignore_guideline_ids = set()
+
     for triple in triples:
         # Check if this triple exists in ontology or database
         object_value = triple.object_uri if triple.object_uri else triple.object_literal
@@ -902,6 +912,17 @@ def manage_guideline_triples(world_id, guideline_id):
             triple.is_literal,
             exclude_guideline_id=triple.guideline_id
         )
+
+        # Apply ignore filter: if duplicate is only due to an existing triple from an ignored guideline, treat as non-duplicate
+        try:
+            existing = duplicate_result.get('existing_triple') if isinstance(duplicate_result, dict) else None
+            if existing and getattr(existing, 'guideline_id', None) in ignore_guideline_ids:
+                duplicate_result['is_duplicate'] = False
+                duplicate_result['in_database'] = False
+                duplicate_result['details'] = f"Ignoring duplicate from guideline {existing.guideline_id} by config"
+                duplicate_result['existing_triple'] = None
+        except Exception:
+            pass
         
         # Add the duplicate check result to the triple
         triple.ontology_status = duplicate_result
@@ -924,10 +945,8 @@ def manage_guideline_triples(world_id, guideline_id):
         if duplicate_result['in_ontology']:
             # Found in actual ontology files (engineering-ethics.ttl, etc.)
             core_ontology_terms.append(triple)
-            
         elif duplicate_result['in_database'] and duplicate_result['existing_triple']:
             existing_triple = duplicate_result['existing_triple']
-            
             # Check if it's from the same guideline (old run) vs different guideline
             if existing_triple.guideline_id == triple.guideline_id:
                 # Same guideline - this is from an old run, probably should be cleaned up
@@ -2367,9 +2386,12 @@ def add_concepts_to_ontology(world_id, document_id):
 
 def remove_extracted_concepts(id, document_id):
     """Remove extracted concepts from a guideline and associated ontology entries."""
-    from flask import jsonify
+    from flask import jsonify, request
     from app.models.document import Document
     from app.models.guideline import Guideline
+    from app.models.ontology import Ontology
+    from app.models.ontology_version import OntologyVersion
+    from app.models.ontology_import import OntologyImport
     try:
         # Get the world and guideline document
         world = World.query.get_or_404(id)
@@ -2402,6 +2424,7 @@ def remove_extracted_concepts(id, document_id):
 
         concepts_removed = 0
         triples_removed = 0
+        derived_ontology_deleted = False
 
         # 1) Remove EntityTriples associated with this guideline extraction (both basic + alignment)
         from app.models.entity_triple import EntityTriple
@@ -2442,6 +2465,38 @@ def remove_extracted_concepts(id, document_id):
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(guideline, 'doc_metadata')
 
+        # Delete the derived ontology for this document by default to prevent stale conflicts
+        # Opt-out is available via either delete_derived_ontology=false or keep_derived_ontology=true
+        try:
+            raw_delete = request.args.get('delete_derived_ontology')
+            raw_keep = request.args.get('keep_derived_ontology')
+            if raw_keep is not None and str(raw_keep).lower() in ('1', 'true', 'yes', 'on'):
+                delete_derived = False
+            elif raw_delete is None:
+                # Default behavior: delete derived ontology if flag not provided
+                delete_derived = True
+            else:
+                delete_derived = str(raw_delete).lower() in ('1', 'true', 'yes', 'on')
+        except Exception:
+            delete_derived = True
+
+        if delete_derived:
+            try:
+                derived_domain = f"guideline-{document_id}-concepts"
+                derived = Ontology.query.filter_by(domain_id=derived_domain).first()
+                if derived:
+                    OntologyImport.query.filter(
+                        db.or_(
+                            OntologyImport.importing_ontology_id == derived.id,
+                            OntologyImport.imported_ontology_id == derived.id
+                        )
+                    ).delete(synchronize_session=False)
+                    OntologyVersion.query.filter_by(ontology_id=derived.id).delete(synchronize_session=False)
+                    db.session.delete(derived)
+                    derived_ontology_deleted = True
+            except Exception as del_err:
+                logger.warning(f"Failed to delete derived ontology for document {document_id}: {del_err}")
+
         db.session.commit()
 
         logger.info(
@@ -2452,7 +2507,8 @@ def remove_extracted_concepts(id, document_id):
             'message': 'Extracted concepts and triples removed',
             'concepts_removed': concepts_removed,
             'triples_removed': int(triples_removed),
-            'guideline_removed': bool(removed_guideline)
+            'guideline_removed': bool(removed_guideline),
+            'derived_ontology_deleted': derived_ontology_deleted
         }), 200
         
     except Exception as e:

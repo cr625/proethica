@@ -28,6 +28,7 @@ from app.models.entity_triple import EntityTriple
 from app.models.document_section import DocumentSection
 from app.models.deconstructed_case import DeconstructedCase
 from app.services.ontology_entity_service import OntologyEntityService
+from app.services.guideline_triple_cleanup_service import get_guideline_triple_cleanup_service
 from app import db, create_app
 import traceback
 
@@ -183,6 +184,34 @@ def dashboard():
                          recent_docs=recent_docs,
                          ontology_status=ontology_status)
 
+# Cleanup endpoint for guideline triples
+@admin_bp.route('/cleanup/guideline-triples', methods=['POST'])
+@login_required
+@admin_required
+def cleanup_guideline_triples():
+    """Delete non-core guideline triples and nullify orphan references.
+
+    JSON body parameters (all optional):
+    - world_id: int, scope cleanup to a world.
+    - exclude_guideline_ids: list[int], guidelines to keep untouched.
+    - delete_non_core: bool, default true.
+    - nullify_core_if_orphan_guideline: bool, default true.
+    - dry_run: bool, default true.
+    """
+    payload = request.get_json(silent=True) or {}
+    service = get_guideline_triple_cleanup_service()
+
+    result = service.cleanup(
+        world_id=payload.get('world_id'),
+        exclude_guideline_ids=payload.get('exclude_guideline_ids'),
+        delete_non_core=payload.get('delete_non_core', True),
+        nullify_core_if_orphan_guideline=payload.get('nullify_core_if_orphan_guideline', True),
+        dry_run=payload.get('dry_run', True),
+    )
+
+    status = 200 if 'error' not in result else 500
+    return jsonify(result), status
+
 @admin_bp.route('/users')
 @login_required
 @admin_required
@@ -270,6 +299,93 @@ def bulk_reset_users():
         return jsonify(result)
     else:
         return jsonify(result), 500
+
+    # --- Guideline management ----------------------------------------------------
+
+    @admin_bp.route('/guidelines/<int:guideline_id>/delete', methods=['POST'])
+    @login_required
+    @admin_required
+    def delete_guideline_by_id(guideline_id: int):
+        """Hard delete a guideline and cascade-related records.
+
+        Behavior:
+        - Deletes the guideline row (guidelines.id = guideline_id)
+        - Because of FK ondelete='CASCADE', related EntityTriple, GuidelineSection,
+          GuidelineSemanticTriple, GuidelineTermCandidate, PendingConceptType, etc.
+          should be removed by the DB.
+        - Additionally, deletes Document rows whose doc_metadata.guideline_id equals the target
+          (these are wrappers/entries for the same guideline in the documents table).
+
+        Optional JSON body:
+        { "delete_documents": true }  # default true
+        { "dry_run": true }           # default false
+        """
+        try:
+            payload = request.get_json(silent=True) or {}
+            delete_documents = bool(payload.get('delete_documents', True))
+            dry_run = bool(payload.get('dry_run', False))
+
+            g = Guideline.query.get(guideline_id)
+            if not g:
+                return jsonify({
+                    'success': False,
+                    'message': f'Guideline {guideline_id} not found'
+                }), 404
+
+            # Collect impacts
+            impacts = {
+                'guideline': {'id': g.id, 'title': g.title},
+                'entity_triples': EntityTriple.query.filter_by(guideline_id=guideline_id).count(),
+                'documents_to_delete': 0,
+            }
+
+            docs_to_delete = []
+            if delete_documents:
+                try:
+                    # Find documents whose doc_metadata.guideline_id matches
+                    q = Document.query.filter(Document.doc_metadata.isnot(None)).all()
+                    for doc in q:
+                        meta = doc.doc_metadata or {}
+                        if str(meta.get('guideline_id')) == str(guideline_id):
+                            docs_to_delete.append(doc)
+                except Exception:
+                    # Fallback: no-op if JSONB operator unsupported on some setups
+                    pass
+                impacts['documents_to_delete'] = len(docs_to_delete)
+
+            if dry_run:
+                return jsonify({'success': True, 'dry_run': True, 'impacts': impacts})
+
+            # Perform deletions
+            if delete_documents and docs_to_delete:
+                for doc in docs_to_delete:
+                    db.session.delete(doc)
+
+            db.session.delete(g)
+
+            # Safety net: ensure dangling triples are cleaned if FK cascade is missing
+            try:
+                from sqlalchemy import text as _text
+                db.session.execute(
+                    _text("DELETE FROM entity_triples WHERE guideline_id = :gid"),
+                    { 'gid': guideline_id }
+                )
+            except Exception:
+                # Ignore if FK cascade already handled this
+                pass
+
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'deleted_guideline_id': guideline_id,
+                'deleted_documents': impacts['documents_to_delete'],
+                'deleted_triples_estimate': impacts['entity_triples']
+            })
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.exception('Failed to delete guideline')
+            return jsonify({'success': False, 'error': str(e)}), 500
 
 @admin_bp.route('/data-overview')
 @login_required

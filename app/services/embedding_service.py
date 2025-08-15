@@ -72,7 +72,7 @@ class EmbeddingService:
             Extracted text content
         """
         file_type = file_type.lower() if file_type else ''
-        
+
         try:
             # Handle different file types
             if file_type == 'pdf':
@@ -87,7 +87,7 @@ class EmbeddingService:
                 return self._extract_from_url(file_path)  # In this case, file_path would be the URL
             else:
                 raise ValueError(f"Unsupported file type: {file_type}")
-                
+
         except Exception as e:
             # Log the error and re-raise
             print(f"Error extracting text from {file_path} ({file_type}): {str(e)}")
@@ -656,65 +656,107 @@ class EmbeddingService:
         """
         from app import db
         from app.models.document import Document, DocumentChunk
-        
+
+        # Helper cosine
+        def cosine(a: List[float], b: List[float]) -> float:
+            if not a or not b:
+                return 0.0
+            n = min(len(a), len(b))
+            if n == 0:
+                return 0.0
+            dot = sum(a[i] * b[i] for i in range(n))
+            na = sum(a[i] * a[i] for i in range(n)) ** 0.5
+            nb = sum(b[i] * b[i] for i in range(n)) ** 0.5
+            if na == 0 or nb == 0:
+                return 0.0
+            return dot / (na * nb)
+
+        # Prefer local 384-dim embedding (matches embedding_384)
         try:
-            # Generate embedding for the query text
-            embedding = self.get_embedding(query)
-            
-            # Convert the embedding to a string representation for SQL
-            embedding_str = f"[{','.join(str(x) for x in embedding)}]"
-            
-            # Build the base query
-            query_parts = [
-                "SELECT dc.id, dc.chunk_text, dc.chunk_index, d.title, d.document_type,",
-                "dc.embedding <-> :embedding AS distance",
-                "FROM document_chunks dc",
-                "JOIN documents d ON dc.document_id = d.id",
-                "WHERE dc.embedding IS NOT NULL"
-            ]
-            
-            # Add filters if provided
-            params = {"embedding": embedding_str}
-            
-            if world_id is not None:
-                query_parts.append("AND d.world_id = :world_id")
-                params["world_id"] = world_id
-                
-            if document_type is not None:
-                query_parts.append("AND d.document_type = :document_type")
-                params["document_type"] = document_type
-                
-            # Add ordering and limit
-            query_parts.append("ORDER BY distance")
-            query_parts.append("LIMIT :k")
-            params["k"] = k
-            
-            # Combine query parts
-            query_str = " ".join(query_parts)
-            
-            # Execute the query
-            result = db.session.execute(text(query_str), params)
-            
-            # Format results
-            similar_chunks = []
-            for row in result:
-                similar_chunks.append({
-                    "id": row.id,
-                    "chunk_text": row.chunk_text,
-                    "chunk_index": row.chunk_index,
-                    "title": row.title,
-                    "document_type": row.document_type,
-                    "distance": row.distance,
-                    "similarity": 1.0 - float(row.distance) if row.distance is not None else 0.0
-                })
-            
-            return similar_chunks
-            
-        except Exception as e:
-            import traceback
-            logger.error(f"Error in search_similar_chunks: {str(e)}")
-            logger.error(traceback.format_exc())
-            return []
+            qvec_384 = self._get_local_embedding(query)
+        except Exception:
+            qvec_384 = []
+
+        use_db_vector = os.environ.get("USE_DB_VECTOR_SEARCH", "false").lower() in ("1", "true", "yes")
+        can_use_db = use_db_vector and len(qvec_384) == 384
+
+        if can_use_db:
+            try:
+                embedding_str = f"[{','.join(str(x) for x in qvec_384)}]"
+                parts = [
+                    "SELECT dc.id, dc.content AS chunk_text, dc.chunk_index, d.title, d.document_type,",
+                    "dc.embedding_384 <-> (:embedding)::vector AS distance",
+                    "FROM document_chunks dc",
+                    "JOIN documents d ON dc.document_id = d.id",
+                    "WHERE dc.embedding_384 IS NOT NULL",
+                ]
+                params = {"embedding": embedding_str, "k": k}
+                if world_id is not None:
+                    parts.append("AND d.world_id = :world_id")
+                    params["world_id"] = world_id
+                if document_type is not None:
+                    parts.append("AND d.document_type = :document_type")
+                    params["document_type"] = document_type
+                parts.append("ORDER BY distance")
+                parts.append("LIMIT :k")
+                sql = text(" ".join(parts))
+                res = db.session.execute(sql, params)
+                out = []
+                for row in res:
+                    out.append({
+                        "id": row.id,
+                        "chunk_text": row.chunk_text,
+                        "chunk_index": row.chunk_index,
+                        "title": row.title,
+                        "document_type": row.document_type,
+                        "distance": row.distance,
+                        "similarity": 1.0 - float(row.distance) if row.distance is not None else 0.0,
+                    })
+                return out
+            except Exception as e:
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                logger.warning(f"DB vector search failed, falling back to Python cosine: {e}")
+
+        # Python fallback: support both 384 and legacy embeddings
+        # Lazily compute a generic embedding if needed
+        qvec_legacy: Optional[List[float]] = None
+        q = db.session.query(DocumentChunk, Document).join(Document, DocumentChunk.document_id == Document.id)
+        q = q.filter((DocumentChunk.embedding_384.isnot(None)) | (DocumentChunk.embedding.isnot(None)))
+        if world_id is not None:
+            q = q.filter(Document.world_id == world_id)
+        if document_type is not None:
+            q = q.filter(Document.document_type == document_type)
+
+        rows = q.all()
+        scored: List[Dict[str, Any]] = []
+        for dc, d in rows:
+            emb = dc.embedding_384 if getattr(dc, "embedding_384", None) is not None else dc.embedding
+            if emb is None:
+                continue
+            if len(emb) == 384 and qvec_384:
+                sim = cosine(qvec_384, emb)
+            else:
+                if qvec_legacy is None:
+                    try:
+                        qvec_legacy = self.get_embedding(query)
+                    except Exception:
+                        qvec_legacy = []
+                sim = cosine(qvec_legacy or [], emb)
+            scored.append({
+                "id": dc.id,
+                "chunk_text": dc.content,
+                "chunk_index": dc.chunk_index,
+                "title": d.title,
+                "document_type": d.document_type,
+                "distance": 1.0 - sim,
+                "similarity": sim,
+            })
+
+        scored.sort(key=lambda x: x["similarity"], reverse=True)
+        return scored[:k]
     
     def find_similar_triples(self, text: str, field: str = "subject", limit: int = 10) -> List[Dict[str, Any]]:
         """

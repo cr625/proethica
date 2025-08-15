@@ -67,7 +67,7 @@
                 // Intermediate extraction toggles
                 "ENABLE_OBLIGATIONS_EXTRACTION": "true",
                 "ENABLE_PRINCIPLES_EXTRACTION": "true"
-            }
+            },
         },
         {
             "name": "Flask App - Production MCP",

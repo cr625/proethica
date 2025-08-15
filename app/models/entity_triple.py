@@ -75,7 +75,7 @@ class EntityTriple(db.Model):
     # Relationships
     world = relationship("World", back_populates="entity_triples", foreign_keys=[world_id])
     scenario = relationship("Scenario", back_populates="entity_triples", foreign_keys=[scenario_id])
-    character = relationship("Character", back_populates="entity_triples", foreign_keys=[character_id])
+    character = relationship("Character", foreign_keys=[character_id])
     guideline = relationship("Guideline", back_populates="entity_triples", foreign_keys=[guideline_id])
     
     def __repr__(self):
