@@ -83,6 +83,56 @@ if ! command -v docker &>/dev/null; then
   sudo usermod -aG docker "$USER" || true
 fi
 
+# Write a known-good docker-compose.yml to avoid indentation issues
+cat > docker-compose.yml <<'COMPOSE_YML'
+version: '3.9'
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: proethica-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: PASS
+      POSTGRES_DB: ai_ethical_dm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/mcp.Dockerfile
+    environment:
+      MCP_SERVER_PORT: 5001
+      MCP_HOST: 0.0.0.0
+    expose:
+      - "5001"
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    environment:
+      ENVIRONMENT: production
+      SQLALCHEMY_DATABASE_URI: postgresql://postgres:PASS@db:5432/ai_ethical_dm
+      MCP_SERVER_URL: http://mcp:5001
+      USE_DB_VECTOR_SEARCH: "true"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - mcp
+    ports:
+      - "8080:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+COMPOSE_YML
+
 # Ensure Docker Compose is available (prefer v2 plugin)
 COMPOSE_CMD=""
 if docker compose version >/dev/null 2>&1; then

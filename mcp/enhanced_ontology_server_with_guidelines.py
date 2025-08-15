@@ -338,6 +338,7 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
             return response
         
+    # Register middleware
     self.app.middlewares.append(cors_middleware)
         
     # Start the server
