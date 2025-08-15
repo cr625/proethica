@@ -1,0 +1,30 @@
+name: unit-tests
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev build-essential
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Run unit tests (exclude legacy/integration)
+        env:
+          USE_MOCK_GUIDELINE_RESPONSES: 'true'
+          FORCE_MOCK_LLM: 'true'
+        run: |
+          pytest -k 'not legacy_root_20250815' -m 'not integration and not db'
