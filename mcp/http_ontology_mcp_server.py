@@ -601,7 +601,8 @@ async def run_server():
     print(f"Starting HTTP MCP server on port {PORT}", file=sys.stderr)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, 'localhost', PORT)
+    host = os.environ.get('MCP_HOST', '0.0.0.0')
+    site = web.TCPSite(runner, host, PORT)
     await site.start()
     
     # Keep the server running
