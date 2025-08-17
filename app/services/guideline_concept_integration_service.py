@@ -23,7 +23,7 @@ from app.models.entity_triple import EntityTriple
 from app.models.guideline import Guideline
 from ontology_editor.services.entity_service import EntityService
 from datetime import datetime
-from app.utils.label_normalization import ensure_no_role_suffix, normalize_role_label, make_role_uri_fragment
+from app.utils.label_normalization import ensure_role_suffix, normalize_role_label, make_role_uri_fragment
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +157,8 @@ class GuidelineConceptIntegrationService:
                         parent_class = 'http://proethica.org/ontology/intermediate#Entity'
                     
                     # Prepare entity data for EntityService
-                    # Enforce suffix-less policy for role labels (URIs still use *Role classes)
-                    label_out = ensure_no_role_suffix(concept_label) if concept_type == 'role' else concept_label
+                    # Enforce Role suffix policy for role labels for consistency
+                    label_out = ensure_role_suffix(concept_label) if concept_type == 'role' else concept_label
                     entity_data = {
                         'label': label_out,
                         'description': concept_description,

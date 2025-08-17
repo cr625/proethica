@@ -17,7 +17,7 @@ from app.models.ontology_version import OntologyVersion
 from app.models.ontology_import import OntologyImport
 from app.models.role import Role
 from app.services.ontology_entity_service import OntologyEntityService
-from app.utils.label_normalization import normalize_role_label, strip_role_suffix, ensure_no_role_suffix
+from app.utils.label_normalization import normalize_role_label, strip_role_suffix, ensure_role_suffix
 
 
 class CasesOntologyService:

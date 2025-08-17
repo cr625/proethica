@@ -28,30 +28,49 @@
 # Broad professional role often referred to as "Engineer" (may be licensed PE)
 :Engineer a proeth:EntityType,
         proeth:Role,
+        proeth:ProfessionalRole,
         owl:Class ;
-    rdfs:label "Engineer"@en ;
-    rdfs:comment "Engineer as a professional role category. Use this base role to attach core obligations and principles derived from NSPE. Specialized sub-roles can remain but should inherit obligations via this base role."@en ;
+    rdfs:label "Engineer Role"@en ;
+    rdfs:comment "Licensed Professional Engineer (PE) authorized to practice engineering, sign and seal engineering plans, and offer services to the public. Governed by state licensure boards and bound by professional codes of ethics to protect public health, safety, and welfare."@en ;
+    dc:source "NSPE Professional Engineer licensure requirements; State engineering boards" ;
+    rdfs:seeAlso <https://www.nspe.org/about/about-professional-engineering/what-pe> ;
+    skos:note "Requires four-year engineering degree, four years of work experience under a PE, passing two competency exams, and state license" ;
     rdfs:subClassOf proeth:EngineerRole .
 
 # Keep specific sub-roles minimal (inherit semantics from base Engineer)
-:StructuralEngineerRole a proeth:EntityType, proeth:Role, owl:Class ;
+:StructuralEngineerRole a proeth:EntityType, proeth:Role, proeth:ProfessionalRole, owl:Class ;
     rdfs:label "Structural Engineer Role"@en ;
+    rdfs:comment "Professional engineer specializing in structural analysis, design, and construction supervision. Responsible for ensuring structural integrity, safety, and compliance with building codes and seismic standards."@en ;
+    dc:source "ASCE Structural Engineering Institute; IFC buildingSMART standards" ;
+    rdfs:seeAlso <https://www.asce.org/> ;
+    skos:note "Often licensed as both Professional Engineer and Structural Engineer in applicable jurisdictions" ;
     rdfs:subClassOf :Engineer ;
     owl:equivalentClass ifc:IfcStructuralEngineer ;
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
 
-:ElectricalEngineerRole a proeth:EntityType, proeth:Role, owl:Class ;
+:ElectricalEngineerRole a proeth:EntityType, proeth:Role, proeth:ProfessionalRole, owl:Class ;
     rdfs:label "Electrical Engineer Role"@en ;
+    rdfs:comment "Professional engineer specializing in electrical systems design, power distribution, control systems, and electronics. Responsible for electrical safety, code compliance, and system integration in buildings and industrial facilities."@en ;
+    dc:source "IEEE standards and practices; IFC buildingSMART standards" ;
+    rdfs:seeAlso <https://www.ieee.org/> ;
+    skos:note "Covers power systems, controls, instrumentation, and communication systems design" ;
     rdfs:subClassOf :Engineer ;
+    owl:equivalentClass ifc:IfcElectricalEngineer ;
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
 
-:MechanicalEngineerRole a proeth:EntityType, proeth:Role, owl:Class ;
+:MechanicalEngineerRole a proeth:EntityType, proeth:Role, proeth:ProfessionalRole, owl:Class ;
     rdfs:label "Mechanical Engineer Role"@en ;
+    rdfs:comment "Professional engineer specializing in mechanical systems design including HVAC, plumbing, fire protection, and energy systems. Responsible for building mechanical systems performance, efficiency, and code compliance."@en ;
+    dc:source "ASME standards and codes; IFC buildingSMART standards" ;
+    rdfs:seeAlso <https://www.asme.org/> ;
+    skos:note "Includes heating, ventilation, air conditioning, and mechanical equipment design" ;
     rdfs:subClassOf :Engineer ;
+    owl:equivalentClass ifc:IfcMechanicalEngineer ;
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> .
 
 :ClientRepresentativeRole a proeth:EntityType,
         proeth:Role,
+        proeth:ParticipantRole,
         owl:Class ;
     rdfs:label "Client Representative Role"@en ;
     rdfs:comment "Individual or organization that commissions engineering services and represents the client's interests"@en ;
@@ -62,16 +81,20 @@
 
 :ProjectManagerRole a proeth:EntityType,
         proeth:Role,
+        proeth:ProfessionalRole,
         owl:Class ;
     rdfs:label "Project Manager Role"@en ;
-    rdfs:comment "Professional responsible for planning, executing, and closing engineering projects"@en ;
-    dc:source "Project Management Institute standards; Engineering project management practices" ;
+    rdfs:comment "Professional responsible for planning, executing, monitoring, controlling, and closing engineering projects. When filled by licensed engineers, maintains professional engineering responsibilities including public safety, ethics compliance, and technical oversight."@en ;
+    dc:source "Project Management Institute (PMI) PMBOK; NSPE engineering project management guidelines" ;
+    rdfs:seeAlso <https://www.pmi.org/> ;
+    skos:note "Integrates project management methodology with engineering professional standards and ethics requirements" ;
     rdfs:isDefinedBy <http://proethica.org/ontology/engineering-ethics> ;
-    skos:note "Coordinates resources, timeline, and deliverables while ensuring compliance with standards" ;
+    owl:equivalentClass ifc:IfcProjectManager ;
     rdfs:subClassOf proeth:Role .
 
 :PublicOfficialRole a proeth:EntityType,
         proeth:Role,
+        proeth:ParticipantRole,
         owl:Class ;
     rdfs:label "Public Official Role"@en ;
     rdfs:comment "Government representative involved in engineering project approval, regulation, or oversight"@en ;
