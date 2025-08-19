@@ -1,6 +1,31 @@
 # AI Ethical DM Project Progress
 
-## 🚀 CURRENT FOCUS: Automated Case-to-Scenario Generation (2025-07-22)
+## 📁 IMPORTANT: Repository Organization Guidelines
+
+### Directory Structure Rules
+- **Tests**: ALL test files must be created in the `/tests/` folder
+- **Documentation**: ALL documentation files must be created in the `/docs/` folder  
+- **Archive**: Use `/archive/` folder for old/deprecated files
+- **Pending Delete**: Use `/pending_delete/` folder for files marked for deletion
+- **Temporary Work**: Use `/tmp/` or `/scratch/` for temporary working files and experiments
+
+### File Creation Rules
+- **NEVER** create files in the root directory unless absolutely necessary
+- **ALWAYS** prefer editing existing files over creating new ones
+- **NEVER** proactively create documentation files (*.md) or README files unless explicitly requested
+- Keep the repository clean and organized
+
+### Model Configuration
+- We are using the latest Claude models available:
+  - **Claude Opus 4.1** (`claude-opus-4-1-20250805`) for powerful tasks
+  - **Claude Sonnet 4** (`claude-sonnet-4-20250514`) for default/fast tasks
+  - **Claude Haiku 3.5** (`claude-3-5-haiku-20241022`) for lightweight tasks
+
+## 🚀 CURRENT FOCUS: Role Extraction and Matching Integration
+
+**Based on**: `/docs/ROLE_EXTRACTION_AND_MATCHING_INTEGRATED_PLAN.md`
+
+### Previous Focus: Automated Case-to-Scenario Generation (2025-07-22)
 
 **After completing the Interactive Wizard Implementation (Phase 5), we are now building automated case generation to convert NSPE cases into interactive ethical decision scenarios.**
 

@@ -62,7 +62,7 @@ class EnhancedScenarioConfig:
         """Get LLM configuration settings."""
         return {
             'provider': os.environ.get(cls.LLM_PROVIDER, 'anthropic'),
-            'model': os.environ.get(cls.LLM_MODEL, 'claude-3-7-sonnet-20250219'),
+            'model': os.environ.get(cls.LLM_MODEL, 'claude-sonnet-4-20250514'),
             'temperature': float(os.environ.get(cls.LLM_TEMPERATURE, '0.2')),
         }
     
@@ -191,8 +191,8 @@ ENVIRONMENT_VARIABLES = {
     'ENHANCED_SCENARIO_LLM_MODEL': {
         'description': 'Specific LLM model to use',
         'type': 'string',
-        'default': 'claude-3-7-sonnet-20250219',
-        'examples': ['claude-3-7-sonnet-20250219', 'gpt-4', 'gemini-pro']
+        'default': 'claude-sonnet-4-20250514',
+        'examples': ['claude-sonnet-4-20250514', 'claude-opus-4-1-20250805', 'gpt-4', 'gemini-pro']
     },
     'ENHANCED_SCENARIO_LLM_TEMPERATURE': {
         'description': 'Temperature for LLM generation (0.0-1.0)',
@@ -277,7 +277,7 @@ def generate_env_template() -> str:
         "",
         "# LLM Configuration",
         "ENHANCED_SCENARIO_LLM_PROVIDER=anthropic",
-        "ENHANCED_SCENARIO_LLM_MODEL=claude-3-7-sonnet-20250219",
+        "ENHANCED_SCENARIO_LLM_MODEL=claude-sonnet-4-20250514",
         "ENHANCED_SCENARIO_LLM_TEMPERATURE=0.2",
         "",
         "# Processing Limits",

@@ -288,7 +288,7 @@ Focus on quality over quantity. Only include directly referenced or clearly impl
     def _call_llm(self, llm_client, system_prompt: str, user_prompt: str) -> Optional[str]:
         """Make LLM API call."""
         try:
-            model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-3-7-sonnet-20250219')
+            model = os.getenv('CLAUDE_MODEL_VERSION', 'claude-sonnet-4-20250514')
             
             # Modern Claude API
             if hasattr(llm_client, 'messages'):

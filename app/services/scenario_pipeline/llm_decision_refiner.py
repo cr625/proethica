@@ -6,7 +6,7 @@ with improved titles, questions, and option sets using an LLM provider (Anthropi
 Activation: set env DIRECT_SCENARIO_LLM_REFINEMENT=true and provide provider-specific API key.
 Config (env vars):
   DIRECT_SCENARIO_LLM_PROVIDER=anthropic|openai|google (default anthropic)
-  DIRECT_SCENARIO_LLM_MODEL=claude-3-7-sonnet-20250219 (or provider-specific default)
+  DIRECT_SCENARIO_LLM_MODEL=claude-sonnet-4-20250514 (or provider-specific default)
   DIRECT_SCENARIO_LLM_MAX_DECISIONS=12
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ except Exception:  # broad: we only care if not importable
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ANTHROPIC_MODEL = os.environ.get('DIRECT_SCENARIO_LLM_MODEL', 'claude-3-7-sonnet-20250219')
+DEFAULT_ANTHROPIC_MODEL = os.environ.get('DIRECT_SCENARIO_LLM_MODEL', 'claude-sonnet-4-20250514')
 
 PROMPT_TEMPLATE = """You are analyzing an engineering ethics case timeline. Below are participants (if any) and then a numbered list of event summaries.\nYour task: identify the MOST significant ethical decision points (not routine steps). Return STRICT JSON ONLY matching:\n{\n  \"decisions\": [\n    {\"event_index\": <int 1-based>, \"title\": \"concise decision title\", \"question\": \"neutral user-facing decision question\", \"options\": [\n       {\"label\": \"Option A\", \"description\": \"short description\"}\n    ]}\n  ]\n}\nGuidelines:\n- Max {max_decisions} decisions.\n- Favor dilemmas involving safety, public welfare, professional duty, reporting, escalation, conflicts of interest, integrity of data.\n- event_index must match numbering.\n- Question should start with What / How / Should and be impartial.\n- Provide 3-5 distinct strategic options (action paths), not trivial phrasing variants.\n- Omit any option that merely paraphrases another.\nParticipants: {participants}\n\nEvents:\n{events_block}\n\nReturn ONLY JSON, no commentary."""
 

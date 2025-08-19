@@ -3,122 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scenario S-24-02 — Compact Snapshot</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>Case 24-02 — Compact Snapshot (Static)</title>
   <style>
-    :root { --gap: 8px; --pad: 8px; --muted:#6c757d; }
-    body { background:#fff; }
-  .panel { max-width: 1180px; margin: 6px auto; padding: var(--pad); }
-    .h6, h6 { font-size: 0.92rem; margin:0; }
-    .small { font-size: 0.84rem; }
-    .tiny { font-size: 0.76rem; color: var(--muted); }
-    .chip { display:inline-block; border:1px solid #e2e5e9; padding:.06rem .36rem; border-radius:999px; font-size:.76rem; margin:1px; background:#f8f9fa; }
+    :root { --gap: 10px; --pad: 10px; --muted:#6c757d; }
+    html, body { margin:0; padding:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif; }
+    .panel { max-width: 1200px; margin: 8px auto; padding: var(--pad); }
+    h5 { font-size: 1.05rem; margin:0; }
+    .small { font-size: 0.86rem; }
+    .tiny { font-size: 0.78rem; color: var(--muted); }
+    .chip { display:inline-block; border:1px solid #e2e5e9; padding:.08rem .4rem; border-radius:999px; font-size:.78rem; margin:2px; background:#f8f9fa; }
     .role { background:#e9f2ff; border-color:#cfe0ff; }
     .ob { background:#fff3cd; border-color:#ffe69c; }
     .pr { background:#eafaf1; border-color:#ccead9; }
     .rc { background:#f1f3f5; border-color:#dee2e6; }
-  .section { border:1px solid #e9ecef; border-radius:8px; padding: 8px 8px 6px; }
-  .title { font-weight:600; letter-spacing:.02em; text-transform:uppercase; color:#495057; font-size:.83rem; margin-bottom:4px; }
-  .grid { display:grid; grid-template-columns: 7fr 5fr; gap: var(--gap); align-items:start; }
-  .list-compact { margin:0; padding-left: .9rem; }
-  .list-compact li { margin-bottom: .2rem; }
+    .title { font-weight:600; letter-spacing:.02em; text-transform:uppercase; color:#495057; font-size:.85rem; margin-bottom:6px; }
+    .section { border:1px solid #e9ecef; border-radius:8px; padding: var(--pad); }
+    .list-compact { margin:0; padding-left: 1rem; }
+    .list-compact li { margin-bottom: .25rem; }
+    .grid { display:grid; grid-template-columns: 7fr 5fr; gap: var(--gap); align-items:start; }
     .row-tight { display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
-  .divider { height:1px; background:#e9ecef; margin:4px 0; }
-  .as-link { text-decoration: none; }
-    /* Print: vector hairline underline to prevent wavy artifacts when scaled */
+    .divider { height:1px; background:#e9ecef; margin:6px 0; }
+  /* Precedent list layout: label + tiny link icon aligned right */
+  .precedents li { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .link-icon { color: var(--muted); font-size: .85em; margin-left: 8px; flex: 0 0 auto; text-decoration: none; }
+  /* Guidelines grid: two rows, three columns; compact items with link icons */
+  .guidelines { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; row-gap: 6px; padding-left: 0; list-style: none; }
+  .guidelines li { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+    /* Print: no underlines; rely on link icons/affordances */
     @media print {
       @page { margin: 0; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .as-link { text-decoration: none !important; background-image: none !important; }
+      a, .as-link { text-decoration: none !important; background-image: none !important; }
     }
-    /* Make width > height when embedded: prefer a single fold */
     @media print { body { zoom: 0.95; } }
   </style>
 </head>
 <body>
   <div class="panel">
-  <div class="d-flex justify-content-between align-items-baseline mb-0">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
       <div>
-  <h5 class="mb-0">Scenario S-24-02 · AI in Engineering Practice</h5>
-  <div class="tiny">Derived from engineering ethics case corpus</div>
+  <h5>Scenario S-24-02 · AI in Engineering Practice <a href="#" class="link-icon" aria-label="Open case reference">🔗</a></h5>
+    <div class="tiny">Derived from engineering ethics case corpus</div>
       </div>
-      <div class="tiny text-end">Snapshot · Roles-first · Derived ontology integration</div>
+      <div class="tiny" style="text-align:right;">Snapshot · Roles-first · Derived ontology integration</div>
     </div>
-    <div class="grid">
-      <!-- Left: Single decision focus with evaluative split -->
-      <div class="section">
-        <div class="d-flex justify-content-between align-items-baseline">
-          <div class="title mb-0">Decision focus (1 of 3)</div>
-          <div class="tiny">…plus 2 more</div>
+    <!-- Overview first: compact narrative and references -->
+    <div class="section" style="margin-bottom: var(--gap);">
+      <div class="title">Overview</div>
+      <div class="small" style="margin-bottom:8px;">
+        An environmental engineer (Engineer A) considers using AI tools to draft portions of a client report and to assist in preparing design documents after losing senior review support. Client W has commissioned the work. Key moments include: drafting narrative report text with AI assistance, using AI to aid drawings/specifications, and deciding whether and how to disclose the use of AI to stakeholders.
+      </div>
+      <div class="row-tight">
+        <div>
+          <div class="title">Precedent cases (themes)</div>
+          <ul class="list-compact tiny precedents">
+            <li><span>Responsible charge in sealed documents (BER precedents)</span><a href="#" class="link-icon" aria-label="Open precedent">🔗</a></li>
+            <li><span>Confidentiality with third‑party/cloud tools</span><a href="#" class="link-icon" aria-label="Open precedent">🔗</a></li>
+            <li><span>Attribution and professional credit in mixed drafting</span><a href="#" class="link-icon" aria-label="Open precedent">🔗</a></li>
+          </ul>
         </div>
-        <div class="p-2 border rounded">
-          <div class="d-flex justify-content-between">
-            <strong>DP2 · AI-assisted design documents</strong>
-          </div>
-          <div class="row g-2 mt-1">
-            <div class="col-12 col-md-7">
-              <div class="small fw-semibold">In favor</div>
-              <ul class="list-compact small mb-1">
-                <li>Efficiency and drafting support for complex details <span class="chip ob">II.2.b</span></li>
-                <li>Consistency checks across drawings/specs <span class="chip pr">I.1</span></li>
-                <li>Condition: retain personal direction; seal only after full verification <span class="chip ob">II.2.b</span></li>
-              </ul>
-              
-            </div>
-            <div class="col-12 col-md-5">
-              <div class="small fw-semibold">Against</div>
-              <ul class="list-compact small mb-1">
-                <li>Overreliance risks inadequate review prior to sealing <span class="chip ob">II.2.b</span></li>
-                <li>Model hallucinations or missed edge cases <span class="chip pr">I.1</span></li>
-                <li>Potential confidentiality exposure via tool settings <span class="chip ob">II.1.c</span></li>
-              </ul>
-              
-            </div>
-          </div>
-          <div class="divider"></div>
-          <div class="small">
-            <span class="fw-semibold">Evaluation summary:</span>
-            <ol class="tiny mb-0">
-              <li>Identify role and obligations (Engineer A; II.2.b responsible charge)</li>
-              <li>Assess AI’s contribution to the technical work product</li>
-              <li>Weigh public welfare vs. efficiency; check confidentiality constraints</li>
-            </ol>
-          </div>
-          <div class="mt-1 small"><span class="fw-semibold">Recommendation:</span> Approved with conditions: document personal direction, fully verify before sealing, and enable confidentiality controls <span class="badge text-bg-secondary">Confidence: Med–High</span></div>
+        <div>
+          <div class="title">Guidelines references</div>
+          <ul class="tiny guidelines">
+            <li><span>I.1 Public Welfare (NSPE Code)</span><a href="#" class="link-icon" aria-label="Open I.1">🔗</a></li>
+            <li><span>II.1.c Client Confidentiality</span><a href="#" class="link-icon" aria-label="Open II.1.c">🔗</a></li>
+            <li><span>II.2.b Responsible Charge</span><a href="#" class="link-icon" aria-label="Open II.2.b">🔗</a></li>
+            <li><span>III.8.a State Registration Laws</span><a href="#" class="link-icon" aria-label="Open III.8.a">🔗</a></li>
+            <li><span>III.9 Professional Credit</span><a href="#" class="link-icon" aria-label="Open III.9">🔗</a></li>
+            <li><span>NSPE Position Statement 10‑1778</span><a href="#" class="link-icon" aria-label="Open 10-1778">🔗</a></li>
+          </ul>
         </div>
       </div>
+    </div>
 
-      <!-- Right: Overview + Precedents + Guidelines References -->
+    <!-- Then grid: left = decision points (analysis only), right = roles + ontology links -->
+    <div class="grid">
       <div class="section">
-        <div class="title">Overview</div>
-        <div class="tiny" style="margin-bottom:6px;">Engineer A considers using AI for drafting and design; key tensions include confidentiality, responsible charge, competence, and attribution.</div>
+        <div class="title">Decision point focus</div>
+        <div class="small" style="margin-bottom:6px;"><strong>DP2 · AI‑assisted design documents</strong> — Engineer A considers using AI tools to aid drawings and specifications while remaining professionally responsible for the work product.</div>
         <div class="row-tight">
           <div>
-            <div class="title">Precedent cases (themes)</div>
+            <div class="tiny" style="font-weight:600;">Considerations</div>
             <ul class="list-compact tiny">
-              <li>🔗 <span class="as-link">Responsible charge in sealed documents (BER precedents)</span></li>
-              <li>🔗 <span class="as-link">Confidentiality with third‑party/cloud tools</span></li>
-              <li>🔗 <span class="as-link">Attribution and professional credit in mixed drafting</span></li>
+              <li>Demonstrate personal direction over any AI‑assisted content</li>
+              <li>Verify and validate all calculations and details before sealing</li>
+              <li>Prevent confidential data exposure in model/tool settings</li>
+              <li>Clarify authorship and technical attribution in mixed drafting</li>
             </ul>
           </div>
           <div>
-            <div class="title">Guidelines references</div>
+            <div class="tiny" style="font-weight:600;">Constraints</div>
             <ul class="list-compact tiny">
-              <li>🔗 <span class="as-link">I.1 Public Welfare (NSPE Code)</span></li>
-              <li>🔗 <span class="as-link">II.1.c Client Confidentiality</span></li>
-              <li>🔗 <span class="as-link">II.2.b Responsible Charge</span></li>
-              <li>🔗 <span class="as-link">III.9 Professional Credit</span></li>
-              <li>🔗 <span class="as-link">NSPE Position Statement 10-1778</span></li>
+              <li>Maintain responsible charge for sealed documents <span class="chip ob">II.2.b</span></li>
+              <li>Safeguard client information throughout the workflow <span class="chip ob">II.1.c</span></li>
+              <li>Ensure public welfare via adequate review and QA <span class="chip pr">I.1</span></li>
             </ul>
           </div>
         </div>
         <div class="divider"></div>
+        <div class="tiny" style="font-weight:600;">Relevant code provisions</div>
+        <ul class="tiny guidelines" style="margin-top:4px;">
+          <li><span>II.2.b Responsible Charge</span><a href="#" class="link-icon" aria-label="Open II.2.b">🔗</a></li>
+          <li><span>II.1.c Client Confidentiality</span><a href="#" class="link-icon" aria-label="Open II.1.c">🔗</a></li>
+          <li><span>I.1 Public Welfare</span><a href="#" class="link-icon" aria-label="Open I.1">🔗</a></li>
+        </ul>
+        <div class="tiny" style="font-weight:600; margin-top:6px;">Related BER precedents</div>
+        <ul class="list-compact tiny precedents" style="margin-top:2px;">
+          <li><span>Responsible charge when using external drafting tools</span><a href="#" class="link-icon" aria-label="Open precedent">🔗</a></li>
+          <li><span>Sealing documents produced with emerging technologies</span><a href="#" class="link-icon" aria-label="Open precedent">🔗</a></li>
+        </ul>
+      </div>
+      <div class="section">
+        <div class="title">Roles</div>
         <div>
-          <div class="title">Ontology links</div>
-          <div class="mb-1">
-            <span class="chip role">Engineer A (ProfessionalRole)</span>
-            <span class="chip role">Client W (ParticipantRole)</span>
-          </div>
+          <span class="chip role">Engineer A (ProfessionalRole)</span>
+          <span class="chip role">Client W (ParticipantRole)</span>
+        </div>
+        <div class="tiny" style="margin-top:4px;">Roles kept: 2 · dropped: 0 · reclassified: 0</div>
+        <div class="divider"></div>
+        <div>
+          <div class="title">Planned ontology links</div>
           <ul class="list-compact tiny" style="margin-bottom:0;">
             <li>Engineer A → hasObligation → Confidentiality (II.1.c)</li>
             <li>Engineer A → adheresToPrinciple → Public Welfare (I.1)</li>
@@ -127,7 +131,7 @@
         </div>
       </div>
     </div>
-    <!-- Bottom footnote removed to reduce height -->
+  <div class="tiny" style="margin-top:6px;">ProEthica (demo): roles-first extraction; Save Concepts → auto-add to derived ontology. Compact layout optimized for paper figures.</div>
   </div>
 </body>
 </html>

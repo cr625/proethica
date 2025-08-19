@@ -8,17 +8,19 @@ import os
 class ModelConfig:
     """Centralized configuration for AI models."""
     
-    # Anthropic/Claude Models (as of January 2025)
+    # Anthropic/Claude Models (as of August 2025)
     # See: https://docs.anthropic.com/en/docs/about-claude/models/overview
     CLAUDE_MODELS = {
         # Primary models for different use cases
         "fast": os.getenv("CLAUDE_FAST_MODEL", "claude-sonnet-4-20250514"),
-        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-20250514"),
+        "powerful": os.getenv("CLAUDE_POWERFUL_MODEL", "claude-opus-4-1-20250805"),  # Updated to Opus 4.1
         "default": os.getenv("CLAUDE_DEFAULT_MODEL", "claude-sonnet-4-20250514"),
         
         # Specific versions (for testing/compatibility)
         "sonnet-4": "claude-sonnet-4-20250514",
-        "opus-4": "claude-opus-4-20250514",
+        "opus-4.1": "claude-opus-4-1-20250805",  # Latest Opus 4.1
+        "opus-4": "claude-opus-4-20250514",  # Previous Opus 4
+        "haiku-3.5": "claude-3-5-haiku-20241022",  # Latest Haiku 3.5
         "haiku": "claude-3-haiku-20240307",  # Legacy, still available
         
         # Legacy models (deprecated, for backward compatibility only)
@@ -69,9 +71,10 @@ class ModelConfig:
             model_mapping = {
                 "claude-3-7-sonnet-20250219": "claude-sonnet-4-20250514",
                 "claude-3-sonnet-20240229": "claude-sonnet-4-20250514",
-                "claude-3-opus-20240229": "claude-opus-4-20250514",
+                "claude-3-opus-20240229": "claude-opus-4-1-20250805",  # Map to latest Opus 4.1
                 "claude-3.5-sonnet-latest": "claude-sonnet-4-20250514",
-                "claude-3.5-opus-latest": "claude-opus-4-20250514",
+                "claude-3.5-opus-latest": "claude-opus-4-1-20250805",  # Map to latest Opus 4.1
+                "claude-opus-4-20250514": "claude-opus-4-1-20250805",  # Auto-upgrade to Opus 4.1
             }
             return model_mapping.get(old_model, old_model)
         return cls.get_claude_model("default")
