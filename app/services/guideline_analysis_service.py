@@ -570,40 +570,61 @@ class GuidelineAnalysisService:
             Return the concepts as a JSON array.
             """
             
-            # Use the correct Anthropic messages API
-            response = llm_client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=4000,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-            
-            # Extract and parse the response
-            if response and hasattr(response, 'content') and response.content:
-                content_text = response.content[0].text if response.content else ""
-                try:
-                    import json
-                    # Try to parse JSON directly
-                    if content_text.strip().startswith('['):
-                        concepts = json.loads(content_text)
-                        response = {"concepts": concepts}
-                    elif content_text.strip().startswith('{'):
-                        response = json.loads(content_text)
-                    else:
-                        # Look for JSON in the text
-                        import re
-                        json_match = re.search(r'\[.*\]', content_text, re.DOTALL)
-                        if json_match:
-                            concepts = json.loads(json_match.group())
-                            response = {"concepts": concepts}
-                        else:
-                            response = {"concepts": []}
-                except json.JSONDecodeError:
-                    logger.warning(f"Could not parse LLM response as JSON: {content_text[:200]}...")
-                    response = {"concepts": []}
+            # Handle different LLM client types  
+            if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
+                # Anthropic client
+                response = llm_client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=4000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+            elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
+                # OpenAI client
+                response = llm_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[{
+                        "role": "user", 
+                        "content": prompt
+                    }],
+                    max_tokens=4000
+                )
             else:
+                raise RuntimeError(f"Unsupported LLM client type: {type(llm_client)}")
+            
+            # Extract and parse the response based on client type
+            content_text = ""
+            if hasattr(llm_client, 'messages'):
+                # Anthropic response format
+                if response and hasattr(response, 'content') and response.content:
+                    content_text = response.content[0].text if response.content else ""
+            elif hasattr(llm_client, 'chat'):
+                # OpenAI response format
+                if response and hasattr(response, 'choices') and response.choices:
+                    content_text = response.choices[0].message.content
+            
+            # Parse JSON response for all client types
+            try:
+                import json
+                # Try to parse JSON directly
+                if content_text.strip().startswith('['):
+                    concepts = json.loads(content_text)
+                    response = {"concepts": concepts}
+                elif content_text.strip().startswith('{'):
+                    response = json.loads(content_text)
+                else:
+                    # Look for JSON in the text
+                    import re
+                    json_match = re.search(r'\[.*\]', content_text, re.DOTALL)
+                    if json_match:
+                        concepts = json.loads(json_match.group())
+                        response = {"concepts": concepts}
+                    else:
+                        response = {"concepts": []}
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse LLM response as JSON: {content_text[:200]}...")
                 response = {"concepts": []}
             
         except Exception as e:

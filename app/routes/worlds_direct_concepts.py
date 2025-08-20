@@ -13,7 +13,7 @@ from datetime import datetime
 
 from app.models.document import Document
 from app.models.ontology import Ontology
-from app.services.guideline_analysis_service_v2 import GuidelineAnalysisServiceV2
+from app.services.guideline_analysis_service import GuidelineAnalysisService
 
 logger = logging.getLogger(__name__)
 

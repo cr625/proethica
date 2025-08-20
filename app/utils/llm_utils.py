@@ -13,23 +13,8 @@ class LLMUtilsConfig:
     USE_MOCK_RESPONSES = False
 
 def _get_gemini_client_if_enabled() -> Optional[Any]:
-    """Return a Google Generative AI client if explicitly enabled via config/env."""
-    use_gemini = (
-        str(current_app.config.get('USE_GEMINI_FOR_GUIDELINES') or os.getenv('USE_GEMINI_FOR_GUIDELINES', 'false'))
-        .lower() == 'true'
-    )
-    if not use_gemini:
-        return None
-    try:
-        import google.generativeai as genai
-        api_key = current_app.config.get('GOOGLE_API_KEY') or os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
-        if not api_key:
-            return None
-        genai.configure(api_key=api_key)
-        return genai
-    except Exception as e:
-        print(f"Failed to initialize Gemini client: {e}")
-        return None
+    """Gemini client disabled - always returns None."""
+    return None
 
 
 def get_llm_client():
@@ -39,10 +24,6 @@ def get_llm_client():
     Returns:
         An LLM client (Anthropic or OpenAI)
     """
-    # If Gemini was explicitly requested for guideline extraction, return that first
-    gemini_client = _get_gemini_client_if_enabled()
-    if gemini_client is not None:
-        return gemini_client
     # First check for Anthropic
     try:
         import anthropic
