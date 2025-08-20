@@ -153,12 +153,67 @@
             "problemMatcher": []
         },
         {
+            "label": "kill-mcp-servers-all-ports",
+            "type": "shell",
+            "command": "bash",
+            "args": ["-c", "echo '🔍 Killing any existing MCP servers...' && pkill -f 'mcp.*server|run_enhanced_mcp|enhanced_ontology_server' 2>/dev/null || true && sleep 1 && (command -v lsof >/dev/null 2>&1 && lsof -ti:5001,5002,5003 2>/dev/null | xargs -r kill -9 2>/dev/null || true) && sleep 1 && echo '✅ All MCP servers stopped and ports cleared'"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "check-mcp-port-availability",
+            "type": "shell", 
+            "command": "bash",
+            "args": ["-c", "PORT=${MCP_SERVER_PORT:-5001} && echo '🔍 Checking port '$PORT'...' && if command -v lsof >/dev/null 2>&1; then if lsof -ti:$PORT >/dev/null 2>&1; then echo '❌ Port '$PORT' is already in use. Killing process...' && lsof -ti:$PORT | xargs -r kill -9 && sleep 2; fi; else echo '⚠️  lsof not available, using pkill only'; pkill -f 'mcp.*server|run_enhanced_mcp|enhanced_ontology_server' 2>/dev/null || true; fi && echo '✅ Port '$PORT' is available'"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "simple-kill-mcp-servers",
+            "type": "shell",
+            "command": "bash",
+            "args": ["-c", "echo '🔍 Stopping MCP servers...' && pkill -f 'mcp.*server|run_enhanced_mcp|enhanced_ontology_server' 2>/dev/null || true && sleep 1 && echo '✅ MCP cleanup completed'"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "python-cleanup-mcp-servers",
+            "type": "shell",
+            "command": "${workspaceFolder}/venv/bin/python",
+            "args": ["${workspaceFolder}/scripts/cleanup_mcp_servers.py"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "sleep",
             "type": "shell",
             "command": "sleep 2",
             "presentation": {
                 "reveal": "silent",
                 "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "wait-for-mcp-startup",
+            "type": "shell",
+            "command": "echo",
+            "args": ["🔄 Allowing time for MCP server to start..."],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
             },
             "problemMatcher": []
         }

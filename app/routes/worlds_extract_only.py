@@ -64,7 +64,7 @@ def extract_concepts_direct(world_id, document_id):
         
         # Extract concepts using the enhanced LLM-based approach
         logger.info(f"Extracting concepts directly from guideline: {document.title}")
-        result = analysis_service.extract_concepts(content, ontology_source)
+        result = analysis_service.extract_concepts(content, document_id, world_id)
         
         if "concepts" in result:
             extracted_concepts = result["concepts"]

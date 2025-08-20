@@ -81,15 +81,18 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         
         logger.info(f"Extracting concepts for guideline {guideline.title} with world {world.name}")
         
-        # Use enhanced V2 service for ontology-aware concept extraction
-        logger.info("Using GuidelineAnalysisServiceV2 for enhanced ontology matching")
-        enhanced_service = GuidelineAnalysisServiceV2()
+        # Use main service (contains former V2 functionality) - no more V1/V2 confusion
+        logger.info("Using GuidelineAnalysisService (former V2) directly")
         
-        # Extract concepts with ontology matching
-        concepts_result = enhanced_service.extract_concepts_v2(
-            content=content, 
+        # Import main service (now contains V2 functionality)
+        from app.services.guideline_analysis_service import GuidelineAnalysisService
+        service = GuidelineAnalysisService()
+        
+        # Extract concepts using main service
+        concepts_result = service.extract_concepts(
+            content=content,
             guideline_id=document_id, 
-            world_id=id  # avoid accessing possibly expired world object
+            world_id=id
         )
         logger.info(f"V2 extraction result keys: {list(concepts_result.keys())}")
         
@@ -178,42 +181,8 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                    error_title='No Concepts Found',
                                    error_message=error_message))
             
-        # Cache extracted concepts in document metadata to avoid re-extraction during save
-        try:
-            from app import db
-            
-            # Ensure we have fresh guideline from DB
-            db.session.refresh(guideline)
-            
-            if not guideline.doc_metadata:
-                guideline.doc_metadata = {}
-            
-            # Store the concepts and discovered relationships
-            guideline.doc_metadata['extracted_concepts'] = concepts_list
-            guideline.doc_metadata['extracted_relationships'] = relationships or []
-            guideline.doc_metadata['extraction_stats'] = stats or {}
-            guideline.doc_metadata['extraction_timestamp'] = datetime.utcnow().isoformat()
-            
-            # Mark the field as modified for SQLAlchemy
-            from sqlalchemy.orm.attributes import flag_modified
-            flag_modified(guideline, 'doc_metadata')
-            
-            db.session.add(guideline)
-            db.session.commit()
-            logger.info(f"Cached {len(concepts_list)} extracted concepts in document metadata")
-            
-            # Verify it was saved
-            db.session.refresh(guideline)
-            saved_concepts = guideline.doc_metadata.get('extracted_concepts', [])
-            saved_relationships = guideline.doc_metadata.get('extracted_relationships', [])
-            logger.info(f"Verified: {len(saved_concepts)} concepts and {len(saved_relationships)} relationships saved to database")
-            
-        except Exception as cache_error:
-            logger.error(f"Failed to cache concepts in document metadata: {cache_error}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-        
-        # Skip session storage to avoid cookie size limits
-        logger.info("Skipping Flask session storage to avoid cookie size limits")
+        # No caching - always extract fresh for testing simplicity
+        logger.info("Skipping caching for testing simplicity - always extracting fresh")
         
         # Also prepare JSON for form submission as backup
         concepts_json = json.dumps(concepts_list)
@@ -298,8 +267,8 @@ def get_extracted_concepts_json(id, document_id, world, guideline_analysis_servi
             if ontology:
                 ontology_source = ontology.domain_id
         
-        # Extract concepts
-        concepts_result = guideline_analysis_service.extract_concepts(content, ontology_source)
+        # Extract concepts using main service
+        concepts_result = guideline_analysis_service.extract_concepts(content, document_id, id)
         
         if "error" in concepts_result:
             logger.warning(f"Error during concept extraction API call: {concepts_result['error']}")

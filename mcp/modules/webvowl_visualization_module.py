@@ -59,7 +59,10 @@ class WebVOWLVisualizationModule(MCPBaseModule):
             self.initialized = True
             logger.info(f"WebVOWL module initialized with OWL2VOWL at: {self.owl2vowl_jar}")
         else:
-            logger.warning("WebVOWL module could not find OWL2VOWL JAR - visualization features disabled")
+            # Only show message if not explicitly disabled
+            if os.environ.get("DISABLE_WEBVOWL_MESSAGES", "false").lower() != "true":
+                logger.info("WebVOWL visualization features are optional and not currently installed")
+                logger.debug("To enable WebVOWL: download OWL2VOWL JAR from https://github.com/VisualDataWeb/OWL2VOWL/releases")
     
     def convert_ttl_to_vowl_json(self, ttl_content: str, ontology_name: str = "ontology") -> Optional[Dict[str, Any]]:
         """

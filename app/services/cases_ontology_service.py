@@ -17,7 +17,7 @@ from app.models.ontology_version import OntologyVersion
 from app.models.ontology_import import OntologyImport
 from app.models.role import Role
 from app.services.ontology_entity_service import OntologyEntityService
-from app.utils.label_normalization import normalize_role_label, strip_role_suffix, ensure_role_suffix
+from app.utils.label_normalization import normalize_role_label, ensure_role_suffix, ensure_concept_type_suffix
 
 
 class CasesOntologyService:
@@ -107,7 +107,7 @@ class CasesOntologyService:
                 role_db = Role.query.filter_by(world_id=world.id, ontology_uri=ontology_uri).first()
                 if not role_db:
                     role_db = Role(
-                        name=strip_role_suffix(existing.get('label') or label),
+                        name=ensure_concept_type_suffix(existing.get('label') or label, 'role'),
                         description=description,
                         world_id=world.id,
                         ontology_uri=ontology_uri,
@@ -120,8 +120,8 @@ class CasesOntologyService:
             pass
 
         cases_ont = self.get_or_create_world_cases_ontology(world)
-        # Display label policy: suffix-less for human readability
-        display_label = strip_role_suffix(label)
+        # Display label policy: ALWAYS include Role suffix for ontological consistency
+        display_label = ensure_concept_type_suffix(label, 'role')
         # Generate a stable fragment identifier for the class (without spaces)
         base_fragment = self._to_camel_case(re.sub(r"\broles?\b\s*$", "", label, flags=re.IGNORECASE)) + "Role"
         class_fragment = base_fragment

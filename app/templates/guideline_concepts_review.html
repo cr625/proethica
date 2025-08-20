@@ -51,6 +51,51 @@
     </p>
   </div>
 
+  <!-- Enhanced Ontology Match Summary -->
+  {% if concepts %}
+  {% set matched_concepts = concepts | rejectattr('is_new', 'equalto', true) | list %}
+  {% set new_concepts = concepts | selectattr('is_new', 'equalto', true) | list %}
+  {% set error_concepts = concepts | rejectattr('is_new', 'defined') | list %}
+  
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card border-success">
+        <div class="card-body py-2 text-center">
+          <h6 class="card-title mb-1 text-success">
+            <i class="fas fa-check-circle"></i> Found in Ontology
+          </h6>
+          <span class="fs-4 fw-bold text-success">{{ matched_concepts | length }}</span>
+          <small class="text-muted d-block">existing concept{{ 's' if matched_concepts | length != 1 else '' }}</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-warning">
+        <div class="card-body py-2 text-center">
+          <h6 class="card-title mb-1 text-warning">
+            <i class="fas fa-plus"></i> New Concepts
+          </h6>
+          <span class="fs-4 fw-bold text-warning">{{ new_concepts | length }}</span>
+          <small class="text-muted d-block">new term{{ 's' if new_concepts | length != 1 else '' }}</small>
+        </div>
+      </div>
+    </div>
+    {% if error_concepts | length > 0 %}
+    <div class="col-md-4">
+      <div class="card border-danger">
+        <div class="card-body py-2 text-center">
+          <h6 class="card-title mb-1 text-danger">
+            <i class="fas fa-exclamation-triangle"></i> Missing Data
+          </h6>
+          <span class="fs-4 fw-bold text-danger">{{ error_concepts | length }}</span>
+          <small class="text-muted d-block">concept{{ 's' if error_concepts | length != 1 else '' }} need{{ 's' if error_concepts | length == 1 else '' }} review</small>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if llm_unavailable %}
   <div class="alert alert-warning">
     <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Limited Functionality</h4>
@@ -128,8 +173,7 @@
   {% if csrf_token %}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
   {% endif %}
-    <!-- Include lightweight concepts reference instead of full JSON data -->
-    <input type="hidden" name="concepts_data" id="concepts_data" value="cached_in_session" />
+    <!-- Include concepts count and source info -->
     <input type="hidden" name="concepts_count" value="{{ concepts|length }}" />
     <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
 
@@ -265,6 +309,21 @@
                         {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
                         <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
                         <strong>{{ concept.label }}</strong>
+                        
+                        <!-- Enhanced Ontology Match Indicator -->
+                        {% if concept.ontology_match and not concept.is_new %}
+                          <span class="badge bg-success ms-2" title="Found in {{ concept.ontology_match.source or 'ontology' }}">
+                            <i class="fas fa-check-circle"></i> In Ontology
+                          </span>
+                        {% elif concept.is_new %}
+                          <span class="badge bg-warning ms-2" title="New concept not found in ontology">
+                            <i class="fas fa-plus"></i> New
+                          </span>
+                        {% else %}
+                          <span class="badge bg-danger ms-2" title="Missing match data - check service">
+                            <i class="fas fa-exclamation-triangle"></i> Error
+                          </span>
+                        {% endif %}
                       </div>
                     </td>
                     <td>
@@ -350,41 +409,78 @@
                     </td>
                     <td>{{ concept.description }}</td>
                     <td>
-                      {% if concept.ontology_match %}
+                      {% if concept.ontology_match and not concept.is_new %}
                       <!-- Existing ontology match found -->
                       <div class="mb-1">
                         <span class="badge bg-success">✅ Match</span>
-                        <strong>{{ concept.ontology_match.label }}</strong>
-                        <small class="text-muted d-block">
-                          Confidence: {{ (concept.match_confidence * 100)|round|int }}%
-                          {% if concept.ontology_match.category %}
-                          <br>Category: {{ concept.ontology_match.category|title }}
-                          {% endif %}
-                        </small>
+                        <div class="mt-1">
+                          <strong class="text-success">{{ concept.ontology_match.label or concept.ontology_match.entity.label }}</strong>
+                          <small class="text-muted d-block">
+                            {% if concept.match_confidence %}
+                            Confidence: {{ (concept.match_confidence * 100)|round|int }}%
+                            {% elif concept.ontology_match.confidence %}
+                            Confidence: {{ (concept.ontology_match.confidence * 100)|round|int }}%
+                            {% elif concept.ontology_match.similarity %}
+                            Confidence: {{ (concept.ontology_match.similarity * 100)|round|int }}%
+                            {% endif %}
+                            {% if concept.ontology_match.category %}
+                            <br>Category: {{ concept.ontology_match.category|title }}
+                            {% endif %}
+                            {% if concept.ontology_match.source %}
+                            <br>Source: {{ concept.ontology_match.source }}
+                            {% endif %}
+                            {% if concept.ontology_match.uri or (concept.ontology_match.entity and concept.ontology_match.entity.uri) %}
+                            <br><code class="small">{{ concept.ontology_match.uri or concept.ontology_match.entity.uri }}</code>
+                            {% endif %}
+                          </small>
+                        </div>
                       </div>
                       {% elif concept.is_new %}
-                      <!-- New concept -->
+                      <!-- New concept (including partial matches) -->
                       <div class="mb-1">
+                        {% if concept.ontology_match and concept.ontology_match.found %}
+                        <span class="badge bg-info">📎 Partial Match</span>
+                        <div class="mt-1">
+                          <small class="text-muted">
+                            Partially matches: {{ concept.ontology_match.ontology_uri or 'unknown' }}
+                            {% if concept.ontology_match.matched_terms %}
+                            <br>Matched terms: {{ concept.ontology_match.matched_terms | join(', ') }}
+                            {% endif %}
+                            {% if concept.ontology_match.source %}
+                            <br>Source: {{ concept.ontology_match.source }}
+                            {% endif %}
+                          </small>
+                        </div>
+                        {% else %}
                         <span class="badge bg-warning text-dark">🆕 New</span>
-                        {% if concept.suggested_parent %}
-                        <small class="text-muted d-block">
-                          Parent: {{ concept.suggested_parent.label }}
-                          <br>Confidence: {{ (concept.suggested_parent.confidence * 100)|round|int }}%
-                        </small>
+                        <div class="mt-1">
+                          <small class="text-muted">
+                            Not found in existing ontology
+                            {% if concept.suggested_parent %}
+                            <br>Suggested parent: {{ concept.suggested_parent.label }}
+                            <br>Confidence: {{ (concept.suggested_parent.confidence * 100)|round|int }}%
+                            {% endif %}
+                          </small>
+                        </div>
                         {% endif %}
                       </div>
                       {% else %}
-                      <!-- Fallback to legacy match display -->
+                      <!-- Fallback to legacy match display or error -->
                       {% if concept.label in matched_entities and matched_entities[concept.label]|length > 0 %}
                       {% for match in matched_entities[concept.label] %}
                       <div class="mb-1">
                         <span class="badge bg-success">{{ match.match_type|capitalize }}</span>
-                        <strong>{{ match.label }}</strong>
-                        <small class="text-muted d-block">Confidence: {{ (match.confidence * 100)|int }}%</small>
+                        <div class="mt-1">
+                          <strong class="text-success">{{ match.label }}</strong>
+                          <small class="text-muted d-block">Confidence: {{ (match.confidence * 100)|int }}%</small>
+                        </div>
                       </div>
                       {% endfor %}
                       {% else %}
-                      <span class="badge bg-danger">❌ ERROR: Missing match data</span>
+                      <div class="mb-1">
+                        <span class="badge bg-danger">❌ ERROR</span>
+                        <small class="text-muted d-block mt-1">Missing match data - check V2 service</small>
+                      </div>
                       {% endif %}
                       {% endif %}
                     </td>
@@ -490,16 +586,9 @@
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
     const checkboxes = document.querySelectorAll('.concept-checkbox');
-    const conceptsDataField = document.getElementById('concepts_data');
 
-    // Concepts data is now set directly in the HTML template
-    // Just verify it's there for debugging
-    if (conceptsDataField) {
-        console.log('Concepts data field found with length:', conceptsDataField.value.length);
-        console.log('Preview:', conceptsDataField.value.substring(0, 100) + '...');
-    } else {
-        console.error('concepts_data field not found!');
-    }
+    // Log concepts count for debugging
+    console.log('Found', checkboxes.length, 'concept checkboxes');
 
   // Select all concepts
   selectAllBtn.addEventListener('click', function () {

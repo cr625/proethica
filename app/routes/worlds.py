@@ -977,12 +977,141 @@ def manage_guideline_triples(world_id, guideline_id):
             groups[predicate]['count'] += 1
         return sorted(groups.values(), key=lambda x: x['count'], reverse=True)
     
-    # Create grouped data for each category
+    # NEW: Group triples by subject (extracted concept/term) for organized view
+    def group_triples_by_subject(triple_list):
+        """Group triples by their subject (extracted concept), showing all predicates for each concept."""
+        groups = {}
+        for triple in triple_list:
+            subject_key = triple.subject_label or triple.subject
+            if subject_key not in groups:
+                groups[subject_key] = {
+                    'subject': subject_key,
+                    'subject_uri': triple.subject,
+                    'triples': [],
+                    'predicates': {},  # Track predicates for this subject
+                    'count': 0,
+                    'concept_type': None,  # Will detect from rdf:type or similar
+                    'ontology_relationships': [],  # Semantic relationships from ontology
+                    'is_in_ontology': False  # Whether this concept exists in ontology
+                }
+            
+            groups[subject_key]['triples'].append(triple)
+            groups[subject_key]['count'] += 1
+            
+            # Track predicate types for this concept
+            predicate = triple.predicate_label or triple.predicate
+            if predicate not in groups[subject_key]['predicates']:
+                groups[subject_key]['predicates'][predicate] = []
+            groups[subject_key]['predicates'][predicate].append(triple)
+            
+            # Try to detect concept type from rdf:type or proethica-intermediate predicates
+            if 'type' in predicate.lower() and not triple.is_literal:
+                object_value = triple.object_label or triple.object_uri or str(triple.object_literal)
+                if 'Role' in object_value:
+                    groups[subject_key]['concept_type'] = 'Role'
+                elif 'Principle' in object_value:
+                    groups[subject_key]['concept_type'] = 'Principle'
+                elif 'Obligation' in object_value:
+                    groups[subject_key]['concept_type'] = 'Obligation'
+                elif any(t in object_value for t in ['State', 'Resource', 'Action', 'Event', 'Capability', 'Constraint']):
+                    for t in ['State', 'Resource', 'Action', 'Event', 'Capability', 'Constraint']:
+                        if t in object_value:
+                            groups[subject_key]['concept_type'] = t
+                            break
+        
+        # Check for ontology relationships for each concept
+        for subject_key, group in groups.items():
+            ontology_rels = get_ontology_relationships_for_concept(subject_key, group.get('concept_type'))
+            if ontology_rels:
+                group['ontology_relationships'] = ontology_rels
+                group['is_in_ontology'] = True
+        
+        # Sort by count (most triples first) and then alphabetically
+        return sorted(groups.values(), key=lambda x: (-x['count'], x['subject']))
+    
+    def get_ontology_relationships_for_concept(concept_label, concept_type):
+        """Get semantic relationships from the ontology for a concept that matches an existing entity."""
+        # Map common concept labels to ontology entities
+        concept_mappings = {
+            # Roles
+            'engineer role': ':Engineer',
+            'professional engineer role': ':Engineer', 
+            'structural engineer role': ':StructuralEngineerRole',
+            'electrical engineer role': ':ElectricalEngineerRole',
+            'mechanical engineer role': ':MechanicalEngineerRole',
+            'client representative role': ':ClientRepresentativeRole',
+            'project manager role': ':ProjectManagerRole',
+            'public official role': ':PublicOfficialRole',
+            
+            # Principles  
+            'public safety principle': ':PublicSafetyPrinciple',
+            'professional integrity principle': ':ProfessionalIntegrityPrinciple',
+            'competence principle': ':CompetencePrinciple',
+            'sustainability principle': ':SustainabilityPrinciple',
+            
+            # Obligations
+            'public welfare obligation': ':PublicWelfareObligation',
+            'honest service obligation': ':HonestServiceObligation',
+            'continuous learning obligation': ':ContinuousLearningObligation',
+            
+            # States
+            'professional competence state': ':ProfessionalCompetenceState',
+            'conflict of interest state': ':ConflictOfInterestState',
+            'ethical dilemma state': ':EthicalDilemmaState',
+            'compliance state': ':ComplianceState',
+            'risk state': ':RiskState'
+        }
+        
+        # Known semantic relationships for key entities from engineering-ethics.ttl
+        ontology_relationships = {
+            ':Engineer': [
+                {'predicate': 'hasObligation', 'objects': ['Public Welfare Obligation', 'Honest Service Obligation', 'Continuous Learning Obligation'], 'source': 'engineering-ethics.ttl:406'},
+                {'predicate': 'adheresToPrinciple', 'objects': ['Public Safety Principle', 'Professional Integrity Principle', 'Competence Principle'], 'source': 'engineering-ethics.ttl:407'},
+                {'predicate': 'pursuesEnd', 'objects': ['Protect Public Safety, Health, and Welfare', 'Truthful and Objective Public Communication'], 'source': 'engineering-ethics.ttl:408'},
+                {'predicate': 'governedByCode', 'objects': ['NSPE Code of Ethics'], 'source': 'engineering-ethics.ttl:409'}
+            ],
+            ':PublicSafetyPrinciple': [
+                {'predicate': 'isAdheredToBy', 'objects': ['Engineer Role'], 'source': 'Inferred from engineering-ethics.ttl:407'},
+                {'predicate': 'isPrimaryPrinciple', 'objects': ['true'], 'source': 'NSPE Code Section I.1'},
+                {'predicate': 'sourceDocument', 'objects': ['NSPE Code of Ethics Section I.1'], 'source': 'engineering-ethics.ttl:171'}
+            ],
+            ':PublicWelfareObligation': [
+                {'predicate': 'isObligationOf', 'objects': ['Engineer Role'], 'source': 'Inferred from engineering-ethics.ttl:406'},
+                {'predicate': 'isPrimaryObligation', 'objects': ['true'], 'source': 'engineering-ethics.ttl:340'},
+                {'predicate': 'supersedesOtherDuties', 'objects': ['true'], 'source': 'NSPE Code I.1 fundamental canon'}
+            ],
+            ':CompetencePrinciple': [
+                {'predicate': 'isAdheredToBy', 'objects': ['Engineer Role'], 'source': 'Inferred from engineering-ethics.ttl:407'},
+                {'predicate': 'requiresAction', 'objects': ['Continuous Learning Obligation'], 'source': 'Professional competency requirements'},
+                {'predicate': 'sourceDocument', 'objects': ['NSPE Code of Ethics Section I.2'], 'source': 'engineering-ethics.ttl:193'}
+            ]
+        }
+        
+        # Check if concept matches an ontology entity (case insensitive)
+        concept_key = concept_label.lower() if concept_label else ''
+        ontology_entity = concept_mappings.get(concept_key)
+        
+        if ontology_entity and ontology_entity in ontology_relationships:
+            return ontology_relationships[ontology_entity]
+        
+        return []
+    
+    # Create grouped data for each category (by predicate - original view)
     core_ontology_groups = group_triples_by_predicate(core_ontology_terms)
     other_guidelines_groups = group_triples_by_predicate(other_guidelines_terms)
     same_guideline_old_groups = group_triples_by_predicate(same_guideline_old_terms)
     orphaned_groups = group_triples_by_predicate(orphaned_terms)
     guideline_specific_groups = group_triples_by_predicate(guideline_specific_terms)
+    
+    # NEW: Create subject-based groupings (by extracted concept/term)
+    core_ontology_subjects = group_triples_by_subject(core_ontology_terms)
+    other_guidelines_subjects = group_triples_by_subject(other_guidelines_terms)
+    same_guideline_old_subjects = group_triples_by_subject(same_guideline_old_terms)
+    orphaned_subjects = group_triples_by_subject(orphaned_terms)
+    guideline_specific_subjects = group_triples_by_subject(guideline_specific_terms)
+    
+    # All triples subject-based grouping
+    all_subjects = group_triples_by_subject(triples)
     
     # Also create the original combined grouping for backward compatibility
     triple_groups = {}
@@ -1010,6 +1139,13 @@ def manage_guideline_triples(world_id, guideline_id):
                           same_guideline_old_groups=same_guideline_old_groups,
                           orphaned_groups=orphaned_groups,
                           guideline_specific_groups=guideline_specific_groups,
+                          # NEW: Subject-based groupings (organized by extracted concept/term)
+                          all_subjects=all_subjects,
+                          core_ontology_subjects=core_ontology_subjects,
+                          other_guidelines_subjects=other_guidelines_subjects,
+                          same_guideline_old_subjects=same_guideline_old_subjects,
+                          orphaned_subjects=orphaned_subjects,
+                          guideline_specific_subjects=guideline_specific_subjects,
                           total_triples=len(triples),
                           core_ontology_count=len(core_ontology_terms),
                           other_guidelines_count=len(other_guidelines_terms),
@@ -1196,6 +1332,122 @@ def analyze_guideline(id, document_id):
     
     # Call the direct extraction function
     return direct_concept_extraction(id, document_id, world, guideline_analysis_service)
+
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/match_existing_concepts', methods=['GET'])
+def match_existing_concepts(id, document_id):
+    """Match guideline concepts to existing engineering-ethics ontology entities."""
+    try:
+        # Get world and guideline
+        world = World.query.get_or_404(id)
+        guideline = Document.query.get_or_404(document_id)
+        
+        # Check if document belongs to this world and is a guideline
+        if guideline.world_id != world.id:
+            flash('Document does not belong to this world', 'error')
+            return redirect(url_for('worlds.view_world', id=world.id))
+        
+        if guideline.document_type != "guideline":
+            flash('Document is not a guideline', 'error') 
+            return redirect(url_for('worlds.view_world', id=world.id))
+        
+        # Get guideline content
+        content = guideline.content
+        if not content and guideline.file_path:
+            try:
+                with open(guideline.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+            except Exception as e:
+                flash(f'Error reading guideline file: {str(e)}', 'error')
+                return redirect(url_for('worlds.view_world', id=world.id))
+        
+        if not content:
+            flash('No content available for analysis', 'error')
+            return redirect(url_for('worlds.view_world', id=world.id))
+        
+        # Initialize services
+        from app.services.guideline_analysis_service import GuidelineAnalysisService
+        from app.services.mcp_client import MCPClient
+        
+        analysis_service = GuidelineAnalysisService()
+        mcp_client = MCPClient.get_instance()
+        
+        # Step 1: Extract concepts from guideline text
+        logger.info(f"Extracting concepts from guideline: {guideline.title}")
+        extraction_result = analysis_service.extract_concepts(content, document_id, id)
+        
+        if 'error' in extraction_result:
+            flash(f'Error extracting concepts: {extraction_result["error"]}', 'error')
+            return redirect(url_for('worlds.view_world', id=world.id))
+        
+        extracted_concepts = extraction_result.get('concepts', [])
+        logger.info(f"Extracted {len(extracted_concepts)} concepts")
+        
+        # Step 2: Get existing ontology entities via MCP
+        logger.info("Fetching existing ontology entities from MCP server")
+        try:
+            entities_response = mcp_client.get_ontology_entities('engineering-ethics')
+            existing_entities = entities_response.get('entities', []) if entities_response else []
+            logger.info(f"Retrieved {len(existing_entities)} existing ontology entities")
+        except Exception as e:
+            logger.error(f"Error fetching ontology entities: {e}")
+            existing_entities = []
+        
+        # Step 3: Focus on roles and match to existing ontology
+        role_concepts = [c for c in extracted_concepts if c.get('type', '').lower() == 'role']
+        existing_roles = [e for e in existing_entities if e.get('type', '').lower() == 'role']
+        
+        # Build lookup for existing roles
+        role_lookup = {}
+        for role in existing_roles:
+            label = role.get('label', '').lower().strip()
+            role_lookup[label] = role
+            # Also try without " role" suffix
+            if label.endswith(' role'):
+                role_lookup[label[:-5].strip()] = role
+        
+        # Match extracted roles to existing ontology
+        matched_roles = []
+        unmatched_roles = []
+        
+        for concept in role_concepts:
+            concept_label = concept.get('label', '').lower().strip()
+            
+            # Try exact match
+            if concept_label in role_lookup:
+                matched_entity = role_lookup[concept_label]
+                concept['ontology_match'] = {
+                    'found': True,
+                    'entity': matched_entity,
+                    'match_type': 'exact'
+                }
+                matched_roles.append(concept)
+            # Try without "role" suffix  
+            elif concept_label.endswith(' role') and concept_label[:-5].strip() in role_lookup:
+                matched_entity = role_lookup[concept_label[:-5].strip()]
+                concept['ontology_match'] = {
+                    'found': True,
+                    'entity': matched_entity,
+                    'match_type': 'without_suffix'
+                }
+                matched_roles.append(concept)
+            else:
+                concept['ontology_match'] = {'found': False}
+                unmatched_roles.append(concept)
+        
+        logger.info(f"Role matching results: {len(matched_roles)} matched, {len(unmatched_roles)} unmatched")
+        
+        return render_template('existing_concept_matches.html',
+                             world=world,
+                             guideline=guideline,
+                             matched_roles=matched_roles,
+                             unmatched_roles=unmatched_roles,
+                             total_roles=len(role_concepts),
+                             total_existing_roles=len(existing_roles))
+        
+    except Exception as e:
+        logger.error(f"Error in match_existing_concepts: {str(e)}")
+        flash(f'Error matching concepts: {str(e)}', 'error')
+        return redirect(url_for('worlds.view_world', id=id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/extract_concepts', methods=['GET'])
 def extract_and_display_concepts(id, document_id):

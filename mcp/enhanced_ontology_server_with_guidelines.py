@@ -579,17 +579,31 @@ async def run_server():
         await neo4j_module.create_neo4j_routes(app)
         logger.info("Neo4j visualization routes registered")
     
-    # Start the web server
+    # Start the web server with graceful port conflict handling
     PORT = int(os.environ.get("MCP_SERVER_PORT", 5001))
     HOST = os.environ.get("MCP_HOST", "0.0.0.0")
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, HOST, PORT)
-    await site.start()
     
-    logger.info(f"Enhanced MCP Server with WebVOWL and Neo4j running on http://{HOST}:{PORT}")
-    logger.info(f"WebVOWL visualizations available at: http://{HOST}:{PORT}/visualization")
-    logger.info(f"Neo4j browser interface available at: http://{HOST}:{PORT}/neo4j")
+    try:
+        await site.start()
+        logger.info(f"Enhanced MCP Server with WebVOWL and Neo4j running on http://{HOST}:{PORT}")
+        logger.info(f"WebVOWL visualizations available at: http://{HOST}:{PORT}/visualization")
+        logger.info(f"Neo4j browser interface available at: http://{HOST}:{PORT}/neo4j")
+    except OSError as e:
+        if e.errno == 98:  # Address already in use
+            logger.warning(f"Port {PORT} is already in use - MCP server may already be running")
+            logger.warning(f"Check if server is accessible at http://{HOST}:{PORT}")
+            logger.warning("If you need to restart the server, kill existing processes first:")
+            logger.warning(f"  pkill -f 'mcp.*server|run_enhanced_mcp|enhanced_ontology_server'")
+            logger.warning("Exiting gracefully...")
+            await runner.cleanup()
+            return
+        else:
+            logger.error(f"Failed to start server on {HOST}:{PORT}: {e}")
+            await runner.cleanup()
+            raise
     
     # Keep running until interrupted
     try:

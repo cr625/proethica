@@ -61,26 +61,33 @@ print(f"MCP_SERVER_URL set to {mcp_url}")
 # Log a clear message about MCP server port configuration
 print(f"MCP server will be available at {mcp_url}")
 
-# The enhanced MCP server is started by auto_run.sh before we run this script
+# Check MCP server availability with retry logic for compound launches
 print("Checking enhanced MCP server status...")
-# Verify that the MCP server is already running
 mcp_running = False
-try:
-    # Use raw literal URL to avoid escape sequence issues
-    # Use configured URL to probe
-    test_url = f"{mcp_url}/api/guidelines/engineering-ethics"
-    print(f"Testing connection to MCP server at {test_url}...")
-    response = requests.get(test_url, timeout=2)
-    if response.status_code == 200:
-        mcp_running = True
-        print("Successfully connected to existing MCP server!")
-    else:
-        print(f"Warning: MCP server returned status code {response.status_code}")
-except requests.exceptions.RequestException as e:
-    print(f"Warning: Could not connect to MCP server: {e}")
+max_retries = 10
+retry_delay = 1
+
+for attempt in range(max_retries):
+    try:
+        test_url = f"{mcp_url}/api/guidelines/engineering-ethics"
+        if attempt == 0:
+            print(f"Testing connection to MCP server at {test_url}...")
+        response = requests.get(test_url, timeout=2)
+        if response.status_code == 200:
+            mcp_running = True
+            print("✅ Successfully connected to MCP server!")
+            break
+        else:
+            print(f"⚠️  MCP server returned status code {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        if attempt < max_retries - 1:
+            print(f"🔄 Waiting for MCP server... (attempt {attempt + 1}/{max_retries})")
+            time.sleep(retry_delay)
+        else:
+            print(f"⚠️  Could not connect to MCP server after {max_retries} attempts: {e}")
     
 if not mcp_running:
-    print("WARNING: MCP server may not be running properly. Continuing anyway...")
+    print("⚠️  MCP server connection failed - some features may be limited. Flask app will continue...")
 
 # Create app instance with the proper configuration module
 app = create_app('config')

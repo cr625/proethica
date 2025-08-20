@@ -113,10 +113,10 @@
                   </a>
                 {% endif %}
               {% else %}
-              <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
-                class="btn btn-outline-info">
-                <i class="bi bi-lightbulb"></i> Extract Concepts
-              </a>
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+                  class="btn btn-outline-primary btn-sm">
+                  <i class="bi bi-cpu"></i> Extract Concepts
+                </a>
               {% endif %}
               
               {% if can_edit_item(guideline) %}

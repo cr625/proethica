@@ -1,13 +1,12 @@
 """
 Utilities for normalizing ontology entity labels.
 
-Specifically targets Role labels to ensure consistent matching and creation.
-
-Policy:
-- Canonical Role labels include the word "Role" as a singular suffix, e.g.,
-  "Public Official Role", "Client Representative Role".
-- For matching and comparisons, we normalize by removing generic suffixes like
-  "role"/"roles" and determiners, lowercasing, trimming whitespace, and collapsing spaces.
+POLICY (CORRECTED):
+- ALL ontology concept labels MUST include their proethica-intermediate concept type suffix
+- Examples: "Structural Engineer Role", "Public Safety Principle", "Reporting Obligation"
+- The 9 concept types are: Role, Principle, Obligation, State, Resource, Action, Event, Capability, Constraint
+- URIs use the same suffix (e.g., #StructuralEngineerRole, #PublicSafetyPrinciple)
+- For matching, we normalize but preserve the concept type for clarity and ontological consistency
 """
 from __future__ import annotations
 
@@ -125,3 +124,74 @@ def make_role_uri_fragment(label: str) -> str:
     return f"{camel}Role"
 
 __all__.append("make_role_uri_fragment")
+
+# Proethica-Intermediate concept types (the 9 core types)
+CONCEPT_TYPES = {
+    "role", "principle", "obligation", "state", "resource", 
+    "action", "event", "capability", "constraint"
+}
+
+def ensure_concept_type_suffix(label: str, concept_type: str) -> str:
+    """Ensure label has the proper concept type suffix.
+    
+    Args:
+        label: The base label (e.g., "Structural Engineer")
+        concept_type: One of the 9 concept types (e.g., "role", "principle")
+    
+    Returns:
+        Label with proper suffix (e.g., "Structural Engineer Role")
+    """
+    if not label or not concept_type:
+        return label
+    
+    concept_type = concept_type.lower().strip()
+    if concept_type not in CONCEPT_TYPES:
+        # Default to the provided concept_type even if not in our standard 9
+        pass
+    
+    # Capitalize the concept type for the suffix
+    suffix = concept_type.capitalize()
+    
+    # Check if label already ends with this concept type (case insensitive)
+    label_lower = label.lower().strip()
+    suffix_lower = suffix.lower()
+    
+    if label_lower.endswith(f" {suffix_lower}"):
+        # Already has the suffix, just normalize the case
+        base = label[:-len(suffix)-1].strip()
+        # Capitalize the base properly (title case)
+        base = ' '.join(word.capitalize() for word in base.split())
+        return f"{base} {suffix}"
+    elif label_lower.endswith(suffix_lower):
+        # Ends with suffix but no space
+        base = label[:-len(suffix)].strip()
+        if base:
+            # Capitalize the base properly (title case)
+            base = ' '.join(word.capitalize() for word in base.split())
+            return f"{base} {suffix}"
+        else:
+            return suffix
+    else:
+        # Add the suffix, capitalizing the base
+        base = ' '.join(word.capitalize() for word in label.strip().split())
+        return f"{base} {suffix}"
+
+def get_concept_type_from_label(label: str) -> str:
+    """Extract the concept type from a label if present.
+    
+    Returns:
+        The concept type (lowercase) or empty string if not found
+    """
+    if not label:
+        return ""
+    
+    label_lower = label.lower().strip()
+    for concept_type in CONCEPT_TYPES:
+        if label_lower.endswith(f" {concept_type}"):
+            return concept_type
+        elif label_lower.endswith(concept_type) and len(label_lower) == len(concept_type):
+            return concept_type
+    
+    return ""
+
+__all__.extend(["ensure_concept_type_suffix", "get_concept_type_from_label", "CONCEPT_TYPES"])

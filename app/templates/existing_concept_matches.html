@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Existing Concept Matches - {{ guideline.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>Existing Concept Matches</h2>
+                    <p class="text-muted">Matching roles from "{{ guideline.title }}" to existing engineering-ethics ontology</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('worlds.view_world', id=world.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to World
+                    </a>
+                </div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h3 class="card-title">{{ matched_roles|length }}</h3>
+                            <p class="card-text">Matched Roles</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <h3 class="card-title">{{ unmatched_roles|length }}</h3>
+                            <p class="card-text">Unmatched Roles</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h3 class="card-title">{{ total_roles }}</h3>
+                            <p class="card-text">Total Extracted</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h3 class="card-title">{{ total_existing_roles }}</h3>
+                            <p class="card-text">Ontology Roles</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matched Roles Section -->
+            {% if matched_roles %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-check-circle"></i> 
+                        Roles Found in Existing Ontology ({{ matched_roles|length }})
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Extracted Role</th>
+                                    <th>Matched Ontology Entity</th>
+                                    <th>Match Type</th>
+                                    <th>Ontology URI</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for role in matched_roles %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ role.label }}</strong>
+                                        {% if role.confidence %}
+                                        <br><small class="text-muted">Confidence: {{ "%.1f"|format(role.confidence * 100) }}%</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-success">{{ role.ontology_match.entity.label }}</span>
+                                        {% if role.ontology_match.entity.type %}
+                                        <br><small class="text-muted">Type: {{ role.ontology_match.entity.type }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if role.ontology_match.match_type == 'exact' %}
+                                        <span class="badge badge-success">Exact</span>
+                                        {% else %}
+                                        <span class="badge badge-warning">{{ role.ontology_match.match_type.replace('_', ' ').title() }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if role.ontology_match.entity.uri %}
+                                        <code class="small">{{ role.ontology_match.entity.uri }}</code>
+                                        {% else %}
+                                        <small class="text-muted">No URI</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if role.description %}
+                                        <small>{{ role.description[:100] }}{% if role.description|length > 100 %}...{% endif %}</small>
+                                        {% else %}
+                                        <small class="text-muted">No description</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Unmatched Roles Section -->
+            {% if unmatched_roles %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-question-circle"></i> 
+                        Roles Not Found in Ontology ({{ unmatched_roles|length }})
+                    </h4>
+                    <small>These could be candidates for adding to the ontology</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Role Label</th>
+                                    <th>Description</th>
+                                    <th>Confidence</th>
+                                    <th>Text References</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for role in unmatched_roles %}
+                                <tr>
+                                    <td><strong>{{ role.label }}</strong></td>
+                                    <td>
+                                        {% if role.description %}
+                                        {{ role.description[:150] }}{% if role.description|length > 150 %}...{% endif %}
+                                        {% else %}
+                                        <small class="text-muted">No description</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if role.confidence %}
+                                        <span class="badge badge-info">{{ "%.1f"|format(role.confidence * 100) }}%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if role.text_references %}
+                                        <small class="text-muted">{{ role.text_references|length }} references</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Next Steps -->
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-arrow-right"></i> Next Steps
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Continue with New Terms Discovery</h5>
+                            <p class="text-muted">Find completely new concepts not in the existing ontology.</p>
+                            <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-search"></i> Discover New Terms
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Manage Ontology Triples</h5>
+                            <p class="text-muted">Work with existing derived ontology or create relationships.</p>
+                            <a href="{{ url_for('worlds.manage_triples', id=world.id, document_id=guideline.id) }}" 
+                               class="btn btn-info">
+                                <i class="fas fa-project-diagram"></i> Manage Triples
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

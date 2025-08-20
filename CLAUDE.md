@@ -25,6 +25,13 @@
 
 **Based on**: `/docs/ROLE_EXTRACTION_AND_MATCHING_INTEGRATED_PLAN.md`
 
+### ✅ POLICY CORRECTION (2025-08-19): Concept Type Suffixes
+**IMPORTANT**: Reversed the suffix-less policy - ALL concept labels MUST include their type suffix:
+- **Examples**: "Structural Engineer Role", "Public Safety Principle", "Reporting Obligation"
+- **9 Concept Types**: Role, Principle, Obligation, State, Resource, Action, Event, Capability, Constraint
+- **Reasoning**: Stripping suffixes was confusing and inconsistent with ontology structure
+- **Implementation**: Updated `label_normalization.py` with `ensure_concept_type_suffix()`
+
 ### Previous Focus: Automated Case-to-Scenario Generation (2025-07-22)
 
 **After completing the Interactive Wizard Implementation (Phase 5), we are now building automated case generation to convert NSPE cases into interactive ethical decision scenarios.**

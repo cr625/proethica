@@ -30,7 +30,9 @@
                 "ANTHROPIC_MODEL": "claude-sonnet-4-20250514",
                 // Intermediate extraction toggles
                 "ENABLE_OBLIGATIONS_EXTRACTION": "true",
-                "ENABLE_PRINCIPLES_EXTRACTION": "true"
+                "ENABLE_PRINCIPLES_EXTRACTION": "true",
+                // Optional visualization features
+                "DISABLE_WEBVOWL_MESSAGES": "true"
             },
             "cwd": "${workspaceFolder}"
         },
@@ -44,6 +46,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "wait-for-mcp-startup",
             "env": {
                 "USE_MOCK_GUIDELINE_RESPONSES": "false",
                 "FORCE_MOCK_LLM": "false",
@@ -66,7 +69,9 @@
                 "ANTHROPIC_MODEL": "claude-sonnet-4-20250514",
                 // Intermediate extraction toggles
                 "ENABLE_OBLIGATIONS_EXTRACTION": "true",
-                "ENABLE_PRINCIPLES_EXTRACTION": "true"
+                "ENABLE_PRINCIPLES_EXTRACTION": "true",
+                // Optional visualization features
+                "DISABLE_WEBVOWL_MESSAGES": "true"
             },
         },
         {
@@ -118,8 +123,7 @@
         {
             "name": "Full Stack: MCP + Flask",
             "configurations": ["MCP Server - Local", "Flask App - Local MCP"],
-            "stopAll": true,
-            "preLaunchTask": "kill-python-processes"
+            "stopAll": true
         }
     ]
 }

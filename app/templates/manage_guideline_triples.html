@@ -142,7 +142,12 @@
       <!-- Ontology Status Tabs -->
       <ul class="nav nav-tabs mb-4" id="ontologyTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-triples" type="button" role="tab">
+          <button class="nav-link active" id="by-concepts-tab" data-bs-toggle="tab" data-bs-target="#by-concepts" type="button" role="tab">
+            <i class="fas fa-tags text-primary"></i> By Extracted Concepts ({{ all_subjects|length }})
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-triples" type="button" role="tab">
             All Triples ({{ total_triples }})
           </button>
         </li>
@@ -178,8 +183,129 @@
       </ul>
 
       <div class="tab-content" id="ontologyTabContent">
+        <!-- By Extracted Concepts Tab (NEW - Primary View) -->
+        <div class="tab-pane fade show active" id="by-concepts" role="tabpanel">
+          <div class="alert alert-info">
+            <h5><i class="fas fa-tags"></i> Organized by Extracted Concepts</h5>
+            <p>This view groups triples by the extracted concept/term (the subject), showing all predicate relationships for each concept. For example, "Client Role" shows its hasLabel, hasDescription, and type relationships together.</p>
+          </div>
+
+          {% for concept in all_subjects %}
+          <div class="card mb-4 concept-group" data-concept="{{ concept.subject }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                {% if concept.concept_type %}
+                  <i class="fas fa-
+                    {%- if concept.concept_type == 'Role' -%}user-tag
+                    {%- elif concept.concept_type == 'Principle' -%}compass
+                    {%- elif concept.concept_type == 'Obligation' -%}tasks
+                    {%- elif concept.concept_type == 'State' -%}info-circle
+                    {%- elif concept.concept_type == 'Resource' -%}file-alt
+                    {%- elif concept.concept_type == 'Action' -%}play
+                    {%- elif concept.concept_type == 'Event' -%}calendar
+                    {%- elif concept.concept_type == 'Capability' -%}star
+                    {%- elif concept.concept_type == 'Constraint' -%}ban
+                    {%- else -%}tag
+                    {%- endif -%}
+                  "></i>
+                  <span class="badge bg-
+                    {%- if concept.concept_type == 'Role' -%}primary
+                    {%- elif concept.concept_type == 'Principle' -%}success
+                    {%- elif concept.concept_type == 'Obligation' -%}warning
+                    {%- else -%}secondary
+                    {%- endif -%}
+                  ">{{ concept.concept_type }}</span>
+                {% else %}
+                  <i class="fas fa-tag"></i>
+                {% endif %}
+                <strong>{{ concept.subject }}</strong>
+                <span class="badge bg-secondary ms-2">{{ concept.count }} relationships</span>
+              </h5>
+              <div>
+                <button class="btn btn-sm btn-outline-secondary toggle-group" data-target="concept-{{ loop.index }}">
+                  <i class="fas fa-chevron-down"></i> Show/Hide
+                </button>
+                <input type="checkbox" class="form-check-input select-all-group ms-2" data-group="concept-{{ loop.index }}">
+                <label class="form-check-label ms-1">Select All</label>
+              </div>
+            </div>
+            <div class="card-body collapse show" id="concept-{{ loop.index }}">
+              <!-- Show ontology relationships if concept exists in ontology -->
+              {% if concept.is_in_ontology and concept.ontology_relationships %}
+              <div class="alert alert-success mb-3">
+                <h6><i class="fas fa-book text-success"></i> <strong>Found in Ontology!</strong></h6>
+                <p class="mb-2">This concept exists in engineering-ethics.ttl with the following semantic relationships:</p>
+                <div class="row">
+                  {% for rel in concept.ontology_relationships %}
+                  <div class="col-md-6 mb-2">
+                    <div class="card border-success">
+                      <div class="card-body py-2">
+                        <h6 class="card-title text-success mb-1">
+                          <i class="fas fa-link"></i> {{ rel.predicate }}
+                        </h6>
+                        {% for obj in rel.objects %}
+                        <div class="mb-1">
+                          <span class="badge bg-success">{{ obj }}</span>
+                        </div>
+                        {% endfor %}
+                        <small class="text-muted">Source: {{ rel.source }}</small>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              
+              <!-- Show generated predicates for this concept -->
+              <div class="row">
+                {% for predicate, predicate_triples in concept.predicates.items() %}
+                <div class="col-md-6 mb-3">
+                  <div class="card border-light">
+                    <div class="card-header bg-light py-2">
+                      <h6 class="mb-0">
+                        <i class="fas fa-arrow-right text-muted"></i>
+                        <strong>{{ predicate }}</strong>
+                        <span class="badge bg-light text-dark">{{ predicate_triples|length }}</span>
+                      </h6>
+                    </div>
+                    <div class="card-body py-2">
+                      {% for triple in predicate_triples %}
+                      <div class="d-flex justify-content-between align-items-center mb-1 triple-row" data-triple-id="{{ triple.id }}">
+                        <div class="flex-grow-1">
+                          <input type="checkbox" class="form-check-input triple-checkbox me-2" value="{{ triple.id }}">
+                          {% if triple.object_label %}
+                            <strong>{{ triple.object_label }}</strong>
+                          {% elif triple.object_literal %}
+                            <em class="text-primary">{{ triple.object_literal }}</em>
+                          {% else %}
+                            <small class="text-muted">{{ triple.object_uri }}</small>
+                          {% endif %}
+                        </div>
+                        <div class="ms-2">
+                          {% if triple.confidence %}
+                            <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %} me-1">
+                              {{ "%.1f"|format(triple.confidence) }}
+                            </span>
+                          {% endif %}
+                          <button class="btn btn-sm btn-outline-danger delete-single" data-triple-id="{{ triple.id }}">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
         <!-- All Triples Tab -->
-        <div class="tab-pane fade show active" id="all-triples" role="tabpanel">
+        <div class="tab-pane fade" id="all-triples" role="tabpanel">
           <h4>All Triples</h4>
           <!-- Triple Groups -->
       {% for group in triple_groups %}
