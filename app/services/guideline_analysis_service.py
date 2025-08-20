@@ -608,6 +608,13 @@ class GuidelineAnalysisService:
             # Parse JSON response for all client types
             try:
                 import json
+                import re
+                
+                # First, try to extract JSON from markdown code blocks
+                code_block_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', content_text)
+                if code_block_match:
+                    content_text = code_block_match.group(1).strip()
+                
                 # Try to parse JSON directly
                 if content_text.strip().startswith('['):
                     concepts = json.loads(content_text)
@@ -616,7 +623,6 @@ class GuidelineAnalysisService:
                     response = json.loads(content_text)
                 else:
                     # Look for JSON in the text
-                    import re
                     json_match = re.search(r'\[.*\]', content_text, re.DOTALL)
                     if json_match:
                         concepts = json.loads(json_match.group())

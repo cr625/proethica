@@ -1,0 +1,650 @@
+{% extends "base.html" %}
+
+{% block title %}Review Triples - {{ guideline.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="row">
+    <div class="col-12">
+      <h1>Review Generated Triples</h1>
+      
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}">{{ guideline.title }}</a></li>
+          <li class="breadcrumb-item active">Review Triples</li>
+        </ol>
+      </nav>
+
+      <!-- Info Alert -->
+      <div class="alert alert-info mb-4">
+        <h4 class="alert-heading"><i class="fas fa-info-circle"></i> Triples Review & Validation</h4>
+        <p>Review the generated RDF triples before saving them to the ontology. You can:</p>
+        <ul class="mb-2">
+          <li><strong>Select/deselect triples</strong> to control what gets saved</li>
+          <li><strong>Review categorization</strong> to ensure proper ontology organization</li>
+          <li><strong>Edit relationships</strong> before committing to the knowledge base</li>
+        </ul>
+        <hr>
+        <p class="mb-0">
+          <strong>Categories:</strong>
+          <span class="badge bg-success me-2">New Concepts</span> - Entirely new concepts from guideline
+          <span class="badge bg-warning me-2">Additional Relationships</span> - New relationships to existing concepts
+          <span class="badge bg-primary me-2">Core Ontology</span> - References to main ontology
+          <span class="badge bg-info">Other Guidelines</span> - Shared concepts from other guidelines
+        </p>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="row mb-4">
+        <div class="col-md-2">
+          <div class="card">
+            <div class="card-body text-center">
+              <h5 class="card-title">Total Triples</h5>
+              <p class="card-text display-4">{{ stats.total_triples }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card border-success">
+            <div class="card-body text-center">
+              <h5 class="card-title">New Concepts</h5>
+              <p class="card-text display-6 text-success">{{ stats.new_concepts_count }}</p>
+              <small class="text-muted">Will be created</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card border-warning">
+            <div class="card-body text-center">
+              <h5 class="card-title">Additional Relations</h5>
+              <p class="card-text display-6 text-warning">{{ stats.additional_relationships_count }}</p>
+              <small class="text-muted">Extensions</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card border-primary">
+            <div class="card-body text-center">
+              <h5 class="card-title">Core Ontology</h5>
+              <p class="card-text display-6 text-primary">{{ stats.core_ontology_count }}</p>
+              <small class="text-muted">References</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card border-info">
+            <div class="card-body text-center">
+              <h5 class="card-title">Other Guidelines</h5>
+              <p class="card-text display-6 text-info">{{ stats.other_guidelines_count }}</p>
+              <small class="text-muted">Shared</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card border-dark">
+            <div class="card-body text-center">
+              <h5 class="card-title">Source Concepts</h5>
+              <p class="card-text display-6 text-dark">{{ concepts|length }}</p>
+              <small class="text-muted">Selected</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary" id="select-all-btn">
+              <i class="fas fa-check-square"></i> Select All
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="deselect-all-btn">
+              <i class="fas fa-square"></i> Deselect All
+            </button>
+          </div>
+        </div>
+        <div class="col-md-6 text-end">
+          <a href="{{ url_for('worlds_extract_only.extract_concepts_direct', world_id=world.id, document_id=guideline.id) }}" 
+             class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Concepts
+          </a>
+          <button type="button" class="btn btn-success" id="save-selected-btn">
+            <i class="fas fa-save"></i> Save Selected Triples
+          </button>
+        </div>
+      </div>
+
+      <!-- Triples Form -->
+      <form id="triples-form" method="POST" action="{{ url_for('worlds.review_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
+        <!-- Hidden field to store triples data -->
+        <input type="hidden" id="triples_data" name="triples_data" value="" />
+        
+        <!-- Tabbed Interface for Triple Categories -->
+        <div class="card">
+          <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="triples-tabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-triples" type="button" role="tab">
+                  <i class="fas fa-list"></i> Overview <span class="badge bg-secondary ms-1">{{ stats.total_triples }}</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="new-concepts-tab" data-bs-toggle="tab" data-bs-target="#new-concepts-triples" type="button" role="tab">
+                  <i class="fas fa-plus"></i> New Concepts <span class="badge bg-success ms-1">{{ stats.new_concepts_count }}</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="additional-relationships-tab" data-bs-toggle="tab" data-bs-target="#additional-relationships-triples" type="button" role="tab">
+                  <i class="fas fa-link"></i> Additional Relations <span class="badge bg-warning ms-1">{{ stats.additional_relationships_count }}</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="core-ontology-tab" data-bs-toggle="tab" data-bs-target="#core-ontology-triples" type="button" role="tab">
+                  <i class="fas fa-book"></i> Core Ontology <span class="badge bg-primary ms-1">{{ stats.core_ontology_count }}</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="other-guidelines-tab" data-bs-toggle="tab" data-bs-target="#other-guidelines-triples" type="button" role="tab">
+                  <i class="fas fa-share-alt"></i> Other Guidelines <span class="badge bg-info ms-1">{{ stats.other_guidelines_count }}</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+          
+          <div class="card-body">
+            <div class="tab-content" id="triples-tab-content">
+              
+              <!-- Overview Tab -->
+              <div class="tab-pane fade show active" id="overview-triples" role="tabpanel">
+                <h5><i class="fas fa-list"></i> All Generated Triples</h5>
+                <p class="text-muted">Complete list of all triples generated from selected concepts.</p>
+                
+                {% if triples %}
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width: 5%">
+                          <input type="checkbox" class="form-check-input" id="select-all-overview">
+                        </th>
+                        <th style="width: 30%">Subject</th>
+                        <th style="width: 25%">Predicate</th>
+                        <th style="width: 30%">Object</th>
+                        <th style="width: 10%">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for triple in triples %}
+                      <tr class="triple-row" data-triple-id="{{ triple.id or loop.index0 }}">
+                        <td>
+                          <input type="checkbox" class="form-check-input triple-checkbox" 
+                                 name="selected_triples" value="{{ triple.id or loop.index0 }}" checked>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>{{ triple.subject_label or triple.subject }}</strong>
+                            {% if triple.subject_label %}
+                            <small class="d-block text-muted">{{ triple.subject }}</small>
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                        <td>
+                          <div>
+                            {% if triple.is_literal %}
+                            <em class="text-success">"{{ triple.object_literal }}"</em>
+                            {% else %}
+                            <strong>{{ triple.object_label or triple.object }}</strong>
+                            {% if triple.object_label %}
+                            <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                            {% endif %}
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          {% if triple.confidence %}
+                          <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                            {{ (triple.confidence * 100)|int }}%
+                          </span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                  <i class="fas fa-exclamation-triangle"></i> No triples were generated from the selected concepts.
+                </div>
+                {% endif %}
+              </div>
+              
+              <!-- New Concepts Tab -->
+              <div class="tab-pane fade" id="new-concepts-triples" role="tabpanel">
+                <h5><i class="fas fa-plus text-success"></i> New Concepts</h5>
+                <p class="text-muted">Triples defining entirely new concepts that will be added to the ontology.</p>
+                
+                {% if categorized_triples.new_concepts %}
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-success">
+                      <tr>
+                        <th style="width: 5%">
+                          <input type="checkbox" class="form-check-input" id="select-all-new-concepts">
+                        </th>
+                        <th style="width: 30%">Subject</th>
+                        <th style="width: 25%">Predicate</th>
+                        <th style="width: 30%">Object</th>
+                        <th style="width: 10%">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for triple in categorized_triples.new_concepts %}
+                      <tr class="triple-row table-success" data-triple-id="{{ triple.id or loop.index0 }}">
+                        <td>
+                          <input type="checkbox" class="form-check-input triple-checkbox" 
+                                 name="selected_triples" value="{{ triple.id or loop.index0 }}" checked>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>{{ triple.subject_label or triple.subject }}</strong>
+                            {% if triple.subject_label %}
+                            <small class="d-block text-muted">{{ triple.subject }}</small>
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                        <td>
+                          <div>
+                            {% if triple.is_literal %}
+                            <em class="text-success">"{{ triple.object_literal }}"</em>
+                            {% else %}
+                            <strong>{{ triple.object_label or triple.object }}</strong>
+                            {% if triple.object_label %}
+                            <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                            {% endif %}
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          {% if triple.confidence %}
+                          <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                            {{ (triple.confidence * 100)|int }}%
+                          </span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> No new concept triples were generated.
+                </div>
+                {% endif %}
+              </div>
+              
+              <!-- Additional Relationships Tab -->
+              <div class="tab-pane fade" id="additional-relationships-triples" role="tabpanel">
+                <h5><i class="fas fa-link text-warning"></i> Additional Relationships</h5>
+                <p class="text-muted">New relationships that extend existing ontology concepts with additional connections.</p>
+                
+                {% if categorized_triples.additional_relationships %}
+                <div class="alert alert-warning">
+                  <i class="fas fa-star"></i> <strong>Important:</strong> These relationships will be stored in the derived ontology and merged with the main ontology when queried.
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-warning">
+                      <tr>
+                        <th style="width: 5%">
+                          <input type="checkbox" class="form-check-input" id="select-all-additional">
+                        </th>
+                        <th style="width: 30%">Subject</th>
+                        <th style="width: 25%">Predicate</th>
+                        <th style="width: 30%">Object</th>
+                        <th style="width: 10%">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for triple in categorized_triples.additional_relationships %}
+                      <tr class="triple-row table-warning" data-triple-id="{{ triple.id or loop.index0 }}">
+                        <td>
+                          <input type="checkbox" class="form-check-input triple-checkbox" 
+                                 name="selected_triples" value="{{ triple.id or loop.index0 }}" checked>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>{{ triple.subject_label or triple.subject }}</strong>
+                            {% if triple.subject_label %}
+                            <small class="d-block text-muted">{{ triple.subject }}</small>
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                        <td>
+                          <div>
+                            {% if triple.is_literal %}
+                            <em class="text-success">"{{ triple.object_literal }}"</em>
+                            {% else %}
+                            <strong>{{ triple.object_label or triple.object }}</strong>
+                            {% if triple.object_label %}
+                            <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                            {% endif %}
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          {% if triple.confidence %}
+                          <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                            {{ (triple.confidence * 100)|int }}%
+                          </span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> No additional relationship triples were generated.
+                </div>
+                {% endif %}
+              </div>
+              
+              <!-- Core Ontology Tab -->
+              <div class="tab-pane fade" id="core-ontology-triples" role="tabpanel">
+                <h5><i class="fas fa-book text-primary"></i> Core Ontology References</h5>
+                <p class="text-muted">Triples referencing existing concepts in the main ontology.</p>
+                
+                {% if categorized_triples.core_ontology %}
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-primary">
+                      <tr>
+                        <th style="width: 5%">
+                          <input type="checkbox" class="form-check-input" id="select-all-core">
+                        </th>
+                        <th style="width: 30%">Subject</th>
+                        <th style="width: 25%">Predicate</th>
+                        <th style="width: 30%">Object</th>
+                        <th style="width: 10%">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for triple in categorized_triples.core_ontology %}
+                      <tr class="triple-row table-primary" data-triple-id="{{ triple.id or loop.index0 }}">
+                        <td>
+                          <input type="checkbox" class="form-check-input triple-checkbox" 
+                                 name="selected_triples" value="{{ triple.id or loop.index0 }}" checked>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>{{ triple.subject_label or triple.subject }}</strong>
+                            {% if triple.subject_label %}
+                            <small class="d-block text-muted">{{ triple.subject }}</small>
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                        <td>
+                          <div>
+                            {% if triple.is_literal %}
+                            <em class="text-success">"{{ triple.object_literal }}"</em>
+                            {% else %}
+                            <strong>{{ triple.object_label or triple.object }}</strong>
+                            {% if triple.object_label %}
+                            <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                            {% endif %}
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          {% if triple.confidence %}
+                          <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                            {{ (triple.confidence * 100)|int }}%
+                          </span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> No core ontology reference triples were generated.
+                </div>
+                {% endif %}
+              </div>
+              
+              <!-- Other Guidelines Tab -->
+              <div class="tab-pane fade" id="other-guidelines-triples" role="tabpanel">
+                <h5><i class="fas fa-share-alt text-info"></i> Other Guidelines</h5>
+                <p class="text-muted">Triples referencing concepts from other guidelines.</p>
+                
+                {% if categorized_triples.other_guidelines %}
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-info">
+                      <tr>
+                        <th style="width: 5%">
+                          <input type="checkbox" class="form-check-input" id="select-all-other">
+                        </th>
+                        <th style="width: 30%">Subject</th>
+                        <th style="width: 25%">Predicate</th>
+                        <th style="width: 30%">Object</th>
+                        <th style="width: 10%">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for triple in categorized_triples.other_guidelines %}
+                      <tr class="triple-row table-info" data-triple-id="{{ triple.id or loop.index0 }}">
+                        <td>
+                          <input type="checkbox" class="form-check-input triple-checkbox" 
+                                 name="selected_triples" value="{{ triple.id or loop.index0 }}" checked>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>{{ triple.subject_label or triple.subject }}</strong>
+                            {% if triple.subject_label %}
+                            <small class="d-block text-muted">{{ triple.subject }}</small>
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                        <td>
+                          <div>
+                            {% if triple.is_literal %}
+                            <em class="text-success">"{{ triple.object_literal }}"</em>
+                            {% else %}
+                            <strong>{{ triple.object_label or triple.object }}</strong>
+                            {% if triple.object_label %}
+                            <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                            {% endif %}
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          {% if triple.confidence %}
+                          <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                            {{ (triple.confidence * 100)|int }}%
+                          </span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> No other guideline reference triples were generated.
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <!-- Bottom Action Buttons -->
+      <div class="row mt-4">
+        <div class="col-md-6">
+          <div class="alert alert-light">
+            <small class="text-muted">
+              <i class="fas fa-info-circle"></i> 
+              Selected triples will be saved to the ontology. You can always manage them later using the "Manage Triples" feature.
+            </small>
+          </div>
+        </div>
+        <div class="col-md-6 text-end">
+          <a href="{{ url_for('worlds_extract_only.extract_concepts_direct', world_id=world.id, document_id=guideline.id) }}" 
+             class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Concepts
+          </a>
+          <button type="button" class="btn btn-success" onclick="submitSelectedTriples()">
+            <i class="fas fa-save"></i> Save Selected Triples
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Store original triples data
+    const triplesData = {{ triples|tojson|safe }};
+    document.getElementById('triples_data').value = JSON.stringify(triplesData);
+    
+    // Select/deselect all functionality
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const deselectAllBtn = document.getElementById('deselect-all-btn');
+    const tripleCheckboxes = document.querySelectorAll('.triple-checkbox');
+    
+    selectAllBtn.addEventListener('click', function() {
+        tripleCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        updateSelectedCount();
+    });
+    
+    deselectAllBtn.addEventListener('click', function() {
+        tripleCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        updateSelectedCount();
+    });
+    
+    // Tab-specific select all functionality
+    const tabSelectAlls = ['select-all-overview', 'select-all-new-concepts', 'select-all-additional', 'select-all-core', 'select-all-other'];
+    tabSelectAlls.forEach(function(id) {
+        const selectAllCheckbox = document.getElementById(id);
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                const tabPane = this.closest('.tab-pane');
+                const checkboxes = tabPane.querySelectorAll('.triple-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateSelectedCount();
+            });
+        }
+    });
+    
+    // Individual checkbox change listeners
+    tripleCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    function updateSelectedCount() {
+        const selectedCount = document.querySelectorAll('.triple-checkbox:checked').length;
+        const totalCount = tripleCheckboxes.length;
+        
+        // Update button text
+        const saveBtn = document.getElementById('save-selected-btn');
+        if (saveBtn) {
+            saveBtn.innerHTML = `<i class="fas fa-save"></i> Save Selected Triples (${selectedCount}/${totalCount})`;
+        }
+        
+        // Update tab-specific select-all checkboxes
+        tabSelectAlls.forEach(function(id) {
+            const selectAllCheckbox = document.getElementById(id);
+            if (selectAllCheckbox) {
+                const tabPane = selectAllCheckbox.closest('.tab-pane');
+                if (tabPane) {
+                    const tabCheckboxes = tabPane.querySelectorAll('.triple-checkbox');
+                    const tabSelectedCount = tabPane.querySelectorAll('.triple-checkbox:checked').length;
+                    selectAllCheckbox.checked = tabSelectedCount === tabCheckboxes.length;
+                    selectAllCheckbox.indeterminate = tabSelectedCount > 0 && tabSelectedCount < tabCheckboxes.length;
+                }
+            }
+        });
+    }
+    
+    // Initial count update
+    updateSelectedCount();
+});
+
+function submitSelectedTriples() {
+    const selectedCount = document.querySelectorAll('.triple-checkbox:checked').length;
+    if (selectedCount === 0) {
+        alert('Please select at least one triple to save.');
+        return;
+    }
+    
+    // Confirm save action
+    if (confirm(`Save ${selectedCount} selected triples to the ontology?`)) {
+        document.getElementById('triples-form').submit();
+    }
+}
+</script>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+  .table td {
+    vertical-align: middle;
+  }
+  
+  .triple-row {
+    transition: background-color 0.2s ease;
+  }
+  
+  .triple-row:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+  
+  .badge {
+    font-size: 0.75em;
+  }
+  
+  .nav-tabs .nav-link {
+    color: #495057;
+  }
+  
+  .nav-tabs .nav-link.active {
+    font-weight: 600;
+  }
+  
+  .card-header-tabs {
+    margin-bottom: -1px;
+  }
+  
+  .table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+  }
+</style>
+{% endblock %}
