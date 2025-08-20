@@ -46,9 +46,16 @@
     </div>
     {% endif %}
     <hr>
-    <p class="mb-0">Select concepts that accurately represent important ethical principles. 
+    <p class="mb-2">Select concepts that accurately represent important ethical principles. 
       <strong>✅ Green badges</strong> show existing ontology matches, <strong>🆕 orange badges</strong> show new concepts.
     </p>
+    <div class="alert alert-light mb-0">
+      <small>
+        <i class="fas fa-info-circle text-primary"></i> 
+        <strong>Editing Policy:</strong> You can edit the type and classification for <span class="badge bg-warning text-dark">New</span> concepts only. 
+        <span class="badge bg-success">Existing</span> concepts are read-only as they're already defined in the ontology.
+      </small>
+    </div>
   </div>
 
   <!-- Enhanced Ontology Match Summary -->
@@ -328,9 +335,11 @@
                     </td>
                     <td>
                       <div class="concept-type-display">
-                        <!-- Manual Type Override Dropdown -->
                         {% set actual_type = concept.type or concept.primary_type or 'concept' %}
                         {% set dropdown_type = actual_type.lower() %}
+                        
+                        {% if concept.is_new %}
+                        <!-- Editable Type Dropdown for NEW concepts only -->
                         <select class="form-select form-select-sm concept-type-override" 
                                 data-concept-index="{{ loop.index0 }}"
                                 data-original-type="{{ dropdown_type }}"
@@ -344,6 +353,29 @@
                             <option value="event" {% if dropdown_type == 'event' %}selected{% endif %} class="text-dark">Event</option>
                             <option value="capability" {% if dropdown_type == 'capability' %}selected{% endif %}>Capability</option>
                         </select>
+                        {% else %}
+                        <!-- Read-only Type Display for EXISTING concepts -->
+                        {% set type_colors = {
+                          'role': 'bg-primary',
+                          'principle': 'bg-success', 
+                          'obligation': 'bg-warning',
+                          'state': 'bg-info',
+                          'resource': 'bg-secondary',
+                          'action': 'bg-danger',
+                          'event': 'bg-dark',
+                          'capability': 'bg-light text-dark'
+                        } %}
+                        {% set color_class = type_colors.get(dropdown_type, 'bg-secondary') %}
+                        <div class="existing-concept-type mb-2">
+                          <span class="badge {{ color_class }}">{{ dropdown_type.capitalize() }}</span>
+                          <small class="text-muted ms-2">
+                            <i class="fas fa-lock"></i> Defined in ontology
+                            {% if concept.ontology_match and concept.ontology_match.source %}
+                            <br>Source: {{ concept.ontology_match.source }}
+                            {% endif %}
+                          </small>
+                        </div>
+                        {% endif %}
                         
                         <div class="concept-hierarchy mt-2">
                           {% set semantic_category = concept.category %}
@@ -605,7 +637,7 @@
   });
   });
 
-  // Handle type override changes
+  // Handle type override changes (only for NEW concepts)
   const typeOverrideSelects = document.querySelectorAll('.concept-type-override');
     
     typeOverrideSelects.forEach(select => {
