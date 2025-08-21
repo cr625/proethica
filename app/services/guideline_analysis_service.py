@@ -46,7 +46,8 @@ class GuidelineAnalysisService:
         }
         
     def extract_concepts(self, content: str, guideline_id: Optional[int] = None, 
-                           world_id: Optional[int] = None) -> Dict[str, Any]:
+                           world_id: Optional[int] = None, 
+                           use_temp_storage: bool = True) -> Dict[str, Any]:
         """
         Enhanced concept extraction with ontology awareness.
         
@@ -54,9 +55,10 @@ class GuidelineAnalysisService:
             content: Guideline text content
             guideline_id: Optional guideline ID for tracking
             world_id: Optional world ID for context (default: Engineering World)
+            use_temp_storage: If True, store concepts in temporary storage
             
         Returns:
-            Dict with extracted concepts, ontology matches, and new term candidates
+            Dict with extracted concepts, ontology matches, new term candidates, and session_id
         """
         try:
             logger.info(f"Starting v2 concept extraction for guideline {guideline_id}")
@@ -232,6 +234,23 @@ class GuidelineAnalysisService:
                 )
             except Exception as rec_err:
                 logger.debug(f"Progress logging failed: {rec_err}")
+            
+            # Store in temporary storage if enabled
+            if use_temp_storage and guideline_id and world_id:
+                try:
+                    from app.services.temporary_concept_service import TemporaryConceptService
+                    
+                    session_id = TemporaryConceptService.store_concepts(
+                        concepts=matched_concepts,
+                        document_id=guideline_id,
+                        world_id=world_id,
+                        extraction_method='llm'
+                    )
+                    result['session_id'] = session_id
+                    logger.info(f"Stored {len(matched_concepts)} concepts in temporary storage with session {session_id}")
+                except Exception as store_err:
+                    logger.error(f"Failed to store concepts in temporary storage: {store_err}")
+                    # Don't fail the extraction if storage fails
             
             return result
             

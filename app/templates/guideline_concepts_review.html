@@ -185,9 +185,17 @@
   {% endif %}
     <!-- Include concepts count and source info -->
     <input type="hidden" name="concepts_count" value="{{ concepts|length }}" />
+    {% if session_id %}
+    <!-- Include session ID for retrieving from temporary storage -->
+    <input type="hidden" name="session_id" value="{{ session_id }}" />
+    {% endif %}
     <input type="hidden" name="ontology_source" value="{{ ontology_source or '' }}" />
-    <!-- Pass concepts data to review triples route -->
+    <!-- Pass concepts data to review triples route (or indicate use of temp storage) -->
+    {% if session_id %}
+    <input type="hidden" name="concepts_data" id="concepts_data" value="cached_in_temp_storage" />
+    {% else %}
     <input type="hidden" name="concepts_data" id="concepts_data" value="" />
+    {% endif %}
     <input type="hidden" name="form_action" value="review_triples" />
 
     <!-- Preview of the triples that will be generated -->

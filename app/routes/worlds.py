@@ -798,6 +798,30 @@ def view_guideline(id, document_id):
         elif 'concepts_extracted' in guideline.doc_metadata:
             concept_count = guideline.doc_metadata['concepts_extracted']
     
+    # Check for pending concept extractions in temporary storage
+    pending_extraction = {'has_pending': False, 'session_id': None, 'concept_count': 0, 'extraction_date': None}
+    try:
+        from app.services.temporary_concept_service import TemporaryConceptService
+        session_id = TemporaryConceptService.get_latest_session_for_document(
+            document_id=document_id,
+            world_id=id
+        )
+        
+        if session_id:
+            # Get concepts from any status (pending, reviewed, etc.)
+            temp_concepts = TemporaryConceptService.get_session_concepts(session_id)
+            if temp_concepts:
+                pending_extraction = {
+                    'has_pending': True,
+                    'session_id': session_id,
+                    'concept_count': len(temp_concepts),
+                    'extraction_date': temp_concepts[0].extraction_timestamp.strftime('%Y-%m-%d %H:%M') if temp_concepts[0].extraction_timestamp else None,
+                    'status': temp_concepts[0].status
+                }
+                logger.info(f"Found {len(temp_concepts)} temporary concepts for document {document_id}")
+    except Exception as e:
+        logger.warning(f"Could not check temporary concepts: {str(e)}")
+    
     # Check if concepts have been added to the ontology
     # Use document_id for consistent naming/linking with derived ontologies
     ontology_status = {'ready_to_add': False}
@@ -817,7 +841,8 @@ def view_guideline(id, document_id):
                           concept_count=concept_count, 
                           triples=triples, 
                           concepts=concepts,
-                          ontology_status=ontology_status)
+                          ontology_status=ontology_status,
+                          pending_extraction=pending_extraction)
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_triples_direct(world_id, document_id):
@@ -1878,17 +1903,34 @@ def save_guideline_concepts(world_id, document_id):
         # Get concepts data from the form - try different methods
         concepts_data = request.form.get('concepts_data', '[]')
         ontology_source = request.form.get('ontology_source', '')
+        session_id = request.form.get('session_id')  # Get session ID from form
         
         # Debug logging
         logger.info(f"Received concepts_data length: {len(concepts_data)}")
-        logger.info(f"Full concepts_data: {concepts_data}")
+        logger.info(f"Session ID from form: {session_id}")
         logger.info(f"Selected concept indices: {selected_indices}")
         
         # FIXED: Improved form data validation to avoid unnecessary LLM re-extraction
         # Check if concepts_data is valid JSON or a special cached reference
         parsed_concepts = None
         
-        if concepts_data == "cached_in_session":
+        # First try to get from temporary storage if session_id is provided
+        if session_id:
+            logger.info(f"Attempting to retrieve concepts from temporary storage with session {session_id}")
+            try:
+                from app.services.temporary_concept_service import TemporaryConceptService
+                temp_concepts = TemporaryConceptService.get_session_concepts(session_id, status='pending')
+                if temp_concepts:
+                    # Extract concept data from temporary storage
+                    parsed_concepts = [tc.concept_data for tc in temp_concepts]
+                    logger.info(f"Retrieved {len(parsed_concepts)} concepts from temporary storage")
+                    concepts = parsed_concepts
+                else:
+                    logger.warning(f"No concepts found in temporary storage for session {session_id}")
+            except Exception as temp_err:
+                logger.error(f"Failed to retrieve from temporary storage: {temp_err}")
+                
+        if parsed_concepts is None and concepts_data == "cached_in_session":
             # Template is using the new lightweight approach - get from cache
             logger.info("Form indicates concepts are cached, retrieving from session/database")
             parsed_concepts = None  # Will trigger cache lookup below

@@ -182,7 +182,7 @@
 
         <div class="d-flex justify-content-between">
             <div class="d-flex gap-2">
-                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+                <a href="{{ url_for('worlds_extract_only.review_concepts_from_temp', world_id=world.id, document_id=guideline.id) }}"
                     class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Concepts Review</a>
                 <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
                     class="btn btn-secondary">Cancel</a>

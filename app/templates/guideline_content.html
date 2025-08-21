@@ -137,11 +137,24 @@
                 </ul>
               {% endif %}
             {% else %}
-              <!-- No concepts exist -->
-              <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
-                 class="btn btn-sm btn-light">
-                <i class="bi bi-lightbulb"></i> Extract Concepts
-              </a>
+              <!-- No concepts exist - check for pending extractions -->
+              {% if pending_extraction and pending_extraction.has_pending %}
+                <!-- Pending extraction exists -->
+                <a href="{{ url_for('worlds_extract_only.review_concepts_from_temp', world_id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-warning me-2">
+                  <i class="bi bi-hourglass-split"></i> Load Pending Concepts ({{ pending_extraction.concept_count }})
+                </a>
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-arrow-clockwise"></i> Re-extract
+                </a>
+              {% else %}
+                <!-- No concepts and no pending extraction -->
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-light">
+                  <i class="bi bi-lightbulb"></i> Extract Concepts
+                </a>
+              {% endif %}
             {% endif %}
           </div>
         </div>
@@ -252,10 +265,31 @@
             </div>
             {% endif %}
           {% else %}
-            <div class="alert alert-info">
-              <p>No concepts have been associated with this guideline yet.</p>
-              <p>Click "Analyze Concepts" to extract ethical concepts from this guideline using AI.</p>
-            </div>
+            {% if pending_extraction and pending_extraction.has_pending %}
+              <div class="alert alert-warning">
+                <h6><i class="bi bi-hourglass-split"></i> Pending Concept Extraction Found</h6>
+                <p class="mb-2">You have <strong>{{ pending_extraction.concept_count }} concepts</strong> extracted on {{ pending_extraction.extraction_date }} that haven't been saved yet.</p>
+                <p class="mb-0">
+                  <strong>Status:</strong> {{ pending_extraction.status|title }}
+                  {% if pending_extraction.status == 'pending' %}
+                  <small class="text-muted">(ready for review)</small>
+                  {% elif pending_extraction.status == 'reviewed' %}
+                  <small class="text-muted">(reviewed but not saved)</small>
+                  {% endif %}
+                </p>
+                <hr>
+                <p class="mb-0"><strong>Options:</strong></p>
+                <ul class="mb-0">
+                  <li>Click <strong>"Load Pending Concepts"</strong> to continue working with them</li>
+                  <li>Click <strong>"Re-extract"</strong> to start over with fresh extraction</li>
+                </ul>
+              </div>
+            {% else %}
+              <div class="alert alert-info">
+                <p>No concepts have been associated with this guideline yet.</p>
+                <p>Click "Extract Concepts" to extract ethical concepts from this guideline using AI.</p>
+              </div>
+            {% endif %}
           {% endif %}
         </div>
       </div>

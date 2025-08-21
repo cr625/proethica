@@ -88,11 +88,12 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         from app.services.guideline_analysis_service import GuidelineAnalysisService
         service = GuidelineAnalysisService()
         
-        # Extract concepts using main service
+        # Extract concepts using main service with temporary storage enabled
         concepts_result = service.extract_concepts(
             content=content,
             guideline_id=document_id, 
-            world_id=id
+            world_id=id,
+            use_temp_storage=True  # Enable temporary storage
         )
         logger.info(f"V2 extraction result keys: {list(concepts_result.keys())}")
         
@@ -111,6 +112,7 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
         relationships = concepts_result.get("relationships", [])
         term_candidates = concepts_result.get("term_candidates", [])
         stats = concepts_result.get("stats", {})
+        session_id = concepts_result.get("session_id")  # Get the session ID from temporary storage
         
         # Log matching results
         if stats:
@@ -200,6 +202,7 @@ def direct_concept_extraction(id, document_id, world, guideline_analysis_service
                                relationships=relationships,
                                term_candidates=term_candidates,
                                stats=stats,
+                               session_id=session_id,  # Pass session ID to template
                                world_id=world.id,
                                document_id=document_id,
                                ontology_source=ontology_source,

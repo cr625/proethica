@@ -38,3 +38,5 @@ from app.models.concept_type_mapping import ConceptTypeMapping
 # Deconstructed case models (added 2025-01-27)
 from app.models.deconstructed_case import DeconstructedCase
 from app.models.scenario_template import ScenarioTemplate
+# Temporary concept storage (added 2025-01-21)
+from app.models.temporary_concept import TemporaryConcept

@@ -25,6 +25,11 @@ try:
 except ImportError:
     # Create a placeholder for testing if the model doesn't exist yet
     CaseGuidelineAssociation = None
+try:
+    from app.models.temporary_concept import TemporaryConcept
+except ImportError:
+    # Create a placeholder for testing if the model doesn't exist yet
+    TemporaryConcept = None
 from app.services.ontology_entity_service import OntologyEntityService
 from app.services.recommendation_engine import recommendation_engine
 from app.services.firac_analysis_service import firac_analysis_service
@@ -670,6 +675,16 @@ def get_system_statistics():
         ).subquery()
     ).scalar() or 0
     
+    # Temporary concept statistics
+    pending_concepts_count = 0
+    pending_sessions_count = 0
+    if TemporaryConcept:
+        try:
+            pending_concepts_count = TemporaryConcept.query.filter_by(status='pending').count()
+            pending_sessions_count = db.session.query(func.count(func.distinct(TemporaryConcept.session_id))).filter_by(status='pending').scalar() or 0
+        except Exception as e:
+            logger.warning(f"Could not query temporary concepts: {e}")
+    
     # Get database table count
     try:
         result = db.session.execute(
@@ -700,7 +715,9 @@ def get_system_statistics():
             'analyzed_guidelines': analyzed_guidelines,
             'analysis_rate': (analyzed_guidelines / guideline_count * 100) if guideline_count > 0 else 0,
             'entity_triples': entity_triple_count,
-            'associations': associations_count
+            'associations': associations_count,
+            'pending_concepts': pending_concepts_count,
+            'pending_sessions': pending_sessions_count
         },
         'database': {
             'table_count': table_count

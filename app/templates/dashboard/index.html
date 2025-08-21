@@ -429,6 +429,16 @@
                     <small class="text-muted">{{ stats.overview.guidelines }} guidelines</small>
                 </div>
 
+                <!-- Pending Concept Extractions -->
+                {% if stats.analysis.pending_concepts > 0 %}
+                <div class="col-6 mb-2">
+                    <a href="/guidelines" class="btn btn-block btn-sm btn-warning">
+                        <i class="fas fa-hourglass-split"></i> Pending Concepts
+                    </a>
+                    <small class="text-muted">{{ stats.analysis.pending_concepts }} concepts in {{ stats.analysis.pending_sessions }} sessions</small>
+                </div>
+                {% endif %}
+
                 <!-- Ontology Actions -->
                 {% if sync_status.needs_sync %}
                 <div class="col-6 mb-2">
