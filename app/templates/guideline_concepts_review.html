@@ -444,6 +444,43 @@
                           </div>
                           {% endif %}
                           
+                          <!-- Suggested Predicates Section -->
+                          {% if concept.suggested_predicates and (concept.suggested_predicates.as_subject|length > 0 or concept.suggested_predicates.as_object|length > 0) %}
+                          <div class="suggested-predicates mt-2">
+                            <small class="text-muted d-block mb-1"><i class="fas fa-arrow-right"></i> Suggested Predicates</small>
+                            
+                            {% if concept.suggested_predicates.as_subject|length > 0 %}
+                            <div class="mb-1">
+                              <small class="d-block"><strong class="text-primary">As Subject:</strong></small>
+                              {% for pred in concept.suggested_predicates.as_subject %}
+                                <div class="predicate-suggestion mb-1">
+                                  <span class="badge bg-primary me-1" title="Confidence: {{ (pred.confidence * 100)|round|int }}%">
+                                    {{ pred.predicate_type }}
+                                  </span>
+                                  <small class="text-dark">{{ pred.target_label }}</small>
+                                  <small class="text-muted ms-1">({{ (pred.confidence * 100)|round|int }}%)</small>
+                                </div>
+                              {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if concept.suggested_predicates.as_object|length > 0 %}
+                            <div class="mb-1">
+                              <small class="d-block"><strong class="text-secondary">As Object:</strong></small>
+                              {% for pred in concept.suggested_predicates.as_object %}
+                                <div class="predicate-suggestion mb-1">
+                                  <small class="text-dark">{{ pred.source_label }}</small>
+                                  <span class="badge bg-secondary me-1 ms-1" title="Confidence: {{ (pred.confidence * 100)|round|int }}%">
+                                    {{ pred.predicate_type }}
+                                  </span>
+                                  <small class="text-muted ms-1">({{ (pred.confidence * 100)|round|int }}%)</small>
+                                </div>
+                              {% endfor %}
+                            </div>
+                            {% endif %}
+                          </div>
+                          {% endif %}
+                          
                           <!-- Show if user has made manual changes -->
                           <div class="manual-change-indicator" style="display: none;">
                             <small class="text-info d-block" style="font-size: 0.75rem;">
@@ -606,14 +643,21 @@
       </div>
     </div>
 
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between align-items-center">
       <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}"
         class="btn btn-secondary">Cancel</a>
 
       {% if concepts %}
-      <button type="submit" class="btn btn-primary">
-        <i class="fas fa-arrow-right"></i> Review Triples
-      </button>
+      <div class="d-flex gap-2">
+        <!-- Save Concepts Directly Button -->
+        <button type="button" class="btn btn-success" id="save-concepts-btn" onclick="showSaveConceptsModal()">
+          <i class="fas fa-save"></i> Save Concepts to Ontology
+        </button>
+        <!-- Review Triples Button (Secondary Option) -->
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="fas fa-code"></i> Advanced Triple Review
+        </button>
+      </div>
       {% else %}
       <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
         <i class="fas fa-arrow-left"></i> Return to Guideline
@@ -621,6 +665,53 @@
       {% endif %}
     </div>
   </form>
+
+  <!-- Save Concepts Confirmation Modal -->
+  <div class="modal fade" id="saveConceptsModal" tabindex="-1" aria-labelledby="saveConceptsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="saveConceptsModalLabel">
+            <i class="fas fa-save text-success"></i> Save Concepts to Ontology
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle"></i> What will be saved:</h6>
+            <p class="mb-2">The selected concepts and their suggested relationships will be added to the <strong>{{ guideline.title }}</strong> derived ontology.</p>
+            <p class="mb-0">This creates meaningful semantic connections that can be queried and used for ethical reasoning.</p>
+          </div>
+
+          <!-- Selected Concepts Summary -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="fas fa-list-check"></i> Selected Concepts (<span id="selected-count">0</span>)</h6>
+            </div>
+            <div class="card-body" id="selected-concepts-summary">
+              <!-- Populated by JavaScript -->
+            </div>
+          </div>
+
+          <!-- Meaningful Relationships Summary -->
+          <div class="card">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="fas fa-project-diagram"></i> Meaningful Relationships (<span id="relationships-count">0</span>)</h6>
+            </div>
+            <div class="card-body" id="relationships-summary">
+              <!-- Populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="confirm-save-btn" onclick="saveConceptsDirectly()">
+            <i class="fas fa-save"></i> Save to Ontology
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -707,6 +798,170 @@
         conceptsDataField.value = JSON.stringify(conceptsData);
         console.log('Concepts data initialized for review triples route');
     }
+
+// Show save concepts modal with meaningful relationships preview
+function showSaveConceptsModal() {
+    const selectedCheckboxes = document.querySelectorAll('.concept-checkbox:checked');
+    const selectedIndices = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+    const selectedConcepts = selectedIndices.map(i => conceptsData[i]);
+    
+    if (selectedConcepts.length === 0) {
+        alert('Please select at least one concept to save.');
+        return;
+    }
+    
+    // Update selected count
+    document.getElementById('selected-count').textContent = selectedConcepts.length;
+    
+    // Build concepts summary
+    const conceptsSummary = document.getElementById('selected-concepts-summary');
+    let conceptsHtml = '<div class="row">';
+    
+    selectedConcepts.forEach((concept, index) => {
+        const typeColor = getTypeColor(concept.type || concept.primary_type);
+        const statusBadge = concept.is_new ? 
+            '<span class="badge bg-warning ms-2">New</span>' : 
+            '<span class="badge bg-success ms-2">Existing</span>';
+        
+        conceptsHtml += `
+            <div class="col-md-6 mb-2">
+                <div class="d-flex align-items-center">
+                    <span class="badge ${typeColor} me-2">${(concept.type || concept.primary_type || 'concept').charAt(0).toUpperCase() + (concept.type || concept.primary_type || 'concept').slice(1)}</span>
+                    <strong>${concept.label}</strong>
+                    ${statusBadge}
+                </div>
+            </div>
+        `;
+    });
+    
+    conceptsHtml += '</div>';
+    conceptsSummary.innerHTML = conceptsHtml;
+    
+    // Build meaningful relationships summary
+    const relationshipsSummary = document.getElementById('relationships-summary');
+    let relationshipsHtml = '';
+    let relationshipCount = 0;
+    
+    selectedConcepts.forEach(concept => {
+        if (concept.suggested_predicates) {
+            const asSubject = concept.suggested_predicates.as_subject || [];
+            const asObject = concept.suggested_predicates.as_object || [];
+            
+            if (asSubject.length > 0 || asObject.length > 0) {
+                relationshipsHtml += `<div class="mb-3 p-3 border-start border-primary border-3">
+                    <h6 class="text-primary mb-2">${concept.label}</h6>`;
+                
+                asSubject.forEach(pred => {
+                    relationshipCount++;
+                    relationshipsHtml += `
+                        <div class="mb-1">
+                            <i class="fas fa-arrow-right text-primary"></i>
+                            <strong>${concept.label}</strong>
+                            <span class="badge bg-secondary mx-1">${pred.predicate_type}</span>
+                            <strong>${pred.target_label}</strong>
+                            <small class="text-muted">(@${Math.round(pred.confidence * 100)}%)</small>
+                        </div>
+                    `;
+                });
+                
+                asObject.forEach(pred => {
+                    relationshipCount++;
+                    relationshipsHtml += `
+                        <div class="mb-1">
+                            <i class="fas fa-arrow-left text-secondary"></i>
+                            <strong>${pred.source_label}</strong>
+                            <span class="badge bg-secondary mx-1">${pred.predicate_type}</span>
+                            <strong>${concept.label}</strong>
+                            <small class="text-muted">(@${Math.round(pred.confidence * 100)}%)</small>
+                        </div>
+                    `;
+                });
+                
+                relationshipsHtml += '</div>';
+            }
+        }
+    });
+    
+    if (relationshipCount === 0) {
+        relationshipsHtml = '<div class="text-muted">No suggested relationships found for selected concepts.</div>';
+    }
+    
+    document.getElementById('relationships-count').textContent = relationshipCount;
+    relationshipsSummary.innerHTML = relationshipsHtml;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('saveConceptsModal'));
+    modal.show();
+}
+
+// Helper function to get Bootstrap color class for concept types
+function getTypeColor(type) {
+    const typeColors = {
+        'role': 'bg-primary',
+        'principle': 'bg-success',
+        'obligation': 'bg-warning',
+        'state': 'bg-info',
+        'resource': 'bg-secondary',
+        'action': 'bg-danger',
+        'event': 'bg-dark',
+        'capability': 'bg-light text-dark'
+    };
+    return typeColors[(type || '').toLowerCase()] || 'bg-secondary';
+}
+
+// Save concepts directly to ontology
+function saveConceptsDirectly() {
+    const selectedCheckboxes = document.querySelectorAll('.concept-checkbox:checked');
+    const selectedIndices = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+    
+    if (selectedIndices.length === 0) {
+        alert('Please select at least one concept to save.');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('confirm-save-btn');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    saveBtn.disabled = true;
+    
+    // Prepare form data for direct save
+    const formData = new FormData();
+    formData.append('form_action', 'save_concepts_direct');
+    formData.append('selected_concept_indices', JSON.stringify(selectedIndices));
+    formData.append('concepts_data', JSON.stringify(conceptsData));
+    {% if session_id %}
+    formData.append('session_id', '{{ session_id }}');
+    {% endif %}
+    {% if csrf_token %}
+    formData.append('csrf_token', '{{ csrf_token() }}');
+    {% endif %}
+    
+    // Submit via fetch API
+    fetch('{{ url_for("worlds.save_concepts_direct", world_id=world.id, document_id=guideline.id) }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Success - show success message and redirect
+            alert(`Successfully saved ${data.concepts_saved} concepts and ${data.triples_saved} relationships to the ontology!`);
+            window.location.href = data.redirect_url || '{{ url_for("worlds.view_guideline", id=world.id, document_id=guideline.id) }}';
+        } else {
+            // Error - show error message
+            alert('Error saving concepts: ' + (data.error || 'Unknown error'));
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving concepts: ' + error.message);
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
+}
 </script>
 {% endblock %}
 

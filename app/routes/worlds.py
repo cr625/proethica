@@ -2282,41 +2282,68 @@ def review_guideline_triples(world_id, document_id):
             
             # Get concepts data from form
             concepts_data = request.form.get('concepts_data')
-            if concepts_data:
+            session_id = request.form.get('session_id')
+            
+            # Handle both temporary storage concepts and direct concepts data
+            parsed_concepts = []
+            if concepts_data == "cached_in_temp_storage" and session_id:
+                # Retrieve concepts from temporary storage (includes predicate suggestions)
+                try:
+                    from app.services.temporary_concept_service import TemporaryConceptService
+                    temp_concepts = TemporaryConceptService.get_session_concepts(session_id, status='pending')
+                    parsed_concepts = [tc.concept_data for tc in temp_concepts]
+                    logger.info(f"Retrieved {len(parsed_concepts)} concepts from temporary storage with session {session_id}")
+                except Exception as e:
+                    logger.error(f"Error retrieving concepts from temporary storage: {e}")
+                    flash('Error retrieving concepts from temporary storage', 'error')
+                    return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
+            elif concepts_data:
+                # Parse concepts from form data
                 try:
                     parsed_concepts = json.loads(concepts_data)
-                    if parsed_concepts and isinstance(parsed_concepts, list):
-                        # Filter to selected concepts only
-                        selected_indices = [int(idx) for idx in selected_concept_indices]
-                        selected_concepts = [parsed_concepts[i] for i in selected_indices if i < len(parsed_concepts)]
-                        
-                        logger.info(f"Processing {len(selected_concepts)} selected concepts for triple review")
-                        
-                        # Generate preview triples directly without storing in session
-                        triples = _generate_preview_triples(selected_concepts, document_id, world)
-                        
-                        # Categorize triples for display
-                        categorized_triples = {
-                            'new_concepts': [t for t in triples if t.get('category') == 'new_concept'],
-                            'additional_relationships': [t for t in triples if t.get('category') == 'relationship'],
-                            'core_ontology': [t for t in triples if t.get('category') == 'existing'],
-                            'other_guidelines': []
-                        }
-                        
-                        # Render the review page directly with the data
-                        return render_template('review_guideline_triples.html',
-                                             world=world,
-                                             guideline=guideline,
-                                             concepts=selected_concepts,
-                                             triples=triples,
-                                             categorized_triples=categorized_triples,
-                                             stats=_calculate_triple_stats(triples),
-                                             selected_indices=selected_indices)
-                        
                 except Exception as e:
                     logger.error(f"Failed to parse concepts data: {e}")
                     flash('Error processing concept data', 'error')
                     return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
+            
+            if parsed_concepts and isinstance(parsed_concepts, list):
+                # Filter to selected concepts only
+                selected_indices = [int(idx) for idx in selected_concept_indices]
+                selected_concepts = [parsed_concepts[i] for i in selected_indices if i < len(parsed_concepts)]
+                
+                logger.info(f"Processing {len(selected_concepts)} selected concepts for triple review")
+                
+                # Generate preview triples from concepts
+                triples = _generate_preview_triples(selected_concepts, document_id, world)
+                
+                # Extract predicate suggestions from concepts and add as relationship triples
+                predicate_triples = _extract_predicate_triples(selected_concepts, document_id, world)
+                if predicate_triples:
+                    triples.extend(predicate_triples)
+                    logger.info(f"Added {len(predicate_triples)} predicate suggestion triples")
+                
+                # Organize triples by concept for better user experience
+                concept_organized_triples = _organize_triples_by_concept(selected_concepts, triples, document_id)
+                
+                # Keep categorized version for stats
+                categorized_triples = {
+                    'new_concepts': [t for t in triples if t.get('category') == 'new_concept'],
+                    'additional_relationships': [t for t in triples if t.get('category') == 'relationship'],
+                    'predicate_suggestions': [t for t in triples if t.get('category') == 'predicate_suggestion'],
+                    'core_ontology': [t for t in triples if t.get('category') == 'existing'],
+                    'other_guidelines': []
+                }
+                
+                # Render the review page directly with the data
+                return render_template('review_guideline_triples.html',
+                                     world=world,
+                                     guideline=guideline,
+                                     concepts=selected_concepts,
+                                     triples=triples,
+                                     categorized_triples=categorized_triples,
+                                     concept_organized_triples=concept_organized_triples,
+                                     stats=_calculate_triple_stats(triples),
+                                     selected_indices=selected_indices)
             
             flash('No valid concept data found', 'error')
             return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
@@ -2522,6 +2549,164 @@ def save_guideline_triples(world_id, document_id):
                               error_title='Unexpected Error',
                               error_message=f'Error saving triples: {str(e)}',
                               error_details=error_trace))
+
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_concepts_direct', methods=['POST'])
+def save_concepts_direct(world_id, document_id):
+    """Save selected concepts and their relationships directly to the ontology without triple review."""
+    from datetime import datetime
+    logger.info(f"Saving concepts directly for document {document_id} in world {world_id}")
+    
+    try:
+        world = World.query.get_or_404(world_id)
+        
+        from app.models.document import Document
+        document = Document.query.get_or_404(document_id)
+        
+        # Check if document belongs to this world
+        if document.world_id != world.id:
+            return jsonify({'success': False, 'error': 'Document does not belong to this world'})
+        
+        # Get form data
+        selected_indices_json = request.form.get('selected_concept_indices', '[]')
+        concepts_data_json = request.form.get('concepts_data', '[]')
+        session_id = request.form.get('session_id')
+        
+        try:
+            selected_indices = json.loads(selected_indices_json)
+            
+            # Get concepts from temporary storage or form data
+            if session_id:
+                from app.services.temporary_concept_service import TemporaryConceptService
+                temp_concepts = TemporaryConceptService.get_session_concepts(session_id)
+                all_concepts = [tc.concept_data for tc in temp_concepts]
+            else:
+                all_concepts = json.loads(concepts_data_json)
+            
+            # Filter to selected concepts
+            selected_concepts = [all_concepts[i] for i in selected_indices if i < len(all_concepts)]
+            
+            if not selected_concepts:
+                return jsonify({'success': False, 'error': 'No concepts selected'})
+            
+            logger.info(f"Saving {len(selected_concepts)} selected concepts directly to ontology")
+            
+            # Generate triples from selected concepts (including predicate suggestions)
+            triples = _generate_preview_triples(selected_concepts, document_id, world)
+            
+            # Add predicate suggestion triples
+            predicate_triples = _extract_predicate_triples(selected_concepts, document_id, world)
+            if predicate_triples:
+                triples.extend(predicate_triples)
+                logger.info(f"Added {len(predicate_triples)} predicate suggestion triples")
+            
+            # Save all triples to the database
+            from app.services.guideline_triple_duplicate_service import GuidelineTripleDuplicateService
+            from app.models.guideline import Guideline
+            from app.models.entity_triple import EntityTriple
+            
+            duplicate_service = GuidelineTripleDuplicateService()
+            
+            # Get or create guideline record
+            guideline_record = Guideline.query.filter_by(
+                title=document.title,
+                world_id=world_id
+            ).first()
+            
+            if not guideline_record:
+                guideline_record = Guideline(
+                    title=document.title,
+                    world_id=world_id,
+                    guideline_metadata={
+                        'source': 'direct_concept_save',
+                        'document_id': document_id,
+                        'created_at': datetime.utcnow().isoformat()
+                    }
+                )
+                db.session.add(guideline_record)
+                db.session.flush()
+            
+            saved_triples = []
+            skipped_duplicates = []
+            
+            # Save each triple
+            for triple_data in triples:
+                # Determine if literal or URI
+                is_literal = triple_data.get('is_literal', False)
+                
+                if is_literal or 'object_literal' in triple_data:
+                    object_literal = triple_data.get('object_literal', triple_data.get('object', ''))
+                    object_uri = None
+                    object_value = object_literal
+                else:
+                    object_literal = None
+                    object_uri = triple_data.get('object', '')
+                    object_value = object_uri
+                
+                # Check for duplicates
+                duplicate_result = duplicate_service.check_duplicate_with_details(
+                    triple_data.get('subject', ''),
+                    triple_data.get('predicate', ''),
+                    object_value,
+                    is_literal,
+                    exclude_guideline_id=guideline_record.id
+                )
+                
+                if duplicate_result['is_duplicate']:
+                    logger.info(f"Skipping duplicate triple: {duplicate_result['details']}")
+                    skipped_duplicates.append(triple_data)
+                    continue
+                
+                # Create the triple
+                triple = EntityTriple(
+                    subject=triple_data.get('subject', ''),
+                    subject_label=triple_data.get('subject_label', ''),
+                    predicate=triple_data.get('predicate', ''),
+                    predicate_label=triple_data.get('predicate_label', ''),
+                    object_literal=object_literal,
+                    object_uri=object_uri,
+                    object_label=triple_data.get('object_label', ''),
+                    is_literal=is_literal,
+                    entity_type="guideline_concept",
+                    entity_id=guideline_record.id,
+                    guideline_id=guideline_record.id,
+                    world_id=world_id,
+                    graph=f"guideline_{guideline_record.id}"
+                )
+                
+                db.session.add(triple)
+                saved_triples.append(triple_data)
+            
+            # Commit all changes
+            db.session.commit()
+            
+            # Clear temporary concepts if they were used
+            if session_id:
+                from app.services.temporary_concept_service import TemporaryConceptService
+                TemporaryConceptService.clear_session(session_id)
+            
+            success_message = f"Successfully saved {len(selected_concepts)} concepts and {len(saved_triples)} relationships"
+            if skipped_duplicates:
+                success_message += f" ({len(skipped_duplicates)} duplicates skipped)"
+            
+            logger.info(success_message)
+            
+            return jsonify({
+                'success': True,
+                'concepts_saved': len(selected_concepts),
+                'triples_saved': len(saved_triples),
+                'duplicates_skipped': len(skipped_duplicates),
+                'message': success_message,
+                'redirect_url': url_for('worlds.view_guideline', id=world_id, document_id=document_id)
+            })
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON data: {e}")
+            return jsonify({'success': False, 'error': f'Error parsing data: {str(e)}'})
+        
+    except Exception as e:
+        logger.error(f"Error in save_concepts_direct: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'})
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 @login_required
@@ -2952,8 +3137,107 @@ def _calculate_triple_stats(triples):
         'total_triples': len(triples),
         'new_concepts_count': len([t for t in triples if t.get('category') == 'new_concept']),
         'additional_relationships_count': len([t for t in triples if t.get('category') == 'relationship']),
+        'predicate_suggestions_count': len([t for t in triples if t.get('category') == 'predicate_suggestion']),
         'core_ontology_count': len([t for t in triples if t.get('category') == 'existing']),
         'other_guidelines_count': 0,
         'selected': len([t for t in triples if t.get('selected', False)])
     }
     return stats
+
+def _extract_predicate_triples(selected_concepts, document_id, world):
+    """Extract predicate suggestions from concepts and convert them to reviewable triples."""
+    predicate_triples = []
+    triple_id_counter = 10000  # Start with high number to avoid conflicts
+    
+    for concept in selected_concepts:
+        concept_uri = f"http://proethica.org/ontology/guideline-{document_id}#{concept.get('label', '').replace(' ', '')}"
+        concept_label = concept.get('label', '')
+        
+        # Extract suggested predicates if available
+        suggested_predicates = concept.get('suggested_predicates', {})
+        
+        # Process "as_subject" predicates (this concept is the subject)
+        for pred_suggestion in suggested_predicates.get('as_subject', []):
+            predicate_uri = pred_suggestion.get('predicate', '')
+            predicate_type = pred_suggestion.get('predicate_type', predicate_uri.split('#')[-1] if '#' in predicate_uri else predicate_uri)
+            target_label = pred_suggestion.get('target_label', '')
+            confidence = pred_suggestion.get('confidence', 0.0)
+            explanation = pred_suggestion.get('explanation', '')
+            
+            # Generate target URI (might be from another concept in this extraction)
+            target_uri = pred_suggestion.get('target_concept', '')
+            if not target_uri:
+                target_uri = f"http://proethica.org/ontology/guideline-{document_id}#{target_label.replace(' ', '')}"
+            
+            predicate_triples.append({
+                'id': f"pred_triple_{triple_id_counter}",
+                'subject': concept_uri,
+                'subject_label': concept_label,
+                'predicate': predicate_uri,
+                'predicate_label': predicate_type,
+                'object': target_uri,
+                'object_label': target_label,
+                'category': 'predicate_suggestion',
+                'selected': True,  # Default to selected since these are AI suggestions
+                'confidence': confidence,
+                'explanation': explanation,
+                'suggestion_source': 'llm_relationship_discovery'
+            })
+            triple_id_counter += 1
+            
+        # Process "as_object" predicates (this concept is the object)
+        # Note: We could include these but they might duplicate the as_subject ones
+        # For now, we'll skip them to avoid duplication since each relationship
+        # should only appear once in the triple list
+    
+    return predicate_triples
+
+def _organize_triples_by_concept(selected_concepts, all_triples, document_id):
+    """Organize triples by concept/term for better user experience in triple review."""
+    organized = []
+    
+    for concept in selected_concepts:
+        concept_label = concept.get('label', '')
+        concept_uri = f"http://proethica.org/ontology/guideline-{document_id}#{concept_label.replace(' ', '')}"
+        concept_type = concept.get('type', 'concept').lower()
+        
+        # Find all triples related to this concept
+        concept_triples = {
+            'basic_definition': [],
+            'predicate_suggestions': [],
+            'existing_relationships': []
+        }
+        
+        # Categorize triples by this concept
+        for triple in all_triples:
+            if (triple.get('subject_label', '') == concept_label or 
+                triple.get('subject', '') == concept_uri or
+                triple.get('object_label', '') == concept_label):
+                
+                if triple.get('category') == 'new_concept':
+                    concept_triples['basic_definition'].append(triple)
+                elif triple.get('category') == 'predicate_suggestion':
+                    concept_triples['predicate_suggestions'].append(triple)
+                elif triple.get('category') in ['relationship', 'existing']:
+                    concept_triples['existing_relationships'].append(triple)
+        
+        # Check if this concept has any matching ontology entities (existing concepts)
+        ontology_match = concept.get('ontology_match')
+        is_existing_concept = ontology_match and not concept.get('is_new', True)
+        
+        # Get predicate suggestions from concept data (for existing concepts without triples)
+        suggested_predicates = concept.get('suggested_predicates', {})
+        
+        organized.append({
+            'concept': concept,
+            'concept_label': concept_label,
+            'concept_type': concept_type,
+            'is_existing_concept': is_existing_concept,
+            'ontology_match': ontology_match,
+            'triples': concept_triples,
+            'suggested_predicates': suggested_predicates,
+            'has_suggestions': bool(suggested_predicates.get('as_subject', []) or suggested_predicates.get('as_object', [])),
+            'triple_count': len(concept_triples['basic_definition']) + len(concept_triples['predicate_suggestions']) + len(concept_triples['existing_relationships'])
+        })
+    
+    return organized

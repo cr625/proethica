@@ -240,14 +240,17 @@ class GuidelineAnalysisService:
                 try:
                     from app.services.temporary_concept_service import TemporaryConceptService
                     
+                    # Enhance concepts with their suggested predicates from relationships
+                    enhanced_concepts = self._add_predicates_to_concepts(matched_concepts, relationships)
+                    
                     session_id = TemporaryConceptService.store_concepts(
-                        concepts=matched_concepts,
+                        concepts=enhanced_concepts,
                         document_id=guideline_id,
                         world_id=world_id,
                         extraction_method='llm'
                     )
                     result['session_id'] = session_id
-                    logger.info(f"Stored {len(matched_concepts)} concepts in temporary storage with session {session_id}")
+                    logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in temporary storage with session {session_id}")
                 except Exception as store_err:
                     logger.error(f"Failed to store concepts in temporary storage: {store_err}")
                     # Don't fail the extraction if storage fails
@@ -1318,3 +1321,100 @@ class GuidelineAnalysisService:
                 db.session.rollback()
             except Exception:
                 pass
+
+    def _add_predicates_to_concepts(self, concepts: List[Dict[str, Any]], relationships: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Add suggested predicates to concepts based on discovered relationships.
+        
+        Args:
+            concepts: List of extracted concepts
+            relationships: List of discovered relationships between concepts
+            
+        Returns:
+            Enhanced concepts with suggested_predicates field
+        """
+        # Create a mapping from concept URI to concept for fast lookup
+        concept_uri_map = {}
+        for concept in concepts:
+            uri = concept.get('ontology_match', {}).get('uri')
+            if not uri:
+                uri = self._generate_uri(concept['label'])
+            concept_uri_map[uri] = concept
+        
+        # Initialize suggested_predicates for all concepts
+        enhanced_concepts = []
+        for concept in concepts:
+            enhanced_concept = dict(concept)
+            enhanced_concept['suggested_predicates'] = {
+                'as_subject': [],  # Predicates where this concept is the subject
+                'as_object': []    # Predicates where this concept is the object
+            }
+            enhanced_concepts.append(enhanced_concept)
+        
+        # Map relationships to concepts
+        for relationship in relationships:
+            subject_uri = relationship.get('subject')
+            object_uri = relationship.get('object')
+            predicate = relationship.get('predicate')
+            confidence = relationship.get('confidence', 0.0)
+            explanation = relationship.get('explanation', '')
+            
+            # Add predicate suggestion to subject concept
+            if subject_uri in concept_uri_map:
+                # Find the enhanced concept that corresponds to this URI
+                subject_concept = None
+                for concept in enhanced_concepts:
+                    concept_uri = concept.get('ontology_match', {}).get('uri') or self._generate_uri(concept['label'])
+                    if concept_uri == subject_uri:
+                        subject_concept = concept
+                        break
+                
+                if subject_concept:
+                    subject_concept['suggested_predicates']['as_subject'].append({
+                        'predicate': predicate,
+                        'target_concept': object_uri,
+                        'target_label': self._get_concept_label_by_uri(object_uri, enhanced_concepts),
+                        'confidence': confidence,
+                        'explanation': explanation,
+                        'predicate_type': self._get_predicate_type(predicate)
+                    })
+            
+            # Add predicate suggestion to object concept
+            if object_uri in concept_uri_map:
+                # Find the enhanced concept that corresponds to this URI
+                object_concept = None
+                for concept in enhanced_concepts:
+                    concept_uri = concept.get('ontology_match', {}).get('uri') or self._generate_uri(concept['label'])
+                    if concept_uri == object_uri:
+                        object_concept = concept
+                        break
+                
+                if object_concept:
+                    object_concept['suggested_predicates']['as_object'].append({
+                        'predicate': predicate,
+                        'source_concept': subject_uri,
+                        'source_label': self._get_concept_label_by_uri(subject_uri, enhanced_concepts),
+                        'confidence': confidence,
+                        'explanation': explanation,
+                        'predicate_type': self._get_predicate_type(predicate)
+                    })
+        
+        return enhanced_concepts
+    
+    def _get_concept_label_by_uri(self, uri: str, concepts: List[Dict[str, Any]]) -> str:
+        """Get concept label by URI from concepts list."""
+        for concept in concepts:
+            concept_uri = concept.get('ontology_match', {}).get('uri') or self._generate_uri(concept['label'])
+            if concept_uri == uri:
+                return concept['label']
+        return uri  # Fallback to URI if label not found
+    
+    def _get_predicate_type(self, predicate: str) -> str:
+        """Get human-readable type of predicate."""
+        predicate_types = {
+            'http://proethica.org/ontology/intermediate#hasObligation': 'has obligation',
+            'http://proethica.org/ontology/intermediate#adheresToPrinciple': 'adheres to principle',
+            'http://proethica.org/ontology/intermediate#pursuesEnd': 'pursues end',
+            'http://proethica.org/ontology/intermediate#governedByCode': 'governed by code'
+        }
+        return predicate_types.get(predicate, predicate.split('#')[-1] if '#' in predicate else predicate)

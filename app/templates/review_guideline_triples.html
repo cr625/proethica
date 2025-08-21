@@ -32,6 +32,7 @@
           <strong>Categories:</strong>
           <span class="badge bg-success me-2">New Concepts</span> - Entirely new concepts from guideline
           <span class="badge bg-warning me-2">Additional Relationships</span> - New relationships to existing concepts
+          <span class="badge bg-secondary me-2">Predicate Suggestions</span> - AI-suggested relationships from text
           <span class="badge bg-primary me-2">Core Ontology</span> - References to main ontology
           <span class="badge bg-info">Other Guidelines</span> - Shared concepts from other guidelines
         </p>
@@ -39,7 +40,7 @@
 
       <!-- Summary Stats -->
       <div class="row mb-4">
-        <div class="col-md-2">
+        <div class="col-lg-2 col-md-3 col-sm-6">
           <div class="card">
             <div class="card-body text-center">
               <h5 class="card-title">Total Triples</h5>
@@ -47,7 +48,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-lg-2 col-md-3 col-sm-6">
           <div class="card border-success">
             <div class="card-body text-center">
               <h5 class="card-title">New Concepts</h5>
@@ -56,7 +57,7 @@
             </div>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-lg-2 col-md-3 col-sm-6">
           <div class="card border-warning">
             <div class="card-body text-center">
               <h5 class="card-title">Additional Relations</h5>
@@ -65,7 +66,16 @@
             </div>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-lg-2 col-md-3 col-sm-6">
+          <div class="card border-secondary">
+            <div class="card-body text-center">
+              <h5 class="card-title">Predicate Suggestions</h5>
+              <p class="card-text display-6 text-secondary">{{ stats.predicate_suggestions_count or 0 }}</p>
+              <small class="text-muted">AI Suggestions</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-3 col-sm-6">
           <div class="card border-primary">
             <div class="card-body text-center">
               <h5 class="card-title">Core Ontology</h5>
@@ -74,21 +84,12 @@
             </div>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-lg-2 col-md-3 col-sm-6">
           <div class="card border-info">
             <div class="card-body text-center">
               <h5 class="card-title">Other Guidelines</h5>
               <p class="card-text display-6 text-info">{{ stats.other_guidelines_count }}</p>
               <small class="text-muted">Shared</small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <div class="card border-dark">
-            <div class="card-body text-center">
-              <h5 class="card-title">Source Concepts</h5>
-              <p class="card-text display-6 text-dark">{{ concepts|length }}</p>
-              <small class="text-muted">Selected</small>
             </div>
           </div>
         </div>
@@ -127,7 +128,12 @@
           <div class="card-header">
             <ul class="nav nav-tabs card-header-tabs" id="triples-tabs" role="tablist">
               <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-triples" type="button" role="tab">
+                <button class="nav-link active" id="by-concept-tab" data-bs-toggle="tab" data-bs-target="#by-concept-triples" type="button" role="tab">
+                  <i class="fas fa-layer-group"></i> By Concept <span class="badge bg-primary ms-1">{{ concept_organized_triples|length if concept_organized_triples else 0 }}</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-triples" type="button" role="tab">
                   <i class="fas fa-list"></i> Overview <span class="badge bg-secondary ms-1">{{ stats.total_triples }}</span>
                 </button>
               </li>
@@ -139,6 +145,11 @@
               <li class="nav-item" role="presentation">
                 <button class="nav-link" id="additional-relationships-tab" data-bs-toggle="tab" data-bs-target="#additional-relationships-triples" type="button" role="tab">
                   <i class="fas fa-link"></i> Additional Relations <span class="badge bg-warning ms-1">{{ stats.additional_relationships_count }}</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="predicate-suggestions-tab" data-bs-toggle="tab" data-bs-target="#predicate-suggestions-triples" type="button" role="tab">
+                  <i class="fas fa-magic"></i> Predicate Suggestions <span class="badge bg-secondary ms-1">{{ stats.predicate_suggestions_count or 0 }}</span>
                 </button>
               </li>
               <li class="nav-item" role="presentation">
@@ -157,8 +168,275 @@
           <div class="card-body">
             <div class="tab-content" id="triples-tab-content">
               
+              <!-- By Concept Tab -->
+              <div class="tab-pane fade show active" id="by-concept-triples" role="tabpanel">
+                <h5><i class="fas fa-layer-group"></i> Organized by Concept/Term</h5>
+                <p class="text-muted">Review triples grouped by each concept, including basic definitions and predicate suggestions.</p>
+                
+                {% if concept_organized_triples %}
+                  {% for concept_group in concept_organized_triples %}
+                  <div class="card mb-4 border-{% if concept_group.is_existing_concept %}info{% else %}success{% endif %}">
+                    <div class="card-header bg-{% if concept_group.is_existing_concept %}light{% else %}light{% endif %}">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <h6 class="mb-1">
+                            <i class="fas fa-{% if concept_group.concept_type == 'role' %}user-tie{% elif concept_group.concept_type == 'principle' %}compass{% elif concept_group.concept_type == 'obligation' %}tasks{% elif concept_group.concept_type == 'action' %}play{% elif concept_group.concept_type == 'resource' %}box{% elif concept_group.concept_type == 'event' %}calendar-alt{% elif concept_group.concept_type == 'capability' %}star{% elif concept_group.concept_type == 'constraint' %}lock{% elif concept_group.concept_type == 'state' %}info-circle{% else %}tag{% endif %}"></i>
+                            {{ concept_group.concept_label }}
+                            <span class="badge bg-{% if concept_group.is_existing_concept %}info{% else %}success{% endif %} ms-2">
+                              {{ concept_group.concept_type.title() }}
+                            </span>
+                            {% if concept_group.is_existing_concept %}
+                            <span class="badge bg-secondary ms-1">Existing</span>
+                            {% else %}
+                            <span class="badge bg-success ms-1">New</span>
+                            {% endif %}
+                          </h6>
+                          {% if concept_group.is_existing_concept and concept_group.ontology_match %}
+                          <small class="text-muted">
+                            <i class="fas fa-link"></i> 
+                            Matches: {{ concept_group.ontology_match.label if concept_group.ontology_match.label else concept_group.ontology_match.id }}
+                          </small>
+                          {% endif %}
+                        </div>
+                        <div>
+                          <span class="badge bg-primary">{{ concept_group.triple_count }} triples</span>
+                          {% if concept_group.has_suggestions %}
+                          <span class="badge bg-warning"><i class="fas fa-lightbulb"></i> AI suggestions</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      
+                      <!-- Basic Definition Triples -->
+                      {% if concept_group.triples.basic_definition %}
+                      <div class="mb-3">
+                        <h6 class="text-success"><i class="fas fa-info-circle"></i> Basic Definition</h6>
+                        <div class="table-responsive">
+                          <table class="table table-sm table-hover">
+                            <thead class="table-success">
+                              <tr>
+                                <th style="width: 5%">
+                                  <input type="checkbox" class="form-check-input concept-select-all" 
+                                         data-concept="{{ concept_group.concept_label }}">
+                                </th>
+                                <th style="width: 30%">Subject</th>
+                                <th style="width: 25%">Predicate</th>
+                                <th style="width: 30%">Object</th>
+                                <th style="width: 10%">Confidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for triple in concept_group.triples.basic_definition %}
+                              <tr class="triple-row table-success" data-triple-id="{{ triple.id }}">
+                                <td>
+                                  <input type="checkbox" class="form-check-input triple-checkbox" 
+                                         name="selected_triples" value="{{ triple.id }}" checked>
+                                </td>
+                                <td>
+                                  <div>
+                                    <strong>{{ triple.subject_label or triple.subject }}</strong>
+                                    {% if triple.subject_label %}
+                                    <small class="d-block text-muted">{{ triple.subject }}</small>
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                                <td>
+                                  <div>
+                                    {% if triple.is_literal %}
+                                    <em class="text-success">"{{ triple.object_literal }}"</em>
+                                    {% else %}
+                                    <strong>{{ triple.object_label or triple.object }}</strong>
+                                    {% if triple.object_label %}
+                                    <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                                    {% endif %}
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td>
+                                  {% if triple.confidence %}
+                                  <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                                    {{ (triple.confidence * 100)|int }}%
+                                  </span>
+                                  {% endif %}
+                                </td>
+                              </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      {% endif %}
+                      
+                      <!-- Predicate Suggestions -->
+                      {% if concept_group.triples.predicate_suggestions or concept_group.has_suggestions %}
+                      <div class="mb-3">
+                        <h6 class="text-secondary"><i class="fas fa-magic"></i> AI Predicate Suggestions</h6>
+                        
+                        <!-- Show triples from predicate suggestions -->
+                        {% if concept_group.triples.predicate_suggestions %}
+                        <div class="table-responsive">
+                          <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                              <tr>
+                                <th style="width: 5%">
+                                  <input type="checkbox" class="form-check-input concept-select-predicates" 
+                                         data-concept="{{ concept_group.concept_label }}">
+                                </th>
+                                <th style="width: 30%">Subject</th>
+                                <th style="width: 25%">Predicate</th>
+                                <th style="width: 30%">Object</th>
+                                <th style="width: 10%">Confidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for triple in concept_group.triples.predicate_suggestions %}
+                              <tr class="triple-row table-light" data-triple-id="{{ triple.id }}">
+                                <td>
+                                  <input type="checkbox" class="form-check-input triple-checkbox" 
+                                         name="selected_triples" value="{{ triple.id }}" checked>
+                                </td>
+                                <td>
+                                  <div>
+                                    <strong>{{ triple.subject_label or triple.subject }}</strong>
+                                    {% if triple.subject_label %}
+                                    <small class="d-block text-muted">{{ triple.subject }}</small>
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span class="badge bg-secondary">{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</span>
+                                  {% if triple.explanation %}
+                                  <small class="d-block text-muted mt-1">{{ triple.explanation }}</small>
+                                  {% endif %}
+                                </td>
+                                <td>
+                                  <div>
+                                    {% if triple.is_literal %}
+                                    <em class="text-success">"{{ triple.object_literal }}"</em>
+                                    {% else %}
+                                    <strong>{{ triple.object_label or triple.object }}</strong>
+                                    {% if triple.object_label %}
+                                    <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                                    {% endif %}
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td>
+                                  {% if triple.confidence %}
+                                  <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                                    {{ (triple.confidence * 100)|int }}%
+                                  </span>
+                                  {% endif %}
+                                </td>
+                              </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Show direct predicate suggestions for existing concepts -->
+                        {% if concept_group.has_suggestions and concept_group.suggested_predicates %}
+                        <div class="alert alert-light border-warning">
+                          <small class="fw-bold text-secondary">
+                            <i class="fas fa-lightbulb text-warning"></i> Additional Suggestions:
+                          </small>
+                          {% if concept_group.suggested_predicates.as_subject %}
+                          <div class="mt-2">
+                            <small class="text-muted">As subject:</small>
+                            {% for pred in concept_group.suggested_predicates.as_subject %}
+                            <span class="badge bg-secondary me-1">{{ pred.predicate_type }} → {{ pred.target_label }}</span>
+                            {% endfor %}
+                          </div>
+                          {% endif %}
+                          {% if concept_group.suggested_predicates.as_object %}
+                          <div class="mt-1">
+                            <small class="text-muted">As object:</small>
+                            {% for pred in concept_group.suggested_predicates.as_object %}
+                            <span class="badge bg-outline-secondary me-1">{{ pred.source_label }} → {{ pred.predicate_type }}</span>
+                            {% endfor %}
+                          </div>
+                          {% endif %}
+                        </div>
+                        {% endif %}
+                      </div>
+                      {% endif %}
+                      
+                      <!-- Existing Relationships -->
+                      {% if concept_group.triples.existing_relationships %}
+                      <div class="mb-3">
+                        <h6 class="text-primary"><i class="fas fa-link"></i> Additional Relationships</h6>
+                        <div class="table-responsive">
+                          <table class="table table-sm table-hover">
+                            <thead class="table-primary">
+                              <tr>
+                                <th style="width: 5%">
+                                  <input type="checkbox" class="form-check-input concept-select-relationships" 
+                                         data-concept="{{ concept_group.concept_label }}">
+                                </th>
+                                <th style="width: 30%">Subject</th>
+                                <th style="width: 25%">Predicate</th>
+                                <th style="width: 30%">Object</th>
+                                <th style="width: 10%">Confidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for triple in concept_group.triples.existing_relationships %}
+                              <tr class="triple-row table-primary" data-triple-id="{{ triple.id }}">
+                                <td>
+                                  <input type="checkbox" class="form-check-input triple-checkbox" 
+                                         name="selected_triples" value="{{ triple.id }}" checked>
+                                </td>
+                                <td>
+                                  <div>
+                                    <strong>{{ triple.subject_label or triple.subject }}</strong>
+                                    {% if triple.subject_label %}
+                                    <small class="d-block text-muted">{{ triple.subject }}</small>
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td>{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</td>
+                                <td>
+                                  <div>
+                                    {% if triple.is_literal %}
+                                    <em class="text-success">"{{ triple.object_literal }}"</em>
+                                    {% else %}
+                                    <strong>{{ triple.object_label or triple.object }}</strong>
+                                    {% if triple.object_label %}
+                                    <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                                    {% endif %}
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td>
+                                  {% if triple.confidence %}
+                                  <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                                    {{ (triple.confidence * 100)|int }}%
+                                  </span>
+                                  {% endif %}
+                                </td>
+                              </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      {% endif %}
+                      
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                <div class="alert alert-warning">
+                  <i class="fas fa-exclamation-triangle"></i> No concepts found for organization.
+                </div>
+                {% endif %}
+              </div>
+              
               <!-- Overview Tab -->
-              <div class="tab-pane fade show active" id="overview-triples" role="tabpanel">
+              <div class="tab-pane fade" id="overview-triples" role="tabpanel">
                 <h5><i class="fas fa-list"></i> All Generated Triples</h5>
                 <p class="text-muted">Complete list of all triples generated from selected concepts.</p>
                 
@@ -358,6 +636,80 @@
                 {% endif %}
               </div>
               
+              <!-- Predicate Suggestions Tab -->
+              <div class="tab-pane fade" id="predicate-suggestions-triples" role="tabpanel">
+                <h5><i class="fas fa-magic text-secondary"></i> Predicate Suggestions</h5>
+                <p class="text-muted">AI-suggested relationships extracted from the guideline text that could be added to the ontology.</p>
+                
+                {% if categorized_triples.predicate_suggestions %}
+                <div class="alert alert-light border-secondary">
+                  <i class="fas fa-lightbulb text-warning"></i> <strong>AI Suggestions:</strong> These predicates were automatically identified from the guideline content. Review each suggestion and select the most relevant ones.
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width: 5%">
+                          <input type="checkbox" class="form-check-input" id="select-all-predicate-suggestions">
+                        </th>
+                        <th style="width: 30%">Subject</th>
+                        <th style="width: 25%">Predicate</th>
+                        <th style="width: 30%">Object</th>
+                        <th style="width: 10%">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for triple in categorized_triples.predicate_suggestions %}
+                      <tr class="triple-row table-light" data-triple-id="{{ triple.id or loop.index0 }}">
+                        <td>
+                          <input type="checkbox" class="form-check-input triple-checkbox" 
+                                 name="selected_triples" value="{{ triple.id or loop.index0 }}" checked>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>{{ triple.subject_label or triple.subject }}</strong>
+                            {% if triple.subject_label %}
+                            <small class="d-block text-muted">{{ triple.subject }}</small>
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          <span class="badge bg-secondary">{{ triple.predicate_label or triple.predicate.split('/')[-1] }}</span>
+                          {% if triple.explanation %}
+                          <small class="d-block text-muted mt-1">{{ triple.explanation }}</small>
+                          {% endif %}
+                        </td>
+                        <td>
+                          <div>
+                            {% if triple.is_literal %}
+                            <em class="text-success">"{{ triple.object_literal }}"</em>
+                            {% else %}
+                            <strong>{{ triple.object_label or triple.object }}</strong>
+                            {% if triple.object_label %}
+                            <small class="d-block text-muted">{{ triple.object_uri or triple.object }}</small>
+                            {% endif %}
+                            {% endif %}
+                          </div>
+                        </td>
+                        <td>
+                          {% if triple.confidence %}
+                          <span class="badge bg-{% if triple.confidence >= 0.8 %}success{% elif triple.confidence >= 0.5 %}warning{% else %}danger{% endif %}">
+                            {{ (triple.confidence * 100)|int }}%
+                          </span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle"></i> No predicate suggestions were generated from the extracted concepts.
+                </div>
+                {% endif %}
+              </div>
+              
               <!-- Core Ontology Tab -->
               <div class="tab-pane fade" id="core-ontology-triples" role="tabpanel">
                 <h5><i class="fas fa-book text-primary"></i> Core Ontology References</h5>
@@ -547,7 +899,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Tab-specific select all functionality
-    const tabSelectAlls = ['select-all-overview', 'select-all-new-concepts', 'select-all-additional', 'select-all-core', 'select-all-other'];
+    const tabSelectAlls = ['select-all-overview', 'select-all-new-concepts', 'select-all-additional', 'select-all-predicate-suggestions', 'select-all-core', 'select-all-other'];
     tabSelectAlls.forEach(function(id) {
         const selectAllCheckbox = document.getElementById(id);
         if (selectAllCheckbox) {
@@ -560,6 +912,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateSelectedCount();
             });
         }
+    });
+    
+    // Concept-level select all functionality for organized view
+    document.querySelectorAll('.concept-select-all').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const conceptCard = this.closest('.card');
+            const conceptCheckboxes = conceptCard.querySelectorAll('.triple-checkbox');
+            conceptCheckboxes.forEach(cb => {
+                cb.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+    });
+    
+    // Concept-level select predicates functionality
+    document.querySelectorAll('.concept-select-predicates').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const conceptCard = this.closest('.card');
+            const predicateSection = conceptCard.querySelector('.table-light');
+            if (predicateSection) {
+                const predicateCheckboxes = predicateSection.querySelectorAll('.triple-checkbox');
+                predicateCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateSelectedCount();
+            }
+        });
+    });
+    
+    // Concept-level select relationships functionality
+    document.querySelectorAll('.concept-select-relationships').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const conceptCard = this.closest('.card');
+            const relationshipSection = conceptCard.querySelector('.table-primary');
+            if (relationshipSection) {
+                const relationshipCheckboxes = relationshipSection.querySelectorAll('.triple-checkbox');
+                relationshipCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateSelectedCount();
+            }
+        });
     });
     
     // Individual checkbox change listeners
