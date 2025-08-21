@@ -2213,6 +2213,9 @@ def save_guideline_concepts(world_id, document_id):
 def review_guideline_triples(world_id, document_id):
     """Generate triples from selected concepts and allow editing before saving to ontology."""
     logger.info(f"Reviewing triples for guideline document {document_id} in world {world_id}")
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"Form data keys: {list(request.form.keys()) if request.form else 'No form data'}")
+    logger.info(f"CSRF token in form: {request.form.get('csrf_token', 'NOT FOUND')}")
     
     world = World.query.get_or_404(world_id)
     from app.models.document import Document
@@ -2228,14 +2231,12 @@ def review_guideline_triples(world_id, document_id):
         # This is coming from the concept review form
         form_action = request.form.get('form_action')
         if form_action == 'review_triples':
-            # Store concept data in session for display
-            from flask import session
+            # Process concept data directly from form (no session storage to avoid cookie size limit)
             
             selected_concept_indices = request.form.getlist('selected_concepts')
             if not selected_concept_indices:
                 flash('No concepts selected for triple generation', 'warning')
-                return redirect(url_for('worlds_extract_only.extract_concepts_direct', 
-                               world_id=world_id, document_id=document_id))
+                return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
             
             # Get concepts data from form
             concepts_data = request.form.get('concepts_data')
@@ -2243,208 +2244,46 @@ def review_guideline_triples(world_id, document_id):
                 try:
                     parsed_concepts = json.loads(concepts_data)
                     if parsed_concepts and isinstance(parsed_concepts, list):
-                        # Store in session for the display
-                        session_key = f'review_concepts_{document_id}'
-                        session[session_key] = {
-                            'concepts': parsed_concepts,
-                            'selected_indices': [int(idx) for idx in selected_concept_indices],
-                            'timestamp': time.time()
-                        }
-                        logger.info(f"Stored {len(parsed_concepts)} concepts in session for review")
+                        # Filter to selected concepts only
+                        selected_indices = [int(idx) for idx in selected_concept_indices]
+                        selected_concepts = [parsed_concepts[i] for i in selected_indices if i < len(parsed_concepts)]
                         
-                        # Redirect to GET to avoid resubmission issues
-                        return redirect(url_for('worlds.review_guideline_triples', 
-                                             world_id=world_id, document_id=document_id))
+                        logger.info(f"Processing {len(selected_concepts)} selected concepts for triple review")
+                        
+                        # Generate preview triples directly without storing in session
+                        triples = _generate_preview_triples(selected_concepts, document_id, world)
+                        
+                        # Categorize triples for display
+                        categorized_triples = {
+                            'new_concepts': [t for t in triples if t.get('category') == 'new_concept'],
+                            'additional_relationships': [t for t in triples if t.get('category') == 'relationship'],
+                            'core_ontology': [t for t in triples if t.get('category') == 'existing'],
+                            'other_guidelines': []
+                        }
+                        
+                        # Render the review page directly with the data
+                        return render_template('review_guideline_triples.html',
+                                             world=world,
+                                             guideline=guideline,
+                                             concepts=selected_concepts,
+                                             triples=triples,
+                                             categorized_triples=categorized_triples,
+                                             stats=_calculate_triple_stats(triples),
+                                             selected_indices=selected_indices)
+                        
                 except Exception as e:
                     logger.error(f"Failed to parse concepts data: {e}")
                     flash('Error processing concept data', 'error')
-                    return redirect(url_for('worlds_extract_only.extract_concepts_direct', 
-                                           world_id=world_id, document_id=document_id))
+                    return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
             
             flash('No valid concept data found', 'error')
-            return redirect(url_for('worlds_extract_only.extract_concepts_direct', 
-                           world_id=world_id, document_id=document_id))
+            return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
     
-    # GET request - display the triples review page
+    # GET request - should not happen directly anymore, redirect to extraction
     if request.method == 'GET':
-        try:
-            # Get concepts from session
-            from flask import session
-            session_key = f'review_concepts_{document_id}'
-            
-            if session_key not in session:
-                flash('No concept data found for review. Please extract concepts first.', 'warning')
-                return redirect(url_for('worlds_extract_only.extract_concepts_direct', 
-                               world_id=world_id, document_id=document_id))
-            
-            session_data = session[session_key]
-            concepts = session_data.get('concepts', [])
-            selected_indices = session_data.get('selected_indices', [])
-            
-            # Filter to selected concepts only
-            selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
-            logger.info(f"Retrieved {len(selected_concepts)} selected concepts from session")
-            
-            if not selected_concepts:
-                flash('Selected concepts data not found. Please extract concepts again.', 'error')
-                return redirect(url_for('worlds_extract_only.extract_concepts_direct',
-                               world_id=world_id, document_id=document_id))
-            
-            # For now, create a preview of what would be generated
-            # In a future version, we could have a preview mode in GuidelineConceptIntegrationService
-            logger.info(f"Creating preview triples for {len(selected_concepts)} selected concepts")
-            
-            # Create mock triples for preview - in a real implementation,
-            # this would call a preview method that generates triples without saving
-            triples = []
-            for i, concept in enumerate(selected_concepts):
-                # Create basic concept definition triple
-                concept_uri = f"http://proethica.org/ontology/guideline-{document_id}#{concept['label'].replace(' ', '')}"
-                
-                # Add type triple
-                triples.append({
-                    'id': f"triple_{i*3}",
-                    'subject': concept_uri,
-                    'subject_label': concept['label'],
-                    'predicate': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
-                    'predicate_label': 'type',
-                    'object': f"http://proethica.org/ontology/{concept.get('type', 'Concept')}",
-                    'object_label': concept.get('type', 'Concept'),
-                    'is_literal': False,
-                    'confidence': concept.get('confidence', 0.8),
-                    'ontology_status': 'new_term' if concept.get('is_new', True) else 'core_ontology'
-                })
-                
-                # Add label triple
-                triples.append({
-                    'id': f"triple_{i*3+1}",
-                    'subject': concept_uri,
-                    'subject_label': concept['label'],
-                    'predicate': 'http://www.w3.org/2000/01/rdf-schema#label',
-                    'predicate_label': 'label',
-                    'object_literal': concept['label'],
-                    'is_literal': True,
-                    'confidence': 1.0,
-                    'ontology_status': 'new_term' if concept.get('is_new', True) else 'core_ontology'
-                })
-                
-                # Add description triple if available
-                if concept.get('description'):
-                    triples.append({
-                        'id': f"triple_{i*3+2}",
-                        'subject': concept_uri,
-                        'subject_label': concept['label'],
-                        'predicate': 'http://www.w3.org/2000/01/rdf-schema#comment',
-                        'predicate_label': 'comment',
-                        'object_literal': concept['description'],
-                        'is_literal': True,
-                        'confidence': concept.get('confidence', 0.8),
-                        'ontology_status': 'new_term' if concept.get('is_new', True) else 'core_ontology'
-                    })
-            
-            logger.info(f"Generated {len(triples)} preview triples")
-            
-            # Categorize triples for display
-            categorized_triples = {
-                'new_concepts': [],
-                'additional_relationships': [],
-                'core_ontology': [],
-                'other_guidelines': []
-            }
-            
-            for triple in triples:
-                # Simple categorization logic - can be enhanced
-                if hasattr(triple, 'ontology_status'):
-                    if 'new_term' in str(triple.ontology_status).lower():
-                        categorized_triples['new_concepts'].append(triple)
-                    elif 'core_ontology' in str(triple.ontology_status).lower():
-                        categorized_triples['additional_relationships'].append(triple)
-                    elif 'other_guideline' in str(triple.ontology_status).lower():
-                        categorized_triples['other_guidelines'].append(triple)
-                    else:
-                        categorized_triples['core_ontology'].append(triple)
-                else:
-                    # Default categorization
-                    categorized_triples['new_concepts'].append(triple)
-            
-            # Statistics for display
-            stats = {
-                'total_triples': len(triples),
-                'new_concepts_count': len(categorized_triples['new_concepts']),
-                'additional_relationships_count': len(categorized_triples['additional_relationships']),
-                'core_ontology_count': len(categorized_triples['core_ontology']),
-                'other_guidelines_count': len(categorized_triples['other_guidelines'])
-            }
-            
-            logger.info(f"Generated {stats['total_triples']} triples: {stats}")
-            
-            return render_template('review_guideline_triples.html',
-                                 world=world,
-                                 guideline=guideline,
-                                 concepts=selected_concepts,
-                                 triples=triples,
-                                 categorized_triples=categorized_triples,
-                                 stats=stats,
-                                 selected_indices=selected_indices)
-            
-        except Exception as e:
-            logger.exception(f"Error generating triples for review: {str(e)}")
-            flash(f'Error generating triples: {str(e)}', 'error')
-            return redirect(url_for('worlds_extract_only.extract_concepts_direct',
-                           world_id=world_id, document_id=document_id))
-    
-        # Handle final save operation (from the triples review form)  
-        else:
-            # This handles saving the final validated triples 
-            try:
-                # Get concepts from session
-                from flask import session
-                session_key = f'review_concepts_{document_id}'
-                
-                if session_key not in session:
-                    flash('Session expired. Please extract concepts again.', 'warning')
-                    return redirect(url_for('worlds_extract_only.extract_concepts_direct', 
-                                           world_id=world_id, document_id=document_id))
-                
-                session_data = session[session_key]
-                concepts = session_data.get('concepts', [])
-                selected_indices = session_data.get('selected_indices', [])
-                
-                # Filter to selected concepts only
-                selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
-                
-                if not selected_concepts:
-                    flash('No concepts data found for saving', 'error')
-                    return redirect(url_for('worlds.review_guideline_triples',
-                                           world_id=world_id, document_id=document_id))
-                
-                # Use the GuidelineConceptIntegrationService to save concepts to derived ontology
-                from app.services.guideline_concept_integration_service import GuidelineConceptIntegrationService
-                
-                result = GuidelineConceptIntegrationService.add_concepts_to_ontology(
-                    concepts=selected_concepts,
-                    guideline_id=document_id,
-                    ontology_domain=world.ontology_id or 'engineering-ethics',
-                    commit_message=f"Added {len(selected_concepts)} concepts from guideline via triples review"
-                )
-                
-                if result.get('success', False):
-                    # Clear the session data after successful save
-                    session.pop(session_key, None)
-                    flash(f"Successfully saved {len(selected_concepts)} concepts to ontology", 'success')
-                    return redirect(url_for('worlds.view_guideline', 
-                                           id=world_id, document_id=document_id))
-                else:
-                    error_msg = result.get('error', 'Unknown error saving concepts')
-                    flash(f'Error saving concepts: {error_msg}', 'error')
-                    return redirect(url_for('worlds.review_guideline_triples',
-                                           world_id=world_id, document_id=document_id))
-                
-            except Exception as e:
-                logger.exception(f"Error processing triple save request: {str(e)}")
-                flash(f'Error processing save request: {str(e)}', 'error')
-                return redirect(url_for('worlds.review_guideline_triples',
-                               world_id=world_id, document_id=document_id))
+        # Direct GET access to review page is not supported without POST data
+        flash('Please extract and select concepts first before reviewing triples.', 'info')
+        return redirect(url_for('worlds.extract_concepts', id=world_id, document_id=document_id))
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/save_triples', methods=['POST'])
 def save_guideline_triples(world_id, document_id):
@@ -3010,3 +2849,69 @@ def remove_extracted_concepts(id, document_id):
         return jsonify({
             'error': f'Failed to remove concepts: {str(e)}'
         }), 500
+
+# Helper functions for triple generation
+def _generate_preview_triples(selected_concepts, document_id, world):
+    """Generate preview triples for selected concepts without saving to database."""
+    triples = []
+    
+    for i, concept in enumerate(selected_concepts):
+        # Create basic concept definition triple
+        concept_uri = f"http://proethica.org/ontology/guideline-{document_id}#{concept.get('label', '').replace(' ', '')}"
+        
+        # Add type triple
+        concept_type = concept.get('type', 'concept').lower()
+        type_uri = f"http://proethica.org/ontology/intermediate#{concept_type.capitalize()}"
+        
+        triples.append({
+            'id': f"triple_{i*3}",
+            'subject': concept_uri,
+            'subject_label': concept.get('label', ''),
+            'predicate': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+            'predicate_label': 'type',
+            'object': type_uri,
+            'object_label': concept_type.capitalize(),
+            'category': 'new_concept',
+            'selected': True
+        })
+        
+        # Add label triple
+        triples.append({
+            'id': f"triple_{i*3+1}",
+            'subject': concept_uri,
+            'subject_label': concept.get('label', ''),
+            'predicate': 'http://www.w3.org/2000/01/rdf-schema#label',
+            'predicate_label': 'label',
+            'object': concept.get('label', ''),
+            'object_label': concept.get('label', ''),
+            'category': 'new_concept',
+            'selected': True
+        })
+        
+        # Add description triple if available
+        if concept.get('description'):
+            triples.append({
+                'id': f"triple_{i*3+2}",
+                'subject': concept_uri,
+                'subject_label': concept.get('label', ''),
+                'predicate': 'http://www.w3.org/2000/01/rdf-schema#comment',
+                'predicate_label': 'description',
+                'object': concept.get('description', ''),
+                'object_label': concept.get('description', '')[:100] + '...' if len(concept.get('description', '')) > 100 else concept.get('description', ''),
+                'category': 'new_concept',
+                'selected': True
+            })
+    
+    return triples
+
+def _calculate_triple_stats(triples):
+    """Calculate statistics for the triples."""
+    stats = {
+        'total_triples': len(triples),
+        'new_concepts_count': len([t for t in triples if t.get('category') == 'new_concept']),
+        'additional_relationships_count': len([t for t in triples if t.get('category') == 'relationship']),
+        'core_ontology_count': len([t for t in triples if t.get('category') == 'existing']),
+        'other_guidelines_count': 0,
+        'selected': len([t for t in triples if t.get('selected', False)])
+    }
+    return stats

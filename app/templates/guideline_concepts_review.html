@@ -178,7 +178,10 @@
     action="{{ url_for('worlds.review_guideline_triples', world_id=world.id, document_id=guideline.id) }}">
   <!-- CSRF token for Flask-WTF -->
   {% if csrf_token %}
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  {% else %}
+    <!-- CSRF token not available, trying alternative method -->
+    <input type="hidden" name="csrf_token" value="{{ g.csrf_token if g and g.csrf_token else '' }}" />
   {% endif %}
     <!-- Include concepts count and source info -->
     <input type="hidden" name="concepts_count" value="{{ concepts|length }}" />
