@@ -97,6 +97,12 @@ Ready to implement:
 - **Features**: Dual storage (HTML/text), real-time progress, background processing
 - **Status**: ✅ Complete and production-ready
 
+### Ontology Integration UI
+- **Concept Extraction**: LLM-powered extraction with temporary storage and review workflow
+- **Smart Button States**: Dynamic UI switching from "Load Pending" → "View Ontology" + "View Saved Concepts"
+- **RDF Parsing Interface**: Direct ontology content parsing with beautiful card-based concept display
+- **Status**: ✅ Complete with full workflow integration
+
 ## 📚 Core Documentation
 
 **Architecture & Implementation:**
@@ -112,6 +118,7 @@ Ready to implement:
 ## 🎯 Success Metrics
 
 - **Role Classification**: 90%+ professional vs stakeholder accuracy ✅ **ACHIEVED**
+- **Ontology UI Integration**: Complete extraction-to-review workflow ✅ **ACHIEVED**
 - **Obligation Extraction**: ≥80% precision vs principles (target)
 - **Ontology Coverage**: 95%+ concept matching across all categories
 - **Processing Performance**: <30 seconds per document for all categories

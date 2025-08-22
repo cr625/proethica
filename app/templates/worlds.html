@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Worlds - AI Ethical Decision-Making Simulator{% endblock %}
+{% block title %}Professional Domains - AI Ethical Decision-Making Simulator{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Worlds</h1>
+        <h1>Professional Domains</h1>
         <div>
-            <a href="/worlds/new" class="btn btn-primary">Create New World</a>
+            <a href="/worlds/new" class="btn btn-primary">Create New Domain</a>
         </div>
     </div>
 
@@ -51,7 +51,7 @@
                     </div>
                 </div>
 
-                <!-- Delete World Modal - Only show if user can delete -->
+                <!-- Delete Domain Modal - Only show if user can delete -->
                 {% if can_delete_item(world) %}
                 <div class="modal fade" id="deleteWorldModal{{ world.id }}" tabindex="-1"
                     aria-labelledby="deleteWorldModalLabel{{ world.id }}" aria-hidden="true">
@@ -63,14 +63,14 @@
                                     aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <p>Are you sure you want to delete the world "{{ world.name }}"?</p>
+                                <p>Are you sure you want to delete the domain "{{ world.name }}"?</p>
                                 <p class="text-danger">This action cannot be undone. All associated data will be
                                     permanently deleted.</p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <form action="{{ url_for('worlds.delete_world_confirm', id=world.id) }}" method="POST">
-                                    <button type="submit" class="btn btn-danger">Delete World</button>
+                                    <button type="submit" class="btn btn-danger">Delete Domain</button>
                                 </form>
                             </div>
                         </div>
@@ -83,26 +83,26 @@
     </div>
     {% else %}
     <div class="alert alert-info">
-        <p>No worlds have been created yet.</p>
-        <a href="/worlds/new" class="btn btn-primary">Create New World</a>
+        <p>No professional domains have been created yet.</p>
+        <a href="/worlds/new" class="btn btn-primary">Create New Domain</a>
     </div>
     {% endif %}
 
     <div class="mt-5">
-        <h2>What are Worlds?</h2>
+        <h2>What are Professional Domains?</h2>
         <p>
-            Worlds represent the environment and context in which ethical decisions are made.
-            They contain characters, resources, conditions, and other entities that form the framework for scenarios.
+            Professional domains represent specialized fields of practice where ethical decisions are made.
+            They contain roles, principles, obligations, and other entities that form the framework for ethical scenarios.
         </p>
         <p>
-            Each world is based on an ontology that defines the types of entities and their relationships.
-            Worlds provide the domain-specific elements, rules, and constraints that shape the ethical
-            decision-making process in scenarios.
+            Each domain is based on an ontology that defines the types of entities and their relationships.
+            Domains provide the field-specific elements, rules, and constraints that shape the ethical
+            decision-making process in professional scenarios.
         </p>
         <p>
-            When you create a world, you establish the foundation for multiple scenarios that can explore
-            different ethical challenges within that domain. The world defines what types of characters,
-            resources, and conditions are available, while scenarios represent specific situations within that world.
+            When you create a domain, you establish the foundation for multiple scenarios that can explore
+            different ethical challenges within that professional field. The domain defines what types of roles,
+            resources, and conditions are available, while scenarios represent specific situations within that domain.
         </p>
     </div>
 </div>

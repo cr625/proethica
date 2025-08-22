@@ -3,7 +3,7 @@
 {% block title %}{{ world.name }} - ProEthica{% endblock %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="/worlds">Worlds</a></li>
+<li class="breadcrumb-item"><a href="/worlds">Domains</a></li>
 <li class="breadcrumb-item active">{{ world.name }}</li>
 {% endblock %}
 
@@ -111,18 +111,18 @@
             <div class="col-md-4 text-md-end">
                 <div class="dropdown">
                     <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-gear me-1"></i> World Settings
+                        <i class="bi bi-gear me-1"></i> Domain Settings
                     </button>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="/worlds/{{ world.id }}/edit">
-                            <i class="bi bi-pencil me-2"></i>Edit World
+                            <i class="bi bi-pencil me-2"></i>Edit Domain
                         </a></li>
                         <li><a class="dropdown-item" href="/worlds/{{ world.id }}/export">
                             <i class="bi bi-download me-2"></i>Export Data
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="/worlds/{{ world.id }}/delete">
-                            <i class="bi bi-trash me-2"></i>Delete World
+                            <i class="bi bi-trash me-2"></i>Delete Domain
                         </a></li>
                     </ul>
                 </div>
@@ -274,7 +274,7 @@
 
             <!-- World Info -->
             <div class="col-md-4">
-                <h5 class="mb-3">World Information</h5>
+                <h5 class="mb-3">Domain Information</h5>
                 <div class="card">
                     <div class="card-body">
                         <dl class="mb-0">
