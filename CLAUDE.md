@@ -63,6 +63,7 @@
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - Complete system architecture overview
 - [`docs/CONCEPT_EXTRACTION_PIPELINE.md`](docs/CONCEPT_EXTRACTION_PIPELINE.md) - Unified extraction pipeline for all 9 categories  
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) - Current progress and next steps
+- [`docs/MCP_ONTOLOGY_SERVER_API.md`](docs/MCP_ONTOLOGY_SERVER_API.md) - MCP server API documentation and ontology vocabulary access
 
 **Historical Context:**
 - [`docs/archive/`](docs/archive/) - Legacy documentation and completed phases
