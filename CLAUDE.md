@@ -14,6 +14,46 @@
 - **ALWAYS** prefer editing existing files over creating new ones
 - Keep the repository clean and organized
 
+## 🔄 ONTOLOGY SERVER TRANSITION: ProEthica → OntServe
+
+**Status**: Phase 1 Complete - OntServe infrastructure ready for ProEthica integration  
+**Plan Document**: `/home/chris/onto/PLAN.md` - 5-week migration plan  
+**Timeline**: August 2025
+
+### Phase 1: OntServe Infrastructure ✅ (2025-08-22)
+
+#### Database & MCP Server Complete
+- [x] **PostgreSQL Schema**: Complete database schema supporting ProEthica's requirements
+- [x] **Candidate Concept Storage**: Ready to receive concepts from ProEthica's 9-category pipeline
+- [x] **Approval Workflows**: Database tables for concept approval tracking
+- [x] **MCP Server**: Production-ready server with real database backend
+- [x] **Professional Domains**: "engineering-ethics" domain ready for ProEthica concepts
+- [x] **Version Control**: Full audit trail and change tracking system
+
+#### OntServe Integration Features
+- **Compatible Schema**: Designed to work with ProEthica's entity_triples structure
+- **Two-Tier Concept System**: Supports semantic_label + primary_type from ProEthica
+- **Confidence Scoring**: Preserves extraction confidence and LLM reasoning
+- **Temporal Tracking**: BFO-compliant temporal region support
+- **Vector Search**: pgvector embeddings for semantic similarity
+
+### Architectural Division
+- **ProEthica Retains**: Concept extraction, analysis, UI, workflow management
+- **OntServe Handles**: Ontology storage, versioning, MCP server, candidate concept management
+
+### Migration Impact
+- **Concept Extraction**: Continues as current focus - no disruption to 9-category pipeline
+- **Ontology Queries**: Will transition from internal MCP server to OntServe MCP endpoints  
+- **Candidate Concepts**: Extracted concepts will be stored in OntServe as candidates for review
+- **UI Integration**: ProEthica retains all approval UI, connects to OntServe backend
+
+### Next Phase: ProEthica Client Integration
+Ready to implement:
+1. **Client Library**: Create ProEthica-specific client for OntServe
+2. **Concept Submission**: Wire extraction pipeline to submit candidates to OntServe
+3. **Approval UI**: Connect existing review UI to OntServe approval endpoints
+4. **Database Migration**: Move existing concepts to OntServe with version history
+
 ## 🎯 CURRENT FOCUS: 9-Category Concept Extraction Pipeline
 
 **Objective**: Extract and integrate all 9 ProEthica intermediate ontology categories with the same quality achieved in role extraction.
@@ -50,7 +90,7 @@
 ### Enhanced LLM Integration
 - **Scenario Generation**: ✅ Phase 1 complete with MCP ontology integration
 - **Hybrid Associations**: ✅ Vector embeddings + LLM analysis scoring
-- **MCP Server**: ✅ Production deployed at https://mcp.proethica.org
+- **MCP Server**: 🔄 Transitioning to OntServe (https://mcp.proethica.org will redirect)
 
 ### Document Processing
 - **Pipeline**: Case Import → Structure Generation → Section Embeddings → Concept Extraction

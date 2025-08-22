@@ -336,6 +336,19 @@ class TemporaryConceptService:
             return False
     
     @staticmethod
+    def clear_session(session_id: str) -> bool:
+        """
+        Clear all concepts in a session (alias for delete_session).
+        
+        Args:
+            session_id: Session identifier
+            
+        Returns:
+            True if successful
+        """
+        return TemporaryConceptService.delete_session(session_id)
+    
+    @staticmethod
     def get_document_sessions(
         document_id: int,
         world_id: Optional[int] = None

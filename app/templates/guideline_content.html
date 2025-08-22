@@ -137,8 +137,22 @@
                 </ul>
               {% endif %}
             {% else %}
-              <!-- No concepts exist - check for pending extractions -->
-              {% if pending_extraction and pending_extraction.has_pending %}
+              <!-- No concepts exist - check if saved to ontology or pending extractions -->
+              {% if concepts_saved_to_ontology %}
+                <!-- Concepts have been saved to ontology -->
+                <a href="{{ url_for('worlds.view_saved_concepts', world_id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-success me-2">
+                  <i class="bi bi-eye"></i> View Saved Concepts
+                </a>
+                <a href="{{ url_for('ontology.edit_ontology', source=world.ontology_source) }}" 
+                   class="btn btn-sm btn-outline-success me-2">
+                  <i class="bi bi-diagram-3"></i> View Ontology
+                </a>
+                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
+                   class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-arrow-clockwise"></i> Re-extract
+                </a>
+              {% elif pending_extraction and pending_extraction.has_pending %}
                 <!-- Pending extraction exists -->
                 <a href="{{ url_for('worlds_extract_only.review_concepts_from_temp', world_id=world.id, document_id=guideline.id) }}" 
                    class="btn btn-sm btn-warning me-2">
@@ -265,7 +279,23 @@
             </div>
             {% endif %}
           {% else %}
-            {% if pending_extraction and pending_extraction.has_pending %}
+            {% if concepts_saved_to_ontology %}
+              <div class="alert alert-success">
+                <h6><i class="bi bi-check-circle"></i> Concepts Successfully Saved to Ontology</h6>
+                <p class="mb-2">
+                  <strong>{{ guideline.doc_metadata.concepts_saved_count }}</strong> concepts from this guideline have been integrated into the ontology.
+                </p>
+                <p class="mb-2">
+                  <strong>Saved:</strong> {{ guideline.doc_metadata.concepts_saved_timestamp[:19].replace('T', ' ') if guideline.doc_metadata.concepts_saved_timestamp else 'Recently' }}
+                </p>
+                <hr>
+                <p class="mb-0"><strong>Next Steps:</strong></p>
+                <ul class="mb-0">
+                  <li>Click <strong>"View Ontology"</strong> to explore the integrated concepts</li>
+                  <li>Click <strong>"Re-extract"</strong> to extract additional concepts</li>
+                </ul>
+              </div>
+            {% elif pending_extraction and pending_extraction.has_pending %}
               <div class="alert alert-warning">
                 <h6><i class="bi bi-hourglass-split"></i> Pending Concept Extraction Found</h6>
                 <p class="mb-2">You have <strong>{{ pending_extraction.concept_count }} concepts</strong> extracted on {{ pending_extraction.extraction_date }} that haven't been saved yet.</p>

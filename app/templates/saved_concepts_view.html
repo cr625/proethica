@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Saved Concepts - {{ document.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}">{{ document.title }}</a></li>
+      <li class="breadcrumb-item active">Saved Concepts</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1><i class="bi bi-diagram-3 text-success"></i> Saved Concepts</h1>
+      <p class="text-muted mb-0">Concepts from "{{ document.title }}" integrated into the ontology</p>
+    </div>
+    <div>
+      <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=document.id) }}" 
+         class="btn btn-outline-secondary me-2">
+        <i class="bi bi-arrow-left"></i> Back to Guideline
+      </a>
+      {% if derived_ontology_id %}
+      <a href="{{ url_for('ontology.edit_ontology', source=world.ontology_source) }}" 
+         class="btn btn-primary" target="_blank">
+        <i class="bi bi-box-arrow-up-right"></i> View in Ontology Editor
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Summary Card -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <h5 class="card-title text-success mb-1">
+            <i class="bi bi-check-circle"></i> {{ concepts_saved_count }} Concepts Successfully Integrated
+          </h5>
+          <p class="text-muted mb-0">
+            Saved: {{ concepts_saved_timestamp[:19].replace('T', ' ') if concepts_saved_timestamp else 'Recently' }}
+          </p>
+        </div>
+        <div class="col-md-4 text-end">
+          {% if derived_ontology_id %}
+          <small class="text-muted">Ontology ID: {{ derived_ontology_id }}</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concepts Display -->
+  {% if saved_concepts %}
+  <div class="card">
+    <div class="card-header bg-light">
+      <div class="row align-items-center">
+        <div class="col">
+          <h5 class="mb-0">Integrated Concepts ({{ saved_concepts|length }})</h5>
+        </div>
+        <div class="col-auto">
+          <!-- Category Filter Buttons -->
+          <div class="btn-group btn-group-sm" role="group" aria-label="Filter by category">
+            <button type="button" class="btn btn-outline-secondary active" data-filter="all">
+              All ({{ saved_concepts|length }})
+            </button>
+            {% set categories = saved_concepts|map(attribute='type')|list|unique %}
+            {% for category in categories|sort %}
+            {% set category_count = saved_concepts|selectattr('type', 'equalto', category)|list|length %}
+            <button type="button" class="btn btn-outline-secondary" data-filter="{{ category }}">
+              {{ category.capitalize() }} ({{ category_count }})
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card-body">
+      <div class="row" id="concepts-container">
+        {% for concept in saved_concepts %}
+        <div class="col-lg-6 col-xl-4 mb-3 concept-card" data-category="{{ concept.type }}">
+          <div class="card h-100 border">
+            <div class="card-body">
+              <div class="d-flex align-items-start justify-content-between mb-2">
+                <div class="flex-grow-1">
+                  {% set type_colors = {
+                    'role': 'bg-primary',
+                    'principle': 'bg-success', 
+                    'obligation': 'bg-warning text-dark',
+                    'state': 'bg-info',
+                    'resource': 'bg-secondary',
+                    'action': 'bg-danger',
+                    'event': 'bg-dark',
+                    'capability': 'bg-light text-dark',
+                    'constraint': 'bg-purple'
+                  } %}
+                  {% set color_class = type_colors.get(concept.type, 'bg-secondary') %}
+                  
+                  <span class="badge {{ color_class }} mb-2">{{ concept.type.capitalize() }}</span>
+                  <h6 class="card-title mb-2">{{ concept.label }}</h6>
+                </div>
+                {% if concept.confidence < 1.0 %}
+                <small class="text-muted">{{ (concept.confidence * 100)|round(0)|int }}%</small>
+                {% endif %}
+              </div>
+              
+              {% if concept.description %}
+              <p class="card-text text-muted small">{{ concept.description }}</p>
+              {% else %}
+              <p class="card-text text-muted small fst-italic">No description available</p>
+              {% endif %}
+              
+              {% if concept.uri %}
+              <div class="mt-2">
+                <small class="text-muted">
+                  <i class="bi bi-link-45deg"></i>
+                  <code class="text-break">{{ concept.uri }}</code>
+                </small>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      
+      {% if saved_concepts|length == 0 %}
+      <div class="text-center py-5">
+        <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
+        <p class="text-muted mt-3">No concepts found in the derived ontology.</p>
+        <p class="text-muted">The concepts may still be integrating or there may be an issue with the ontology service.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-info">
+    <h5><i class="bi bi-info-circle"></i> Concepts Not Yet Available</h5>
+    <p class="mb-2">The concepts have been saved to the ontology but are not yet available for viewing through this interface.</p>
+    <p class="mb-0">
+      Try viewing them directly in the 
+      <a href="{{ url_for('ontology.edit_ontology', source=world.ontology_source) }}" target="_blank">ontology editor</a>.
+    </p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+// Category filtering functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    const conceptCards = document.querySelectorAll('.concept-card');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const filter = this.getAttribute('data-filter');
+            
+            // Update active button
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Filter cards
+            conceptCards.forEach(card => {
+                if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
+
+<style>
+.bg-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+}
+
+.concept-card {
+    transition: all 0.2s ease;
+}
+
+.concept-card:hover {
+    transform: translateY(-2px);
+}
+
+.concept-card .card {
+    transition: box-shadow 0.2s ease;
+}
+
+.concept-card .card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

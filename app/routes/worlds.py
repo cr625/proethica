@@ -822,6 +822,12 @@ def view_guideline(id, document_id):
     except Exception as e:
         logger.warning(f"Could not check temporary concepts: {str(e)}")
     
+    # Check if concepts have been saved to ontology from metadata
+    concepts_saved_to_ontology = False
+    if guideline.doc_metadata and guideline.doc_metadata.get('concepts_saved_to_ontology', False):
+        concepts_saved_to_ontology = True
+        logger.info(f"Document {document_id} has concepts already saved to ontology")
+    
     # Check if concepts have been added to the ontology
     # Use document_id for consistent naming/linking with derived ontologies
     ontology_status = {'ready_to_add': False}
@@ -842,7 +848,8 @@ def view_guideline(id, document_id):
                           triples=triples, 
                           concepts=concepts,
                           ontology_status=ontology_status,
-                          pending_extraction=pending_extraction)
+                          pending_extraction=pending_extraction,
+                          concepts_saved_to_ontology=concepts_saved_to_ontology)
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_triples_direct(world_id, document_id):
@@ -2600,11 +2607,11 @@ def save_concepts_direct(world_id, document_id):
                 logger.info(f"Added {len(predicate_triples)} predicate suggestion triples")
             
             # Save all triples to the database
-            from app.services.guideline_triple_duplicate_service import GuidelineTripleDuplicateService
+            from app.services.triple_duplicate_detection_service import TripleDuplicateDetectionService
             from app.models.guideline import Guideline
             from app.models.entity_triple import EntityTriple
             
-            duplicate_service = GuidelineTripleDuplicateService()
+            duplicate_service = TripleDuplicateDetectionService()
             
             # Get or create guideline record
             guideline_record = Guideline.query.filter_by(
@@ -2679,6 +2686,34 @@ def save_concepts_direct(world_id, document_id):
             # Commit all changes
             db.session.commit()
             
+            # Now add the concepts to the derived ontology
+            logger.info(f"Adding {len(selected_concepts)} concepts to derived ontology for guideline {document_id}")
+            integration_result = GuidelineConceptIntegrationService.add_concepts_to_ontology(
+                concepts=selected_concepts,
+                guideline_id=document_id,
+                ontology_domain='engineering-ethics',
+                commit_message=f'Added concepts from guideline: {document.title}'
+            )
+            
+            if not integration_result.get('success'):
+                logger.warning(f"Failed to add concepts to derived ontology: {integration_result.get('error')}")
+                # Don't fail the whole operation, triples are already saved
+            else:
+                logger.info(f"Successfully integrated concepts into derived ontology: {integration_result}")
+            
+            # Update document metadata to indicate concepts have been saved
+            from datetime import datetime
+            if not document.doc_metadata:
+                document.doc_metadata = {}
+            document.doc_metadata['concepts_saved_to_ontology'] = True
+            document.doc_metadata['concepts_saved_timestamp'] = datetime.utcnow().isoformat()
+            document.doc_metadata['concepts_saved_count'] = len(selected_concepts)
+            
+            # Mark the document metadata as modified for SQLAlchemy
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(document, 'doc_metadata')
+            db.session.commit()
+            
             # Clear temporary concepts if they were used
             if session_id:
                 from app.services.temporary_concept_service import TemporaryConceptService
@@ -2687,6 +2722,9 @@ def save_concepts_direct(world_id, document_id):
             success_message = f"Successfully saved {len(selected_concepts)} concepts and {len(saved_triples)} relationships"
             if skipped_duplicates:
                 success_message += f" ({len(skipped_duplicates)} duplicates skipped)"
+            
+            if integration_result.get('success'):
+                success_message += f" and integrated into derived ontology"
             
             logger.info(success_message)
             
@@ -2707,6 +2745,134 @@ def save_concepts_direct(world_id, document_id):
         logger.error(f"Error in save_concepts_direct: {e}")
         db.session.rollback()
         return jsonify({'success': False, 'error': f'Server error: {str(e)}'})
+
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/view_saved_concepts', methods=['GET'])
+def view_saved_concepts(world_id, document_id):
+    """View concepts that have been saved to the derived ontology in a friendly UI."""
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    document = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if document.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    try:
+        # Check if concepts have been saved to ontology
+        if not (document.doc_metadata and document.doc_metadata.get('concepts_saved_to_ontology')):
+            flash('No concepts have been saved to the ontology for this guideline yet', 'info')
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        
+        # Find the derived ontology for this document (skip database check, look directly)
+        from app.models.ontology import Ontology
+        derived_domain = f'guideline-{document_id}-concepts'
+        derived_ont = Ontology.query.filter_by(domain_id=derived_domain).first()
+        
+        if not derived_ont or not derived_ont.content:
+            flash('Derived ontology content not found', 'error')
+            return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+        
+        # Get concepts directly from the derived ontology
+        saved_concepts = []
+        derived_ontology_id = derived_ont.id
+        logger.info(f"Found derived ontology: {derived_ont.name}")
+        
+        try:
+            # Parse concepts directly from the ontology content
+            import rdflib
+            from rdflib import Graph, Namespace, RDFS, RDF
+            from urllib.parse import unquote
+            
+            # Parse the RDF content
+            g = Graph()
+            g.parse(data=derived_ont.content, format='turtle')
+            
+            # Define namespaces
+            derived_ns = Namespace(f"http://proethica.org/ontology/guideline-{document_id}-concepts#")
+            intermediate_ns = Namespace("http://proethica.org/ontology/intermediate#")
+            
+            # Get all subjects that have labels (these are our concepts)
+            for subject, predicate, obj in g.triples((None, RDFS.label, None)):
+                if str(subject).startswith(str(derived_ns)):
+                    concept_uri = str(subject)
+                    concept_label = str(obj)
+                    
+                    # Get description if available
+                    description = ""
+                    desc_predicate = rdflib.term.URIRef("http://purl.org/dc/elements/1.1/description")
+                    for _, _, desc_obj in g.triples((subject, desc_predicate, None)):
+                        description = str(desc_obj)
+                        break
+                    
+                    # Determine type from the URI or class relationships
+                    concept_type = "unknown"
+                    
+                    # Try to get type from rdfs:subClassOf relationships
+                    for _, _, parent_class in g.triples((subject, RDFS.subClassOf, None)):
+                        parent_str = str(parent_class)
+                        if "#Role" in parent_str:
+                            concept_type = "role"
+                        elif "#Principle" in parent_str:
+                            concept_type = "principle" 
+                        elif "#Obligation" in parent_str:
+                            concept_type = "obligation"
+                        elif "#State" in parent_str:
+                            concept_type = "state"
+                        elif "#Resource" in parent_str:
+                            concept_type = "resource"
+                        elif "#Action" in parent_str:
+                            concept_type = "action"
+                        elif "#Event" in parent_str:
+                            concept_type = "event"
+                        elif "#Capability" in parent_str:
+                            concept_type = "capability"
+                        elif "#Constraint" in parent_str:
+                            concept_type = "constraint"
+                        break
+                    
+                    # If no subclass relationship, try to infer from the URI fragment
+                    if concept_type == "unknown":
+                        fragment = concept_uri.split('#')[-1].lower()
+                        if 'role' in fragment:
+                            concept_type = 'role'
+                        elif 'principle' in fragment:
+                            concept_type = 'principle'
+                        elif 'obligation' in fragment:
+                            concept_type = 'obligation'
+                        # Add more inference rules as needed
+                    
+                    saved_concepts.append({
+                        'label': concept_label,
+                        'type': concept_type,
+                        'description': description,
+                        'uri': concept_uri,
+                        'confidence': 1.0  # Saved concepts are assumed to be high confidence
+                    })
+            
+            logger.info(f"Parsed {len(saved_concepts)} concepts from derived ontology content")
+                
+        except Exception as e:
+            logger.warning(f"Could not parse concepts from derived ontology: {e}")
+            flash('Could not parse concepts from ontology', 'warning')
+        
+        # Get saved metadata
+        concepts_saved_count = document.doc_metadata.get('concepts_saved_count', len(saved_concepts))
+        concepts_saved_timestamp = document.doc_metadata.get('concepts_saved_timestamp')
+        
+        return render_template('saved_concepts_view.html',
+                             world=world,
+                             document=document,
+                             saved_concepts=saved_concepts,
+                             concepts_saved_count=concepts_saved_count,
+                             concepts_saved_timestamp=concepts_saved_timestamp,
+                             derived_ontology_id=derived_ontology_id)
+        
+    except Exception as e:
+        logger.error(f"Error viewing saved concepts for document {document_id}: {e}")
+        flash(f'Error retrieving saved concepts: {str(e)}', 'error')
+        return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 @login_required
@@ -2779,13 +2945,19 @@ def delete_guideline(id, document_id):
                 except Exception as e:
                     logger.warning(f"Could not delete derived ontology {derived_ontology_id}: {e}")
 
-            # 3. Delete document chunks first (due to NOT NULL constraint on document_id)
+            # 3. Delete temporary concepts first (due to NOT NULL constraint on document_id)
+            from app.models.temporary_concept import TemporaryConcept
+            deleted_temp_concepts = TemporaryConcept.query.filter_by(document_id=document.id).delete(synchronize_session=False)
+            if deleted_temp_concepts > 0:
+                logger.info(f"Deleted {deleted_temp_concepts} temporary concepts for document {document.id}")
+            
+            # 4. Delete document chunks (due to NOT NULL constraint on document_id)
             from app.models.document import DocumentChunk
             deleted_chunks = DocumentChunk.query.filter_by(document_id=document.id).delete(synchronize_session=False)
             if deleted_chunks > 0:
                 logger.info(f"Deleted {deleted_chunks} document chunks for document {document.id}")
             
-            # 4. Delete the file if it exists
+            # 5. Delete the file if it exists
             if document.file_path and os.path.exists(document.file_path):
                 try:
                     os.remove(document.file_path)
@@ -2793,7 +2965,7 @@ def delete_guideline(id, document_id):
                 except Exception as e:
                     flash(f'Error deleting file: {str(e)}', 'warning')
             
-            # 5. Delete the document
+            # 6. Delete the document
             db.session.delete(document)
         
         # Commit all deletions

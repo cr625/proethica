@@ -597,22 +597,32 @@ class GuidelineConceptIntegrationService:
     @classmethod
     def _get_actual_guideline_id(cls, document_id: int) -> Optional[int]:
         """
-        Get the actual guideline ID from document metadata.
+        Get the actual guideline ID from document metadata, or the document ID itself if it's a guideline.
         
         Args:
             document_id: Document ID (from URL)
             
         Returns:
-            Actual guideline ID from metadata, or None if not found
+            Actual guideline ID from metadata, or document_id if it's a guideline document, or None
         """
         try:
             from app.models.document import Document
             document = Document.query.get(document_id)
             
-            if document and document.doc_metadata and 'guideline_id' in document.doc_metadata:
+            if not document:
+                logger.warning(f"Document {document_id} not found")
+                return None
+            
+            # Case 1: Document references another guideline via metadata
+            if document.doc_metadata and 'guideline_id' in document.doc_metadata:
                 return document.doc_metadata['guideline_id']
             
-            logger.warning(f"No actual guideline ID found for document {document_id}")
+            # Case 2: Document IS a guideline itself (document_type == 'guideline')
+            if document.document_type == 'guideline':
+                logger.info(f"Document {document_id} is itself a guideline document")
+                return document_id
+            
+            logger.warning(f"Document {document_id} is not a guideline and has no guideline_id in metadata")
             return None
             
         except Exception as e:
