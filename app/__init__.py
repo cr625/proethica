@@ -138,7 +138,6 @@ def create_app(config_module='app.config'):
     from app.routes.test_routes import test_bp
     from app.routes.experiment import experiment_bp
     from app.routes.type_management import type_management_bp
-    from app.routes.neo4j_visualization import neo4j_bp
     from app.routes.debug_env import debug_env_bp
     from app.routes.wizard import wizard_bp
     from app.routes.guidelines import guidelines_bp
@@ -166,7 +165,6 @@ def create_app(config_module='app.config'):
     app.register_blueprint(doc_structure_bp)
     app.register_blueprint(experiment_bp, url_prefix='/experiment')
     app.register_blueprint(type_management_bp)
-    app.register_blueprint(neo4j_bp)
     app.register_blueprint(debug_env_bp)
     app.register_blueprint(wizard_bp)
     app.register_blueprint(test_bp)

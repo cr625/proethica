@@ -81,8 +81,6 @@ python-slugify==8.0.4
 matplotlib>=3.8.0            # Plotting library
 networkx>=3.2.0              # Network analysis
 
-## Graph database
-neo4j==5.28.2                # Official Neo4j Python driver
 
 ## System metrics
 psutil                       # Used by admin system health diagnostics

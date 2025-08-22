@@ -31,7 +31,6 @@ sys.path.insert(0, str(project_root))
 from mcp.http_ontology_mcp_server import OntologyMCPServer
 from mcp.modules.guideline_analysis_module import GuidelineAnalysisModule
 from mcp.modules.webvowl_visualization_module import WebVOWLVisualizationModule
-from mcp.modules.neo4j_visualization_module import Neo4jVisualizationModule
 
 class OntologyClientWrapper:
     """
@@ -149,7 +148,6 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
         # Register additional modules
         self._register_guideline_analysis_module()
         self._register_webvowl_visualization_module()
-        self._register_neo4j_visualization_module()
     
     def _init_anthropic_client(self):
         """Initialize the Anthropic client."""
@@ -521,22 +519,6 @@ class EnhancedOntologyServerWithGuidelines(OntologyMCPServer):
             logger.error(f"Error registering WebVOWL visualization module: {e}")
             # Don't raise - visualization is optional
     
-    def _register_neo4j_visualization_module(self):
-        """Register the Neo4j visualization module."""
-        try:
-            # Create the module
-            neo4j_module = Neo4jVisualizationModule()
-            
-            # Initialize with default Neo4j settings
-            neo4j_module.initialize()
-            
-            # Store in modules dict for later web route registration
-            self.modules['neo4j'] = neo4j_module
-            
-            logger.info("Neo4j visualization module registered successfully")
-        except Exception as e:
-            logger.error(f"Error registering Neo4j visualization module: {e}")
-            # Don't raise - visualization is optional
 
 async def run_server():
     """
@@ -573,11 +555,6 @@ async def run_server():
         await webvowl_module.create_visualization_routes(app)
         logger.info("WebVOWL visualization routes registered")
     
-    # Register Neo4j visualization routes if module is available
-    if 'neo4j' in server.modules:
-        neo4j_module = server.modules['neo4j']
-        await neo4j_module.create_neo4j_routes(app)
-        logger.info("Neo4j visualization routes registered")
     
     # Start the web server with graceful port conflict handling
     PORT = int(os.environ.get("MCP_SERVER_PORT", 5001))
@@ -588,9 +565,8 @@ async def run_server():
     
     try:
         await site.start()
-        logger.info(f"Enhanced MCP Server with WebVOWL and Neo4j running on http://{HOST}:{PORT}")
+        logger.info(f"Enhanced MCP Server with WebVOWL running on http://{HOST}:{PORT}")
         logger.info(f"WebVOWL visualizations available at: http://{HOST}:{PORT}/visualization")
-        logger.info(f"Neo4j browser interface available at: http://{HOST}:{PORT}/neo4j")
     except OSError as e:
         if e.errno == 98:  # Address already in use
             logger.warning(f"Port {PORT} is already in use - MCP server may already be running")

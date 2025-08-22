@@ -5,7 +5,7 @@
             "name": "MCP Server - Local",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
+            "python": "${workspaceFolder}/../venv/bin/python",
             "program": "${workspaceFolder}/mcp/run_enhanced_mcp_server_with_guidelines.py",
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -18,21 +18,19 @@
                 "MCP_SERVER_PORT": "5001",
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/..",
                 "PATH": "${env:PATH}",
-                // Embedding + LLM toggles (keys live in .env)
                 "DISABLE_LOCAL_EMBEDDINGS": "false",
                 "ALLOW_HF_DOWNLOAD": "true",
                 "EMBEDDINGS_DEVICE": "cpu",
                 "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
                 "EMBEDDING_MODEL": "text-embedding-3-small",
-                // Optional model selectors (reads ANTHROPIC_API_KEY/OPENAI_API_KEY from .env)
                 "ANTHROPIC_MODEL": "claude-sonnet-4-20250514",
-                // Intermediate extraction toggles
                 "ENABLE_OBLIGATIONS_EXTRACTION": "true",
                 "ENABLE_PRINCIPLES_EXTRACTION": "true",
-                // Optional visualization features
-                "DISABLE_WEBVOWL_MESSAGES": "true"
+                "DISABLE_WEBVOWL_MESSAGES": "true",
+                "USE_ONTSERVE": "true",
+                "ONTSERVE_URL": "http://localhost:8083"
             },
             "cwd": "${workspaceFolder}"
         },
@@ -40,7 +38,7 @@
             "name": "Flask App - Local MCP",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
+            "python": "${workspaceFolder}/../venv/bin/python",
             "program": "${workspaceFolder}/run.py",
             "args": ["--port", "3333", "--environment", "development"],
             "console": "integratedTerminal",
@@ -57,28 +55,26 @@
                 "MCP_SERVER_URL": "http://localhost:5001",
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/..",
                 "PATH": "${env:PATH}",
-                // Embedding + LLM toggles (keys live in .env)
                 "DISABLE_LOCAL_EMBEDDINGS": "false",
                 "ALLOW_HF_DOWNLOAD": "true",
                 "EMBEDDINGS_DEVICE": "cpu",
                 "EMBEDDING_PROVIDER_PRIORITY": "openai,anthropic,google,local",
                 "EMBEDDING_MODEL": "text-embedding-3-small",
-                // Optional model selectors (reads ANTHROPIC_API_KEY/OPENAI_API_KEY from .env)
                 "ANTHROPIC_MODEL": "claude-sonnet-4-20250514",
-                // Intermediate extraction toggles
                 "ENABLE_OBLIGATIONS_EXTRACTION": "true",
                 "ENABLE_PRINCIPLES_EXTRACTION": "true",
-                // Optional visualization features
-                "DISABLE_WEBVOWL_MESSAGES": "true"
-            },
+                "DISABLE_WEBVOWL_MESSAGES": "true",
+                "USE_ONTSERVE": "true",
+                "ONTSERVE_URL": "http://localhost:8083"
+            }
         },
         {
             "name": "Flask App - Production MCP",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
+            "python": "${workspaceFolder}/../venv/bin/python",
             "program": "${workspaceFolder}/run.py",
             "args": ["--port", "3333", "--environment", "development"],
             "console": "integratedTerminal",
@@ -94,7 +90,7 @@
                 "MCP_AUTH_TOKEN": "nGkmBr1jlyYLi8ZKCeXEFMMD5KddiCMzAahi7j5G43c",
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/..",
                 "PATH": "${env:PATH}"
             }
         },
@@ -102,7 +98,7 @@
             "name": "Python: Current File",
             "type": "debugpy",
             "request": "launch",
-            "python": "${workspaceFolder}/venv/bin/python",
+            "python": "${workspaceFolder}/../venv/bin/python",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
@@ -114,7 +110,7 @@
                 "MCP_SERVER_URL": "http://localhost:5001",
                 "SQLALCHEMY_DATABASE_URI": "postgresql://postgres:PASS@localhost:5433/ai_ethical_dm",
                 "SQLALCHEMY_TRACK_MODIFICATIONS": "false",
-                "PYTHONPATH": "${workspaceFolder}",
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/..",
                 "PATH": "${env:PATH}"
             }
         }
