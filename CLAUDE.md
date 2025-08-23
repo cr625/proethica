@@ -16,8 +16,8 @@
 
 ## 🔄 ONTOLOGY SERVER TRANSITION: ProEthica → OntServe
 
-**Status**: Phase 1 Complete - OntServe infrastructure ready for ProEthica integration  
-**Plan Document**: `/home/chris/onto/PLAN.md` - 5-week migration plan  
+**Status**: Phase 2 Complete, Phase 3 Planning Complete ✅  
+**Plan Document**: `/home/chris/onto/docs/transition-plan.md` - Comprehensive 5-week migration plan  
 **Timeline**: August 2025
 
 ### Phase 1: OntServe Infrastructure ✅ (2025-08-22)
@@ -47,12 +47,29 @@
 - **Candidate Concepts**: Extracted concepts will be stored in OntServe as candidates for review
 - **UI Integration**: ProEthica retains all approval UI, connects to OntServe backend
 
-### Next Phase: ProEthica Client Integration
-Ready to implement:
-1. **Client Library**: Create ProEthica-specific client for OntServe
-2. **Concept Submission**: Wire extraction pipeline to submit candidates to OntServe
-3. **Approval UI**: Connect existing review UI to OntServe approval endpoints
-4. **Database Migration**: Move existing concepts to OntServe with version history
+### Phase 3: MCP Migration Planning ✅ COMPLETE
+**CRITICAL PLANNING MILESTONE ACHIEVED**: Comprehensive technical plan for migrating ProEthica's ontology serving to OntServe.
+
+#### Key Analysis Results
+1. **Critical Integration Point Identified**: `GuidelineAnalysisService._build_ontology_index()` is the primary method that needs replacement
+2. **"Extract Concepts" Button Workflow**: Uses `OntologyEntityService.get_entities_for_world()` - this is the exact method to replace
+3. **Implementation Strategy**: Service factory pattern with transparent fallback to existing ProEthica MCP server
+4. **Response Format**: 100% compatibility maintained through careful interface design
+
+#### Migration Approach
+- **Week 3**: Replace ProEthica's internal MCP server with OntServe MCP endpoints
+- **Piece-by-piece**: One-to-one replacements where possible, maintaining existing functionality
+- **Environment Toggle**: `USE_ONTSERVE=true/false` for gradual rollout
+- **Future Enhancement**: Foundation laid for sophisticated RDF/OWL reasoning capabilities
+
+**Complete implementation plan**: `/home/chris/onto/docs/transition-plan.md`
+
+### Next Implementation Phase
+Ready to begin Phase 3 implementation:
+1. **OntServe Client Library**: `app/clients/ontserve_client.py` with compatibility interface
+2. **Service Factory**: `app/services/ontology_service_factory.py` for transparent switching
+3. **MCP Proxy**: Redirect existing MCP calls to OntServe with format translation
+4. **Validation Framework**: Ensure identical functionality during transition
 
 ## 🎯 CURRENT FOCUS: 9-Category Concept Extraction Pipeline
 
@@ -106,7 +123,7 @@ Ready to implement:
 ## 📚 Core Documentation
 
 **Architecture & Implementation:**
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - Complete system architecture overview
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - Complete system architecture overview including **future MCP integration plan** for LLM-assisted ontology analysis
 - [`docs/CONCEPT_EXTRACTION_PIPELINE.md`](docs/CONCEPT_EXTRACTION_PIPELINE.md) - Unified extraction pipeline for all 9 categories  
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) - Current progress and next steps
 - [`docs/MCP_ONTOLOGY_SERVER_API.md`](docs/MCP_ONTOLOGY_SERVER_API.md) - MCP server API documentation and ontology vocabulary access

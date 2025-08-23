@@ -238,19 +238,34 @@ class GuidelineAnalysisService:
             # Store in temporary storage if enabled
             if use_temp_storage and guideline_id and world_id:
                 try:
-                    from app.services.temporary_concept_service import TemporaryConceptService
-                    
                     # Enhance concepts with their suggested predicates from relationships
                     enhanced_concepts = self._add_predicates_to_concepts(matched_concepts, relationships)
                     
-                    session_id = TemporaryConceptService.store_concepts(
-                        concepts=enhanced_concepts,
-                        document_id=guideline_id,
-                        world_id=world_id,
-                        extraction_method='llm'
-                    )
+                    # Use draft ontology service if enabled, otherwise use traditional TemporaryConcept
+                    use_draft_ontologies = os.environ.get('USE_DRAFT_ONTOLOGIES', 'false').lower() == 'true'
+                    
+                    if use_draft_ontologies:
+                        from app.services.draft_ontology_service import TemporaryConceptCompatibilityService
+                        
+                        session_id = TemporaryConceptCompatibilityService.store_concepts(
+                            concepts=enhanced_concepts,
+                            document_id=guideline_id,
+                            world_id=world_id,
+                            extraction_method='llm'
+                        )
+                        logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in draft ontology with session {session_id}")
+                    else:
+                        from app.services.temporary_concept_service import TemporaryConceptService
+                        
+                        session_id = TemporaryConceptService.store_concepts(
+                            concepts=enhanced_concepts,
+                            document_id=guideline_id,
+                            world_id=world_id,
+                            extraction_method='llm'
+                        )
+                        logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in temporary storage with session {session_id}")
+                    
                     result['session_id'] = session_id
-                    logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in temporary storage with session {session_id}")
                 except Exception as store_err:
                     logger.error(f"Failed to store concepts in temporary storage: {store_err}")
                     # Don't fail the extraction if storage fails
@@ -304,14 +319,18 @@ class GuidelineAnalysisService:
         logger.info(f"Building ontology index for world {world_id}")
         
         try:
-            # First try to use OntologyEntityService for direct extraction
-            from app.services.ontology_entity_service import OntologyEntityService
+            # Use factory pattern to get appropriate ontology service (ProEthica or OntServe)
+            from app.services.ontology_service_factory import get_ontology_service
             from app.models.world import World
             
             world = World.query.get(world_id)
             if world:
-                entity_service = OntologyEntityService.get_instance()
-                result = entity_service.get_entities_for_world(world)
+                ontology_service = get_ontology_service()
+                result = ontology_service.get_entities_for_world(world)
+                
+                # Log which service was used
+                source = result.get('source', 'unknown')
+                logger.info(f"Using {source} service for ontology index building")
                 
                 entities = []
                 if result.get('entities'):

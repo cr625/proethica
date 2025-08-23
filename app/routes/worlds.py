@@ -2874,6 +2874,88 @@ def view_saved_concepts(world_id, document_id):
         flash(f'Error retrieving saved concepts: {str(e)}', 'error')
         return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
 
+@worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/clear_pending', methods=['POST'])
+@login_required
+def clear_pending_concepts(world_id, document_id):
+    """Clear all pending concepts for a guideline document."""
+    logger.info(f"Clearing pending concepts for document {document_id} in world {world_id}")
+    
+    world = World.query.get_or_404(world_id)
+    
+    from app.models.document import Document
+    from app.services.temporary_concept_service import TemporaryConceptService
+    
+    document = Document.query.get_or_404(document_id)
+    
+    # Check if document belongs to this world
+    if document.world_id != world.id:
+        flash('Document does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    try:
+        use_draft_ontologies = os.environ.get('USE_DRAFT_ONTOLOGIES', 'false').lower() == 'true'
+        
+        if use_draft_ontologies:
+            # Handle draft ontologies
+            from app.services.draft_ontology_service import DraftOntologyService
+            
+            # For draft ontologies, we'd need to find and delete based on naming pattern
+            # This is a limitation of the current implementation
+            draft_name_pattern = f"extracted_doc{document_id}_world{world_id}"
+            
+            # TODO: Implement proper draft ontology search in OntServe
+            # For now, inform user that this needs manual cleanup via OntServe UI
+            flash('Draft ontology clearing not fully implemented yet. Please clear via OntServe interface.', 'warning')
+            logger.warning(f"Draft ontology clearing requested for document {document_id} but not fully implemented")
+            
+        else:
+            # Traditional TemporaryConcept handling
+            from app.models.temporary_concept import TemporaryConcept
+            
+            # Find all temporary concepts for this document
+            all_temp_concepts = TemporaryConcept.query.filter_by(
+                document_id=document_id,
+                world_id=world_id
+            ).all()
+            
+            total_found = len(all_temp_concepts)
+            logger.info(f"Found {total_found} total temporary concepts for document {document_id}")
+            
+            if total_found > 0:
+                # Show some details about what we found
+                session_info = {}
+                for concept in all_temp_concepts:
+                    session_id = concept.session_id
+                    status = concept.status
+                    if session_id not in session_info:
+                        session_info[session_id] = {'statuses': set(), 'count': 0}
+                    session_info[session_id]['statuses'].add(status)
+                    session_info[session_id]['count'] += 1
+                
+                for session_id, info in session_info.items():
+                    logger.info(f"Session {session_id}: {info['count']} concepts with statuses {list(info['statuses'])}")
+                
+                # Delete all temporary concepts for this document directly
+                deleted_count = TemporaryConcept.query.filter_by(
+                    document_id=document_id,
+                    world_id=world_id
+                ).delete()
+                
+                # Commit the transaction
+                db.session.commit()
+                
+                flash(f'Successfully cleared {deleted_count} pending concepts', 'success')
+                logger.info(f"Successfully deleted {deleted_count} temporary concepts for document {document_id}")
+            else:
+                flash('No pending concepts found to clear', 'info')
+                logger.info(f"No temporary concepts found for document {document_id}")
+        
+    except Exception as e:
+        logger.error(f"Error clearing pending concepts for document {document_id}: {str(e)}")
+        flash('Error clearing pending concepts. Please try again.', 'error')
+    
+    return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
+
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
 @login_required
 def delete_guideline(id, document_id):
