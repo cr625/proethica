@@ -314,38 +314,7 @@
                       </div>
                     </td>
                     <td>
-                      <div class="d-flex align-items-center">
-                        {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
-                        {% set type_colors = {
-                          'role': 'bg-primary',
-                          'principle': 'bg-success', 
-                          'obligation': 'bg-warning',
-                          'state': 'bg-info',
-                          'resource': 'bg-secondary',
-                          'action': 'bg-danger',
-                          'event': 'bg-dark',
-                          'capability': 'bg-light text-dark'
-                        } %}
-                        {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
-                        {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
-                        <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
-                        <strong>{{ concept.label }}</strong>
-                        
-                        <!-- Enhanced Ontology Match Indicator -->
-                        {% if concept.ontology_match and not concept.is_new %}
-                          <span class="badge bg-success ms-2" title="Found in {{ concept.ontology_match.source or 'ontology' }}">
-                            <i class="fas fa-check-circle"></i> In Ontology
-                          </span>
-                        {% elif concept.is_new %}
-                          <span class="badge bg-warning ms-2" title="New concept not found in ontology">
-                            <i class="fas fa-plus"></i> New
-                          </span>
-                        {% else %}
-                          <span class="badge bg-danger ms-2" title="Missing match data - check service">
-                            <i class="fas fa-exclamation-triangle"></i> Error
-                          </span>
-                        {% endif %}
-                      </div>
+                      <strong>{{ concept.label }}</strong>
                     </td>
                     <td>
                       <div class="concept-type-display">
