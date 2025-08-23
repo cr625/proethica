@@ -1,0 +1,36 @@
+[Unit]
+Description=ProEthica MCP Server (Legacy - migrating to OntServe)
+After=network.target postgresql.service
+Requires=postgresql.service
+PartOf=proethica.target
+
+[Service]
+Type=exec
+User=chris
+Group=chris
+WorkingDirectory=/opt/proethica
+Environment=PATH=/opt/proethica/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=DATABASE_URL=postgresql://proethica_user:PROETHICA_PASS_HERE@localhost:5432/ai_ethical_dm
+Environment=SQLALCHEMY_DATABASE_URI=postgresql://proethica_user:PROETHICA_PASS_HERE@localhost:5432/ai_ethical_dm
+Environment=MCP_PORT=5001
+Environment=LOG_LEVEL=INFO
+ExecStart=/opt/proethica/venv/bin/python mcp/enhanced_ontology_server_with_guidelines.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proethica-mcp
+
+# This service will be phased out as ProEthica migrates to use OntServe MCP
+# Currently kept for compatibility during transition period
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/proethica/uploads /opt/proethica/logs
+
+[Install]
+WantedBy=proethica.target
