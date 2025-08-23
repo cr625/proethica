@@ -2218,6 +2218,43 @@ def save_guideline_concepts(world_id, document_id):
             logger.error(f"Auto-integration error: {integ_err}")
             flash("Concepts saved, but automatic ontology integration encountered an error.", 'warning')
         
+        # Create draft ontology in OntServe for finalized concepts
+        try:
+            use_draft_ontologies = os.environ.get('USE_DRAFT_ONTOLOGIES', 'false').lower() == 'true'
+            if use_draft_ontologies:
+                from app.services.draft_ontology_service import TemporaryConceptCompatibilityService
+                
+                # Store finalized/selected concepts in OntServe as draft ontology
+                selected_concepts_for_draft = [concepts[i] for i in selected_indices if i < len(concepts)]
+                
+                draft_session_id = TemporaryConceptCompatibilityService.store_concepts(
+                    concepts=selected_concepts_for_draft,
+                    document_id=document_id,
+                    world_id=world_id,
+                    extraction_method='llm_finalized',
+                    created_by=f'ProEthica User (Saved {len(selected_concepts_for_draft)} concepts)'
+                )
+                
+                if draft_session_id:
+                    logger.info(f"Created draft ontology in OntServe: {draft_session_id} with {len(selected_concepts_for_draft)} finalized concepts")
+                    flash(f"Concepts saved to ProEthica and OntServe draft ontology: {draft_session_id}", 'success')
+                else:
+                    logger.warning("Failed to create draft ontology in OntServe")
+                    
+        except Exception as draft_err:
+            logger.error(f"Draft ontology creation error: {draft_err}")
+            # Don't fail the save process if draft creation fails
+        
+        # Clear temporary concepts since they've been finalized
+        try:
+            session_id = request.form.get('session_id')
+            if session_id:
+                from app.services.temporary_concept_service import TemporaryConceptService
+                TemporaryConceptService.clear_session(session_id)
+                logger.info(f"Cleared temporary concepts for session: {session_id}")
+        except Exception as clear_err:
+            logger.warning(f"Failed to clear temporary concepts: {clear_err}")
+        
         # Prepare selected concepts for display
         selected_concepts = [concepts[i] for i in selected_indices if i < len(concepts)]
         concepts_json = json.dumps(selected_concepts)
@@ -2893,62 +2930,47 @@ def clear_pending_concepts(world_id, document_id):
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
     try:
-        use_draft_ontologies = os.environ.get('USE_DRAFT_ONTOLOGIES', 'false').lower() == 'true'
+        # Always clear temporary concepts - extraction now stores in temporary storage first
+        # Draft ontologies are only created when user saves/finalizes concepts
+        from app.models.temporary_concept import TemporaryConcept
         
-        if use_draft_ontologies:
-            # Handle draft ontologies
-            from app.services.draft_ontology_service import DraftOntologyService
+        # Find all temporary concepts for this document
+        all_temp_concepts = TemporaryConcept.query.filter_by(
+            document_id=document_id,
+            world_id=world_id
+        ).all()
+        
+        total_found = len(all_temp_concepts)
+        logger.info(f"Found {total_found} total temporary concepts for document {document_id}")
+        
+        if total_found > 0:
+            # Show some details about what we found
+            session_info = {}
+            for concept in all_temp_concepts:
+                session_id = concept.session_id
+                status = concept.status
+                if session_id not in session_info:
+                    session_info[session_id] = {'statuses': set(), 'count': 0}
+                session_info[session_id]['statuses'].add(status)
+                session_info[session_id]['count'] += 1
             
-            # For draft ontologies, we'd need to find and delete based on naming pattern
-            # This is a limitation of the current implementation
-            draft_name_pattern = f"extracted_doc{document_id}_world{world_id}"
+            for session_id, info in session_info.items():
+                logger.info(f"Session {session_id}: {info['count']} concepts with statuses {list(info['statuses'])}")
             
-            # TODO: Implement proper draft ontology search in OntServe
-            # For now, inform user that this needs manual cleanup via OntServe UI
-            flash('Draft ontology clearing not fully implemented yet. Please clear via OntServe interface.', 'warning')
-            logger.warning(f"Draft ontology clearing requested for document {document_id} but not fully implemented")
-            
-        else:
-            # Traditional TemporaryConcept handling
-            from app.models.temporary_concept import TemporaryConcept
-            
-            # Find all temporary concepts for this document
-            all_temp_concepts = TemporaryConcept.query.filter_by(
+            # Delete all temporary concepts for this document directly
+            deleted_count = TemporaryConcept.query.filter_by(
                 document_id=document_id,
                 world_id=world_id
-            ).all()
+            ).delete()
             
-            total_found = len(all_temp_concepts)
-            logger.info(f"Found {total_found} total temporary concepts for document {document_id}")
+            # Commit the transaction
+            db.session.commit()
             
-            if total_found > 0:
-                # Show some details about what we found
-                session_info = {}
-                for concept in all_temp_concepts:
-                    session_id = concept.session_id
-                    status = concept.status
-                    if session_id not in session_info:
-                        session_info[session_id] = {'statuses': set(), 'count': 0}
-                    session_info[session_id]['statuses'].add(status)
-                    session_info[session_id]['count'] += 1
-                
-                for session_id, info in session_info.items():
-                    logger.info(f"Session {session_id}: {info['count']} concepts with statuses {list(info['statuses'])}")
-                
-                # Delete all temporary concepts for this document directly
-                deleted_count = TemporaryConcept.query.filter_by(
-                    document_id=document_id,
-                    world_id=world_id
-                ).delete()
-                
-                # Commit the transaction
-                db.session.commit()
-                
-                flash(f'Successfully cleared {deleted_count} pending concepts', 'success')
-                logger.info(f"Successfully deleted {deleted_count} temporary concepts for document {document_id}")
-            else:
-                flash('No pending concepts found to clear', 'info')
-                logger.info(f"No temporary concepts found for document {document_id}")
+            flash(f'Successfully cleared {deleted_count} pending concepts', 'success')
+            logger.info(f"Successfully deleted {deleted_count} temporary concepts for document {document_id}")
+        else:
+            flash('No pending concepts found to clear', 'info')
+            logger.info(f"No temporary concepts found for document {document_id}")
         
     except Exception as e:
         logger.error(f"Error clearing pending concepts for document {document_id}: {str(e)}")

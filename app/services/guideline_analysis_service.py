@@ -242,28 +242,18 @@ class GuidelineAnalysisService:
                     enhanced_concepts = self._add_predicates_to_concepts(matched_concepts, relationships)
                     
                     # Use draft ontology service if enabled, otherwise use traditional TemporaryConcept
-                    use_draft_ontologies = os.environ.get('USE_DRAFT_ONTOLOGIES', 'false').lower() == 'true'
+                    # Always store in temporary storage first for pending workflow
+                    # OntServe integration happens later when user saves/finalizes concepts
+                    from app.services.temporary_concept_service import TemporaryConceptService
                     
-                    if use_draft_ontologies:
-                        from app.services.draft_ontology_service import TemporaryConceptCompatibilityService
-                        
-                        session_id = TemporaryConceptCompatibilityService.store_concepts(
-                            concepts=enhanced_concepts,
-                            document_id=guideline_id,
-                            world_id=world_id,
-                            extraction_method='llm'
-                        )
-                        logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in draft ontology with session {session_id}")
-                    else:
-                        from app.services.temporary_concept_service import TemporaryConceptService
-                        
-                        session_id = TemporaryConceptService.store_concepts(
-                            concepts=enhanced_concepts,
-                            document_id=guideline_id,
-                            world_id=world_id,
-                            extraction_method='llm'
-                        )
-                        logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in temporary storage with session {session_id}")
+                    session_id = TemporaryConceptService.store_concepts(
+                        concepts=enhanced_concepts,
+                        document_id=guideline_id,
+                        world_id=world_id,
+                        extraction_method='llm'
+                    )
+                    logger.info(f"Stored {len(enhanced_concepts)} concepts with predicates in temporary storage with session {session_id}")
+                    logger.info("Concepts stored as 'pending' - user can navigate away and return to review")
                     
                     result['session_id'] = session_id
                 except Exception as store_err:

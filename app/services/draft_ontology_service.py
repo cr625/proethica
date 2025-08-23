@@ -69,13 +69,19 @@ class DraftOntologyService:
             if not draft_name:
                 draft_name = DraftOntologyService.create_draft_name(document_id, world_id)
             
-            # Get document title for better change summary
-            document = Document.query.get(document_id)
-            doc_title = document.title if document else f"Document {document_id}"
+            # Get document title for better change summary (with app context handling)
+            try:
+                document = Document.query.get(document_id)
+                doc_title = document.title if document else f"Document {document_id}"
+            except Exception:
+                doc_title = f"Document {document_id}"
             
-            # Get world name for context
-            world = World.query.get(world_id)
-            world_name = world.name if world else f"World {world_id}"
+            # Get world name for context (with app context handling)
+            try:
+                world = World.query.get(world_id)
+                world_name = world.name if world else f"World {world_id}"
+            except Exception:
+                world_name = f"World {world_id}"
             
             change_summary = f"Extracted {len(concepts)} concepts from {doc_title} in {world_name} using {extraction_method}"
             if created_by:
