@@ -1,29 +1,38 @@
 # ProEthica 9-Concept Extraction Context
 
-**Current Phase**: Checkpoint 4 - Multi-Pass Orchestration Preparation
-**Last Updated**: 2025-01-26 1:49 PM
+**Current Phase**: Enhanced Concept Splitting Ready for Testing
+**Last Updated**: 2025-01-26
+**Status**: ✅ Generalized LLM Splitting Implemented | 🧪 Test Framework Ready
 
 ## Immediate Context
 
 ### What We've Accomplished ✅
-- **Checkpoints 1-3 COMPLETE**: Enhanced existing extractors + implemented States & Resources
-- 5/9 extractors now functional with MCP integration and heuristic fallback
-- All extractors follow consistent pattern and include classification logic
+- **ALL 9 EXTRACTORS COMPLETE**: Full formal methodology implementation
+- **Generalized LLM Splitting**: Intelligent compound concept decomposition without hardcoded patterns
+- **LangChain Orchestration**: Multi-stage processing pipeline (Split → Validate → Filter)
+- **Test Framework Ready**: Complete testing setup for enhanced splitting validation
 
-### Current Status
-- ✅ **RolesExtractor**: Working with MCP integration (5 roles extracted, 22s)
-- ✅ **ObligationsExtractor**: Enhanced with MCP integration
-- ✅ **PrinciplesExtractor**: Enhanced with MCP integration  
-- ✅ **StatesExtractor**: NEW - extracts conditions/circumstances (9 states extracted)
-- ✅ **ResourcesExtractor**: NEW - extracts codes/standards/tools (6 resources extracted)
-- ❌ **4 Remaining**: Actions, Events, Capabilities, Constraints
+### Current System Status
+- ✅ **All 9 Concept Types**: R, P, O, S, Rs, A, E, Ca, Cs - ALL WORKING
+- ✅ **Production Deployment**: Live web interface extracting 40+ concepts
+- ✅ **MCP Integration**: External ontology context functioning
+- ✅ **3-Pass Orchestration**: Entities → Normative → Behavioral working
+- 🆕 **Enhanced Splitting**: GeneralizedConceptSplitter ready for testing
 
-### Next Immediate Steps
-1. Proceed to Checkpoint 4: Multi-pass extraction orchestration
-2. Update GuidelineAnalysisService to use all 5 extractors
-3. OR continue implementing remaining 4 extractors first
-4. Add environment variable controls for new extractors
-5. Test full pipeline integration
+### 🧪 Testing Framework Ready (Next Steps When Returning)
+**Test files created in `/home/chris/onto/proethica/`:**
+- `test_enhanced_roles.py` - Comprehensive comparison test
+- `enhanced_roles_integration.py` - Integration helper
+- `concept_splitter.py` - Generalized LLM splitting implementation
+- `langchain_orchestrator.py` - Multi-stage pipeline
+- `enhanced_obligations_example.py` - Full integration example
+
+**To run enhanced splitting tests:**
+```bash
+cd /home/chris/onto/proethica
+python enhanced_roles_integration.py  # Check readiness
+python test_enhanced_roles.py         # Run comparison
+```
 
 ---
 
