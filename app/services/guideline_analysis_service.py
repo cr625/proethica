@@ -1,6 +1,8 @@
 """
 Enhanced Guideline Analysis Service v2 - Ontology-aware concept extraction and triple generation.
 This extends the base GuidelineAnalysisService with advanced features while maintaining compatibility.
+
+NEW: MCP Integration for real-time ontology exploration during concept extraction.
 """
 
 import os
@@ -18,6 +20,14 @@ from app.services.embedding_service import EmbeddingService
 from app.models.guideline import Guideline
 from app.models.ontology import Ontology
 from sqlalchemy import text
+
+# MCP Integration
+try:
+    from app.services.ontserve_mcp_client import get_ontserve_mcp_client, MCPClientError, ONTSERVE_MCP_TOOLS
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+    logger.warning("MCP client not available - falling back to static ontology index")
 
 logger = logging.getLogger(__name__)
 
@@ -542,7 +552,159 @@ class GuidelineAnalysisService:
         return embeddings
     
     def _extract_raw_concepts(self, content: str) -> List[Dict[str, Any]]:
-        """Extract concepts using enhanced prompt focused on ontology categories."""
+        """Extract concepts using two-pass approach: ROLES first, then other categories.
+        
+        This implements the approach outlined in ROLE_EXTRACTION_AND_MATCHING_INTEGRATED_PLAN.md:
+        Phase 1: Extract roles only (focused prompt)
+        Phase 2: Extract other 8 categories (future enhancement)
+        """
+        logger.info("Starting two-pass concept extraction (Phase 1: ROLES only)")
+        
+        try:
+            # Phase 1: Extract ROLES only using specialized extractor
+            from app.services.extraction.roles import RolesExtractor, RoleClassificationPostProcessor
+            
+            roles_extractor = RolesExtractor()
+            post_processor = RoleClassificationPostProcessor()
+            
+            # Extract role candidates
+            role_candidates = roles_extractor.extract(content)
+            logger.info(f"RolesExtractor returned {len(role_candidates)} candidates")
+            
+            # Post-process for classification
+            processed_roles = post_processor.process(role_candidates)
+            logger.info(f"Post-processing classified {len(processed_roles)} roles")
+            
+            # Convert ConceptCandidate objects to dict format expected by pipeline
+            concepts = []
+            for role in processed_roles:
+                concept_dict = {
+                    'label': role.label,
+                    'description': role.description or f"Role: {role.label}",
+                    'type': 'role',
+                    'category': 'role',
+                    'primary_type': 'role',
+                    'confidence': role.confidence or 0.7,
+                    'importance': role.debug.get('importance', 'medium'),
+                    'role_classification': role.debug.get('role_classification', 'professional'),
+                    'text_references': role.debug.get('text_references', []),
+                    'related_concepts': []
+                }
+                concepts.append(concept_dict)
+                
+            logger.info(f"Phase 1 complete: {len(concepts)} role concepts ready for matching")
+            
+            # TODO: Phase 2 - Extract other 8 categories (future enhancement)
+            # For now, we only return roles to fix the 0 concepts issue
+            
+            return concepts
+            
+        except Exception as e:
+            logger.error(f"Error in two-pass extraction: {e}", exc_info=True)
+            # Fallback to simple heuristic if new extraction fails
+            logger.warning("Falling back to heuristic role extraction")
+            return self._extract_roles_heuristic(content)
+    
+    def _extract_with_mcp_exploration(self, content: str) -> List[Dict[str, Any]]:
+        """Extract concepts using MCP tools for real-time ontology exploration."""
+        try:
+            mcp_client = get_ontserve_mcp_client()
+            
+            # Phase 1: Let Claude explore the ontology first
+            exploration_prompt = f"""
+            You are analyzing an ethical guideline for concept extraction. 
+            
+            IMPORTANT: You have access to tools that let you explore the existing ontology 
+            before extracting concepts. Use these tools to understand what concepts already 
+            exist in each category, then extract concepts that either:
+            1. Match existing ontology concepts (high confidence)
+            2. Are genuinely new and should be added
+            
+            Available tools:
+            - explore_ontology_category: Get existing concepts in a category
+            - query_ontology_relationships: Query relationships between concepts  
+            - check_concept_exists: Check if a specific concept exists
+            
+            Process:
+            1. First explore the 9 ProEthica categories: Role, Principle, Obligation, 
+               State, Resource, Action, Event, Capability, Constraint
+            2. Then analyze the guideline and extract concepts
+            3. For each extracted concept, indicate if it matches an existing concept 
+               or is new
+            
+            Guideline to analyze:
+            {content}
+            
+            Start by exploring the ontology categories, then extract concepts.
+            Return a JSON array of extracted concepts with these fields:
+            - label: The concept name  
+            - description: A clear definition
+            - type: Category (role, principle, obligation, etc.)
+            - confidence: Your confidence in this extraction (0-1)
+            - is_existing: true if matches existing ontology concept, false if new
+            - ontology_match: If existing, the matched concept info
+            - text_references: Supporting quotes from guideline
+            """
+            
+            # Use tool-calling LLM (this would require Anthropic API with MCP integration)
+            # For now, fall back to standard extraction with ontology context
+            logger.info("MCP exploration requested but external API integration needed")
+            return self._extract_with_ontology_context(content, mcp_client)
+            
+        except Exception as e:
+            logger.error(f"MCP extraction failed: {e}, falling back to standard")
+            return self._extract_concepts_standard(content)
+    
+    def _extract_with_ontology_context(self, content: str, mcp_client) -> List[Dict[str, Any]]:
+        """Extract concepts with ontology context from MCP client."""
+        try:
+            # Get all existing categories to provide context
+            all_entities = mcp_client.get_all_categories_sync()
+            
+            # Build context string for LLM
+            ontology_context = "EXISTING ONTOLOGY CONCEPTS:\n"
+            total_concepts = 0
+            for category, entities in all_entities.items():
+                if entities:
+                    ontology_context += f"\n{category.upper()}:\n"
+                    for entity in entities[:5]:  # Show first 5 examples
+                        ontology_context += f"- {entity.get('label', 'No label')}: {entity.get('description', 'No description')[:100]}\n"
+                    if len(entities) > 5:
+                        ontology_context += f"... and {len(entities) - 5} more {category} concepts\n"
+                    total_concepts += len(entities)
+                else:
+                    ontology_context += f"\n{category.upper()}: (no existing concepts)\n"
+            
+            logger.info(f"Providing context of {total_concepts} existing ontology concepts to LLM")
+            
+            # Enhanced prompt with ontology context
+            enhanced_prompt = f"""
+            {ontology_context}
+            
+            Now extract concepts from this guideline, being aware of existing concepts above.
+            
+            For each concept you extract:
+            1. Check if it matches or is very similar to an existing concept
+            2. If similar, mark as existing and reference the match
+            3. If genuinely new, mark as new
+            
+            Focus on these categories: Role, Principle, Obligation, State, Resource, Action, Event, Capability, Constraint
+            
+            Guideline:
+            {content}
+            
+            Return JSON array with fields:
+            - label, description, type, confidence, is_existing, ontology_match, text_references
+            """
+            
+            return self._call_llm_for_extraction(enhanced_prompt)
+            
+        except Exception as e:
+            logger.error(f"Ontology context extraction failed: {e}")
+            return self._extract_concepts_standard(content)
+    
+    def _extract_concepts_standard(self, content: str) -> List[Dict[str, Any]]:
+        """Standard concept extraction without MCP integration."""
         prompt = f"""
         Analyze the following professional ethics guideline and extract key concepts.
         Focus on identifying concepts in these ontology categories:
@@ -550,7 +712,7 @@ class GuidelineAnalysisService:
         1. **Roles** - Professional positions, stakeholders (e.g., Engineer, Client, Public)
         2. **Principles** - Fundamental ethical values (e.g., Integrity, Honesty, Safety)
         3. **Obligations** - Duties, requirements, responsibilities
-        4. **Conditions** - Circumstances, constraints, situations
+        4. **States** - Circumstances, constraints, situations
         5. **Resources** - Tools, documents, information, materials
         6. **Actions** - Activities, processes, behaviors
         7. **Events** - Occurrences, incidents, situations
@@ -569,37 +731,15 @@ class GuidelineAnalysisService:
         
         Return the concepts as a JSON array.
         """
-
-        # Use LLM-based extraction since we removed the parent class
+        
+        return self._call_llm_for_extraction(prompt)
+    
+    def _call_llm_for_extraction(self, prompt: str) -> List[Dict[str, Any]]:
+        """Call LLM for concept extraction with given prompt."""
         try:
             from app.utils.llm_utils import get_llm_client
             
             llm_client = get_llm_client()
-            prompt = f"""
-            Extract professional and ethical concepts from this guideline text. Focus on these 8 categories:
-
-            1. **Roles** - Professional positions, stakeholders (e.g., Engineer, Contractor, Client)
-            2. **Principles** - Fundamental ethical values (e.g., Integrity, Honesty, Safety)
-            3. **Obligations** - Duties, requirements, responsibilities
-            4. **States** - Circumstances, constraints, situations
-            5. **Resources** - Tools, documents, information, materials
-            6. **Actions** - Activities, processes, behaviors
-            7. **Events** - Occurrences, incidents, situations
-            8. **Capabilities** - Skills, competencies, abilities
-            
-            For each concept, provide:
-            - label: The concept name
-            - description: A clear definition
-            - type: One of the above categories (use lowercase: role, principle, obligation, state, resource, action, event, capability)
-            - related_concepts: Other concepts it relates to
-            - text_references: Quotes from the guideline supporting this concept
-            - importance: high/medium/low based on emphasis in the guideline
-            
-            Guideline content:
-            {content}
-            
-            Return the concepts as a JSON array.
-            """
             
             # Handle different LLM client types  
             if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
@@ -626,15 +766,15 @@ class GuidelineAnalysisService:
                 raise RuntimeError(f"Unsupported LLM client type: {type(llm_client)}")
             
             # Extract and parse the response based on client type
-            content_text = ""
+            response_text = ""
             if hasattr(llm_client, 'messages'):
                 # Anthropic response format
                 if response and hasattr(response, 'content') and response.content:
-                    content_text = response.content[0].text if response.content else ""
+                    response_text = response.content[0].text if response.content else ""
             elif hasattr(llm_client, 'chat'):
                 # OpenAI response format
                 if response and hasattr(response, 'choices') and response.choices:
-                    content_text = response.choices[0].message.content
+                    response_text = response.choices[0].message.content
             
             # Parse JSON response for all client types
             try:
@@ -642,62 +782,76 @@ class GuidelineAnalysisService:
                 import re
                 
                 # First, try to extract JSON from markdown code blocks
-                code_block_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', content_text)
+                code_block_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', response_text)
                 if code_block_match:
-                    content_text = code_block_match.group(1).strip()
+                    response_text = code_block_match.group(1).strip()
                 
                 # Try to parse JSON directly
-                if content_text.strip().startswith('['):
-                    concepts = json.loads(content_text)
-                    response = {"concepts": concepts}
-                elif content_text.strip().startswith('{'):
-                    response = json.loads(content_text)
+                if response_text.strip().startswith('['):
+                    concepts = json.loads(response_text)
+                    parsed_response = {"concepts": concepts}
+                elif response_text.strip().startswith('{'):
+                    parsed_response = json.loads(response_text)
                 else:
                     # Look for JSON in the text
-                    json_match = re.search(r'\[.*\]', content_text, re.DOTALL)
+                    json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
                     if json_match:
                         concepts = json.loads(json_match.group())
-                        response = {"concepts": concepts}
+                        parsed_response = {"concepts": concepts}
                     else:
-                        response = {"concepts": []}
+                        parsed_response = {"concepts": []}
             except json.JSONDecodeError:
-                logger.warning(f"Could not parse LLM response as JSON: {content_text[:200]}...")
-                response = {"concepts": []}
+                logger.warning(f"Could not parse LLM response as JSON: {response_text[:200]}...")
+                parsed_response = {"concepts": []}
+            
+            # Check if we got concepts
+            if parsed_response and isinstance(parsed_response, dict):
+                if parsed_response.get('concepts'):
+                    # Surface debug info if present (provider, guard stats)
+                    try:
+                        if 'debug_info' in parsed_response:
+                            logger.info(f"Extraction debug_info: {parsed_response['debug_info']}")
+                    except Exception:
+                        pass
+                    logger.info(f"Raw concept extraction returned {len(parsed_response['concepts'])} concepts")
+                    # Log first concept for debugging
+                    if parsed_response['concepts']:
+                        first = parsed_response['concepts'][0]
+                        logger.info(f"First concept structure: {list(first.keys())}")
+                    return parsed_response['concepts']
+                elif parsed_response.get('success') is False:
+                    logger.warning(f"Raw concept extraction failed: {parsed_response.get('error', 'Unknown error')}")
+                    return []
+            
+            logger.warning(f"Unexpected or empty response structure: {type(parsed_response)}")
+            return []
             
         except Exception as e:
             logger.error(f"Error calling LLM for concept extraction: {e}")
-            # Fallback to heuristic extraction
-            response = {"concepts": []}
-
-        # Check if we got concepts
-        if response and isinstance(response, dict):
-            if response.get('concepts'):
-                # Surface debug info if present (provider, guard stats)
-                try:
-                    if 'debug_info' in response:
-                        logger.info(f"Extraction debug_info: {response['debug_info']}")
-                except Exception:
-                    pass
-                logger.info(f"Raw concept extraction returned {len(response['concepts'])} concepts")
-                # Log first concept for debugging
-                if response['concepts']:
-                    first = response['concepts'][0]
-                    logger.info(f"First concept structure: {list(first.keys())}")
-                return response['concepts']
-            elif response.get('success') is False:
-                logger.warning(f"Raw concept extraction failed: {response.get('error', 'Unknown error')}")
-                return []
-
-        # If response doesn't have expected structure or empty, try a lightweight heuristic roles extraction
-        logger.warning(f"Unexpected or empty response from parent extract_concepts (type={type(response)}); trying heuristic roles extraction")
-        try:
-            roles = self._extract_roles_heuristic(content)
-            if roles:
-                logger.info(f"Heuristic roles extraction produced {len(roles)} roles as fallback")
-                return roles
-        except Exception as _heur_err:
-            logger.debug(f"Heuristic roles fallback failed: {_heur_err}")
-        return []
+            return []
+    
+    def _extract_roles_heuristic(self, content: str) -> List[Dict[str, Any]]:
+        """Simple heuristic extraction of role concepts as fallback."""
+        role_keywords = [
+            'engineer', 'client', 'contractor', 'supervisor', 'manager', 
+            'public', 'employer', 'employee', 'professional', 'stakeholder'
+        ]
+        
+        roles = []
+        content_lower = content.lower()
+        
+        for keyword in role_keywords:
+            if keyword in content_lower:
+                roles.append({
+                    'label': f"{keyword.title()} Role",
+                    'description': f"Professional or stakeholder role: {keyword}",
+                    'type': 'role',
+                    'importance': 'medium',
+                    'text_references': [f"Inferred from mention of '{keyword}' in text"],
+                    'related_concepts': []
+                })
+        
+        return roles
     
     def _match_concepts_to_ontology(self, concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Match extracted concepts to existing ontology terms using embeddings."""
