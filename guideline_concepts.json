@@ -1,7 +1,7 @@
 [
   {
     "label": "Engineer",
-    "description": "Professional engineers who perform technical services and have professional duties and ethical obligations in their practice",
+    "description": "Professional engineer responsible for providing engineering services, designing systems, and ensuring public safety through technical expertise",
     "type": "role",
     "category": "role",
     "primary_type": "role",
@@ -24,32 +24,8 @@
     "match_confidence": 0.9
   },
   {
-    "label": "Public",
-    "description": "General public whose safety, health, and welfare must be protected by engineers",
-    "type": "role",
-    "category": "role",
-    "primary_type": "role",
-    "confidence": 0.9,
-    "importance": "high",
-    "role_classification": "professional",
-    "text_references": [
-      "Hold paramount the safety, health, and welfare of the public",
-      "Engineers shall avoid conduct that deceives the public",
-      "Engineers shall strive to serve the public interest"
-    ],
-    "related_concepts": [],
-    "ontology_match": {
-      "uri": "http://proethica.org/ontology/engineering-ethics#PublicSafetyPrinciple",
-      "label": "Public Safety Principle",
-      "category": "obligation",
-      "similarity": 0.7715508447275764
-    },
-    "is_new": false,
-    "match_confidence": 0.7715508447275764
-  },
-  {
     "label": "Employer",
-    "description": "Organizations or individuals who employ engineers and receive their professional services",
+    "description": "Organization or individual that employs engineers and receives their professional services",
     "type": "role",
     "category": "role",
     "primary_type": "role",
@@ -59,7 +35,7 @@
     "text_references": [
       "Act for each employer or client as faithful agents or trustees",
       "Notify employer or client and appropriate authority if judgment is overruled",
-      "Warn employers or clients of project issues"
+      "Do not disclose client/employer information without consent"
     ],
     "related_concepts": [],
     "is_new": true,
@@ -71,7 +47,7 @@
   },
   {
     "label": "Client",
-    "description": "Individuals or organizations who contract engineers for professional services",
+    "description": "Individual or organization that contracts with engineers for professional services",
     "type": "role",
     "category": "role",
     "primary_type": "role",
@@ -80,8 +56,32 @@
     "role_classification": "professional",
     "text_references": [
       "Act for each employer or client as faithful agents or trustees",
-      "Do not disclose client/employer information without consent",
-      "Warn employers or clients of project issues"
+      "Notify employer or client and appropriate authority if judgment is overruled",
+      "Do not disclose client/employer information without consent"
+    ],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#ClientRepresentativeRole",
+      "label": "Client Representative Role",
+      "category": "role",
+      "similarity": 0.7542136890438028
+    },
+    "is_new": false,
+    "match_confidence": 0.7542136890438028
+  },
+  {
+    "label": "Public",
+    "description": "General population whose safety, health, and welfare are affected by engineering work",
+    "type": "role",
+    "category": "role",
+    "primary_type": "role",
+    "confidence": 0.9,
+    "importance": "high",
+    "role_classification": "professional",
+    "text_references": [
+      "Hold paramount the safety, health, and welfare of the public",
+      "Engineers shall hold paramount the safety, health, and welfare of the public",
+      "Engineers shall strive to serve the public interest"
     ],
     "related_concepts": [],
     "is_new": true,
@@ -93,7 +93,7 @@
   },
   {
     "label": "Sales Engineer",
-    "description": "Engineers who work in sales roles and may make professional product comparisons",
+    "description": "Engineer who works in sales capacity and makes professional product comparisons",
     "type": "role",
     "category": "role",
     "primary_type": "role",
@@ -108,6 +108,1590 @@
     "suggested_parent": {
       "uri": "http://proethica.ai/ontology#Role",
       "label": "Role",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "NSPE Code of Ethics",
+    "description": "National Society of Professional Engineers' comprehensive code of ethical conduct containing fundamental canons, rules of practice, and professional obligations for engineers",
+    "type": "resource",
+    "category": "resource",
+    "primary_type": "resource",
+    "confidence": 0.95,
+    "resource_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#NSPECodeOfEthics",
+      "label": "NSPE Code of Ethics",
+      "category": "class",
+      "similarity": 0.99
+    },
+    "is_new": false,
+    "match_confidence": 0.99
+  },
+  {
+    "label": "Engineering Standards",
+    "description": "Technical standards and specifications that engineering documents must conform to for approval",
+    "type": "resource",
+    "category": "resource",
+    "primary_type": "resource",
+    "confidence": 0.85,
+    "resource_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Resource",
+      "label": "Resource",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Professional Registration Laws",
+    "description": "Legal requirements and regulations governing professional engineering licensure and practice",
+    "type": "resource",
+    "category": "resource",
+    "primary_type": "resource",
+    "confidence": 0.8,
+    "resource_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Resource",
+      "label": "Resource",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Professional or Public Bodies",
+    "description": "Regulatory and professional organizations responsible for receiving reports of code violations and maintaining professional standards",
+    "type": "resource",
+    "category": "resource",
+    "primary_type": "resource",
+    "confidence": 0.75,
+    "resource_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Resource",
+      "label": "Resource",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Appropriate Authority",
+    "description": "Designated officials or organizations that must be notified when engineering judgments are overruled in ways that endanger life or property",
+    "type": "resource",
+    "category": "resource",
+    "primary_type": "resource",
+    "confidence": 0.7,
+    "resource_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Resource",
+      "label": "Resource",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Public Safety and Welfare",
+    "description": "Engineers must hold paramount the safety, health, and welfare of the public in all professional activities",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.95,
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#PublicSafetyPrinciple",
+      "label": "Public Safety Principle",
+      "category": "obligation",
+      "similarity": 0.8439334987529401
+    },
+    "is_new": false,
+    "match_confidence": 0.8439334987529401
+  },
+  {
+    "label": "Honesty and Integrity",
+    "description": "Engineers must exhibit the highest standards of honesty and integrity in all professional conduct",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.95,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Competence",
+    "description": "Engineers shall perform services only in areas of their professional competence and expertise",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.9,
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#CompetencePrinciple",
+      "label": "Competence Principle",
+      "category": "principle",
+      "similarity": 0.8433739491436555
+    },
+    "is_new": false,
+    "match_confidence": 0.8433739491436555
+  },
+  {
+    "label": "Truthfulness and Objectivity",
+    "description": "Engineers must issue public statements and provide testimony in an objective and truthful manner based on facts",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.9,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Fiduciary Duty",
+    "description": "Engineers shall act as faithful agents or trustees for each employer or client",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.85,
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#Fiduciary_Duty",
+      "label": "Fiduciary Duty",
+      "category": "obligation",
+      "similarity": 0.7845930111913844
+    },
+    "is_new": false,
+    "match_confidence": 0.7845930111913844
+  },
+  {
+    "label": "Avoidance of Deception",
+    "description": "Engineers must avoid deceptive acts and conduct that deceives the public",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.9,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Confidentiality",
+    "description": "Engineers must maintain confidentiality of client and employer information without proper consent or legal obligation",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.85,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Conflict of Interest Avoidance",
+    "description": "Engineers must avoid and disclose conflicts of interest and not be influenced by conflicting interests",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.85,
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#ConflictOfInterestState",
+      "label": "Conflict of Interest State",
+      "category": "state",
+      "similarity": 0.8298737197927245
+    },
+    "is_new": false,
+    "match_confidence": 0.8298737197927245
+  },
+  {
+    "label": "Professional Responsibility",
+    "description": "Engineers shall accept responsibility for their actions and conduct themselves to enhance the profession's honor and reputation",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.85,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Fairness and Equity",
+    "description": "Engineers must provide services with fairness, equity, and impartiality, treating all individuals with fairness and respect",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.8,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Public Interest Service",
+    "description": "Engineers should strive to serve the public interest through civic engagement, education, and promoting understanding of engineering",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.8,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Professional Credit and Recognition",
+    "description": "Engineers must appropriately credit others for their work and not harm others' professional reputation",
+    "type": "principle",
+    "category": "principle",
+    "primary_type": "principle",
+    "confidence": 0.75,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Principle",
+      "label": "Principle",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Hold paramount public safety, health, and welfare",
+    "description": "Engineers must prioritize the safety, health, and welfare of the public above all other considerations in their professional duties",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#PublicSafetyPrinciple",
+      "label": "Public Safety Principle",
+      "category": "obligation",
+      "similarity": 0.8138926113393348
+    },
+    "is_new": false,
+    "match_confidence": 0.8138926113393348
+  },
+  {
+    "label": "Perform services only within competence",
+    "description": "Engineers shall only undertake work in areas where they possess adequate knowledge, training, and experience",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#CompetencePrinciple",
+      "label": "Competence Principle",
+      "category": "principle",
+      "similarity": 0.7648162325017565
+    },
+    "is_new": false,
+    "match_confidence": 0.7648162325017565
+  },
+  {
+    "label": "Issue objective and truthful public statements",
+    "description": "Engineers must provide factual, unbiased information in all public communications and testimony",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Act as faithful agents or trustees",
+    "description": "Engineers must serve employers and clients with loyalty, avoiding conflicts of interest and maintaining fiduciary responsibilities",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid deceptive acts",
+    "description": "Engineers must not engage in misrepresentation, bribery, or other fraudulent practices",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Conduct themselves honorably and ethically",
+    "description": "Engineers must maintain high standards of professional behavior to enhance the profession's reputation",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Maintain honesty and integrity",
+    "description": "Engineers must admit errors, correct mistakes, and deal truthfully in all professional matters",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Serve the public interest",
+    "description": "Engineers should engage in civic activities, promote public understanding of engineering, and support sustainability",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Maintain confidentiality",
+    "description": "Engineers must protect confidential information of clients and employers without proper consent or legal obligation",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid conflicting interests",
+    "description": "Engineers must reject improper inducements and avoid situations that compromise professional judgment",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Not seek gain through improper means",
+    "description": "Engineers must avoid unethical fee arrangements and misuse of employer resources for personal benefit",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Not harm others' professional reputation",
+    "description": "Engineers must not unfairly damage the professional standing of colleagues without proper disclosure",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Accept responsibility for actions",
+    "description": "Engineers must follow registration laws and cannot hide behind corporate structures to avoid ethical accountability",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Credit others appropriately",
+    "description": "Engineers must acknowledge contributions of others and respect proprietary rights in professional work",
+    "type": "obligation",
+    "category": "obligation",
+    "primary_type": "obligation",
+    "confidence": 1.0,
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Obligation",
+      "label": "Obligation",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "erform under a standard of professional behavior",
+    "description": "Constraint: erform under a standard of professional behavior",
+    "type": "constraint",
+    "category": "constraint",
+    "primary_type": "constraint",
+    "confidence": 0.65,
+    "constraint_type": "professional_constraint",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "Constraint",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "- Report known code violations to profession",
+    "description": "Constraint: - Report known code violations to profession",
+    "type": "constraint",
+    "category": "constraint",
+    "primary_type": "constraint",
+    "confidence": 0.65,
+    "constraint_type": "professional_constraint",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "Constraint",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "perform under a standard of professional behavi",
+    "description": "Action: perform under a standard of professional behavi",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "performance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "conduct.",
+    "description": "Action: conduct.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "performance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Perform services only in areas of their compete",
+    "description": "Action: Perform services only in areas of their compete",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "performance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid deceptive acts.",
+    "description": "Action: Avoid deceptive acts.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Conduct themselves honorably",
+    "description": "Action: Conduct themselves honorably",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "performance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Notify employer",
+    "description": "Action: Notify employer",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "disclose client/employer information without con",
+    "description": "Action: disclose client/employer information without con",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Report known code violations to professional o",
+    "description": "Action: Report known code violations to professional o",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Coordinate entire projects only with proper segmen",
+    "description": "Action: Coordinate entire projects only with proper segmen",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "collaboration_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Disclose affiliations when speaking for interest",
+    "description": "Action: Disclose affiliations when speaking for interest",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Disclose actual",
+    "description": "Action: Disclose actual",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid decision-making in public positions inv",
+    "description": "Action: Avoid decision-making in public positions inv",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Notify employer before accepting outside work.",
+    "description": "Action: Notify employer before accepting outside work.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Uphold professional dignity.",
+    "description": "Action: Uphold professional dignity.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "maintenance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "report pressure.",
+    "description": "Action: report pressure.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "communication_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "avoid conduct that deceives the public.",
+    "description": "Action: avoid conduct that deceives the public.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "conduct that deceives the public.",
+    "description": "Action: conduct that deceives the public.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "performance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid material misrepresentations",
+    "description": "Action: Avoid material misrepresentations",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "maintain confidentiality.",
+    "description": "Action: maintain confidentiality.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "maintenance_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid conflicts in new employment with specia",
+    "description": "Action: Avoid conflicts in new employment with specia",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid contingent fee arrangements that compro",
+    "description": "Action: Avoid contingent fee arrangements that compro",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "review another engineer\u2019s work without disclos",
+    "description": "Action: review another engineer\u2019s work without disclos",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "evaluation_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Avoid unethical acts under corporate cover.",
+    "description": "Action: Avoid unethical acts under corporate cover.",
+    "type": "action",
+    "category": "action",
+    "primary_type": "action",
+    "confidence": 0.6,
+    "action_type": "prevention_action",
+    "original_compound": null,
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Action",
+      "label": "Action",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Judgment overruled",
+    "description": "When an engineer's professional judgment is overruled in a way that endangers life or property",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.9,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Code violation discovery",
+    "description": "When engineers become aware of violations of codes, standards, or regulations",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.9,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Conflict of interest discovery",
+    "description": "When actual or potential conflicts of interest are identified",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.9,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Error occurrence",
+    "description": "When mistakes or errors are made in engineering work",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.8,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Project issues",
+    "description": "When problems or complications arise in engineering projects",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.8,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Pressure to sign non-compliant documents",
+    "description": "When engineers face pressure to approve documents that don't meet standards",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.9,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Gift or consideration offer",
+    "description": "When engineers are offered gifts, bribes, or other considerations from outside parties",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.8,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Outside work opportunity",
+    "description": "When engineers are presented with work opportunities outside their primary employment",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.7,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Request for confidential information",
+    "description": "When there are requests or pressures to disclose confidential client or employer information",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.8,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Fraudulent enterprise association",
+    "description": "When engineers encounter opportunities to associate with fraudulent or dishonest enterprises",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.8,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Unlawful practice request",
+    "description": "When engineers are asked to aid or participate in unlawful engineering practices",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.9,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Competence boundary exceeded",
+    "description": "When engineers are asked to work outside their areas of expertise or competence",
+    "type": "event",
+    "category": "event",
+    "primary_type": "event",
+    "confidence": 0.8,
+    "event_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Event",
+      "label": "Event",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Professional competence",
+    "description": "Ability to perform services only in areas of expertise and qualification",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.9,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#Professional_Competence",
+      "label": "Professional Competence",
+      "category": "principle",
+      "similarity": 0.8198917841977483
+    },
+    "is_new": false,
+    "match_confidence": 0.8198917841977483
+  },
+  {
+    "label": "Technical expertise",
+    "description": "Specialized knowledge in specific engineering domains",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#TechnicalExpertiseCapability",
+      "label": "Technical Expertise Capability",
+      "category": "capability",
+      "similarity": 0.8575678624390538
+    },
+    "is_new": false,
+    "match_confidence": 0.8575678624390538
+  },
+  {
+    "label": "Ethical judgment",
+    "description": "Ability to make decisions based on highest principles of ethical conduct",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.9,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Honesty",
+    "description": "Capability to exhibit truthfulness and integrity in professional conduct",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.9,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#Honesty_and_Integrity",
+      "label": "Honesty and Integrity",
+      "category": "principle",
+      "similarity": 0.828615585638314
+    },
+    "is_new": false,
+    "match_confidence": 0.828615585638314
+  },
+  {
+    "label": "Integrity",
+    "description": "Ability to maintain moral uprightness and adherence to ethical principles",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.9,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Objectivity",
+    "description": "Capability to issue statements and make decisions in an impartial manner",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Communication skills",
+    "description": "Ability to issue public statements in truthful and objective manner",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Problem-solving",
+    "description": "Cognitive ability to address engineering challenges and project issues",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.7,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Professional responsibility",
+    "description": "Capability to accept and fulfill professional duties and obligations",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#Professional_Accountability",
+      "label": "Professional Accountability",
+      "category": "obligation",
+      "similarity": 0.8215922585119901
+    },
+    "is_new": false,
+    "match_confidence": 0.8215922585119901
+  },
+  {
+    "label": "Confidentiality management",
+    "description": "Ability to maintain and protect confidential information appropriately",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Conflict identification",
+    "description": "Capability to recognize and disclose conflicts of interest",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Quality assurance",
+    "description": "Ability to approve only engineering documents that conform to standards",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#QualityAssuranceAction",
+      "label": "Quality Assurance Action",
+      "category": "action",
+      "similarity": 0.7535905211388788
+    },
+    "is_new": false,
+    "match_confidence": 0.7535905211388788
+  },
+  {
+    "label": "Professional development",
+    "description": "Commitment to ongoing learning and skill enhancement",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.7,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Public safety awareness",
+    "description": "Capability to prioritize public health, safety, and welfare",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.9,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Truthful representation",
+    "description": "Ability to accurately represent qualifications and work without deception",
+    "type": "capability",
+    "category": "capability",
+    "primary_type": "capability",
+    "confidence": 0.8,
+    "capability_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://proethica.ai/ontology#Capability",
+      "label": "Capability",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Public safety endangerment",
+    "description": "Condition where engineering judgment being overruled could endanger life or property",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.9,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Outside area of competence",
+    "description": "Situation where an engineer lacks the necessary expertise or qualifications for a particular assignment or decision",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.95,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Conflict of interest",
+    "description": "Situation where personal, financial, or other interests may compromise professional judgment or loyalty to employer/client",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.9,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "ontology_match": {
+      "uri": "http://proethica.org/ontology/engineering-ethics#Conflict_of_Interest",
+      "label": "Conflict of Interest",
+      "category": "principle",
+      "similarity": 0.9037562833585088
+    },
+    "is_new": false,
+    "match_confidence": 0.9037562833585088
+  },
+  {
+    "label": "Confidential information disclosure",
+    "description": "State involving access to or potential sharing of client/employer confidential or proprietary information",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.85,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Code violation knowledge",
+    "description": "Condition where an engineer becomes aware of violations of applicable codes, standards, or regulations",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.8,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Multiple compensation arrangement",
+    "description": "Situation where an engineer receives or may receive compensation from multiple parties for the same work or related services",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.8,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Public decision-making role",
+    "description": "Condition where an engineer serves in a governmental or public capacity that involves decision-making affecting their private interests",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.75,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
+      "confidence": 0.6
+    }
+  },
+  {
+    "label": "Specialized knowledge from previous employment",
+    "description": "State where an engineer possesses confidential or proprietary knowledge from former employer that could create conflicts in new employment",
+    "type": "state",
+    "category": "state",
+    "primary_type": "state",
+    "confidence": 0.8,
+    "state_type": "general",
+    "text_references": [],
+    "related_concepts": [],
+    "is_new": true,
+    "suggested_parent": {
+      "uri": "http://www.w3.org/2002/07/owl#Thing",
+      "label": "State",
       "confidence": 0.6
     }
   }

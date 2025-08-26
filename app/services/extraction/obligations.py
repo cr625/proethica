@@ -28,10 +28,11 @@ class ObligationsExtractor(Extractor):
         self.provider = (provider or 'auto').lower()
 
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
-        """Heuristic extraction: capture sentences with normative modals as obligations.
+        """Enhanced extraction with atomic concept splitting for compound obligations.
 
-        This is a lightweight baseline to unblock linking; it can be replaced by
-        provider-backed extraction (Gemini/OpenAI/MCP) without changing callers.
+        This addresses the compound concept issue where complex obligations like:
+        "Practice only within areas of competence, Avoid and disclose conflicts of interest"
+        should be split into atomic concepts.
         """
         if not text:
             return []
@@ -41,50 +42,134 @@ class ObligationsExtractor(Extractor):
             try:
                 items = self._extract_with_llm(text)
                 if items:
-                    return [
-                        ConceptCandidate(
-                            label=i.get('label') or i.get('obligation') or i.get('name') or '',
-                            description=i.get('description') or i.get('explanation') or None,
-                            primary_type='obligation',
-                            category='obligation',
-                            confidence=float(i.get('confidence', 0.7)) if isinstance(i.get('confidence', 0.7), (int, float, str)) else 0.7,
-                            debug={'source': 'provider', 'provider': self.provider}
-                        )
-                        for i in items
-                        if (i.get('label') or i.get('obligation') or i.get('name'))
-                    ]
+                    candidates = []
+                    for i in items:
+                        label = i.get('label') or i.get('obligation') or i.get('name') or ''
+                        if label:
+                            # Split compound obligations into atomic concepts
+                            atomic_obligations = self._split_compound_obligation(label)
+                            for atomic_label in atomic_obligations:
+                                candidates.append(ConceptCandidate(
+                                    label=atomic_label,
+                                    description=i.get('description') or i.get('explanation') or None,
+                                    primary_type='obligation',
+                                    category='obligation',
+                                    confidence=float(i.get('confidence', 0.7)) if isinstance(i.get('confidence', 0.7), (int, float, str)) else 0.7,
+                                    debug={
+                                        'source': 'provider', 
+                                        'provider': self.provider,
+                                        'original_compound': label if len(atomic_obligations) > 1 else None
+                                    }
+                                ))
+                    return candidates
             except Exception:
                 # Fall through to heuristic if provider path fails
                 pass
+                
+        # Heuristic extraction with atomic splitting
+        return self._extract_heuristic_with_atomic_splitting(text, guideline_id)
+
+    def _extract_heuristic_with_atomic_splitting(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
+        """Heuristic extraction with compound obligation splitting."""
         # Split into sentences conservatively
         sentences = re.split(r"(?<=[\.!?])\s+", text.strip())
         modals = re.compile(r"\b(must|shall|should|required to|responsible for|obliged to|obligation to)\b", re.IGNORECASE)
         seen: Set[str] = set()
         results: List[ConceptCandidate] = []
+        
         for s in sentences:
             if not s:
                 continue
             if modals.search(s):
-                label = s.strip()
-                # Normalize and dedupe on lowercase label
-                key = label.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                # Truncate overly long labels for display; keep full text in description
-                display = label if len(label) <= 160 else label[:157] + '…'
-                results.append(ConceptCandidate(
-                    label=display,
-                    description=label if display != label else None,
-                    primary_type='obligation',
-                    category='obligation',
-                    confidence=0.5,
-                    debug={
-                        'source': 'heuristic_modals',
-                        'guideline_id': guideline_id
-                    }
-                ))
+                # Split compound obligations into atomic parts
+                atomic_obligations = self._split_compound_obligation(s.strip())
+                
+                for atomic_label in atomic_obligations:
+                    # Normalize and dedupe on lowercase label
+                    key = atomic_label.lower()
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    
+                    # Truncate overly long labels for display; keep full text in description
+                    display = atomic_label if len(atomic_label) <= 160 else atomic_label[:157] + '…'
+                    
+                    results.append(ConceptCandidate(
+                        label=display,
+                        description=atomic_label if display != atomic_label else None,
+                        primary_type='obligation',
+                        category='obligation',
+                        confidence=0.5,
+                        debug={
+                            'source': 'heuristic_modals_atomic',
+                            'guideline_id': guideline_id,
+                            'original_sentence': s.strip() if len(atomic_obligations) > 1 else None
+                        }
+                    ))
         return results
+
+    def _split_compound_obligation(self, obligation_text: str) -> List[str]:
+        """Split compound obligations into atomic concepts.
+        
+        Examples:
+        - "Practice only within areas of competence, avoid conflicts of interest"
+          -> ["Practice only within areas of competence", "Avoid conflicts of interest"]
+        - "Disclose and avoid conflicts of interest"  
+          -> ["Disclose conflicts of interest", "Avoid conflicts of interest"]
+        """
+        if not obligation_text or len(obligation_text.strip()) < 10:
+            return [obligation_text]
+            
+        # Pattern 1: Simple comma-separated obligations
+        if ',' in obligation_text:
+            parts = [part.strip() for part in obligation_text.split(',')]
+            # Filter out very short parts (likely conjunctions)
+            parts = [part for part in parts if len(part) > 8 and any(modal in part.lower() for modal in ['shall', 'must', 'should', 'avoid', 'disclose', 'maintain', 'ensure', 'perform', 'provide'])]
+            if len(parts) > 1:
+                return parts
+        
+        # Pattern 2: "X and Y" constructions with obligation verbs
+        and_pattern = r'\b(shall|must|should)\s+([^,]+)\s+and\s+([^,.]+)'
+        and_match = re.search(and_pattern, obligation_text, re.IGNORECASE)
+        if and_match:
+            modal = and_match.group(1)
+            first_action = and_match.group(2).strip()
+            second_action = and_match.group(3).strip()
+            
+            # Create two separate atomic obligations
+            return [
+                f"{modal} {first_action}",
+                f"{modal} {second_action}"
+            ]
+        
+        # Pattern 3: "Disclose and avoid" type constructions  
+        verb_and_verb_pattern = r'\b(\w+)\s+and\s+(\w+)\s+([^,.]+)'
+        verb_match = re.search(verb_and_verb_pattern, obligation_text, re.IGNORECASE)
+        if verb_match and any(verb.lower() in ['disclose', 'avoid', 'maintain', 'ensure', 'protect'] for verb in [verb_match.group(1), verb_match.group(2)]):
+            verb1 = verb_match.group(1)
+            verb2 = verb_match.group(2)
+            object_phrase = verb_match.group(3).strip()
+            
+            return [
+                f"{verb1} {object_phrase}",
+                f"{verb2} {object_phrase}"
+            ]
+        
+        # Pattern 4: Multiple modal verbs in one sentence
+        multi_modal_pattern = r'(shall [^,]+),?\s*(?:and\s+)?(shall|must|should) ([^,.]+)'
+        multi_match = re.search(multi_modal_pattern, obligation_text, re.IGNORECASE)
+        if multi_match:
+            first_obligation = multi_match.group(1).strip()
+            second_modal = multi_match.group(2)
+            second_action = multi_match.group(3).strip()
+            
+            return [
+                first_obligation,
+                f"{second_modal} {second_action}"
+            ]
+        
+        # If no compound patterns found, return as single obligation
+        return [obligation_text]
 
     # ---- Provider-backed helpers ----
 

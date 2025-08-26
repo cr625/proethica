@@ -552,14 +552,340 @@ class GuidelineAnalysisService:
         return embeddings
     
     def _extract_raw_concepts(self, content: str) -> List[Dict[str, Any]]:
-        """Extract concepts using two-pass approach: ROLES first, then other categories.
+        """Multi-pass concept extraction integrating 5 working extractors.
         
-        This implements the approach outlined in ROLE_EXTRACTION_AND_MATCHING_INTEGRATED_PLAN.md:
-        Phase 1: Extract roles only (focused prompt)
-        Phase 2: Extract other 8 categories (future enhancement)
+        Implements Checkpoint 4: Multi-pass orchestration
+        - Pass 1: Entities (Roles, Resources) - WHO and WHAT
+        - Pass 2: Normative (Principles, Obligations) - SHOULD/MUST
+        - Pass 3: Contextual (States) - WHEN/WHERE conditions
         """
-        logger.info("Starting two-pass concept extraction (Phase 1: ROLES only)")
+        # Check if multi-pass extraction is enabled
+        extraction_mode = os.environ.get('EXTRACTION_MODE', 'single_pass')
+        if extraction_mode == 'multi_pass':
+            logger.info("Starting multi-pass concept extraction (5 extractors)")
+            return self._extract_multi_pass(content)
+        else:
+            logger.info("Using single-pass role extraction (legacy mode)")
+            return self._extract_single_pass_roles(content)
+    
+    def _extract_multi_pass(self, content: str) -> List[Dict[str, Any]]:
+        """Multi-pass extraction with all 9 working extractors organized in 3 logical passes."""
+        all_concepts = []
         
+        try:
+            # Pass 1: Entities (Roles + Resources) - WHO and WHAT
+            logger.info("=== PASS 1: ENTITIES (Roles + Resources) ===")
+            entities_concepts = self._extract_entities_pass(content)
+            all_concepts.extend(entities_concepts)
+            logger.info(f"Pass 1 complete: {len(entities_concepts)} entity concepts")
+            
+            # Pass 2: Normative (Principles + Obligations + Constraints) - SHOULD/MUST/CAN'T  
+            logger.info("=== PASS 2: NORMATIVE (Principles + Obligations + Constraints) ===")
+            normative_concepts = self._extract_normative_pass(content)
+            all_concepts.extend(normative_concepts)
+            logger.info(f"Pass 2 complete: {len(normative_concepts)} normative concepts")
+            
+            # Pass 3: Behavioral (Actions + Events + Capabilities + States) - HOW/WHEN/WHERE
+            logger.info("=== PASS 3: BEHAVIORAL (Actions + Events + Capabilities + States) ===") 
+            behavioral_concepts = self._extract_behavioral_pass(content)
+            all_concepts.extend(behavioral_concepts)
+            logger.info(f"Pass 3 complete: {len(behavioral_concepts)} behavioral concepts")
+            
+            logger.info(f"Complete 9-concept extraction: {len(all_concepts)} total concepts")
+            return all_concepts
+            
+        except Exception as e:
+            logger.error(f"Error in 9-concept extraction: {e}", exc_info=True)
+            # Fallback to 5-concept extraction
+            logger.warning("Falling back to 5-concept extraction")
+            return self._extract_5_concept_fallback(content)
+    
+    def _extract_entities_pass(self, content: str) -> List[Dict[str, Any]]:
+        """Pass 1: Extract entities (Roles + Resources) - WHO and WHAT."""
+        entities = []
+        
+        # Extract Roles
+        try:
+            from app.services.extraction.roles import RolesExtractor, RoleClassificationPostProcessor
+            
+            roles_extractor = RolesExtractor()
+            post_processor = RoleClassificationPostProcessor()
+            
+            role_candidates = roles_extractor.extract(content)
+            processed_roles = post_processor.process(role_candidates)
+            
+            for role in processed_roles:
+                entities.append({
+                    'label': role.label,
+                    'description': role.description or f"Role: {role.label}",
+                    'type': 'role',
+                    'category': 'role', 
+                    'primary_type': 'role',
+                    'confidence': role.confidence or 0.7,
+                    'importance': role.debug.get('importance', 'medium'),
+                    'role_classification': role.debug.get('role_classification', 'professional'),
+                    'text_references': role.debug.get('text_references', []),
+                    'related_concepts': []
+                })
+                
+            logger.info(f"Roles: {len(processed_roles)} extracted")
+            
+        except Exception as e:
+            logger.error(f"Error extracting roles in entities pass: {e}")
+        
+        # Extract Resources if enabled
+        if os.environ.get('ENABLE_RESOURCES_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.resources import ResourcesExtractor
+                
+                resources_extractor = ResourcesExtractor()
+                resource_candidates = resources_extractor.extract(content)
+                
+                for resource in resource_candidates:
+                    entities.append({
+                        'label': resource.label,
+                        'description': resource.description or f"Resource: {resource.label}",
+                        'type': 'resource',
+                        'category': 'resource',
+                        'primary_type': 'resource', 
+                        'confidence': resource.confidence or 0.65,
+                        'resource_type': resource.debug.get('resource_type', 'general'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Resources: {len(resource_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting resources in entities pass: {e}")
+        
+        return entities
+    
+    def _extract_normative_pass(self, content: str) -> List[Dict[str, Any]]:
+        """Pass 2: Extract normative concepts (Principles + Obligations + Constraints) - SHOULD/MUST/CAN'T."""
+        normative = []
+        
+        # Extract Principles if enabled  
+        if os.environ.get('ENABLE_PRINCIPLES_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.principles import PrinciplesExtractor
+                
+                principles_extractor = PrinciplesExtractor()
+                principle_candidates = principles_extractor.extract(content)
+                
+                for principle in principle_candidates:
+                    normative.append({
+                        'label': principle.label,
+                        'description': principle.description or f"Principle: {principle.label}",
+                        'type': 'principle',
+                        'category': 'principle',
+                        'primary_type': 'principle',
+                        'confidence': principle.confidence or 0.65,
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Principles: {len(principle_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting principles in normative pass: {e}")
+        
+        # Extract Obligations if enabled (with atomic splitting)
+        if os.environ.get('ENABLE_OBLIGATIONS_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.obligations import ObligationsExtractor
+                
+                obligations_extractor = ObligationsExtractor()
+                obligation_candidates = obligations_extractor.extract(content)
+                
+                for obligation in obligation_candidates:
+                    normative.append({
+                        'label': obligation.label,
+                        'description': obligation.description or f"Obligation: {obligation.label}",
+                        'type': 'obligation',
+                        'category': 'obligation',
+                        'primary_type': 'obligation',
+                        'confidence': obligation.confidence or 0.7,
+                        'original_compound': obligation.debug.get('original_compound'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Obligations: {len(obligation_candidates)} extracted (with atomic splitting)")
+                
+            except Exception as e:
+                logger.error(f"Error extracting obligations in normative pass: {e}")
+        
+        # Extract Constraints if enabled
+        if os.environ.get('ENABLE_CONSTRAINTS_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.constraints import ConstraintsExtractor
+                
+                constraints_extractor = ConstraintsExtractor()
+                constraint_candidates = constraints_extractor.extract(content)
+                
+                for constraint in constraint_candidates:
+                    normative.append({
+                        'label': constraint.label,
+                        'description': constraint.description or f"Constraint: {constraint.label}",
+                        'type': 'constraint',
+                        'category': 'constraint',
+                        'primary_type': 'constraint',
+                        'confidence': constraint.confidence or 0.65,
+                        'constraint_type': constraint.debug.get('constraint_type', 'general'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Constraints: {len(constraint_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting constraints in normative pass: {e}")
+        
+        return normative
+    
+    def _extract_behavioral_pass(self, content: str) -> List[Dict[str, Any]]:
+        """Pass 3: Extract behavioral concepts (Actions + Events + Capabilities + States) - HOW/WHEN/WHERE."""
+        behavioral = []
+        
+        # Extract Actions if enabled
+        if os.environ.get('ENABLE_ACTIONS_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.actions import ActionsExtractor
+                
+                actions_extractor = ActionsExtractor()
+                action_candidates = actions_extractor.extract(content)
+                
+                for action in action_candidates:
+                    behavioral.append({
+                        'label': action.label,
+                        'description': action.description or f"Action: {action.label}",
+                        'type': 'action',
+                        'category': 'action',
+                        'primary_type': 'action',
+                        'confidence': action.confidence or 0.6,
+                        'action_type': action.debug.get('action_type', 'general'),
+                        'original_compound': action.debug.get('original_compound'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Actions: {len(action_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting actions in behavioral pass: {e}")
+        
+        # Extract Events if enabled
+        if os.environ.get('ENABLE_EVENTS_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.events import EventsExtractor
+                
+                events_extractor = EventsExtractor()
+                event_candidates = events_extractor.extract(content)
+                
+                for event in event_candidates:
+                    behavioral.append({
+                        'label': event.label,
+                        'description': event.description or f"Event: {event.label}",
+                        'type': 'event',
+                        'category': 'event',
+                        'primary_type': 'event',
+                        'confidence': event.confidence or 0.55,
+                        'event_type': event.debug.get('event_type', 'general'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Events: {len(event_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting events in behavioral pass: {e}")
+        
+        # Extract Capabilities if enabled
+        if os.environ.get('ENABLE_CAPABILITIES_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.capabilities import CapabilitiesExtractor
+                
+                capabilities_extractor = CapabilitiesExtractor()
+                capability_candidates = capabilities_extractor.extract(content)
+                
+                for capability in capability_candidates:
+                    behavioral.append({
+                        'label': capability.label,
+                        'description': capability.description or f"Capability: {capability.label}",
+                        'type': 'capability',
+                        'category': 'capability',
+                        'primary_type': 'capability',
+                        'confidence': capability.confidence or 0.6,
+                        'capability_type': capability.debug.get('capability_type', 'general'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"Capabilities: {len(capability_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting capabilities in behavioral pass: {e}")
+        
+        # Extract States if enabled
+        if os.environ.get('ENABLE_STATES_EXTRACTION', 'false').lower() == 'true':
+            try:
+                from app.services.extraction.states import StatesExtractor
+                
+                states_extractor = StatesExtractor()
+                state_candidates = states_extractor.extract(content)
+                
+                for state in state_candidates:
+                    behavioral.append({
+                        'label': state.label,
+                        'description': state.description or f"State: {state.label}",
+                        'type': 'state',
+                        'category': 'state',
+                        'primary_type': 'state',
+                        'confidence': state.confidence or 0.55,
+                        'state_type': state.debug.get('state_type', 'general'),
+                        'text_references': [],
+                        'related_concepts': []
+                    })
+                    
+                logger.info(f"States: {len(state_candidates)} extracted")
+                
+            except Exception as e:
+                logger.error(f"Error extracting states in behavioral pass: {e}")
+        
+        return behavioral
+    
+    def _extract_5_concept_fallback(self, content: str) -> List[Dict[str, Any]]:
+        """Fallback to 5-concept extraction if 9-concept extraction fails."""
+        logger.info("Using 5-concept fallback extraction")
+        all_concepts = []
+        
+        try:
+            # Extract the 5 working extractors
+            entities_concepts = self._extract_entities_pass(content)
+            all_concepts.extend(entities_concepts)
+            
+            # Only extract principles and obligations from normative pass
+            os.environ['ENABLE_CONSTRAINTS_EXTRACTION'] = 'false'  # Temporarily disable
+            normative_concepts = self._extract_normative_pass(content)
+            all_concepts.extend(normative_concepts)
+            
+            # Only extract states from behavioral pass  
+            os.environ['ENABLE_ACTIONS_EXTRACTION'] = 'false'      # Temporarily disable
+            os.environ['ENABLE_EVENTS_EXTRACTION'] = 'false'       # Temporarily disable
+            os.environ['ENABLE_CAPABILITIES_EXTRACTION'] = 'false' # Temporarily disable
+            behavioral_concepts = self._extract_behavioral_pass(content)
+            all_concepts.extend(behavioral_concepts)
+            
+            logger.info(f"5-concept fallback complete: {len(all_concepts)} concepts")
+            return all_concepts
+            
+        except Exception as e:
+            logger.error(f"Error in 5-concept fallback: {e}")
+            return self._extract_single_pass_roles(content)
+    
+    def _extract_single_pass_roles(self, content: str) -> List[Dict[str, Any]]:
+        """Legacy single-pass role extraction for backward compatibility."""
         try:
             # Phase 1: Extract ROLES only using specialized extractor
             from app.services.extraction.roles import RolesExtractor, RoleClassificationPostProcessor
@@ -592,15 +918,11 @@ class GuidelineAnalysisService:
                 }
                 concepts.append(concept_dict)
                 
-            logger.info(f"Phase 1 complete: {len(concepts)} role concepts ready for matching")
-            
-            # TODO: Phase 2 - Extract other 8 categories (future enhancement)
-            # For now, we only return roles to fix the 0 concepts issue
-            
+            logger.info(f"Single-pass complete: {len(concepts)} role concepts ready for matching")
             return concepts
             
         except Exception as e:
-            logger.error(f"Error in two-pass extraction: {e}", exc_info=True)
+            logger.error(f"Error in single-pass extraction: {e}", exc_info=True)
             # Fallback to simple heuristic if new extraction fails
             logger.warning("Falling back to heuristic role extraction")
             return self._extract_roles_heuristic(content)
