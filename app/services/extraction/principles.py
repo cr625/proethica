@@ -77,11 +77,20 @@ class PrinciplesExtractor(Extractor):
         if client is None:
             return []
 
-        prompt = (
-            "You are an ontology-aware extractor. From the guideline excerpt, list distinct ethical principles.\n"
-            "Return STRICT JSON with an array under key 'principles'. Each item: {label, description, confidence}.\n"
-            "Guideline excerpt:\n" + text
-        )
+        # Check for external MCP integration
+        import os
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+            
+        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+        
+        if use_external_mcp:
+            prompt = self._create_principles_prompt_with_mcp(text)
+        else:
+            prompt = self._create_principles_prompt(text)
 
         # Gemini
         try:
@@ -131,6 +140,103 @@ class PrinciplesExtractor(Extractor):
             pass
 
         return []
+
+    def _create_principles_prompt(self, text: str) -> str:
+        """Create standard principles extraction prompt."""
+        return (
+            "You are an ontology-aware extractor. From the guideline excerpt, list distinct ethical principles.\n"
+            "Return STRICT JSON with an array under key 'principles'. Each item: {label, description, confidence}.\n"
+            "Guideline excerpt:\n" + text
+        )
+
+    def _create_principles_prompt_with_mcp(self, text: str) -> str:
+        """Create enhanced principles prompt with external MCP ontology context."""
+        try:
+            # Import external MCP client
+            from app.services.external_mcp_client import get_external_mcp_client
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            logger.info("Fetching principles context from external MCP server...")
+            
+            external_client = get_external_mcp_client()
+            
+            # Get existing principles from ontology
+            existing_principles = external_client.get_all_principle_entities()
+            
+            # Build ontology context
+            ontology_context = "EXISTING PRINCIPLES IN ONTOLOGY:\n"
+            if existing_principles:
+                ontology_context += f"Found {len(existing_principles)} existing principle concepts:\n"
+                for principle in existing_principles[:10]:  # Show first 10 examples
+                    label = principle.get('label', 'Unknown')
+                    description = principle.get('description', 'No description')[:80]
+                    ontology_context += f"- {label}: {description}\n"
+                if len(existing_principles) > 10:
+                    ontology_context += f"... and {len(existing_principles) - 10} more principles\n"
+            else:
+                ontology_context += "No existing principles found in ontology (fresh setup)\n"
+            
+            logger.info(f"Retrieved {len(existing_principles)} existing principles from external MCP for context")
+            
+            # Create enhanced prompt with ontology context
+            enhanced_prompt = f"""
+{ontology_context}
+
+You are an ontology-aware extractor analyzing an ethics guideline to extract PRINCIPLES.
+
+IMPORTANT: Consider the existing principles above when extracting. For each principle you extract:
+1. Check if it matches an existing principle (mark as existing)
+2. If it's genuinely new, mark as new
+3. Provide clear reasoning for why it's new vs existing
+
+FOCUS: Fundamental ethical principles and values that guide professional behavior.
+
+PRINCIPLE TYPES:
+1. **Core Ethical Values**: Fundamental principles like integrity, honesty, justice
+2. **Professional Standards**: Principles specific to professional practice
+3. **Social Responsibilities**: Principles regarding obligations to society
+4. **Personal Conduct**: Principles governing individual behavior
+
+EXAMPLES:
+- "Public Safety" - Priority of protecting public welfare
+- "Professional Integrity" - Maintaining honesty and ethical conduct
+- "Competence" - Maintaining professional skills and knowledge
+- "Confidentiality" - Protecting sensitive information
+- "Objectivity" - Making unbiased professional judgments
+
+GUIDELINES:
+- Extract high-level guiding values and principles
+- Focus on abstract concepts rather than specific actions
+- Principles should be enduring values, not situational rules
+- Each principle should represent a fundamental ethical commitment
+
+GUIDELINE TEXT:
+{text}
+
+OUTPUT FORMAT:
+Return STRICT JSON with an array under key 'principles':
+[
+  {{
+    "label": "Public Safety",
+    "description": "The fundamental principle that public welfare and safety must be prioritized", 
+    "confidence": 0.9,
+    "is_existing": false,
+    "ontology_match_reasoning": "Similar to existing safety principles but more specific"
+  }}
+]
+
+Focus on accuracy over quantity. Extract only clear, unambiguous principles.
+"""
+            
+            return enhanced_prompt
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to get external MCP context for principles: {e}")
+            logger.info("Falling back to standard principles prompt")
+            return self._create_principles_prompt(text)
 
     @staticmethod
     def _parse_json_items(raw: Optional[str], root_key: str) -> List[Dict[str, Any]]:

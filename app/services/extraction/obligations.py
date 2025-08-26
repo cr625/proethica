@@ -89,7 +89,7 @@ class ObligationsExtractor(Extractor):
     # ---- Provider-backed helpers ----
 
     def _extract_with_llm(self, text: str) -> List[Dict[str, Any]]:
-        """Call configured LLM provider to extract obligations as JSON.
+        """Call configured LLM provider to extract obligations as JSON with optional MCP context.
 
         Returns a list of dicts with keys like label, description, confidence.
         """
@@ -97,11 +97,20 @@ class ObligationsExtractor(Extractor):
         if client is None:
             return []
 
-        prompt = (
-            "You are an ontology-aware extractor. From the guideline excerpt, list distinct professional obligations.\n"
-            "Return STRICT JSON with an array under key 'obligations'. Each item: {label, description, confidence}.\n"
-            "Guideline excerpt:\n" + text
-        )
+        # Check for external MCP integration
+        import os
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+            
+        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+        
+        if use_external_mcp:
+            prompt = self._create_obligations_prompt_with_mcp(text)
+        else:
+            prompt = self._create_obligations_prompt(text)
 
         # Try Google Gemini style first (client is a module with GenerativeModel)
         try:
@@ -153,6 +162,102 @@ class ObligationsExtractor(Extractor):
 
         return []
 
+    def _create_obligations_prompt(self, text: str) -> str:
+        """Create standard obligations extraction prompt."""
+        return (
+            "You are an ontology-aware extractor. From the guideline excerpt, list distinct professional obligations.\n"
+            "Return STRICT JSON with an array under key 'obligations'. Each item: {label, description, confidence}.\n"
+            "Guideline excerpt:\n" + text
+        )
+
+    def _create_obligations_prompt_with_mcp(self, text: str) -> str:
+        """Create enhanced obligations prompt with external MCP ontology context."""
+        try:
+            # Import external MCP client
+            from app.services.external_mcp_client import get_external_mcp_client
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            logger.info("Fetching obligations context from external MCP server...")
+            
+            external_client = get_external_mcp_client()
+            
+            # Get existing obligations from ontology
+            existing_obligations = external_client.get_all_obligation_entities()
+            
+            # Build ontology context
+            ontology_context = "EXISTING OBLIGATIONS IN ONTOLOGY:\n"
+            if existing_obligations:
+                ontology_context += f"Found {len(existing_obligations)} existing obligation concepts:\n"
+                for obligation in existing_obligations[:10]:  # Show first 10 examples
+                    label = obligation.get('label', 'Unknown')
+                    description = obligation.get('description', 'No description')[:80]
+                    ontology_context += f"- {label}: {description}\n"
+                if len(existing_obligations) > 10:
+                    ontology_context += f"... and {len(existing_obligations) - 10} more obligations\n"
+            else:
+                ontology_context += "No existing obligations found in ontology (fresh setup)\n"
+            
+            logger.info(f"Retrieved {len(existing_obligations)} existing obligations from external MCP for context")
+            
+            # Create enhanced prompt with ontology context
+            enhanced_prompt = f"""
+{ontology_context}
+
+You are an ontology-aware extractor analyzing an ethics guideline to extract OBLIGATIONS.
+
+IMPORTANT: Consider the existing obligations above when extracting. For each obligation you extract:
+1. Check if it matches an existing obligation (mark as existing)
+2. If it's genuinely new, mark as new
+3. Provide clear reasoning for why it's new vs existing
+
+FOCUS: Professional obligations, duties, and requirements that roles must fulfill.
+
+OBLIGATION TYPES:
+1. **Direct Obligations**: Specific duties that must be performed
+2. **Prohibitive Obligations**: Things that must not be done
+3. **Conditional Obligations**: Duties that apply in specific circumstances
+4. **Disclosure Obligations**: Requirements to inform or reveal information
+
+EXAMPLES:
+- "Engineers shall hold paramount the safety of the public"
+- "Avoid conflicts of interest"
+- "Disclose potential conflicts to clients"
+- "Maintain competence in their field"
+
+GUIDELINES:
+- Extract statements that describe what someone MUST, SHALL, or SHOULD do
+- Include obligations that contain modal verbs (must, shall, should, required to)
+- Focus on professional duties, not general principles
+- Each obligation should be actionable and specific
+
+GUIDELINE TEXT:
+{text}
+
+OUTPUT FORMAT:
+Return STRICT JSON with an array under key 'obligations':
+[
+  {{
+    "label": "Hold paramount public safety",
+    "description": "Engineers must prioritize public safety above all other considerations", 
+    "confidence": 0.9,
+    "is_existing": false,
+    "ontology_match_reasoning": "Similar to existing safety obligations but more specific"
+  }}
+]
+
+Focus on accuracy over quantity. Extract only clear, unambiguous obligations.
+"""
+            
+            return enhanced_prompt
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to get external MCP context for obligations: {e}")
+            logger.info("Falling back to standard obligations prompt")
+            return self._create_obligations_prompt(text)
+    
     @staticmethod
     def _parse_json_items(raw: Optional[str], root_key: str) -> List[Dict[str, Any]]:
         """Best-effort parse of JSON content possibly wrapped in code fences.
