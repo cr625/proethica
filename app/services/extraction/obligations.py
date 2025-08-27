@@ -118,68 +118,6 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
                 ))
         return results
 
-    def _split_compound_obligation(self, obligation_text: str) -> List[str]:
-        """Split compound obligations into atomic concepts.
-        
-        Examples:
-        - "Practice only within areas of competence, avoid conflicts of interest"
-          -> ["Practice only within areas of competence", "Avoid conflicts of interest"]
-        - "Disclose and avoid conflicts of interest"  
-          -> ["Disclose conflicts of interest", "Avoid conflicts of interest"]
-        """
-        if not obligation_text or len(obligation_text.strip()) < 10:
-            return [obligation_text]
-            
-        # Pattern 1: Simple comma-separated obligations
-        if ',' in obligation_text:
-            parts = [part.strip() for part in obligation_text.split(',')]
-            # Filter out very short parts (likely conjunctions)
-            parts = [part for part in parts if len(part) > 8 and any(modal in part.lower() for modal in ['shall', 'must', 'should', 'avoid', 'disclose', 'maintain', 'ensure', 'perform', 'provide'])]
-            if len(parts) > 1:
-                return parts
-        
-        # Pattern 2: "X and Y" constructions with obligation verbs
-        and_pattern = r'\b(shall|must|should)\s+([^,]+)\s+and\s+([^,.]+)'
-        and_match = re.search(and_pattern, obligation_text, re.IGNORECASE)
-        if and_match:
-            modal = and_match.group(1)
-            first_action = and_match.group(2).strip()
-            second_action = and_match.group(3).strip()
-            
-            # Create two separate atomic obligations
-            return [
-                f"{modal} {first_action}",
-                f"{modal} {second_action}"
-            ]
-        
-        # Pattern 3: "Disclose and avoid" type constructions  
-        verb_and_verb_pattern = r'\b(\w+)\s+and\s+(\w+)\s+([^,.]+)'
-        verb_match = re.search(verb_and_verb_pattern, obligation_text, re.IGNORECASE)
-        if verb_match and any(verb.lower() in ['disclose', 'avoid', 'maintain', 'ensure', 'protect'] for verb in [verb_match.group(1), verb_match.group(2)]):
-            verb1 = verb_match.group(1)
-            verb2 = verb_match.group(2)
-            object_phrase = verb_match.group(3).strip()
-            
-            return [
-                f"{verb1} {object_phrase}",
-                f"{verb2} {object_phrase}"
-            ]
-        
-        # Pattern 4: Multiple modal verbs in one sentence
-        multi_modal_pattern = r'(shall [^,]+),?\s*(?:and\s+)?(shall|must|should) ([^,.]+)'
-        multi_match = re.search(multi_modal_pattern, obligation_text, re.IGNORECASE)
-        if multi_match:
-            first_obligation = multi_match.group(1).strip()
-            second_modal = multi_match.group(2)
-            second_action = multi_match.group(3).strip()
-            
-            return [
-                first_obligation,
-                f"{second_modal} {second_action}"
-            ]
-        
-        # If no compound patterns found, return as single obligation
-        return [obligation_text]
 
     # ---- Provider-backed helpers ----
 

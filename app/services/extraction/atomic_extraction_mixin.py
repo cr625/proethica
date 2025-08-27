@@ -90,7 +90,14 @@ class AtomicExtractionMixin:
     
     def _is_atomic_splitting_enabled(self) -> bool:
         """Check if atomic splitting is enabled via environment variables."""
-        return os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() == 'true'
+        # Check global enable flag
+        global_enabled = os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() == 'true'
+        
+        # Check extractor-specific enable flag
+        extractor_var = f'ENABLE_{self.concept_type.upper()}_EXTRACTION'
+        extractor_enabled = os.environ.get(extractor_var, 'true').lower() == 'true'
+        
+        return global_enabled and extractor_enabled
     
     def _normalize_candidate_labels(self, candidates: List[ConceptCandidate]) -> List[ConceptCandidate]:
         """
