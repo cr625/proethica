@@ -592,6 +592,11 @@ class GuidelineAnalysisService:
             logger.info(f"Pass 3 complete: {len(behavioral_concepts)} behavioral concepts")
             
             logger.info(f"Complete 9-concept extraction: {len(all_concepts)} total concepts")
+            
+            # Apply unified enhanced concept splitting to all concepts at once
+            if os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() == 'true':
+                all_concepts = self._apply_unified_concept_splitting(all_concepts)
+            
             return all_concepts
             
         except Exception as e:
@@ -854,6 +859,74 @@ class GuidelineAnalysisService:
                 logger.error(f"Error extracting states in behavioral pass: {e}")
         
         return behavioral
+    
+    def _apply_unified_concept_splitting(self, all_concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Apply enhanced concept splitting to all concepts at once (unified approach)."""
+        try:
+            from app.services.extraction.concept_splitter import split_concepts_for_extractor
+            from app.services.extraction.base import ConceptCandidate
+            
+            logger.info(f"🔄 Applying unified enhanced splitting to {len(all_concepts)} concepts")
+            
+            # Group concepts by type for efficient processing
+            concepts_by_type = {}
+            for concept in all_concepts:
+                concept_type = concept.get('type') or concept.get('primary_type', 'unknown')
+                if concept_type not in concepts_by_type:
+                    concepts_by_type[concept_type] = []
+                concepts_by_type[concept_type].append(concept)
+            
+            enhanced_concepts = []
+            total_splits = 0
+            
+            # Process each type group
+            for concept_type, concepts in concepts_by_type.items():
+                logger.info(f"  Processing {len(concepts)} {concept_type} concepts...")
+                
+                # Convert to ConceptCandidate objects
+                concept_candidates = []
+                for concept in concepts:
+                    concept_candidates.append(ConceptCandidate(
+                        label=concept.get('label', concept.get('concept', '')),
+                        description=concept.get('description', ''),
+                        confidence=concept.get('confidence', 0.8),
+                        primary_type=concept_type
+                    ))
+                
+                # Apply enhanced splitting
+                enhanced_candidates = split_concepts_for_extractor(concept_candidates, concept_type)
+                
+                # Convert back to dict format and preserve original metadata
+                for i, enhanced in enumerate(enhanced_candidates):
+                    # Start with original concept data
+                    if i < len(concepts):
+                        enhanced_concept = concepts[i].copy()
+                    else:
+                        # This is a new split concept
+                        enhanced_concept = concepts[0].copy()  # Copy structure from first
+                        total_splits += 1
+                    
+                    # Update with enhanced data
+                    enhanced_concept.update({
+                        'label': enhanced.label,
+                        'concept': enhanced.label,  # Some parts of code expect 'concept' key
+                        'description': enhanced.description,
+                        'confidence': enhanced.confidence
+                    })
+                    
+                    enhanced_concepts.append(enhanced_concept)
+            
+            if total_splits > 0:
+                logger.info(f"✅ Unified splitting: {len(all_concepts)} → {len(enhanced_concepts)} concepts")
+                logger.info(f"🧠 Split {total_splits} compound concepts into atomic parts")
+            else:
+                logger.info(f"✅ All concepts confirmed atomic (no splitting needed)")
+            
+            return enhanced_concepts
+            
+        except Exception as e:
+            logger.error(f"Unified enhanced splitting failed, falling back to original: {e}")
+            return all_concepts
     
     def _extract_5_concept_fallback(self, content: str) -> List[Dict[str, Any]]:
         """Fallback to 5-concept extraction if 9-concept extraction fails."""

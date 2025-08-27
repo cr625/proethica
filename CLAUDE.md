@@ -1,8 +1,17 @@
 # ProEthica 9-Concept Extraction Context
 
-**Current Phase**: Enhanced Concept Splitting Ready for Testing
-**Last Updated**: 2025-01-26
-**Status**: ✅ Generalized LLM Splitting Implemented | 🧪 Test Framework Ready
+**Current Phase**: Enhanced Concept Splitting Ready for Testing + Directory Organization
+**Last Updated**: 2025-08-27
+**Status**: ✅ Generalized LLM Splitting Implemented | 🧪 Test Framework Ready | 🗂️ Directory Cleanup
+
+## 🗂️ **DIRECTORY ORGANIZATION GUIDELINES**
+
+**Organizational Directive**: Minimize files in application root directories:
+- **Test files** linked to pytest → `tests/` directory
+- **Temporary/experimental files** → `scratch/` directory  
+- **Scripts** → `scripts/` directory
+- **Documents** → moved to `/home/chris/onto/docs/proethica/` (consolidated)
+- **Root directory** → Keep only essential application files (run.py, requirements.txt, config files, etc.)
 
 ## Immediate Context
 
@@ -20,18 +29,18 @@
 - 🆕 **Enhanced Splitting**: GeneralizedConceptSplitter ready for testing
 
 ### 🧪 Testing Framework Ready (Next Steps When Returning)
-**Test files created in `/home/chris/onto/proethica/`:**
-- `test_enhanced_roles.py` - Comprehensive comparison test
-- `enhanced_roles_integration.py` - Integration helper
-- `concept_splitter.py` - Generalized LLM splitting implementation
-- `langchain_orchestrator.py` - Multi-stage pipeline
-- `enhanced_obligations_example.py` - Full integration example
+**Test files organized in proper directories:**
+- `tests/test_enhanced_roles.py` - Comprehensive comparison test (moved from root)
+- `scratch/enhanced_roles_integration.py` - Integration helper (moved from root)
+- `concept_splitter.py` - Generalized LLM splitting implementation (check app/services/extraction/)
+- `langchain_orchestrator.py` - Multi-stage pipeline (check app/services/extraction/)
+- `enhanced_obligations_example.py` - Full integration example (check scratch/)
 
 **To run enhanced splitting tests:**
 ```bash
 cd /home/chris/onto/proethica
-python enhanced_roles_integration.py  # Check readiness
-python test_enhanced_roles.py         # Run comparison
+python scratch/enhanced_roles_integration.py  # Check readiness
+python tests/test_enhanced_roles.py         # Run comparison
 ```
 
 ---
@@ -87,8 +96,8 @@ class SimpleConceptMatcher(Matcher):
 - `app/services/external_mcp_client.py` - MCP integration client
 
 ### Testing
-- `test_real_mcp_extraction.py` - Current state verification
-- `test_roles_extraction.py` - Working extractor test
+- `tests/test_real_mcp_extraction.py` - Current state verification (moved from root)
+- `tests/test_roles_extraction.py` - Working extractor test (moved from root)
 
 ---
 
@@ -128,13 +137,13 @@ ENABLE_RESOURCES_EXTRACTION=false
 ### Test Current State
 ```bash
 cd proethica
-python test_real_mcp_extraction.py
+python tests/test_real_mcp_extraction.py
 ```
 
 ### Verify MCP Connectivity  
 ```bash
 cd proethica
-python test_external_mcp.py
+python tests/test_external_mcp.py
 ```
 
 ### Check Specific Extractor (after enhancement)
@@ -170,13 +179,13 @@ python test_enhanced_principles.py
 
 **If continuing from here:**
 1. Check environment variables are set correctly
-2. Verify MCP connectivity with `python test_external_mcp.py`
+2. Verify MCP connectivity with `python tests/test_external_mcp.py`
 3. Examine existing `obligations.py` and `principles.py` files
 4. Follow the MCP integration pattern from `roles.py`
 5. Test each enhancement before moving to next extractor
 
 **If interrupted and resuming:**
-1. Read `docs/9-concept-extraction-resumable-plan.md` for full context
+1. Read `/home/chris/onto/docs/proethica/system-status.md` for full context
 2. Check this CLAUDE.md for immediate status
 3. Run current state test to verify foundation
 4. Continue at current checkpoint

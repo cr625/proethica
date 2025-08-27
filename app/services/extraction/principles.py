@@ -140,6 +140,59 @@ class PrinciplesExtractor(Extractor):
             pass
 
         return []
+    
+    def _apply_enhanced_splitting(self, candidates: List[Dict[str, Any]], concept_type: str) -> List[Dict[str, Any]]:
+        """Apply enhanced concept splitting if enabled."""
+        import os
+        
+        if os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() != 'true':
+            return candidates
+            
+        try:
+            from .concept_splitter import split_concepts_for_extractor
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            logger.info(f"Applying enhanced splitting to {len(candidates)} {concept_type} candidates")
+            
+            # Convert dict candidates to ConceptCandidate objects for splitting
+            from .base import ConceptCandidate
+            concept_candidates = []
+            
+            for candidate in candidates:
+                concept_candidates.append(ConceptCandidate(
+                    label=candidate.get('label', ''),
+                    description=candidate.get('description', ''),
+                    confidence=candidate.get('confidence', 0.8),
+                    primary_type=concept_type
+                ))
+            
+            # Apply enhanced splitting
+            enhanced_candidates = split_concepts_for_extractor(concept_candidates, concept_type)
+            
+            # Convert back to dict format
+            result = []
+            for candidate in enhanced_candidates:
+                result.append({
+                    'label': candidate.label,
+                    'description': candidate.description,
+                    'confidence': candidate.confidence
+                })
+            
+            # Log splitting results
+            if len(enhanced_candidates) != len(candidates):
+                logger.info(f"Enhanced splitting: {len(candidates)} → {len(enhanced_candidates)} concepts")
+                compounds_found = sum(1 for c in enhanced_candidates if hasattr(c, 'debug') and c.debug.get('atomic_decomposition'))
+                if compounds_found > 0:
+                    logger.info(f"Split {compounds_found} compound {concept_type} concepts into atomic parts")
+            
+            return result
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Enhanced splitting failed for {concept_type}, falling back to original: {e}")
+            return candidates
 
     def _create_principles_prompt(self, text: str) -> str:
         """Create standard principles extraction prompt."""

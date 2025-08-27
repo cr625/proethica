@@ -77,14 +77,31 @@ class RolesExtractor(Extractor):
             
             logger.info(f"Extracted {len(candidates)} role candidates")
             
-            # Enhanced splitting now handled at unified level in guideline_analysis_service.py
-            # Individual extractor splitting disabled to avoid double-processing
-            
             # Log first few for debugging
             for i, candidate in enumerate(candidates[:3]):
                 logger.info(f"Role {i+1}: {candidate.label} ({candidate.primary_type})")
                 
-            return candidates
+            # Apply enhanced splitting if enabled
+            if os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() == 'true':
+                try:
+                    from .concept_splitter import split_concepts_for_extractor
+                    logger.info(f"Applying enhanced splitting to {len(candidates)} role candidates")
+                    enhanced_candidates = split_concepts_for_extractor(candidates, 'role')
+                    
+                    # Log splitting results
+                    if len(enhanced_candidates) != len(candidates):
+                        logger.info(f"Enhanced splitting: {len(candidates)} → {len(enhanced_candidates)} concepts")
+                        compounds_found = sum(1 for c in enhanced_candidates if c.debug.get('atomic_decomposition'))
+                        if compounds_found > 0:
+                            logger.info(f"Split {compounds_found} compound role concepts into atomic parts")
+                    
+                    return enhanced_candidates
+                    
+                except Exception as e:
+                    logger.error(f"Enhanced splitting failed, falling back to original: {e}")
+                    return candidates
+            else:
+                return candidates
             
         except Exception as e:
             logger.error(f"Error in roles extraction: {e}", exc_info=True)
@@ -303,7 +320,27 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
                     candidates.append(candidate)
                     
             logger.info(f"Parsed {len(candidates)} role candidates from LLM response")
-            return candidates
+            # Apply enhanced splitting if enabled
+            if os.environ.get('ENABLE_CONCEPT_SPLITTING', 'false').lower() == 'true':
+                try:
+                    from .concept_splitter import split_concepts_for_extractor
+                    logger.info(f"Applying enhanced splitting to {len(candidates)} role candidates")
+                    enhanced_candidates = split_concepts_for_extractor(candidates, 'role')
+                    
+                    # Log splitting results
+                    if len(enhanced_candidates) != len(candidates):
+                        logger.info(f"Enhanced splitting: {len(candidates)} → {len(enhanced_candidates)} concepts")
+                        compounds_found = sum(1 for c in enhanced_candidates if c.debug.get('atomic_decomposition'))
+                        if compounds_found > 0:
+                            logger.info(f"Split {compounds_found} compound role concepts into atomic parts")
+                    
+                    return enhanced_candidates
+                    
+                except Exception as e:
+                    logger.error(f"Enhanced splitting failed, falling back to original: {e}")
+                    return candidates
+            else:
+                return candidates
             
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}")

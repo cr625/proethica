@@ -23,7 +23,7 @@ class ExternalMCPClient:
         """
         import os
         if server_url is None:
-            server_url = os.environ.get('EXTERNAL_MCP_URL', 'http://localhost:8082')
+            server_url = os.environ.get('EXTERNAL_MCP_URL', 'http://localhost:8083')
         self.server_url = server_url.rstrip('/')
         self.request_id = 0
         self.timeout = 30
@@ -140,6 +140,28 @@ class ExternalMCPClient:
             return entities
         else:
             logger.warning(f"Failed to get role entities: {result.get('error', 'Unknown error')}")
+            return []
+    
+    def get_all_principle_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all principle entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("principle", domain_id)
+            entities = result.get('entities', [])
+            logger.info(f"Retrieved {len(entities)} principle entities from external MCP")
+            return entities
+        except Exception as e:
+            logger.warning(f"Failed to get principle entities: {e}")
+            return []
+    
+    def get_all_obligation_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all obligation entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("obligation", domain_id)
+            entities = result.get('entities', [])
+            logger.info(f"Retrieved {len(entities)} obligation entities from external MCP")
+            return entities
+        except Exception as e:
+            logger.warning(f"Failed to get obligation entities: {e}")
             return []
     
     def submit_candidate_concept(self, concept: Dict[str, Any], domain_id: str = "engineering-ethics") -> Dict[str, Any]:
