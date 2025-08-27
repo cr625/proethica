@@ -6,6 +6,7 @@ import re
 from slugify import slugify
 
 from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, Linker
+from .atomic_extraction_mixin import AtomicExtractionMixin
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from config.models import ModelConfig
 
@@ -16,7 +17,7 @@ except Exception:  # pragma: no cover - environment without Flask/LLM
     get_llm_client = None  # type: ignore
 
 
-class ObligationsExtractor(Extractor):
+class ObligationsExtractor(Extractor, AtomicExtractionMixin):
     """Minimal scaffold for obligations extraction.
 
     Current behavior: placeholder heuristic that returns no items.
@@ -26,17 +27,33 @@ class ObligationsExtractor(Extractor):
     def __init__(self, provider: Optional[str] = None) -> None:
         # provider hint: 'anthropic'|'openai'|'gemini'|'auto'|None
         self.provider = (provider or 'auto').lower()
+    
+    @property
+    def concept_type(self) -> str:
+        """The concept type this extractor handles."""
+        return 'obligation'
 
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
-        """Enhanced extraction with atomic concept splitting for compound obligations.
-
-        This addresses the compound concept issue where complex obligations like:
-        "Practice only within areas of competence, Avoid and disclose conflicts of interest"
-        should be split into atomic concepts.
+        """
+        Extract obligation concepts with unified atomic splitting and label normalization.
+        
+        This uses the standardized atomic extraction framework to handle compound obligations.
         """
         if not text:
             return []
 
+        # Step 1: Initial extraction (without custom atomic splitting)
+        initial_candidates = self._extract_initial_concepts(text, world_id=world_id, guideline_id=guideline_id)
+        
+        # Step 2: Apply unified atomic splitting and normalization
+        return self._apply_atomic_splitting(initial_candidates)
+    
+    def _extract_initial_concepts(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
+        """
+        Initial obligation extraction without atomic splitting.
+        
+        This preserves the original extraction logic but removes custom splitting.
+        """
         # Try provider-backed extraction first when configured and client available
         if self.provider != 'heuristic' and get_llm_client is not None:
             try:
@@ -46,31 +63,28 @@ class ObligationsExtractor(Extractor):
                     for i in items:
                         label = i.get('label') or i.get('obligation') or i.get('name') or ''
                         if label:
-                            # Split compound obligations into atomic concepts
-                            atomic_obligations = self._split_compound_obligation(label)
-                            for atomic_label in atomic_obligations:
-                                candidates.append(ConceptCandidate(
-                                    label=atomic_label,
-                                    description=i.get('description') or i.get('explanation') or None,
-                                    primary_type='obligation',
-                                    category='obligation',
-                                    confidence=float(i.get('confidence', 0.7)) if isinstance(i.get('confidence', 0.7), (int, float, str)) else 0.7,
-                                    debug={
-                                        'source': 'provider', 
-                                        'provider': self.provider,
-                                        'original_compound': label if len(atomic_obligations) > 1 else None
-                                    }
-                                ))
+                            candidates.append(ConceptCandidate(
+                                label=label,  # No custom splitting here
+                                description=i.get('description') or i.get('explanation') or None,
+                                primary_type='obligation',
+                                category='obligation',
+                                confidence=float(i.get('confidence', 0.7)) if isinstance(i.get('confidence', 0.7), (int, float, str)) else 0.7,
+                                debug={'source': 'provider', 'provider': self.provider}
+                            ))
                     return candidates
             except Exception:
                 # Fall through to heuristic if provider path fails
                 pass
                 
-        # Heuristic extraction with atomic splitting
-        return self._extract_heuristic_with_atomic_splitting(text, guideline_id)
+        # Heuristic extraction as fallback
+        return self._extract_heuristic(text, guideline_id)
 
-    def _extract_heuristic_with_atomic_splitting(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
-        """Heuristic extraction with compound obligation splitting."""
+    def _extract_heuristic(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
+        """
+        Heuristic extraction for obligation concepts.
+        
+        Extracts concepts without custom atomic splitting - that's handled by the unified framework.
+        """
         # Split into sentences conservatively
         sentences = re.split(r"(?<=[\.!?])\s+", text.strip())
         modals = re.compile(r"\b(must|shall|should|required to|responsible for|obliged to|obligation to)\b", re.IGNORECASE)
@@ -81,31 +95,27 @@ class ObligationsExtractor(Extractor):
             if not s:
                 continue
             if modals.search(s):
-                # Split compound obligations into atomic parts
-                atomic_obligations = self._split_compound_obligation(s.strip())
+                # Extract the raw sentence - unified framework will handle splitting
+                label = s.strip()
+                key = label.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
                 
-                for atomic_label in atomic_obligations:
-                    # Normalize and dedupe on lowercase label
-                    key = atomic_label.lower()
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    
-                    # Truncate overly long labels for display; keep full text in description
-                    display = atomic_label if len(atomic_label) <= 160 else atomic_label[:157] + '…'
-                    
-                    results.append(ConceptCandidate(
-                        label=display,
-                        description=atomic_label if display != atomic_label else None,
-                        primary_type='obligation',
-                        category='obligation',
-                        confidence=0.5,
-                        debug={
-                            'source': 'heuristic_modals_atomic',
-                            'guideline_id': guideline_id,
-                            'original_sentence': s.strip() if len(atomic_obligations) > 1 else None
-                        }
-                    ))
+                # Truncate overly long labels for display; keep full text in description
+                display = label if len(label) <= 160 else label[:157] + '…'
+                
+                results.append(ConceptCandidate(
+                    label=display,
+                    description=label if display != label else None,
+                    primary_type='obligation',
+                    category='obligation',
+                    confidence=0.5,
+                    debug={
+                        'source': 'heuristic_modals',
+                        'guideline_id': guideline_id
+                    }
+                ))
         return results
 
     def _split_compound_obligation(self, obligation_text: str) -> List[str]:

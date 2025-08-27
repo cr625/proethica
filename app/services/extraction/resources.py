@@ -13,6 +13,7 @@ import re
 from slugify import slugify
 
 from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, Linker
+from .atomic_extraction_mixin import AtomicExtractionMixin
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from config.models import ModelConfig
 
@@ -23,7 +24,7 @@ except Exception:  # pragma: no cover - environment without Flask/LLM
     get_llm_client = None  # type: ignore
 
 
-class ResourcesExtractor(Extractor):
+class ResourcesExtractor(Extractor, AtomicExtractionMixin):
     """Extract resources used for ethical decision-making from guidelines.
     
     Resources include codes of ethics, standards, guidelines, tools, documents,
@@ -33,6 +34,11 @@ class ResourcesExtractor(Extractor):
     def __init__(self, provider: Optional[str] = None) -> None:
         # provider hint: 'anthropic'|'openai'|'gemini'|'auto'|None
         self.provider = (provider or 'auto').lower()
+    
+    @property
+    def concept_type(self) -> str:
+        """The concept type this extractor handles."""
+        return 'resource'
 
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """Extract resources from guideline text.
@@ -53,7 +59,7 @@ class ResourcesExtractor(Extractor):
             try:
                 items = self._extract_with_llm(text)
                 if items:
-                    return [
+                    candidates = [
                         ConceptCandidate(
                             label=i.get('label') or i.get('resource') or i.get('name') or '',
                             description=i.get('description') or i.get('explanation') or None,
@@ -65,12 +71,17 @@ class ResourcesExtractor(Extractor):
                         for i in items
                         if (i.get('label') or i.get('resource') or i.get('name'))
                     ]
+                    # Apply unified atomic splitting to LLM results
+                    return self._apply_atomic_splitting(candidates)
             except Exception:
                 # Fall through to heuristic if provider path fails
                 pass
                 
         # Heuristic extraction as fallback
-        return self._extract_heuristic(text, guideline_id)
+        candidates = self._extract_heuristic(text, guideline_id)
+        
+        # Apply unified atomic splitting
+        return self._apply_atomic_splitting(candidates)
 
     def _extract_heuristic(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """Heuristic extraction based on resource keywords and patterns."""

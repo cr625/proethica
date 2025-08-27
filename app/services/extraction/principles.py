@@ -48,27 +48,32 @@ class PrinciplesExtractor(Extractor):
                 pass
         sentences = re.split(r"(?<=[\.!?])\s+", text.strip())
         # Common principle keywords in engineering ethics contexts
-        kw = re.compile(r"\b(safety|welfare|integrity|honesty|objectivity|fairness|competence|confidentiality|public\s+welfare|responsibility)\b", re.IGNORECASE)
+        kw = re.compile(r"\b(safety|welfare|integrity|honesty|objectivity|fairness|competence|confidentiality|public\s+welfare|responsibility|transparency|accountability|sustainability|respect|dignity|justice|equity|excellence|quality|trust|loyalty)\b", re.IGNORECASE)
         seen: Set[str] = set()
         out: List[ConceptCandidate] = []
+        
         for s in sentences:
             if not s:
                 continue
             if kw.search(s):
-                label = s.strip()
-                key = label.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                display = label if len(label) <= 120 else label[:117] + '…'
-                out.append(ConceptCandidate(
-                    label=display,
-                    description=label if display != label else None,
-                    primary_type='principle',
-                    category='principle',
-                    confidence=0.45,
-                    debug={'source': 'heuristic_keywords', 'guideline_id': guideline_id}
-                ))
+                # Extract atomic principles from the sentence
+                atomic_items = self._ensure_atomic_principles([{'label': s.strip(), 'confidence': 0.45}])
+                
+                for item in atomic_items:
+                    label = item.get('label', '')
+                    key = label.lower()
+                    if key in seen or not label:
+                        continue
+                    seen.add(key)
+                    
+                    out.append(ConceptCandidate(
+                        label=label,
+                        description=item.get('original_statement') if item.get('original_statement') else None,
+                        primary_type='principle',
+                        category='principle',
+                        confidence=item.get('confidence', 0.45),
+                        debug={'source': 'heuristic_keywords_atomic', 'guideline_id': guideline_id}
+                    ))
         return out
 
     # ---- Provider-backed helpers ----
@@ -99,7 +104,9 @@ class PrinciplesExtractor(Extractor):
                 model = client.GenerativeModel(model_name)
                 resp = model.generate_content(prompt)
                 output = getattr(resp, 'text', None) or (resp.candidates[0].content.parts[0].text if getattr(resp, 'candidates', None) else '')
-                return self._parse_json_items(output, root_key='principles')
+                principles = self._parse_json_items(output, root_key='principles')
+                # Apply atomic splitting to ensure we get atomic concepts
+                return self._ensure_atomic_principles(principles)
         except Exception:
             pass
 
@@ -121,7 +128,9 @@ class PrinciplesExtractor(Extractor):
                     text_out = getattr(content[0], 'text', None) or str(content[0])
                 else:
                     text_out = getattr(resp, 'text', None) or str(resp)
-                return self._parse_json_items(text_out, root_key='principles')
+                principles = self._parse_json_items(text_out, root_key='principles')
+                # Apply atomic splitting to ensure we get atomic concepts
+                return self._ensure_atomic_principles(principles)
         except Exception:
             pass
 
@@ -135,7 +144,9 @@ class PrinciplesExtractor(Extractor):
                     messages=[{"role": "user", "content": prompt}],
                 )
                 text_out = resp.choices[0].message.content if getattr(resp, 'choices', None) else ''
-                return self._parse_json_items(text_out, root_key='principles')
+                principles = self._parse_json_items(text_out, root_key='principles')
+                # Apply atomic splitting to ensure we get atomic concepts
+                return self._ensure_atomic_principles(principles)
         except Exception:
             pass
 
@@ -197,8 +208,30 @@ class PrinciplesExtractor(Extractor):
     def _create_principles_prompt(self, text: str) -> str:
         """Create standard principles extraction prompt."""
         return (
-            "You are an ontology-aware extractor. From the guideline excerpt, list distinct ethical principles.\n"
+            "You are an ontology-aware extractor. From the guideline excerpt, extract ATOMIC ethical principles.\n"
+            "\n"
+            "CRITICAL: Extract ATOMIC principles, not full statements:\n"
+            "❌ WRONG: 'Engineers shall hold paramount the safety of the public'\n"
+            "✓ RIGHT: 'Public Safety' (the core principle)\n"
+            "\n"
+            "❌ WRONG: 'Engineers shall maintain confidentiality'\n"
+            "✓ RIGHT: 'Confidentiality' (the core principle)\n"
+            "\n"
+            "Examples of atomic principles:\n"
+            "- Public Safety\n"
+            "- Professional Integrity\n"
+            "- Competence\n"
+            "- Confidentiality\n"
+            "- Objectivity\n"
+            "- Sustainability\n"
+            "- Transparency\n"
+            "- Accountability\n"
+            "- Fairness\n"
+            "- Honesty\n"
+            "\n"
             "Return STRICT JSON with an array under key 'principles'. Each item: {label, description, confidence}.\n"
+            "Extract only the CORE PRINCIPLE NAME, not the full obligation statement.\n"
+            "\n"
             "Guideline excerpt:\n" + text
         )
 
@@ -218,17 +251,39 @@ class PrinciplesExtractor(Extractor):
             existing_principles = external_client.get_all_principle_entities()
             
             # Build ontology context
-            ontology_context = "EXISTING PRINCIPLES IN ONTOLOGY:\n"
+            ontology_context = "EXISTING ATOMIC PRINCIPLES IN ONTOLOGY:\n"
             if existing_principles:
-                ontology_context += f"Found {len(existing_principles)} existing principle concepts:\n"
-                for principle in existing_principles[:10]:  # Show first 10 examples
+                ontology_context += f"Found {len(existing_principles)} existing atomic principle concepts:\n"
+                
+                # Group principles by type for better context
+                atomic_examples = []
+                for principle in existing_principles:
                     label = principle.get('label', 'Unknown')
-                    description = principle.get('description', 'No description')[:80]
-                    ontology_context += f"- {label}: {description}\n"
-                if len(existing_principles) > 10:
-                    ontology_context += f"... and {len(existing_principles) - 10} more principles\n"
+                    # Only show truly atomic principles as examples
+                    if len(label.split()) <= 3 and not any(word in label.lower() for word in ['shall', 'must', 'engineers']):
+                        atomic_examples.append(label)
+                
+                # Show examples of atomic principles
+                if atomic_examples:
+                    ontology_context += "Examples of atomic principles in the ontology:\n"
+                    for example in atomic_examples[:15]:  # Show good atomic examples
+                        ontology_context += f"- {example}\n"
+                
+                # Add mapping guidance
+                ontology_context += "\nPRINCIPLE MAPPING GUIDANCE:\n"
+                ontology_context += "When you see statements like these, extract the atomic principle:\n"
+                ontology_context += "- 'Hold paramount public safety' → 'Public Safety'\n"
+                ontology_context += "- 'Act with professional integrity' → 'Professional Integrity'\n"
+                ontology_context += "- 'Maintain competence' → 'Competence'\n"
+                ontology_context += "- 'Ensure confidentiality' → 'Confidentiality'\n"
+                ontology_context += "- 'Practice with honesty' → 'Honesty'\n"
+                
+                if len(existing_principles) > 15:
+                    ontology_context += f"\n... and {len(existing_principles) - 15} more principles in the ontology\n"
             else:
                 ontology_context += "No existing principles found in ontology (fresh setup)\n"
+                ontology_context += "Focus on extracting atomic principle names like:\n"
+                ontology_context += "- Public Safety\n- Integrity\n- Competence\n- Confidentiality\n- Honesty\n"
             
             logger.info(f"Retrieved {len(existing_principles)} existing principles from external MCP for context")
             
@@ -245,18 +300,33 @@ IMPORTANT: Consider the existing principles above when extracting. For each prin
 
 FOCUS: Fundamental ethical principles and values that guide professional behavior.
 
-PRINCIPLE TYPES:
-1. **Core Ethical Values**: Fundamental principles like integrity, honesty, justice
-2. **Professional Standards**: Principles specific to professional practice
-3. **Social Responsibilities**: Principles regarding obligations to society
-4. **Personal Conduct**: Principles governing individual behavior
+CRITICAL INSTRUCTION: Extract ATOMIC principles, not full statements!
 
-EXAMPLES:
-- "Public Safety" - Priority of protecting public welfare
-- "Professional Integrity" - Maintaining honesty and ethical conduct
-- "Competence" - Maintaining professional skills and knowledge
-- "Confidentiality" - Protecting sensitive information
-- "Objectivity" - Making unbiased professional judgments
+When you see text like:
+- "Engineers shall hold paramount the safety, health, and welfare of the public"
+  → Extract: "Public Safety", "Public Health", "Public Welfare"
+- "Engineers shall perform services only in areas of their competence"
+  → Extract: "Competence"
+- "Engineers shall act for each employer or client as faithful agents or trustees"
+  → Extract: "Fidelity", "Trustworthiness"
+- "Engineers shall avoid deceptive acts"
+  → Extract: "Honesty", "Truthfulness"
+- "Engineers shall maintain confidentiality"
+  → Extract: "Confidentiality"
+
+PRINCIPLE TYPES:
+1. **Core Ethical Values**: integrity, honesty, justice, fairness, respect
+2. **Professional Standards**: competence, diligence, excellence, quality
+3. **Social Responsibilities**: public safety, public welfare, sustainability, environmental protection
+4. **Information Ethics**: confidentiality, transparency, accuracy, objectivity
+5. **Relationship Values**: fidelity, trustworthiness, loyalty, collaboration
+
+EXAMPLES OF ATOMIC PRINCIPLES:
+- "Public Safety" - NOT "hold paramount the safety of the public"
+- "Competence" - NOT "perform services only in areas of competence"
+- "Confidentiality" - NOT "maintain confidentiality of client information"
+- "Integrity" - NOT "act with integrity in all professional matters"
+- "Objectivity" - NOT "make objective and unbiased decisions"
 
 GUIDELINES:
 - Extract high-level guiding values and principles
@@ -290,6 +360,157 @@ Focus on accuracy over quantity. Extract only clear, unambiguous principles.
             logger.error(f"Failed to get external MCP context for principles: {e}")
             logger.info("Falling back to standard principles prompt")
             return self._create_principles_prompt(text)
+
+    def _ensure_atomic_principles(self, principles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Ensure principles are atomic concepts, not full statements.
+        
+        This method processes extracted principles to ensure they are atomic concepts
+        like "Public Safety" rather than full statements like "Hold paramount the safety of the public".
+        """
+        atomic_principles = []
+        
+        for principle in principles:
+            label = principle.get('label', '')
+            
+            # Skip empty labels
+            if not label:
+                continue
+                
+            # Check if this looks like a full statement rather than an atomic principle
+            if self._is_compound_principle(label):
+                # Extract atomic principles from the statement
+                atomic_labels = self._extract_atomic_from_statement(label)
+                for atomic_label in atomic_labels:
+                    atomic_principle = principle.copy()
+                    atomic_principle['label'] = atomic_label
+                    atomic_principle['original_statement'] = label
+                    atomic_principles.append(atomic_principle)
+            else:
+                # Already atomic, just clean it up
+                clean_label = self._clean_principle_label(label)
+                if clean_label:
+                    principle['label'] = clean_label
+                    atomic_principles.append(principle)
+        
+        return atomic_principles
+    
+    def _is_compound_principle(self, label: str) -> bool:
+        """Check if a principle label is a compound statement rather than atomic."""
+        label_lower = label.lower()
+        
+        # Indicators of compound/statement principles
+        compound_indicators = [
+            'shall', 'must', 'should', 'will', 'engineers',
+            'professionals', 'practitioners', 'members',
+            'hold paramount', 'maintain', 'ensure', 'perform',
+            'act with', 'act in', 'avoid', 'disclose'
+        ]
+        
+        # Check for sentence-like structures
+        has_subject_verb = any(indicator in label_lower for indicator in compound_indicators)
+        is_long = len(label.split()) > 5  # Atomic principles are usually 1-3 words
+        
+        return has_subject_verb or is_long
+    
+    def _extract_atomic_from_statement(self, statement: str) -> List[str]:
+        """Extract atomic principle concepts from a full statement."""
+        statement_lower = statement.lower()
+        atomic_principles = []
+        
+        # Key principle mappings
+        principle_mappings = {
+            'safety': 'Public Safety',
+            'health': 'Public Health', 
+            'welfare': 'Public Welfare',
+            'confidential': 'Confidentiality',
+            'competenc': 'Competence',
+            'integrity': 'Integrity',
+            'honest': 'Honesty',
+            'truthful': 'Truthfulness',
+            'objective': 'Objectivity',
+            'objectivity': 'Objectivity',
+            'fair': 'Fairness',
+            'sustain': 'Sustainability',
+            'environment': 'Environmental Protection',
+            'transparen': 'Transparency',
+            'accountab': 'Accountability',
+            'respect': 'Respect',
+            'dignit': 'Human Dignity',
+            'justice': 'Justice',
+            'equity': 'Equity',
+            'diligen': 'Diligence',
+            'excellence': 'Excellence',
+            'quality': 'Quality',
+            'faithful': 'Fidelity',
+            'trust': 'Trustworthiness',
+            'loyal': 'Loyalty'
+        }
+        
+        # Check for each principle keyword in the statement
+        for keyword, principle in principle_mappings.items():
+            if keyword in statement_lower and principle not in atomic_principles:
+                atomic_principles.append(principle)
+        
+        # If no principles found, try to extract the core concept
+        if not atomic_principles:
+            # Remove common prefixes
+            clean = statement
+            for prefix in ['Engineers shall', 'Engineers must', 'Members shall', 'Professionals must', 
+                          'Practitioners should', 'One must', 'They shall']:
+                if clean.startswith(prefix):
+                    clean = clean[len(prefix):].strip()
+                    break
+            
+            # Look for verb-object patterns
+            verb_patterns = [
+                ('maintain', 'Maintenance'),
+                ('ensure', 'Assurance'),
+                ('protect', 'Protection'),
+                ('promote', 'Promotion'),
+                ('uphold', 'Upholding'),
+                ('preserve', 'Preservation')
+            ]
+            
+            for verb, nominal in verb_patterns:
+                if clean.lower().startswith(verb):
+                    # Extract the object of the verb
+                    obj = clean[len(verb):].strip()
+                    if obj:
+                        # Clean up the object
+                        obj = obj.strip('.,;')
+                        if len(obj.split()) <= 3:
+                            atomic_principles.append(obj.title())
+                        
+        # If still no principles, and it's a short phrase, use it as-is
+        if not atomic_principles and len(statement.split()) <= 3:
+            atomic_principles.append(self._clean_principle_label(statement))
+        
+        return atomic_principles if atomic_principles else []
+    
+    def _clean_principle_label(self, label: str) -> str:
+        """Clean up a principle label to be more atomic."""
+        # Remove articles and common words
+        stopwords = {'the', 'a', 'an', 'of', 'in', 'to', 'for', 'with', 'on', 'at', 'by'}
+        words = label.split()
+        
+        # Filter out stopwords except when they're essential (like "of" in "Code of Ethics")
+        cleaned_words = []
+        for i, word in enumerate(words):
+            if word.lower() not in stopwords or (i > 0 and i < len(words) - 1):
+                cleaned_words.append(word)
+        
+        cleaned = ' '.join(cleaned_words)
+        
+        # Ensure proper capitalization
+        if cleaned:
+            # Title case for multi-word principles
+            if ' ' in cleaned:
+                cleaned = ' '.join(word.capitalize() for word in cleaned.split())
+            else:
+                # Single words - capitalize first letter
+                cleaned = cleaned[0].upper() + cleaned[1:] if len(cleaned) > 1 else cleaned.upper()
+        
+        return cleaned
 
     @staticmethod
     def _parse_json_items(raw: Optional[str], root_key: str) -> List[Dict[str, Any]]:

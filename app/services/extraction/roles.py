@@ -11,11 +11,12 @@ import re
 from typing import List, Optional
 
 from .base import ConceptCandidate, Extractor, PostProcessor, Matcher, MatchedConcept
+from .atomic_extraction_mixin import AtomicExtractionMixin
 
 logger = logging.getLogger(__name__)
 
 
-class RolesExtractor(Extractor):
+class RolesExtractor(Extractor, AtomicExtractionMixin):
     """Extract roles from guideline text using focused, roles-only prompting."""
     
     def __init__(self, provider: Optional[str] = None):
@@ -26,6 +27,11 @@ class RolesExtractor(Extractor):
             provider: LLM provider ('anthropic', 'openai', or None for default)
         """
         self.provider = provider or 'anthropic'
+    
+    @property
+    def concept_type(self) -> str:
+        """The concept type this extractor handles."""
+        return 'role'
         
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """
@@ -83,8 +89,9 @@ class RolesExtractor(Extractor):
             # Log first few for debugging
             for i, candidate in enumerate(candidates[:3]):
                 logger.info(f"Role {i+1}: {candidate.label} ({candidate.primary_type})")
-                
-            return candidates
+            
+            # Apply unified atomic splitting
+            return self._apply_atomic_splitting(candidates)
             
         except Exception as e:
             logger.error(f"Error in roles extraction: {e}", exc_info=True)
