@@ -433,17 +433,42 @@ class DocumentAnnotationViewer {
 
         try {
             const url = `/annotations/${this.documentType}/${this.documentId}/annotate`;
+            const csrfToken = this.getCSRFToken();
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token not found. Please refresh the page and try again.');
+            }
+            
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': this.getCSRFToken()
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({ force_refresh: forceRefresh })
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                // Try to get error details from response
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const responseText = await response.text();
+                    if (responseText.includes('<')) {
+                        // HTML response indicates server error (likely CSRF or authentication issue)
+                        if (response.status === 400 && responseText.includes('CSRF')) {
+                            errorMessage = 'CSRF token validation failed. Please refresh the page and try again.';
+                        } else {
+                            errorMessage = `Server returned an error page (${response.status})`;
+                        }
+                    } else {
+                        // Try to parse as JSON for API error
+                        const errorData = JSON.parse(responseText);
+                        errorMessage = errorData.error || errorMessage;
+                    }
+                } catch (parseError) {
+                    // Keep original error if we can't parse response
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
@@ -740,6 +765,9 @@ class DocumentAnnotationViewer {
 
     getCSRFToken() {
         const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
+        if (!token) {
+            console.warn('CSRF token not found in meta tag');
+        }
         return token || '';
     }
 
