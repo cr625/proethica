@@ -1,0 +1,461 @@
+/**
+ * Document Annotations CSS
+ * Styles for the ontology concept annotation system
+ */
+
+/* Annotation Controls */
+.annotation-controls {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+.annotation-controls .btn {
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.annotation-controls select {
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.annotation-controls .btn-group {
+    margin-left: auto;
+}
+
+/* Inline Annotations */
+.ontology-annotation {
+    background-color: rgba(255, 235, 59, 0.3);
+    border-bottom: 2px dotted #ffc107;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0.1em 0.2em;
+    border-radius: 0.2em;
+    position: relative;
+}
+
+.ontology-annotation:hover {
+    background-color: rgba(255, 235, 59, 0.5);
+    transform: translateY(-1px);
+}
+
+.ontology-annotation.highlighted {
+    background-color: rgba(255, 152, 0, 0.6);
+    animation: highlight-pulse 1s ease-in-out 3;
+}
+
+@keyframes highlight-pulse {
+
+    0%,
+    100% {
+        background-color: rgba(255, 152, 0, 0.6);
+    }
+
+    50% {
+        background-color: rgba(255, 152, 0, 0.9);
+    }
+}
+
+/* Ontology-specific colors */
+.ontology-annotation.ontology-proethica-core {
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, 0.2);
+}
+
+.ontology-annotation.ontology-proethica-core:hover {
+    background-color: rgba(40, 167, 69, 0.3);
+}
+
+.ontology-annotation.ontology-proethica-intermediate {
+    border-color: #17a2b8;
+    background-color: rgba(23, 162, 184, 0.2);
+}
+
+.ontology-annotation.ontology-proethica-intermediate:hover {
+    background-color: rgba(23, 162, 184, 0.3);
+}
+
+.ontology-annotation.ontology-engineering-ethics {
+    border-color: #6610f2;
+    background-color: rgba(102, 16, 242, 0.2);
+}
+
+.ontology-annotation.ontology-engineering-ethics:hover {
+    background-color: rgba(102, 16, 242, 0.3);
+}
+
+/* Confidence level styling */
+.ontology-annotation.confidence-high {
+    border-width: 3px;
+}
+
+.ontology-annotation.confidence-medium {
+    border-width: 2px;
+    opacity: 0.9;
+}
+
+.ontology-annotation.confidence-low {
+    border-width: 1px;
+    opacity: 0.7;
+}
+
+.ontology-annotation.confidence-very_low {
+    border-style: dashed;
+    opacity: 0.6;
+}
+
+/* Validation status styling */
+.ontology-annotation.status-approved {
+    border-left: 3px solid #28a745;
+}
+
+.ontology-annotation.status-rejected {
+    border-left: 3px solid #dc3545;
+    opacity: 0.5;
+}
+
+.ontology-annotation.status-pending {
+    border-left: 3px solid #ffc107;
+}
+
+/* Annotation Sidebar */
+.annotation-sidebar-header {
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.annotation-sidebar-header h5 {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.annotation-list {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.annotation-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.annotation-item:hover {
+    background-color: #f8f9fa;
+}
+
+.annotation-item:last-child {
+    border-bottom: none;
+}
+
+.annotation-item .annotation-text {
+    flex: 1;
+}
+
+.annotation-item .annotation-text strong {
+    color: #212529;
+    font-size: 0.9em;
+}
+
+.annotation-item .annotation-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-end;
+}
+
+.annotation-item .annotation-badges .badge {
+    font-size: 0.75em;
+}
+
+.annotation-definition {
+    font-style: italic;
+    line-height: 1.3;
+}
+
+/* Modal Enhancements */
+.modal-body h6 {
+    color: #495057;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.25rem;
+}
+
+.modal-body h6:first-child {
+    margin-top: 0;
+}
+
+.modal-body .alert-light {
+    background-color: #fafbfc;
+    border-color: #dee2e6;
+    color: #495057;
+    font-family: monospace;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+}
+
+.modal-body dl {
+    margin-bottom: 0;
+}
+
+.modal-body dt {
+    font-weight: 600;
+    color: #495057;
+    margin-top: 0.5rem;
+}
+
+.modal-body dt:first-child {
+    margin-top: 0;
+}
+
+.modal-body dd {
+    margin-bottom: 0.5rem;
+    margin-left: 0;
+}
+
+/* Loading States */
+.annotation-loader {
+    text-align: center;
+    padding: 2rem;
+    margin: 1rem 0;
+}
+
+.annotation-loader i {
+    margin-right: 0.5rem;
+}
+
+/* Alert Messages */
+.annotation-alert {
+    margin-bottom: 1rem;
+    border-radius: 0.375rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .annotation-controls {
+        padding: 0.75rem;
+    }
+
+    .annotation-controls .btn,
+    .annotation-controls select {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+
+    .annotation-controls .btn-group {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .annotation-item .d-flex {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .annotation-item .annotation-badges {
+        flex-direction: row;
+        margin-top: 0.5rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+
+    .annotation-controls,
+    .annotation-sidebar-header,
+    .annotation-list {
+        display: none;
+    }
+
+    .ontology-annotation {
+        background-color: transparent !important;
+        border: 1px solid #666 !important;
+        padding: 0.1em 0.2em;
+    }
+
+    .ontology-annotation::after {
+        content: " [" attr(title) "]";
+        font-size: 0.8em;
+        color: #666;
+        font-style: italic;
+    }
+}
+
+/* Focus and Accessibility */
+.ontology-annotation:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.annotation-item:focus {
+    outline: 2px solid #007bff;
+    outline-offset: -2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .ontology-annotation {
+        border-width: 2px !important;
+        border-style: solid !important;
+    }
+
+    .annotation-controls {
+        border-width: 2px;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .ontology-annotation {
+        transition: none;
+    }
+
+    .annotation-item {
+        transition: none;
+    }
+
+    .ontology-annotation:hover {
+        transform: none;
+    }
+
+    @keyframes highlight-pulse {
+
+        0%,
+        100% {
+            background-color: rgba(255, 152, 0, 0.6);
+        }
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .annotation-controls {
+        background-color: #343a40;
+        border-color: #495057;
+        color: #fff;
+    }
+
+    .ontology-annotation {
+        background-color: rgba(255, 235, 59, 0.4);
+    }
+
+    .ontology-annotation:hover {
+        background-color: rgba(255, 235, 59, 0.6);
+    }
+
+    .annotation-sidebar-header {
+        background-color: #343a40;
+        color: #fff;
+    }
+
+    .annotation-item:hover {
+        background-color: #495057;
+    }
+
+    .modal-body h6 {
+        color: #fff;
+        border-color: #495057;
+    }
+
+    .modal-body .alert-light {
+        background-color: #495057;
+        border-color: #6c757d;
+        color: #fff;
+    }
+}
+
+/* Tooltip Customization */
+.tooltip.show {
+    opacity: 0.95;
+}
+
+.tooltip .tooltip-inner {
+    max-width: 300px;
+    text-align: left;
+    white-space: pre-line;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+/* Confidence Badges */
+.badge.badge-success {
+    background-color: #28a745;
+}
+
+.badge.badge-info {
+    background-color: #17a2b8;
+}
+
+.badge.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge.badge-danger {
+    background-color: #dc3545;
+}
+
+.badge.badge-secondary {
+    background-color: #6c757d;
+}
+
+/* Animation for new annotations */
+@keyframes annotation-appear {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.ontology-annotation.new-annotation {
+    animation: annotation-appear 0.6s ease-out;
+}
+
+/* Statistics and Dashboard Styles */
+.annotation-stats-card {
+    border-left: 4px solid #007bff;
+}
+
+.annotation-stats-card .card-body {
+    padding: 1.5rem;
+}
+
+.annotation-stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.validation-dashboard .pending-item {
+    border-left: 4px solid #ffc107;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #fffbf0;
+}
+
+.validation-dashboard .approved-item {
+    border-left: 4px solid #28a745;
+    background-color: #f8fff9;
+}
+
+.validation-dashboard .rejected-item {
+    border-left: 4px solid #dc3545;
+    background-color: #fff8f8;
+}

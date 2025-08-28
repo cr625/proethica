@@ -3,9 +3,11 @@
 {% block title %}{{ guideline.title }} - Guideline{% endblock %}
 
 {% block content %}
-<div class="container mt-5" id="page-root" data-auth="{{ 'true' if current_user and current_user.is_authenticated else 'false' }}">
+<div class="container mt-5" id="page-root"
+  data-auth="{{ 'true' if current_user and current_user.is_authenticated else 'false' }}" data-document-type="guideline"
+  data-document-id="{{ guideline.id }}">
   <h1>{{ guideline.title }}</h1>
-  
+
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
@@ -14,330 +16,385 @@
       <li class="breadcrumb-item active">{{ guideline.title }}</li>
     </ol>
   </nav>
-  
+
   <!-- Main content (full width) -->
-      <div class="card mb-4">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">Guideline Content</h5>
-          <div>
-            <a href="#associated-concepts" class="btn btn-sm btn-light me-2">
-              <i class="bi bi-arrow-down-circle"></i> Concepts
-            </a>
-            <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}" class="btn btn-sm btn-light me-2">
-              <i class="bi bi-list-ul"></i> Show Sections
-              {% if guideline.doc_metadata and guideline.doc_metadata.guideline_structure and guideline.doc_metadata.guideline_structure.sections_count %}
-              <span class="badge bg-success ms-1" title="Extracted sections available">
-                  <i class="bi bi-check-circle"></i> {{ guideline.doc_metadata.guideline_structure.sections_count }}
-              </span>
-              {% endif %}
-            </a>
-            <!-- Edit functionality not yet implemented -->
-            {% if can_delete_item(guideline) %}
-            <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#deleteGuidelineModal">
-              <i class="fas fa-trash"></i> Delete
-            </button>
-            {% endif %}
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <p class="text-muted mb-2">
-                <strong>Source:</strong> 
-                {% if guideline.source %}
-                  <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a>
-                {% elif guideline.source_url %}
-                  <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
-                {% elif guideline.file_path %}
-                  Uploaded file: {{ guideline.file_path.split('/')[-1] }}
-                {% else %}
-                  Manual entry
-                {% endif %}
-              </p>
-            </div>
-            <div class="col-md-6">
-              <p class="text-muted mb-2">
-                <strong>Created by:</strong> {{ get_creator_name(guideline) }}
-              </p>
-              {% if guideline.created_at %}
-              <p class="text-muted mb-2">
-                <strong>Created:</strong> {{ guideline.created_at.strftime('%Y-%m-%d %H:%M') }}
-              </p>
-              {% endif %}
-            </div>
-          </div>
-          
-          <div class="mt-4 guideline-content">
-            {% if guideline.content %}
-              <!-- Check if content appears to be markdown -->
-              {% if guideline.content.startswith('#') or '##' in guideline.content %}
-                <div class="markdown-content">
-                  {{ guideline.content|markdown|safe }}
-                </div>
-              {% else %}
-                {{ guideline.content|safe }}
-              {% endif %}
-            {% else %}
-              <div class="alert alert-warning">
-                No content available for this guideline.
-              </div>
-            {% endif %}
-          </div>
-        </div>
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Guideline Content</h5>
+      <div>
+        <a href="#associated-concepts" class="btn btn-sm btn-light me-2">
+          <i class="bi bi-arrow-down-circle"></i> Concepts
+        </a>
+        <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-light me-2">
+          <i class="bi bi-list-ul"></i> Show Sections
+          {% if guideline.doc_metadata and guideline.doc_metadata.guideline_structure and
+          guideline.doc_metadata.guideline_structure.sections_count %}
+          <span class="badge bg-success ms-1" title="Extracted sections available">
+            <i class="bi bi-check-circle"></i> {{ guideline.doc_metadata.guideline_structure.sections_count }}
+          </span>
+          {% endif %}
+        </a>
+        <!-- Edit functionality not yet implemented -->
+        {% if can_delete_item(guideline) %}
+        <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal"
+          data-bs-target="#deleteGuidelineModal">
+          <i class="fas fa-trash"></i> Delete
+        </button>
+        {% endif %}
       </div>
-      
-      <!-- Extracted concepts section -->
-      <div class="card mb-4" id="associated-concepts">
-        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">Associated Concepts</h5>
-          <div class="btn-group" role="group">
-            {% if concepts %}
-              {% if ontology_status and ontology_status.all_added %}
-                <!-- Concepts exist and are in ontology -->
-                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-warning"
-                   onclick="return confirm('Re-extracting concepts may invalidate ontology mappings. Continue?')">
-                  <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
-                </a>
-                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split" 
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                  <span class="visually-hidden">Toggle Dropdown</span>
-                </button>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
-                    <i class="bi bi-trash"></i> Remove Concepts & Ontology Entries
-                  </a></li>
-                </ul>
-              {% elif ontology_status and ontology_status.ready_to_add %}
-                <!-- Concepts exist but not in ontology -->
-                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-warning">
-                  <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
-                </a>
-                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split" 
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                  <span class="visually-hidden">Toggle Dropdown</span>
-                </button>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
-                    <i class="bi bi-trash"></i> Remove Extracted Concepts
-                  </a></li>
-                </ul>
-              {% else %}
-                <!-- Concepts exist but status unclear -->
-                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-warning">
-                  <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
-                </a>
-                <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split" 
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                  <span class="visually-hidden">Toggle Dropdown</span>
-                </button>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
-                    <i class="bi bi-trash"></i> Remove Extracted Concepts
-                  </a></li>
-                </ul>
-              {% endif %}
+    </div>
+    <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <p class="text-muted mb-2">
+            <strong>Source:</strong>
+            {% if guideline.source %}
+            <a href="{{ guideline.source }}" target="_blank">{{ guideline.source }}</a>
+            {% elif guideline.source_url %}
+            <a href="{{ guideline.source_url }}" target="_blank">{{ guideline.source_url }}</a>
+            {% elif guideline.file_path %}
+            Uploaded file: {{ guideline.file_path.split('/')[-1] }}
             {% else %}
-              <!-- No concepts exist - check if saved to ontology or pending extractions -->
-              {% if concepts_saved_to_ontology %}
-                <!-- Concepts have been saved to ontology -->
-                <a href="{{ url_for('worlds.view_saved_concepts', world_id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-success me-2">
-                  <i class="bi bi-eye"></i> View Saved Concepts
-                </a>
-                <a href="{{ url_for('ontology.edit_ontology', source=world.ontology_source) }}" 
-                   class="btn btn-sm btn-outline-success me-2">
-                  <i class="bi bi-diagram-3"></i> View Ontology
-                </a>
-                <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-outline-secondary">
-                  <i class="bi bi-arrow-clockwise"></i> Re-extract
-                </a>
-              {% elif pending_extraction and pending_extraction.has_pending %}
-                <!-- Pending extraction exists -->
-                <a href="{{ url_for('worlds_extract_only.load_pending_concepts', world_id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-warning me-2">
-                  <i class="bi bi-hourglass-split"></i> Load Pending Concepts ({{ pending_extraction.concept_count }})
-                </a>
-                <form method="post" action="{{ url_for('worlds.clear_pending_concepts', world_id=world.id, document_id=guideline.id) }}" 
-                      class="d-inline" onsubmit="return confirm('Are you sure you want to clear all pending concepts? This cannot be undone.')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                  <button type="submit" class="btn btn-sm btn-outline-danger me-2">
-                    <i class="bi bi-trash"></i> Clear Pending
-                  </button>
-                </form>
-                <a href="{{ url_for('worlds_extract_only.extract_concepts_direct', world_id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-outline-secondary">
-                  <i class="bi bi-arrow-clockwise"></i> Re-extract
-                </a>
-              {% else %}
-                <!-- No concepts and no pending extraction -->
-                <a href="{{ url_for('worlds_extract_only.extract_concepts_direct', world_id=world.id, document_id=guideline.id) }}" 
-                   class="btn btn-sm btn-light">
-                  <i class="bi bi-lightbulb"></i> Extract Concepts
-                </a>
-              {% endif %}
+            Manual entry
             {% endif %}
-          </div>
+          </p>
         </div>
-        <div class="card-body">
-          {% if concepts %}
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Concept</th>
-                    <th>Description</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for concept in concepts %}
-                    <tr>
-                      <td>
-                        <div class="d-flex align-items-center">
-                          {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
-                          {% set type_colors = {
-                            'role': 'bg-primary',
-                            'principle': 'bg-success', 
-                            'obligation': 'bg-warning',
-                            'state': 'bg-info',
-                            'resource': 'bg-secondary',
-                            'action': 'bg-danger',
-                            'event': 'bg-dark',
-                            'capability': 'bg-light text-dark'
-                          } %}
-                          {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
-                          {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
-                          <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
-                          <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong>
-                        </div>
-                      </td>
-                      <td>
-                        {% if concept.description %}
-                          {{ concept.description }}
-                        {% else %}
-                          <em>No description available</em>
-                        {% endif %}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-            
-            <!-- Add to Ontology section (only show if concepts exist and not already added) -->
-            {% if ontology_status and ontology_status.ready_to_add %}
-            <div class="mt-3 p-3 bg-light border rounded">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  {% if ontology_status.derived_ontology_exists %}
-                    <h6 class="mb-1"><i class="fas fa-database text-info"></i> Derived Ontology Exists</h6>
-                    <small class="text-muted">
-                      A derived ontology has been created for this guideline<br>
-                      <em class="text-info">Concepts are stored in database (base .ttl file unchanged)</em>
-                    </small>
-                  {% else %}
-                    <h6 class="mb-1"><i class="fas fa-plus-circle text-success"></i> Ready for Ontology Integration</h6>
-                    <small class="text-muted">
-                      {% if ontology_status.some_added %}
-                        {{ ontology_status.concepts_in_ontology }}/{{ ontology_status.total_concepts }} concepts already in derived ontology ({{ ontology_status.percentage_added }}%)
-                      {% else %}
-                        {{ ontology_status.total_concepts }} concepts ready to be added to a derived ontology
-                      {% endif %}
-                      <br><em class="text-info">Will create a derived ontology in the database (base .ttl file unchanged)</em>
-                    </small>
-                  {% endif %}
-                </div>
-                {% if ontology_status.derived_ontology_exists %}
-                  <a href="/ontology-editor/?ontology_id={{ ontology_status.derived_ontology_id }}&view=full" class="btn btn-success btn-sm" target="_blank">
-                    <i class="fas fa-external-link-alt"></i> View Ontology
-                  </a>
-                {% else %}
-                  <!-- Auto-add on save is enabled; hide manual button to reduce confusion -->
-                  <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" style="display:none;" disabled>
-                    <i class="fas fa-plus-circle"></i> Add to Ontology
-                  </button>
-                {% endif %}
-              </div>
-            </div>
-            {% elif ontology_status and ontology_status.all_added %}
-            <div class="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                  <i class="fas fa-check-circle text-success me-2"></i>
-                  <div>
-                    <h6 class="mb-1 text-success">Concepts Added to Derived Ontology</h6>
-                    <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a derived ontology in the database<br>
-                    <em class="text-info">The base engineering-ethics.ttl file remains unchanged</em></small>
-                    {% if ontology_status.derived_ontology_name %}
-                    <br><small class="text-muted"><strong>{{ ontology_status.derived_ontology_name }}</strong></small>
-                    {% endif %}
-                  </div>
-                </div>
-                {% if ontology_status.derived_ontology_id %}
-                <div class="text-end">
-                  <a href="/ontology-editor/?ontology_id={{ ontology_status.derived_ontology_id }}&view=full" class="btn btn-sm btn-outline-success" target="_blank">
-                    <i class="fas fa-external-link-alt"></i> View Ontology
-                  </a>
-                  <br>
-                  <small class="text-muted mt-1 d-block">Manage or delete concepts</small>
-                </div>
-                {% endif %}
-              </div>
-            </div>
-            {% endif %}
-          {% else %}
-            {% if concepts_saved_to_ontology %}
-              <div class="alert alert-success">
-                <h6><i class="bi bi-check-circle"></i> Concepts Successfully Saved to Ontology</h6>
-                <p class="mb-2">
-                  <strong>{{ guideline.doc_metadata.concepts_saved_count }}</strong> concepts from this guideline have been integrated into the ontology.
-                </p>
-                <p class="mb-2">
-                  <strong>Saved:</strong> {{ guideline.doc_metadata.concepts_saved_timestamp[:19].replace('T', ' ') if guideline.doc_metadata.concepts_saved_timestamp else 'Recently' }}
-                </p>
-                <hr>
-                <p class="mb-0"><strong>Next Steps:</strong></p>
-                <ul class="mb-0">
-                  <li>Click <strong>"View Ontology"</strong> to explore the integrated concepts</li>
-                  <li>Click <strong>"Re-extract"</strong> to extract additional concepts</li>
-                </ul>
-              </div>
-            {% elif pending_extraction and pending_extraction.has_pending %}
-              <div class="alert alert-warning">
-                <h6><i class="bi bi-hourglass-split"></i> Pending Concept Extraction Found</h6>
-                <p class="mb-2">You have <strong>{{ pending_extraction.concept_count }} concepts</strong> extracted on {{ pending_extraction.extraction_date }} that haven't been saved yet.</p>
-                <p class="mb-0">
-                  <strong>Status:</strong> {{ pending_extraction.status|title }}
-                  {% if pending_extraction.status == 'pending' %}
-                  <small class="text-muted">(ready for review)</small>
-                  {% elif pending_extraction.status == 'reviewed' %}
-                  <small class="text-muted">(reviewed but not saved)</small>
-                  {% endif %}
-                </p>
-                <hr>
-                <p class="mb-0"><strong>Options:</strong></p>
-                <ul class="mb-0">
-                  <li>Click <strong>"Load Pending Concepts"</strong> to continue working with them</li>
-                  <li>Click <strong>"Re-extract"</strong> to start over with fresh extraction</li>
-                </ul>
-              </div>
-            {% else %}
-              <div class="alert alert-info">
-                <p>No concepts have been associated with this guideline yet.</p>
-                <p>Click "Extract Concepts" to extract ethical concepts from this guideline using AI.</p>
-              </div>
-            {% endif %}
+        <div class="col-md-6">
+          <p class="text-muted mb-2">
+            <strong>Created by:</strong> {{ get_creator_name(guideline) }}
+          </p>
+          {% if guideline.created_at %}
+          <p class="text-muted mb-2">
+            <strong>Created:</strong> {{ guideline.created_at.strftime('%Y-%m-%d %H:%M') }}
+          </p>
           {% endif %}
         </div>
       </div>
+
+      <!-- Annotation Controls -->
+      <div class="annotation-controls">
+        <div class="d-flex flex-wrap align-items-center">
+          <button id="annotateBtn" class="btn btn-primary">
+            <i class="fas fa-tag"></i> Annotate with Ontology
+          </button>
+
+          <!-- Ontology selector -->
+          <select id="ontologyFilter" class="form-select" style="width: auto;">
+            <option value="all">All Ontologies</option>
+            <option value="proethica-core">Core Concepts</option>
+            <option value="proethica-intermediate">Intermediate</option>
+            <option value="engineering-ethics">Engineering Ethics</option>
+          </select>
+
+          <!-- View mode toggles -->
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary active" data-view="inline">
+              <i class="fas fa-highlighter"></i> Inline
+            </button>
+            <button type="button" class="btn btn-outline-secondary" data-view="sidebar">
+              <i class="fas fa-list"></i> Sidebar
+            </button>
+          </div>
+
+          <!-- Annotation summary -->
+          <div id="annotationSummary" class="ms-auto">
+            <!-- Will be populated by JavaScript -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Document content with sidebar layout support -->
+      <div class="row">
+        <div class="col-md-12" id="documentContentContainer">
+          <div class="mt-4 guideline-content" id="documentContent">
+            {% if guideline.content %}
+            <!-- Check if content appears to be markdown -->
+            {% if guideline.content.startswith('#') or '##' in guideline.content %}
+            <div class="markdown-content">
+              {{ guideline.content|markdown|safe }}
+            </div>
+            {% else %}
+            {{ guideline.content|safe }}
+            {% endif %}
+            {% else %}
+            <div class="alert alert-warning">
+              No content available for this guideline.
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Annotation sidebar (initially hidden) -->
+        <div class="col-md-4" id="annotationSidebar" style="display: none;">
+          <!-- Content will be populated by JavaScript -->
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Extracted concepts section -->
+  <div class="card mb-4" id="associated-concepts">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Associated Concepts</h5>
+      <div class="btn-group" role="group">
+        {% if concepts %}
+        {% if ontology_status and ontology_status.all_added %}
+        <!-- Concepts exist and are in ontology -->
+        <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-warning"
+          onclick="return confirm('Re-extracting concepts may invalidate ontology mappings. Continue?')">
+          <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
+              <i class="bi bi-trash"></i> Remove Concepts & Ontology Entries
+            </a></li>
+        </ul>
+        {% elif ontology_status and ontology_status.ready_to_add %}
+        <!-- Concepts exist but not in ontology -->
+        <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-warning">
+          <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
+              <i class="bi bi-trash"></i> Remove Extracted Concepts
+            </a></li>
+        </ul>
+        {% else %}
+        <!-- Concepts exist but status unclear -->
+        <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-warning">
+          <i class="bi bi-arrow-clockwise"></i> Re-extract Concepts
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle dropdown-toggle-split"
+          data-bs-toggle="dropdown" aria-expanded="false">
+          <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item text-danger js-remove-concepts" href="#" data-guideline-id="{{ guideline.id }}">
+              <i class="bi bi-trash"></i> Remove Extracted Concepts
+            </a></li>
+        </ul>
+        {% endif %}
+        {% else %}
+        <!-- No concepts exist - check if saved to ontology or pending extractions -->
+        {% if concepts_saved_to_ontology %}
+        <!-- Concepts have been saved to ontology -->
+        <a href="{{ url_for('worlds.view_saved_concepts', world_id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-success me-2">
+          <i class="bi bi-eye"></i> View Saved Concepts
+        </a>
+        <a href="{{ url_for('ontology.edit_ontology', source=world.ontology_source) }}"
+          class="btn btn-sm btn-outline-success me-2">
+          <i class="bi bi-diagram-3"></i> View Ontology
+        </a>
+        <a href="{{ url_for('worlds.extract_and_display_concepts', id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-clockwise"></i> Re-extract
+        </a>
+        {% elif pending_extraction and pending_extraction.has_pending %}
+        <!-- Pending extraction exists -->
+        <a href="{{ url_for('worlds_extract_only.load_pending_concepts', world_id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-warning me-2">
+          <i class="bi bi-hourglass-split"></i> Load Pending Concepts ({{ pending_extraction.concept_count }})
+        </a>
+        <form method="post"
+          action="{{ url_for('worlds.clear_pending_concepts', world_id=world.id, document_id=guideline.id) }}"
+          class="d-inline"
+          onsubmit="return confirm('Are you sure you want to clear all pending concepts? This cannot be undone.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="btn btn-sm btn-outline-danger me-2">
+            <i class="bi bi-trash"></i> Clear Pending
+          </button>
+        </form>
+        <a href="{{ url_for('worlds_extract_only.extract_concepts_direct', world_id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-clockwise"></i> Re-extract
+        </a>
+        {% else %}
+        <!-- No concepts and no pending extraction -->
+        <a href="{{ url_for('worlds_extract_only.extract_concepts_direct', world_id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-light">
+          <i class="bi bi-lightbulb"></i> Extract Concepts
+        </a>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      {% if concepts %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Concept</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for concept in concepts %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center">
+                  {% set primary_type = (concept.primary_type or concept.type or '').lower() %}
+                  {% set type_colors = {
+                  'role': 'bg-primary',
+                  'principle': 'bg-success',
+                  'obligation': 'bg-warning',
+                  'state': 'bg-info',
+                  'resource': 'bg-secondary',
+                  'action': 'bg-danger',
+                  'event': 'bg-dark',
+                  'capability': 'bg-light text-dark'
+                  } %}
+                  {% set color_class = type_colors.get(primary_type, 'bg-secondary') %}
+                  {% set display_type = primary_type.capitalize() if primary_type else 'Concept' %}
+                  <span class="badge {{ color_class }} me-2">{{ display_type }}</span>
+                  <strong>{{ concept.label or concept.subject_label or 'Unknown Concept' }}</strong>
+                </div>
+              </td>
+              <td>
+                {% if concept.description %}
+                {{ concept.description }}
+                {% else %}
+                <em>No description available</em>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Add to Ontology section (only show if concepts exist and not already added) -->
+      {% if ontology_status and ontology_status.ready_to_add %}
+      <div class="mt-3 p-3 bg-light border rounded">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            {% if ontology_status.derived_ontology_exists %}
+            <h6 class="mb-1"><i class="fas fa-database text-info"></i> Derived Ontology Exists</h6>
+            <small class="text-muted">
+              A derived ontology has been created for this guideline<br>
+              <em class="text-info">Concepts are stored in database (base .ttl file unchanged)</em>
+            </small>
+            {% else %}
+            <h6 class="mb-1"><i class="fas fa-plus-circle text-success"></i> Ready for Ontology Integration</h6>
+            <small class="text-muted">
+              {% if ontology_status.some_added %}
+              {{ ontology_status.concepts_in_ontology }}/{{ ontology_status.total_concepts }} concepts already in
+              derived ontology ({{ ontology_status.percentage_added }}%)
+              {% else %}
+              {{ ontology_status.total_concepts }} concepts ready to be added to a derived ontology
+              {% endif %}
+              <br><em class="text-info">Will create a derived ontology in the database (base .ttl file unchanged)</em>
+            </small>
+            {% endif %}
+          </div>
+          {% if ontology_status.derived_ontology_exists %}
+          <a href="/ontology-editor/?ontology_id={{ ontology_status.derived_ontology_id }}&view=full"
+            class="btn btn-success btn-sm" target="_blank">
+            <i class="fas fa-external-link-alt"></i> View Ontology
+          </a>
+          {% else %}
+          <!-- Auto-add on save is enabled; hide manual button to reduce confusion -->
+          <button type="button" class="btn btn-success btn-sm" id="addToOntologyBtn" style="display:none;" disabled>
+            <i class="fas fa-plus-circle"></i> Add to Ontology
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% elif ontology_status and ontology_status.all_added %}
+      <div class="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            <div>
+              <h6 class="mb-1 text-success">Concepts Added to Derived Ontology</h6>
+              <small class="text-muted">All {{ ontology_status.total_concepts }} concepts have been integrated into a
+                derived ontology in the database<br>
+                <em class="text-info">The base engineering-ethics.ttl file remains unchanged</em></small>
+              {% if ontology_status.derived_ontology_name %}
+              <br><small class="text-muted"><strong>{{ ontology_status.derived_ontology_name }}</strong></small>
+              {% endif %}
+            </div>
+          </div>
+          {% if ontology_status.derived_ontology_id %}
+          <div class="text-end">
+            <a href="/ontology-editor/?ontology_id={{ ontology_status.derived_ontology_id }}&view=full"
+              class="btn btn-sm btn-outline-success" target="_blank">
+              <i class="fas fa-external-link-alt"></i> View Ontology
+            </a>
+            <br>
+            <small class="text-muted mt-1 d-block">Manage or delete concepts</small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      {% if concepts_saved_to_ontology %}
+      <div class="alert alert-success">
+        <h6><i class="bi bi-check-circle"></i> Concepts Successfully Saved to Ontology</h6>
+        <p class="mb-2">
+          <strong>{{ guideline.doc_metadata.concepts_saved_count }}</strong> concepts from this guideline have been
+          integrated into the ontology.
+        </p>
+        <p class="mb-2">
+          <strong>Saved:</strong> {{ guideline.doc_metadata.concepts_saved_timestamp[:19].replace('T', ' ') if
+          guideline.doc_metadata.concepts_saved_timestamp else 'Recently' }}
+        </p>
+        <hr>
+        <p class="mb-0"><strong>Next Steps:</strong></p>
+        <ul class="mb-0">
+          <li>Click <strong>"View Ontology"</strong> to explore the integrated concepts</li>
+          <li>Click <strong>"Re-extract"</strong> to extract additional concepts</li>
+        </ul>
+      </div>
+      {% elif pending_extraction and pending_extraction.has_pending %}
+      <div class="alert alert-warning">
+        <h6><i class="bi bi-hourglass-split"></i> Pending Concept Extraction Found</h6>
+        <p class="mb-2">You have <strong>{{ pending_extraction.concept_count }} concepts</strong> extracted on {{
+          pending_extraction.extraction_date }} that haven't been saved yet.</p>
+        <p class="mb-0">
+          <strong>Status:</strong> {{ pending_extraction.status|title }}
+          {% if pending_extraction.status == 'pending' %}
+          <small class="text-muted">(ready for review)</small>
+          {% elif pending_extraction.status == 'reviewed' %}
+          <small class="text-muted">(reviewed but not saved)</small>
+          {% endif %}
+        </p>
+        <hr>
+        <p class="mb-0"><strong>Options:</strong></p>
+        <ul class="mb-0">
+          <li>Click <strong>"Load Pending Concepts"</strong> to continue working with them</li>
+          <li>Click <strong>"Re-extract"</strong> to start over with fresh extraction</li>
+        </ul>
+      </div>
+      {% else %}
+      <div class="alert alert-info">
+        <p>No concepts have been associated with this guideline yet.</p>
+        <p>Click "Extract Concepts" to extract ethical concepts from this guideline using AI.</p>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- Delete Guideline Modal -->
-<div class="modal fade" id="deleteGuidelineModal" tabindex="-1" aria-labelledby="deleteGuidelineModalLabel" aria-hidden="true">
+<div class="modal fade" id="deleteGuidelineModal" tabindex="-1" aria-labelledby="deleteGuidelineModalLabel"
+  aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -346,7 +403,8 @@
       </div>
       <div class="modal-body">
         <p>Are you sure you want to delete the guideline <strong>{{ guideline.title }}</strong>?</p>
-        <p class="text-danger">This action cannot be undone. All associated concepts and triples will also be deleted.</p>
+        <p class="text-danger">This action cannot be undone. All associated concepts and triples will also be deleted.
+        </p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -362,7 +420,8 @@
 </div>
 
 <!-- Add to Ontology Modal -->
-<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel" aria-hidden="true" style="display:none;">
+<div class="modal fade" id="addToOntologyModal" tabindex="-1" aria-labelledby="addToOntologyModalLabel"
+  aria-hidden="true" style="display:none;">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
@@ -375,21 +434,23 @@
         <div class="alert alert-info">
           <h6><i class="fas fa-info-circle"></i> What will happen:</h6>
           <ul class="mb-0">
-            <li><strong>{{ ontology_status.total_concepts if ontology_status else 0 }} concepts</strong> will be added to a new derived ontology</li>
+            <li><strong>{{ ontology_status.total_concepts if ontology_status else 0 }} concepts</strong> will be added
+              to a new derived ontology</li>
             <li>The derived ontology will <strong>import the base engineering-ethics ontology</strong></li>
             <li>The <strong>base .ttl file remains unchanged</strong> - concepts are stored separately</li>
-            <li>Concepts will be mapped to their appropriate <strong>intermediate classes</strong> (Principle, Obligation, etc.)</li>
+            <li>Concepts will be mapped to their appropriate <strong>intermediate classes</strong> (Principle,
+              Obligation, etc.)</li>
             <li>All <strong>semantic metadata</strong> from the analysis will be preserved</li>
             <li>The derived ontology can be <strong>deleted later</strong> without affecting the base ontology</li>
           </ul>
         </div>
-        
+
         <div class="mb-3">
           <label for="commitMessage" class="form-label">Commit Message (optional):</label>
-          <textarea class="form-control" id="commitMessage" name="commit_message" rows="2" 
-                    placeholder="Added concepts from guideline analysis">Created derived ontology with {{ ontology_status.total_concepts if ontology_status else 0 }} concepts from {{ guideline.title }} guideline analysis</textarea>
+          <textarea class="form-control" id="commitMessage" name="commit_message" rows="2"
+            placeholder="Added concepts from guideline analysis">Created derived ontology with {{ ontology_status.total_concepts if ontology_status else 0 }} concepts from {{ guideline.title }} guideline analysis</textarea>
         </div>
-        
+
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="confirmAddition" required>
           <label class="form-check-label" for="confirmAddition">
@@ -408,7 +469,9 @@
 </div>
 
 <!-- Hidden form for submission -->
-<form id="addToOntologyForm" method="post" action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}" style="display: none;">
+<form id="addToOntologyForm" method="post"
+  action="{{ url_for('worlds.add_concepts_to_ontology', world_id=world.id, document_id=guideline.id) }}"
+  style="display: none;">
   {% if csrf_token %}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
   {% endif %}
@@ -418,27 +481,33 @@
 
 {% block styles %}
 {{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/document-annotations.css') }}">
 <style>
   .guideline-content {
     font-size: 1rem;
     line-height: 1.6;
   }
-  
-  .guideline-content h1, .guideline-content h2, .guideline-content h3, 
-  .guideline-content h4, .guideline-content h5, .guideline-content h6 {
+
+  .guideline-content h1,
+  .guideline-content h2,
+  .guideline-content h3,
+  .guideline-content h4,
+  .guideline-content h5,
+  .guideline-content h6 {
     margin-top: 1.5rem;
     margin-bottom: 1rem;
   }
-  
+
   .guideline-content p {
     margin-bottom: 1rem;
   }
-  
-  .guideline-content ul, .guideline-content ol {
+
+  .guideline-content ul,
+  .guideline-content ol {
     margin-bottom: 1rem;
     padding-left: 2rem;
   }
-  
+
   .guideline-content blockquote {
     border-left: 4px solid #ccc;
     padding-left: 1rem;
@@ -450,24 +519,25 @@
 
 {% block scripts %}
 {{ super() }}
+<script src="{{ url_for('static', filename='js/document-annotations.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const rootEl = document.getElementById('page-root');
-  const isAuthenticated = (rootEl?.dataset?.auth === 'true');
-  const loginUrl = "{{ url_for('auth.login') }}";
-  // Bind delete extracted concepts buttons
-  document.querySelectorAll('.js-remove-concepts').forEach((btn) => {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      if (!isAuthenticated) {
-        const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
-        window.location.href = `${loginUrl}?next=${nextUrl}`;
-        return;
-      }
-      const id = this.getAttribute('data-guideline-id');
-      removeExtractedConcepts(this, id);
+  document.addEventListener('DOMContentLoaded', function () {
+    const rootEl = document.getElementById('page-root');
+    const isAuthenticated = (rootEl?.dataset?.auth === 'true');
+    const loginUrl = "{{ url_for('auth.login') }}";
+    // Bind delete extracted concepts buttons
+    document.querySelectorAll('.js-remove-concepts').forEach((btn) => {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (!isAuthenticated) {
+          const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+          window.location.href = `${loginUrl}?next=${nextUrl}`;
+          return;
+        }
+        const id = this.getAttribute('data-guideline-id');
+        removeExtractedConcepts(this, id);
+      });
     });
-  });
     const confirmAddBtn = document.getElementById('confirmAddBtn');
     const confirmCheckbox = document.getElementById('confirmAddition');
     const commitMessageTextarea = document.getElementById('commitMessage');
@@ -476,81 +546,81 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Only run if the elements exist (i.e., when the modal is present)
     if (confirmAddBtn && confirmCheckbox && commitMessageTextarea && form) {
-        // Enable/disable confirm button based on checkbox
-        confirmCheckbox.addEventListener('change', function() {
-            confirmAddBtn.disabled = !this.checked;
-        });
+      // Enable/disable confirm button based on checkbox
+      confirmCheckbox.addEventListener('change', function () {
+        confirmAddBtn.disabled = !this.checked;
+      });
 
-        // Handle form submission when confirmed
-        confirmAddBtn.addEventListener('click', function() {
-            // Add commit message to hidden form
-            hiddenCommitMessage.value = commitMessageTextarea.value.trim();
+      // Handle form submission when confirmed
+      confirmAddBtn.addEventListener('click', function () {
+        // Add commit message to hidden form
+        hiddenCommitMessage.value = commitMessageTextarea.value.trim();
 
-            // Change button to show processing
-            confirmAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding to Ontology...';
-            confirmAddBtn.disabled = true;
-            
-            // Submit the form
-            form.submit();
-        });
+        // Change button to show processing
+        confirmAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding to Ontology...';
+        confirmAddBtn.disabled = true;
+
+        // Submit the form
+        form.submit();
+      });
     }
-});
+  });
 
-// Function to remove extracted concepts
-function removeExtractedConcepts(el, guidelineId) {
+  // Function to remove extracted concepts
+  function removeExtractedConcepts(el, guidelineId) {
     const confirmMessage = 'Are you sure you want to remove all extracted concepts?\n\n' +
-                          'This will delete:\n' +
-                          '• All concept extractions from this guideline\n' +
-                          '• Any associated ontology entries (if they exist)\n' +
-                          '• Analysis metadata\n\n' +
-                          'This action cannot be undone.';
-    
+      'This will delete:\n' +
+      '• All concept extractions from this guideline\n' +
+      '• Any associated ontology entries (if they exist)\n' +
+      '• Analysis metadata\n\n' +
+      'This action cannot be undone.';
+
     if (confirm(confirmMessage)) {
-        // Show loading state
-    try {
-      const group = el && (el.closest('.btn-group'));
-      if (group) {
-        group.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
-                  '<i class="bi bi-hourglass-split"></i> Removing...</button>';
+      // Show loading state
+      try {
+        const group = el && (el.closest('.btn-group'));
+        if (group) {
+          group.innerHTML = '<button class="btn btn-sm btn-secondary" disabled>' +
+            '<i class="bi bi-hourglass-split"></i> Removing...</button>';
+        }
+      } catch (e) {
+        // Ignore UI loading errors
       }
-    } catch (e) {
-      // Ignore UI loading errors
-    }
-        
-        // Send DELETE request
-  // Acquire CSRF token from meta if present
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-  appFetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-    'X-CSRFToken': csrfToken,
-            },
-            credentials: 'same-origin'
-        })
+
+      // Send DELETE request
+      // Acquire CSRF token from meta if present
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      appFetch(`/worlds/{{ world.id }}/guidelines/${guidelineId}/concepts`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        credentials: 'same-origin'
+      })
         .then(response => {
-            if (response.ok) {
-                // Reload the page to show updated state
-                window.location.reload();
-            } else {
-                // If unauthorized/forbidden/CSRF error, redirect to login
-                if (response.status === 401 || response.status === 403 || response.status === 400) {
-                  const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
-                  window.location.href = `${window.APP_LOGIN_URL}?next=${nextUrl}`;
-                  return;
-                }
-                throw new Error('Failed to remove concepts');
+          if (response.ok) {
+            // Reload the page to show updated state
+            window.location.reload();
+          } else {
+            // If unauthorized/forbidden/CSRF error, redirect to login
+            if (response.status === 401 || response.status === 403 || response.status === 400) {
+              const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+              window.location.href = `${window.APP_LOGIN_URL}?next=${nextUrl}`;
+              return;
             }
+            throw new Error('Failed to remove concepts');
+          }
         })
         .catch(error => {
-            console.error('Error removing concepts:', error);
-            alert('Failed to remove concepts. Please try again.');
-            // Restore button state
-            window.location.reload();
+          console.error('Error removing concepts:', error);
+          alert('Failed to remove concepts. Please try again.');
+          // Restore button state
+          window.location.reload();
         });
     }
-    
+
     return false; // Prevent default link action
-}
+  }
 </script>
 {% endblock %}
