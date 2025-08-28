@@ -138,7 +138,7 @@ class OntServeAnnotationService:
         return {
             'core': 'proethica-core',
             'intermediate': 'proethica-intermediate',
-            'domain': 'engineering-ethics'
+            'domain': 'proethica-intermediate'  # Use intermediate ontology as it has 99 classes vs engineering-ethics with 0
         }
     
     def update_world_ontology_mapping(self, world_id: int, mapping: Dict[str, str]) -> bool:

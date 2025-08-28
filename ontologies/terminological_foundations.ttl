@@ -1,0 +1,148 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix proethica: <http://proethica.org/ontology/intermediate#> .
+@prefix termfound: <http://proethica.org/ontology/terminological_foundations#> .
+
+# Terminological Foundations Ontology
+# Based on ISO standards for professional engineering terminology
+
+<http://proethica.org/ontology/terminological_foundations> a owl:Ontology ;
+    rdfs:label "Engineering Terminological Foundations" ;
+    dct:title "Terminological Foundations for Engineering Ethics" ;
+    dct:description "Essential terminological concepts derived from ISO standards to ground engineering ethics representations in professional practice" ;
+    owl:imports <http://proethica.org/ontology/intermediate> ;
+    dct:created "2025-08-28"^^<http://www.w3.org/2001/XMLSchema#date> .
+
+# ===== ISO 15926 INDUSTRIAL AUTOMATION CONCEPTS =====
+
+termfound:IndustrialProcess a proethica:Resource ;
+    rdfs:label "Industrial Process" ;
+    skos:definition "A systematic series of actions or operations in industrial automation that transforms inputs into outputs according to defined specifications and safety requirements" ;
+    dct:source <https://www.iso.org/standard/29557.html> ;
+    rdfs:comment "Core concept for industrial automation ethics, referenced from ISO 15926-2:2003" ;
+    proethica:standardType "terminological_foundation" ;
+    proethica:appliesToDomain "industrial_engineering", "automation_engineering", "systems_engineering" .
+
+termfound:SystemIntegrity a proethica:Principle ;
+    rdfs:label "System Integrity in Industrial Automation" ;
+    skos:definition "The principle that industrial automation systems must maintain their intended functionality and safety characteristics throughout their operational lifecycle" ;
+    dct:source <https://www.iso.org/standard/29557.html> ;
+    rdfs:comment "Ethical principle derived from ISO 15926 industrial automation terminology" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "industrial_engineering", "automation_engineering" .
+
+termfound:ProcessSafetyManagement a proethica:Obligation ;
+    rdfs:label "Process Safety Management" ;
+    skos:definition "Engineers must implement systematic approaches to managing industrial process hazards and ensuring safe operation of automated systems" ;
+    dct:source <https://www.iso.org/standard/29557.html> ;
+    rdfs:comment "Safety obligation grounded in ISO 15926 process terminology" ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "industrial_engineering", "process_engineering" .
+
+# ===== ISO 80000 QUANTITIES AND UNITS CONCEPTS =====
+
+termfound:MeasurementIntegrity a proethica:Principle ;
+    rdfs:label "Measurement Integrity" ;
+    skos:definition "The principle that all engineering measurements must be traceable to recognized standards and reported with appropriate uncertainty and significant figures" ;
+    dct:source <https://www.iso.org/standard/30669.html> ;
+    rdfs:comment "Measurement ethics principle based on ISO 80000-1:2009 quantities and units" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "all_engineering" .
+
+termfound:MetrologicalTraceability a proethica:Obligation ;
+    rdfs:label "Ensure Metrological Traceability" ;
+    skos:definition "Engineers must ensure that all critical measurements are traceable to international standards through documented calibration chains" ;
+    dct:source <https://www.iso.org/standard/30669.html> ;
+    rdfs:comment "Measurement obligation derived from ISO 80000 metrological principles" ;
+    proethica:hasUrgency "verification_phase" ;
+    proethica:appliesToDomain "all_engineering" .
+
+termfound:UncertaintyReporting a proethica:Obligation ;
+    rdfs:label "Report Measurement Uncertainty" ;
+    skos:definition "Engineers must report measurement uncertainty and significant figures appropriately in all technical communications and documentation" ;
+    dct:source <https://www.iso.org/standard/30669.html> ;
+    rdfs:comment "Scientific integrity obligation based on ISO 80000 uncertainty principles" ;
+    proethica:hasUrgency "reporting_phase" ;
+    proethica:appliesToDomain "all_engineering" .
+
+# ===== ISO 6707-1 BUILDING AND CIVIL ENGINEERING CONCEPTS =====
+
+termfound:StructuralIntegrity a proethica:Principle ;
+    rdfs:label "Structural Integrity" ;
+    skos:definition "The principle that all building and civil engineering structures must be designed and constructed to maintain their intended performance throughout their design life" ;
+    dct:source <https://www.iso.org/standard/74704.html> ;
+    rdfs:comment "Fundamental civil engineering principle based on ISO 6707-1:2020 building terminology" ;
+    proethica:hasEthicalWeight "paramount" ;
+    proethica:appliesToDomain "civil_engineering", "structural_engineering" .
+
+termfound:BuildingPerformance a proethica:Resource ;
+    rdfs:label "Building Performance Standards" ;
+    skos:definition "Established criteria for evaluating building and civil engineering works according to safety, serviceability, and sustainability requirements" ;
+    dct:source <https://www.iso.org/standard/74704.html> ;
+    rdfs:comment "Performance framework concept from ISO 6707-1:2020" ;
+    proethica:standardType "performance_criteria" ;
+    proethica:appliesToDomain "civil_engineering", "construction_engineering" .
+
+termfound:ConstructionSafety a proethica:Obligation ;
+    rdfs:label "Construction Safety Compliance" ;
+    skos:definition "Engineers must ensure that construction processes comply with established safety terminology and risk management practices" ;
+    dct:source <https://www.iso.org/standard/74704.html> ;
+    rdfs:comment "Construction safety obligation grounded in ISO 6707-1:2020 terminology" ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering", "construction_engineering" .
+
+termfound:ServiceabilityRequirements a proethica:Constraint ;
+    rdfs:label "Serviceability Requirements" ;
+    skos:definition "Technical constraints ensuring that civil engineering structures perform their intended function under normal service conditions" ;
+    dct:source <https://www.iso.org/standard/74704.html> ;
+    rdfs:comment "Technical constraint based on ISO 6707-1:2020 serviceability terminology" ;
+    proethica:hasType "technical" ;
+    proethica:appliesToDomain "civil_engineering", "structural_engineering" .
+
+# ===== PROFESSIONAL ORGANIZATION REFERENCES =====
+
+termfound:NSPECodeReference a proethica:Resource ;
+    rdfs:label "NSPE Code of Ethics Reference" ;
+    skos:definition "Reference to the National Society of Professional Engineers Code of Ethics as the authoritative source for professional engineering ethical standards" ;
+    dct:source <https://www.nspe.org/resources/ethics/code-ethics> ;
+    rdfs:comment "Authoritative reference to NSPE ethical standards" ;
+    proethica:standardType "professional_ethics_code" ;
+    proethica:appliesToDomain "all_engineering" .
+
+termfound:ASCEStandardsReference a proethica:Resource ;
+    rdfs:label "ASCE Standards Reference" ;
+    skos:definition "Reference to American Society of Civil Engineers standards and ethical guidelines for civil engineering practice" ;
+    dct:source <https://www.asce.org/career-growth/ethics/code-of-ethics> ;
+    rdfs:comment "Civil engineering professional standards reference" ;
+    proethica:standardType "professional_ethics_code" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+termfound:IEEEStandardsReference a proethica:Resource ;
+    rdfs:label "IEEE Standards Reference" ;
+    skos:definition "Reference to Institute of Electrical and Electronics Engineers standards for electrical and computer engineering ethics" ;
+    dct:source <https://www.ieee.org/about/corporate/governance/p7-8.html> ;
+    rdfs:comment "Electrical and computer engineering professional standards reference" ;
+    proethica:standardType "professional_ethics_code" ;
+    proethica:appliesToDomain "electrical_engineering", "computer_engineering" .
+
+# ===== TERMINOLOGICAL FOUNDATION ROLES =====
+
+termfound:StandardsSpecialist a proethica:Role ;
+    rdfs:label "Standards and Terminology Specialist" ;
+    skos:definition "Engineer responsible for ensuring proper application of standard terminology and maintaining consistency with international standards" ;
+    rdfs:comment "Specialized role for terminological compliance and standardization" ;
+    proethica:hasResponsibilities termfound:MeasurementIntegrity, termfound:MetrologicalTraceability ;
+    proethica:appliesToDomain "all_engineering" .
+
+# ===== ACTIONS FOR TERMINOLOGICAL COMPLIANCE =====
+
+termfound:VerifyTerminologicalCompliance a proethica:Action ;
+    rdfs:label "Verify Terminological Compliance" ;
+    skos:definition "The systematic verification that engineering documentation uses terminology consistent with applicable ISO and professional organization standards" ;
+    rdfs:comment "Quality assurance action for terminological consistency" ;
+    proethica:supportsPrinciple termfound:MeasurementIntegrity ;
+    proethica:hasUrgency "documentation_phase" ;
+    proethica:appliesToDomain "all_engineering" .

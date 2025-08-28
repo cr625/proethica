@@ -8,6 +8,7 @@ from app.models.document import Document
 from app.models.document_concept_annotation import DocumentConceptAnnotation
 from app.models.world import World
 from app.services.document_annotation_pipeline import DocumentAnnotationPipeline
+from app.services.simple_annotation_service import SimpleAnnotationService
 from app.services.ontserve_annotation_service import OntServeAnnotationService
 import logging
 
@@ -48,9 +49,9 @@ def annotate_guideline(guideline_id):
                 flash('Document already annotated with current ontology versions.', 'info')
                 return redirect(url_for('guidelines.view', id=guideline_id))
         
-        # Run annotation pipeline
-        pipeline = DocumentAnnotationPipeline()
-        annotations = pipeline.annotate_document('guideline', guideline_id, guideline.world_id, force_refresh)
+        # Run annotation pipeline (using simple service for reliability)
+        simple_service = SimpleAnnotationService()
+        annotations = simple_service.annotate_document('guideline', guideline_id, guideline.world_id, force_refresh)
         
         if annotations:
             flash(f'Successfully annotated document with {len(annotations)} concepts from ontology.', 'success')
@@ -100,9 +101,9 @@ def annotate_case(case_id):
                 return jsonify({'success': True, 'annotation_count': len(existing)})
             return redirect(url_for('cases.view_case', id=case_id))
         
-        # Run annotation pipeline
-        pipeline = DocumentAnnotationPipeline()
-        annotations = pipeline.annotate_document('case', case_id, case.world_id, force_refresh)
+        # Run annotation pipeline (using simple service for reliability)
+        simple_service = SimpleAnnotationService()
+        annotations = simple_service.annotate_document('case', case_id, case.world_id, force_refresh)
         
         if annotations:
             flash(f'Successfully annotated case with {len(annotations)} concepts from ontology.', 'success')
@@ -346,6 +347,59 @@ def validation_dashboard():
     except Exception as e:
         logger.exception(f"Error loading validation dashboard: {e}")
         flash(f'Error loading validation dashboard: {str(e)}', 'error')
+        return redirect(url_for('dashboard.index'))
+
+@annotations_bp.route('/clear/<document_type>/<int:document_id>', methods=['POST'])
+@login_required
+def clear_annotations(document_type, document_id):
+    """Clear all annotations for a document to allow re-annotation."""
+    try:
+        if document_type not in ['guideline', 'case']:
+            return jsonify({'error': 'Invalid document type'}), 400
+        
+        # Get document and check permissions
+        if document_type == 'guideline':
+            document = Guideline.query.get_or_404(document_id)
+        else:
+            document = Document.query.get_or_404(document_id)
+        
+        if not document.world.can_edit(current_user):
+            return jsonify({'error': 'Permission denied'}), 403
+        
+        # Delete existing annotations
+        from app.models import db
+        existing = DocumentConceptAnnotation.get_annotations_for_document(document_type, document_id)
+        count = len(existing)
+        
+        for annotation in existing:
+            db.session.delete(annotation)
+        
+        db.session.commit()
+        
+        message = f'Cleared {count} existing annotations'
+        logger.info(f"Cleared annotations for {document_type} {document_id}: {count} annotations removed")
+        
+        if request.is_json:
+            return jsonify({
+                'success': True,
+                'message': message,
+                'cleared_count': count
+            })
+        
+        flash(message, 'info')
+        if document_type == 'guideline':
+            return redirect(url_for('guidelines.view', id=document_id))
+        else:
+            return redirect(url_for('cases.view_case', id=document_id))
+        
+    except Exception as e:
+        logger.exception(f"Error clearing annotations for {document_type} {document_id}: {e}")
+        message = f'Error clearing annotations: {str(e)}'
+        
+        if request.is_json:
+            return jsonify({'success': False, 'error': message}), 500
+        
+        flash(message, 'error')
         return redirect(url_for('dashboard.index'))
 
 @annotations_bp.route('/statistics')

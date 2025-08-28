@@ -1,0 +1,176 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix proethica: <http://proethica.org/ontology/intermediate#> .
+@prefix ieee: <http://proethica.org/ontology/ieee#> .
+
+# IEEE Code of Ethics Ontology
+# Based on Institute of Electrical and Electronics Engineers Code of Ethics
+# https://www.ieee.org/about/corporate/governance/p7-8.html
+
+<http://proethica.org/ontology/ieee> a owl:Ontology ;
+    rdfs:label "IEEE Code of Ethics Ontology" ;
+    dct:title "Institute of Electrical and Electronics Engineers Code of Ethics" ;
+    dct:description "Ontology representation of the IEEE Code of Ethics for electrical and electronics engineers" ;
+    dct:source <https://www.ieee.org/about/corporate/governance/p7-8.html> ;
+    owl:imports <http://proethica.org/ontology/intermediate> ;
+    dct:created "2025-08-28"^^<http://www.w3.org/2001/XMLSchema#date> .
+
+# ===== FUNDAMENTAL PRINCIPLES =====
+
+ieee:PublicSafetyHealthWelfare a proethica:Principle ;
+    rdfs:label "Public Safety, Health and Welfare" ;
+    skos:definition "IEEE members must hold paramount the safety, health, and welfare of the public, to strive to comply with ethical design and sustainable development practices" ;
+    rdfs:comment "Primary ethical obligation for IEEE members" ;
+    proethica:hasEthicalWeight "paramount" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:HonestRealistic a proethica:Principle ;
+    rdfs:label "Honest and Realistic" ;
+    skos:definition "IEEE members must be honest and realistic in stating claims or estimates based on available data" ;
+    rdfs:comment "Requirement for truthfulness in professional communications" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:RejectBribery a proethica:Principle ;
+    rdfs:label "Reject Bribery" ;
+    skos:definition "IEEE members must reject bribery in all its forms" ;
+    rdfs:comment "Prohibition against corruption and unethical financial incentives" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:ImproveUnderstanding a proethica:Principle ;
+    rdfs:label "Improve Understanding of Technology" ;
+    skos:definition "IEEE members must improve the understanding of technology by the public, its appropriate application, and potential consequences" ;
+    rdfs:comment "Educational and awareness responsibility to society" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:MaintainCompetence a proethica:Principle ;
+    rdfs:label "Maintain and Improve Competence" ;
+    skos:definition "IEEE members must maintain and improve their technical competence and undertake technological tasks for others only if qualified by training or experience" ;
+    rdfs:comment "Professional competence and continuous improvement requirement" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:SeekAcceptCriticism a proethica:Principle ;
+    rdfs:label "Seek, Accept and Offer Honest Criticism" ;
+    skos:definition "IEEE members must seek, accept, and offer honest criticism of technical work, acknowledge and correct errors" ;
+    rdfs:comment "Professional openness to feedback and error correction" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:TreatAllPersonsFairly a proethica:Principle ;
+    rdfs:label "Treat All Persons Fairly" ;
+    skos:definition "IEEE members must treat all persons fairly and with respect, without discrimination based on characteristics such as race, religion, gender, disability, age, national origin, sexual orientation, gender identity, or gender expression" ;
+    rdfs:comment "Commitment to equality and non-discrimination" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:AvoidConflictsOfInterest a proethica:Principle ;
+    rdfs:label "Avoid Conflicts of Interest" ;
+    skos:definition "IEEE members must avoid real or perceived conflicts of interest whenever possible, and disclose them to affected parties when they do exist" ;
+    rdfs:comment "Requirement for professional independence and transparency" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:AvoidHarmingOthers a proethica:Principle ;
+    rdfs:label "Avoid Harming Others" ;
+    skos:definition "IEEE members must avoid harming others, their property, reputation, or employment by false or malicious action" ;
+    rdfs:comment "Prohibition against causing harm through professional actions" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:AssistColleagues a proethica:Principle ;
+    rdfs:label "Assist Colleagues and Co-workers" ;
+    skos:definition "IEEE members must assist colleagues and co-workers in their professional development and support them in following this code of ethics" ;
+    rdfs:comment "Collaborative responsibility for professional development" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+# ===== SPECIFIC OBLIGATIONS =====
+
+ieee:EnsurePublicSafety a proethica:Obligation ;
+    rdfs:label "Ensure Public Safety in Designs" ;
+    skos:definition "Engineers must prioritize public safety in all design and implementation decisions" ;
+    rdfs:comment "Primary safety obligation" ;
+    proethica:derivedFromPrinciple ieee:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:ProvideTruthfulEstimates a proethica:Obligation ;
+    rdfs:label "Provide Truthful Estimates" ;
+    skos:definition "Engineers must provide honest and realistic estimates based on available data" ;
+    rdfs:comment "Honesty requirement in professional assessments" ;
+    proethica:derivedFromPrinciple ieee:HonestRealistic ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:DiscloseConflicts a proethica:Obligation ;
+    rdfs:label "Disclose Conflicts of Interest" ;
+    skos:definition "Engineers must disclose conflicts of interest to affected parties" ;
+    rdfs:comment "Transparency requirement for professional independence" ;
+    proethica:derivedFromPrinciple ieee:AvoidConflictsOfInterest ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+# ===== PROFESSIONAL ROLES =====
+
+ieee:ElectricalEngineer a proethica:Role ;
+    rdfs:label "Electrical Engineer" ;
+    skos:definition "A professional engineer specializing in electrical systems and power engineering" ;
+    rdfs:comment "Core electrical engineering role" ;
+    proethica:hasResponsibilities ieee:EnsurePublicSafety ;
+    proethica:appliesToDomain "electrical_engineering" .
+
+ieee:ElectronicsEngineer a proethica:Role ;
+    rdfs:label "Electronics Engineer" ;
+    skos:definition "A professional engineer specializing in electronic circuits and systems" ;
+    rdfs:comment "Specialized electronics engineering role" ;
+    proethica:hasResponsibilities ieee:EnsurePublicSafety ;
+    proethica:appliesToDomain "electronics_engineering" .
+
+ieee:ComputerEngineer a proethica:Role ;
+    rdfs:label "Computer Engineer" ;
+    skos:definition "A professional engineer specializing in computer hardware and software systems" ;
+    rdfs:comment "Computer engineering specialization" ;
+    proethica:hasResponsibilities ieee:EnsurePublicSafety ;
+    proethica:appliesToDomain "computer_engineering" .
+
+# ===== SPECIFIC ACTIONS =====
+
+ieee:ReportSafetyHazards a proethica:Action ;
+    rdfs:label "Report Safety Hazards" ;
+    skos:definition "The action of reporting potential safety hazards in electrical or electronic systems" ;
+    rdfs:comment "Required action for public safety" ;
+    proethica:supportsPrinciple ieee:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+ieee:ProvideHonestAssessment a proethica:Action ;
+    rdfs:label "Provide Honest Technical Assessment" ;
+    skos:definition "The action of providing truthful and realistic technical evaluations" ;
+    rdfs:comment "Professional honesty in technical work" ;
+    proethica:supportsPrinciple ieee:HonestRealistic ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+# ===== RESOURCES =====
+
+ieee:IEEECodeOfEthics a proethica:Resource ;
+    rdfs:label "IEEE Code of Ethics" ;
+    skos:definition "The official ethical guidelines of the Institute of Electrical and Electronics Engineers" ;
+    rdfs:comment "Primary ethical resource for IEEE members" ;
+    dct:source <https://www.ieee.org/about/corporate/governance/p7-8.html> ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .
+
+# ===== CONSTRAINTS =====
+
+ieee:ProfessionalLicensing a proethica:Constraint ;
+    rdfs:label "Professional Engineering Licensing" ;
+    skos:definition "Legal requirement for engineers to obtain appropriate professional licenses for regulated engineering work" ;
+    rdfs:comment "Legal constraint on professional practice" ;
+    proethica:hasType "legal" ;
+    proethica:appliesToDomain "electrical_engineering", "electronics_engineering", "computer_engineering" .

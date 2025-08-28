@@ -1,0 +1,222 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix proethica: <http://proethica.org/ontology/intermediate#> .
+@prefix asme: <http://proethica.org/ontology/asme#> .
+
+# ASME Code of Ethics Ontology
+# Based on American Society of Mechanical Engineers Code of Ethics
+# https://www.asme.org/about-asme/governance/ethics
+
+<http://proethica.org/ontology/asme> a owl:Ontology ;
+    rdfs:label "ASME Code of Ethics Ontology" ;
+    dct:title "American Society of Mechanical Engineers Code of Ethics" ;
+    dct:description "Ontology representation of the ASME Code of Ethics for mechanical engineers" ;
+    dct:source <https://www.asme.org/about-asme/governance/ethics> ;
+    owl:imports <http://proethica.org/ontology/intermediate> ;
+    dct:created "2025-08-28"^^<http://www.w3.org/2001/XMLSchema#date> .
+
+# ===== FUNDAMENTAL PRINCIPLES =====
+
+asme:PublicSafetyHealthWelfare a proethica:Principle ;
+    rdfs:label "Public Safety, Health and Welfare" ;
+    skos:definition "Mechanical engineers shall hold paramount the safety, health, and welfare of the public in the performance of their professional duties" ;
+    rdfs:comment "The overriding principle in mechanical engineering practice" ;
+    proethica:hasEthicalWeight "paramount" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:CompetentServices a proethica:Principle ;
+    rdfs:label "Competent Services" ;
+    skos:definition "Mechanical engineers shall perform services only in areas of their competence" ;
+    rdfs:comment "Fundamental competence requirement for professional practice" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ObjectiveTruthfulStatements a proethica:Principle ;
+    rdfs:label "Objective and Truthful Statements" ;
+    skos:definition "Mechanical engineers shall issue public statements only in an objective and truthful manner" ;
+    rdfs:comment "Requirement for honesty in professional communications" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:FaithfulAgent a proethica:Principle ;
+    rdfs:label "Faithful Agent or Trustee" ;
+    skos:definition "Mechanical engineers shall act for each employer or client as faithful agents or trustees, and shall avoid conflicts of interest" ;
+    rdfs:comment "Fiduciary duty to employers and clients" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:FairCompetition a proethica:Principle ;
+    rdfs:label "Fair Competition" ;
+    skos:definition "Mechanical engineers shall not compete unfairly with others by making false or malicious statements or by other improper or questionable acts" ;
+    rdfs:comment "Professional conduct in competitive situations" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ProfessionalDevelopment a proethica:Principle ;
+    rdfs:label "Professional Development" ;
+    skos:definition "Mechanical engineers shall assist the professional development of those under their supervision" ;
+    rdfs:comment "Mentoring and development responsibilities" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ProfessionalIntegrity a proethica:Principle ;
+    rdfs:label "Professional Integrity" ;
+    skos:definition "Mechanical engineers shall uphold the principle of appropriate and adequate compensation for engineering work" ;
+    rdfs:comment "Maintaining professional standards and fair compensation" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:EnvironmentalProtection a proethica:Principle ;
+    rdfs:label "Environmental Protection" ;
+    skos:definition "Mechanical engineers shall consider environmental impact in their professional activities and strive to contribute to sustainable development" ;
+    rdfs:comment "Environmental responsibility in engineering practice" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+# ===== SPECIFIC OBLIGATIONS =====
+
+asme:EnsurePublicSafety a proethica:Obligation ;
+    rdfs:label "Ensure Public Safety" ;
+    skos:definition "Engineers must prioritize public safety in all mechanical system designs and operations" ;
+    rdfs:comment "Primary safety obligation in mechanical engineering" ;
+    proethica:derivedFromPrinciple asme:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:PracticeInCompetenceArea a proethica:Obligation ;
+    rdfs:label "Practice Only in Areas of Competence" ;
+    skos:definition "Engineers must perform services only in areas where they possess adequate training and experience" ;
+    rdfs:comment "Competence boundary requirement" ;
+    proethica:derivedFromPrinciple asme:CompetentServices ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:MaintainTechnicalCompetence a proethica:Obligation ;
+    rdfs:label "Maintain Technical Competence" ;
+    skos:definition "Engineers must keep current with developments in their field through continuing education" ;
+    rdfs:comment "Ongoing professional development requirement" ;
+    proethica:derivedFromPrinciple asme:CompetentServices ;
+    proethica:hasUrgency "ongoing" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ProvideObjectiveStatements a proethica:Obligation ;
+    rdfs:label "Provide Objective Statements" ;
+    skos:definition "Engineers must issue public statements based on adequate knowledge and in an objective manner" ;
+    rdfs:comment "Professional communication standard" ;
+    proethica:derivedFromPrinciple asme:ObjectiveTruthfulStatements ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:AvoidConflictsOfInterest a proethica:Obligation ;
+    rdfs:label "Avoid Conflicts of Interest" ;
+    skos:definition "Engineers must avoid situations where personal interests conflict with professional duties" ;
+    rdfs:comment "Professional independence requirement" ;
+    proethica:derivedFromPrinciple asme:FaithfulAgent ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:MentorJuniorEngineers a proethica:Obligation ;
+    rdfs:label "Mentor Junior Engineers" ;
+    skos:definition "Engineers must assist in the professional development of subordinates and junior engineers" ;
+    rdfs:comment "Professional development responsibility" ;
+    proethica:derivedFromPrinciple asme:ProfessionalDevelopment ;
+    proethica:hasUrgency "ongoing" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+# ===== PROFESSIONAL ROLES =====
+
+asme:MechanicalEngineer a proethica:Role ;
+    rdfs:label "Mechanical Engineer" ;
+    skos:definition "A professional engineer specializing in the design, analysis, manufacturing, and maintenance of mechanical systems" ;
+    rdfs:comment "Core professional role in mechanical engineering" ;
+    proethica:hasResponsibilities asme:EnsurePublicSafety, asme:PracticeInCompetenceArea ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:DesignEngineer a proethica:Role ;
+    rdfs:label "Mechanical Design Engineer" ;
+    skos:definition "A mechanical engineer specializing in the design of mechanical systems and components" ;
+    rdfs:comment "Specialized design role" ;
+    proethica:hasResponsibilities asme:EnsurePublicSafety ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ManufacturingEngineer a proethica:Role ;
+    rdfs:label "Manufacturing Engineer" ;
+    skos:definition "A mechanical engineer specializing in manufacturing processes and production systems" ;
+    rdfs:comment "Manufacturing specialization role" ;
+    proethica:hasResponsibilities asme:EnsurePublicSafety ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:SeniorEngineer a proethica:Role ;
+    rdfs:label "Senior Mechanical Engineer" ;
+    skos:definition "An experienced mechanical engineer with mentoring and leadership responsibilities" ;
+    rdfs:comment "Senior role with additional responsibilities" ;
+    proethica:hasResponsibilities asme:MentorJuniorEngineers ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+# ===== SPECIFIC ACTIONS =====
+
+asme:ConductSafetyAnalysis a proethica:Action ;
+    rdfs:label "Conduct Safety Analysis" ;
+    skos:definition "The action of performing comprehensive safety analysis of mechanical systems" ;
+    rdfs:comment "Required safety evaluation process" ;
+    proethica:supportsPrinciple asme:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "planned" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ReportUnsafeDesigns a proethica:Action ;
+    rdfs:label "Report Unsafe Designs" ;
+    skos:definition "The action of reporting mechanical designs that pose safety risks" ;
+    rdfs:comment "Safety reporting obligation" ;
+    proethica:supportsPrinciple asme:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:SeekContinuingEducation a proethica:Action ;
+    rdfs:label "Seek Continuing Education" ;
+    skos:definition "The action of pursuing ongoing professional development and training" ;
+    rdfs:comment "Professional development action" ;
+    proethica:supportsPrinciple asme:CompetentServices ;
+    proethica:hasUrgency "ongoing" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ProvideHonestAssessment a proethica:Action ;
+    rdfs:label "Provide Honest Technical Assessment" ;
+    skos:definition "The action of providing truthful and objective technical evaluations" ;
+    rdfs:comment "Professional honesty requirement" ;
+    proethica:supportsPrinciple asme:ObjectiveTruthfulStatements ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+# ===== RESOURCES =====
+
+asme:ASMECodeOfEthics a proethica:Resource ;
+    rdfs:label "ASME Code of Ethics" ;
+    skos:definition "The official ethical guidelines of the American Society of Mechanical Engineers" ;
+    rdfs:comment "Primary ethical resource for mechanical engineers" ;
+    dct:source <https://www.asme.org/about-asme/governance/ethics> ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:ASMEEthicsCommittee a proethica:Resource ;
+    rdfs:label "ASME Ethics Committee" ;
+    skos:definition "ASME committee responsible for ethics guidance and enforcement" ;
+    rdfs:comment "Professional ethics oversight body" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+# ===== CONSTRAINTS =====
+
+asme:ProfessionalLicensing a proethica:Constraint ;
+    rdfs:label "Mechanical Engineering Licensing Requirements" ;
+    skos:definition "Legal requirement for mechanical engineers to obtain appropriate professional licenses" ;
+    rdfs:comment "Legal constraint on professional practice" ;
+    proethica:hasType "legal" ;
+    proethica:appliesToDomain "mechanical_engineering" .
+
+asme:SafetyStandards a proethica:Constraint ;
+    rdfs:label "Mechanical Safety Standards" ;
+    skos:definition "Technical and legal requirements for mechanical system safety (ASME Boiler and Pressure Vessel Code, etc.)" ;
+    rdfs:comment "Technical safety constraints" ;
+    proethica:hasType "technical" ;
+    proethica:appliesToDomain "mechanical_engineering" .

@@ -215,7 +215,13 @@ class DocumentAnnotationViewer {
                 const span = document.createElement('span');
                 span.className = this.getAnnotationClasses(annotation);
                 span.dataset.annotationId = annotation.id;
-                span.title = this.formatTooltipText(annotation);
+                // Set up rich popover instead of simple title
+                span.dataset.bsToggle = 'popover';
+                span.dataset.bsHtml = 'true';
+                span.dataset.bsContent = this.formatRichTooltipContent(annotation);
+                span.dataset.bsTrigger = 'hover focus';
+                span.dataset.bsPlacement = 'top';
+                span.dataset.bsDelay = '{"show":500,"hide":100}';
 
                 // Split text node and wrap the matching part
                 const beforeText = nodeText.substring(0, index);
@@ -255,6 +261,74 @@ class DocumentAnnotationViewer {
     formatTooltipText(annotation) {
         const confidence = annotation.confidence ? Math.round(annotation.confidence * 100) : 'N/A';
         return `${annotation.concept_label}\n${annotation.concept_definition || 'No definition available'}\nConfidence: ${confidence}%`;
+    }
+
+    formatRichTooltipContent(annotation) {
+        const confidence = annotation.confidence ? Math.round(annotation.confidence * 100) : 'N/A';
+        const confidenceBadge = this.getConfidenceBadgeClass(annotation.confidence);
+        
+        // Format the ontology URI for display
+        const shortUri = this.formatUriForDisplay(annotation.concept_uri);
+        
+        // Create rich HTML content
+        return `
+            <div class="annotation-popup" style="max-width: 350px;">
+                <div class="popup-header mb-2">
+                    <h6 class="mb-1 text-primary fw-bold">${this.escapeHtml(annotation.concept_label)}</h6>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-secondary">${this.escapeHtml(annotation.concept_type)}</span>
+                        <span class="badge ${confidenceBadge}">${confidence}%</span>
+                        <small class="text-muted">${this.escapeHtml(annotation.ontology_name)}</small>
+                    </div>
+                </div>
+                
+                <div class="popup-content">
+                    ${annotation.concept_definition ? 
+                        `<p class="mb-2"><small>${this.escapeHtml(annotation.concept_definition)}</small></p>` : 
+                        '<p class="mb-2 text-muted"><small><em>No description available</em></small></p>'
+                    }
+                    
+                    <div class="popup-footer">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <small class="text-muted font-monospace" title="${this.escapeHtml(annotation.concept_uri)}">
+                                ${shortUri}
+                            </small>
+                            <button class="btn btn-outline-primary btn-sm" onclick="navigator.clipboard.writeText('${this.escapeHtml(annotation.concept_uri)}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    formatUriForDisplay(uri) {
+        if (!uri) return 'No URI';
+        
+        // Extract the meaningful part of the URI for display
+        if (uri.includes('#')) {
+            const parts = uri.split('#');
+            const base = parts[0].replace(/^https?:\/\//, '').replace(/^www\./, '');
+            return `${base}#${parts[1]}`;
+        } else if (uri.includes('/')) {
+            return uri.replace(/^https?:\/\//, '').replace(/^www\./, '');
+        }
+        return uri;
+    }
+
+    getConfidenceBadgeClass(confidence) {
+        if (!confidence) return 'bg-secondary';
+        if (confidence >= 0.9) return 'bg-success';
+        if (confidence >= 0.7) return 'bg-warning';
+        return 'bg-danger';
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     renderSidebar(annotations) {
@@ -556,7 +630,21 @@ class DocumentAnnotationViewer {
     }
 
     initializeTooltips() {
-        const tooltipElements = document.querySelectorAll('.ontology-annotation[title]');
+        // Initialize rich popovers for annotations
+        const popoverElements = document.querySelectorAll('.ontology-annotation[data-bs-toggle="popover"]');
+        popoverElements.forEach(element => {
+            new bootstrap.Popover(element, {
+                placement: 'top',
+                trigger: 'hover focus',
+                delay: { show: 500, hide: 100 },
+                html: true,
+                sanitize: false, // Allow custom HTML content
+                container: 'body' // Append to body to avoid clipping issues
+            });
+        });
+
+        // Also support legacy tooltip elements if any exist
+        const tooltipElements = document.querySelectorAll('.ontology-annotation[title]:not([data-bs-toggle="popover"])');
         tooltipElements.forEach(element => {
             new bootstrap.Tooltip(element, {
                 placement: 'top',

@@ -1,0 +1,179 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix proethica: <http://proethica.org/ontology/intermediate#> .
+@prefix ethics: <http://proethica.org/ontology/engineering-ethics#> .
+@prefix asce: <http://proethica.org/ontology/asce#> .
+@prefix asme: <http://proethica.org/ontology/asme#> .
+@prefix ieee: <http://proethica.org/ontology/ieee#> .
+@prefix ifc: <https://standards.buildingsmart.org/IFC/DEV/IFC4_2/FINAL/HTML/schema/ifcactorresource/lexical/> .
+@prefix ifcint: <http://proethica.org/ontology/ifc_integration#> .
+
+# IFC Integration Ontology for Engineering Ethics
+# Maps ProEthica engineering roles to Industry Foundation Classes (IFC) from BuildingSMART
+
+<http://proethica.org/ontology/ifc_integration> a owl:Ontology ;
+    rdfs:label "IFC Integration for Engineering Ethics" ;
+    dct:title "Industry Foundation Classes Integration for Engineering Roles" ;
+    dct:description "Enables interoperability between engineering ethics ontologies and Building Information Modeling (BIM) systems through formal mappings to IFC classes from BuildingSMART" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/> ;
+    owl:imports <http://proethica.org/ontology/intermediate> ;
+    owl:imports <http://proethica.org/ontology/engineering-ethics> ;
+    dct:created "2025-08-28"^^<http://www.w3.org/2001/XMLSchema#date> ;
+    rdfs:comment "This ontology establishes formal equivalence mappings between engineering roles in professional ethics and IFC classes, enabling seamless integration with BIM workflows and construction industry standards." .
+
+# ===== IFC NAMESPACE DECLARATIONS =====
+
+# Declare key IFC classes that we'll map to
+ifc:IfcStructuralEngineer a owl:Class ;
+    rdfs:label "IFC Structural Engineer" ;
+    skos:definition "BuildingSMART IFC class representing a structural engineering professional responsible for structural design and analysis" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcMechanicalEngineer a owl:Class ;
+    rdfs:label "IFC Mechanical Engineer" ;
+    skos:definition "BuildingSMART IFC class representing a mechanical engineering professional responsible for HVAC, plumbing, and mechanical systems" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcElectricalEngineer a owl:Class ;
+    rdfs:label "IFC Electrical Engineer" ;
+    skos:definition "BuildingSMART IFC class representing an electrical engineering professional responsible for electrical systems design" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcCivilEngineer a owl:Class ;
+    rdfs:label "IFC Civil Engineer" ;
+    skos:definition "BuildingSMART IFC class representing a civil engineering professional responsible for infrastructure and construction projects" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcProjectManager a owl:Class ;
+    rdfs:label "IFC Project Manager" ;
+    skos:definition "BuildingSMART IFC class representing a project management professional responsible for construction project coordination" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcDesignEngineer a owl:Class ;
+    rdfs:label "IFC Design Engineer" ;
+    skos:definition "BuildingSMART IFC class representing an engineering professional specializing in design activities" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcSafetyEngineer a owl:Class ;
+    rdfs:label "IFC Safety Engineer" ;
+    skos:definition "BuildingSMART IFC class representing a safety engineering professional responsible for construction and building safety" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+ifc:IfcQualityEngineer a owl:Class ;
+    rdfs:label "IFC Quality Engineer" ;
+    skos:definition "BuildingSMART IFC class representing a quality assurance professional in construction and engineering projects" ;
+    dct:source <https://standards.buildingsmart.org/IFC/RELEASE/IFC4_1/FINAL/HTML/schema/ifcactorresource/lexical/ifcactor.htm> .
+
+# ===== STRUCTURAL ENGINEERING MAPPINGS =====
+
+# ASCE Civil Engineer → IFC Structural Engineer
+asce:CivilEngineer owl:equivalentClass ifc:IfcStructuralEngineer ;
+    rdfs:comment "ASCE civil engineer role is equivalent to IFC structural engineer, enabling BIM interoperability for structural engineering ethics" .
+
+# Design Engineer → IFC Design Engineer  
+asce:DesignEngineer owl:equivalentClass ifc:IfcDesignEngineer ;
+    rdfs:comment "ASCE design engineer role maps to IFC design engineer for BIM design workflow integration" .
+
+# Civil Engineering Project Manager → IFC Project Manager
+asce:CivilEngineeringProjectManager owl:equivalentClass ifc:IfcProjectManager ;
+    rdfs:comment "ASCE project manager role equivalent to IFC project manager for construction project BIM workflows" .
+
+# ===== MECHANICAL ENGINEERING MAPPINGS =====
+
+# ASME Mechanical Engineer → IFC Mechanical Engineer
+asme:MechanicalEngineer owl:equivalentClass ifc:IfcMechanicalEngineer ;
+    rdfs:comment "ASME mechanical engineer role is equivalent to IFC mechanical engineer, enabling BIM HVAC and mechanical systems integration" .
+
+# Mechanical Design Engineer → IFC Design Engineer
+asme:MechanicalDesignEngineer rdfs:subClassOf ifc:IfcDesignEngineer ;
+    rdfs:comment "ASME mechanical design engineer is a specialized type of IFC design engineer" .
+
+# Manufacturing Engineer → IFC Mechanical Engineer (specialized)
+asme:ManufacturingEngineer rdfs:subClassOf ifc:IfcMechanicalEngineer ;
+    rdfs:comment "ASME manufacturing engineer is a specialized type of IFC mechanical engineer for manufacturing processes" .
+
+# ===== ELECTRICAL ENGINEERING MAPPINGS =====
+
+# IEEE Electrical Engineer → IFC Electrical Engineer
+ieee:ElectricalEngineer owl:equivalentClass ifc:IfcElectricalEngineer ;
+    rdfs:comment "IEEE electrical engineer role is equivalent to IFC electrical engineer, enabling BIM electrical systems integration" .
+
+# Electronics Engineer → IFC Electrical Engineer (specialized)
+ieee:ElectronicsEngineer rdfs:subClassOf ifc:IfcElectricalEngineer ;
+    rdfs:comment "IEEE electronics engineer is a specialized type of IFC electrical engineer" .
+
+# Computer Engineer → IFC Electrical Engineer (specialized for building automation)
+ieee:ComputerEngineer rdfs:subClassOf ifc:IfcElectricalEngineer ;
+    rdfs:comment "IEEE computer engineer maps to IFC electrical engineer when involved in building automation and smart building systems" .
+
+# ===== SAFETY AND QUALITY ENGINEERING MAPPINGS =====
+
+# Safety Engineer → IFC Safety Engineer
+ethics:SafetyEngineer owl:equivalentClass ifc:IfcSafetyEngineer ;
+    rdfs:comment "Engineering ethics safety engineer role is equivalent to IFC safety engineer for construction safety BIM integration" .
+
+# Quality Engineer → IFC Quality Engineer
+ethics:QualityEngineer owl:equivalentClass ifc:IfcQualityEngineer ;
+    rdfs:comment "Engineering ethics quality engineer role is equivalent to IFC quality engineer for quality management BIM integration" .
+
+# Standards Engineer → IFC Quality Engineer (specialized)
+ethics:StandardsEngineer rdfs:subClassOf ifc:IfcQualityEngineer ;
+    rdfs:comment "Standards engineer is a specialized type of quality engineer in IFC context, focusing on standards compliance" .
+
+# ===== GENERAL ROLE MAPPINGS =====
+
+# ProEthica General Engineer → IFC Actor (parent class)
+proethica:Engineer rdfs:subClassOf ifc:IfcActor ;
+    rdfs:comment "General ProEthica engineer concept maps to IFC Actor as the base class for all construction industry professionals" .
+
+# Professional Role → IFC Role
+proethica:ProfessionalRole rdfs:subClassOf ifc:IfcRole ;
+    rdfs:comment "Professional role concept maps to IFC role for general professional responsibility modeling in BIM" .
+
+# ===== BIM INTEGRATION PROPERTIES =====
+
+ifcint:hasBIMRole a owl:ObjectProperty ;
+    rdfs:label "has BIM Role" ;
+    rdfs:domain proethica:Engineer ;
+    rdfs:range ifc:IfcRole ;
+    skos:definition "Property linking a ProEthica engineer to their corresponding IFC role for BIM system integration" .
+
+ifcint:enablesBIMInteroperability a owl:ObjectProperty ;
+    rdfs:label "enables BIM interoperability" ;
+    rdfs:domain proethica:ProfessionalRole ;
+    rdfs:range ifc:IfcRole ;
+    skos:definition "Property indicating that a professional role enables interoperability with BIM systems through IFC mapping" .
+
+ifcint:hasIFCEquivalence a owl:ObjectProperty ;
+    rdfs:label "has IFC equivalence" ;
+    rdfs:domain owl:Class ;
+    rdfs:range ifc:IfcActor ;
+    skos:definition "Property establishing formal equivalence between engineering role classes and IFC actor classes" .
+
+# ===== METADATA AND PROVENANCE =====
+
+ifcint:BIMIntegrationMetadata a owl:Class ;
+    rdfs:label "BIM Integration Metadata" ;
+    skos:definition "Metadata class for documenting BIM integration mappings and their rationale" .
+
+ifcint:mappingRationale a owl:DatatypeProperty ;
+    rdfs:label "mapping rationale" ;
+    rdfs:domain ifcint:BIMIntegrationMetadata ;
+    rdfs:range <http://www.w3.org/2001/XMLSchema#string> ;
+    skos:definition "Textual explanation of why a particular IFC mapping was chosen" .
+
+ifcint:buildingSmartVersion a owl:DatatypeProperty ;
+    rdfs:label "BuildingSMART version" ;
+    rdfs:domain ifcint:BIMIntegrationMetadata ;
+    rdfs:range <http://www.w3.org/2001/XMLSchema#string> ;
+    skos:definition "Version of BuildingSMART IFC standard used for the mapping" .
+
+# ===== EXAMPLE INTEGRATION INSTANCE =====
+
+ifcint:ExampleStructuralEngineerMapping a ifcint:BIMIntegrationMetadata ;
+    ifcint:mappingRationale "Civil engineers in construction projects typically perform structural engineering functions, making them equivalent to IFC structural engineers for BIM workflows" ;
+    ifcint:buildingSmartVersion "IFC 4.1" ;
+    dct:created "2025-08-28"^^<http://www.w3.org/2001/XMLSchema#date> .

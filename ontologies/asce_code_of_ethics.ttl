@@ -1,0 +1,185 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix proethica: <http://proethica.org/ontology/intermediate#> .
+@prefix asce: <http://proethica.org/ontology/asce#> .
+
+# ASCE Code of Ethics Ontology
+# Based on American Society of Civil Engineers Code of Ethics
+# https://www.asce.org/career-growth/ethics/code-of-ethics
+
+<http://proethica.org/ontology/asce> a owl:Ontology ;
+    rdfs:label "ASCE Code of Ethics Ontology" ;
+    dct:title "American Society of Civil Engineers Code of Ethics" ;
+    dct:description "Ontology representation of the ASCE Code of Ethics for civil engineers" ;
+    dct:source <https://www.asce.org/career-growth/ethics/code-of-ethics> ;
+    owl:imports <http://proethica.org/ontology/intermediate> ;
+    dct:created "2025-08-28"^^<http://www.w3.org/2001/XMLSchema#date> .
+
+# ===== FUNDAMENTAL PRINCIPLES =====
+
+asce:PublicSafetyHealthWelfare a proethica:Principle ;
+    rdfs:label "Public Safety, Health and Welfare" ;
+    skos:definition "Civil engineers must hold paramount the safety, health, and welfare of the public, including future generations and the global environment" ;
+    rdfs:comment "The overriding principle that takes precedence over all other considerations in civil engineering practice" ;
+    proethica:hasEthicalWeight "paramount" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:CompetentPractice a proethica:Principle ;
+    rdfs:label "Competent Practice" ;
+    skos:definition "Civil engineers shall perform services only in areas of their competence and shall continue their professional development throughout their careers" ;
+    rdfs:comment "Engineers must practice within their areas of expertise and maintain currency in their field" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:PublicStatements a proethica:Principle ;
+    rdfs:label "Public Statements" ;
+    skos:definition "Civil engineers shall issue public statements only in an objective and truthful manner" ;
+    rdfs:comment "Requirement for honesty and objectivity in all public communications and professional statements" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:FaithfulAgent a proethica:Principle ;
+    rdfs:label "Faithful Agent or Trustee" ;
+    skos:definition "Civil engineers shall act as faithful agents or trustees for each employer or client" ;
+    rdfs:comment "Duty of loyalty and fiduciary responsibility to employers and clients" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:UnfairCompetition a proethica:Principle ;
+    rdfs:label "Avoidance of Unfair Competition" ;
+    skos:definition "Civil engineers shall avoid unfair competition with others" ;
+    rdfs:comment "Requirement to compete fairly and professionally in business practices" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:ProfessionalReputation a proethica:Principle ;
+    rdfs:label "Professional Reputation" ;
+    skos:definition "Civil engineers shall uphold and enhance the honor, integrity, and dignity of the engineering profession" ;
+    rdfs:comment "Responsibility to maintain and improve the standing of the engineering profession" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:ProfessionalDevelopment a proethica:Principle ;
+    rdfs:label "Professional Development" ;
+    skos:definition "Civil engineers shall continue their professional development throughout their careers and shall provide opportunities for the professional development of subordinates" ;
+    rdfs:comment "Commitment to lifelong learning and mentoring responsibilities" ;
+    proethica:hasEthicalWeight "fundamental" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+# ===== SPECIFIC OBLIGATIONS =====
+
+asce:HoldParamountPublicSafety a proethica:Obligation ;
+    rdfs:label "Hold Paramount Public Safety" ;
+    skos:definition "Engineers must prioritize public safety above all other considerations including client wishes or economic pressures" ;
+    rdfs:comment "The most fundamental obligation in civil engineering practice" ;
+    proethica:derivedFromPrinciple asce:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:ReviewSafetyOfPublicUse a proethica:Obligation ;
+    rdfs:label "Review Safety of Public Use" ;
+    skos:definition "Engineers must review the safety of public use of completed projects and report deficiencies" ;
+    rdfs:comment "Ongoing responsibility for monitoring and reporting safety issues" ;
+    proethica:derivedFromPrinciple asce:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "ongoing" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:PerformOnlyInCompetence a proethica:Obligation ;
+    rdfs:label "Perform Only in Areas of Competence" ;
+    skos:definition "Engineers must perform services only in their areas of competence" ;
+    rdfs:comment "Fundamental competence requirement" ;
+    proethica:derivedFromPrinciple asce:CompetentPractice ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:ObjectiveTruthfulStatements a proethica:Obligation ;
+    rdfs:label "Make Objective Truthful Statements" ;
+    skos:definition "Engineers must issue public statements only in an objective and truthful manner" ;
+    rdfs:comment "Requirement for honesty in professional communications" ;
+    proethica:derivedFromPrinciple asce:PublicStatements ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:AvoidConflictsOfInterest a proethica:Obligation ;
+    rdfs:label "Avoid Conflicts of Interest" ;
+    skos:definition "Engineers must avoid conflicts of interest with employers or clients" ;
+    rdfs:comment "Requirement to maintain professional independence" ;
+    proethica:derivedFromPrinciple asce:FaithfulAgent ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+# ===== PROFESSIONAL ROLES =====
+
+asce:CivilEngineer a proethica:Role ;
+    rdfs:label "Civil Engineer" ;
+    skos:definition "A professionally licensed engineer specializing in the design, construction, and maintenance of civil infrastructure" ;
+    rdfs:comment "Core professional role in civil engineering" ;
+    proethica:hasResponsibilities asce:HoldParamountPublicSafety, asce:PerformOnlyInCompetence ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:ProjectManager a proethica:Role ;
+    rdfs:label "Civil Engineering Project Manager" ;
+    skos:definition "A civil engineer responsible for overall management and coordination of engineering projects" ;
+    rdfs:comment "Leadership role with enhanced responsibilities" ;
+    proethica:hasResponsibilities asce:ReviewSafetyOfPublicUse ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:DesignEngineer a proethica:Role ;
+    rdfs:label "Design Engineer" ;
+    skos:definition "A civil engineer specializing in the design of infrastructure and structural systems" ;
+    rdfs:comment "Specialized role focused on engineering design" ;
+    proethica:hasResponsibilities asce:HoldParamountPublicSafety, asce:PerformOnlyInCompetence ;
+    proethica:appliesToDomain "civil_engineering" .
+
+# ===== SPECIFIC ACTIONS =====
+
+asce:ReportUnsafeConditions a proethica:Action ;
+    rdfs:label "Report Unsafe Conditions" ;
+    skos:definition "The action of reporting dangerous or unsafe conditions that could endanger public safety" ;
+    rdfs:comment "Required action when safety hazards are identified" ;
+    proethica:supportsPrinciple asce:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:RefuseUnsafeWork a proethica:Action ;
+    rdfs:label "Refuse Unsafe Work" ;
+    skos:definition "The action of declining to perform work that would endanger public safety" ;
+    rdfs:comment "Professional right and obligation to refuse dangerous assignments" ;
+    proethica:supportsPrinciple asce:PublicSafetyHealthWelfare ;
+    proethica:hasUrgency "immediate" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:SeekAdditionalQualification a proethica:Action ;
+    rdfs:label "Seek Additional Qualification" ;
+    skos:definition "The action of obtaining additional training or expertise when current competence is insufficient" ;
+    rdfs:comment "Professional development action to maintain competence" ;
+    proethica:supportsPrinciple asce:CompetentPractice ;
+    proethica:hasUrgency "planned" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+# ===== RESOURCES =====
+
+asce:ASCECodeOfEthics a proethica:Resource ;
+    rdfs:label "ASCE Code of Ethics" ;
+    skos:definition "The official ethical guidelines of the American Society of Civil Engineers" ;
+    rdfs:comment "Primary ethical resource for civil engineers" ;
+    dct:source <https://www.asce.org/career-growth/ethics/code-of-ethics> ;
+    proethica:appliesToDomain "civil_engineering" .
+
+asce:ASCEEthicsGuidelines a proethica:Resource ;
+    rdfs:label "ASCE Ethics Guidelines" ;
+    skos:definition "Detailed guidelines for interpreting and applying the ASCE Code of Ethics" ;
+    rdfs:comment "Supporting documentation for ethical decision-making" ;
+    proethica:appliesToDomain "civil_engineering" .
+
+# ===== CONSTRAINTS =====
+
+asce:LicensingRequirements a proethica:Constraint ;
+    rdfs:label "Professional Engineering Licensing Requirements" ;
+    skos:definition "Legal requirement for civil engineers to obtain appropriate professional licenses" ;
+    rdfs:comment "Legal constraint on professional practice" ;
+    proethica:hasType "legal" ;
+    proethica:appliesToDomain "civil_engineering" .
