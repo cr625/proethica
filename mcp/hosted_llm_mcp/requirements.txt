@@ -1,2 +1,0 @@
-## Inherit root project dependencies; override/pin extras here only if submodule needs different versions.
--r ../../requirements.txt

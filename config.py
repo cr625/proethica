@@ -36,6 +36,6 @@ app_config = {
     'ZOTERO_API_KEY': os.getenv('ZOTERO_API_KEY'),
     'ZOTERO_USER_ID': os.getenv('ZOTERO_USER_ID'),
     'ZOTERO_GROUP_ID': os.getenv('ZOTERO_GROUP_ID'),
-    'MCP_SERVER_URL': os.getenv('MCP_SERVER_URL', 'http://localhost:5001'),
+    'MCP_SERVER_URL': os.getenv('MCP_SERVER_URL', 'http://localhost:8082'),
     'USE_MOCK_FALLBACK': os.getenv('USE_MOCK_FALLBACK', 'false').lower() == 'true',
 }

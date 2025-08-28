@@ -23,7 +23,7 @@ class ExternalMCPClient:
         """
         import os
         if server_url is None:
-            server_url = os.environ.get('EXTERNAL_MCP_URL', 'http://localhost:8083')
+            server_url = os.environ.get('EXTERNAL_MCP_URL', 'http://localhost:8082')
         self.server_url = server_url.rstrip('/')
         self.request_id = 0
         self.timeout = 30
