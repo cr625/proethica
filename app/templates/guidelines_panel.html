@@ -1,26 +1,107 @@
-<!-- Guidelines Panel -->
+<!-- MCP Integration Demo Panel -->
 <div :class="[isGuidelinesCollapsed ? 'guidelines-panel guidelines-panel-collapsed' : 'guidelines-panel']">
     <!-- Header -->
     <div class="guidelines-header">
-        <h5 v-if="!isGuidelinesCollapsed">Guidelines</h5>
+        <h5 v-if="!isGuidelinesCollapsed">
+            <i class="bi bi-diagram-3 me-2"></i>MCP Integration
+        </h5>
         <button class="btn btn-sm btn-outline-secondary toggle-guidelines" @click="toggleGuidelinesPanel">
             <i :class="isGuidelinesCollapsed ? 'bi bi-chevron-left' : 'bi bi-chevron-right'"></i>
         </button>
     </div>
 
-    <!-- Guidelines content area -->
+    <!-- MCP Demo content area -->
     <div class="guidelines-content" v-if="!isGuidelinesCollapsed">
-        <div v-if="formattedGuidelines" v-html="formattedGuidelines"></div>
-        <div v-else-if="selectedWorldId" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+        <div class="mb-3">
+            <h6>
+                <i class="bi bi-server me-2"></i>Live MCP Tool Calls
+            </h6>
+            <p class="small text-muted">
+                Demonstrating unified LLM ↔ ontology integration
+            </p>
+        </div>
+
+        <!-- MCP Tool Examples -->
+        <div class="mcp-tools mb-3">
+            <div class="btn-group-vertical w-100" role="group">
+                <button class="btn btn-sm btn-outline-primary mb-1" @click="testMcpTool('entities')"
+                    :disabled="mcpLoading">
+                    <i class="bi bi-collection me-1"></i>
+                    Get Entities by Category
+                </button>
+                <button class="btn btn-sm btn-outline-success mb-1" @click="testMcpTool('domain')"
+                    :disabled="mcpLoading">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Get Domain Info
+                </button>
+                <button class="btn btn-sm btn-outline-warning mb-1" @click="testMcpTool('sparql')"
+                    :disabled="mcpLoading">
+                    <i class="bi bi-search me-1"></i>
+                    SPARQL Query
+                </button>
             </div>
         </div>
-        <div v-else class="text-center py-5 text-muted">
+
+        <!-- Loading indicator -->
+        <div v-if="mcpLoading" class="text-center py-3">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading MCP data...</span>
+            </div>
+            <p class="small mt-2">{% raw %}{{ mcpLoadingText }}{% endraw %}</p>
+        </div>
+
+        <!-- MCP Results -->
+        <div v-if="mcpResults" class="mcp-results">
+            <h6>
+                <i class="bi bi-check-circle text-success me-2"></i>
+                MCP Tool Response
+            </h6>
+
+            <!-- Tool call info -->
+            <div class="alert alert-info small py-2 mb-2">
+                <strong>Tool:</strong> {% raw %}{{ mcpResults.tool }}{% endraw %}<br>
+                <strong>Status:</strong>
+                <span class="badge bg-success">Success</span>
+                <span class="text-muted ms-2">
+                    ({% raw %}{{ mcpResults.response_time }}{% endraw %}ms)
+                </span>
+            </div>
+
+            <!-- Results data -->
+            <div class="mcp-data bg-light p-3 rounded small" style="max-height: 300px; overflow-y: auto;">
+                <pre class="mb-0">{% raw %}{{ mcpResults.data }}{% endraw %}</pre>
+            </div>
+
+            <!-- Clear button -->
+            <button class="btn btn-sm btn-outline-secondary mt-2 w-100" @click="clearMcpResults">
+                <i class="bi bi-x-circle me-1"></i>Clear Results
+            </button>
+        </div>
+
+        <!-- No world selected message -->
+        <div v-if="!selectedWorldId && !mcpResults && !mcpLoading" class="text-center py-4 text-muted">
             <p>
-                <i class="bi bi-info-circle" style="font-size: 2rem; opacity: 0.5;"></i>
+                <i class="bi bi-diagram-3" style="font-size: 2rem; opacity: 0.5;"></i>
             </p>
-            <p>Please select a world to see guidelines.</p>
+            <p class="small">Select a world to test MCP integration</p>
+        </div>
+
+        <!-- Service info -->
+        <div class="mt-auto pt-3 border-top">
+            <div class="small text-muted">
+                <div class="d-flex justify-content-between">
+                    <span>LLM Service:</span>
+                    <span class="badge bg-primary">Unified</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>MCP Server:</span>
+                    <span class="badge bg-success">Connected</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Provider:</span>
+                    <span class="badge bg-info">{% raw %}{{ selectedService }}{% endraw %}</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>

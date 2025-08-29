@@ -8,9 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/concept-hierarchy.css') }}" rel="stylesheet">
-        {% if csrf_token %}
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-        {% endif %}
+    {% if csrf_token %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {% endif %}
     <style>
         body {
             padding-top: 20px;
@@ -67,66 +67,82 @@
                                 </a>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="worldsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a class="nav-link dropdown-toggle" href="#" id="worldsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-globe2"></i> Domain
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="worldsDropdown">
                                     <li><a class="dropdown-item" href="/worlds">
-                                        <i class="bi bi-list-ul me-2"></i>View All Domains
-                                    </a></li>
+                                            <i class="bi bi-list-ul me-2"></i>View All Domains
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/worlds/new">
-                                        <i class="bi bi-plus-circle me-2"></i>Create New Domain
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><h6 class="dropdown-header">Quick Access</h6></li>
+                                            <i class="bi bi-plus-circle me-2"></i>Create New Domain
+                                        </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <h6 class="dropdown-header">Quick Access</h6>
+                                    </li>
                                     <li><a class="dropdown-item" href="/cases">
-                                        <i class="bi bi-folder2-open me-2"></i>All Cases
-                                    </a></li>
+                                            <i class="bi bi-folder2-open me-2"></i>All Cases
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/scenarios">
-                                        <i class="bi bi-collection-play me-2"></i>All Scenarios
-                                    </a></li>
+                                            <i class="bi bi-collection-play me-2"></i>All Scenarios
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/guidelines">
-                                        <i class="bi bi-book me-2"></i>All Guidelines
-                                    </a></li>
+                                            <i class="bi bi-book me-2"></i>All Guidelines
+                                        </a></li>
                                 </ul>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="ontologyDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a class="nav-link dropdown-toggle" href="#" id="ontologyDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-diagram-3"></i> Ontologies
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="ontologyDropdown">
                                     <li><a class="dropdown-item" href="/ontology-editor">
-                                        <i class="bi bi-pencil-square me-2"></i>Ontology Editor
-                                    </a></li>
+                                            <i class="bi bi-pencil-square me-2"></i>Ontology Editor
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/type-management/">
-                                        <i class="bi bi-gear me-2"></i>Type Management
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
+                                            <i class="bi bi-gear me-2"></i>Type Management
+                                        </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
                                     <li><a class="dropdown-item" href="/type-management/concepts?filter=needs_review">
-                                        <i class="bi bi-exclamation-triangle me-2"></i>Needs Review
-                                    </a></li>
+                                            <i class="bi bi-exclamation-triangle me-2"></i>Needs Review
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/type-management/mappings">
-                                        <i class="bi bi-graph-up me-2"></i>Statistics
-                                    </a></li>
+                                            <i class="bi bi-graph-up me-2"></i>Statistics
+                                        </a></li>
                                 </ul>
                             </li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-tools"></i> Tools
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
+                                    <li><a class="dropdown-item" href="/agent">
+                                            <i class="bi bi-chat-dots me-2"></i>AI Agent Assistant
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/experiment">
-                                        <i class="bi bi-flask me-2"></i>Experiments
-                                    </a></li>
+                                            <i class="bi bi-flask me-2"></i>Experiments
+                                        </a></li>
                                     {% if current_user and current_user.is_authenticated and current_user.is_admin %}
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><h6 class="dropdown-header">Admin Tools</h6></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <h6 class="dropdown-header">Admin Tools</h6>
+                                    </li>
                                     <li><a class="dropdown-item" href="/admin">
-                                        <i class="bi bi-shield-check me-2"></i>Admin Dashboard
-                                    </a></li>
+                                            <i class="bi bi-shield-check me-2"></i>Admin Dashboard
+                                        </a></li>
                                     <li><a class="dropdown-item" href="/admin/system-health">
-                                        <i class="bi bi-activity me-2"></i>System Health
-                                    </a></li>
+                                            <i class="bi bi-activity me-2"></i>System Health
+                                        </a></li>
                                     {% endif %}
                                 </ul>
                             </li>
@@ -136,23 +152,24 @@
                             <li class="nav-item">
                                 <span class="navbar-text me-2">
                                     {% if environment == 'development' %}
-                                        <span class="badge bg-info">
-                                            <i class="bi bi-gear"></i> Development
-                                        </span>
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-gear"></i> Development
+                                    </span>
                                     {% endif %}
                                 </span>
                             </li>
-                            
+
                             <!-- User/Login Section -->
                             {% if current_user and current_user.is_authenticated %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-person-circle"></i> {{ current_user.username }}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                     <li><a class="dropdown-item" href="/auth/logout">
-                                        <i class="bi bi-box-arrow-right me-2"></i>Logout
-                                    </a></li>
+                                            <i class="bi bi-box-arrow-right me-2"></i>Logout
+                                        </a></li>
                                 </ul>
                             </li>
                             {% else %}

@@ -144,6 +144,7 @@ def create_app(config_module='app.config'):
     from app.routes.admin import admin_bp
     from app.routes.worlds_extract_only import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
+    from app.routes.agent import agent_bp
     from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
@@ -173,6 +174,7 @@ def create_app(config_module='app.config'):
     app.register_blueprint(admin_bp)
     app.register_blueprint(worlds_extract_only_bp)
     app.register_blueprint(annotations_bp)
+    app.register_blueprint(agent_bp)  # Register the agent blueprint
     
     # Create and register the ontology editor blueprint
     ontology_editor_bp = create_ontology_editor_blueprint(
