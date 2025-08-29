@@ -44,6 +44,87 @@
         text-align: left;
     }
 
+    /* Markdown formatting in agent messages */
+    .agent-message h1, .agent-message h2, .agent-message h3, 
+    .agent-message h4, .agent-message h5, .agent-message h6 {
+        margin-top: 16px;
+        margin-bottom: 8px;
+        font-weight: bold;
+    }
+
+    .agent-message h1 { font-size: 1.4em; }
+    .agent-message h2 { font-size: 1.3em; }
+    .agent-message h3 { font-size: 1.2em; }
+    .agent-message h4 { font-size: 1.1em; }
+
+    .agent-message ul, .agent-message ol {
+        margin: 8px 0;
+        padding-left: 20px;
+    }
+
+    .agent-message li {
+        margin: 4px 0;
+    }
+
+    .agent-message p {
+        margin: 8px 0;
+    }
+
+    .agent-message code {
+        background-color: rgba(0, 0, 0, 0.1);
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+    }
+
+    .agent-message pre {
+        background-color: rgba(0, 0, 0, 0.1);
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 12px 0;
+    }
+
+    .agent-message pre code {
+        background-color: transparent;
+        padding: 0;
+        font-size: 0.85em;
+    }
+
+    .agent-message blockquote {
+        border-left: 4px solid #007bff;
+        margin: 12px 0;
+        padding-left: 12px;
+        font-style: italic;
+        color: #555;
+    }
+
+    .agent-message strong {
+        font-weight: bold;
+    }
+
+    .agent-message em {
+        font-style: italic;
+    }
+
+    /* Message attribution styling */
+    .message-attribution {
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        text-align: right;
+    }
+
+    .message-attribution small {
+        font-size: 0.75em;
+        opacity: 0.7;
+    }
+
+    .message-attribution .bi-robot {
+        margin-right: 4px;
+    }
+
     .input-area {
         padding: 10px;
         border-top: 1px solid #ccc;
@@ -276,9 +357,17 @@
             <div class="col-md-4">
                 <label for="service-select" class="form-label">LLM Service:</label>
                 <select id="service-select" class="form-select" v-model="selectedService" @change="serviceChanged">
-                    <option value="claude">Claude (Anthropic)</option>
-                    <option value="langchain">LangChain (Mock)</option>
+                    <option v-for="provider in availableProviders" 
+                           :key="provider.id" 
+                           :value="provider.id"
+                           :disabled="!provider.available">
+                        {% raw %}{{ provider.name }}{% endraw %}
+                        <span v-if="!provider.available"> (Unavailable)</span>
+                    </option>
                 </select>
+                <small class="form-text text-muted" v-if="selectedProvider">
+                    {% raw %}{{ selectedProvider.description }}{% endraw %}
+                </small>
             </div>
         </div>
 
@@ -299,10 +388,25 @@
                     <div class="conversation" ref="conversation">
                         <div v-for="(message, index) in messages" :key="index" class="message"
                             :class="message.role === 'user' ? 'user-message' : 'agent-message'">
-                            {% raw %}{{ message.content }}{% endraw %}
+                            <div v-if="message.role === 'user'">
+                                {% raw %}{{ message.content }}{% endraw %}
+                            </div>
+                            <div v-else>
+                                <div v-html="formatMessageContent(message.content)"></div>
+                                <div class="message-attribution" v-if="message.provider">
+                                    <small class="text-muted">
+                                        <i class="bi bi-robot"></i> {% raw %}{{ getProviderDisplayName(message.provider) }}{% endraw %}
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                         <div v-if="isProcessing" class="message agent-message">
                             <div class="loading"></div> Thinking...
+                            <div class="message-attribution">
+                                <small class="text-muted">
+                                    <i class="bi bi-robot"></i> {% raw %}{{ getProviderDisplayName(selectedService) }}{% endraw %}
+                                </small>
+                            </div>
                         </div>
                     </div>
 
@@ -435,6 +539,8 @@
             isFetchingSuggestions: false,
             selectedWorldId: '{{ selected_world.id if selected_world else "" }}',
             selectedService: 'claude', // Default to Claude
+            availableProviders: [], // Will be loaded dynamically
+            selectedProvider: null, // Currently selected provider info
             guidelines: '',
             formattedGuidelines: '',
             welcomeMessage: '{{ welcome_message | safe }}', // Get welcome message from Flask
@@ -459,7 +565,7 @@
             currentConversationId: null,
 
             // Panel state
-            isHistoryCollapsed: false,
+            isHistoryCollapsed: true,  // Collapsed by default
             isGuidelinesCollapsed: false,
 
             // MCP Integration Demo
@@ -468,6 +574,9 @@
             mcpResults: null
         },
         computed: {
+            selectedProvider() {
+                return this.availableProviders.find(p => p.id === this.selectedService) || null;
+            },
             totalPages() {
                 return Math.ceil(this.totalCount / this.pageSize);
             },
@@ -497,6 +606,9 @@
             this.saveModal = new bootstrap.Modal(document.getElementById('saveConversationModal'));
             this.deleteModal = new bootstrap.Modal(document.getElementById('deleteConversationModal'));
 
+            // Load available providers first
+            this.loadAvailableProviders();
+
             // Initialize conversation from session
             this.initializeConversation();
 
@@ -510,8 +622,16 @@
 
             // Check for saved collapsed states
             const savedHistoryState = localStorage.getItem('historyPanelCollapsed');
-            if (savedHistoryState) {
-                this.isHistoryCollapsed = savedHistoryState === 'true';
+            
+            // Force collapsed state as default for better UX
+            // Users can manually expand if they want to see history
+            if (savedHistoryState === 'false') {
+                // User has explicitly expanded before, respect their preference
+                this.isHistoryCollapsed = false;
+            } else {
+                // Default to collapsed for better screen usage
+                this.isHistoryCollapsed = true;
+                localStorage.setItem('historyPanelCollapsed', 'true');
             }
 
             const savedGuidelinesState = localStorage.getItem('guidelinesPanelCollapsed');
@@ -520,6 +640,40 @@
             }
         },
         methods: {
+            // Load available LLM providers
+            loadAvailableProviders() {
+                axios.get('/agent/api/providers')
+                    .then(response => {
+                        if (response.data.status === 'success') {
+                            this.availableProviders = response.data.providers;
+                            
+                            // Ensure selected service is available, otherwise pick first available
+                            const selectedIsAvailable = this.availableProviders.some(p => p.id === this.selectedService && p.available);
+                            if (!selectedIsAvailable) {
+                                const firstAvailable = this.availableProviders.find(p => p.available);
+                                if (firstAvailable) {
+                                    this.selectedService = firstAvailable.id;
+                                }
+                            }
+                        } else {
+                            console.error('Error loading providers:', response.data.message);
+                            // Fallback providers
+                            this.availableProviders = [
+                                { id: 'claude', name: 'Claude (Anthropic)', available: true, description: 'Anthropic\'s Claude language model' },
+                                { id: 'mock', name: 'Mock LLM (Testing)', available: true, description: 'Mock provider for testing' }
+                            ];
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading providers:', error);
+                        // Fallback providers
+                        this.availableProviders = [
+                            { id: 'claude', name: 'Claude (Anthropic)', available: true, description: 'Anthropic\'s Claude language model' },
+                            { id: 'mock', name: 'Mock LLM (Testing)', available: true, description: 'Mock provider for testing' }
+                        ];
+                    });
+            },
+
             // Toggle the history panel collapse state
             toggleHistoryPanel() {
                 this.isHistoryCollapsed = !this.isHistoryCollapsed;
@@ -558,7 +712,7 @@
                     world_id: this.selectedWorldId
                 }, {
                     headers: {
-                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
                     }
                 }).catch(error => {
                     console.error('Error saving world selection:', error);
@@ -567,11 +721,29 @@
 
             // Handle service change
             serviceChanged() {
+                const selectedProvider = this.availableProviders.find(p => p.id === this.selectedService);
+                
+                if (selectedProvider && !selectedProvider.available) {
+                    alert(`${selectedProvider.name} is currently unavailable. Please check your API configuration.`);
+                    return;
+                }
+                
                 // Save selection to session
                 axios.post('/agent/api/select-service', {
                     service: this.selectedService
+                }, {
+                    headers: {
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                }).then(response => {
+                    if (response.data.status === 'success') {
+                        console.log(`Successfully switched to ${selectedProvider ? selectedProvider.name : this.selectedService}`);
+                    } else {
+                        alert('Error switching provider: ' + response.data.message);
+                    }
                 }).catch(error => {
                     console.error('Error saving service selection:', error);
+                    alert('Error saving service selection. Please try again.');
                 });
             },
 
@@ -776,7 +948,11 @@
                 };
 
                 // Save via API
-                axios.post('/agent/history/api/conversations/save', data)
+                axios.post('/agent/history/api/conversations/save', data, {
+                    headers: {
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                })
                     .then(response => {
                         if (response.data.status === 'success') {
                             // Close modal and show success message
@@ -830,6 +1006,10 @@
                     message: userMessage,
                     world_id: this.selectedWorldId || null,
                     service: this.selectedService
+                }, {
+                    headers: {
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
                 })
                     .then(response => {
                         if (response.data.status === 'success') {
@@ -884,6 +1064,10 @@
                     message: option.text,
                     world_id: this.selectedWorldId || null,
                     service: this.selectedService
+                }, {
+                    headers: {
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
                 })
                     .then(response => {
                         if (response.data.status === 'success') {
@@ -930,6 +1114,10 @@
                 axios.post('/agent/api/suggestions', {
                     world_id: this.selectedWorldId,
                     service: this.selectedService
+                }, {
+                    headers: {
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
                 })
                     .then(response => {
                         if (response.data.status === 'success') {
@@ -972,7 +1160,11 @@
                 this.promptOptions = [];
 
                 // Reset conversation state on server
-                axios.post('/agent/api/reset')
+                axios.post('/agent/api/reset', {}, {
+                    headers: {
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                })
                     .catch(error => {
                         console.error('Error resetting conversation:', error);
                     });
@@ -996,7 +1188,7 @@
                     tool_type: toolType
                 }, {
                     headers: {
-                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
                     }
                 })
                     .then(response => {
@@ -1030,6 +1222,38 @@
 
             clearMcpResults() {
                 this.mcpResults = null;
+            },
+
+            // Format message content with markdown support
+            formatMessageContent(content) {
+                if (typeof marked !== 'undefined') {
+                    // Use marked.js to parse markdown
+                    return marked.parse(content);
+                } else {
+                    // Fallback to simple HTML escaping and line breaks
+                    return content
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n/g, '<br>');
+                }
+            },
+
+            // Get display name for a provider
+            getProviderDisplayName(providerId) {
+                const provider = this.availableProviders.find(p => p.id === providerId);
+                if (provider) {
+                    return provider.name;
+                }
+                
+                // Fallback names if provider not found in list
+                const fallbackNames = {
+                    'claude': 'Claude (Anthropic)',
+                    'openai': 'OpenAI GPT',
+                    'mock': 'Mock LLM',
+                    'langchain': 'LangChain'
+                };
+                return fallbackNames[providerId] || (providerId ? providerId.charAt(0).toUpperCase() + providerId.slice(1) : 'AI Assistant');
             }
         }
     });

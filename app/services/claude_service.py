@@ -1,3 +1,19 @@
+"""
+DEPRECATED: This service is being replaced by the unified LLM orchestration system.
+
+Please use the unified system located at /shared/llm_orchestration/ for new development.
+The unified system provides better Claude integration with multi-provider fallback.
+
+This legacy service is maintained for backward compatibility only.
+"""
+
+import warnings
+warnings.warn(
+    "claude_service.py is deprecated. Use shared/llm_orchestration/ instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 from typing import Dict, List, Any, Optional, Union
 from anthropic import Anthropic
 from app.services.llm_service import Message, Conversation

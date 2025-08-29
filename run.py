@@ -7,9 +7,17 @@ import socket
 from app import create_app
 from dotenv import load_dotenv
 
-# Load environment variables from .env file if it exists
+# Load environment variables - shared config first, then local overrides
+# This ensures consistent LLM API keys across all applications
+shared_env_path = os.path.join(os.path.dirname(__file__), '..', 'shared', '.env')
+if os.path.exists(shared_env_path):
+    load_dotenv(shared_env_path)
+    print(f"✅ Loaded shared environment config: {shared_env_path}")
+
+# Load local .env for application-specific overrides
 if os.path.exists('.env'):
-    load_dotenv()
+    load_dotenv(override=False)  # Don't override shared config
+    print(f"✅ Loaded local environment config: .env")
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Run the AI Ethical DM application')

@@ -1,3 +1,23 @@
+"""
+DEPRECATED: This service is being replaced by the unified LLM orchestration system.
+
+Please use the unified system located at /shared/llm_orchestration/ for new development.
+The unified system provides:
+- Multi-provider support with intelligent fallback
+- Better performance and reliability
+- MCP integration for rich ontological context
+- Consistent behavior across all applications
+
+This legacy service is maintained for backward compatibility only.
+"""
+
+import warnings
+warnings.warn(
+    "llm_service.py is deprecated. Use shared/llm_orchestration/ instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 from typing import Dict, List, Any, Optional, Union
 from langchain.prompts import PromptTemplate
 from langchain.llms.base import BaseLLM
@@ -12,7 +32,7 @@ from app.services.mcp_client import MCPClient
 class Message:
     """Class representing a message in a conversation."""
     
-    def __init__(self, content: str, role: str = "user", timestamp: Optional[float] = None):
+    def __init__(self, content: str, role: str = "user", timestamp: Optional[float] = None, provider: Optional[str] = None):
         """
         Initialize a message.
         
@@ -20,19 +40,24 @@ class Message:
             content: Message content
             role: Message role (user, assistant, system)
             timestamp: Message timestamp (optional)
+            provider: Provider ID that generated this message (optional)
         """
         self.content = content
         self.role = role
         self.timestamp = timestamp or time.time()
+        self.provider = provider
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary."""
-        return {
+        result = {
             "content": self.content,
             "role": self.role,
             "timestamp": self.timestamp,
             "time": datetime.fromtimestamp(self.timestamp).strftime("%Y-%m-%d %H:%M:%S")
         }
+        if self.provider:
+            result["provider"] = self.provider
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Message':
@@ -40,7 +65,8 @@ class Message:
         return cls(
             content=data["content"],
             role=data.get("role", "user"),
-            timestamp=data.get("timestamp")
+            timestamp=data.get("timestamp"),
+            provider=data.get("provider")
         )
 
 class Conversation:

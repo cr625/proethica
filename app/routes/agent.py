@@ -89,6 +89,14 @@ def send_message():
         })
         
     except Exception as e:
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Log the full traceback for debugging
+        logger.error(f"Agent message processing failed: {str(e)}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
         return jsonify({
             'status': 'error',
             'message': f'Failed to process message: {str(e)}'
@@ -210,10 +218,18 @@ def select_service():
     data = request.json
     service = data.get('service', 'claude')
     
-    if service not in ['claude', 'langchain', 'openai']:
+    # Get available providers to validate the selection
+    try:
+        providers_info = unified_agent_service.get_available_providers()
+        available_services = [p['id'] for p in providers_info]
+    except Exception:
+        # Fallback to basic validation if we can't get providers
+        available_services = ['claude', 'openai', 'mock', 'langchain']
+    
+    if service not in available_services:
         return jsonify({
             'status': 'error',
-            'message': 'Invalid service. Must be "claude", "openai", or "langchain".'
+            'message': f'Invalid service. Available options: {", ".join(available_services)}'
         }), 400
     
     # Update the active service preference
@@ -269,6 +285,23 @@ def get_service_info():
         return jsonify({
             'status': 'error',
             'message': f'Failed to get service info: {str(e)}'
+        }), 500
+
+@agent_bp.route('/api/providers', methods=['GET'])
+@login_required
+def get_available_providers():
+    """Get available LLM providers with their status."""
+    try:
+        providers_info = unified_agent_service.get_available_providers()
+        return jsonify({
+            'status': 'success',
+            'providers': providers_info,
+            'active_service': active_service
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to get providers: {str(e)}'
         }), 500
 
 @agent_bp.route('/api/test-mcp-tool', methods=['POST'])
