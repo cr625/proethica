@@ -59,7 +59,7 @@ class DirectLLMService:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=google_key)
-                self.gemini_client = genai.GenerativeModel('gemini-pro')
+                self.gemini_client = genai.GenerativeModel('gemini-1.5-flash')
                 logger.info("✅ Gemini client initialized successfully")
             except ImportError:
                 logger.error("❌ Google GenerativeAI library not installed")

@@ -826,7 +826,12 @@
                     .then(response => {
                         if (response.data.status === 'success') {
                             const conversation = response.data.conversation;
-                            this.messages = conversation.messages;
+                            // Ensure each message has provider info if available
+                            this.messages = conversation.messages.map(msg => ({
+                                role: msg.role,
+                                content: msg.content,
+                                provider: msg.provider
+                            }));
                             this.currentConversationId = conversation.id;
 
                             // Set world ID if available
@@ -1016,7 +1021,8 @@
                             // Add assistant response to conversation
                             this.messages.push({
                                 role: response.data.message.role,
-                                content: response.data.message.content
+                                content: response.data.message.content,
+                                provider: response.data.message.provider
                             });
 
                             // Get new prompt options
@@ -1074,7 +1080,8 @@
                             // Add assistant response to conversation
                             this.messages.push({
                                 role: response.data.message.role,
-                                content: response.data.message.content
+                                content: response.data.message.content,
+                                provider: response.data.message.provider
                             });
 
                             // Get new prompt options
