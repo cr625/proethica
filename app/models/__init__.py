@@ -22,6 +22,7 @@ from app.models.decision import Decision
 from app.models.document import Document, DocumentChunk
 from app.models.simulation_session import SimulationSession
 from app.models.simulation_state import SimulationState
+# STUB MODELS: Ontology functionality moved to OntServe - these are stubs to prevent import errors
 from app.models.ontology import Ontology
 from app.models.ontology_version import OntologyVersion
 from app.models.triple import Triple
@@ -30,6 +31,7 @@ from app.models.guideline import Guideline
 from app.models.guideline_section import GuidelineSection
 from app.models.guideline_term_candidate import GuidelineTermCandidate
 from app.models.guideline_semantic_triple import GuidelineSemanticTriple
+# STUB MODEL: OntologyImport moved to OntServe - this is a stub to prevent import errors
 from app.models.ontology_import import OntologyImport
 # Type mapping models (added 2025-01-08)
 from app.models.pending_concept_type import PendingConceptType

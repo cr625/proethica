@@ -129,6 +129,7 @@ def create_app(config_module='app.config'):
     from app.routes.characters import characters_bp
     from app.routes.events import events_bp
     from app.routes.simulation import simulation_bp
+    # STUB ROUTES: Ontology functionality moved to OntServe - these redirect to OntServe
     from app.routes.ontology import ontology_bp
     from app.routes.debug import debug_bp
     from app.routes.documents import documents_bp
@@ -145,6 +146,7 @@ def create_app(config_module='app.config'):
     from app.routes.worlds_extract_only import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
     from app.routes.agent import agent_bp
+    # STUB: Ontology editor moved to OntServe - this redirects to OntServe
     from ontology_editor import create_ontology_editor_blueprint
     
     app.register_blueprint(index_bp)
@@ -159,6 +161,7 @@ def create_app(config_module='app.config'):
     app.register_blueprint(characters_bp, url_prefix='/characters')
     app.register_blueprint(events_bp, url_prefix='/events')
     app.register_blueprint(simulation_bp, url_prefix='/simulation')
+    # STUB ROUTES: Ontology routes redirect to OntServe
     app.register_blueprint(ontology_bp, url_prefix='/ontology')
     app.register_blueprint(debug_bp, url_prefix='/debug')
     app.register_blueprint(documents_bp, url_prefix='/documents')
@@ -176,10 +179,11 @@ def create_app(config_module='app.config'):
     app.register_blueprint(annotations_bp)
     app.register_blueprint(agent_bp)  # Register the agent blueprint
     
+    # STUB: Ontology editor redirects to OntServe
     # Create and register the ontology editor blueprint
     ontology_editor_bp = create_ontology_editor_blueprint(
         config={
-            'require_auth': True,   # Enable authentication
+            'require_auth': True,   # Enable authentication  
             'admin_only': False     # Allow all authenticated users to access
         }
     )
