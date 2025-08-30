@@ -83,9 +83,30 @@ _src/
 *.bak*
 mcp_server.pid
 
-# Documentation and cleanup directories
+# Development documentation (not for public version control)
+CLAUDE.md
+
+# Documentation directories (development/internal only)
 docs/
+*/docs/
+
+# Scripts and development artifacts
+scripts/
+*/scripts/
+scratch/
+*/scratch/
 pending_delete/
+*/pending_delete/
+
+# Archive directories
+archive/
+*/archive/
+
+# Cache directories
+cache/
+*/cache/
+*_cache/
+*/*_cache/
 
 # Test and temporary files
 test_*.py
