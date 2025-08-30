@@ -345,6 +345,7 @@
     <div id="agent-app">
         <!-- World selection and service selection -->
         <div class="row mb-3">
+            {% if show_world_selector %}
             <div class="col-md-8">
                 <label for="world-select" class="form-label">Select World:</label>
                 <select id="world-select" class="form-select" v-model="selectedWorldId" @change="worldChanged">
@@ -355,6 +356,16 @@
                 </select>
             </div>
             <div class="col-md-4">
+            {% else %}
+            <!-- Fixed world - show current world name and hide selector -->
+            <div class="col-md-8">
+                <label class="form-label">Current World:</label>
+                <div class="form-control-plaintext fw-bold">
+                    {% if selected_world %}{{ selected_world.name }}{% else %}Engineering Ethics{% endif %}
+                </div>
+            </div>
+            <div class="col-md-4">
+            {% endif %}
                 <label for="service-select" class="form-label">LLM Service:</label>
                 <select id="service-select" class="form-select" v-model="selectedService" @change="serviceChanged">
                     <option v-for="provider in availableProviders" 
@@ -541,6 +552,7 @@
             selectedService: 'claude', // Default to Claude
             availableProviders: [], // Will be loaded dynamically
             selectedProvider: null, // Currently selected provider info
+            showWorldSelector: {{ show_world_selector|lower }}, // Whether to show world selector
             guidelines: '',
             formattedGuidelines: '',
             welcomeMessage: '{{ welcome_message | safe }}', // Get welcome message from Flask
@@ -688,6 +700,11 @@
 
             // Handle world change
             worldChanged() {
+                // If world selector is not shown (fixed world), do nothing
+                if (!this.showWorldSelector) {
+                    return;
+                }
+                
                 // Reset conversation if world changes
                 if (this.messages.length > 1) {
                     if (confirm('Changing worlds will reset your current conversation. Continue?')) {

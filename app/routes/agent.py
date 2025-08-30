@@ -26,17 +26,21 @@ def agent_window():
     # Get list of worlds for the dropdown
     worlds = World.query.all()
     
-    # Get the selected world if world_id is provided
+    # Default to engineering world (ID 1) if no world_id is provided and worlds exist
     selected_world = None
     if world_id:
         selected_world = World.query.get(world_id)
+    elif worlds:
+        # Default to first world (assumed to be engineering world)
+        selected_world = worlds[0]
+        world_id = selected_world.id
     
     # Initialize conversation in session if not already present
     if 'conversation' not in session:
         session['conversation'] = json.dumps({
             'messages': [
                 {
-                    'content': 'Hello! I am your assistant for ethical decision analysis. Choose a world to generate suggestions or type your message below.',
+                    'content': 'Hello! I am your assistant for ethical decision analysis analyzing engineering ethics scenarios.',
                     'role': 'assistant',
                     'timestamp': None
                 }
@@ -44,8 +48,11 @@ def agent_window():
             'metadata': {'world_id': world_id}
         })
     
+    # Pass whether to show world selector (only if more than one world)
+    show_world_selector = len(worlds) > 1
+    
     # This will be our hidden route that requires the URL to access
-    return render_template('agent_window.html', worlds=worlds, selected_world=selected_world)
+    return render_template('agent_window.html', worlds=worlds, selected_world=selected_world, show_world_selector=show_world_selector)
 
 @agent_bp.route('/api/message', methods=['POST'])
 @login_required
