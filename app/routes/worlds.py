@@ -181,9 +181,9 @@ def view_world(id):
             print(error_message)
             print(stack_trace)
     
-    # Get all guidelines documents for this world
-    from app.models.document import Document
-    guidelines = Document.query.filter_by(world_id=world.id, document_type="guideline").all()
+    # Get all guidelines for this world
+    from app.models.guideline import Guideline
+    guidelines = Guideline.query.filter_by(world_id=world.id).all()
     
     # Get all case studies for this world
     case_studies = Document.query.filter_by(world_id=world.id, document_type="case_study").all()
@@ -284,48 +284,62 @@ def update_world_form(id):
                 # Get file type
                 file_type = filename.rsplit('.', 1)[1].lower()
                 
-                # Create document record
-                from app.models.document import Document, PROCESSING_STATUS
-                document = Document(
+                # Create guideline record
+                from app.models.guideline import Guideline
+                guideline = Guideline(
                     title=request.form.get('guidelines_title', f"Guidelines for {world.name}"),
-                    document_type="guideline",
                     world_id=world.id,
                     file_path=file_path,
                     file_type=file_type,
-                    doc_metadata={},  # Initialize with empty metadata
-                    processing_status=PROCESSING_STATUS['PENDING']
+                    guideline_metadata={},  # Initialize with empty metadata
+                    created_by=current_user.id,
+                    data_type='user'
                 )
-                db.session.add(document)
+                db.session.add(guideline)
                 db.session.commit()
                 
-                # Process document asynchronously
-                task_queue.process_document_async(document.id)
-                flash('Guidelines document uploaded and processing started', 'success')
+                # Read and store content from file
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        guideline.content = f.read()
+                    db.session.commit()
+                except Exception as e:
+                    logger.error(f"Error reading guideline file: {e}")
+                
+                flash('Guideline uploaded successfully', 'success')
             else:
                 flash('File type not allowed. Allowed types: pdf, docx, txt, html, htm', 'error')
     
     # Handle guidelines URL
     guidelines_url = request.form.get('guidelines_url', '').strip()
     if guidelines_url:
-        # Create document record for URL
-        from app.models.document import Document, PROCESSING_STATUS
+        # Create guideline record for URL
+        from app.models.guideline import Guideline
         
-        # Create a Document record for the URL
-        document = Document(
+        # Create a Guideline record for the URL
+        guideline = Guideline(
             title=request.form.get('guidelines_title_url', f"Guidelines URL for {world.name}"),
-            document_type="guideline",
             world_id=world.id,
-            source=guidelines_url,
+            source_url=guidelines_url,
             file_type="url",
-            doc_metadata={},
-            processing_status=PROCESSING_STATUS['PENDING']
+            guideline_metadata={},
+            created_by=current_user.id,
+            data_type='user'
         )
-        db.session.add(document)
+        db.session.add(guideline)
         db.session.commit()
         
-        # Process document asynchronously
-        task_queue.process_document_async(document.id)
-        flash('Guidelines URL uploaded and processing started', 'success')
+        # Fetch content from URL
+        try:
+            import requests
+            response = requests.get(guidelines_url, timeout=30)
+            response.raise_for_status()
+            guideline.content = response.text
+            db.session.commit()
+        except Exception as e:
+            logger.error(f"Error fetching guideline from URL: {e}")
+        
+        flash('Guideline URL uploaded successfully', 'success')
     
     # Handle guidelines text
     guidelines_text = request.form.get('guidelines_text', '').strip()
@@ -338,7 +352,7 @@ def update_world_form(id):
             world_id=world.id,
             content=guidelines_text,
             file_type="txt",
-            doc_metadata={},
+            guideline_metadata={},
             processing_status=PROCESSING_STATUS['PENDING']
         )
         db.session.add(document)
@@ -408,7 +422,7 @@ def update_world(id):
                     world_id=world.id,
                     source=guidelines['url'],
                     file_type="url",
-                    doc_metadata={}
+                    guideline_metadata={}
                 )
                 db.session.add(document)
         
@@ -421,7 +435,7 @@ def update_world(id):
                 world_id=world.id,
                 content=guidelines['text'],
                 file_type="txt",
-                doc_metadata={}
+                guideline_metadata={}
             )
             db.session.add(document)
             
@@ -615,9 +629,9 @@ def world_guidelines(id):
     world = World.query.get_or_404(id)
     
     # Get all guidelines documents for this world
-    from app.models.document import Document
+    from app.models.guideline import Guideline
     from app.models.ontology import Ontology
-    guidelines = Document.query.filter_by(world_id=world.id, document_type="guideline").all()
+    guidelines = Guideline.query.filter_by(world_id=world.id).all()
     
     # Check for derived ontologies for each guideline
     guideline_ontologies = {}
@@ -658,10 +672,10 @@ def view_guideline_sections(id, document_id):
     
     # Get the associated guideline ID if exists
     actual_guideline_id = None
-    logger.info(f"Document metadata keys: {list(document.doc_metadata.keys()) if document.doc_metadata else 'No metadata'}")
+    logger.info(f"Document metadata keys: {list(document.guideline_metadata.keys()) if document.guideline_metadata else 'No metadata'}")
     
-    if document.doc_metadata and 'guideline_structure' in document.doc_metadata:
-        guideline_structure = document.doc_metadata['guideline_structure']
+    if document.guideline_metadata and 'guideline_structure' in document.guideline_metadata:
+        guideline_structure = document.guideline_metadata['guideline_structure']
         logger.info(f"Guideline structure keys: {list(guideline_structure.keys())}")
         actual_guideline_id = guideline_structure.get('guideline_id')
         logger.info(f"Found guideline_id: {actual_guideline_id}")
@@ -733,19 +747,16 @@ def regenerate_guideline_sections(id, document_id):
 
 @worlds_bp.route('/<int:id>/guidelines/<int:document_id>', methods=['GET'])
 def view_guideline(id, document_id):
-    """Display a specific guideline document."""
+    """Display a specific guideline."""
     world = World.query.get_or_404(id)
     
-    from app.models.document import Document
-    guideline = Document.query.get_or_404(document_id)
+    from app.models.guideline import Guideline
+    guideline = Guideline.query.get_or_404(document_id)
     
-    # Check if document belongs to this world
+    # Check if guideline belongs to this world
     if guideline.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
+        flash('Guideline does not belong to this world', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Check if document is a guideline
-    if guideline.document_type != "guideline":
         flash('Document is not a guideline', 'error')
         return redirect(url_for('worlds.world_guidelines', id=world.id))
     
@@ -761,9 +772,9 @@ def view_guideline(id, document_id):
     
     # Try to get related guideline if exists
     related_guideline = None
-    if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
+    if guideline.guideline_metadata and 'guideline_id' in guideline.guideline_metadata:
         try:
-            guideline_id = guideline.doc_metadata['guideline_id']
+            guideline_id = guideline.guideline_metadata['guideline_id']
             related_guideline = Guideline.query.get(guideline_id)
             
             # If related guideline exists, get its triples
@@ -789,14 +800,14 @@ def view_guideline(id, document_id):
             logger.error(f'Error retrieving guideline data: {str(e)}')
             flash(f'Error retrieving guideline data: {str(e)}', 'warning')
     
-    # If no related guideline or metadata available, try to get counts from document metadata
-    if triple_count == 0 and guideline.doc_metadata:
-        if 'triples_created' in guideline.doc_metadata:
-            triple_count = guideline.doc_metadata['triples_created']
-        if 'concepts_selected' in guideline.doc_metadata:
-            concept_count = guideline.doc_metadata['concepts_selected']
-        elif 'concepts_extracted' in guideline.doc_metadata:
-            concept_count = guideline.doc_metadata['concepts_extracted']
+    # If no related guideline or metadata available, try to get counts from guideline metadata
+    if triple_count == 0 and guideline.guideline_metadata:
+        if 'triples_created' in guideline.guideline_metadata:
+            triple_count = guideline.guideline_metadata['triples_created']
+        if 'concepts_selected' in guideline.guideline_metadata:
+            concept_count = guideline.guideline_metadata['concepts_selected']
+        elif 'concepts_extracted' in guideline.guideline_metadata:
+            concept_count = guideline.guideline_metadata['concepts_extracted']
     
     # Check for pending concept extractions in temporary storage
     pending_extraction = {'has_pending': False, 'session_id': None, 'concept_count': 0, 'extraction_date': None}
@@ -824,9 +835,9 @@ def view_guideline(id, document_id):
     
     # Check if concepts have been saved to ontology from metadata
     concepts_saved_to_ontology = False
-    if guideline.doc_metadata and guideline.doc_metadata.get('concepts_saved_to_ontology', False):
+    if guideline.guideline_metadata and guideline.guideline_metadata.get('concepts_saved_to_ontology', False):
         concepts_saved_to_ontology = True
-        logger.info(f"Document {document_id} has concepts already saved to ontology")
+        logger.info(f"Guideline {document_id} has concepts already saved to ontology")
     
     # Check if concepts have been added to the ontology
     # Use document_id for consistent naming/linking with derived ontologies
@@ -893,8 +904,8 @@ def manage_guideline_triples(world_id, guideline_id):
     
     # Get the actual guideline ID if this is a Document with guideline metadata
     actual_guideline_id = None
-    if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
-        actual_guideline_id = guideline.doc_metadata['guideline_id']
+    if guideline.guideline_metadata and 'guideline_id' in guideline.guideline_metadata:
+        actual_guideline_id = guideline.guideline_metadata['guideline_id']
     
     # Get all triples for this guideline (with proper world filtering)
     from app.models.entity_triple import EntityTriple
@@ -1213,8 +1224,8 @@ def delete_guideline_triples(world_id, guideline_id):
             if triple:
                 # Verify the triple belongs to this guideline
                 if (triple.guideline_id == guideline_id or 
-                    (guideline.doc_metadata and 
-                     triple.guideline_id == guideline.doc_metadata.get('guideline_id'))):
+                    (guideline.guideline_metadata and 
+                     triple.guideline_id == guideline.guideline_metadata.get('guideline_id'))):
                     db.session.delete(triple)
                     deleted_count += 1
         
@@ -1274,24 +1285,29 @@ def add_guideline(id):
                 # Get file type
                 file_type = filename.rsplit('.', 1)[1].lower()
                 
-                # Create document record
-                document = Document(
+                # Create guideline record
+                from app.models.guideline import Guideline
+                guideline = Guideline(
                     title=title,
-                    document_type="guideline",
                     world_id=world.id,
                     file_path=file_path,
                     file_type=file_type,
-                    doc_metadata={},
-                    processing_status=PROCESSING_STATUS['PENDING'],
+                    guideline_metadata={},
                     created_by=current_user.id,
                     data_type='user'
                 )
-                db.session.add(document)
+                db.session.add(guideline)
                 db.session.commit()
                 
-                # Process document asynchronously
-                task_queue.process_document_async(document.id)
-                flash('Guidelines document uploaded and processing started', 'success')
+                # Read and store content from file
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        guideline.content = f.read()
+                    db.session.commit()
+                except Exception as e:
+                    logger.error(f"Error reading guideline file: {e}")
+                
+                flash('Guideline uploaded successfully', 'success')
             else:
                 flash('File type not allowed. Allowed types: pdf, docx, txt, html, htm', 'error')
                 return redirect(url_for('worlds.add_guideline_form', id=world.id))
@@ -1299,23 +1315,29 @@ def add_guideline(id):
     elif input_type == 'url':
         guidelines_url = request.form.get('guidelines_url', '').strip()
         if guidelines_url:
-            # Create document record for URL
-            document = Document(
+            # Create guideline record for URL
+            from app.models.guideline import Guideline
+            guideline = Guideline(
                 title=title,
-                document_type="guideline",
                 world_id=world.id,
-                source=guidelines_url,
+                source_url=guidelines_url,
                 file_type="url",
-                doc_metadata={},
-                processing_status=PROCESSING_STATUS['PENDING'],
+                guideline_metadata={},
                 created_by=current_user.id,
                 data_type='user'
             )
-            db.session.add(document)
+            db.session.add(guideline)
             db.session.commit()
             
-            # Process document asynchronously
-            task_queue.process_document_async(document.id)
+            # Fetch content from URL
+            try:
+                import requests
+                response = requests.get(guidelines_url, timeout=30)
+                response.raise_for_status()
+                guideline.content = response.text
+                db.session.commit()
+            except Exception as e:
+                logger.error(f"Error fetching guideline from URL: {e}")
             flash('Guidelines URL uploaded and processing started', 'success')
         else:
             flash('URL is required', 'error')
@@ -1824,8 +1846,8 @@ def generate_guideline_triples(world_id, document_id):
         
         # Get the actual guideline ID if available
         actual_guideline_id = None
-        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
-            actual_guideline_id = guideline.doc_metadata['guideline_id']
+        if guideline.guideline_metadata and 'guideline_id' in guideline.guideline_metadata:
+            actual_guideline_id = guideline.guideline_metadata['guideline_id']
         
         # Extract ontology terms from guideline text (same as direct method)
         triples_result = guideline_analysis_service.extract_ontology_terms_from_text(
@@ -1968,15 +1990,15 @@ def save_guideline_concepts(world_id, document_id):
             cached_concepts = None
             
             # Debug current document state
-            logger.info(f"Document {document_id} metadata keys: {list(guideline.doc_metadata.keys()) if guideline.doc_metadata else 'None'}")
+            logger.info(f"Document {document_id} metadata keys: {list(guideline.guideline_metadata.keys()) if guideline.guideline_metadata else 'None'}")
             
             # Check document metadata (primary source now)
-            if hasattr(guideline, 'doc_metadata') and guideline.doc_metadata:
-                if 'extracted_concepts' in guideline.doc_metadata:
-                    cached_concepts = guideline.doc_metadata.get('extracted_concepts', [])
+            if hasattr(guideline, 'doc_metadata') and guideline.guideline_metadata:
+                if 'extracted_concepts' in guideline.guideline_metadata:
+                    cached_concepts = guideline.guideline_metadata.get('extracted_concepts', [])
                     logger.info(f"Found {len(cached_concepts)} cached concepts in document metadata")
                     # Log timestamp for debugging
-                    timestamp = guideline.doc_metadata.get('extraction_timestamp', 'unknown')
+                    timestamp = guideline.guideline_metadata.get('extraction_timestamp', 'unknown')
                     logger.info(f"Concepts cached at: {timestamp}")
                 else:
                     logger.warning("'extracted_concepts' key not found in doc_metadata")
@@ -2000,7 +2022,7 @@ def save_guideline_concepts(world_id, document_id):
             else:
                 # Only as last resort, if no cached data exists, inform user instead of re-extracting
                 logger.error("No valid form data and no cached concepts - asking user to retry analysis")
-                logger.error(f"Debug info - Document metadata: {guideline.doc_metadata}")
+                logger.error(f"Debug info - Document metadata: {guideline.guideline_metadata}")
                 logger.error(f"Debug info - Session keys: {list(session.keys())}")
                 return redirect(url_for('worlds.guideline_processing_error', 
                                       world_id=world_id, 
@@ -2159,8 +2181,8 @@ def save_guideline_concepts(world_id, document_id):
                     created_triple_count += 1
         
         # Update document metadata
-        guideline.doc_metadata = {
-            **(guideline.doc_metadata or {}),
+        guideline.guideline_metadata = {
+            **(guideline.guideline_metadata or {}),
             "analyzed": True,
             "guideline_id": new_guideline.id,
             "concepts_extracted": len(concepts),
@@ -2461,8 +2483,8 @@ def save_guideline_triples(world_id, document_id):
         
         # Get the related guideline record
         guideline_id = None
-        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
-            guideline_id = guideline.doc_metadata['guideline_id']
+        if guideline.guideline_metadata and 'guideline_id' in guideline.guideline_metadata:
+            guideline_id = guideline.guideline_metadata['guideline_id']
         
         if not guideline_id:
             logger.error("No guideline_id found in document metadata")
@@ -2554,8 +2576,8 @@ def save_guideline_triples(world_id, document_id):
         }
         
         # Update document metadata
-        guideline.doc_metadata = {
-            **(guideline.doc_metadata or {}),
+        guideline.guideline_metadata = {
+            **(guideline.guideline_metadata or {}),
             "guideline_id": guideline_record.id,
             "triples_saved": len(saved_triples),
             "triples_generated": len(all_triples)
@@ -2740,11 +2762,11 @@ def save_concepts_direct(world_id, document_id):
             
             # Update document metadata to indicate concepts have been saved
             from datetime import datetime
-            if not document.doc_metadata:
-                document.doc_metadata = {}
-            document.doc_metadata['concepts_saved_to_ontology'] = True
-            document.doc_metadata['concepts_saved_timestamp'] = datetime.utcnow().isoformat()
-            document.doc_metadata['concepts_saved_count'] = len(selected_concepts)
+            if not document.guideline_metadata:
+                document.guideline_metadata = {}
+            document.guideline_metadata['concepts_saved_to_ontology'] = True
+            document.guideline_metadata['concepts_saved_timestamp'] = datetime.utcnow().isoformat()
+            document.guideline_metadata['concepts_saved_count'] = len(selected_concepts)
             
             # Mark the document metadata as modified for SQLAlchemy
             from sqlalchemy.orm.attributes import flag_modified
@@ -2798,7 +2820,7 @@ def view_saved_concepts(world_id, document_id):
     
     try:
         # Check if concepts have been saved to ontology
-        if not (document.doc_metadata and document.doc_metadata.get('concepts_saved_to_ontology')):
+        if not (document.guideline_metadata and document.guideline_metadata.get('concepts_saved_to_ontology')):
             flash('No concepts have been saved to the ontology for this guideline yet', 'info')
             return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
         
@@ -2895,8 +2917,8 @@ def view_saved_concepts(world_id, document_id):
             flash('Could not parse concepts from ontology', 'warning')
         
         # Get saved metadata
-        concepts_saved_count = document.doc_metadata.get('concepts_saved_count', len(saved_concepts))
-        concepts_saved_timestamp = document.doc_metadata.get('concepts_saved_timestamp')
+        concepts_saved_count = document.guideline_metadata.get('concepts_saved_count', len(saved_concepts))
+        concepts_saved_timestamp = document.guideline_metadata.get('concepts_saved_timestamp')
         
         return render_template('saved_concepts_view.html',
                              world=world,
@@ -2978,47 +3000,69 @@ def clear_pending_concepts(world_id, document_id):
     
     return redirect(url_for('worlds.view_guideline', id=world_id, document_id=document_id))
 
-@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/delete', methods=['POST'])
+@worlds_bp.route('/<int:id>/guidelines/<int:guideline_id>/delete', methods=['POST'])
 @login_required
-def delete_guideline(id, document_id):
-    """Delete a guideline document and all associated data."""
+def delete_guideline(id, guideline_id):
+    """Delete a guideline and all associated data."""
     world = World.query.get_or_404(id)
     
     from app.models.document import Document
     from app.models.guideline import Guideline
     from app.models.entity_triple import EntityTriple
     
-    document = Document.query.get_or_404(document_id)
+    # Try to get the guideline from the Guideline table first (new approach)
+    guideline = Guideline.query.get(guideline_id)
     
-    # Check if document belongs to this world
-    if document.world_id != world.id:
-        flash('Document does not belong to this world', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Check if document is a guideline
-    if document.document_type != "guideline":
-        flash('Document is not a guideline', 'error')
-        return redirect(url_for('worlds.world_guidelines', id=world.id))
-    
-    # Check if user can delete this document
-    if not document.can_delete(current_user):
-        flash('You do not have permission to delete this guideline.', 'error')
-        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+    if guideline:
+        # Check if guideline belongs to this world
+        if guideline.world_id != world.id:
+            flash('Guideline does not belong to this world', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Check if user can delete this guideline
+        if not guideline.can_delete(current_user):
+            flash('You do not have permission to delete this guideline.', 'error')
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=guideline_id))
+        
+        actual_guideline_id = guideline_id
+    else:
+        # Fallback: try to get from Document table (legacy approach)
+        document = Document.query.get(guideline_id)
+        if not document:
+            flash('Guideline not found', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Check if document belongs to this world
+        if document.world_id != world.id:
+            flash('Document does not belong to this world', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Check if document is a guideline
+        if document.document_type != "guideline":
+            flash('Document is not a guideline', 'error')
+            return redirect(url_for('worlds.world_guidelines', id=world.id))
+        
+        # Check if user can delete this document
+        if not document.can_delete(current_user):
+            flash('You do not have permission to delete this guideline.', 'error')
+            return redirect(url_for('worlds.view_guideline', id=world.id, document_id=guideline_id))
+        
+        # Get associated guideline ID if exists
+        actual_guideline_id = None
+        if document.guideline_metadata and 'guideline_id' in document.guideline_metadata:
+            actual_guideline_id = document.guideline_metadata['guideline_id']
     
     # User option: delete associated derived ontology too
     delete_derived = request.form.get('delete_derived_ontology') in ('on', 'true', '1')
     derived_ontology_id = request.form.get('derived_ontology_id')
-
-    # Get the associated guideline ID if exists
-    actual_guideline_id = None
-    if document.doc_metadata and 'guideline_id' in document.doc_metadata:
-        actual_guideline_id = document.doc_metadata['guideline_id']
-        logger.info(f"Deleting document {document_id} with associated guideline {actual_guideline_id}")
+    
+    logger.info(f"Deleting guideline {guideline_id} (actual_guideline_id: {actual_guideline_id})")
     
     # Delete associated data in order (due to foreign key constraints)
     deleted_counts = {
         'triples': 0,
-        'guideline': 0
+        'guideline': 0,
+        'document': 0
     }
     
     try:
@@ -3031,12 +3075,24 @@ def delete_guideline(id, document_id):
                 ).delete(synchronize_session=False)
                 logger.info(f"Deleted {deleted_counts['triples']} triples for guideline {actual_guideline_id}")
                 
-                # 2. Delete the guideline entry
-                guideline = Guideline.query.get(actual_guideline_id)
-                if guideline:
-                    db.session.delete(guideline)
-                    deleted_counts['guideline'] = 1
-                    logger.info(f"Deleted guideline {actual_guideline_id}")
+            # 2. Delete the guideline entry
+            if guideline:
+                db.session.delete(guideline)
+                deleted_counts['guideline'] = 1
+                logger.info(f"Deleted guideline {guideline_id}")
+            elif 'document' in locals():
+                # Delete legacy document
+                db.session.delete(document)
+                deleted_counts['document'] = 1
+                logger.info(f"Deleted legacy document {guideline_id}")
+                
+                # Also delete the associated guideline if it exists
+                if actual_guideline_id:
+                    guideline_obj = Guideline.query.get(actual_guideline_id)
+                    if guideline_obj:
+                        db.session.delete(guideline_obj)
+                        deleted_counts['guideline'] = 1
+                        logger.info(f"Deleted associated guideline {actual_guideline_id}")
             
             # Optionally delete derived ontology first to avoid orphan
             if delete_derived and derived_ontology_id:
@@ -3049,28 +3105,31 @@ def delete_guideline(id, document_id):
                 except Exception as e:
                     logger.warning(f"Could not delete derived ontology {derived_ontology_id}: {e}")
 
-            # 3. Delete temporary concepts first (due to NOT NULL constraint on document_id)
-            from app.models.temporary_concept import TemporaryConcept
-            deleted_temp_concepts = TemporaryConcept.query.filter_by(document_id=document.id).delete(synchronize_session=False)
-            if deleted_temp_concepts > 0:
-                logger.info(f"Deleted {deleted_temp_concepts} temporary concepts for document {document.id}")
-            
-            # 4. Delete document chunks (due to NOT NULL constraint on document_id)
-            from app.models.document import DocumentChunk
-            deleted_chunks = DocumentChunk.query.filter_by(document_id=document.id).delete(synchronize_session=False)
-            if deleted_chunks > 0:
-                logger.info(f"Deleted {deleted_chunks} document chunks for document {document.id}")
-            
-            # 5. Delete the file if it exists
-            if document.file_path and os.path.exists(document.file_path):
-                try:
-                    os.remove(document.file_path)
-                    logger.info(f"Deleted file {document.file_path}")
-                except Exception as e:
-                    flash(f'Error deleting file: {str(e)}', 'warning')
-            
-            # 6. Delete the document
-            db.session.delete(document)
+            # 3. Delete temporary concepts and document chunks (only for legacy Document approach)
+            if 'document' in locals():
+                from app.models.temporary_concept import TemporaryConcept
+                deleted_temp_concepts = TemporaryConcept.query.filter_by(document_id=document.id).delete(synchronize_session=False)
+                if deleted_temp_concepts > 0:
+                    logger.info(f"Deleted {deleted_temp_concepts} temporary concepts for document {document.id}")
+                
+                from app.models.document import DocumentChunk
+                deleted_chunks = DocumentChunk.query.filter_by(document_id=document.id).delete(synchronize_session=False)
+                if deleted_chunks > 0:
+                    logger.info(f"Deleted {deleted_chunks} document chunks for document {document.id}")
+                
+                # Delete the file if it exists
+                if document.file_path and os.path.exists(document.file_path):
+                    try:
+                        os.remove(document.file_path)
+                        logger.info(f"Deleted file {document.file_path}")
+                    except Exception as e:
+                        flash(f'Error deleting file: {str(e)}', 'warning')
+                
+                # Delete the document
+                db.session.delete(document)
+            else:
+                # For independent Guidelines, no additional file cleanup needed
+                logger.info(f"Independent guideline deletion - no file cleanup needed")
         
         # Commit all deletions
         db.session.commit()
@@ -3087,7 +3146,7 @@ def delete_guideline(id, document_id):
         db.session.rollback()
         logger.error(f"Error deleting guideline: {str(e)}")
         flash(f'Error deleting guideline: {str(e)}', 'error')
-        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=document_id))
+        return redirect(url_for('worlds.view_guideline', id=world.id, document_id=guideline_id))
     
     return redirect(url_for('worlds.world_guidelines', id=world.id))
 
@@ -3149,8 +3208,8 @@ def add_concepts_to_ontology(world_id, document_id):
         
         # Get the guideline ID from metadata if available
         actual_guideline_id = None
-        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
-            actual_guideline_id = guideline.doc_metadata['guideline_id']
+        if guideline.guideline_metadata and 'guideline_id' in guideline.guideline_metadata:
+            actual_guideline_id = guideline.guideline_metadata['guideline_id']
         
         if not actual_guideline_id:
             flash('No guideline concepts found to add to ontology', 'warning')
@@ -3251,8 +3310,8 @@ def remove_extracted_concepts(id, document_id):
 
         # Determine associated Guideline record (Stage 1 saved concepts)
         associated_guideline_id = None
-        if guideline.doc_metadata and 'guideline_id' in guideline.doc_metadata:
-            associated_guideline_id = guideline.doc_metadata.get('guideline_id')
+        if guideline.guideline_metadata and 'guideline_id' in guideline.guideline_metadata:
+            associated_guideline_id = guideline.guideline_metadata.get('guideline_id')
 
         concepts_removed = 0
         triples_removed = 0
@@ -3288,12 +3347,12 @@ def remove_extracted_concepts(id, document_id):
                 removed_guideline = 1
 
         # 3) Clean document metadata flags and linkage
-        if hasattr(guideline, 'doc_metadata') and isinstance(guideline.doc_metadata, dict):
+        if hasattr(guideline, 'doc_metadata') and isinstance(guideline.guideline_metadata, dict):
             for key in [
                 'guideline_id', 'analyzed', 'concepts_extracted', 'concepts_selected',
                 'triples_created', 'triples_saved', 'triples_generated', 'analysis_date'
             ]:
-                guideline.doc_metadata.pop(key, None)
+                guideline.guideline_metadata.pop(key, None)
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(guideline, 'doc_metadata')
 

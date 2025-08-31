@@ -146,6 +146,10 @@ def create_app(config_module='app.config'):
     from app.routes.worlds_extract_only import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
     from app.routes.agent import agent_bp
+    # Enhanced intelligent annotations
+    from app.routes.intelligent_annotations import intelligent_annotations_bp
+    # Enhanced guideline annotations with multi-agent orchestration
+    from app.routes.enhanced_annotations import bp as enhanced_annotations_bp
     # STUB: Ontology editor moved to OntServe - this redirects to OntServe
     from ontology_editor import create_ontology_editor_blueprint
     
@@ -178,6 +182,8 @@ def create_app(config_module='app.config'):
     app.register_blueprint(worlds_extract_only_bp)
     app.register_blueprint(annotations_bp)
     app.register_blueprint(agent_bp)  # Register the agent blueprint
+    app.register_blueprint(intelligent_annotations_bp)  # Register intelligent annotations
+    app.register_blueprint(enhanced_annotations_bp)  # Register enhanced annotations with MCP integration
     
     # STUB: Ontology editor redirects to OntServe
     # Create and register the ontology editor blueprint

@@ -14,7 +14,7 @@ class World(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     ontology_source = db.Column(db.String(255))  # Reference to the ontology source (kept for backward compatibility)
-    ontology_id = db.Column(db.Integer, db.ForeignKey('ontologies.id'), nullable=True)  # Direct reference to Ontology model
+    ontology_id = db.Column(db.Integer, nullable=True)  # Removed FK constraint - ontologies moved to OntServe
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

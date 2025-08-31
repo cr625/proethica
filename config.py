@@ -14,7 +14,7 @@ app_config = {
     'DEBUG': os.getenv('FLASK_ENV') == 'development',
     'TESTING': False,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'development-key-change-me'),
-    'SQLALCHEMY_DATABASE_URI': os.environ.get('SQLALCHEMY_DATABASE_URI', 'postgresql://postgres:PASS@localhost:5433/ai_ethical_dm'),
+    'SQLALCHEMY_DATABASE_URI': os.environ.get('SQLALCHEMY_DATABASE_URI', 'postgresql://postgres:PASS@localhost:5432/ai_ethical_dm'),
     'SQLALCHEMY_TRACK_MODIFICATIONS': False,
     'SESSION_TYPE': 'filesystem',
     'SESSION_PERMANENT': False,

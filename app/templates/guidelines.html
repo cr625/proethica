@@ -63,10 +63,10 @@
             <div><strong>Created by:</strong> {{ get_creator_name(guideline) }}</div>
             <div><strong>Added:</strong> {{ guideline.created_at.strftime('%Y-%m-%d') }}</div>
             <div><strong>Concepts:</strong>
-              {% if guideline.doc_metadata and guideline.doc_metadata.triples_created %}
-              {{ guideline.doc_metadata.triples_created }}
+              {% if guideline.guideline_metadata and guideline.guideline_metadata.triples_created %}
+              {{ guideline.guideline_metadata.triples_created }}
               {% elif guideline.entity_triples is defined %}
-              {{ guideline.entity_triples|length }}
+              {{ guideline.entity_triples.count() }}
               {% else %}
               0
               {% endif %}

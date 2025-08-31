@@ -333,20 +333,20 @@ class GuidelineSectionService:
                     sections_processed += 1
             
             # Update document metadata to indicate it has enhanced guideline associations
-            document_metadata = document.doc_metadata or {}
+            document_metadata = document.guideline_metadata or {}
             if not document_metadata:
                 document_metadata = {}
             
             # Properly handle document metadata
-            if not document.doc_metadata:
-                document.doc_metadata = {}
+            if not document.guideline_metadata:
+                document.guideline_metadata = {}
             
-            if isinstance(document.doc_metadata, dict):
-                metadata_dict = document.doc_metadata
+            if isinstance(document.guideline_metadata, dict):
+                metadata_dict = document.guideline_metadata
             else:
                 # Try to convert to dict if not already
                 try:
-                    metadata_dict = dict(document.doc_metadata)
+                    metadata_dict = dict(document.guideline_metadata)
                 except:
                     metadata_dict = {}
                 
@@ -363,7 +363,7 @@ class GuidelineSectionService:
             }
             
             # Update the document metadata
-            document.doc_metadata = metadata_dict
+            document.guideline_metadata = metadata_dict
             
             # Commit changes
             db.session.commit()
@@ -525,9 +525,9 @@ class GuidelineSectionService:
             
             # Determine association type
             association_type = 'standard'
-            if document.doc_metadata and 'document_structure' in document.doc_metadata:
-                if 'guideline_associations' in document.doc_metadata['document_structure']:
-                    association_type = document.doc_metadata['document_structure']['guideline_associations'].get(
+            if document.guideline_metadata and 'document_structure' in document.guideline_metadata:
+                if 'guideline_associations' in document.guideline_metadata['document_structure']:
+                    association_type = document.guideline_metadata['document_structure']['guideline_associations'].get(
                         'association_type', 'standard')
             
             return {

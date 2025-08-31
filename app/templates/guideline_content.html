@@ -28,10 +28,10 @@
         <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}"
           class="btn btn-sm btn-light me-2">
           <i class="bi bi-list-ul"></i> Show Sections
-          {% if guideline.doc_metadata and guideline.doc_metadata.guideline_structure and
-          guideline.doc_metadata.guideline_structure.sections_count %}
+          {% if guideline.guideline_metadata and guideline.guideline_metadata.guideline_structure and
+          guideline.guideline_metadata.guideline_structure.sections_count %}
           <span class="badge bg-success ms-1" title="Extracted sections available">
-            <i class="bi bi-check-circle"></i> {{ guideline.doc_metadata.guideline_structure.sections_count }}
+            <i class="bi bi-check-circle"></i> {{ guideline.guideline_metadata.guideline_structure.sections_count }}
           </span>
           {% endif %}
         </a>
@@ -346,12 +346,12 @@
       <div class="alert alert-success">
         <h6><i class="bi bi-check-circle"></i> Concepts Successfully Saved to Ontology</h6>
         <p class="mb-2">
-          <strong>{{ guideline.doc_metadata.concepts_saved_count }}</strong> concepts from this guideline have been
+          <strong>{{ guideline.guideline_metadata.concepts_saved_count }}</strong> concepts from this guideline have been
           integrated into the ontology.
         </p>
         <p class="mb-2">
-          <strong>Saved:</strong> {{ guideline.doc_metadata.concepts_saved_timestamp[:19].replace('T', ' ') if
-          guideline.doc_metadata.concepts_saved_timestamp else 'Recently' }}
+          <strong>Saved:</strong> {{ guideline.guideline_metadata.concepts_saved_timestamp[:19].replace('T', ' ') if
+          guideline.guideline_metadata.concepts_saved_timestamp else 'Recently' }}
         </p>
         <hr>
         <p class="mb-0"><strong>Next Steps:</strong></p>
@@ -408,7 +408,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <form action="{{ url_for('worlds.delete_guideline', id=world.id, document_id=guideline.id) }}" method="post">
+        <form action="{{ url_for('worlds.delete_guideline', id=world.id, guideline_id=guideline.id) }}" method="post">
           {% if csrf_token %}
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           {% endif %}

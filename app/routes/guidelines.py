@@ -12,24 +12,23 @@ guidelines_bp = Blueprint('guidelines', __name__, url_prefix='/guidelines')
 @guidelines_bp.route('/', methods=['GET'])
 def all_guidelines():
     """Display all guidelines from all worlds."""
-    # Get all guideline documents
-    guidelines = db.session.query(Document, World).join(
-        World, Document.world_id == World.id
-    ).filter(
-        Document.document_type == "guideline"
+    # Get all guidelines from Guidelines table
+    from app.models.guideline import Guideline
+    guidelines = db.session.query(Guideline, World).join(
+        World, Guideline.world_id == World.id
     ).order_by(
-        World.name, Document.title
+        World.name, Guideline.title
     ).all()
     
     # Group guidelines by world for better display
     guidelines_by_world = {}
-    for doc, world in guidelines:
+    for guideline, world in guidelines:
         if world.name not in guidelines_by_world:
             guidelines_by_world[world.name] = {
                 'world': world,
                 'guidelines': []
             }
-        guidelines_by_world[world.name]['guidelines'].append(doc)
+        guidelines_by_world[world.name]['guidelines'].append(guideline)
     
     return render_template('guidelines_all.html', 
                          guidelines_by_world=guidelines_by_world,

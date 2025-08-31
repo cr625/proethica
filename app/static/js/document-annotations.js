@@ -266,10 +266,10 @@ class DocumentAnnotationViewer {
     formatRichTooltipContent(annotation) {
         const confidence = annotation.confidence ? Math.round(annotation.confidence * 100) : 'N/A';
         const confidenceBadge = this.getConfidenceBadgeClass(annotation.confidence);
-        
+
         // Format the ontology URI for display
         const shortUri = this.formatUriForDisplay(annotation.concept_uri);
-        
+
         // Create rich HTML content
         return `
             <div class="annotation-popup" style="max-width: 350px;">
@@ -283,10 +283,10 @@ class DocumentAnnotationViewer {
                 </div>
                 
                 <div class="popup-content">
-                    ${annotation.concept_definition ? 
-                        `<p class="mb-2"><small>${this.escapeHtml(annotation.concept_definition)}</small></p>` : 
-                        '<p class="mb-2 text-muted"><small><em>No description available</em></small></p>'
-                    }
+                    ${annotation.concept_definition ?
+                `<p class="mb-2"><small>${this.escapeHtml(annotation.concept_definition)}</small></p>` :
+                '<p class="mb-2 text-muted"><small><em>No description available</em></small></p>'
+            }
                     
                     <div class="popup-footer">
                         <div class="d-flex align-items-center justify-content-between">
@@ -305,7 +305,7 @@ class DocumentAnnotationViewer {
 
     formatUriForDisplay(uri) {
         if (!uri) return 'No URI';
-        
+
         // Extract the meaningful part of the URI for display
         if (uri.includes('#')) {
             const parts = uri.split('#');
@@ -432,13 +432,16 @@ class DocumentAnnotationViewer {
         this.setLoading(true);
 
         try {
-            const url = `/annotations/${this.documentType}/${this.documentId}/annotate`;
+            // Use intelligent annotation endpoint for guidelines
+            const url = this.documentType === 'guideline'
+                ? `/api/annotations/intelligent/guideline/${this.documentId}/annotate`
+                : `/annotations/${this.documentType}/${this.documentId}/annotate`;
             const csrfToken = this.getCSRFToken();
-            
+
             if (!csrfToken) {
                 throw new Error('CSRF token not found. Please refresh the page and try again.');
             }
-            
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {

@@ -21,7 +21,13 @@ annotations_bp = Blueprint('annotations', __name__, url_prefix='/annotations')
 def annotate_guideline(guideline_id):
     """Trigger annotation process for a guideline."""
     try:
-        guideline = Guideline.query.get_or_404(guideline_id)
+        # Try Guideline table first, then Document table
+        guideline = Guideline.query.filter_by(id=guideline_id).first()
+        if not guideline:
+            guideline = Document.query.filter_by(id=guideline_id, document_type='guideline').first()
+        if not guideline:
+            flash(f'Guideline {guideline_id} not found.', 'error')
+            return redirect(url_for('guidelines.index'))
         
         # Check permissions
         if not guideline.world.can_edit(current_user):
@@ -138,7 +144,13 @@ def get_annotations(document_type, document_id):
         
         # Verify document exists and user has access
         if document_type == 'guideline':
-            document = Guideline.query.get_or_404(document_id)
+            # Try Guideline table first, then Document table
+            document = Guideline.query.filter_by(id=document_id).first()
+            if not document:
+                # Check Document table for guidelines stored there
+                document = Document.query.filter_by(id=document_id, document_type='guideline').first()
+            if not document:
+                return jsonify({'error': f'Guideline {document_id} not found'}), 404
             if not document.world.can_view(current_user):
                 return jsonify({'error': 'Access denied'}), 403
         elif document_type == 'case':
@@ -359,7 +371,12 @@ def clear_annotations(document_type, document_id):
         
         # Get document and check permissions
         if document_type == 'guideline':
-            document = Guideline.query.get_or_404(document_id)
+            # Try Guideline table first, then Document table
+            document = Guideline.query.filter_by(id=document_id).first()
+            if not document:
+                document = Document.query.filter_by(id=document_id, document_type='guideline').first()
+            if not document:
+                return jsonify({'error': f'Guideline {document_id} not found'}), 404
         else:
             document = Document.query.get_or_404(document_id)
         

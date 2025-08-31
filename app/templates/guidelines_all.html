@@ -60,7 +60,7 @@
                                class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-list-ul me-1"></i>View Sections
                             </a>
-                            {% if guideline.doc_metadata and guideline.doc_metadata.get('processed_triples') %}
+                            {% if guideline.guideline_metadata and guideline.guideline_metadata.get('processed_triples') %}
                             <a href="/worlds/{{ world_data.world.id }}/guidelines/{{ guideline.id }}/manage_triples" 
                                class="btn btn-sm btn-outline-info">
                                 <i class="bi bi-diagram-3 me-1"></i>Manage Triples
