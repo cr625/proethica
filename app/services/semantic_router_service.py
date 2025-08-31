@@ -102,15 +102,20 @@ class SemanticRouterService:
         """Initialize regex patterns for each component type."""
         return {
             ComponentType.ROLE: [
-                re.compile(r'\b(?:what|which) (?:types? of )?roles?\b', re.IGNORECASE),  # "what roles are available"
+                # Direct ontology queries
+                re.compile(r'\b(?:what|which|list) (?:types? of )?roles? (?:are|is) (?:available|defined|there)\b', re.IGNORECASE),
+                re.compile(r'\b(?:what|which) roles?\b', re.IGNORECASE),  # "what roles are available"
                 re.compile(r'\b(?:available|defined|existing) roles?\b', re.IGNORECASE),  # "available roles"
                 re.compile(r'\broles? (?:are|that are) (?:available|defined|in the)\b', re.IGNORECASE),  # "roles that are available"
-                re.compile(r'\b(?:list|show|get|find) (?:the |all )?roles?\b', re.IGNORECASE),  # "list roles"
+                re.compile(r'\b(?:list|show|get|find|tell me) (?:the |all |about )?roles?\b', re.IGNORECASE),  # "list roles"
+                # Specific role queries
                 re.compile(r'\b(?:role|responsibility|duty|position) of (?:an? )?(\w+)', re.IGNORECASE),
                 re.compile(r'\bwhat (?:does|should) (?:an? )?(\w+) do\b', re.IGNORECASE),
                 re.compile(r"\b(\w+)'s (?:professional )?(?:obligations?|duties|responsibilities)\b", re.IGNORECASE),
                 re.compile(r'\b(?:as an? )(\w+)\b', re.IGNORECASE),
-                re.compile(r'\b(\w+) (?:must|should|needs to)\b', re.IGNORECASE)
+                re.compile(r'\b(\w+) (?:must|should|needs to)\b', re.IGNORECASE),
+                # ProEthica ontology specific
+                re.compile(r'\b(?:professional|participant) roles?\b', re.IGNORECASE)
             ],
             ComponentType.PRINCIPLE: [
                 re.compile(r'\b(?:principle|value|ideal|foundation) of (\w+)', re.IGNORECASE),

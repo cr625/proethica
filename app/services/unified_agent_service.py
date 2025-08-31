@@ -116,7 +116,7 @@ class UnifiedAgentService:
                 asyncio.set_event_loop(loop)
             
             # Process with ProEthica orchestrator (includes MCP queries)
-            response = loop.run_until_complete(
+            orchestrated_response = loop.run_until_complete(
                 self.proethica_orchestrator.process_query(
                     query=message,
                     domain=domain,
@@ -127,17 +127,27 @@ class UnifiedAgentService:
             # Add user message to conversation
             conversation.add_message(message, "user")
             
-            # Format response with ontology context
-            response_content = response['response']
+            # Extract response content
+            response_content = orchestrated_response.response_text
             
-            # Add entity information if available
-            if response.get('entities'):
-                response_content += "\n\n**Relevant Ontological Concepts:**\n"
-                for category, entities in response['entities'].items():
+            # Add ontological context if available
+            if orchestrated_response.ontology_context and orchestrated_response.ontology_context.retrieved_entities:
+                response_content += "\n\n---\n**📚 Ontological Concepts from ProEthica:**\n"
+                
+                for category, entities in orchestrated_response.ontology_context.retrieved_entities.items():
                     if entities:
-                        response_content += f"\n*{category}:*\n"
-                        for entity in entities[:5]:  # Limit to top 5
-                            response_content += f"- {entity.get('label', entity.get('uri', 'Unknown'))}\n"
+                        response_content += f"\n**{category}:**\n"
+                        for entity in entities[:5]:  # Limit to top 5 per category
+                            label = entity.get('label', 'Unknown')
+                            desc = entity.get('description', '')
+                            response_content += f"• **{label}**"
+                            if desc:
+                                response_content += f": {desc}"
+                            response_content += "\n"
+            
+            # Add reasoning steps if available
+            if orchestrated_response.reasoning_steps:
+                logger.info(f"Reasoning steps: {orchestrated_response.reasoning_steps}")
             
             # Create response message
             response_message = Message(
@@ -147,8 +157,11 @@ class UnifiedAgentService:
             )
             conversation.add_message(response_content, "assistant")
             
-            logger.info(f"✅ ProEthica (MCP) response received: {len(response_content)} characters")
-            logger.info(f"   Retrieved {sum(len(e) for e in response.get('entities', {}).values())} ontological entities")
+            # Log statistics
+            entity_count = sum(len(e) for e in orchestrated_response.ontology_context.retrieved_entities.values()) if orchestrated_response.ontology_context else 0
+            logger.info(f"✅ ProEthica (MCP) response: {len(response_content)} chars, {entity_count} entities")
+            logger.info(f"   Processing time: {orchestrated_response.processing_time_ms}ms")
+            
             return response_message
             
         except Exception as e:
