@@ -21,13 +21,17 @@ class Ontology(db.Model):
     name = db.Column(db.String(255), unique=True, nullable=False)
     base_uri = db.Column(db.String(500))
     description = db.Column(db.Text)
+    domain_id = db.Column(db.String(255))  # Added to match database
+    content = db.Column(db.Text)  # Added to match database
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Stub properties for backward compatibility
     @property
     def current_content(self):
-        """STUB: Returns placeholder message"""
+        """STUB: Returns content or placeholder message"""
+        if self.content:
+            return self.content
         return "# ARCHIVED: Ontology content moved to OntServe\n# Visit http://localhost:5003 for ontology management"
     
     @property
