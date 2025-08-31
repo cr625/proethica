@@ -11,7 +11,7 @@ import json
 import logging
 from datetime import datetime
 
-from app.models.document import Document
+from app.models import Document
 from app.models.ontology import Ontology
 from app.services.guideline_analysis_service import GuidelineAnalysisService
 

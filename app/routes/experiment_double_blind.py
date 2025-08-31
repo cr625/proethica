@@ -8,7 +8,7 @@ import hashlib
 from datetime import datetime
 from flask import request, render_template
 from app.routes.experiment import experiment_bp
-from app.models.document import Document
+from app.models import Document
 from app.models.experiment import Prediction
 from app.services.experiment.prediction_service import PredictionService
 

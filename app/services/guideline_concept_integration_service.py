@@ -292,7 +292,7 @@ class GuidelineConceptIntegrationService:
             
             # Get guideline information for naming
             # Note: guideline_id here is actually a document_id, so we need to get the actual guideline
-            from app.models.document import Document
+            from app.models import Document
             document = Document.query.get(guideline_id)
             guideline_title = f"Document {guideline_id}"
             
@@ -606,7 +606,7 @@ class GuidelineConceptIntegrationService:
             Actual guideline ID from metadata, or document_id if it's a guideline document, or None
         """
         try:
-            from app.models.document import Document
+            from app.models import Document
             document = Document.query.get(document_id)
             
             if not document:

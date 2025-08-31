@@ -957,7 +957,7 @@ class EntityTripleService:
         # Get case details for the matching cases
         result = []
         for case_id in intersection:
-            from app.models.document import Document
+            from app.models import Document
             doc = Document.query.get(case_id)
             if doc:
                 # Extract metadata

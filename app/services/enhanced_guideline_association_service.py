@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from app import db
 from app.models.scenario import Scenario
-from app.models.document import Document
+from app.models import Document
 from app.models.entity_triple import EntityTriple
 from app.services.embedding_service import EmbeddingService
 from app.services.llm_service import LLMService
@@ -78,7 +78,7 @@ class EnhancedGuidelineAssociationService:
         logger.info(f"Generating associations for case {case_id}")
         
         # Get case data (could be Document or Scenario)
-        from app.models.document import Document
+        from app.models import Document
         case = Document.query.get(case_id)
         if not case:
             case = Scenario.query.get(case_id)
@@ -697,7 +697,7 @@ Do not include any text before or after the JSON."""
         """
         if case_ids is None:
             # Get all case IDs (documents and scenarios with metadata)
-            from app.models.document import Document
+            from app.models import Document
             doc_ids = [case.id for case in Document.query.filter(Document.doc_metadata.isnot(None)).all()]
             scenario_ids = [case.id for case in Scenario.query.filter(Scenario.scenario_metadata.isnot(None)).all()]
             case_ids = doc_ids + scenario_ids

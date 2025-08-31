@@ -345,7 +345,7 @@ def update_world_form(id):
     guidelines_text = request.form.get('guidelines_text', '').strip()
     if guidelines_text:
         # Create document record for text
-        from app.models.document import Document, PROCESSING_STATUS
+        from app.models import Document, PROCESSING_STATUS
         document = Document(
             title=request.form.get('guidelines_title_text', f"Guidelines Text for {world.name}"),
             document_type="guideline",
@@ -402,7 +402,7 @@ def update_world(id):
         
         # Process guidelines URL
         if 'url' in guidelines and guidelines['url']:
-            from app.models.document import Document
+            from app.models import Document
             from app.services.embedding_service import EmbeddingService
             
             try:
@@ -428,7 +428,7 @@ def update_world(id):
         
         # Process guidelines text
         if 'text' in guidelines and guidelines['text']:
-            from app.models.document import Document
+            from app.models import Document
             document = Document(
                 title=guidelines.get('title', f"Guidelines Text for {world.name}"),
                 document_type="guideline",
@@ -654,7 +654,7 @@ def view_guideline_sections(id, document_id):
     
     world = World.query.get_or_404(id)
     
-    from app.models.document import Document
+    from app.models import Document
     from app.models.guideline_section import GuidelineSection
     
     document = Document.query.get_or_404(document_id)
@@ -722,7 +722,7 @@ def regenerate_guideline_sections(id, document_id):
     """Regenerate extracted sections for a guideline document via background processing."""
     world = World.query.get_or_404(id)
 
-    from app.models.document import Document
+    from app.models import Document
     document = Document.query.get_or_404(document_id)
 
     # Validate ownership and type
@@ -873,7 +873,7 @@ def manage_guideline_triples(world_id, guideline_id):
     """Display and manage triples for a guideline."""
     world = World.query.get_or_404(world_id)
 
-    from app.models.document import Document
+    from app.models import Document
     from app.models.guideline import Guideline
     guideline = Document.query.get_or_404(guideline_id)
 
@@ -1209,7 +1209,7 @@ def delete_guideline_triples(world_id, guideline_id):
         
         # Verify world and guideline
         world = World.query.get_or_404(world_id)
-        from app.models.document import Document
+        from app.models import Document
         guideline = Document.query.get_or_404(guideline_id)
         
         if guideline.world_id != world.id:
@@ -1263,7 +1263,7 @@ def add_guideline(id):
     input_type = request.form.get('input_type')
     
     # Import Document model and task queue
-    from app.models.document import Document, PROCESSING_STATUS
+    from app.models import Document, PROCESSING_STATUS
     from app.services.task_queue import BackgroundTaskQueue
     task_queue = BackgroundTaskQueue.get_instance()
     
@@ -1741,7 +1741,7 @@ def guideline_processing_error(world_id, document_id):
     try:
         world = World.query.get_or_404(world_id)
         
-        from app.models.document import Document
+        from app.models import Document
         guideline = Document.query.get_or_404(document_id)
         
         # Check if document belongs to this world
@@ -1800,7 +1800,7 @@ def generate_guideline_triples(world_id, document_id):
     
     world = World.query.get_or_404(world_id)
     
-    from app.models.document import Document
+    from app.models import Document
     guideline = Document.query.get_or_404(document_id)
     
     # Check if document belongs to this world
@@ -1908,7 +1908,7 @@ def save_guideline_concepts(world_id, document_id):
     
     world = World.query.get_or_404(world_id)
     
-    from app.models.document import Document
+    from app.models import Document
     guideline = Document.query.get_or_404(document_id)
     
     # Check if document belongs to this world
@@ -2326,7 +2326,7 @@ def review_guideline_triples(world_id, document_id):
     logger.info(f"CSRF token in form: {request.form.get('csrf_token', 'NOT FOUND')}")
     
     world = World.query.get_or_404(world_id)
-    from app.models.document import Document
+    from app.models import Document
     guideline = Document.query.get_or_404(document_id)
     
     # Check if document belongs to this world
@@ -2427,7 +2427,7 @@ def save_guideline_triples(world_id, document_id):
     
     world = World.query.get_or_404(world_id)
     
-    from app.models.document import Document
+    from app.models import Document
     from app.models.guideline import Guideline
     guideline = Document.query.get_or_404(document_id)
     
@@ -2625,7 +2625,7 @@ def save_concepts_direct(world_id, document_id):
     try:
         world = World.query.get_or_404(world_id)
         
-        from app.models.document import Document
+        from app.models import Document
         document = Document.query.get_or_404(document_id)
         
         # Check if document belongs to this world
@@ -2810,7 +2810,7 @@ def view_saved_concepts(world_id, document_id):
     """View concepts that have been saved to the derived ontology in a friendly UI."""
     world = World.query.get_or_404(world_id)
     
-    from app.models.document import Document
+    from app.models import Document
     document = Document.query.get_or_404(document_id)
     
     # Check if document belongs to this world
@@ -2941,7 +2941,7 @@ def clear_pending_concepts(world_id, document_id):
     
     world = World.query.get_or_404(world_id)
     
-    from app.models.document import Document
+    from app.models import Document
     from app.services.temporary_concept_service import TemporaryConceptService
     
     document = Document.query.get_or_404(document_id)
@@ -3006,7 +3006,7 @@ def delete_guideline(id, guideline_id):
     """Delete a guideline and all associated data."""
     world = World.query.get_or_404(id)
     
-    from app.models.document import Document
+    from app.models import Document
     from app.models.guideline import Guideline
     from app.models.entity_triple import EntityTriple
     
@@ -3194,7 +3194,7 @@ def add_concepts_to_ontology(world_id, document_id):
     
     world = World.query.get_or_404(world_id)
     
-    from app.models.document import Document
+    from app.models import Document
     guideline = Document.query.get_or_404(document_id)
     
     # Check if document belongs to this world
@@ -3278,7 +3278,7 @@ def add_concepts_to_ontology(world_id, document_id):
 def remove_extracted_concepts(id, document_id):
     """Remove extracted concepts from a guideline and associated ontology entries."""
     from flask import jsonify, request
-    from app.models.document import Document
+    from app.models import Document
     from app.models.guideline import Guideline
     from app.models.ontology import Ontology
     from app.models.ontology_version import OntologyVersion

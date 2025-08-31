@@ -12,7 +12,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import joinedload
 
 from app.models import db
-from app.models.document import Document
+from app.models import Document
 from app.models.guideline import Guideline
 # Import models with graceful fallback for testing
 try:

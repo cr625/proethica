@@ -79,6 +79,10 @@
             <i class="fas fa-tag"></i> Annotate with Ontology
           </button>
 
+          <button id="enhancedAnnotateBtn" class="btn btn-success ms-2">
+            <i class="fas fa-magic"></i> Enhanced Annotate (LLM)
+          </button>
+
           <!-- Ontology selector -->
           <select id="ontologyFilter" class="form-select" style="width: auto;">
             <option value="all">All Ontologies</option>
@@ -346,7 +350,8 @@
       <div class="alert alert-success">
         <h6><i class="bi bi-check-circle"></i> Concepts Successfully Saved to Ontology</h6>
         <p class="mb-2">
-          <strong>{{ guideline.guideline_metadata.concepts_saved_count }}</strong> concepts from this guideline have been
+          <strong>{{ guideline.guideline_metadata.concepts_saved_count }}</strong> concepts from this guideline have
+          been
           integrated into the ontology.
         </p>
         <p class="mb-2">

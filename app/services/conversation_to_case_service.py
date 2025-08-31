@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from app.services.llm_service import LLMService
-from app.models.document import Document
+from app.models import Document
 from app.models.world import World
 from app.models.agent_conversation import AgentConversation
 from app import db

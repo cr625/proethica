@@ -15,7 +15,7 @@ from app import db
 from app.models.guideline import Guideline
 from app.models.ontology import Ontology
 from app.models.entity_triple import EntityTriple
-from app.models.document import Document
+from app.models import Document
 
 logger = logging.getLogger(__name__)
 

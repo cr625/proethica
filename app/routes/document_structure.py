@@ -9,7 +9,7 @@ import json
 import logging
 from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, current_app, abort
 from flask_sqlalchemy import SQLAlchemy
-from app.models.document import Document
+from app.models import Document
 from app.models.scenario import Scenario
 from app.models.document_section import DocumentSection
 from app.models.section_term_link import SectionTermLink

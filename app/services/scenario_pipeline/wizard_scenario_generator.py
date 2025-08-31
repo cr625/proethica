@@ -11,7 +11,7 @@ from datetime import datetime
 from app import db
 from app.models.scenario import Scenario
 from app.models.wizard import WizardStep
-from app.models.document import Document
+from app.models import Document
 
 logger = logging.getLogger(__name__)
 

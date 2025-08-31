@@ -9,7 +9,7 @@ import psycopg2
 import json
 from datetime import datetime
 from app.models.deconstructed_case import DeconstructedCase
-from app.models.document import Document
+from app.models import Document
 
 debug_bp = Blueprint('debug', __name__)
 

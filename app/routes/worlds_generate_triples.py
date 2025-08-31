@@ -8,7 +8,7 @@ from flask import redirect, url_for, flash, request
 import json
 import logging
 from app.models import db
-from app.models.document import Document
+from app.models import Document
 from app.models.entity_triple import EntityTriple
 from app.models.world import World
 from app.services.guideline_analysis_service import GuidelineAnalysisService

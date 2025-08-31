@@ -29,7 +29,7 @@ def _cleanup_case_scenario_references(scenario):
         return
     
     # Import here to avoid circular imports
-    from app.models.document import Document
+    from app.models import Document
     from sqlalchemy.orm.attributes import flag_modified
     
     case = Document.query.get(source_case_id)

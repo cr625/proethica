@@ -12,7 +12,7 @@ import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.services.llm_service import LLMService
 from app.services.section_embedding_service import SectionEmbeddingService

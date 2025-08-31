@@ -17,7 +17,7 @@ import aiohttp
 
 from app.models import db
 from app.models.guideline import Guideline
-from app.models.document import Document
+from app.models import Document
 from app.models.guideline_section import GuidelineSection
 from app.models.document_concept_annotation import DocumentConceptAnnotation
 from app.services.multi_agent_coordinator import MultiAgentCoordinator

@@ -7,7 +7,7 @@ where section_data might be a string rather than a dictionary.
 
 import logging
 from typing import Dict, Any
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 
 logger = logging.getLogger(__name__)

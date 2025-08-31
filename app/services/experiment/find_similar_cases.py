@@ -9,7 +9,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy import func, desc
 
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.services.section_embedding_service import SectionEmbeddingService
 

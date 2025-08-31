@@ -5,7 +5,7 @@ This provides a direct route to extract concepts from guidelines using the LLM.
 
 from flask import Blueprint, render_template, request, jsonify, current_app, flash, redirect, url_for, session
 from app.services.guideline_analysis_service import GuidelineAnalysisService
-from app.models.document import Document
+from app.models import Document
 from app.models.world import World
 from app import db
 import json

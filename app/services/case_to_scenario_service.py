@@ -12,7 +12,7 @@ import logging
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
 
-from app.models.document import Document
+from app.models import Document
 from app.models.deconstructed_case import DeconstructedCase as DBDeconstructedCase
 from app.models.scenario_template import ScenarioTemplate
 from app.models.scenario import Scenario

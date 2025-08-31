@@ -657,7 +657,7 @@ class ApplicationContextService:
         """
         try:
             # Check if Document model exists for cases
-            from app.models.document import Document
+            from app.models import Document
             case = Document.query.filter_by(id=case_id).first()
             
             if not case:

@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional, Union
 import logging
 from app.services.decision_engine import DecisionEngine
 # Import EmbeddingService in methods to avoid circular imports
-from app.models.document import Document, DocumentChunk
+from app.models import Document, DocumentChunk
 
 # Set up logging
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 import logging
 
 from app import db
-from app.models.document import Document, DocumentChunk, PROCESSING_STATUS
+from app.models import Document, DocumentChunk, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 

@@ -67,7 +67,9 @@ class LLMEnhancedAnnotationService:
     
     def __init__(self):
         self.ontserve_service = OntServeAnnotationService()
-        self.llm_service = UnifiedAgentService()
+        # Use DirectLLMService to avoid mock responses from orchestrator
+        from app.services.direct_llm_service import DirectLLMService
+        self.llm_service = DirectLLMService()
         self.cache = {}
         
     def annotate_text(self, text: str, world_id: int = 1, 
@@ -178,20 +180,30 @@ Return only valid JSON array format.
 """
         
         try:
-            response = self.llm_service.process_request(
-                extraction_prompt,
-                context_type="term_extraction",
-                domain="engineering-ethics"
+            # Use send_message with the UnifiedAgentService
+            from app.services.llm_service import Conversation
+            conversation = Conversation()
+            
+            # Use direct service to get real Claude responses
+            response = self.llm_service.send_message_with_context(
+                message=extraction_prompt,
+                conversation=conversation,
+                application_context="LLM-Enhanced Annotation: Term Extraction",
+                world_id=1,
+                service="claude"
             )
             
-            # Parse JSON response
-            if isinstance(response, dict) and 'extracted_content' in response:
-                content = response['extracted_content']
-            else:
-                content = str(response)
+            # Parse response content
+            content = response.content if hasattr(response, 'content') else str(response)
             
-            # Extract JSON from response
-            json_match = re.search(r'\[.*\]', content, re.DOTALL)
+            # Try to extract JSON from response (may be wrapped in other content)
+            # First try to find JSON array in the content
+            json_match = re.search(r'\[[\s\S]*?\](?=\s*(?:\n|$|[^}\]"]))', content, re.DOTALL)
+            if not json_match:
+                # Try to find JSON between code blocks
+                json_match = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])\s*```', content, re.DOTALL)
+                if json_match:
+                    json_match = re.search(r'\[[\s\S]*?\]', json_match.group(1), re.DOTALL)
             if json_match:
                 terms_data = json.loads(json_match.group())
                 
@@ -331,20 +343,30 @@ If similarity_score < 0.4, set concept_number to null (no good match found).
 """
         
         try:
-            response = self.llm_service.process_request(
-                matching_prompt,
-                context_type="semantic_matching", 
-                domain="engineering-ethics"
+            # Use send_message with the UnifiedAgentService
+            from app.services.llm_service import Conversation
+            conversation = Conversation()
+            
+            # Use direct service to get real Claude responses
+            response = self.llm_service.send_message_with_context(
+                message=matching_prompt,
+                conversation=conversation,
+                application_context="LLM-Enhanced Annotation: Semantic Matching",
+                world_id=1,
+                service="claude"
             )
             
-            # Parse JSON response
-            if isinstance(response, dict) and 'extracted_content' in response:
-                content = response['extracted_content']
-            else:
-                content = str(response)
+            # Parse response content
+            content = response.content if hasattr(response, 'content') else str(response)
             
-            # Extract JSON from response
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            # Try to extract JSON from response (may be wrapped in other content)
+            # First try to find JSON object in the content
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
+            if not json_match:
+                # Try to find JSON between code blocks
+                json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', content, re.DOTALL)
+                if json_match:
+                    json_match = re.search(r'\{[\s\S]*?\}', json_match.group(1), re.DOTALL)
             if json_match:
                 match_data = json.loads(json_match.group())
                 best_match = match_data.get('best_match', {})

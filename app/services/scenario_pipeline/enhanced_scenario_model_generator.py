@@ -13,7 +13,7 @@ from app.models.scenario import Scenario
 from app.models.character import Character
 from app.models.resource import Resource
 from app.models.event import Event, Action
-from app.models.document import Document
+from app.models import Document
 from app.services.case_role_matching_service import CaseRoleMatchingService
 from app.services.ontology_entity_service import OntologyEntityService
 

@@ -12,7 +12,7 @@ import logging
 from typing import Dict, Any
 
 from app.models.guideline import Guideline
-from app.models.document import Document
+from app.models import Document
 from app.models.world import World
 from app.services.guideline_annotation_orchestrator import GuidelineAnnotationOrchestrator
 from app.services.intelligent_annotation_service import IntelligentAnnotationService

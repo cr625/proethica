@@ -655,7 +655,7 @@ class EmbeddingService:
             List of similar document chunks with metadata
         """
         from app import db
-        from app.models.document import Document, DocumentChunk
+        from app.models import Document, DocumentChunk
 
         # Helper cosine
         def cosine(a: List[float], b: List[float]) -> float:
@@ -946,7 +946,7 @@ class EmbeddingService:
             ID of the created document
         """
         from app import db
-        from app.models.document import Document, PROCESSING_STATUS
+        from app.models import Document, PROCESSING_STATUS
         
         # Create document record
         document = Document(

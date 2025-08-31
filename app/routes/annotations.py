@@ -4,7 +4,7 @@ Routes for document concept annotation functionality.
 from flask import Blueprint, request, jsonify, flash, redirect, url_for, render_template
 from flask_login import login_required, current_user
 from app.models.guideline import Guideline
-from app.models.document import Document
+from app.models import Document
 from app.models.document_concept_annotation import DocumentConceptAnnotation
 from app.models.world import World
 from app.services.document_annotation_pipeline import DocumentAnnotationPipeline

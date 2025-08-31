@@ -20,7 +20,7 @@ from app.utils.auth_utils import admin_required
 from app.services.test_data_reset_service import TestDataResetService
 from app.models.user import User
 from app.models.world import World
-from app.models.document import Document
+from app.models import Document
 from app.models.guideline import Guideline
 from app.models.scenario import Scenario
 from app.models.ontology import Ontology

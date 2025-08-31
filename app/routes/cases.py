@@ -8,7 +8,7 @@ import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
-from app.models.document import Document, PROCESSING_STATUS
+from app.models import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db
@@ -718,7 +718,7 @@ def process_url_pipeline():
             pass
         
         # Create document record
-        from app.models.document import Document, PROCESSING_STATUS
+        from app.models import Document, PROCESSING_STATUS
         
         document = Document(
             title=title,
@@ -1222,7 +1222,7 @@ def create_from_document():
         document_file.save(file_path)
         
         # Create document record
-        from app.models.document import Document, PROCESSING_STATUS
+        from app.models import Document, PROCESSING_STATUS
         
         document = Document(
             title=title,

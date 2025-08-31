@@ -7,7 +7,7 @@ import logging
 import time
 from datetime import datetime
 from app import db
-from app.models.document import Document, PROCESSING_STATUS, PROCESSING_PHASES
+from app.models import Document, PROCESSING_STATUS, PROCESSING_PHASES
 from app.services.embedding_service import EmbeddingService
 
 # Set up logging

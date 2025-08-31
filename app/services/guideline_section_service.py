@@ -15,7 +15,7 @@ import nltk
 from sqlalchemy import text
 
 from app import db
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.services.mcp_client import MCPClient
 from app.services.section_embedding_service import SectionEmbeddingService

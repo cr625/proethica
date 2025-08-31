@@ -15,7 +15,7 @@ from enum import Enum
 
 from app.models import db
 from app.models.guideline import Guideline
-from app.models.document import Document
+from app.models import Document
 from app.models.guideline_section import GuidelineSection
 from app.models.document_concept_annotation import DocumentConceptAnnotation
 from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep

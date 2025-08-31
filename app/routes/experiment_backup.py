@@ -15,7 +15,7 @@ from wtforms import StringField, TextAreaField, SelectField, BooleanField, Submi
 from wtforms.validators import DataRequired
 
 from app import db
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.models.experiment import ExperimentRun, Prediction, ExperimentEvaluation as Evaluation, PredictionTarget
 from app.services.experiment.prediction_service import PredictionService

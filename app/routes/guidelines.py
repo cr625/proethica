@@ -4,7 +4,7 @@ Guidelines routes for displaying all guidelines across all worlds.
 
 from flask import Blueprint, render_template
 from app.models import db
-from app.models.document import Document
+from app.models import Document
 from app.models.world import World
 
 guidelines_bp = Blueprint('guidelines', __name__, url_prefix='/guidelines')

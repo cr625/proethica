@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, abort, request, flash, redirect, url_for
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.services.guideline_section_service import GuidelineSectionService
 import logging

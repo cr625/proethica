@@ -95,7 +95,7 @@ class SectionEmbeddingService(EmbeddingService):
             Dictionary with storage results
         """
         from app import db
-        from app.models.document import Document
+        from app.models import Document
         
         try:
             # Use a no_autoflush block to prevent premature flushing
@@ -279,7 +279,7 @@ class SectionEmbeddingService(EmbeddingService):
             List of similar sections with metadata and similarity scores
         """
         from app import db
-        from app.models.document import Document
+        from app.models import Document
         
         similar_sections = []
         
@@ -445,7 +445,7 @@ class SectionEmbeddingService(EmbeddingService):
             Dictionary with processing results
         """
         from app import db
-        from app.models.document import Document
+        from app.models import Document
         import logging
         
         logger = logging.getLogger(__name__)

@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from collections import defaultdict
 
-from app.models.document import Document
+from app.models import Document
 from app.models.guideline_semantic_triple import GuidelineSemanticTriple
 
 logger = logging.getLogger(__name__)

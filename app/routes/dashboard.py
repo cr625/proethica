@@ -15,7 +15,7 @@ import logging
 from app.models import db
 from app.models.world import World
 from app.models.guideline import Guideline
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.models.entity_triple import EntityTriple
 from app.models.ontology import Ontology
@@ -543,7 +543,7 @@ def get_ontology_sync_status():
             try:
                 doc_id = int(ont.domain_id.split('guideline-')[1].split('-')[0])
                 # Get related document for guideline title
-                from app.models.document import Document
+                from app.models import Document
                 doc = Document.query.get(doc_id)
                 related_guideline_title = doc.title if doc else f"Document {doc_id}"
                 related_document_id = doc_id if doc else None

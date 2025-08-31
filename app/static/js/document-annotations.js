@@ -58,6 +58,15 @@ class DocumentAnnotationViewer {
             });
         }
 
+        // Enhanced annotation button (LLM-powered)
+        const enhancedAnnotateBtn = document.getElementById('enhancedAnnotateBtn');
+        if (enhancedAnnotateBtn) {
+            enhancedAnnotateBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.triggerEnhancedAnnotation();
+            });
+        }
+
         // Ontology filter
         const ontologyFilter = document.getElementById('ontologyFilter');
         if (ontologyFilter) {
@@ -426,6 +435,98 @@ class DocumentAnnotationViewer {
         }
     }
 
+    async triggerEnhancedAnnotation() {
+        if (this.isLoading) return;
+
+        this.setLoading(true, 'enhanced');
+
+        try {
+            // Use LLM-enhanced annotation endpoint
+            const url = `/api/llm-annotations/guideline/${this.documentId}/annotate`;
+            const csrfToken = this.getCSRFToken();
+
+            if (!csrfToken) {
+                throw new Error('CSRF token not found. Please refresh the page and try again.');
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({})
+            });
+
+            if (!response.ok) {
+                // Try to get error details from response
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const responseText = await response.text();
+                    if (responseText.includes('<')) {
+                        // HTML response indicates server error
+                        if (response.status === 400 && responseText.includes('CSRF')) {
+                            errorMessage = 'CSRF token validation failed. Please refresh the page and try again.';
+                        } else {
+                            errorMessage = `Server returned an error page (${response.status})`;
+                        }
+                    } else {
+                        // Try to parse as JSON for API error
+                        const errorData = JSON.parse(responseText);
+                        errorMessage = errorData.error || errorMessage;
+                    }
+                } catch (parseError) {
+                    // Keep original error if we can't parse response
+                }
+                throw new Error(errorMessage);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show detailed results
+                this.showEnhancedResults(data);
+                // Reload annotations
+                await this.loadAnnotations();
+            } else {
+                throw new Error(data.error || 'Enhanced annotation failed');
+            }
+
+        } catch (error) {
+            console.error('Error triggering enhanced annotation:', error);
+            this.showMessage('Error during enhanced annotation: ' + error.message, 'error');
+        } finally {
+            this.setLoading(false);
+        }
+    }
+
+    showEnhancedResults(data) {
+        // Create a detailed results message
+        const stats = data.statistics;
+        const successRate = stats.success_rate ? stats.success_rate.toFixed(1) : '0';
+
+        let message = `
+            <strong>Enhanced Annotation Complete!</strong><br>
+            <ul class="mb-0">
+                <li>Terms extracted: ${stats.terms_extracted}</li>
+                <li>Successful matches: ${stats.successful_matches}</li>
+                <li>Annotations created: ${stats.annotations_created}</li>
+                <li>Success rate: ${successRate}%</li>
+                <li>Processing time: ${stats.processing_time_ms}ms</li>
+            </ul>
+        `;
+
+        if (data.ontology_gaps && data.ontology_gaps.length > 0) {
+            message += `
+                <hr class="my-2">
+                <strong>Ontology Gaps Found:</strong><br>
+                <small>${data.ontology_gaps.slice(0, 5).join(', ')}${data.ontology_gaps.length > 5 ? ', ...' : ''}</small>
+            `;
+        }
+
+        this.showMessage(message, 'success', 10000); // Show for 10 seconds
+    }
+
     async triggerAnnotation(forceRefresh = false) {
         if (this.isLoading) return;
 
@@ -711,17 +812,31 @@ class DocumentAnnotationViewer {
         }
     }
 
-    setLoading(isLoading) {
+    setLoading(isLoading, mode = 'normal') {
         this.isLoading = isLoading;
 
         const annotateBtn = document.getElementById('annotateBtn');
-        if (annotateBtn) {
+        const enhancedAnnotateBtn = document.getElementById('enhancedAnnotateBtn');
+
+        if (mode === 'enhanced' && enhancedAnnotateBtn) {
+            if (isLoading) {
+                enhancedAnnotateBtn.disabled = true;
+                enhancedAnnotateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> LLM Processing...';
+                if (annotateBtn) annotateBtn.disabled = true;
+            } else {
+                enhancedAnnotateBtn.disabled = false;
+                enhancedAnnotateBtn.innerHTML = '<i class="fas fa-magic"></i> Enhanced Annotate (LLM)';
+                if (annotateBtn) annotateBtn.disabled = false;
+            }
+        } else if (annotateBtn) {
             if (isLoading) {
                 annotateBtn.disabled = true;
                 annotateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                if (enhancedAnnotateBtn) enhancedAnnotateBtn.disabled = true;
             } else {
                 annotateBtn.disabled = false;
                 this.updateControls();
+                if (enhancedAnnotateBtn) enhancedAnnotateBtn.disabled = false;
             }
         }
 
@@ -737,7 +852,7 @@ class DocumentAnnotationViewer {
         }
     }
 
-    showMessage(message, type = 'info') {
+    showMessage(message, type = 'info', duration = 5000) {
         // Create alert
         const alertClass = {
             'success': 'alert-success',
@@ -758,12 +873,12 @@ class DocumentAnnotationViewer {
             this.container.parentElement.insertBefore(alert, this.container);
         }
 
-        // Auto-dismiss after 5 seconds
+        // Auto-dismiss after specified duration
         setTimeout(() => {
             if (alert.parentNode) {
                 alert.remove();
             }
-        }, 5000);
+        }, duration);
     }
 
     getCSRFToken() {

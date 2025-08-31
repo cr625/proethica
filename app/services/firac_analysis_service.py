@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import joinedload
 
 from app.models import db
-from app.models.document import Document
+from app.models import Document
 from app.models.document_section import DocumentSection
 from app.models.guideline import Guideline
 from app.models.entity_triple import EntityTriple

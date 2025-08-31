@@ -10,7 +10,7 @@ from sqlalchemy import and_, or_
 
 from app.models import db
 from app.models.temporary_concept import TemporaryConcept
-from app.models.document import Document
+from app.models import Document
 from app.models.world import World
 
 logger = logging.getLogger(__name__)

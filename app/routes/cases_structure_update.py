@@ -14,7 +14,7 @@ This file provides the implementation of the enhanced pipeline with document str
 import logging
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import current_user
-from app.models.document import Document, PROCESSING_STATUS
+from app.models import Document, PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db

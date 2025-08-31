@@ -51,7 +51,7 @@ class SimpleAnnotationService:
                 from app.models.guideline import Guideline
                 document = Guideline.query.get(document_id)
             else:
-                from app.models.document import Document
+                from app.models import Document
                 document = Document.query.get(document_id)
             
             if not document:
