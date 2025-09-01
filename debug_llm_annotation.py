@@ -116,10 +116,10 @@ def test_semantic_matching(extracted_terms, concepts):
         match = service._find_semantic_match(term, flattened_concepts)
         if match:
             matches_found += 1
-            print(f"  ✅ MATCH FOUND: {match.concept_label} (score: {match.similarity_score:.2f})")
+            print(f"  [MATCH] {match.concept_label} (score: {match.similarity_score:.2f})")
             print(f"     Reasoning: {match.reasoning}")
         else:
-            print(f"  ❌ No match found")
+            print(f"  [NO MATCH] No match found")
     
     print(f"\nMatches found: {matches_found}/{min(3, len(extracted_terms))}")
     return matches_found
@@ -183,13 +183,13 @@ def check_api_keys():
     has_any_key = False
     for key_name, key_value in keys.items():
         if key_value:
-            print(f"✅ {key_name}: Configured (length: {len(key_value)})")
+            print(f"[OK] {key_name}: Configured (length: {len(key_value)})")
             has_any_key = True
         else:
-            print(f"❌ {key_name}: Not configured")
+            print(f"[ERROR] {key_name}: Not configured")
     
     if not has_any_key:
-        print("\n⚠️  WARNING: No LLM API keys configured!")
+        print("\n[WARNING] No LLM API keys configured!")
         print("The LLM-enhanced annotation will fall back to regex patterns.")
         print("To enable LLM features, set one of the API keys:")
         print("  export ANTHROPIC_API_KEY='your-key'")
@@ -209,7 +209,7 @@ def main():
     all_concepts = test_ontology_loading()
     
     if not all_concepts:
-        print("\n❌ CRITICAL: No ontology concepts loaded!")
+        print("\n[CRITICAL] No ontology concepts loaded!")
         print("Check that OntServe is running on ports 5003 and 8082")
         return
     
@@ -217,7 +217,7 @@ def main():
     extracted_terms = test_llm_extraction()
     
     if not extracted_terms:
-        print("\n❌ CRITICAL: No terms extracted!")
+        print("\n[CRITICAL] No terms extracted!")
         if not has_api_key:
             print("This is likely because no LLM API key is configured.")
         return
@@ -226,7 +226,7 @@ def main():
     if all_concepts and extracted_terms:
         matches = test_semantic_matching(extracted_terms, all_concepts)
         if matches == 0 and has_api_key:
-            print("\n❌ PROBLEM: Terms extracted but no semantic matches found!")
+            print("\n[PROBLEM] Terms extracted but no semantic matches found!")
             print("This could indicate an issue with the LLM semantic matching.")
     
     # Test full pipeline
