@@ -278,4 +278,9 @@ class DocumentAnnotationViewer {
 
         } catch (error) {
             console.error('Error triggering simplified annotation:', error);
-            this.showMessage('Error during simplified annotation: ' +
+            this.showMessage('Error during simplified annotation: ' + error.message, 'error');
+        } finally {
+            this.setLoading(false);
+        }
+    }
+}
