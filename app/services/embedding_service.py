@@ -946,7 +946,8 @@ class EmbeddingService:
             ID of the created document
         """
         from app import db
-        from app.models import Document, PROCESSING_STATUS
+        from app.models import Document
+        from app.models.document import PROCESSING_STATUS
         
         # Create document record
         document = Document(

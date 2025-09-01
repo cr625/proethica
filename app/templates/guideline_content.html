@@ -25,6 +25,10 @@
         <a href="#associated-concepts" class="btn btn-sm btn-light me-2">
           <i class="bi bi-arrow-down-circle"></i> Concepts
         </a>
+        <a href="{{ url_for('worlds.view_guideline_annotations', id=world.id, document_id=guideline.id) }}"
+          class="btn btn-sm btn-info me-2">
+          <i class="fas fa-tags"></i> View Annotations
+        </a>
         <a href="{{ url_for('worlds.view_guideline_sections', id=world.id, document_id=guideline.id) }}"
           class="btn btn-sm btn-light me-2">
           <i class="bi bi-list-ul"></i> Show Sections
@@ -72,6 +76,54 @@
         </div>
       </div>
 
+      {% if annotation_count and annotation_count > 0 %}
+      <!-- Annotation Statistics Card -->
+      <div class="card bg-success bg-opacity-10 border-success mt-3">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <h5 class="text-success mb-2">
+                <i class="fas fa-check-circle"></i> {{ annotation_stats.total }} Annotations Extracted
+              </h5>
+              <div class="row">
+                <div class="col-md-6">
+                  <p class="mb-1">
+                    <strong>Methods:</strong>
+                    {% for method, count in annotation_stats.methods.items() %}
+                    <span class="badge bg-secondary me-1">{{ method }}: {{ count }}</span>
+                    {% endfor %}
+                  </p>
+                  <p class="mb-0">
+                    <strong>Status:</strong>
+                    <span class="badge bg-success">Approved: {{ annotation_stats.approved }}</span>
+                    <span class="badge bg-warning">Pending: {{ annotation_stats.pending }}</span>
+                  </p>
+                </div>
+                <div class="col-md-6">
+                  <p class="mb-1">
+                    <strong>Ontologies:</strong> {{ annotation_stats.ontologies|length }}
+                  </p>
+                  {% if annotation_stats.latest_date %}
+                  <p class="mb-0">
+                    <small class="text-muted">Last updated: {{ annotation_stats.latest_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                  </p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 text-end">
+              <a href="{{ url_for('worlds.view_guideline_annotations', id=world.id, document_id=guideline.id) }}" 
+                 class="btn btn-success btn-lg mb-2 d-block">
+                <i class="fas fa-eye"></i> View All Annotations
+              </a>
+              <button id="annotateBtn" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-sync"></i> Re-annotate
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
       <!-- Annotation Controls -->
       <div class="annotation-controls">
         <div class="d-flex flex-wrap align-items-center">
@@ -79,27 +131,41 @@
             <i class="fas fa-tag"></i> Annotate with Ontology
           </button>
 
-          <button id="enhancedAnnotateBtn" class="btn btn-success ms-2">
-            <i class="fas fa-magic"></i> Enhanced Annotate (LLM)
-          </button>
+          <!-- Dropdown for LLM annotation methods (DISABLED) -->
+          <div class="dropdown ms-2">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="llmAnnotateDropdown"
+              data-bs-toggle="dropdown" aria-expanded="false" disabled>
+              <i class="fas fa-magic"></i> LLM Annotate (Coming Soon)
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="llmAnnotateDropdown">
+              <li>
+                <button class="dropdown-item" type="button" id="enhancedAnnotateBtn" disabled>
+                  <i class="fas fa-brain"></i> Enhanced (Term Extraction)
+                  <br><small class="text-muted">Extract terms then match to ontology</small>
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" id="definitionAnnotateBtn" disabled>
+                  <i class="fas fa-book"></i> Definition-Based
+                  <br><small class="text-muted">Match ontology definitions to text</small>
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" id="simplifiedAnnotateBtn" disabled>
+                  <i class="fas fa-check-double"></i> Simplified + Validation
+                  <br><small class="text-muted">Direct matching with validation step</small>
+                </button>
+              </li>
+            </ul>
+          </div>
 
-          <!-- Ontology selector -->
-          <select id="ontologyFilter" class="form-select" style="width: auto;">
-            <option value="all">All Ontologies</option>
+          <!-- Ontology selector (DISABLED) -->
+          <select id="ontologyFilter" class="form-select ms-2" style="width: auto;" disabled>
+            <option value="all">All Ontologies (Coming Soon)</option>
             <option value="proethica-core">Core Concepts</option>
             <option value="proethica-intermediate">Intermediate</option>
             <option value="engineering-ethics">Engineering Ethics</option>
           </select>
-
-          <!-- View mode toggles -->
-          <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-secondary active" data-view="inline">
-              <i class="fas fa-highlighter"></i> Inline
-            </button>
-            <button type="button" class="btn btn-outline-secondary" data-view="sidebar">
-              <i class="fas fa-list"></i> Sidebar
-            </button>
-          </div>
 
           <!-- Annotation summary -->
           <div id="annotationSummary" class="ms-auto">
@@ -107,6 +173,7 @@
           </div>
         </div>
       </div>
+      {% endif %}
 
       <!-- Document content with sidebar layout support -->
       <div class="row">
@@ -524,7 +591,7 @@
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/document-annotations.js') }}"></script>
+<script src="{{ url_for('static', filename='js/document-annotations-minimal.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const rootEl = document.getElementById('page-root');

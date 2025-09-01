@@ -345,7 +345,8 @@ def update_world_form(id):
     guidelines_text = request.form.get('guidelines_text', '').strip()
     if guidelines_text:
         # Create document record for text
-        from app.models import Document, PROCESSING_STATUS
+        from app.models import Document
+        from app.models.document import PROCESSING_STATUS
         document = Document(
             title=request.form.get('guidelines_title_text', f"Guidelines Text for {world.name}"),
             document_type="guideline",
@@ -851,6 +852,44 @@ def view_guideline(id, document_id):
         except Exception as e:
             logger.warning(f"Could not check ontology status: {str(e)}")
     
+    # Check if annotations exist and get statistics
+    from app.models.document_concept_annotation import DocumentConceptAnnotation
+    annotations_query = DocumentConceptAnnotation.query.filter_by(
+        document_type='guideline',
+        document_id=document_id,
+        is_current=True
+    )
+    annotation_count = annotations_query.count()
+    
+    # Get annotation statistics if they exist
+    annotation_stats = {}
+    if annotation_count > 0:
+        all_annotations = annotations_query.all()
+        
+        # Count by method
+        method_counts = {}
+        ontology_counts = {}
+        for ann in all_annotations:
+            method = ann.concept_type or 'basic'
+            method_counts[method] = method_counts.get(method, 0) + 1
+            
+            ontology = ann.ontology_name or 'unknown'
+            ontology_counts[ontology] = ontology_counts.get(ontology, 0) + 1
+        
+        # Get latest annotation date
+        latest_annotation = annotations_query.order_by(
+            DocumentConceptAnnotation.created_at.desc()
+        ).first()
+        
+        annotation_stats = {
+            'total': annotation_count,
+            'methods': method_counts,
+            'ontologies': ontology_counts,
+            'latest_date': latest_annotation.created_at if latest_annotation else None,
+            'approved': annotations_query.filter_by(validation_status='approved').count(),
+            'pending': annotations_query.filter_by(validation_status='pending').count()
+        }
+    
     return render_template('guideline_content.html', 
                           world=world, 
                           guideline=guideline, 
@@ -860,7 +899,61 @@ def view_guideline(id, document_id):
                           concepts=concepts,
                           ontology_status=ontology_status,
                           pending_extraction=pending_extraction,
-                          concepts_saved_to_ontology=concepts_saved_to_ontology)
+                          concepts_saved_to_ontology=concepts_saved_to_ontology,
+                          annotation_count=annotation_count,
+                          annotation_stats=annotation_stats)
+
+@worlds_bp.route('/<int:id>/guidelines/<int:document_id>/annotations')
+def view_guideline_annotations(id, document_id):
+    """Simple view of extracted annotations for a guideline."""
+    world = World.query.get_or_404(id)
+    
+    from app.models.guideline import Guideline
+    from app.models.document_concept_annotation import DocumentConceptAnnotation
+    
+    guideline = Guideline.query.get_or_404(document_id)
+    
+    # Check if guideline belongs to this world
+    if guideline.world_id != world.id:
+        flash('Guideline does not belong to this world', 'error')
+        return redirect(url_for('worlds.world_guidelines', id=world.id))
+    
+    # Get all annotations for this guideline
+    annotations = DocumentConceptAnnotation.query.filter_by(
+        document_type='guideline',
+        document_id=document_id,
+        is_current=True
+    ).order_by(
+        DocumentConceptAnnotation.ontology_name,
+        DocumentConceptAnnotation.concept_label
+    ).all()
+    
+    # Group annotations by ontology
+    annotations_by_ontology = {}
+    for annotation in annotations:
+        ontology = annotation.ontology_name or 'unknown'
+        if ontology not in annotations_by_ontology:
+            annotations_by_ontology[ontology] = []
+        annotations_by_ontology[ontology].append(annotation)
+    
+    # Get stats
+    total_annotations = len(annotations)
+    ontology_count = len(annotations_by_ontology)
+    
+    # Count by annotation method
+    method_counts = {}
+    for annotation in annotations:
+        method = annotation.concept_type or 'basic'
+        method_counts[method] = method_counts.get(method, 0) + 1
+    
+    return render_template('guideline_annotations.html',
+                          world=world,
+                          guideline=guideline,
+                          annotations=annotations,
+                          annotations_by_ontology=annotations_by_ontology,
+                          total_annotations=total_annotations,
+                          ontology_count=ontology_count,
+                          method_counts=method_counts)
 
 @worlds_bp.route('/<int:world_id>/guidelines/<int:document_id>/generate_triples', methods=['POST'])
 def generate_triples_direct(world_id, document_id):
@@ -1263,7 +1356,8 @@ def add_guideline(id):
     input_type = request.form.get('input_type')
     
     # Import Document model and task queue
-    from app.models import Document, PROCESSING_STATUS
+    from app.models import Document
+    from app.models.document import PROCESSING_STATUS
     from app.services.task_queue import BackgroundTaskQueue
     task_queue = BackgroundTaskQueue.get_instance()
     
@@ -1346,24 +1440,37 @@ def add_guideline(id):
     elif input_type == 'text':
         guidelines_text = request.form.get('guidelines_text', '').strip()
         if guidelines_text:
-            # Create document record for text
-            document = Document(
+            # Create guideline record directly (not as a Document)
+            from app.models.guideline import Guideline
+            guideline = Guideline(
                 title=title,
-                document_type="guideline",
                 world_id=world.id,
                 content=guidelines_text,
                 file_type="txt",
-                doc_metadata={},
-                processing_status=PROCESSING_STATUS['PENDING'],
+                guideline_metadata={},
                 created_by=current_user.id,
                 data_type='user'
             )
-            db.session.add(document)
+            db.session.add(guideline)
             db.session.commit()
             
-            # Process document asynchronously
-            task_queue.process_document_async(document.id)
-            flash('Guidelines text uploaded and processing started', 'success')
+            # Process guideline structure extraction
+            try:
+                from app.services.guideline_structure_annotation_step import GuidelineStructureAnnotationStep
+                structure_annotator = GuidelineStructureAnnotationStep()
+                result = structure_annotator.process(guideline)
+                
+                if result['success']:
+                    logger.info(f"Successfully extracted {result['sections_created']} sections from guideline {guideline.id}")
+                    flash(f'Guideline created and {result["sections_created"]} sections extracted', 'success')
+                else:
+                    logger.warning(f"Guideline structure annotation failed: {result.get('error', 'Unknown error')}")
+                    flash('Guideline created but section extraction failed', 'warning')
+            except Exception as e:
+                logger.error(f"Error during guideline structure annotation: {str(e)}")
+                flash('Guideline created but section extraction encountered an error', 'warning')
+            
+            flash('Guidelines text uploaded successfully', 'success')
         else:
             flash('Text is required', 'error')
             return redirect(url_for('worlds.add_guideline_form', id=world.id))

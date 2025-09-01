@@ -96,7 +96,11 @@ class LLMEnhancedAnnotationService:
             # Get ontology concepts
             if target_ontologies is None:
                 ontology_mapping = self.ontserve_service.get_world_ontology_mapping(world_id)
-                target_ontologies = list(set(ontology_mapping.values()))  # Remove duplicates
+                # Extract ontology names from mapping (handles dict format with 'name' and 'priority')
+                if ontology_mapping and all(isinstance(v, dict) for v in ontology_mapping.values()):
+                    target_ontologies = list(set([v['name'] for v in ontology_mapping.values()]))
+                else:
+                    target_ontologies = list(set(ontology_mapping.values()))  # Fallback for string values
             
             logger.info(f"Using ontologies: {target_ontologies}")
             all_concepts = self.ontserve_service.get_ontology_concepts(target_ontologies)
@@ -164,17 +168,18 @@ You are analyzing text from professional engineering ethics guidelines. Extract 
 
 Text to analyze:
 ```
-{text[:2000]}  # Limit to first 2000 chars for efficiency
+{text[:5000]}  # Increased from 2000 to 5000 chars
 ```
 
-Extract 15-25 key terms as a JSON array. For each term, provide:
+Extract 20-30 key terms as a JSON array. For each term, provide:
 - "term": the exact term or short phrase (2-4 words max)
 - "context": brief surrounding context (10-15 words)
 - "start_offset": approximate character position in text
 - "importance": score 0.1-1.0 (higher = more central to ethics)
 - "type": category (ethical, professional, stakeholder, capability, concept)
 
-Focus on terms that would appear in professional codes of ethics. Avoid generic words.
+Focus on SPECIFIC ethical concepts and professional terms, not generic words like just "standards" or "review".
+Look for complete concepts like "public safety", "professional integrity", "conflict of interest", etc.
 
 Return only valid JSON array format.
 """
@@ -297,8 +302,8 @@ Return only valid JSON array format.
         if not concepts_with_definitions:
             concepts_with_definitions = concepts
             
-        # Limit to top concepts to avoid overwhelming the LLM
-        concepts_to_check = concepts_with_definitions[:15]  # Top 15 concepts
+        # Check more concepts for better coverage
+        concepts_to_check = concepts_with_definitions[:30]  # Increased from 15 to 30
         
         # Build concept descriptions for LLM
         concept_descriptions = []
@@ -312,7 +317,7 @@ Return only valid JSON array format.
             )
         
         matching_prompt = f"""
-You are matching professional ethics terms to ontology concepts. 
+You are matching professional ethics terms to ontology concepts. BE VERY PRECISE - only match if there's a strong semantic relationship.
 
 **Term to match**: "{extracted_term.term}"
 **Context**: "{extracted_term.context}"
@@ -322,11 +327,12 @@ You are matching professional ethics terms to ontology concepts.
 
 Task: Find the BEST semantic match (if any) between the term and the concepts.
 
-Consider:
-- Semantic similarity (synonyms, related concepts)
-- Professional ethics context
-- Definition alignment
-- Conceptual relationships
+IMPORTANT RULES:
+- DO NOT match generic words to specific complex concepts (e.g., don't match "standards" to "Conduct Standards-Based Design Review")
+- Only match if the term truly represents or relates to the concept's meaning
+- Consider the full context and definition, not just word overlap
+- A term like "public safety" should match "Public Safety Principle" or similar
+- A term like "standards" alone should NOT match something specific like "Standards-Based Design Review"
 
 Respond with JSON:
 {{
@@ -335,11 +341,12 @@ Respond with JSON:
         "similarity_score": <0.0-1.0>,
         "confidence": "<high|medium|low>",
         "reasoning": "<brief explanation of why this matches or doesn't match>",
-        "match_type": "<exact|semantic|contextual>"
+        "match_type": "<exact|semantic|contextual|none>"
     }}
 }}
 
-If similarity_score < 0.4, set concept_number to null (no good match found).
+If the match is poor or forced, set concept_number to null. Better to have no match than a bad match.
+Require similarity_score > 0.5 for any match (increased from 0.4).
 """
         
         try:

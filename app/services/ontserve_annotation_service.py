@@ -134,12 +134,46 @@ class OntServeAnnotationService:
             return self._get_default_mapping()
     
     def _get_default_mapping(self) -> Dict[str, str]:
-        """Get the default ontology mapping."""
+        """Get the default ontology mapping with priorities."""
         return {
-            'core': 'proethica-core',
-            'intermediate': 'proethica-intermediate',
-            'domain': 'proethica-intermediate'  # Use intermediate ontology as it has 99 classes vs engineering-ethics with 0
+            'core': {'name': 'proethica-core', 'priority': 1},
+            'intermediate': {'name': 'proethica-intermediate', 'priority': 2},
+            'domain': {'name': 'engineering-ethics', 'priority': 3}
         }
+    
+    def get_ontology_priorities(self, world_id: int) -> List[Dict[str, Any]]:
+        """
+        Get ontologies ordered by priority for cascading annotation.
+        
+        Args:
+            world_id: ID of the world
+            
+        Returns:
+            List of ontology configurations ordered by priority
+        """
+        mapping = self.get_world_ontology_mapping(world_id)
+        
+        # Convert to list and sort by priority
+        ontologies = []
+        for ont_type, config in mapping.items():
+            if isinstance(config, dict):
+                ontologies.append({
+                    'type': ont_type,
+                    'name': config.get('name'),
+                    'priority': config.get('priority', 999)
+                })
+            else:
+                # Legacy format - just the name string
+                priority = {'core': 1, 'intermediate': 2, 'domain': 3}.get(ont_type, 999)
+                ontologies.append({
+                    'type': ont_type,
+                    'name': config,
+                    'priority': priority
+                })
+        
+        # Sort by priority (lower number = higher priority)
+        ontologies.sort(key=lambda x: x['priority'])
+        return ontologies
     
     def update_world_ontology_mapping(self, world_id: int, mapping: Dict[str, str]) -> bool:
         """

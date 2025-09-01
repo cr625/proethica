@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Annotations - {{ guideline.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1>Extracted Annotations</h1>
+  
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}">{{ guideline.title }}</a></li>
+      <li class="breadcrumb-item active">Annotations</li>
+    </ol>
+  </nav>
+
+  <!-- Summary Stats -->
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-tags"></i> Annotation Summary
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-3">
+              <div class="text-center">
+                <h3 class="text-primary">{{ total_annotations }}</h3>
+                <p class="mb-0">Total Annotations</p>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="text-center">
+                <h3 class="text-success">{{ ontology_count }}</h3>
+                <p class="mb-0">Ontologies</p>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <h6>By Method:</h6>
+              {% for method, count in method_counts.items() %}
+              <span class="badge bg-secondary me-1">{{ method }}: {{ count }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guideline Content Preview -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-file-text"></i> Guideline: {{ guideline.title }}
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="guideline-content-preview" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 0.9em; line-height: 1.5;">
+        {% if guideline.content %}
+          {{ guideline.content[:1000] }}{% if guideline.content|length > 1000 %}...{% endif %}
+        {% else %}
+          <em>No content available</em>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotations by Ontology -->
+  {% if annotations_by_ontology %}
+    {% for ontology_name, ontology_annotations in annotations_by_ontology.items() %}
+    <div class="card mb-4">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0">
+          <i class="fas fa-sitemap"></i> {{ ontology_name|title }} Ontology
+          <span class="badge bg-light text-dark ms-2">{{ ontology_annotations|length }} annotations</span>
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th width="25%">Concept</th>
+                <th width="35%">Text Match</th>
+                <th width="15%">Method</th>
+                <th width="10%">Confidence</th>
+                <th width="15%">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for annotation in ontology_annotations %}
+              <tr>
+                <td>
+                  <div>
+                    <strong>{{ annotation.concept_label or 'Unknown' }}</strong>
+                    {% if annotation.concept_definition %}
+                    <br>
+                    <small class="text-muted">{{ annotation.concept_definition[:100] }}{% if annotation.concept_definition|length > 100 %}...{% endif %}</small>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="text-highlight" style="background-color: #fff3cd; padding: 3px 6px; border-radius: 3px; border: 1px solid #ffeaa7;">
+                    "{{ annotation.text_segment }}"
+                  </div>
+                  {% if annotation.llm_reasoning %}
+                  <br>
+                  <small class="text-info">
+                    <i class="fas fa-brain"></i> {{ annotation.llm_reasoning[:150] }}{% if annotation.llm_reasoning|length > 150 %}...{% endif %}
+                  </small>
+                  {% endif %}
+                </td>
+                <td>
+                  {% set method_colors = {
+                    'basic': 'secondary',
+                    'llm_enhanced': 'primary', 
+                    'definition_based': 'success',
+                    'simplified_llm': 'warning'
+                  } %}
+                  <span class="badge bg-{{ method_colors.get(annotation.concept_type, 'secondary') }}">
+                    {{ annotation.concept_type or 'basic' }}
+                  </span>
+                  {% if annotation.llm_model %}
+                  <br><small class="text-muted">{{ annotation.llm_model }}</small>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if annotation.confidence %}
+                  <div class="progress" style="height: 20px;">
+                    {% set confidence_pct = (annotation.confidence * 100)|int %}
+                    {% set confidence_color = 'success' if confidence_pct >= 80 else 'warning' if confidence_pct >= 60 else 'danger' %}
+                    <div class="progress-bar bg-{{ confidence_color }}" 
+                         role="progressbar" 
+                         style="width: {{ confidence_pct }}%"
+                         aria-valuenow="{{ confidence_pct }}" 
+                         aria-valuemin="0" 
+                         aria-valuemax="100">
+                      {{ confidence_pct }}%
+                    </div>
+                  </div>
+                  {% else %}
+                  <span class="text-muted">N/A</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% set status_colors = {
+                    'pending': 'warning',
+                    'approved': 'success',
+                    'rejected': 'danger'
+                  } %}
+                  <span class="badge bg-{{ status_colors.get(annotation.validation_status, 'secondary') }}">
+                    {{ annotation.validation_status or 'unknown' }}
+                  </span>
+                  {% if annotation.created_at %}
+                  <br>
+                  <small class="text-muted">{{ annotation.created_at.strftime('%m/%d %H:%M') }}</small>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-info">
+      <h5><i class="fas fa-info-circle"></i> No Annotations Found</h5>
+      <p class="mb-2">No annotations have been extracted for this guideline yet.</p>
+      <p class="mb-0">
+        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
+          <i class="fas fa-arrow-left"></i> Go Back to Guideline
+        </a>
+      </p>
+    </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="mt-4 text-center">
+    <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Guideline
+    </a>
+    <a href="{{ url_for('worlds.world_guidelines', id=world.id) }}" class="btn btn-outline-secondary">
+      <i class="fas fa-list"></i> All Guidelines
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+.guideline-content-preview {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.text-highlight {
+  display: inline-block;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+.badge {
+  font-size: 0.75em;
+}
+
+.progress {
+  font-size: 0.7em;
+}
+</style>
+{% endblock %}

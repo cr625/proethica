@@ -24,6 +24,8 @@ from app.services.proethica_orchestrator_service import (
     OntologyContext
 )
 from app.services.multi_agent_coordinator import MultiAgentCoordinator
+from app.services.annotation_context import AnnotationContext
+from app.services.ontserve_annotation_service import OntServeAnnotationService
 
 logger = logging.getLogger(__name__)
 
@@ -98,17 +100,19 @@ class GuidelineAnnotationOrchestrator:
         self.structure_annotator = GuidelineStructureAnnotationStep()
         self.proethica_orchestrator = ProEthicaOrchestratorService(mcp_server_url)
         self.multi_agent_coordinator = MultiAgentCoordinator()
+        self.ontserve_service = OntServeAnnotationService()
         
         # Configuration
         self.min_confidence_threshold = 0.7
         self.max_annotations_per_section = 10
         self.enable_conflict_resolution = True
         self.enable_validation = True
+        self.enable_cascading = True  # Enable multi-pass cascading
         
         # Cache for processed sections
         self._section_cache: Dict[str, SectionAnalysis] = {}
         
-        logger.info("Guideline Annotation Orchestrator initialized")
+        logger.info("Guideline Annotation Orchestrator initialized with cascading support")
     
     async def annotate_guideline(self, 
                                 guideline_id: int,
@@ -170,22 +174,59 @@ class GuidelineAnnotationOrchestrator:
                 result.errors.append("No sections extracted from guideline")
                 return result
             
-            # Stage 2: Semantic analysis per section
-            stage_start = time.time()
-            section_analyses = await self._analyze_sections(sections, domain)
-            result.sections_analyzed = len(section_analyses)
-            result.stage_timings[AnnotationStage.SEMANTIC_ANALYSIS.value] = int(
-                (time.time() - stage_start) * 1000
-            )
+            # Initialize annotation context for cascading
+            annotation_context = AnnotationContext()
             
-            # Stage 3: Multi-agent processing
-            stage_start = time.time()
-            annotation_candidates = await self._multi_agent_processing(
-                section_analyses, guideline, domain
-            )
-            result.stage_timings[AnnotationStage.MULTI_AGENT_PROCESSING.value] = int(
-                (time.time() - stage_start) * 1000
-            )
+            # Get ontologies ordered by priority
+            ontology_configs = self.ontserve_service.get_ontology_priorities(guideline.world_id)
+            
+            all_candidates = []
+            
+            # Multi-pass cascading annotation
+            for ont_config in ontology_configs:
+                ontology_name = ont_config['name']
+                ontology_priority = ont_config['priority']
+                
+                logger.info(f"Starting pass {ontology_priority} with ontology {ontology_name}")
+                annotation_context.start_new_pass(ontology_name, ontology_priority)
+                
+                # Stage 2: Semantic analysis per section for this ontology
+                stage_start = time.time()
+                section_analyses = await self._analyze_sections_with_ontology(
+                    sections, domain, ontology_name, annotation_context
+                )
+                result.sections_analyzed += len(section_analyses)
+                result.stage_timings[f"semantic_analysis_pass_{ontology_priority}"] = int(
+                    (time.time() - stage_start) * 1000
+                )
+                
+                # Stage 3: Multi-agent processing for this ontology
+                stage_start = time.time()
+                pass_candidates = await self._multi_agent_processing_with_context(
+                    section_analyses, guideline, domain, ontology_name, annotation_context
+                )
+                
+                # Add annotations to context for next pass
+                for candidate in pass_candidates:
+                    annotation_context.add_annotation({
+                        'concept_uri': candidate.concept_uri,
+                        'concept_label': candidate.concept_label,
+                        'text_segment': candidate.text_segment,
+                        'start_offset': candidate.start_offset,
+                        'end_offset': candidate.end_offset,
+                        'confidence': candidate.confidence,
+                        'concept_type': candidate.concept_type,
+                        'ontology_name': candidate.ontology_name
+                    })
+                
+                all_candidates.extend(pass_candidates)
+                result.stage_timings[f"multi_agent_pass_{ontology_priority}"] = int(
+                    (time.time() - stage_start) * 1000
+                )
+                
+                logger.info(f"Pass {ontology_priority} completed: {len(pass_candidates)} candidates")
+            
+            annotation_candidates = all_candidates
             
             # Stage 4: Validation and ranking
             stage_start = time.time()
@@ -316,6 +357,102 @@ class GuidelineAnnotationOrchestrator:
         
         return analyses
     
+    async def _analyze_sections_with_ontology(self,
+                                             sections: List[GuidelineSection],
+                                             domain: str,
+                                             ontology_name: str,
+                                             context: AnnotationContext) -> List[SectionAnalysis]:
+        """
+        Perform semantic analysis on sections for a specific ontology with context.
+        
+        Args:
+            sections: List of guideline sections
+            domain: Professional domain
+            ontology_name: Name of the ontology for this pass
+            context: Annotation context from previous passes
+            
+        Returns:
+            List of section analyses
+        """
+        analyses = []
+        
+        # Get annotated regions to avoid re-annotation
+        annotated_regions = context.get_annotated_regions()
+        
+        for section in sections:
+            try:
+                # Check cache (include ontology in key)
+                cache_key = f"{section.guideline_id}:{section.section_code}:{ontology_name}"
+                if cache_key in self._section_cache:
+                    analyses.append(self._section_cache[cache_key])
+                    continue
+                
+                # Skip if section is fully annotated
+                section_start = 0  # Would need actual offset calculation
+                section_end = len(section.section_text)
+                if self._is_fully_annotated(section_start, section_end, annotated_regions):
+                    logger.debug(f"Skipping fully annotated section {section.section_code}")
+                    continue
+                
+                # Get hints from context for this section
+                hints = context.generate_hints(section.section_text, section_start)
+                
+                # Build enhanced query with hints
+                query = f"Analyze this guideline section for ethical concepts"
+                if hints:
+                    hint_concepts = ", ".join([h.concept_label for h in hints[:5]])
+                    query += f" (related to: {hint_concepts})"
+                query += f": {section.section_text}"
+                
+                # Analyze section
+                start_time = time.time()
+                response = await self.proethica_orchestrator.process_query(
+                    query=query,
+                    domain=domain,
+                    use_cache=True
+                )
+                
+                # Extract components and matches, filtering by ontology
+                ontology_matches = [
+                    match for match in self._extract_ontology_matches(response.ontology_context)
+                    if match.get('ontology') == ontology_name
+                ]
+                
+                analysis = SectionAnalysis(
+                    section_code=section.section_code,
+                    section_text=section.section_text,
+                    identified_components=[
+                        {
+                            'type': comp.type.value,
+                            'text': comp.text,
+                            'confidence': comp.confidence
+                        }
+                        for comp in response.ontology_context.query_analysis.identified_components
+                    ],
+                    ontology_matches=ontology_matches,
+                    confidence_score=response.confidence,
+                    processing_time_ms=int((time.time() - start_time) * 1000)
+                )
+                
+                # Cache the analysis
+                self._section_cache[cache_key] = analysis
+                analyses.append(analysis)
+                
+                logger.debug(f"Analyzed section {section.section_code} with {ontology_name}: {len(ontology_matches)} matches")
+                
+            except Exception as e:
+                logger.error(f"Error analyzing section {section.section_code} with {ontology_name}: {e}")
+                continue
+        
+        return analyses
+    
+    def _is_fully_annotated(self, start: int, end: int, annotated_regions: List[Tuple[int, int]]) -> bool:
+        """Check if a region is fully covered by existing annotations."""
+        for region_start, region_end in annotated_regions:
+            if region_start <= start and region_end >= end:
+                return True
+        return False
+    
     def _extract_ontology_matches(self, context: OntologyContext) -> List[Dict[str, Any]]:
         """
         Extract ontology matches from context.
@@ -413,6 +550,103 @@ class GuidelineAnnotationOrchestrator:
         
         return all_candidates
     
+    async def _multi_agent_processing_with_context(self,
+                                                  section_analyses: List[SectionAnalysis],
+                                                  guideline: Guideline,
+                                                  domain: str,
+                                                  ontology_name: str,
+                                                  context: AnnotationContext) -> List[AnnotationCandidate]:
+        """
+        Process sections through multi-agent coordinator with context from previous passes.
+        
+        Args:
+            section_analyses: Analyzed sections
+            guideline: Guideline instance
+            domain: Professional domain
+            ontology_name: Current ontology being processed
+            context: Annotation context from previous passes
+            
+        Returns:
+            List of annotation candidates
+        """
+        all_candidates = []
+        
+        for analysis in section_analyses:
+            try:
+                # Build components dictionary
+                components = {}
+                for comp in analysis.identified_components:
+                    comp_type = comp['type'].lower()
+                    if comp_type not in components:
+                        components[comp_type] = []
+                    components[comp_type].append(comp['text'])
+                
+                # Build ontology context, adding hints from previous passes
+                ontology_context = {
+                    category: [
+                        {
+                            'uri': match['uri'],
+                            'label': match['label'],
+                            'description': match['description'],
+                            'ontology': match.get('ontology', ontology_name)
+                        }
+                        for match in analysis.ontology_matches
+                        if match['category'] == category
+                    ]
+                    for category in set(match['category'] for match in analysis.ontology_matches)
+                }
+                
+                # Process with multi-agent coordinator
+                agent_result = await self.multi_agent_coordinator.process(
+                    query=analysis.section_text,
+                    components=components,
+                    ontology_context=ontology_context,
+                    domain=domain
+                )
+                
+                # Store agent analyses
+                analysis.agent_analyses = agent_result.get('agent_analyses', [])
+                analysis.conflicts = agent_result.get('conflicts_identified', [])
+                
+                # Extract candidates
+                candidates = self._extract_candidates_from_agents(
+                    agent_result,
+                    analysis,
+                    guideline.content
+                )
+                
+                # Adjust confidence based on context
+                for candidate in candidates:
+                    candidate.ontology_name = ontology_name  # Ensure correct ontology
+                    
+                    # Adjust confidence based on context hints
+                    adjusted_confidence = context.adjust_confidence({
+                        'confidence': candidate.confidence,
+                        'start_offset': candidate.start_offset,
+                        'concept_uri': candidate.concept_uri
+                    })
+                    candidate.confidence = adjusted_confidence
+                
+                # Filter out candidates in already annotated regions
+                annotated_regions = context.get_annotated_regions()
+                filtered_candidates = [
+                    c for c in candidates
+                    if not self._is_fully_annotated(c.start_offset, c.end_offset, annotated_regions)
+                ]
+                
+                all_candidates.extend(filtered_candidates)
+                
+                logger.debug(
+                    f"Context-aware processing for section {analysis.section_code}: "
+                    f"{len(filtered_candidates)}/{len(candidates)} candidates after filtering"
+                )
+                
+            except Exception as e:
+                logger.error(f"Error in context-aware processing for section {analysis.section_code}: {e}")
+                continue
+        
+        return all_candidates
+    
     def _extract_candidates_from_agents(self,
                                        agent_result: Dict[str, Any],
                                        section_analysis: SectionAnalysis,
@@ -452,7 +686,10 @@ class GuidelineAnnotationOrchestrator:
                     
                     end_offset = start_offset + len(text_segment)
                     
-                    # Create annotation candidate
+                    # Extract ontology name from concept or use current pass ontology
+                    ontology_name = concept.get('ontology', 'unknown')
+                    
+                    # Create annotation candidate with proper ontology tracking
                     candidate = AnnotationCandidate(
                         text_segment=text_segment,
                         start_offset=start_offset,
@@ -461,7 +698,7 @@ class GuidelineAnnotationOrchestrator:
                         concept_label=concept.get('label', ''),
                         concept_definition=concept.get('description', ''),
                         concept_type=concept.get('type', 'Unknown'),
-                        ontology_name='proethica-core',  # Default, should be extracted
+                        ontology_name=ontology_name,  # Use the actual ontology source
                         confidence=agent_analysis.get('confidence', 0.5),
                         reasoning=agent_analysis.get('interpretation', ''),
                         agent_source=agent_type,

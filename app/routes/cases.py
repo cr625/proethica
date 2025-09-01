@@ -8,7 +8,8 @@ import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
-from app.models import Document, PROCESSING_STATUS
+from app.models import Document
+from app.models.document import PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db
@@ -718,7 +719,8 @@ def process_url_pipeline():
             pass
         
         # Create document record
-        from app.models import Document, PROCESSING_STATUS
+        from app.models import Document
+        from app.models.document import PROCESSING_STATUS
         
         document = Document(
             title=title,
@@ -1222,7 +1224,8 @@ def create_from_document():
         document_file.save(file_path)
         
         # Create document record
-        from app.models import Document, PROCESSING_STATUS
+        from app.models import Document
+        from app.models.document import PROCESSING_STATUS
         
         document = Document(
             title=title,
@@ -1239,21 +1242,26 @@ def create_from_document():
         db.session.commit()
         
         # Process the document
-        embedding_service = EmbeddingService()
-        
-        # Extract text based on file type
-        text = embedding_service._extract_text(file_path, file_type)
-        document.content = text
-        
-        # Split text into chunks and create embeddings
-        chunks = embedding_service._split_text(text)
-        embeddings = embedding_service.embed_documents(chunks)
-        embedding_service._store_chunks(document.id, chunks, embeddings)
-        
-        # Update document status
-        document.processing_status = PROCESSING_STATUS['COMPLETED']
-        document.processing_progress = 100
-        db.session.commit();
+        try:
+            embedding_service = EmbeddingService()
+            
+            # Extract text based on file type
+            text = embedding_service._extract_text(file_path, file_type)
+            document.content = text
+            
+            # Split text into chunks and create embeddings
+            chunks = embedding_service._split_text(text)
+            embeddings = embedding_service.embed_documents(chunks)
+            embedding_service._store_chunks(document.id, chunks, embeddings)
+            
+            # Update document status
+            document.processing_status = PROCESSING_STATUS['COMPLETED']
+            document.processing_progress = 100
+            db.session.commit()
+        except Exception as e:
+            logger.error(f"Error processing document: {str(e)}")
+            db.session.rollback()
+            raise
         
         flash('Document processed and case created successfully', 'success')
         return redirect(url_for('cases.edit_case_form', id=document.id))
@@ -1283,6 +1291,40 @@ def edit_case_form(id):
 @cases_bp.route('/<int:id>/edit', methods=['POST'])
 def edit_case(id):
     """Process the case edit form submission."""
+    # Try to get the case as a document
+    document = Document.query.get_or_404(id)
+    
+    # Check if it's a case
+    if document.document_type not in ['case', 'case_study']:
+        flash('The requested document is not a case', 'warning')
+        return redirect(url_for('cases.list_cases'))
+    
+    # Get form data
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+    
+    # Validate required fields
+    if not title:
+        flash('Title is required', 'danger')
+        return redirect(url_for('cases.edit_case_form', id=id))
+    
+    if not description:
+        flash('Description is required', 'danger')
+        return redirect(url_for('cases.edit_case_form', id=id))
+    
+    # Update document
+    document.title = title
+    document.content = description
+    
+    # Save changes
+    try:
+        db.session.commit()
+        flash('Case details updated successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating case: {str(e)}', 'danger')
+    
+    return redirect(url_for('cases.view_case', id=id))
     
 @cases_bp.route('/triple/<int:id>/edit', methods=['GET', 'POST'])
 def dummy_edit_triples(id):
@@ -1611,40 +1653,6 @@ def dummy_edit_triples_alt(id):
     """Alternative temporary route to fix BuildError for cases_triple.edit_triples."""
     # Redirect to the regular case edit form
     return redirect(url_for('cases.edit_case_form', id=id))
-    # Try to get the case as a document
-    document = Document.query.get_or_404(id)
-    
-    # Check if it's a case
-    if document.document_type not in ['case', 'case_study']:
-        flash('The requested document is not a case', 'warning')
-        return redirect(url_for('cases.list_cases'))
-    
-    # Get form data
-    title = request.form.get('title', '').strip()
-    description = request.form.get('description', '').strip()
-    
-    # Validate required fields
-    if not title:
-        flash('Title is required', 'danger')
-        return redirect(url_for('cases.edit_case_form', id=id))
-    
-    if not description:
-        flash('Description is required', 'danger')
-        return redirect(url_for('cases.edit_case_form', id=id))
-    
-    # Update document
-    document.title = title
-    document.content = description
-    
-    # Save changes
-    try:
-        db.session.commit()
-        flash('Case details updated successfully', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error updating case: {str(e)}', 'danger')
-    
-    return redirect(url_for('cases.view_case', id=id))
 
 @cases_bp.route('/api/related-cases', methods=['POST'])
 def get_related_cases():

@@ -7,7 +7,7 @@ import logging
 import time
 from datetime import datetime
 from app import db
-from app.models import Document, PROCESSING_STATUS, PROCESSING_PHASES
+from app.models.document import Document, PROCESSING_STATUS, PROCESSING_PHASES
 from app.services.embedding_service import EmbeddingService
 
 # Set up logging
@@ -44,12 +44,15 @@ class BackgroundTaskQueue:
         return self.embedding_service
     
     def process_document_async(self, document_id):
-        """Process a document asynchronously in a background thread."""
-        # Update document status to processing
+        """Process a document or guideline asynchronously in a background thread."""
+        # Get the document/guideline
         document = Document.query.get(document_id)
         if not document:
             logger.error(f"Document with ID {document_id} not found")
             return False
+        
+        # Determine entity type for logging
+        entity_type = "guideline" if document.document_type == "guideline" else "document"
         
         document.processing_status = PROCESSING_STATUS['PROCESSING']
         db.session.commit()
@@ -64,20 +67,23 @@ class BackgroundTaskQueue:
         self.active_threads[document_id] = thread
         thread.start()
         
-        logger.info(f"Started background processing for document {document_id}")
+        logger.info(f"Started background processing for {entity_type} {document_id}")
         return True
     
     def process_associations_async(self, document_id, association_method='embedding'):
-        """Process document associations asynchronously in a background thread."""
-        # Get document
+        """Process associations for documents or guidelines asynchronously in a background thread."""
+        # Get document/guideline
         document = Document.query.get(document_id)
         if not document:
             logger.error(f"Document with ID {document_id} not found")
             return False
         
+        # Determine entity type for logging
+        entity_type = "guideline" if document.document_type == "guideline" else "document"
+        
         # Check if already processing
         if hasattr(document, 'association_processing_status') and document.association_processing_status == 'processing':
-            logger.warning(f"Document {document_id} is already being processed for associations")
+            logger.warning(f"{entity_type.capitalize()} {document_id} is already being processed for associations")
             return False
         
         # Create and start a new thread for association processing
@@ -91,7 +97,7 @@ class BackgroundTaskQueue:
         self.active_threads[thread_key] = thread
         thread.start()
         
-        logger.info(f"Started background association processing for document {document_id}")
+        logger.info(f"Started background association processing for {entity_type} {document_id}")
         return True
     
     def process_task_async(self, task_function):
@@ -121,7 +127,7 @@ class BackgroundTaskQueue:
         return task_id
     
     def _process_document_task(self, document_id):
-        """Background task to process a document."""
+        """Background task to process a document or guideline."""
         try:
             # Get a new db session for this thread
             from app import create_app
@@ -140,7 +146,11 @@ class BackgroundTaskQueue:
                     logger.error(f"Document with ID {document_id} not found in background task")
                     return
                 
-                logger.info(f"Processing document {document_id} in background")
+                # Determine if this is a guideline
+                is_guideline = document.document_type == "guideline"
+                entity_type = "guideline" if is_guideline else "document"
+                
+                logger.info(f"Processing {entity_type} {document_id} in background")
                 
                 # Update progress: Initializing (10%)
                 document.processing_phase = PROCESSING_PHASES['INITIALIZING']
@@ -149,14 +159,14 @@ class BackgroundTaskQueue:
                 
                 # Skip extraction if content already exists (e.g., pasted text)
                 if document.content:
-                    logger.info(f"Document {document_id} already has content, skipping extraction")
+                    logger.info(f"{entity_type.capitalize()} {document_id} already has content, skipping extraction")
                     # Jump directly to chunking phase
                     document.processing_progress = 30
                     db.session.commit()
                 # Extract content based on document type
                 elif document.file_type == "url" and document.source:
-                    # Handle URL type documents
-                    logger.info(f"Processing URL document: {document.source}")
+                    # Handle URL type documents/guidelines
+                    logger.info(f"Processing URL {entity_type}: {document.source}")
                     document.processing_phase = PROCESSING_PHASES['EXTRACTING']
                     document.processing_progress = 20
                     db.session.commit()
@@ -196,10 +206,10 @@ class BackgroundTaskQueue:
                         db.session.commit()
                         return
                 
-                # Process document content if available
+                # Process content if available
                 if document.content:
-                    # Check if this is a guideline document that needs structure annotation
-                    if document.document_type == "guideline":
+                    # Check if this is a guideline that needs structure annotation
+                    if is_guideline:
                         # Update progress: Analyzing guideline structure (35%)
                         document.processing_phase = PROCESSING_PHASES.get('ANALYZING', PROCESSING_PHASES['CHUNKING'])
                         document.processing_progress = 35
@@ -228,7 +238,7 @@ class BackgroundTaskQueue:
                                 )
                                 db.session.add(guideline)
                                 db.session.commit()
-                                logger.info(f"Created Guideline record {guideline.id} for document {document.id}")
+                                logger.info(f"Created Guideline record {guideline.id} for guideline document {document.id}")
                             
                             # Extract guideline sections
                             structure_annotator = GuidelineStructureAnnotationStep()
@@ -283,22 +293,23 @@ class BackgroundTaskQueue:
                     db.session.commit()
                 else:
                     # No content to process
-                    logger.error(f"Document {document_id} has no content to process")
+                    logger.error(f"{entity_type.capitalize()} {document_id} has no content to process")
                     document.processing_error = "No content available for processing"
                     document.processing_status = PROCESSING_STATUS['FAILED']
                     db.session.commit()
                     return
                 
-                # Update document status to completed (100%)
+                # Update status to completed (100%)
                 document.processing_status = PROCESSING_STATUS['COMPLETED']
                 document.processing_progress = 100
                 document.processing_phase = PROCESSING_PHASES['FINALIZING']
                 db.session.commit()
                 
-                logger.info(f"Completed background processing for document {document_id}")
+                logger.info(f"Completed background processing for {entity_type} {document_id}")
         
         except Exception as e:
-            logger.error(f"Error processing document {document_id} in background: {str(e)}")
+            entity_type = "guideline" if document and document.document_type == "guideline" else "document"
+            logger.error(f"Error processing {entity_type} {document_id} in background: {str(e)}")
             
             try:
                 # Update document status to failed
@@ -336,13 +347,16 @@ class BackgroundTaskQueue:
             app = create_app('config')
             
             with app.app_context():
-                # Get document
+                # Get document/guideline
                 document = Document.query.get(document_id)
                 if not document:
                     logger.error(f"Document with ID {document_id} not found in background association task")
                     return
                 
-                logger.info(f"Processing associations for document {document_id} in background")
+                # Determine entity type for logging
+                entity_type = "guideline" if document.document_type == "guideline" else "document"
+                
+                logger.info(f"Processing associations for {entity_type} {document_id} in background")
                 
                 # Initialize association processing status (using doc_metadata for now)
                 if not document.doc_metadata:
@@ -380,7 +394,7 @@ class BackgroundTaskQueue:
                 associations = enhanced_service.generate_associations_for_case(document_id)
                 
                 if not associations:
-                    logger.warning(f"No associations generated for document {document_id}")
+                    logger.warning(f"No associations generated for {entity_type} {document_id}")
                     metadata = dict(document.doc_metadata)
                     metadata['association_processing_status'] = 'failed'
                     metadata['association_processing_error'] = 'No associations could be generated'
@@ -420,10 +434,11 @@ class BackgroundTaskQueue:
                 document.doc_metadata = metadata
                 db.session.commit()
                 
-                logger.info(f"Completed background association processing for document {document_id}: {total_associations} associations with {avg_confidence:.2f} avg confidence")
+                logger.info(f"Completed background association processing for {entity_type} {document_id}: {total_associations} associations with {avg_confidence:.2f} avg confidence")
         
         except Exception as e:
-            logger.error(f"Error processing associations for document {document_id} in background: {str(e)}")
+            entity_type = "guideline" if document and document.document_type == "guideline" else "document"
+            logger.error(f"Error processing associations for {entity_type} {document_id} in background: {str(e)}")
             
             try:
                 # Update document status to failed

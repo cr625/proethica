@@ -9,7 +9,8 @@ import json
 from datetime import datetime
 
 from app import db
-from app.models import Document, PROCESSING_STATUS
+from app.models import Document
+from app.models.document import PROCESSING_STATUS
 from app.models.world import World
 from app.models.entity_triple import EntityTriple
 from app.services.embedding_service import EmbeddingService
