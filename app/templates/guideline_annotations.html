@@ -156,8 +156,7 @@
                     {{ annotation.validation_status or 'unknown' }}
                   </span>
                   {% if annotation.created_at %}
-                  <br>
-                  <small class="text-muted">{{ annotation.created_at.strftime('%m/%d %H:%M') }}</small>
+                  <small class="text-muted d-block mt-1">{{ annotation.created_at.strftime('%m/%d %H:%M') }}</small>
                   {% endif %}
                 </td>
               </tr>
@@ -190,6 +189,7 @@
     </a>
   </div>
 </div>
+
 {% endblock %}
 
 {% block styles %}

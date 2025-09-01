@@ -100,7 +100,7 @@ def annotate_guideline_enhanced(guideline_id):
                         concept_type='llm_enhanced',
                         llm_model='claude-sonnet',
                         llm_reasoning=match.reasoning,
-                        validation_status='pending'
+                        validation_status='approved'
                     )
                     db.session.add(annotation)
                     annotations_created += 1
@@ -302,7 +302,7 @@ def annotate_guideline_definitions(guideline_id):
                         concept_type='definition_based',
                         llm_model='claude-sonnet',
                         llm_reasoning=match.reasoning,
-                        validation_status='pending'
+                        validation_status='approved'
                     )
                     db.session.add(annotation)
                     annotations_created += 1

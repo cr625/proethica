@@ -79,7 +79,7 @@ class DocumentAnnotationViewer {
         this.setLoading(true);
 
         try {
-            const url = `/api/annotations/intelligent/guideline/${this.documentId}/annotate`;
+            const url = `/api/llm-annotations/guideline/${this.documentId}/annotate-simplified`;
             const csrfToken = this.getCSRFToken();
 
             const response = await fetch(url, {
@@ -93,10 +93,11 @@ class DocumentAnnotationViewer {
 
             const data = await response.json();
             if (data.success) {
-                this.showMessage(`Created ${data.annotation_count} annotations. Redirecting...`, 'success');
+                const stats = data.statistics;
+                this.showMessage(`Created ${stats.annotations_created} annotations. Redirecting...`, 'success');
                 // Redirect to annotations view page
                 setTimeout(() => {
-                    window.location.href = `/worlds/${this.documentType === 'guideline' ? window.location.pathname.split('/')[2] : '1'}/guidelines/${this.documentId}/annotations`;
+                    window.location.href = `/worlds/${window.location.pathname.split('/')[2]}/guidelines/${this.documentId}/annotations`;
                 }, 1500);
             }
         } catch (error) {

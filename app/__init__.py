@@ -152,6 +152,8 @@ def create_app(config_module='app.config'):
     from app.routes.enhanced_annotations import bp as enhanced_annotations_bp
     # LLM-enhanced annotation routes
     from app.routes.llm_annotations import bp as llm_annotations_bp
+    # Annotation review routes
+    from app.routes.annotation_review import bp as annotation_review_bp
     # STUB: Ontology editor moved to OntServe - this redirects to OntServe
     from ontology_editor import create_ontology_editor_blueprint
     
@@ -187,6 +189,7 @@ def create_app(config_module='app.config'):
     app.register_blueprint(intelligent_annotations_bp)  # Register intelligent annotations
     app.register_blueprint(enhanced_annotations_bp)  # Register enhanced annotations with MCP integration
     app.register_blueprint(llm_annotations_bp)  # Register LLM-enhanced annotations
+    app.register_blueprint(annotation_review_bp)  # Register annotation review endpoints
     
     # STUB: Ontology editor redirects to OntServe
     # Create and register the ontology editor blueprint
