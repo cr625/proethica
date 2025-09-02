@@ -1,0 +1,24 @@
+<!-- Batch Actions Partial -->
+<div class="card mt-4">
+    <div class="card-body text-center">
+        <h6>Batch Actions</h6>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary" id="batch-llm-approval-btn">
+                <i class="fas fa-robot"></i> LLM Approve All Pending
+            </button>
+            <button type="button" class="btn btn-success" id="save-annotations-version-btn">
+                <i class="fas fa-save"></i> Save Approved as Version
+            </button>
+            {% if total_annotations == 0 %}
+            <button type="button" class="btn btn-info" id="generate-annotations-btn">
+                <i class="fas fa-magic"></i> Generate New Annotations
+            </button>
+            {% endif %}
+        </div>
+        <div class="mt-2">
+            <small class="text-muted">
+                Use LLM annotation to identify ontology concepts in this {{ document_type or 'document' }} text.
+            </small>
+        </div>
+    </div>
+</div>

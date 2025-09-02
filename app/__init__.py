@@ -104,8 +104,11 @@ def create_app(config_module='app.config'):
     try:
         csrf = CSRFProtect()
         csrf.init_app(app)
+        app.csrf = csrf  # Make csrf accessible at app level
     except Exception as e:
         logging.getLogger(__name__).warning(f"CSRFProtect initialization failed: {e}")
+        csrf = None
+        app.csrf = None
 
     # Expose csrf_token() helper in templates
     @app.context_processor
@@ -156,6 +159,8 @@ def create_app(config_module='app.config'):
     from app.routes.annotation_review import bp as annotation_review_bp
     # Annotation versioning API routes
     from app.routes.annotation_versions import annotation_versions_bp
+    # Unified document annotation API routes
+    from app.routes.api_document_annotations import bp as api_document_annotations_bp
     # STUB: Ontology editor moved to OntServe - this redirects to OntServe
     from ontology_editor import create_ontology_editor_blueprint
     
@@ -193,6 +198,11 @@ def create_app(config_module='app.config'):
     app.register_blueprint(llm_annotations_bp)  # Register LLM-enhanced annotations
     app.register_blueprint(annotation_review_bp)  # Register annotation review endpoints
     app.register_blueprint(annotation_versions_bp)  # Register annotation versioning API
+    app.register_blueprint(api_document_annotations_bp)  # Register unified document annotation API
+    
+    # Exempt API routes from CSRF protection
+    from app.routes.api_document_annotations import init_csrf_exemption
+    init_csrf_exemption(app)
     
     # STUB: Ontology editor redirects to OntServe
     # Create and register the ontology editor blueprint

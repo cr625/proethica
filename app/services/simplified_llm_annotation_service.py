@@ -357,6 +357,73 @@ Only include annotation numbers that are good semantic matches. Remove forced or
         
         return refined_dict_matches, validation_notes
 
+    def annotate_document(self, document_id: int, document_type: str, content: str, 
+                         world_id: int, ontologies: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Annotate a document and save annotations to database.
+        This method matches the interface expected by api_document_annotations.py
+        """
+        try:
+            # Use the existing annotate_text method
+            result = self.annotate_text(content, world_id, ontologies)
+            
+            if result.errors:
+                return {
+                    'success': False,
+                    'error': '; '.join(result.errors)
+                }
+            
+            # Save annotations to database
+            from ..models.document_concept_annotation import DocumentConceptAnnotation
+            from .. import db
+            
+            annotations_created = 0
+            ontologies_used = set()
+            
+            for annotation_data in result.refined_matches:
+                # Create annotation record
+                annotation = DocumentConceptAnnotation(
+                    document_id=document_id,
+                    document_type=document_type,
+                    concept_uri=annotation_data.get('concept_uri', ''),
+                    concept_label=annotation_data.get('concept_label', ''),
+                    concept_definition=annotation_data.get('concept_definition', ''),
+                    text_segment=annotation_data.get('text_segment', ''),
+                    start_offset=annotation_data.get('start_offset', 0),
+                    end_offset=annotation_data.get('end_offset', 0),
+                    confidence=annotation_data.get('quality_score', 0.5),
+                    concept_type='llm_enhanced',
+                    validation_status='pending',
+                    approval_stage='pending',
+                    llm_reasoning=annotation_data.get('reasoning', ''),
+                    llm_model='claude',
+                    ontology_name=annotation_data.get('ontology', 'proethica-intermediate'),
+                    is_current=True,
+                    version_number=1
+                )
+                
+                db.session.add(annotation)
+                annotations_created += 1
+                ontologies_used.add(annotation_data.get('ontology', 'proethica-intermediate'))
+            
+            # Commit to database
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'annotations_created': annotations_created,
+                'ontologies_used': list(ontologies_used),
+                'processing_time_ms': result.processing_time_ms,
+                'validation_summary': result.validation_summary
+            }
+            
+        except Exception as e:
+            logger.exception(f"Error in annotate_document: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
 
 def create_simplified_annotation_endpoint():
     """

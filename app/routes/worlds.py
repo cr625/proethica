@@ -23,6 +23,7 @@ from app.services.ontology_entity_service import OntologyEntityService
 from app.services.guideline_analysis_service import GuidelineAnalysisService
 from app.services.guideline_concept_integration_service import GuidelineConceptIntegrationService
 from app.models.entity_triple import EntityTriple
+from app.models import Document
 from app.services.role_property_suggestions import RolePropertySuggestionsService
 
 # Set up logger

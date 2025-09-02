@@ -410,10 +410,23 @@ def view_case(id):
     except Exception as e:
         logger.warning(f"Could not load term links for document {document.id}: {str(e)}")
     
+    # Get annotation count for display in template
+    annotation_count = 0
+    try:
+        from app.models.document_concept_annotation import DocumentConceptAnnotation
+        annotation_count = DocumentConceptAnnotation.query.filter_by(
+            document_type='case',
+            document_id=document.id,
+            is_current=True
+        ).count()
+    except Exception as e:
+        logger.warning(f"Could not get annotation count for case {document.id}: {str(e)}")
+    
     return render_template('case_detail.html', case=case, world=world, 
                           entity_triples=entity_triples, 
                           knowledge_graph_connections=knowledge_graph_connections,
-                          term_links_by_section=term_links_by_section)
+                          term_links_by_section=term_links_by_section,
+                          annotation_count=annotation_count)
 
 @cases_bp.route('/new', methods=['GET'])
 def case_options():
@@ -2186,3 +2199,22 @@ def case_24_02_hero():
 def case_24_02_hero_compact():
     """Compact hero banner snapshot for Case 24-02 (width-optimized)."""
     return render_template('demo/case24_02_compact.html')
+
+@cases_bp.route('/<int:id>/annotations', methods=['GET'])
+def view_case_annotations(id):
+    """View annotations for a specific case using the modular annotation service."""
+    from ..services.document_annotation_service import DocumentAnnotationService
+    
+    # Use the modular service to prepare all annotation context
+    context = DocumentAnnotationService.prepare_annotation_context(id, 'case')
+    
+    if not context:
+        flash('Case not found', 'error')
+        return redirect(url_for('cases.list_cases'))
+    
+    # Validate document type
+    if context['document'].document_type not in ['case', 'case_study']:
+        flash('The requested document is not a case', 'warning')
+        return redirect(url_for('cases.list_cases'))
+    
+    return render_template('case_annotations.html', **context)

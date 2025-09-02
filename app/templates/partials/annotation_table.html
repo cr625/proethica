@@ -1,0 +1,157 @@
+<!-- Annotation Table Partial -->
+{% if annotations_by_ontology %}
+{% for ontology_name, ontology_annotations in annotations_by_ontology.items() %}
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">
+            <i class="fas fa-sitemap"></i> {{ ontology_name|title }} Ontology
+            <span class="badge bg-light text-dark ms-2">{{ ontology_annotations|length }} annotations</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="20%">Concept</th>
+                        <th width="30%">Text Match</th>
+                        <th width="12%">Method</th>
+                        <th width="8%">Confidence</th>
+                        <th width="10%">Status</th>
+                        <th width="20%">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for annotation in ontology_annotations %}
+                    <tr>
+                        <td>
+                            <div>
+                                <strong>{{ annotation.concept_label or 'Unknown' }}</strong>
+                                {% if annotation.concept_definition %}
+                                <br>
+                                <small class="text-muted">{{ annotation.concept_definition[:100] }}{% if
+                                    annotation.concept_definition|length > 100 %}...{% endif %}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="text-highlight">
+                                "{{ annotation.text_segment }}"
+                            </div>
+                            {% if annotation.llm_reasoning %}
+                            <br>
+                            <small class="text-info">
+                                <i class="fas fa-brain"></i> {{ annotation.llm_reasoning[:150] }}{% if
+                                annotation.llm_reasoning|length > 150 %}...{% endif %}
+                            </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if annotation.concept_type == 'basic' %}
+                            <span class="badge bg-secondary">basic</span>
+                            {% elif annotation.concept_type == 'llm_enhanced' %}
+                            <span class="badge bg-primary">llm_enhanced</span>
+                            {% elif annotation.concept_type == 'definition_based' %}
+                            <span class="badge bg-success">definition_based</span>
+                            {% elif annotation.concept_type == 'simplified_llm' %}
+                            <span class="badge bg-warning">simplified_llm</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ annotation.concept_type or 'basic' }}</span>
+                            {% endif %}
+                            {% if annotation.llm_model %}
+                            <br><small class="text-muted">{{ annotation.llm_model }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if annotation.confidence %}
+                            {% set confidence_pct = (annotation.confidence * 100)|int %}
+                            <div class="progress" style="height: 20px;">
+                                {% if confidence_pct >= 80 %}
+                                <div class="progress-bar bg-success" role="progressbar"
+                                    style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}"
+                                    aria-valuemin="0" aria-valuemax="100">{{ confidence_pct }}%</div>
+                                {% elif confidence_pct >= 60 %}
+                                <div class="progress-bar bg-warning" role="progressbar"
+                                    style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}"
+                                    aria-valuemin="0" aria-valuemax="100">{{ confidence_pct }}%</div>
+                                {% else %}
+                                <div class="progress-bar bg-danger" role="progressbar"
+                                    style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}"
+                                    aria-valuemin="0" aria-valuemax="100">{{ confidence_pct }}%</div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if annotation.validation_status == 'pending' %}
+                            <span class="badge bg-warning">pending</span>
+                            {% elif annotation.validation_status == 'approved' %}
+                            <span class="badge bg-success">approved</span>
+                            {% elif annotation.validation_status == 'rejected' %}
+                            <span class="badge bg-danger">rejected</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ annotation.validation_status or 'unknown' }}</span>
+                            {% endif %}
+                            {% if annotation.created_at %}
+                            <small class="text-muted d-block mt-1">{{ annotation.created_at.strftime('%m/%d %H:%M')
+                                }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group" aria-label="Annotation actions">
+                                {% if annotation.approval_stage == 'pending' %}
+                                <button type="button" class="btn btn-sm btn-outline-primary annotation-review-btn"
+                                    data-annotation-id="{{ annotation.id }}" title="Review annotation">
+                                    <i class="fas fa-eye"></i> Review
+                                </button>
+                                {% elif annotation.approval_stage == 'llm_approved' %}
+                                <button type="button" class="btn btn-sm btn-success annotation-approve-btn"
+                                    data-annotation-id="{{ annotation.id }}" title="Approve annotation">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning annotation-edit-btn"
+                                    data-annotation-id="{{ annotation.id }}" title="Edit annotation">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger annotation-reject-btn"
+                                    data-annotation-id="{{ annotation.id }}" title="Reject annotation">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                                {% elif annotation.approval_stage == 'user_approved' %}
+                                <span class="badge bg-success"><i class="fas fa-check-circle"></i> Approved</span>
+                                <button type="button" class="btn btn-sm btn-outline-info annotation-history-btn"
+                                    data-annotation-id="{{ annotation.id }}" title="View history">
+                                    <i class="fas fa-history"></i> History
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary annotation-review-btn"
+                                    data-annotation-id="{{ annotation.id }}" title="Review annotation">
+                                    <i class="fas fa-eye"></i> Review
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="alert alert-info">
+    <h5><i class="fas fa-info-circle"></i> No Annotations Found</h5>
+    <p class="mb-2">No annotations have been extracted for this {{ document_type or 'document' }} yet.</p>
+    <p class="mb-0">
+        <a href="{{ back_url }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i> Go Back to {{ document_type|title or 'Document' }}
+        </a>
+        <button type="button" class="btn btn-success ms-2" id="generate-annotations-btn">
+            <i class="fas fa-magic"></i> Generate Annotations
+        </button>
+    </p>
+</div>
+{% endif %}
