@@ -183,6 +183,19 @@
         </div>
         {% endif %}
 
+        <!-- Annotation Highlighting Control -->
+        {% if annotation_count and annotation_count > 0 %}
+        <div class="card-header border-top">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="toggleAnnotationHighlighting" value="">
+                <label class="form-check-label" for="toggleAnnotationHighlighting">
+                    <i class="bi bi-highlight"></i> Highlight annotated terms ({{ annotation_count }} annotations
+                    available)
+                </label>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card-body">
 
             {% if case.doc_metadata and case.doc_metadata.display_format == 'extraction_style' %}
@@ -559,12 +572,8 @@
         });
     });
 
-    // Pass term links data to JavaScript for highlighting functionality
-    {% if term_links_by_section %}
-    window.termLinksData = {{ term_links_by_section | tojson | safe }};
-    {% else %}
+    // Disable old term links highlighting (will be replaced with annotation-based highlighting)
     window.termLinksData = {};
-    {% endif %}
 
     // Annotation generation functions
     window.generateAnnotations = function (caseId) {
