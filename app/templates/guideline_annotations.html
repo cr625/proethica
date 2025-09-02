@@ -5,13 +5,15 @@
 {% block content %}
 <div class="container mt-4">
   <h1>Extracted Annotations</h1>
-  
+
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_world', id=world.id) }}">{{ world.name }}</a></li>
       <li class="breadcrumb-item"><a href="{{ url_for('worlds.world_guidelines', id=world.id) }}">Guidelines</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}">{{ guideline.title }}</a></li>
+      <li class="breadcrumb-item"><a
+          href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}">{{ guideline.title }}</a>
+      </li>
       <li class="breadcrumb-item active">Annotations</li>
     </ol>
   </nav>
@@ -59,11 +61,12 @@
       </h5>
     </div>
     <div class="card-body">
-      <div class="guideline-content-preview" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 0.9em; line-height: 1.5;">
+      <div class="guideline-content-preview"
+        style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 0.9em; line-height: 1.5;">
         {% if guideline.content %}
-          {{ guideline.content[:1000] }}{% if guideline.content|length > 1000 %}...{% endif %}
+        {{ guideline.content[:1000] }}{% if guideline.content|length > 1000 %}...{% endif %}
         {% else %}
-          <em>No content available</em>
+        <em>No content available</em>
         {% endif %}
       </div>
     </div>
@@ -71,115 +74,174 @@
 
   <!-- Annotations by Ontology -->
   {% if annotations_by_ontology %}
-    {% for ontology_name, ontology_annotations in annotations_by_ontology.items() %}
-    <div class="card mb-4">
-      <div class="card-header bg-info text-white">
-        <h5 class="mb-0">
-          <i class="fas fa-sitemap"></i> {{ ontology_name|title }} Ontology
-          <span class="badge bg-light text-dark ms-2">{{ ontology_annotations|length }} annotations</span>
-        </h5>
-      </div>
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th width="25%">Concept</th>
-                <th width="35%">Text Match</th>
-                <th width="15%">Method</th>
-                <th width="10%">Confidence</th>
-                <th width="15%">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for annotation in ontology_annotations %}
-              <tr>
-                <td>
-                  <div>
-                    <strong>{{ annotation.concept_label or 'Unknown' }}</strong>
-                    {% if annotation.concept_definition %}
-                    <br>
-                    <small class="text-muted">{{ annotation.concept_definition[:100] }}{% if annotation.concept_definition|length > 100 %}...{% endif %}</small>
-                    {% endif %}
-                  </div>
-                </td>
-                <td>
-                  <div class="text-highlight" style="background-color: #fff3cd; padding: 3px 6px; border-radius: 3px; border: 1px solid #ffeaa7;">
-                    "{{ annotation.text_segment }}"
-                  </div>
-                  {% if annotation.llm_reasoning %}
+  {% for ontology_name, ontology_annotations in annotations_by_ontology.items() %}
+  <div class="card mb-4">
+    <div class="card-header bg-info text-white">
+      <h5 class="mb-0">
+        <i class="fas fa-sitemap"></i> {{ ontology_name|title }} Ontology
+        <span class="badge bg-light text-dark ms-2">{{ ontology_annotations|length }} annotations</span>
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th width="20%">Concept</th>
+              <th width="30%">Text Match</th>
+              <th width="12%">Method</th>
+              <th width="8%">Confidence</th>
+              <th width="10%">Status</th>
+              <th width="20%">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for annotation in ontology_annotations %}
+            <tr>
+              <td>
+                <div>
+                  <strong>{{ annotation.concept_label or 'Unknown' }}</strong>
+                  {% if annotation.concept_definition %}
                   <br>
-                  <small class="text-info">
-                    <i class="fas fa-brain"></i> {{ annotation.llm_reasoning[:150] }}{% if annotation.llm_reasoning|length > 150 %}...{% endif %}
-                  </small>
+                  <small class="text-muted">{{ annotation.concept_definition[:100] }}{% if
+                    annotation.concept_definition|length > 100 %}...{% endif %}</small>
                   {% endif %}
-                </td>
-                <td>
-                  {% set method_colors = {
-                    'basic': 'secondary',
-                    'llm_enhanced': 'primary', 
-                    'definition_based': 'success',
-                    'simplified_llm': 'warning'
-                  } %}
-                  <span class="badge bg-{{ method_colors.get(annotation.concept_type, 'secondary') }}">
-                    {{ annotation.concept_type or 'basic' }}
-                  </span>
-                  {% if annotation.llm_model %}
-                  <br><small class="text-muted">{{ annotation.llm_model }}</small>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if annotation.confidence %}
-                  <div class="progress" style="height: 20px;">
-                    {% set confidence_pct = (annotation.confidence * 100)|int %}
-                    {% set confidence_color = 'success' if confidence_pct >= 80 else 'warning' if confidence_pct >= 60 else 'danger' %}
-                    <div class="progress-bar bg-{{ confidence_color }}" 
-                         role="progressbar" 
-                         style="width: {{ confidence_pct }}%"
-                         aria-valuenow="{{ confidence_pct }}" 
-                         aria-valuemin="0" 
-                         aria-valuemax="100">
-                      {{ confidence_pct }}%
-                    </div>
+                </div>
+              </td>
+              <td>
+                <div class="text-highlight"
+                  style="background-color: #fff3cd; padding: 3px 6px; border-radius: 3px; border: 1px solid #ffeaa7;">
+                  "{{ annotation.text_segment }}"
+                </div>
+                {% if annotation.llm_reasoning %}
+                <br>
+                <small class="text-info">
+                  <i class="fas fa-brain"></i> {{ annotation.llm_reasoning[:150] }}{% if annotation.llm_reasoning|length
+                  > 150 %}...{% endif %}
+                </small>
+                {% endif %}
+              </td>
+              <td>
+                {% set method_colors = {
+                'basic': 'secondary',
+                'llm_enhanced': 'primary',
+                'definition_based': 'success',
+                'simplified_llm': 'warning'
+                } %}
+                <span class="badge bg-{{ method_colors.get(annotation.concept_type, 'secondary') }}">
+                  {{ annotation.concept_type or 'basic' }}
+                </span>
+                {% if annotation.llm_model %}
+                <br><small class="text-muted">{{ annotation.llm_model }}</small>
+                {% endif %}
+              </td>
+              <td>
+                {% if annotation.confidence %}
+                <div class="progress" style="height: 20px;">
+                  {% set confidence_pct = (annotation.confidence * 100)|int %}
+                  {% set confidence_color = 'success' if confidence_pct >= 80 else 'warning' if confidence_pct >= 60
+                  else 'danger' %}
+                  <div class="progress-bar bg-{{ confidence_color }}" role="progressbar"
+                    style="width: {{ confidence_pct }}%" aria-valuenow="{{ confidence_pct }}" aria-valuemin="0"
+                    aria-valuemax="100">
+                    {{ confidence_pct }}%
                   </div>
+                </div>
+                {% else %}
+                <span class="text-muted">N/A</span>
+                {% endif %}
+              </td>
+              <td>
+                {% set status_colors = {
+                'pending': 'warning',
+                'approved': 'success',
+                'rejected': 'danger'
+                } %}
+                <span class="badge bg-{{ status_colors.get(annotation.validation_status, 'secondary') }}">
+                  {{ annotation.validation_status or 'unknown' }}
+                </span>
+                {% if annotation.created_at %}
+                <small class="text-muted d-block mt-1">{{ annotation.created_at.strftime('%m/%d %H:%M') }}</small>
+                {% endif %}
+              </td>
+              <td>
+                <div class="btn-group" role="group" aria-label="Annotation actions">
+                  {% if annotation.approval_stage == 'pending' %}
+                  <button type="button" class="btn btn-sm btn-outline-primary"
+                    onclick="window.annotationApprovalModal.showApproval({{ annotation.id }})"
+                    title="Review annotation">
+                    <i class="fas fa-eye"></i> Review
+                  </button>
+                  {% elif annotation.approval_stage == 'llm_approved' %}
+                  <button type="button" class="btn btn-sm btn-success"
+                    onclick="window.annotationApprovalModal.showApproval({{ annotation.id }})"
+                    title="Approve annotation">
+                    <i class="fas fa-check"></i> Approve
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-warning"
+                    onclick="window.annotationApprovalModal.showApproval({{ annotation.id }})" title="Edit annotation">
+                    <i class="fas fa-edit"></i> Edit
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="rejectAnnotation({{ annotation.id }})" title="Reject annotation">
+                    <i class="fas fa-times"></i> Reject
+                  </button>
+                  {% elif annotation.approval_stage == 'user_approved' %}
+                  <span class="badge bg-success"><i class="fas fa-check-circle"></i> Approved</span>
+                  <button type="button" class="btn btn-sm btn-outline-info"
+                    onclick="viewVersionHistory({{ annotation.id }})" title="View history">
+                    <i class="fas fa-history"></i> History
+                  </button>
                   {% else %}
-                  <span class="text-muted">N/A</span>
+                  <button type="button" class="btn btn-sm btn-outline-secondary"
+                    onclick="window.annotationApprovalModal.showApproval({{ annotation.id }})"
+                    title="Review annotation">
+                    <i class="fas fa-eye"></i> Review
+                  </button>
                   {% endif %}
-                </td>
-                <td>
-                  {% set status_colors = {
-                    'pending': 'warning',
-                    'approved': 'success',
-                    'rejected': 'danger'
-                  } %}
-                  <span class="badge bg-{{ status_colors.get(annotation.validation_status, 'secondary') }}">
-                    {{ annotation.validation_status or 'unknown' }}
-                  </span>
-                  {% if annotation.created_at %}
-                  <small class="text-muted d-block mt-1">{{ annotation.created_at.strftime('%m/%d %H:%M') }}</small>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
-    {% endfor %}
+  </div>
+  {% endfor %}
   {% else %}
-    <div class="alert alert-info">
-      <h5><i class="fas fa-info-circle"></i> No Annotations Found</h5>
-      <p class="mb-2">No annotations have been extracted for this guideline yet.</p>
-      <p class="mb-0">
-        <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
-          <i class="fas fa-arrow-left"></i> Go Back to Guideline
-        </a>
-      </p>
-    </div>
+  <div class="alert alert-info">
+    <h5><i class="fas fa-info-circle"></i> No Annotations Found</h5>
+    <p class="mb-2">No annotations have been extracted for this guideline yet.</p>
+    <p class="mb-0">
+      <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-primary">
+        <i class="fas fa-arrow-left"></i> Go Back to Guideline
+      </a>
+    </p>
+  </div>
   {% endif %}
 
-  <!-- Actions -->
+  <!-- Batch Actions -->
+  <div class="card mt-4">
+    <div class="card-body text-center">
+      <h6>Batch Actions</h6>
+      <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-primary" onclick="batchLLMApproval()">
+          <i class="fas fa-robot"></i> LLM Approve All Pending
+        </button>
+        <button type="button" class="btn btn-success" onclick="saveAnnotationsAsVersion()">
+          <i class="fas fa-save"></i> Save Approved as Version
+        </button>
+      </div>
+      <div class="mt-2">
+        <small class="text-muted">
+          Use batch LLM approval first, then review individual annotations before saving as version.
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Actions -->
   <div class="mt-4 text-center">
     <a href="{{ url_for('worlds.view_guideline', id=world.id, document_id=guideline.id) }}" class="btn btn-secondary">
       <i class="fas fa-arrow-left"></i> Back to Guideline
@@ -190,31 +252,210 @@
   </div>
 </div>
 
+<!-- Annotation Approval Modal -->
+<div class="modal fade" id="annotationApprovalModal" tabindex="-1" aria-labelledby="annotationApprovalModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="annotationApprovalModalLabel">Review Annotation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalLoading" class="text-center">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        <div id="modalContent" style="display: none;">
+          <!-- Content will be populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <div id="modalActions">
+          <!-- Action buttons will be populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block styles %}
 {{ super() }}
 <style>
-.guideline-content-preview {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-}
+  .guideline-content-preview {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  }
 
-.text-highlight {
-  display: inline-block;
-  max-width: 100%;
-  word-wrap: break-word;
-}
+  .text-highlight {
+    display: inline-block;
+    max-width: 100%;
+    word-wrap: break-word;
+  }
 
-.table td {
-  vertical-align: middle;
-}
+  .table td {
+    vertical-align: middle;
+  }
 
-.badge {
-  font-size: 0.75em;
-}
+  .badge {
+    font-size: 0.75em;
+  }
 
-.progress {
-  font-size: 0.7em;
-}
+  .progress {
+    font-size: 0.7em;
+  }
+
+  .btn-group .btn {
+    margin-right: 2px;
+  }
+
+  .btn-group .btn:last-child {
+    margin-right: 0;
+  }
 </style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/annotation_approval_modal.js') }}"></script>
+<script>
+  // Global variables for the page
+  const guidelineId = {{ guideline.id }};
+  const worldId = {{ world.id }};
+  const csrfToken = "{{ csrf_token() }}";
+
+  // Initialize the approval modal when the page loads
+  document.addEventListener('DOMContentLoaded', function () {
+    // The global modal instance is already created, just ensure it has the CSRF token
+    if (window.annotationApprovalModal) {
+      window.annotationApprovalModal.csrfToken = csrfToken;
+    } else {
+      window.annotationApprovalModal = new AnnotationApprovalModal('#annotationApprovalModal', csrfToken);
+    }
+  });
+
+  // Batch LLM approval function
+  async function batchLLMApproval() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    button.disabled = true;
+
+    try {
+      const response = await fetch('/api/annotation_versions/batch/llm-approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          guideline_id: guidelineId
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(`Successfully processed ${result.approved_count} annotations via LLM approval.`);
+        location.reload(); // Refresh the page to show updated statuses
+      } else {
+        alert('Error during batch LLM approval: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error during batch LLM approval: ' + error.message);
+    } finally {
+      button.innerHTML = originalText;
+      button.disabled = false;
+    }
+  }
+
+  // Save annotations as version function
+  async function saveAnnotationsAsVersion() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    button.disabled = true;
+
+    try {
+      const response = await fetch('/api/annotation_versions/batch/save-version', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          guideline_id: guidelineId,
+          version_name: `Version ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(`Successfully saved ${result.saved_count} approved annotations as a new version.`);
+        location.reload(); // Refresh the page to show updated statuses
+      } else {
+        alert('Error saving annotations as version: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error saving annotations as version: ' + error.message);
+    } finally {
+      button.innerHTML = originalText;
+      button.disabled = false;
+    }
+  }
+
+  // Reject annotation function
+  async function rejectAnnotation(annotationId) {
+    if (!confirm('Are you sure you want to reject this annotation?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/annotation_versions/${annotationId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        }
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert('Annotation rejected successfully.');
+        location.reload(); // Refresh the page to show updated status
+      } else {
+        alert('Error rejecting annotation: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error rejecting annotation: ' + error.message);
+    }
+  }
+
+  // View version history function
+  async function viewVersionHistory(annotationId) {
+    try {
+      const response = await fetch(`/api/annotation_versions/${annotationId}/versions`);
+      const result = await response.json();
+
+      if (response.ok) {
+        let historyHtml = '<h6>Version History</h6><ul>';
+        result.versions.forEach(version => {
+          historyHtml += `<li>Version ${version.version_number} - ${version.approval_stage} (${version.created_at})</li>`;
+        });
+        historyHtml += '</ul>';
+
+        // Show in a simple alert for now - could be enhanced with a modal
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = historyHtml;
+        alert('Version History:\n' + tempDiv.textContent);
+      } else {
+        alert('Error loading version history: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error loading version history: ' + error.message);
+    }
+  }
+</script>
 {% endblock %}
