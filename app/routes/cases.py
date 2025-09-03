@@ -8,6 +8,7 @@ import logging
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
+from flask_wtf.csrf import CSRFProtect
 from app.models import Document
 from app.models.document import PROCESSING_STATUS
 from app.models.world import World
@@ -27,6 +28,13 @@ logger = logging.getLogger(__name__)
 
 # Create blueprints
 cases_bp = Blueprint('cases', __name__, url_prefix='/cases')
+
+# Function to exempt specific routes from CSRF after app initialization
+def init_cases_csrf_exemption(app):
+    """Exempt specific case routes from CSRF protection"""
+    if hasattr(app, 'csrf') and app.csrf:
+        # Exempt the direct_scenario route from CSRF protection using view function
+        app.csrf.exempt(generate_direct_scenario)
 
 @cases_bp.route('/', methods=['GET'])
 def list_cases():
@@ -1946,25 +1954,44 @@ def generate_direct_scenario(case_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@cases_bp.route('/<int:case_id>/scenario_interim', methods=['GET'])
-def view_interim_scenario(case_id):
-    """Interim scenario view: shows direct scenario timeline with ontology summary and participants.
-
-    This is a read-only visualization layer over latest_scenario produced by the Phase A pipeline.
-    """
+@cases_bp.route('/<int:case_id>/scenario', methods=['GET'])
+def view_case_scenario(case_id):
+    """Display the generated scenario timeline and ProEthica categories for a case."""
     try:
         case = Document.query.get_or_404(case_id)
-        latest = None
+        latest_scenario = None
+        
         if case.doc_metadata and isinstance(case.doc_metadata, dict):
-            latest = case.doc_metadata.get('latest_scenario')
-        if not latest:
-            flash('No direct scenario generated yet. Click Regenerate on case page first.', 'warning')
-            return redirect(url_for('cases.view_case', case_id=case_id))
-        return render_template('scenario_interim.html', case=case, scenario=latest)
+            latest_scenario = case.doc_metadata.get('latest_scenario')
+        
+        if not latest_scenario:
+            flash('No scenario generated yet. Please generate a scenario first.', 'warning')
+            return redirect(url_for('cases.view_case', id=case_id))
+        
+        # Filter out Action events (keep only Events and Decisions)
+        filtered_events = []
+        if latest_scenario.get('events'):
+            for event in latest_scenario['events']:
+                if event.get('kind') != 'action':  # Remove actions, keep events and decisions
+                    filtered_events.append(event)
+        
+        # Update the scenario data
+        display_scenario = dict(latest_scenario)
+        display_scenario['events'] = filtered_events
+        display_scenario['stats']['event_count'] = len(filtered_events)
+        
+        return render_template('case_scenario_detail.html', 
+                             case=case, 
+                             scenario=display_scenario)
     except Exception as e:
-        logger.error(f"Error loading interim scenario for case {case_id}: {e}")
-        flash(f"Error loading interim scenario: {e}", 'danger')
-        return redirect(url_for('cases.view_case', case_id=case_id))
+        logger.error(f"Error loading case scenario for case {case_id}: {e}")
+        flash(f"Error loading scenario: {e}", 'danger')
+        return redirect(url_for('cases.view_case', id=case_id))
+
+@cases_bp.route('/<int:case_id>/scenario_interim', methods=['GET'])
+def view_interim_scenario(case_id):
+    """Legacy interim scenario view - redirects to new scenario view."""
+    return redirect(url_for('cases.view_case_scenario', case_id=case_id))
 
 
 @cases_bp.route('/new/agent', methods=['GET'])

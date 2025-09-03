@@ -1,0 +1,355 @@
+{
+  "timestamp": "2025-09-03T13:55:16.771182",
+  "tests": {},
+  "comparisons": {
+    "nspe_case_8_sample": {
+      "case_info": {
+        "title": "Stormwater Management System Case",
+        "id": "nspe_case_8_sample"
+      },
+      "base_adapter_results": {
+        "adapter_type": "base",
+        "adapter_name": "EngineeringEthicsAdapter",
+        "adapter_version": "1.0",
+        "stakeholders": {
+          "count": 3,
+          "entities": [
+            {
+              "name": "Professional Engineer",
+              "role": "StakeholderRole.PROFESSIONAL",
+              "description": "Identified from context: Engineer A is a licensed professional engineer with expert",
+              "interests": [
+                "professional_integrity",
+                "career_advancement",
+                "technical_competence"
+              ],
+              "confidence_score": 0.5,
+              "ontology_alignment": "",
+              "ontology_alignment_score": 0.0
+            },
+            {
+              "name": "Client",
+              "role": "StakeholderRole.CLIENT",
+              "description": "Identified from context: sign. \n                Engineer A was retained by Client X to design a stormwater management system for a",
+              "interests": [
+                "project_success",
+                "cost_effectiveness",
+                "timely_delivery"
+              ],
+              "confidence_score": 0.5,
+              "ontology_alignment": "",
+              "ontology_alignment_score": 0.0
+            },
+            {
+              "name": "Public",
+              "role": "StakeholderRole.PUBLIC",
+              "description": "Identified from context: that would be necessary to ensure public safety and environmental protection. However, Cli",
+              "interests": [
+                "safety",
+                "welfare",
+                "environmental_protection"
+              ],
+              "confidence_score": 0.5,
+              "ontology_alignment": "",
+              "ontology_alignment_score": 0.0
+            }
+          ],
+          "confidence": 0.5
+        },
+        "decision_points": {
+          "count": 1,
+          "entities": [
+            {
+              "title": "Engineer A's Decision 1",
+              "description": "Client X has requested you to cease work on the stormwater management system project after you identified necessary protective measures that they are unwilling to fund.",
+              "decision_type": "DecisionType.SAFETY",
+              "ethical_principles": [
+                "Hold paramount the safety, health, and welfare of the public",
+                "Perform services only in areas of their competence"
+              ],
+              "options_count": 3,
+              "extraction_confidence": 0.5,
+              "ontology_validation_score": 0.0,
+              "ontology_categories": {}
+            }
+          ],
+          "confidence": 0.5
+        },
+        "reasoning_chain": {
+          "facts_count": 3,
+          "principles_count": 1,
+          "steps_count": 1,
+          "confidence": 0.5
+        },
+        "extraction_time": 0.0,
+        "ontology_features": {
+          "uses_ontology": false,
+          "ontology_alignment_score": 0.0,
+          "semantic_validation": false,
+          "cross_validation": false
+        }
+      },
+      "enhanced_adapter_results": {
+        "adapter_type": "enhanced",
+        "adapter_name": "EnhancedEngineeringEthicsAdapter",
+        "adapter_version": "2.0",
+        "stakeholders": {
+          "count": 0,
+          "entities": [],
+          "confidence": 0.0,
+          "ontology_alignment": 0.0
+        },
+        "decision_points": {
+          "count": 0,
+          "entities": [],
+          "confidence": 0.0,
+          "ontology_validation": 0.0
+        },
+        "reasoning_chain": {
+          "facts_count": 3,
+          "principles_count": 1,
+          "steps_count": 1,
+          "confidence": 0.5,
+          "ontology_alignment": 0.0
+        },
+        "extraction_time": 30.379586,
+        "ontology_features": {
+          "uses_ontology": true,
+          "ontology_alignment_score": 0.0,
+          "semantic_validation": true,
+          "cross_validation": true,
+          "mcp_integration": true,
+          "llm_integration": true
+        },
+        "success": true
+      },
+      "comparison": {
+        "comparison_possible": true,
+        "improvements": {
+          "stakeholder_count": {
+            "base": 3,
+            "enhanced": 0,
+            "improvement": -3
+          },
+          "stakeholder_confidence": {
+            "base": 0.5,
+            "enhanced": 0.0,
+            "improvement": -0.5
+          },
+          "decision_count": {
+            "base": 1,
+            "enhanced": 0,
+            "improvement": -1
+          },
+          "decision_confidence": {
+            "base": 0.5,
+            "enhanced": 0.0,
+            "improvement": -0.5
+          },
+          "reasoning_steps": {
+            "base": 1,
+            "enhanced": 1,
+            "improvement": 0
+          },
+          "reasoning_confidence": {
+            "base": 0.5,
+            "enhanced": 0.5,
+            "improvement": 0.0
+          }
+        },
+        "metrics": {},
+        "enhanced_features": {
+          "ontology_integration": true,
+          "semantic_validation": true,
+          "cross_validation": true,
+          "mcp_integration": true,
+          "ontology_alignment_score": 0.0
+        },
+        "overall_improvement": {
+          "confidence_improvement": -0.3333333333333333,
+          "has_ontology_features": true,
+          "ontology_score": 0.0
+        }
+      }
+    },
+    "ai_ethics_case_sample": {
+      "case_info": {
+        "title": "AI-Assisted Engineering Report Case",
+        "id": "ai_ethics_case_sample"
+      },
+      "base_adapter_results": {
+        "adapter_type": "base",
+        "adapter_name": "EngineeringEthicsAdapter",
+        "adapter_version": "1.0",
+        "stakeholders": {
+          "count": 2,
+          "entities": [
+            {
+              "name": "Professional Engineer",
+              "role": "StakeholderRole.PROFESSIONAL",
+              "description": "Identified from context: Engineer B used artificial intelligence software to assist",
+              "interests": [
+                "professional_integrity",
+                "career_advancement",
+                "technical_competence"
+              ],
+              "confidence_score": 0.5,
+              "ontology_alignment": "",
+              "ontology_alignment_score": 0.0
+            },
+            {
+              "name": "Client",
+              "role": "StakeholderRole.CLIENT",
+              "description": "Identified from context: revisions. The final report was submitted to the client without explicitly disclosing \n                th",
+              "interests": [
+                "project_success",
+                "cost_effectiveness",
+                "timely_delivery"
+              ],
+              "confidence_score": 0.5,
+              "ontology_alignment": "",
+              "ontology_alignment_score": 0.0
+            }
+          ],
+          "confidence": 0.5
+        },
+        "decision_points": {
+          "count": 1,
+          "entities": [
+            {
+              "title": "Engineer B's Decision 1",
+              "description": "You face an ethical decision regarding professional responsibilities and public welfare.",
+              "decision_type": "DecisionType.DISCLOSURE",
+              "ethical_principles": [
+                "Hold paramount the safety, health, and welfare of the public",
+                "Issue public statements only in an objective and truthful manner"
+              ],
+              "options_count": 0,
+              "extraction_confidence": 0.5,
+              "ontology_validation_score": 0.0,
+              "ontology_categories": {}
+            }
+          ],
+          "confidence": 0.5
+        },
+        "reasoning_chain": {
+          "facts_count": 3,
+          "principles_count": 1,
+          "steps_count": 1,
+          "confidence": 0.5
+        },
+        "extraction_time": 0.0,
+        "ontology_features": {
+          "uses_ontology": false,
+          "ontology_alignment_score": 0.0,
+          "semantic_validation": false,
+          "cross_validation": false
+        }
+      },
+      "enhanced_adapter_results": {
+        "adapter_type": "enhanced",
+        "adapter_name": "EnhancedEngineeringEthicsAdapter",
+        "adapter_version": "2.0",
+        "stakeholders": {
+          "count": 0,
+          "entities": [],
+          "confidence": 0.0,
+          "ontology_alignment": 0.0
+        },
+        "decision_points": {
+          "count": 0,
+          "entities": [],
+          "confidence": 0.0,
+          "ontology_validation": 0.0
+        },
+        "reasoning_chain": {
+          "facts_count": 3,
+          "principles_count": 1,
+          "steps_count": 1,
+          "confidence": 0.5,
+          "ontology_alignment": 0.0
+        },
+        "extraction_time": 30.345987,
+        "ontology_features": {
+          "uses_ontology": true,
+          "ontology_alignment_score": 0.0,
+          "semantic_validation": true,
+          "cross_validation": true,
+          "mcp_integration": true,
+          "llm_integration": true
+        },
+        "success": true
+      },
+      "comparison": {
+        "comparison_possible": true,
+        "improvements": {
+          "stakeholder_count": {
+            "base": 2,
+            "enhanced": 0,
+            "improvement": -2
+          },
+          "stakeholder_confidence": {
+            "base": 0.5,
+            "enhanced": 0.0,
+            "improvement": -0.5
+          },
+          "decision_count": {
+            "base": 1,
+            "enhanced": 0,
+            "improvement": -1
+          },
+          "decision_confidence": {
+            "base": 0.5,
+            "enhanced": 0.0,
+            "improvement": -0.5
+          },
+          "reasoning_steps": {
+            "base": 1,
+            "enhanced": 1,
+            "improvement": 0
+          },
+          "reasoning_confidence": {
+            "base": 0.5,
+            "enhanced": 0.5,
+            "improvement": 0.0
+          }
+        },
+        "metrics": {},
+        "enhanced_features": {
+          "ontology_integration": true,
+          "semantic_validation": true,
+          "cross_validation": true,
+          "mcp_integration": true,
+          "ontology_alignment_score": 0.0
+        },
+        "overall_improvement": {
+          "confidence_improvement": -0.3333333333333333,
+          "has_ontology_features": true,
+          "ontology_score": 0.0
+        }
+      }
+    }
+  },
+  "overall_summary": {
+    "total_test_cases": 2,
+    "successful_comparisons": 2,
+    "success_rate": 1.0,
+    "average_confidence_improvement": -0.3333333333333333,
+    "average_ontology_alignment": 0.0,
+    "phase2_ready": false,
+    "assessment": "NEEDS_ATTENTION",
+    "key_improvements": [
+      "Ontology-guided entity extraction",
+      "LLM-powered semantic analysis",
+      "Cross-validation with formal entities",
+      "Enhanced confidence scoring",
+      "Multi-category extraction coverage"
+    ],
+    "recommendations": [
+      "Deploy enhanced adapter as default for engineering ethics cases",
+      "Monitor extraction quality and confidence scores",
+      "Continue expanding ontological knowledge base",
+      "Implement user feedback loop for continuous improvement"
+    ]
+  }
+}

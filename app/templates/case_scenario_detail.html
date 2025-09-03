@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}Scenario: {{ case.title }} - AI Ethical Decision-Making Simulator{% endblock %}
+
+{% block styles %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -30px;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 3px #007bff;
+    }
+
+    .timeline-marker.bg-warning {
+        background-color: #ffc107;
+        box-shadow: 0 0 0 3px #ffc107;
+    }
+
+    .timeline-marker.bg-info {
+        background-color: #17a2b8;
+        box-shadow: 0 0 0 3px #17a2b8;
+    }
+
+    .timeline-item:not(:last-child):before {
+        content: '';
+        position: absolute;
+        left: -23px;
+        top: 15px;
+        height: calc(100% + 15px);
+        width: 2px;
+        background-color: #007bff;
+    }
+
+    .timeline-content {
+        padding: 15px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #007bff;
+    }
+
+    .timeline-content-decision {
+        border-left: 3px solid #ffc107;
+        background-color: #fff8e1;
+    }
+
+    .timeline-content-event {
+        border-left: 3px solid #17a2b8;
+        background-color: #e8f4f8;
+    }
+
+    .category-card {
+        transition: transform 0.2s ease;
+    }
+
+    .category-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Top action bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Case
+            </a>
+        </div>
+        <div>
+            <span class="badge bg-primary">{{ scenario.pipeline_version }}</span>
+            <span class="badge bg-secondary">Generated: {{ scenario.generated_at[:10] }}</span>
+        </div>
+    </div>
+
+    <!-- Title -->
+    <h1 class="mb-4">
+        <i class="bi bi-diagram-3 text-primary"></i>
+        Scenario: {{ case.title }}
+    </h1>
+
+    <!-- Scenario Overview -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h3>Scenario Overview</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <p class="mb-2">
+                        <strong>Generated Timeline:</strong> {{ scenario.stats.event_count }} events and {{
+                        scenario.stats.decision_count }} decisions
+                        extracted from case analysis.
+                    </p>
+                    {% if scenario.participants %}
+                    <div class="mb-2">
+                        <strong>Participants:</strong>
+                        {% for participant in scenario.participants %}
+                        <span class="badge bg-info me-1">{{ participant }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if scenario.ontology_enrichment_status == 'failed' %}
+                    <div class="alert alert-warning py-2 px-3 mb-2 small">
+                        <i class="bi bi-exclamation-triangle"></i> MCP server unavailable during generation - running
+                        without ontology enrichment
+                    </div>
+                    {% elif scenario.ontology_enrichment_status == 'success' %}
+                    <div class="alert alert-success py-2 px-3 mb-2 small">
+                        <i class="bi bi-check-circle"></i> Generated with full ontology enrichment and validation
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 text-end">
+                    {% if case.case_number %}
+                    <span class="badge bg-primary me-1">Case #{{ case.case_number }}</span>
+                    {% endif %}
+                    {% if case.year %}
+                    <span class="badge bg-secondary">{{ case.year }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ProEthica Categories (9 Categories) -->
+    {% if scenario.ontology_summary %}
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h3>ProEthica Categories Extracted</h3>
+            <small class="text-muted">Elements identified according to the formal model D = (R, P, O, S, Rs, A, E, Ca,
+                Cs)</small>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% set category_icons = {
+                'Role': 'person-badge',
+                'Principle': 'compass',
+                'Obligation': 'check-square',
+                'State': 'gear',
+                'Resource': 'box',
+                'Action': 'play-circle',
+                'Event': 'calendar-event',
+                'Capability': 'lightning',
+                'Constraint': 'exclamation-triangle'
+                } %}
+
+                {% for category in ['Role', 'Principle', 'Obligation', 'State', 'Resource', 'Action', 'Event',
+                'Capability', 'Constraint'] %}
+                {% set items = scenario.ontology_summary.get(category, []) %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div
+                        class="card h-100 category-card {% if items %}border-primary{% else %}border-secondary{% endif %}">
+                        <div class="card-header {% if items %}bg-primary text-white{% else %}bg-light{% endif %}">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-{{ category_icons.get(category, 'circle') }}"></i>
+                                {{ category }} ({{ items|length }})
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if items %}
+                            <div class="d-flex flex-wrap">
+                                {% for item in items %}
+                                <span class="badge bg-secondary me-1 mb-1" title="{{ item }}">
+                                    {{ item[:30] }}{% if item|length > 30 %}...{% endif %}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted small">No {{ category.lower() }}s identified in this case</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Event Timeline -->
+    <div class="card mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h3>Event Timeline</h3>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">{{ scenario.events|length }} timeline items</small>
+                <div class="d-flex align-items-center gap-2 small text-muted">
+                    <span class="badge bg-info">Event</span>
+                    <span class="badge bg-warning">Decision</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if scenario.events %}
+            <div class="timeline">
+                {% for event in scenario.events %}
+                <div class="timeline-item">
+                    <div class="timeline-marker 
+                        {% if event.kind == 'decision' %}bg-warning{% else %}bg-info{% endif %}">
+                    </div>
+                    <div
+                        class="timeline-content 
+                        {% if event.kind == 'decision' %}timeline-content-decision{% else %}timeline-content-event{% endif %}">
+
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">
+                                {% if event.kind == 'decision' %}
+                                <i class="bi bi-question-circle text-warning"></i> Decision Point
+                                {% else %}
+                                <i class="bi bi-circle-fill text-info"></i> Event
+                                {% endif %}
+                                {% if event.id %}
+                                <small class="text-muted">#{{ event.id }}</small>
+                                {% endif %}
+                            </h5>
+                            {% if event.section %}
+                            <small class="badge bg-light text-dark">{{ event.section }}</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <p class="mb-0">{{ event.text }}</p>
+                        </div>
+
+                        {% if event.kind == 'decision' and event.options %}
+                        <div class="decision-options">
+                            <h6 class="text-warning">
+                                <i class="bi bi-list-ul"></i> Decision Options:
+                            </h6>
+                            <div class="list-group">
+                                {% for option in event.options %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <strong>{{ option.label if option.label else 'Option ' + loop.index|string
+                                            }}</strong>
+                                    </div>
+                                    {% if option.description %}
+                                    <p class="mb-1 small text-muted">{{ option.description }}</p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if event.ontology_categories %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="bi bi-tags"></i> Ontology Categories:
+                                {% for category, items in event.ontology_categories.items() %}
+                                {% for item in items %}
+                                <span class="badge bg-secondary me-1">{{ category }}: {{ item.label }}</span>
+                                {% endfor %}
+                                {% endfor %}
+                            </small>
+                        </div>
+                        {% endif %}
+
+                        {% if event.temporal_triggers %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> Temporal Context: {{ event.temporal_triggers|join(', ') }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-calendar-x display-4"></i>
+                <p class="mt-2">No timeline events available</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Participants Detail -->
+    {% if scenario.enhanced_participants or scenario.participants %}
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h3>Participants & Roles</h3>
+        </div>
+        <div class="card-body">
+            {% if scenario.enhanced_participants %}
+            <div class="row">
+                {% for participant in scenario.enhanced_participants %}
+                <div class="col-md-6 mb-3">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">{{ participant.name }}</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if participant.ontology_role %}
+                            <div class="mb-2">
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Ontology Role
+                                </span>
+                                <strong>{{ participant.ontology_role.label }}</strong>
+                                <small class="text-muted d-block">
+                                    Confidence: {{ (participant.ontology_role.confidence * 100)|round }}%
+                                </small>
+                            </div>
+                            {% else %}
+                            <div class="mb-2">
+                                <span class="badge bg-secondary">Participant</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for participant in scenario.participants %}
+                <span class="badge bg-info fs-6">{{ participant }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Generation Metadata -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h3>Generation Details</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Pipeline Version:</dt>
+                        <dd class="col-sm-7">
+                            <code>{{ scenario.pipeline_version }}</code>
+                            {% if 'enhanced' in scenario.pipeline_version %}
+                            <span class="badge bg-success ms-1">Enhanced</span>
+                            {% else %}
+                            <span class="badge bg-secondary ms-1">Legacy</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-5">Generated:</dt>
+                        <dd class="col-sm-7">{{ scenario.generated_at[:19]|replace('T', ' ') }}</dd>
+
+                        <dt class="col-sm-5">Version:</dt>
+                        <dd class="col-sm-7">#{{ scenario.version_number }}</dd>
+
+                        <dt class="col-sm-5">Content Hash:</dt>
+                        <dd class="col-sm-7"><code>{{ scenario.hash }}</code></dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Statistics:</dt>
+                        <dd class="col-sm-7">
+                            <div class="small">
+                                Events: {{ scenario.stats.event_count }}<br>
+                                Decisions: {{ scenario.stats.decision_count }}<br>
+                                {% if scenario.stats.timeline_events %}
+                                Timeline Events: {{ scenario.stats.timeline_events }}<br>
+                                {% endif %}
+                                {% if scenario.stats.temporal_evidence_count %}
+                                Temporal Evidence: {{ scenario.stats.temporal_evidence_count }}<br>
+                                {% endif %}
+                                Participants: {{ scenario.stats.participants_count or scenario.participants|length }}
+                            </div>
+                        </dd>
+
+                        {% if scenario.extraction_metadata %}
+                        <dt class="col-sm-5">Extraction:</dt>
+                        <dd class="col-sm-7">
+                            {% for key, value in scenario.extraction_metadata.items() %}
+                            <small class="text-muted d-block">{{ key }}: {{ value }}</small>
+                            {% endfor %}
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize tooltips for truncated category items
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+    });
+</script>
+{% endblock %}
