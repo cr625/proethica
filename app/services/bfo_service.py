@@ -182,3 +182,139 @@ class BFOService:
             
             # Add relation statement
             g.add((subject_uri, relation_pred, related_uri))
+    
+    def extract_temporal_boundaries(self, events: List[Dict[str, Any]], case_content: str) -> List[Dict[str, Any]]:
+        """
+        Extract temporal boundaries from events using BFO concepts.
+        
+        Args:
+            events: List of events from scenario generation
+            case_content: Original case text for context
+            
+        Returns:
+            List of temporal boundary dictionaries
+        """
+        boundaries = []
+        
+        # Find decision points as temporal boundaries (BFO_0000011)
+        for i, event in enumerate(events):
+            if event.get('kind') == 'decision':
+                boundary = {
+                    'boundary_id': f"bfo_boundary_{i+1}",
+                    'bfo_class': 'BFO_0000011',  # temporal boundary
+                    'event_id': event.get('id'),
+                    'boundary_type': 'decision_point',
+                    'description': event.get('text', f"Decision boundary {i+1}"),
+                    'ethical_significance': self._calculate_boundary_significance(event, case_content)
+                }
+                boundaries.append(boundary)
+        
+        return boundaries
+    
+    def calculate_temporal_relations(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Calculate BFO-based temporal relations between events.
+        
+        Args:
+            events: List of events with temporal information
+            
+        Returns:
+            List of temporal relation dictionaries
+        """
+        relations = []
+        
+        # Simple precedence relations for now
+        sorted_events = sorted(events, key=lambda e: e.get('sequence_number', 0))
+        
+        for i in range(len(sorted_events) - 1):
+            current = sorted_events[i]
+            next_event = sorted_events[i + 1]
+            
+            relation = {
+                'source_id': current.get('id'),
+                'target_id': next_event.get('id'),
+                'relation_type': 'precedes',
+                'bfo_class': 'BFO_0000057',  # temporal relation
+                'confidence': 0.8
+            }
+            relations.append(relation)
+        
+        return relations
+    
+    def build_process_profile(self, case_id: int, events: List[Dict[str, Any]], case_content: str) -> Dict[str, Any]:
+        """
+        Build a BFO process profile for the complete case.
+        
+        Args:
+            case_id: Database ID of the case
+            events: List of events from scenario generation
+            case_content: Original case text
+            
+        Returns:
+            Process profile dictionary
+        """
+        boundaries = self.extract_temporal_boundaries(events, case_content)
+        relations = self.calculate_temporal_relations(events)
+        
+        profile = {
+            'process_id': f"bfo_process_{case_id}",
+            'bfo_class': 'BFO_0000015',  # process
+            'case_id': case_id,
+            'temporal_boundaries': boundaries,
+            'temporal_relations': relations,
+            'process_phases': self._identify_bfo_phases(events, boundaries),
+            'critical_path': self._extract_critical_path(events, boundaries)
+        }
+        
+        return profile
+    
+    def _calculate_boundary_significance(self, event: Dict[str, Any], case_content: str) -> float:
+        """Calculate ethical significance of a temporal boundary."""
+        significance = 0.5
+        
+        if event.get('kind') == 'decision':
+            significance += 0.3
+        
+        # Look for ethical keywords
+        text = event.get('text', '').lower()
+        ethical_terms = ['safety', 'public', 'disclosure', 'ethical', 'responsibility']
+        
+        for term in ethical_terms:
+            if term in text:
+                significance += 0.1
+        
+        return min(significance, 1.0)
+    
+    def _identify_bfo_phases(self, events: List[Dict[str, Any]], boundaries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Identify process phases using BFO concepts."""
+        phases = []
+        
+        # Simple phase identification based on decision points
+        decision_boundaries = [b for b in boundaries if b.get('boundary_type') == 'decision_point']
+        
+        for i, boundary in enumerate(decision_boundaries):
+            phase = {
+                'phase_id': f"bfo_phase_{i+1}",
+                'phase_name': f"Phase {i+1}",
+                'bfo_class': 'BFO_0000144',  # process boundary
+                'start_boundary': boundary['boundary_id'],
+                'events_in_phase': []
+            }
+            phases.append(phase)
+        
+        return phases
+    
+    def _extract_critical_path(self, events: List[Dict[str, Any]], boundaries: List[Dict[str, Any]]) -> List[str]:
+        """Extract critical path through the process."""
+        # Return IDs of high-significance boundaries and decision events
+        critical = []
+        
+        for boundary in boundaries:
+            if boundary.get('ethical_significance', 0) > 0.7:
+                critical.append(boundary['boundary_id'])
+        
+        for event in events:
+            if event.get('kind') == 'decision':
+                critical.append(event.get('id'))
+        
+        return critical

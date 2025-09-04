@@ -25,6 +25,11 @@ class Action(db.Model):
     # BFO Ontology classification fields (added 2025-08-08)
     bfo_class = db.Column(db.String(255), default='BFO_0000015')  # process
     proethica_category = db.Column(db.String(50), default='action')
+    
+    # Phase 4: Enhanced temporal modeling fields (added 2025-09-03)
+    temporal_boundaries = db.Column(db.JSON, nullable=True)  # BFO temporal boundaries
+    temporal_relations = db.Column(db.JSON, nullable=True)   # Allen interval relations
+    process_profile = db.Column(db.JSON, nullable=True)      # BFO process profile reference
     ontology_uri = db.Column(db.String(500))  # Full ontology URI
     
     # Legacy ontology fields (deprecated)
