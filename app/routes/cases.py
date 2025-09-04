@@ -36,6 +36,8 @@ def init_cases_csrf_exemption(app):
     if hasattr(app, 'csrf') and app.csrf:
         # Exempt the direct_scenario route from CSRF protection using view function
         app.csrf.exempt(generate_direct_scenario)
+        # Also exempt the clear_scenario route from CSRF protection
+        app.csrf.exempt(clear_scenario)
 
 @cases_bp.route('/', methods=['GET'])
 def list_cases():
@@ -2000,27 +2002,51 @@ def view_case_scenario(case_id):
             flash('No scenario generated yet. Please generate a scenario first.', 'warning')
             return redirect(url_for('cases.view_case', id=case_id))
         
+        # Ensure latest_scenario is a dictionary, not a list
+        if isinstance(latest_scenario, list):
+            logger.error(f"Latest scenario is a list instead of dict for case {case_id}: {type(latest_scenario)}")
+            flash('Invalid scenario data structure. Please regenerate the scenario.', 'danger')
+            return redirect(url_for('cases.view_case', id=case_id))
+        
+        if not isinstance(latest_scenario, dict):
+            logger.error(f"Latest scenario is not a dict for case {case_id}: {type(latest_scenario)}")
+            flash('Invalid scenario data structure. Please regenerate the scenario.', 'danger')
+            return redirect(url_for('cases.view_case', id=case_id))
+        
         # Filter out Action events (keep only Events and Decisions)
         filtered_events = []
-        if latest_scenario.get('events'):
-            for event in latest_scenario['events']:
-                if event.get('kind') != 'action':  # Remove actions, keep events and decisions
-                    filtered_events.append(event)
+        events = latest_scenario.get('events', [])
         
-        # Update the scenario data
-        display_scenario = dict(latest_scenario)
+        # Ensure events is a list
+        if not isinstance(events, list):
+            logger.error(f"Events field is not a list for case {case_id}: {type(events)}")
+            events = []
+        
+        for event in events:
+            if isinstance(event, dict) and event.get('kind') != 'action':  # Remove actions, keep events and decisions
+                filtered_events.append(event)
+        
+        # Create a copy of the scenario data
+        display_scenario = dict(latest_scenario) if isinstance(latest_scenario, dict) else {}
         display_scenario['events'] = filtered_events
         
         # Fix stats field if it's not a dictionary
-        if not isinstance(display_scenario.get('stats'), dict):
-            logger.warning(f"Stats field is not a dictionary, type: {type(display_scenario.get('stats'))}")
+        stats = display_scenario.get('stats', {})
+        if not isinstance(stats, dict):
+            logger.warning(f"Stats field is not a dictionary, type: {type(stats)}")
             display_scenario['stats'] = {
                 'event_count': len(filtered_events),
-                'decision_count': sum(1 for e in filtered_events if e.get('kind') == 'decision'),
-                'original_stats': display_scenario.get('stats')
+                'decision_count': sum(1 for e in filtered_events if isinstance(e, dict) and e.get('kind') == 'decision'),
+                'original_stats': stats
             }
         else:
             display_scenario['stats']['event_count'] = len(filtered_events)
+        
+        # Ensure ontology_summary is a dict
+        ontology_summary = display_scenario.get('ontology_summary', {})
+        if not isinstance(ontology_summary, dict):
+            logger.warning(f"Ontology summary is not a dict for case {case_id}: {type(ontology_summary)}")
+            display_scenario['ontology_summary'] = {}
         
         return render_template('case_scenario_detail.html', 
                              case=case, 

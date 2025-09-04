@@ -155,7 +155,13 @@ class EnhancedScenarioModelGenerator:
             if world:
                 # Get roles for this specific world only (not across worlds)
                 try:
-                    ontology_roles = ontology_service.get_entities_for_world(world).get('entities', {}).get('role', [])
+                    entities_result = ontology_service.get_entities_for_world(world)
+                    if isinstance(entities_result, dict) and 'entities' in entities_result:
+                        ontology_roles = entities_result['entities'].get('role', [])
+                    elif isinstance(entities_result, list):
+                        ontology_roles = entities_result
+                    else:
+                        ontology_roles = []
                 except Exception as e:
                     logger.warning(f"Failed to get ontology roles for world {world.name}: {e}")
                     ontology_roles = []

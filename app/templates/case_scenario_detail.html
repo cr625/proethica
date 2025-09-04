@@ -265,11 +265,15 @@
                         <div class="mt-2">
                             <small class="text-muted">
                                 <i class="bi bi-tags"></i> Ontology Categories:
+                                {% if event.ontology_categories is mapping %}
                                 {% for category, items in event.ontology_categories.items() %}
                                 {% for item in items %}
                                 <span class="badge bg-secondary me-1">{{ category }}: {{ item.label }}</span>
                                 {% endfor %}
                                 {% endfor %}
+                                {% else %}
+                                <span class="badge bg-secondary me-1">{{ event.ontology_categories }}</span>
+                                {% endif %}
                             </small>
                         </div>
                         {% endif %}
@@ -390,9 +394,13 @@
                         {% if scenario.extraction_metadata %}
                         <dt class="col-sm-5">Extraction:</dt>
                         <dd class="col-sm-7">
+                            {% if scenario.extraction_metadata is mapping %}
                             {% for key, value in scenario.extraction_metadata.items() %}
                             <small class="text-muted d-block">{{ key }}: {{ value }}</small>
                             {% endfor %}
+                            {% else %}
+                            <small class="text-muted d-block">{{ scenario.extraction_metadata }}</small>
+                            {% endif %}
                         </dd>
                         {% endif %}
                     </dl>

@@ -68,7 +68,14 @@ class CaseRoleMatchingService:
         # If a world is provided, prefer aggregating roles across base and derived ontologies
         if world is not None:
             try:
-                aggregated = self.ontology_service.get_roles_across_world(world)
+                entities = self.ontology_service.get_entities_for_world(world)
+                if entities and isinstance(entities, dict) and 'entities' in entities:
+                    aggregated = entities['entities'].get('role', [])
+                elif isinstance(entities, list):
+                    aggregated = entities
+                else:
+                    aggregated = []
+                
                 if aggregated:
                     ontology_roles = aggregated
                     logger.info(f"Using aggregated {len(ontology_roles)} roles across world ontologies for matching")

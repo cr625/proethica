@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""
+Fix ProEthica Category Table Schema
+
+Updates the database table schemas to exactly match the SQLAlchemy models
+for all 9 ProEthica categories.
+"""
+
+import psycopg2
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def fix_schema():
+    """Fix schema for ProEthica category tables to match SQLAlchemy models."""
+    
+    # Database connection details (using postgres admin user)
+    conn_params = {
+        'host': 'localhost',
+        'port': 5432,
+        'database': 'ai_ethical_dm',
+        'user': 'postgres',
+        'password': 'PASS'
+    }
+    
+    try:
+        # Connect to database
+        conn = psycopg2.connect(**conn_params)
+        cursor = conn.cursor()
+        
+        logger.info("Connected to database, fixing table schemas...")
+        
+        # Fix Principles table schema
+        logger.info("Fixing principles table schema...")
+        cursor.execute("DROP TABLE IF EXISTS principles CASCADE;")
+        cursor.execute("""
+            CREATE TABLE principles (
+                id SERIAL PRIMARY KEY,
+                scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                principle_type VARCHAR(100),
+                source VARCHAR(255),
+                bfo_class VARCHAR(255) DEFAULT 'BFO_0000031',
+                proethica_category VARCHAR(50) DEFAULT 'principle',
+                ontology_uri VARCHAR(500),
+                extraction_confidence FLOAT DEFAULT 0.0,
+                extraction_method VARCHAR(100) DEFAULT 'llm_enhanced',
+                validation_notes TEXT,
+                applies_from INTEGER,
+                applies_until INTEGER,
+                principle_metadata JSON DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX idx_principles_scenario ON principles(scenario_id);
+            CREATE INDEX idx_principles_type ON principles(principle_type);
+            GRANT ALL PRIVILEGES ON TABLE principles TO proethica_user;
+            GRANT ALL PRIVILEGES ON SEQUENCE principles_id_seq TO proethica_user;
+        """)
+        
+        # Fix Obligations table schema
+        logger.info("Fixing obligations table schema...")
+        cursor.execute("DROP TABLE IF EXISTS obligations CASCADE;")
+        cursor.execute("""
+            CREATE TABLE obligations (
+                id SERIAL PRIMARY KEY,
+                scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                obligation_type VARCHAR(100),
+                duty_bearer VARCHAR(255),
+                duty_recipient VARCHAR(255),
+                temporal_scope VARCHAR(50),
+                bfo_class VARCHAR(255) DEFAULT 'BFO_0000031',
+                proethica_category VARCHAR(50) DEFAULT 'obligation',
+                ontology_uri VARCHAR(500),
+                extraction_confidence FLOAT DEFAULT 0.0,
+                extraction_method VARCHAR(100) DEFAULT 'llm_enhanced',
+                validation_notes TEXT,
+                triggers_from INTEGER,
+                triggers_until INTEGER,
+                obligation_metadata JSON DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX idx_obligations_scenario ON obligations(scenario_id);
+            CREATE INDEX idx_obligations_type ON obligations(obligation_type);
+            CREATE INDEX idx_obligations_bearer ON obligations(duty_bearer);
+            GRANT ALL PRIVILEGES ON TABLE obligations TO proethica_user;
+            GRANT ALL PRIVILEGES ON SEQUENCE obligations_id_seq TO proethica_user;
+        """)
+        
+        # Fix States table schema
+        logger.info("Fixing states table schema...")
+        cursor.execute("DROP TABLE IF EXISTS states CASCADE;")
+        cursor.execute("""
+            CREATE TABLE states (
+                id SERIAL PRIMARY KEY,
+                scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                state_type VARCHAR(100),
+                entity_affected VARCHAR(255),
+                initial_value VARCHAR(255),
+                current_value VARCHAR(255),
+                change_tracking JSON DEFAULT '{}',
+                bfo_class VARCHAR(255) DEFAULT 'BFO_0000020',
+                proethica_category VARCHAR(50) DEFAULT 'state',
+                ontology_uri VARCHAR(500),
+                extraction_confidence FLOAT DEFAULT 0.0,
+                extraction_method VARCHAR(100) DEFAULT 'llm_enhanced',
+                validation_notes TEXT,
+                tracked_from INTEGER,
+                tracked_until INTEGER,
+                state_metadata JSON DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX idx_states_scenario ON states(scenario_id);
+            CREATE INDEX idx_states_type ON states(state_type);
+            CREATE INDEX idx_states_entity ON states(entity_affected);
+            GRANT ALL PRIVILEGES ON TABLE states TO proethica_user;
+            GRANT ALL PRIVILEGES ON SEQUENCE states_id_seq TO proethica_user;
+        """)
+        
+        # Fix Capabilities table schema
+        logger.info("Fixing capabilities table schema...")
+        cursor.execute("DROP TABLE IF EXISTS capabilities CASCADE;")
+        cursor.execute("""
+            CREATE TABLE capabilities (
+                id SERIAL PRIMARY KEY,
+                scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                capability_type VARCHAR(100),
+                capability_holder VARCHAR(255),
+                competency_level VARCHAR(50),
+                skill_evolution JSON DEFAULT '{}',
+                bfo_class VARCHAR(255) DEFAULT 'BFO_0000016',
+                proethica_category VARCHAR(50) DEFAULT 'capability',
+                ontology_uri VARCHAR(500),
+                extraction_confidence FLOAT DEFAULT 0.0,
+                extraction_method VARCHAR(100) DEFAULT 'llm_enhanced',
+                validation_notes TEXT,
+                develops_from INTEGER,
+                develops_until INTEGER,
+                capability_metadata JSON DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX idx_capabilities_scenario ON capabilities(scenario_id);
+            CREATE INDEX idx_capabilities_type ON capabilities(capability_type);
+            CREATE INDEX idx_capabilities_holder ON capabilities(capability_holder);
+            GRANT ALL PRIVILEGES ON TABLE capabilities TO proethica_user;
+            GRANT ALL PRIVILEGES ON SEQUENCE capabilities_id_seq TO proethica_user;
+        """)
+        
+        # Fix Constraints table schema
+        logger.info("Fixing constraints table schema...")
+        cursor.execute("DROP TABLE IF EXISTS constraints CASCADE;")
+        cursor.execute("""
+            CREATE TABLE constraints (
+                id SERIAL PRIMARY KEY,
+                scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                constraint_type VARCHAR(100),
+                constraint_source VARCHAR(255),
+                severity_level VARCHAR(50),
+                affected_entities JSON DEFAULT '{}',
+                bfo_class VARCHAR(255) DEFAULT 'BFO_0000031',
+                proethica_category VARCHAR(50) DEFAULT 'constraint',
+                ontology_uri VARCHAR(500),
+                extraction_confidence FLOAT DEFAULT 0.0,
+                extraction_method VARCHAR(100) DEFAULT 'llm_enhanced',
+                validation_notes TEXT,
+                limits_from INTEGER,
+                limits_until INTEGER,
+                constraint_metadata JSON DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX idx_constraints_scenario ON constraints(scenario_id);
+            CREATE INDEX idx_constraints_type ON constraints(constraint_type);
+            CREATE INDEX idx_constraints_source ON constraints(constraint_source);
+            GRANT ALL PRIVILEGES ON TABLE constraints TO proethica_user;
+            GRANT ALL PRIVILEGES ON SEQUENCE constraints_id_seq TO proethica_user;
+        """)
+        
+        # Commit the changes
+        conn.commit()
+        logger.info("✅ Table schemas fixed successfully")
+        
+        # Verify the changes
+        cursor.execute("""
+            SELECT table_name, column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name IN ('principles', 'obligations', 'states', 'capabilities', 'constraints')
+            AND column_name IN ('source', 'principle_type', 'obligation_type', 'state_type', 'capability_type', 'constraint_type')
+            ORDER BY table_name, column_name;
+        """)
+        
+        verification = cursor.fetchall()
+        logger.info("Verification - Key columns created:")
+        for row in verification:
+            logger.info(f"  {row[0]}.{row[1]}: {row[2]}")
+        
+    except Exception as e:
+        logger.error(f"Schema fix failed: {e}")
+        if 'conn' in locals():
+            conn.rollback()
+        raise
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
+
+if __name__ == "__main__":
+    fix_schema()
