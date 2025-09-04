@@ -37,8 +37,18 @@ try:
     from .mcp_ontology_client import MCPOntologyClient, get_role_for_participant, enrich_decision_with_ontology
     from .enhanced_scenario_model_generator import EnhancedScenarioModelGenerator
     ENHANCED_FEATURES_AVAILABLE = True
+    
+    # Import LLM-mediated temporal reasoning
+    try:
+        from app.services.llm_mediated_temporal_reasoning import LLMMediatedTemporalReasoningService
+        LLM_TEMPORAL_AVAILABLE = True
+    except ImportError:
+        LLM_TEMPORAL_AVAILABLE = False
+        logging.getLogger(__name__).warning("LLM-mediated temporal reasoning not available")
+        
 except ImportError as e:
     ENHANCED_FEATURES_AVAILABLE = False
+    LLM_TEMPORAL_AVAILABLE = False
     logging.getLogger(__name__).warning(f"Enhanced features not available: {e}")
 
 PIPELINE_VERSION = 'phase_a_v1'
@@ -52,11 +62,23 @@ class DirectScenarioPipelineService:
             ENHANCED_FEATURES_AVAILABLE and 
             os.environ.get('ENHANCED_SCENARIO_GENERATION', 'false').lower() == 'true'
         )
+        self.llm_temporal_enabled = (
+            LLM_TEMPORAL_AVAILABLE and 
+            self.enhanced_enabled
+        )
+        
         if self.enhanced_enabled:
             try:
                 self.enhanced_service = EnhancedLLMScenarioService()
                 self.model_generator = EnhancedScenarioModelGenerator()
-                logger.info("Enhanced LLM scenario generation enabled")
+                
+                # Initialize LLM-mediated temporal reasoning if available
+                if self.llm_temporal_enabled:
+                    self.llm_temporal_service = LLMMediatedTemporalReasoningService()
+                    logger.info("Enhanced LLM scenario generation with temporal reasoning enabled")
+                else:
+                    logger.info("Enhanced LLM scenario generation enabled (temporal reasoning unavailable)")
+                    
             except ValueError as e:
                 if "API key is required" in str(e):
                     logger.error("Enhanced generation requires ANTHROPIC_API_KEY environment variable")
@@ -93,6 +115,31 @@ class DirectScenarioPipelineService:
             if timeline_data.get('error'):
                 logger.warning(f"Enhanced generation failed: {timeline_data['error']}, falling back to legacy")
                 return self._generate_legacy(case, metadata, sections, overwrite)
+            
+            # Try to enrich with LLM-mediated temporal reasoning
+            if self.llm_temporal_enabled:
+                try:
+                    logger.info("Applying LLM-mediated temporal reasoning...")
+                    events = timeline_data.get('timeline_events', [])
+                    participants = timeline_data.get('participants', [])
+                    
+                    # Run LLM-mediated temporal analysis
+                    temporal_analysis = asyncio.run(
+                        self.llm_temporal_service.generate_validated_temporal_analysis(
+                            case.id, events, case.content, participants
+                        )
+                    )
+                    
+                    # Integrate temporal analysis into timeline
+                    timeline_data['temporal_analysis'] = temporal_analysis
+                    timeline_data['llm_temporal_validation'] = 'success'
+                    
+                    logger.info(f"LLM temporal analysis complete: {temporal_analysis['validation_summary']}")
+                    
+                except Exception as e:
+                    logger.error(f"LLM temporal reasoning failed: {e}")
+                    timeline_data['llm_temporal_validation'] = 'failed'
+                    timeline_data['llm_temporal_error'] = str(e)
             
             # Try to enrich with MCP ontology integration (async)
             try:
@@ -206,6 +253,164 @@ class DirectScenarioPipelineService:
 
         versions = metadata.get('scenario_versions', [])
         content_hash = hashlib.sha256(str(stats).encode('utf-8')).hexdigest()[:12]
+        scenario_data['hash'] = content_hash
+        scenario_data['version_number'] = len(versions) + 1
+
+        if overwrite:
+            versions.append(scenario_data)
+        else:
+            if not versions or versions[-1].get('hash') != content_hash:
+                versions.append(scenario_data)
+
+        metadata['scenario_versions'] = versions
+        metadata['latest_scenario'] = scenario_data
+        case.doc_metadata = dict(metadata)
+        flag_modified(case, 'doc_metadata')
+        db.session.add(case)
+        db.session.commit()
+
+    async def _enrich_with_ontology(self, timeline_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Enrich timeline data with MCP ontology integration."""
+        try:
+            async with MCPOntologyClient() as mcp_client:
+                # Enrich participants with ontological roles
+                for participant in timeline_data.get('participants', []):
+                    role_entity = await mcp_client.map_participant_to_role(participant['name'])
+                    if role_entity:
+                        participant['ontology_role'] = {
+                            'uri': role_entity.uri,
+                            'label': role_entity.label,
+                            'confidence': role_entity.confidence
+                        }
+                
+                # Enrich decisions with ontological categories
+                for decision in timeline_data.get('enhanced_decisions', []):
+                    ontology_enrichment = await mcp_client.enrich_decision_with_ontology(
+                        decision.question, 
+                        decision.context
+                    )
+                    decision.ontology_categories = ontology_enrichment
+                
+                timeline_data['ontology_enrichment_status'] = 'success'
+                
+        except Exception as e:
+            logger.error(f"MCP ontology enrichment failed: {e}")
+            timeline_data['ontology_enrichment_status'] = 'failed'
+            timeline_data['ontology_enrichment_error'] = str(e)
+            
+        return timeline_data
+
+    def _build_enhanced_scenario_data(self, case: Document, enhanced_timeline: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Build enhanced scenario data structure."""
+        timeline_events = enhanced_timeline.get('timeline_events', [])
+        enhanced_decisions = enhanced_timeline.get('enhanced_decisions', [])
+        participants = enhanced_timeline.get('participants', [])
+        temporal_evidence = enhanced_timeline.get('temporal_evidence', [])
+        
+        # Convert enhanced decisions to event format
+        decision_events = []
+        for decision in enhanced_decisions:
+            decision_event = {
+                'id': decision.id,
+                'kind': 'decision',
+                'title': decision.title,
+                'text': decision.question,
+                'question': decision.question,
+                'context': decision.context,
+                'section': decision.section_source,
+                'ontology_categories': decision.ontology_categories,
+                'temporal_triggers': decision.temporal_triggers,
+                'options': self.enhanced_service.generate_decision_options(decision, metadata),
+                'enhanced_decision': True
+            }
+            decision_events.append(decision_event)
+        
+        # Combine timeline events and decisions
+        all_events = timeline_events + decision_events
+        
+        # Build ordering from temporal evidence
+        ordering = self._build_evidence_based_ordering(all_events, temporal_evidence)
+        
+        # Calculate stats
+        stats = {
+            'event_count': len(all_events),
+            'decision_count': len(decision_events),
+            'timeline_events': len(timeline_events),
+            'temporal_evidence_count': len(temporal_evidence),
+            'participants_count': len(participants)
+        }
+        
+        # Build enhanced ontology summary
+        ontology_summary = self._build_enhanced_ontology_summary(enhanced_timeline)
+        
+        scenario_data = {
+            'pipeline_version': ENHANCED_PIPELINE_VERSION,
+            'generated_at': datetime.now(timezone.utc).isoformat(),
+            'case_id': case.id,
+            'events': all_events,
+            'ordering': ordering,
+            'stats': stats,
+            'participants': [p['name'] for p in participants],
+            'enhanced_participants': participants,
+            'ontology_summary': ontology_summary,
+            'temporal_evidence': temporal_evidence,
+            'extraction_metadata': enhanced_timeline.get('extraction_metadata', {}),
+            'ontology_enrichment_status': enhanced_timeline.get('ontology_enrichment_status', 'not_attempted')
+        }
+        
+        return scenario_data
+
+    def _build_evidence_based_ordering(self, events: List[Dict[str, Any]], temporal_evidence: List[Dict[str, Any]]) -> List[str]:
+        """Build event ordering based on temporal evidence."""
+        # Start with sequence numbers from timeline events
+        ordered_events = []
+        
+        # Sort timeline events by sequence number
+        timeline_events = [e for e in events if e.get('sequence_number')]
+        timeline_events.sort(key=lambda x: x.get('sequence_number', 0))
+        
+        # Add decision events after their triggers
+        decision_events = [e for e in events if e.get('kind') == 'decision']
+        
+        # Simple ordering: timeline events first, then decisions
+        for event in timeline_events:
+            ordered_events.append(event['id'])
+            
+        for event in decision_events:
+            ordered_events.append(event['id'])
+            
+        return ordered_events
+
+    def _build_enhanced_ontology_summary(self, enhanced_timeline: Dict[str, Any]) -> Dict[str, Any]:
+        """Build enhanced ontology summary from enriched data."""
+        summary = {}
+        
+        # Extract ontology categories from participants
+        participants = enhanced_timeline.get('participants', [])
+        roles = []
+        for participant in participants:
+            if participant.get('ontology_role'):
+                roles.append(participant['ontology_role']['label'])
+        summary['Role'] = list(set(roles))
+        
+        # Extract categories from decisions
+        decisions = enhanced_timeline.get('enhanced_decisions', [])
+        for category in ['Principle', 'Obligation', 'Action', 'State', 'Resource', 'Event', 'Capability', 'Constraint']:
+            category_items = []
+            for decision in decisions:
+                ontology_cats = getattr(decision, 'ontology_categories', {})
+                if isinstance(ontology_cats, dict) and category.lower() in ontology_cats:
+                    category_items.extend([item['label'] for item in ontology_cats[category.lower()]])
+            summary[category] = list(set(category_items))
+        
+        return summary
+
+    def _save_enhanced_scenario(self, case: Document, scenario_data: Dict[str, Any], overwrite: bool):
+        """Save enhanced scenario data to database."""
+        metadata = case.doc_metadata or {}
+        versions = metadata.get('scenario_versions', [])
+        
+        content_hash = hashlib.sha256(str(scenario_data['stats']).encode('utf-8')).hexdigest()[:12]
         scenario_data['hash'] = content_hash
         scenario_data['version_number'] = len(versions) + 1
 

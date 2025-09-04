@@ -34,6 +34,9 @@ from app.services.temporal_reasoning_service import (
 from shared.llm_orchestration.core.orchestrator import get_llm_orchestrator
 from shared.llm_orchestration.providers import GenerationRequest, GenerationResponse
 
+# Import validation tracker
+from app.services.llm_validation_tracker import get_llm_validation_tracker
+
 logger = logging.getLogger(__name__)
 
 
@@ -610,37 +613,86 @@ Temporal Relations: {len(profile.temporal_relations)} relations"""
         """
         logger.info(f"Starting LLM-mediated temporal analysis for case {case_id}")
         
-        # Phase 1: Extract and validate temporal boundaries
-        boundaries = await self.extract_temporal_boundaries_with_validation(events, case_content)
+        # Initialize validation tracking
+        tracker = get_llm_validation_tracker()
+        session_id = tracker.start_validation_session(case_id)
         
-        # Phase 2: Calculate and validate temporal relations
-        relations = await self.calculate_temporal_relations_with_validation(events, boundaries)
+        start_time = datetime.now()
         
-        # Phase 3: Build and validate process profile
-        profile = await self.build_process_profile_with_validation(case_id, events, case_content, boundaries, relations)
-        
-        # Phase 4: Analyze and validate agent succession
-        succession = await self.analyze_agent_succession_with_validation(agents, events, boundaries)
-        
-        # Phase 5: Enhance and validate events
-        enhanced_events = await self.enhance_events_with_validated_temporal_data(events, profile)
-        
-        # Compile final analysis
-        analysis_result = {
-            'case_id': case_id,
-            'analysis_type': 'llm_mediated_temporal',
-            'temporal_boundaries': [asdict(b) for b in boundaries],
-            'temporal_relations': [asdict(r) for r in relations],
-            'process_profile': asdict(profile),
-            'agent_succession': succession,
-            'enhanced_events': enhanced_events,
-            'validation_summary': {
-                'boundaries_validated': len(boundaries),
-                'relations_validated': len(relations),
-                'llm_validation_steps': 5,
-                'mcp_validation_steps': 4
+        try:
+            # Phase 1: Extract and validate temporal boundaries
+            phase_start = datetime.now()
+            boundaries = await self.extract_temporal_boundaries_with_validation(events, case_content)
+            phase_time = (datetime.now() - phase_start).total_seconds()
+            
+            # Track Phase 1 feedback (boundaries will have validation data)
+            if boundaries and hasattr(boundaries[0], 'llm_validation'):
+                tracker.log_phase_feedback("boundary_extraction", boundaries[0].llm_validation, phase_time)
+            
+            # Phase 2: Calculate and validate temporal relations
+            phase_start = datetime.now()
+            relations = await self.calculate_temporal_relations_with_validation(events, boundaries)
+            phase_time = (datetime.now() - phase_start).total_seconds()
+            
+            # Track Phase 2 feedback
+            if relations:
+                tracker.log_phase_feedback("temporal_relations", {}, phase_time)
+            
+            # Phase 3: Build and validate process profile
+            phase_start = datetime.now()
+            profile = await self.build_process_profile_with_validation(case_id, events, case_content, boundaries, relations)
+            phase_time = (datetime.now() - phase_start).total_seconds()
+            
+            # Track Phase 3 feedback
+            if hasattr(profile, 'llm_validation'):
+                tracker.log_phase_feedback("process_profile", profile.llm_validation, phase_time)
+            
+            # Phase 4: Analyze and validate agent succession
+            phase_start = datetime.now()
+            succession = await self.analyze_agent_succession_with_validation(agents, events, boundaries)
+            phase_time = (datetime.now() - phase_start).total_seconds()
+            
+            # Track Phase 4 feedback
+            if 'llm_validation' in succession:
+                tracker.log_phase_feedback("agent_succession", succession['llm_validation'], phase_time)
+            
+            # Phase 5: Enhance and validate events
+            phase_start = datetime.now()
+            enhanced_events = await self.enhance_events_with_validated_temporal_data(events, profile)
+            phase_time = (datetime.now() - phase_start).total_seconds()
+            
+            # Track Phase 5 feedback
+            if enhanced_events and 'llm_validation' in enhanced_events[0]:
+                tracker.log_phase_feedback("event_enhancement", enhanced_events[0]['llm_validation'], phase_time)
+            
+            # Complete validation session
+            completed_session = tracker.complete_validation_session()
+            
+            # Compile final analysis
+            analysis_result = {
+                'case_id': case_id,
+                'analysis_type': 'llm_mediated_temporal',
+                'temporal_boundaries': [asdict(b) for b in boundaries],
+                'temporal_relations': [asdict(r) for r in relations],
+                'process_profile': asdict(profile),
+                'agent_succession': succession,
+                'enhanced_events': enhanced_events,
+                'validation_summary': {
+                    'boundaries_validated': len(boundaries),
+                    'relations_validated': len(relations),
+                    'llm_validation_steps': 5,
+                    'mcp_validation_steps': 4
+                },
+                'llm_validation_session': completed_session.to_dict() if completed_session else None
             }
-        }
-        
-        logger.info(f"LLM-mediated temporal analysis complete for case {case_id}")
-        return analysis_result
+            
+            logger.info(f"LLM-mediated temporal analysis complete for case {case_id}")
+            return analysis_result
+            
+        except Exception as e:
+            logger.error(f"LLM temporal analysis failed for case {case_id}: {e}")
+            # Complete session with error
+            if tracker.current_session:
+                tracker.current_session.session_status = "failed"
+                tracker.complete_validation_session()
+            raise
