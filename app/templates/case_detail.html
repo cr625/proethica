@@ -454,12 +454,16 @@
                     {% endif %}
                 </div>
 
-                <div class="d-flex justify-content-center gap-3">
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
                     <a href="{{ url_for('cases.view_case_scenario', case_id=case.id) }}" class="btn btn-primary">
                         <i class="bi bi-eye"></i> View Scenario Timeline
                     </a>
                     <button id="regenerate-scenario" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-clockwise"></i> Regenerate
+                    </button>
+                    <button id="clear-scenario" class="btn btn-outline-danger"
+                        title="Clear current scenario and force fresh generation">
+                        <i class="bi bi-trash"></i> Clear Scenario
                     </button>
                 </div>
 
@@ -519,6 +523,50 @@
 
         // Event delegation for scenario generation buttons
         document.addEventListener('click', function (e) {
+            // Clear scenario button
+            if (e.target.id === 'clear-scenario') {
+                e.preventDefault();
+
+                if (!confirm('This will permanently clear the current scenario. Continue?')) {
+                    return;
+                }
+
+                const btn = e.target;
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Clearing...';
+
+                fetch(`/cases/${caseId}/clear_scenario`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    }
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Show success and reload page to show empty scenario state
+                            btn.innerHTML = '<i class="bi bi-check-circle"></i> Cleared!';
+                            btn.className = 'btn btn-success';
+
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            alert('Failed to clear scenario: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(err => {
+                        alert('Error: ' + err.message);
+                    })
+                    .finally(() => {
+                        if (!btn.className.includes('btn-success')) {
+                            btn.disabled = false;
+                            btn.innerHTML = originalHtml;
+                        }
+                    });
+            }
+
             // Scenario generation buttons
             if (e.target.id === 'generate-scenario' || e.target.id === 'regenerate-scenario') {
                 e.preventDefault();
@@ -535,13 +583,28 @@
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            // Show success message briefly then redirect to scenario timeline
+                            btn.innerHTML = '<i class="bi bi-check-circle"></i> Generated! Redirecting...';
+                            btn.className = 'btn btn-success';
+
+                            setTimeout(() => {
+                                // Redirect to scenario timeline to show results immediately
+                                window.location.href = `/cases/${caseId}/scenario`;
+                            }, 1500);
                         } else {
                             alert('Failed to generate scenario: ' + (data.error || 'Unknown error'));
                         }
                     })
-                    .catch(err => alert('Error: ' + err.message))
-                    .finally(() => { btn.disabled = false; btn.innerHTML = originalHtml; });
+                    .catch(err => {
+                        alert('Error: ' + err.message);
+                    })
+                    .finally(() => {
+                        // Only restore button if there was an error
+                        if (!btn.className.includes('btn-success')) {
+                            btn.disabled = false;
+                            btn.innerHTML = originalHtml;
+                        }
+                    });
             }
         });
     });

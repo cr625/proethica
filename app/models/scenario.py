@@ -17,11 +17,20 @@ class Scenario(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scenario_metadata = db.Column(JSON)
     
-    # Relationships
+    # Relationships - Complete 9 ProEthica Categories as First-Class Objects
+    # R = Roles (via Characters)
     characters = db.relationship('Character', backref='scenario', cascade='all, delete-orphan')
+    
+    # Rs = Resources
     resources = db.relationship('Resource', backref='scenario', cascade='all, delete-orphan')
-    events = db.relationship('Event', backref='scenario', cascade='all, delete-orphan')
+    
+    # A = Actions
     actions = db.relationship('Action', backref='scenario', cascade='all, delete-orphan')
+    
+    # E = Events
+    events = db.relationship('Event', backref='scenario', cascade='all, delete-orphan')
+    
+    # Legacy relationships
     decisions = db.relationship('Decision', backref='scenario', cascade='all, delete-orphan')  # Kept for backward compatibility
     entity_triples = db.relationship('EntityTriple', back_populates='scenario', foreign_keys='EntityTriple.scenario_id')
     

@@ -42,3 +42,10 @@ from app.models.deconstructed_case import DeconstructedCase
 from app.models.scenario_template import ScenarioTemplate
 # Temporary concept storage (added 2025-01-21)
 from app.models.temporary_concept import TemporaryConcept
+
+# ProEthica 9-category models (added 2025-09-04)
+from app.models.principle import Principle
+from app.models.obligation import Obligation
+from app.models.state import State
+from app.models.capability import Capability
+from app.models.constraint import Constraint

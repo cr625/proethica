@@ -14,6 +14,7 @@ from app.models.document import PROCESSING_STATUS
 from app.models.world import World
 from app.services.embedding_service import EmbeddingService
 from app import db
+from sqlalchemy.orm.attributes import flag_modified
 from app.services.entity_triple_service import EntityTripleService
 from app.services.case_url_processor import CaseUrlProcessor
 from app.services.case_to_scenario_service import CaseToScenarioService
@@ -1911,8 +1912,15 @@ def generate_direct_scenario(case_id):
         original_enhanced_setting = os.environ.get('ENHANCED_SCENARIO_GENERATION')
         os.environ['ENHANCED_SCENARIO_GENERATION'] = 'true'
         
+        # Force enhanced generation to reinitialize
+        pipeline = DirectScenarioPipelineService()
+        
+        # Check if enhanced generation is actually enabled
+        logger.info(f"Enhanced enabled: {pipeline.enhanced_enabled}")
+        logger.info(f"LLM temporal enabled: {getattr(pipeline, 'llm_temporal_enabled', False)}")
+        logger.info(f"Enhanced features available: {getattr(pipeline, 'enhanced_service', None) is not None}")
+        
         try:
-            pipeline = DirectScenarioPipelineService()
             data = pipeline.generate(case, overwrite=True)  # Always regenerate for simplicity
         finally:
             # Restore original setting
@@ -1921,6 +1929,30 @@ def generate_direct_scenario(case_id):
             else:
                 os.environ.pop('ENHANCED_SCENARIO_GENERATION', None)
 
+        # Check if data is None (pipeline failed)
+        if data is None:
+            logger.error(f"Pipeline generate returned None for case {case_id}")
+            return jsonify({
+                'success': False,
+                'error': 'Scenario generation failed - pipeline returned no data'
+            }), 500
+
+        # Validate data structure
+        if not isinstance(data, dict):
+            logger.error(f"Pipeline generate returned invalid data type: {type(data)}")
+            return jsonify({
+                'success': False,
+                'error': 'Scenario generation failed - invalid data structure returned'
+            }), 500
+
+        # Ensure required fields exist
+        if 'stats' not in data:
+            logger.error(f"Pipeline data missing 'stats' field for case {case_id}")
+            return jsonify({
+                'success': False,
+                'error': 'Scenario generation failed - incomplete data structure'
+            }), 500
+
         # Optionally include full events list; default now True for developer inspection.
         include_events = request.args.get('include_events', 'true').lower() != 'false'
         payload = {
@@ -1928,8 +1960,8 @@ def generate_direct_scenario(case_id):
             'case_id': case_id,
             'version_number': data.get('version_number'),
             'stats': data.get('stats'),
-            'event_count': data['stats']['event_count'],
-            'decision_count': data['stats']['decision_count']
+            'event_count': data.get('stats', {}).get('event_count', 0),
+            'decision_count': data.get('stats', {}).get('decision_count', 0)
         }
         if include_events:
             # Optionally allow truncated mode if query param trim is provided
@@ -1978,7 +2010,17 @@ def view_case_scenario(case_id):
         # Update the scenario data
         display_scenario = dict(latest_scenario)
         display_scenario['events'] = filtered_events
-        display_scenario['stats']['event_count'] = len(filtered_events)
+        
+        # Fix stats field if it's not a dictionary
+        if not isinstance(display_scenario.get('stats'), dict):
+            logger.warning(f"Stats field is not a dictionary, type: {type(display_scenario.get('stats'))}")
+            display_scenario['stats'] = {
+                'event_count': len(filtered_events),
+                'decision_count': sum(1 for e in filtered_events if e.get('kind') == 'decision'),
+                'original_stats': display_scenario.get('stats')
+            }
+        else:
+            display_scenario['stats']['event_count'] = len(filtered_events)
         
         return render_template('case_scenario_detail.html', 
                              case=case, 
@@ -1992,6 +2034,139 @@ def view_case_scenario(case_id):
 def view_interim_scenario(case_id):
     """Legacy interim scenario view - redirects to new scenario view."""
     return redirect(url_for('cases.view_case_scenario', case_id=case_id))
+
+
+@cases_bp.route('/<int:case_id>/clear_scenario', methods=['POST'])
+def clear_scenario(case_id):
+    """Clear all scenario data for a case to enable fresh generation."""
+    try:
+        case = Document.query.get_or_404(case_id)
+        
+        # Import scenario models - Complete ProEthica 9 Categories
+        from app.models.scenario import Scenario
+        from app.models.event import Event, Action
+        from app.models.character import Character
+        from app.models.resource import Resource
+        from app.models.decision import Decision
+        from app.models.principle import Principle
+        from app.models.obligation import Obligation
+        from app.models.state import State
+        from app.models.capability import Capability
+        from app.models.constraint import Constraint
+        
+        cleared_items = []
+        
+        # Find scenarios linked to this case
+        scenarios_to_clear = []
+        
+        # Method 1: Find by scenario_metadata reference to case using proper JSON query
+        from sqlalchemy import text
+        
+        metadata_scenarios = Scenario.query.filter(
+            text("scenario_metadata->>'source_case_id' = :case_id")
+        ).params(case_id=str(case_id)).all()
+        scenarios_to_clear.extend(metadata_scenarios)
+        
+        # Method 2: Find scenarios in the same world as this case that might be related
+        case_world_scenarios = Scenario.query.filter_by(world_id=case.world_id).all()
+        for scenario in case_world_scenarios:
+            if (scenario.scenario_metadata and 
+                scenario.scenario_metadata.get('source_case_id') == case_id):
+                if scenario not in scenarios_to_clear:
+                    scenarios_to_clear.append(scenario)
+        
+        # Clear database scenario records
+        for scenario in scenarios_to_clear:
+            logger.info(f"Deleting scenario {scenario.id}: {scenario.name}")
+            
+            # Delete related records - Complete ProEthica 9 Categories (cascade should handle this, but being explicit)
+            # R = Roles (via Characters)
+            Character.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # P = Principles
+            Principle.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # O = Obligations
+            Obligation.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # S = States
+            State.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # Rs = Resources
+            Resource.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # A = Actions
+            Action.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # E = Events
+            Event.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # Ca = Capabilities
+            Capability.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # Cs = Constraints
+            Constraint.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # Legacy models
+            Decision.query.filter_by(scenario_id=scenario.id).delete()
+            
+            # Delete the scenario itself
+            db.session.delete(scenario)
+            cleared_items.append(f"Scenario {scenario.id}: {scenario.name}")
+        
+        # Clear case metadata scenario references
+        metadata = case.doc_metadata or {}
+        cleared_metadata_fields = []
+        
+        if 'latest_scenario' in metadata:
+            del metadata['latest_scenario']
+            cleared_metadata_fields.append('latest_scenario')
+        
+        if 'scenario_versions' in metadata:
+            del metadata['scenario_versions'] 
+            cleared_metadata_fields.append('scenario_versions')
+        
+        # Clear any temporal analysis data
+        if 'temporal_analysis' in metadata:
+            del metadata['temporal_analysis']
+            cleared_metadata_fields.append('temporal_analysis')
+        
+        # Clear LLM validation logs
+        if 'llm_validation_session' in metadata:
+            del metadata['llm_validation_session']
+            cleared_metadata_fields.append('llm_validation_session')
+        
+        # Update case metadata
+        if cleared_metadata_fields:
+            case.doc_metadata = metadata
+            flag_modified(case, 'doc_metadata')
+            db.session.add(case)
+        
+        # Commit all changes
+        db.session.commit()
+        
+        logger.info(f"Cleared scenario data for case {case_id}:")
+        logger.info(f"  - Database scenarios: {len(scenarios_to_clear)}")
+        logger.info(f"  - Metadata fields: {cleared_metadata_fields}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Scenario data cleared successfully',
+            'database_scenarios_cleared': len(scenarios_to_clear),
+            'metadata_fields_cleared': cleared_metadata_fields,
+            'details': {
+                'scenarios': cleared_items,
+                'metadata_fields': cleared_metadata_fields
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error clearing scenario for case {case_id}: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @cases_bp.route('/new/agent', methods=['GET'])

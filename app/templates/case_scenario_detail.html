@@ -161,7 +161,11 @@
 
                 {% for category in ['Role', 'Principle', 'Obligation', 'State', 'Resource', 'Action', 'Event',
                 'Capability', 'Constraint'] %}
+                {% if scenario.ontology_summary is mapping %}
                 {% set items = scenario.ontology_summary.get(category, []) %}
+                {% else %}
+                {% set items = [] %}
+                {% endif %}
                 <div class="col-md-6 col-lg-4 mb-3">
                     <div
                         class="card h-100 category-card {% if items %}border-primary{% else %}border-secondary{% endif %}">

@@ -37,6 +37,9 @@ from shared.llm_orchestration.providers import GenerationRequest, GenerationResp
 # Import validation tracker
 from app.services.llm_validation_tracker import get_llm_validation_tracker
 
+# Import text preprocessing
+from app.services.text_preprocessing_service import get_text_preprocessor
+
 logger = logging.getLogger(__name__)
 
 
@@ -179,19 +182,41 @@ class LLMMediatedTemporalReasoningService:
         if not self.llm_orchestrator:
             return boundaries
         
+        # Preprocess case content to remove HTML and extract precedent cases
+        preprocessor = get_text_preprocessor()
+        processed_content = preprocessor.preprocess_for_llm(case_content, preserve_precedents=True)
+        
+        # Clean events for LLM consumption
+        cleaned_events = []
+        all_precedent_cases = []
+        
+        for event in events:
+            if event.get('text'):
+                processed_event = preprocessor.preprocess_event_text(event['text'])
+                cleaned_event = dict(event)
+                cleaned_event['text'] = processed_event['clean_text']
+                cleaned_events.append(cleaned_event)
+                all_precedent_cases.extend(processed_event['precedent_cases'])
+            else:
+                cleaned_events.append(event)
+        
+        # Combine all precedent cases
+        all_precedent_cases.extend(processed_content['precedent_cases'])
+        unique_precedents = preprocessor._deduplicate_precedent_cases(all_precedent_cases)
+        
         # Convert boundaries to natural language for LLM review
         boundaries_summary = self._format_boundaries_for_llm(boundaries)
         
-        prompt = f"""You are an expert in ethics case analysis. Review these extracted temporal boundaries to ensure they make contextual sense.
+        base_prompt = f"""You are an expert in ethics case analysis. Review these extracted temporal boundaries to ensure they make contextual sense.
 
-ORIGINAL CASE:
-{case_content[:1000]}...
+ORIGINAL CASE (HTML cleaned):
+{processed_content['clean_text'][:1000]}...
 
 EXTRACTED TEMPORAL BOUNDARIES:
 {boundaries_summary}
 
-EVENTS CONTEXT:
-{self._format_events_for_llm(events)}
+EVENTS CONTEXT (HTML cleaned):
+{self._format_clean_events_for_llm(cleaned_events)}
 
 Please validate each boundary and provide feedback in JSON format:
 
@@ -213,14 +238,22 @@ Please validate each boundary and provide feedback in JSON format:
 
 Focus on whether the boundaries represent genuine critical moments in the ethical decision-making process."""
         
+        # Enhance prompt with precedent case context
+        enhanced_prompt = preprocessor.enhance_llm_prompt_with_precedents(base_prompt, unique_precedents)
+        
         try:
             response = await self.llm_orchestrator.send_message(
-                message=prompt,
+                message=enhanced_prompt,
                 max_tokens=2000,
                 temperature=0.2
             )
             
             validation_data = self._parse_llm_json_response(response.content)
+            
+            # Add precedent case information to validation
+            validation_data['precedent_cases_found'] = len(unique_precedents)
+            validation_data['precedent_cases'] = unique_precedents
+            
             return self._apply_boundary_validation(boundaries, validation_data)
             
         except Exception as e:
@@ -530,6 +563,20 @@ Temporal Relations: {len(profile.temporal_relations)} relations"""
         
         if len(events) > 8:
             formatted.append(f"... and {len(events) - 8} more events")
+        
+        return "\n".join(formatted)
+    
+    def _format_clean_events_for_llm(self, cleaned_events: List[Dict[str, Any]]) -> str:
+        """Format cleaned events for LLM consumption (HTML already stripped)."""
+        formatted = []
+        for event in cleaned_events[:8]:  # Limit to avoid token overflow
+            kind = event.get('kind', 'event')
+            # Use the already cleaned text
+            text = event.get('text', '')[:60] + '...' if len(event.get('text', '')) > 60 else event.get('text', '')
+            formatted.append(f"- [{kind.upper()}] {text}")
+        
+        if len(cleaned_events) > 8:
+            formatted.append(f"... and {len(cleaned_events) - 8} more events")
         
         return "\n".join(formatted)
     

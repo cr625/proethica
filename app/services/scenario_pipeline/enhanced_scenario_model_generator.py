@@ -153,8 +153,12 @@ class EnhancedScenarioModelGenerator:
             from app.models.world import World
             world = db.session.get(World, scenario.world_id)
             if world:
-                # Aggregate roles across base + derived ontologies for this world
-                ontology_roles = ontology_service.get_roles_across_world(world)
+                # Get roles for this specific world only (not across worlds)
+                try:
+                    ontology_roles = ontology_service.get_entities_for_world(world).get('entities', {}).get('role', [])
+                except Exception as e:
+                    logger.warning(f"Failed to get ontology roles for world {world.name}: {e}")
+                    ontology_roles = []
 
                 # Match each participant using the LLM-extracted ontology label (fallback to name)
                 for idx, p in enumerate(participants):

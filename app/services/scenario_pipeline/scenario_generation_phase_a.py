@@ -31,25 +31,64 @@ from .ontology_mapper import map_events
 from .ordering import build_ordering
 from .llm_decision_refiner import refine_decisions_with_llm
 
+# Import text preprocessing
+try:
+    from app.services.text_preprocessing_service import get_text_preprocessor
+    TEXT_PREPROCESSING_AVAILABLE = True
+except ImportError:
+    TEXT_PREPROCESSING_AVAILABLE = False
+    logging.getLogger(__name__).warning("Text preprocessing service not available")
+
 # Enhanced components (optional imports)
+ENHANCED_FEATURES_AVAILABLE = False
+LLM_TEMPORAL_AVAILABLE = False
+
+# Try individual imports to see which ones work
+enhanced_services = {}
+
 try:
     from .enhanced_llm_scenario_service import EnhancedLLMScenarioService
-    from .mcp_ontology_client import MCPOntologyClient, get_role_for_participant, enrich_decision_with_ontology
-    from .enhanced_scenario_model_generator import EnhancedScenarioModelGenerator
-    ENHANCED_FEATURES_AVAILABLE = True
-    
-    # Import LLM-mediated temporal reasoning
-    try:
-        from app.services.llm_mediated_temporal_reasoning import LLMMediatedTemporalReasoningService
-        LLM_TEMPORAL_AVAILABLE = True
-    except ImportError:
-        LLM_TEMPORAL_AVAILABLE = False
-        logging.getLogger(__name__).warning("LLM-mediated temporal reasoning not available")
-        
+    enhanced_services['enhanced_llm'] = True
+    logging.getLogger(__name__).info("✅ EnhancedLLMScenarioService imported successfully")
 except ImportError as e:
-    ENHANCED_FEATURES_AVAILABLE = False
+    enhanced_services['enhanced_llm'] = False
+    logging.getLogger(__name__).warning(f"❌ EnhancedLLMScenarioService import failed: {e}")
+
+try:
+    from .mcp_ontology_client import MCPOntologyClient, get_role_for_participant, enrich_decision_with_ontology
+    enhanced_services['mcp_ontology'] = True
+    logging.getLogger(__name__).info("✅ MCP Ontology Client imported successfully")
+except ImportError as e:
+    enhanced_services['mcp_ontology'] = False
+    logging.getLogger(__name__).warning(f"❌ MCP Ontology Client import failed: {e}")
+
+try:
+    from .enhanced_scenario_model_generator import EnhancedScenarioModelGenerator
+    enhanced_services['model_generator'] = True
+    logging.getLogger(__name__).info("✅ EnhancedScenarioModelGenerator imported successfully")
+except ImportError as e:
+    enhanced_services['model_generator'] = False
+    logging.getLogger(__name__).warning(f"❌ EnhancedScenarioModelGenerator import failed: {e}")
+
+# Import LLM-mediated temporal reasoning
+try:
+    from app.services.llm_mediated_temporal_reasoning import LLMMediatedTemporalReasoningService
+    enhanced_services['llm_temporal'] = True
+    LLM_TEMPORAL_AVAILABLE = True
+    logging.getLogger(__name__).info("✅ LLMMediatedTemporalReasoningService imported successfully")
+except ImportError as e:
+    enhanced_services['llm_temporal'] = False
     LLM_TEMPORAL_AVAILABLE = False
-    logging.getLogger(__name__).warning(f"Enhanced features not available: {e}")
+    logging.getLogger(__name__).warning(f"❌ LLMMediatedTemporalReasoningService import failed: {e}")
+
+# Enable enhanced features if we have at least basic LLM service
+if enhanced_services.get('enhanced_llm', False):
+    ENHANCED_FEATURES_AVAILABLE = True
+    logging.getLogger(__name__).info("Enhanced features enabled with available services")
+else:
+    logging.getLogger(__name__).warning("Enhanced features disabled - missing required services")
+
+logging.getLogger(__name__).info(f"Enhanced services status: {enhanced_services}")
 
 PIPELINE_VERSION = 'phase_a_v1'
 ENHANCED_PIPELINE_VERSION = 'enhanced_llm_v1'
@@ -98,11 +137,31 @@ class DirectScenarioPipelineService:
         metadata = case.doc_metadata or {}
         sections = metadata.get('sections') or metadata.get('document_structure', {}).get('sections', {}) or {}
 
+        logger.info(f"Generate called for case {case.id}, enhanced_enabled: {self.enhanced_enabled}")
+        logger.info(f"LLM temporal enabled: {getattr(self, 'llm_temporal_enabled', False)}")
+        logger.info(f"Metadata keys: {list(metadata.keys())}")
+        logger.info(f"Sections keys: {list(sections.keys())}")
+
         # Check if enhanced generation is enabled
         if self.enhanced_enabled:
-            return self._generate_enhanced(case, metadata, sections, overwrite)
+            logger.info("Using enhanced generation")
+            try:
+                result = self._generate_enhanced(case, metadata, sections, overwrite)
+                if result is None:
+                    logger.error("Enhanced generation returned None - this should not happen")
+                    logger.info("Falling back to legacy generation due to None result")
+                    return self._generate_legacy(case, metadata, sections, overwrite)
+                return result
+            except Exception as e:
+                logger.error(f"Enhanced generation failed with exception: {e}")
+                logger.info("Falling back to legacy generation due to exception")
+                return self._generate_legacy(case, metadata, sections, overwrite)
         else:
-            return self._generate_legacy(case, metadata, sections, overwrite)
+            logger.info("Using legacy generation")
+            result = self._generate_legacy(case, metadata, sections, overwrite)
+            if result is None:
+                logger.error("Legacy generation returned None - this is a serious issue")
+            return result
 
     def _generate_enhanced(self, case: Document, metadata: Dict[str, Any], sections: Dict[str, Any], overwrite: bool) -> Dict[str, Any]:
         """Enhanced LLM-driven scenario generation with ontology integration."""
@@ -268,6 +327,9 @@ class DirectScenarioPipelineService:
         flag_modified(case, 'doc_metadata')
         db.session.add(case)
         db.session.commit()
+        
+        logger.info(f"Legacy scenario generation completed for case {case.id}")
+        return scenario_data
 
     async def _enrich_with_ontology(self, timeline_data: Dict[str, Any]) -> Dict[str, Any]:
         """Enrich timeline data with MCP ontology integration."""
