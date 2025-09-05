@@ -98,13 +98,18 @@ logger = logging.getLogger(__name__)
 
 class DirectScenarioPipelineService:
     def __init__(self):
+        # Default to enhanced features unless explicitly disabled
+        # Check if user explicitly wants to disable enhanced features
+        disable_enhanced = os.environ.get('DISABLE_ENHANCED_SCENARIO', 'false').lower() == 'true'
+        
         self.enhanced_enabled = (
             ENHANCED_FEATURES_AVAILABLE and 
-            os.environ.get('ENHANCED_SCENARIO_GENERATION', 'false').lower() == 'true'
+            not disable_enhanced
         )
         self.llm_temporal_enabled = (
             LLM_TEMPORAL_AVAILABLE and 
-            self.enhanced_enabled
+            self.enhanced_enabled and
+            os.environ.get('DISABLE_LLM_TEMPORAL', 'false').lower() != 'true'
         )
         
         if self.enhanced_enabled:

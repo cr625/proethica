@@ -37,19 +37,6 @@
     
     <!-- Processing Status Legend -->
     <div class="row mb-3">
-        <div class="col-12">
-            <div class="d-flex align-items-center justify-content-end text-muted small">
-                <span class="me-3">Processing Status:</span>
-                <span class="badge bg-success me-2">
-                    <i class="bi bi-link-45deg"></i> EGA
-                </span>
-                <span class="me-3">Enhanced Guideline Associations</span>
-                <span class="badge bg-primary me-2">
-                    <i class="bi bi-diagram-3"></i> OTL
-                </span>
-                <span class="me-2">Ontology Term Links</span>
-            </div>
-        </div>
     </div>
 
     {% if grouped_cases %}
@@ -74,42 +61,22 @@
                                 {% if case.case_number %}
                                 <span class="badge bg-secondary me-2">Case #{{ case.case_number }}</span>
                                 {% endif %}
-                                {% if case.full_date %}
-                                <span class="badge bg-info me-2">{{ case.full_date }}</span>
-                                {% endif %}
-                                <!-- Subject Tags -->
-                                {% set subject_tags = [] %}
-                                {% if case.doc_metadata %}
-                                    {% set doc_metadata = case.doc_metadata %}
-                                    {% if doc_metadata.subject_tags %}
-                                        {% set subject_tags = doc_metadata.subject_tags %}
-                                    {% endif %}
-                                {% endif %}
-                                {% if subject_tags %}
-                                    {% for tag in subject_tags[:2] %}
-                                    <span class="badge bg-warning text-dark me-1" title="NSPE Subject: {{ tag }}">
-                                        <i class="bi bi-tag-fill"></i> {{ tag }}
-                                    </span>
-                                    {% endfor %}
-                                    {% if subject_tags|length > 2 %}
-                                    <span class="badge bg-light text-dark me-1" title="{{ subject_tags|length - 2 }} more tags">
-                                        +{{ subject_tags|length - 2 }}
-                                    </span>
-                                    {% endif %}
-                                {% endif %}
-                                <!-- Processing Status Icons -->
-                                {% if case.has_enhanced_associations %}
-                                <span class="badge bg-success me-1" title="Enhanced Guideline Associations available">
-                                    <i class="bi bi-link-45deg"></i> EGA
-                                </span>
-                                {% endif %}
-                                {% if case.has_term_links %}
-                                <span class="badge bg-primary me-1" title="Ontology Term Links available">
-                                    <i class="bi bi-diagram-3"></i> OTL
-                                </span>
-                                {% endif %}
                             </div>
                         </div>
+                        
+                        <!-- Subject Tags on separate line -->
+                        {% if case.doc_metadata and case.doc_metadata.subject_tags %}
+                        <div class="card-header border-top">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <strong class="text-muted me-2">Subject Tags:</strong>
+                                {% for tag in case.doc_metadata.subject_tags %}
+                                <span class="badge bg-warning text-dark me-1" title="NSPE Subject Classification">
+                                    <i class="bi bi-tag"></i> {{ tag }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                         <div class="card-body">
                             {% if case.questions_list %}
                             <div class="mb-3">
@@ -161,33 +128,5 @@
     </div>
     {% endif %}
 
-    <div class="mt-4">
-        <h2>About the Case Repository</h2>
-        <p>
-            This repository contains professional ethics cases where abstract principles are applied to
-            concrete situations. Each case demonstrates how ethical guidelines are interpreted and applied
-            in specific contexts through structured analysis and expert reasoning.
-        </p>
-        <p>
-            Cases are organized by year and provide examples of how ethical principles are weighed
-            and resolved when they appear to conflict. The repository includes the factual circumstances,
-            relevant ethical provisions, discussion of competing considerations, and final determinations.
-        </p>
-        <p>
-            Each case typically includes:
-        </p>
-        <ul>
-            <li><strong>Facts</strong> - The circumstances and context of the situation</li>
-            <li><strong>Questions</strong> - The specific ethical questions being examined</li>
-            <li><strong>References</strong> - Citations to relevant codes of ethics or professional standards</li>
-            <li><strong>Discussion</strong> - Analysis of the ethical considerations and precedents</li>
-            <li><strong>Conclusions</strong> - The final determinations or recommendations</li>
-        </ul>
-        <p>
-            Cases are stored with structured metadata that enables searching by content, year, and thematic
-            categorization. The semantic representation captures relationships between ethical principles,
-            factual circumstances, and reasoning patterns to support comparative analysis across cases.
-        </p>
-    </div>
 </div>
 {% endblock %}

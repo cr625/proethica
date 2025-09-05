@@ -4,10 +4,26 @@ This file is used when create_app('config') is called.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables in priority order:
+# 1. shared/.env (shared across all applications) 
+# 2. .env (app-specific configuration)
+
+# Load shared environment first
+current_dir = Path(__file__).parent
+shared_env = current_dir / "shared" / ".env"
+
+if shared_env.exists():
+    load_dotenv(shared_env, override=False)
+    print(f"✅ Loaded shared environment config: {shared_env}")
+
+# Load app-specific .env (overrides shared settings)
+app_env = current_dir / ".env"
+if app_env.exists():
+    load_dotenv(app_env, override=True)
+    print(f"✅ Loaded local environment config: .env")
 
 # Build configuration dictionary
 app_config = {

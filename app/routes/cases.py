@@ -1904,32 +1904,21 @@ def create_scenario_from_template(template_id):
 
 @cases_bp.route('/<int:case_id>/direct_scenario', methods=['POST'])
 def generate_direct_scenario(case_id):
-    """Generate a direct scenario (Phase A pipeline) from case sections without full deconstruction."""
+    """Generate enhanced scenario with LLM-mediated temporal reasoning and ontology integration."""
     try:
         case = Document.query.get_or_404(case_id)
         overwrite = (request.args.get('overwrite', 'false').lower() == 'true')
         
-        # Always use enhanced generation by default 
-        import os
-        original_enhanced_setting = os.environ.get('ENHANCED_SCENARIO_GENERATION')
-        os.environ['ENHANCED_SCENARIO_GENERATION'] = 'true'
-        
-        # Force enhanced generation to reinitialize
+        # Initialize pipeline (defaults to enhanced unless explicitly disabled)
         pipeline = DirectScenarioPipelineService()
         
-        # Check if enhanced generation is actually enabled
-        logger.info(f"Enhanced enabled: {pipeline.enhanced_enabled}")
-        logger.info(f"LLM temporal enabled: {getattr(pipeline, 'llm_temporal_enabled', False)}")
-        logger.info(f"Enhanced features available: {getattr(pipeline, 'enhanced_service', None) is not None}")
+        # Log pipeline configuration
+        logger.info(f"Scenario generation for case {case_id}:")
+        logger.info(f"  Enhanced enabled: {pipeline.enhanced_enabled}")
+        logger.info(f"  LLM temporal enabled: {getattr(pipeline, 'llm_temporal_enabled', False)}")
+        logger.info(f"  Enhanced service available: {getattr(pipeline, 'enhanced_service', None) is not None}")
         
-        try:
-            data = pipeline.generate(case, overwrite=True)  # Always regenerate for simplicity
-        finally:
-            # Restore original setting
-            if original_enhanced_setting is not None:
-                os.environ['ENHANCED_SCENARIO_GENERATION'] = original_enhanced_setting
-            else:
-                os.environ.pop('ENHANCED_SCENARIO_GENERATION', None)
+        data = pipeline.generate(case, overwrite=True)  # Always regenerate for simplicity
 
         # Check if data is None (pipeline failed)
         if data is None:

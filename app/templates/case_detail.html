@@ -155,11 +155,6 @@
                 {% if case.year %}
                 <span class="badge bg-secondary">{{ case.year }}</span>
                 {% endif %}
-                {% if case.doc_metadata and case.doc_metadata.full_date %}
-                <span class="badge bg-info ms-2" title="Full date">
-                    <i class="bi bi-calendar"></i> {{ case.doc_metadata.full_date }}
-                </span>
-                {% endif %}
                 {% if world %}
                 <span class="badge bg-success ms-2">
                     <i class="bi bi-globe"></i> {{ world.name }}
