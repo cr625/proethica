@@ -49,3 +49,6 @@ from app.models.obligation import Obligation
 from app.models.state import State
 from app.models.capability import Capability
 from app.models.constraint import Constraint
+
+# Reasoning trace models (added 2025-09-04)
+from app.models.reasoning_trace import ReasoningTrace, ReasoningStep

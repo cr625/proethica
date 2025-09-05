@@ -2079,6 +2079,7 @@ def clear_scenario(case_id):
         from app.models.state import State
         from app.models.capability import Capability
         from app.models.constraint import Constraint
+        from app.models.reasoning_trace import ReasoningTrace, ReasoningStep
         
         cleared_items = []
         
@@ -2101,44 +2102,47 @@ def clear_scenario(case_id):
                 if scenario not in scenarios_to_clear:
                     scenarios_to_clear.append(scenario)
         
-        # Clear database scenario records
+        # Clear database scenario records using direct SQL to avoid schema conflicts
+        scenario_ids_to_delete = [scenario.id for scenario in scenarios_to_clear]
+        
         for scenario in scenarios_to_clear:
-            logger.info(f"Deleting scenario {scenario.id}: {scenario.name}")
+            scenario_id = scenario.id
+            scenario_name = scenario.name
+            logger.info(f"Deleting scenario {scenario_id}: {scenario_name}")
             
-            # Delete related records - Complete ProEthica 9 Categories (cascade should handle this, but being explicit)
-            # R = Roles (via Characters)
-            Character.query.filter_by(scenario_id=scenario.id).delete()
+            # Use direct SQL commands to avoid SQLAlchemy schema conflicts
+            from sqlalchemy import text
             
-            # P = Principles
-            Principle.query.filter_by(scenario_id=scenario.id).delete()
+            # Delete ProEthica 9-category records using direct SQL
+            tables_to_clean = [
+                'capabilities', 'constraints', 'states', 'obligations', 'principles',
+                'characters', 'resources', 'actions', 'events', 'decisions'
+            ]
             
-            # O = Obligations
-            Obligation.query.filter_by(scenario_id=scenario.id).delete()
+            for table in tables_to_clean:
+                try:
+                    db.session.execute(text(f"DELETE FROM {table} WHERE scenario_id = :scenario_id"), 
+                                     {"scenario_id": scenario_id})
+                    logger.info(f"  ✅ Deleted {table} for scenario {scenario_id}")
+                except Exception as e:
+                    logger.warning(f"  ⚠️  Error deleting {table}: {e}")
             
-            # S = States
-            State.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # Rs = Resources
-            Resource.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # A = Actions
-            Action.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # E = Events
-            Event.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # Ca = Capabilities
-            Capability.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # Cs = Constraints
-            Constraint.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # Legacy models
-            Decision.query.filter_by(scenario_id=scenario.id).delete()
-            
-            # Delete the scenario itself
-            db.session.delete(scenario)
-            cleared_items.append(f"Scenario {scenario.id}: {scenario.name}")
+            # Delete the scenario itself using direct SQL
+            try:
+                db.session.execute(text("DELETE FROM scenarios WHERE id = :scenario_id"), 
+                                 {"scenario_id": scenario_id})
+                logger.info(f"  ✅ Deleted scenario {scenario_id}")
+                cleared_items.append(f"Scenario {scenario_id}: {scenario_name}")
+            except Exception as e:
+                logger.error(f"  ❌ Error deleting scenario {scenario_id}: {e}")
+        
+        # Clear reasoning traces for this case
+        reasoning_traces = ReasoningTrace.query.filter_by(case_id=case_id).all()
+        for trace in reasoning_traces:
+            logger.info(f"Deleting reasoning trace {trace.id}: {trace.session_id}")
+            # Steps will be deleted automatically due to cascade delete
+            db.session.delete(trace)
+            cleared_items.append(f"Reasoning trace {trace.id}: {trace.session_id}")
         
         # Clear case metadata scenario references
         metadata = case.doc_metadata or {}
@@ -2162,6 +2166,15 @@ def clear_scenario(case_id):
             del metadata['llm_validation_session']
             cleared_metadata_fields.append('llm_validation_session')
         
+        # Clear reasoning trace references
+        if 'reasoning_trace_id' in metadata:
+            del metadata['reasoning_trace_id']
+            cleared_metadata_fields.append('reasoning_trace_id')
+        
+        if 'reasoning_session_id' in metadata:
+            del metadata['reasoning_session_id']
+            cleared_metadata_fields.append('reasoning_session_id')
+        
         # Update case metadata
         if cleared_metadata_fields:
             case.doc_metadata = metadata
@@ -2173,12 +2186,14 @@ def clear_scenario(case_id):
         
         logger.info(f"Cleared scenario data for case {case_id}:")
         logger.info(f"  - Database scenarios: {len(scenarios_to_clear)}")
+        logger.info(f"  - Reasoning traces: {len(reasoning_traces)}")
         logger.info(f"  - Metadata fields: {cleared_metadata_fields}")
         
         return jsonify({
             'success': True,
             'message': f'Scenario data cleared successfully',
             'database_scenarios_cleared': len(scenarios_to_clear),
+            'reasoning_traces_cleared': len(reasoning_traces),
             'metadata_fields_cleared': cleared_metadata_fields,
             'details': {
                 'scenarios': cleared_items,

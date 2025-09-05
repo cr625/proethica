@@ -1,0 +1,513 @@
+{% extends "base.html" %}
+
+{% block title %}Reasoning Chain Inspector - Case {{ case.id }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Inline CSS for prototype - will move to separate file later */
+    .reasoning-inspector-container {
+        height: 90vh;
+        display: flex;
+        flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .inspector-header {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .trace-info h2 {
+        margin: 0 0 0.5rem 0;
+        color: #495057;
+    }
+
+    .trace-meta {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .feature-badge {
+        background: #007bff;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+        text-transform: capitalize;
+    }
+
+    .status-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-in_progress {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .inspector-body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 0;
+        overflow: hidden;
+    }
+
+    .timeline-panel {
+        background: #f8f9fa;
+        border-right: 1px solid #dee2e6;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .timeline-step {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .timeline-step:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.15);
+    }
+
+    .timeline-step.active {
+        border-color: #007bff;
+        background: #f0f8ff;
+    }
+
+    .step-llm_call {
+        border-left: 4px solid #28a745;
+    }
+
+    .step-ontology_query {
+        border-left: 4px solid #ffc107;
+    }
+
+    .step-algorithm {
+        border-left: 4px solid #6f42c1;
+    }
+
+    .step-preprocessing {
+        border-left: 4px solid #17a2b8;
+    }
+
+    .step-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .step-number {
+        background: #007bff;
+        color: white;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        margin-right: 0.5rem;
+    }
+
+    .step-phase {
+        font-weight: 600;
+        color: #212529;
+        font-size: 0.9rem;
+    }
+
+    .step-type {
+        color: #6c757d;
+        font-size: 0.8rem;
+    }
+
+    .details-panel {
+        background: white;
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .tab-btn {
+        background: none;
+        border: none;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        color: #6c757d;
+        border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+    }
+
+    .tab-content {
+        display: none;
+        margin-top: 1rem;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .json-viewer {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        font-family: monospace;
+        font-size: 0.875rem;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .no-step-selected {
+        text-align: center;
+        color: #6c757d;
+        padding: 3rem 1rem;
+        font-style: italic;
+    }
+
+    .summary-card {
+        display: inline-block;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 0.25rem;
+        padding: 0.5rem 1rem;
+        margin: 0 0.5rem 0.5rem 0;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reasoning-inspector-container">
+    <!-- Header with trace summary -->
+    <div class="inspector-header">
+        <div class="trace-info">
+            <h2>🔍 Reasoning Chain Inspector</h2>
+            <div class="trace-meta">
+                <span class="case-title">{{ case.title if case else ('Case ' + trace.case_id|string) }}</span>
+                <span class="feature-badge">{{ trace.feature_type }}</span>
+                <span class="status-badge status-{{ trace.status }}">{{ trace.status }}</span>
+                <span class="stats">{{ trace.total_steps }} steps | {{ "%.1f"|format(trace.processing_time or 0)
+                    }}s</span>
+            </div>
+        </div>
+
+        <div class="inspector-controls">
+            <button onclick="exportTrace()" class="btn btn-sm btn-secondary">Export</button>
+            <a href="{{ url_for('cases.case_detail', case_id=case.id) if case else '#' }}"
+                class="btn btn-sm btn-primary">Back to Case</a>
+        </div>
+    </div>
+
+    <!-- Main content area -->
+    <div class="inspector-body">
+        <!-- Left: Interactive timeline -->
+        <div class="timeline-panel">
+            <h3>Processing Timeline</h3>
+
+            <div class="timeline-container" id="timeline-container">
+                {% for step in steps %}
+                <div class="timeline-step step-{{ step.step_type }}" data-step-id="{{ step.id }}"
+                    data-step-type="{{ step.step_type }}" onclick="showStepDetails({{ step.id }})">
+
+                    <div class="step-header">
+                        <div class="step-number">{{ step.step_number }}</div>
+                        <div class="step-icon">
+                            {% if step.step_type == 'llm_call' %}🤖
+                            {% elif step.step_type == 'ontology_query' %}🔍
+                            {% elif step.step_type == 'algorithm' %}⚙️
+                            {% else %}📝{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="step-info">
+                        <div class="step-phase">{{ step.phase_name }}</div>
+                        <div class="step-type">{{ step.step_type.replace('_', ' ').title() }}</div>
+                        <div class="step-time">{{ "%.1f"|format(step.processing_time or 0) }}s</div>
+                    </div>
+
+                    {% if step.confidence_score %}
+                    <div class="confidence-bar" style="margin-top: 0.5rem;">
+                        <div style="height: 4px; background: #e9ecef; border-radius: 2px;">
+                            <div
+                                style="height: 100%; width: {{ (step.confidence_score * 100)|round }}%; background: #28a745; border-radius: 2px;">
+                            </div>
+                        </div>
+                        <span style="font-size: 0.7rem; color: #6c757d;">{{ (step.confidence_score * 100)|round
+                            }}%</span>
+                    </div>
+                    {% endif %}
+
+                    {% if step.error_message %}
+                    <div style="position: absolute; top: 0.5rem; right: 0.5rem;">⚠️</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right: Step details -->
+        <div class="details-panel" id="step-details-panel">
+            <div class="details-header">
+                <h3>Step Details</h3>
+                <div class="step-nav">
+                    <button onclick="previousStep()" id="prev-btn" class="btn btn-sm">← Prev</button>
+                    <button onclick="nextStep()" id="next-btn" class="btn btn-sm">Next →</button>
+                </div>
+            </div>
+
+            <div class="step-details-content" id="step-details-content">
+                <div class="no-step-selected">
+                    Select a step from the timeline to view details
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Prototype JavaScript for reasoning inspector
+    let currentStepIndex = 0;
+    let allSteps = {{ steps | tojson | safe }};
+
+    function showStepDetails(stepId) {
+        const step = allSteps.find(s => s.id === stepId);
+        if (!step) return;
+
+        // Update timeline highlighting
+        document.querySelectorAll('.timeline-step').forEach(el => {
+            el.classList.remove('active');
+        });
+        document.querySelector(`[data-step-id="${stepId}"]`).classList.add('active');
+
+        // Update step index
+        currentStepIndex = allSteps.findIndex(s => s.id === stepId);
+        updateNavigationButtons();
+
+        // Render step details
+        const container = document.getElementById('step-details-content');
+
+        if (step.step_type === 'llm_call') {
+            container.innerHTML = renderLLMStepDetails(step);
+        } else if (step.step_type === 'ontology_query') {
+            container.innerHTML = renderOntologyStepDetails(step);
+        } else {
+            container.innerHTML = renderGenericStepDetails(step);
+        }
+
+        // Show first tab
+        showTab('input');
+    }
+
+    function renderLLMStepDetails(step) {
+        const inputData = step.input_data || {};
+        const outputData = step.output_data || {};
+
+        return `
+        <div class="step-details">
+            <h4>${step.phase_name} ${step.model_used ? '(' + step.model_used + ')' : ''}</h4>
+            <div style="margin-bottom: 1rem;">
+                ${step.tokens_used ? '<span class="summary-card">Tokens: ' + step.tokens_used + '</span>' : ''}
+                ${step.temperature !== null ? '<span class="summary-card">Temp: ' + step.temperature + '</span>' : ''}
+                <span class="summary-card">Time: ${(step.processing_time || 0).toFixed(1)}s</span>
+                ${step.confidence_score ? '<span class="summary-card">Confidence: ' + Math.round(step.confidence_score * 100) + '%</span>' : ''}
+            </div>
+            
+            <div class="detail-tabs">
+                <button class="tab-btn active" onclick="showTab('input')" data-tab="input">Input Data</button>
+                ${inputData.prompt ? '<button class="tab-btn" onclick="showTab(\'prompt\')" data-tab="prompt">LLM Prompt</button>' : ''}
+                <button class="tab-btn" onclick="showTab('response')" data-tab="response">Raw Response</button>
+                <button class="tab-btn" onclick="showTab('parsed')" data-tab="parsed">Parsed Result</button>
+            </div>
+            
+            <div class="tab-content active" id="tab-input">
+                <h5>Input Data</h5>
+                <pre class="json-viewer">${JSON.stringify(inputData, null, 2)}</pre>
+            </div>
+            
+            ${inputData.prompt ? `
+            <div class="tab-content" id="tab-prompt">
+                <h5>LLM Prompt</h5>
+                <pre class="json-viewer">${inputData.prompt}</pre>
+            </div>
+            ` : ''}
+            
+            <div class="tab-content" id="tab-response">
+                <h5>Raw LLM Response</h5>
+                <pre class="json-viewer">${outputData.response || 'No response data'}</pre>
+            </div>
+            
+            <div class="tab-content" id="tab-parsed">
+                <h5>Parsed Result</h5>
+                <pre class="json-viewer">${JSON.stringify(step.processed_result || {}, null, 2)}</pre>
+            </div>
+        </div>
+    `;
+    }
+
+    function renderOntologyStepDetails(step) {
+        const inputData = step.input_data || {};
+        const outputData = step.output_data || {};
+
+        return `
+        <div class="step-details">
+            <h4>${step.phase_name}</h4>
+            <div style="margin-bottom: 1rem;">
+                ${step.entity_type ? '<span class="summary-card">' + step.entity_type + '</span>' : ''}
+                ${step.query_type ? '<span class="summary-card">' + step.query_type + '</span>' : ''}
+                <span class="summary-card">Time: ${(step.processing_time || 0).toFixed(1)}s</span>
+            </div>
+            
+            <div class="detail-tabs">
+                <button class="tab-btn active" onclick="showTab('query')" data-tab="query">Query</button>
+                <button class="tab-btn" onclick="showTab('results')" data-tab="results">Results</button>
+            </div>
+            
+            <div class="tab-content active" id="tab-query">
+                <h5>Ontology Query</h5>
+                <p><strong>Entity Type:</strong> ${step.entity_type || 'Unknown'}</p>
+                <p><strong>Query Type:</strong> ${step.query_type || 'Unknown'}</p>
+                <pre class="json-viewer">${JSON.stringify(inputData, null, 2)}</pre>
+            </div>
+            
+            <div class="tab-content" id="tab-results">
+                <h5>Query Results</h5>
+                <p>${outputData.result_count || outputData.results?.length || 0} results found</p>
+                <pre class="json-viewer">${JSON.stringify(outputData, null, 2)}</pre>
+            </div>
+        </div>
+    `;
+    }
+
+    function renderGenericStepDetails(step) {
+        return `
+        <div class="step-details">
+            <h4>${step.phase_name}</h4>
+            <div style="margin-bottom: 1rem;">
+                <span class="summary-card">${step.step_type}</span>
+                <span class="summary-card">Time: ${(step.processing_time || 0).toFixed(1)}s</span>
+            </div>
+            
+            <div class="detail-tabs">
+                <button class="tab-btn active" onclick="showTab('data')" data-tab="data">Step Data</button>
+            </div>
+            
+            <div class="tab-content active" id="tab-data">
+                <h5>Step Information</h5>
+                <pre class="json-viewer">${JSON.stringify({
+            input_data: step.input_data,
+            output_data: step.output_data,
+            processed_result: step.processed_result
+        }, null, 2)}</pre>
+            </div>
+        </div>
+    `;
+    }
+
+    function showTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Deactivate all tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Show selected tab
+        const selectedContent = document.getElementById('tab-' + tabName);
+        const selectedButton = document.querySelector(`[data-tab="${tabName}"]`);
+
+        if (selectedContent) {
+            selectedContent.classList.add('active');
+        }
+
+        if (selectedButton) {
+            selectedButton.classList.add('active');
+        }
+    }
+
+    function previousStep() {
+        if (currentStepIndex > 0) {
+            const prevStep = allSteps[currentStepIndex - 1];
+            showStepDetails(prevStep.id);
+        }
+    }
+
+    function nextStep() {
+        if (currentStepIndex < allSteps.length - 1) {
+            const nextStep = allSteps[currentStepIndex + 1];
+            showStepDetails(nextStep.id);
+        }
+    }
+
+    function updateNavigationButtons() {
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        if (prevBtn) {
+            prevBtn.disabled = currentStepIndex <= 0;
+        }
+
+        if (nextBtn) {
+            nextBtn.disabled = currentStepIndex >= allSteps.length - 1;
+        }
+    }
+
+    function exportTrace() {
+        const traceData = {{ trace | tojson | safe
+    }};
+    const exportData = {
+        trace: traceData,
+        steps: allSteps,
+        exported_at: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reasoning_trace_' + traceData.session_id + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    }
+
+    // Initialize first step on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        if (allSteps.length > 0) {
+            showStepDetails(allSteps[0].id);
+        }
+    });
+</script>
+{% endblock %}

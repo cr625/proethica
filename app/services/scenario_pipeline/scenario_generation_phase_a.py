@@ -19,6 +19,7 @@ import asyncio
 
 from app.models import Document, db
 from sqlalchemy.orm.attributes import flag_modified
+from app.services.reasoning_inspector import get_reasoning_inspector
 from .segmenter import segment_sections
 from .classifier import classify_sentences
 from .temporal import extract_temporal
@@ -55,12 +56,12 @@ except ImportError as e:
     logging.getLogger(__name__).warning(f"❌ EnhancedLLMScenarioService import failed: {e}")
 
 try:
-    from shared.llm_orchestration.integrations.mcp_context import MCPOntologyClient
+    from shared.llm_orchestration.integrations.mcp_context import MCPContextManager
     enhanced_services['mcp_ontology'] = True
-    logging.getLogger(__name__).info("✅ MCP Ontology Client imported successfully")
+    logging.getLogger(__name__).info("✅ MCP Context Manager imported successfully")
 except ImportError as e:
     enhanced_services['mcp_ontology'] = False
-    logging.getLogger(__name__).warning(f"❌ MCP Ontology Client import failed: {e}")
+    logging.getLogger(__name__).warning(f"❌ MCP Context Manager import failed: {e}")
 
 try:
     from .enhanced_scenario_model_generator import EnhancedScenarioModelGenerator
@@ -137,31 +138,43 @@ class DirectScenarioPipelineService:
         metadata = case.doc_metadata or {}
         sections = metadata.get('sections') or metadata.get('document_structure', {}).get('sections', {}) or {}
 
+        # Start reasoning trace
+        inspector = get_reasoning_inspector()
+        session_id = inspector.start_trace(case.id, 'scenario')
+        
         logger.info(f"Generate called for case {case.id}, enhanced_enabled: {self.enhanced_enabled}")
         logger.info(f"LLM temporal enabled: {getattr(self, 'llm_temporal_enabled', False)}")
         logger.info(f"Metadata keys: {list(metadata.keys())}")
         logger.info(f"Sections keys: {list(sections.keys())}")
 
-        # Check if enhanced generation is enabled
-        if self.enhanced_enabled:
-            logger.info("Using enhanced generation")
-            try:
+        try:
+            # Check if enhanced generation is enabled
+            if self.enhanced_enabled:
+                logger.info("Using enhanced generation")
                 result = self._generate_enhanced(case, metadata, sections, overwrite)
                 if result is None:
                     logger.error("Enhanced generation returned None - this should not happen")
                     logger.info("Falling back to legacy generation due to None result")
-                    return self._generate_legacy(case, metadata, sections, overwrite)
-                return result
-            except Exception as e:
-                logger.error(f"Enhanced generation failed with exception: {e}")
-                logger.info("Falling back to legacy generation due to exception")
-                return self._generate_legacy(case, metadata, sections, overwrite)
-        else:
-            logger.info("Using legacy generation")
-            result = self._generate_legacy(case, metadata, sections, overwrite)
-            if result is None:
-                logger.error("Legacy generation returned None - this is a serious issue")
+                    result = self._generate_legacy(case, metadata, sections, overwrite)
+            else:
+                logger.info("Using legacy generation")
+                result = self._generate_legacy(case, metadata, sections, overwrite)
+                if result is None:
+                    logger.error("Legacy generation returned None - this is a serious issue")
+            
+            # Add trace information to result
+            completed_trace = inspector.complete_trace('completed')
+            if completed_trace:
+                result['reasoning_trace_id'] = completed_trace.id
+                result['reasoning_session_id'] = completed_trace.session_id
+                
             return result
+            
+        except Exception as e:
+            # Mark trace as failed
+            inspector.add_error_to_current_step(str(e))
+            inspector.complete_trace('failed')
+            raise
 
     def _generate_enhanced(self, case: Document, metadata: Dict[str, Any], sections: Dict[str, Any], overwrite: bool) -> Dict[str, Any]:
         """Enhanced LLM-driven scenario generation with ontology integration."""
@@ -200,17 +213,9 @@ class DirectScenarioPipelineService:
                     timeline_data['llm_temporal_validation'] = 'failed'
                     timeline_data['llm_temporal_error'] = str(e)
             
-            # Try to enrich with MCP ontology integration (async)
-            try:
-                enhanced_timeline = asyncio.run(self._enrich_with_ontology(timeline_data))
-            except Exception as e:
-                logger.error(f"MCP ontology enrichment failed: {e}")
-                logger.warning("⚠️  MCP server is not responding - continuing without ontology enrichment")
-                logger.warning(f"⚠️  MCP URL: {os.environ.get('MCP_SERVER_URL', 'http://localhost:5001')}")
-                logger.warning("⚠️  Please ensure MCP server is running for full ontology integration")
-                enhanced_timeline = timeline_data
-                enhanced_timeline['ontology_enrichment_status'] = 'failed'
-                enhanced_timeline['ontology_enrichment_error'] = f"MCP server unavailable: {str(e)}"
+            # Skip MCP ontology integration for now - needs proper implementation
+            enhanced_timeline = timeline_data
+            enhanced_timeline['ontology_enrichment_status'] = 'not_implemented'
             
             # Generate proper database models (Character, Resource, Event, Action)
             try:
@@ -331,53 +336,6 @@ class DirectScenarioPipelineService:
         logger.info(f"Legacy scenario generation completed for case {case.id}")
         return scenario_data
 
-    async def _enrich_with_ontology(self, timeline_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Enrich timeline data with MCP ontology integration."""
-        try:
-            # Check if MCP client is available from our imports
-            if not enhanced_services.get('mcp_ontology', False):
-                logger.warning("MCP ontology client not available, skipping enrichment")
-                timeline_data['ontology_enrichment_status'] = 'unavailable'
-                return timeline_data
-            
-            # Try to use the MCP client
-            async with MCPOntologyClient() as mcp_client:
-                # Enrich participants with ontological roles
-                for participant in timeline_data.get('participants', []):
-                    try:
-                        role_entity = await mcp_client.map_participant_to_role(participant['name'])
-                        if role_entity:
-                            participant['ontology_role'] = {
-                                'uri': role_entity.uri,
-                                'label': role_entity.label,
-                                'confidence': role_entity.confidence
-                            }
-                    except Exception as e:
-                        logger.warning(f"Failed to map participant {participant['name']}: {e}")
-                
-                # Enrich decisions with ontological categories
-                for decision in timeline_data.get('enhanced_decisions', []):
-                    try:
-                        ontology_enrichment = await mcp_client.enrich_decision_with_ontology(
-                            decision.question, 
-                            decision.context
-                        )
-                        decision.ontology_categories = ontology_enrichment
-                    except Exception as e:
-                        logger.warning(f"Failed to enrich decision: {e}")
-                
-                timeline_data['ontology_enrichment_status'] = 'success'
-                
-        except NameError as e:
-            logger.error(f"MCPOntologyClient not defined: {e}")
-            timeline_data['ontology_enrichment_status'] = 'client_undefined'
-            timeline_data['ontology_enrichment_error'] = str(e)
-        except Exception as e:
-            logger.error(f"MCP ontology enrichment failed: {e}")
-            timeline_data['ontology_enrichment_status'] = 'failed'
-            timeline_data['ontology_enrichment_error'] = str(e)
-            
-        return timeline_data
 
     def _build_enhanced_scenario_data(self, case: Document, enhanced_timeline: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Build enhanced scenario data structure."""

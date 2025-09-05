@@ -458,6 +458,12 @@
                     <a href="{{ url_for('cases.view_case_scenario', case_id=case.id) }}" class="btn btn-primary">
                         <i class="bi bi-eye"></i> View Scenario Timeline
                     </a>
+                    {% if latest_scenario.reasoning_trace_id %}
+                    <a href="{{ url_for('reasoning.inspect_trace', trace_id=latest_scenario.reasoning_trace_id) }}"
+                        class="btn btn-info">
+                        <i class="bi bi-search"></i> 🔍 Inspect Reasoning Chain
+                    </a>
+                    {% endif %}
                     <button id="regenerate-scenario" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-clockwise"></i> Regenerate
                     </button>

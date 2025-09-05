@@ -21,6 +21,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 from app.services.langchain_claude import LangChainClaudeService
+from app.services.reasoning_inspector import get_reasoning_inspector
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,9 @@ class EnhancedLLMScenarioService:
     def _generate_timeline_events(self, sections: Dict[str, Any], metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Generate timeline events using LLM semantic analysis."""
         
+        # Get inspector for capturing this interaction
+        inspector = get_reasoning_inspector()
+        
         # Prepare context for LLM
         context_sections = []
         for section_name, content in sections.items():
@@ -229,6 +233,18 @@ class EnhancedLLMScenarioService:
                 context_sections.append(f"[{section_name.upper()}]\n{text_content}")
         
         context_text = "\n\n".join(context_sections)
+        
+        # Capture preprocessing step
+        inspector.capture_preprocessing_step(
+            phase='timeline_input_cleaning',
+            original_text=str(sections),
+            processed_text=context_text,
+            metadata={
+                'html_removed': True,
+                'sections_processed': list(sections.keys()),
+                'context_length': len(context_text)
+            }
+        )
         
         # Create LLM prompt for timeline extraction
         timeline_prompt = """You are analyzing an engineering ethics case to extract a chronological timeline of events and identify all participants with their professional roles.
@@ -270,7 +286,11 @@ Return only valid JSON, no explanations. Keep responses concise to avoid truncat
         try:
             # Create and run the chain
             chain = self.llm_service.create_chain(timeline_prompt, ["context"])
+            
+            # Measure time for LLM call
+            start_time = datetime.now()
             response = self.llm_service.run_chain(chain, context=context_text)
+            processing_time = (datetime.now() - start_time).total_seconds()
             
             logger.info(f"LLM timeline response: {response[:200]}...")
             
@@ -298,6 +318,18 @@ Return only valid JSON, no explanations. Keep responses concise to avoid truncat
             # Store participants for later use
             self.extracted_participants = participants
             logger.info(f"Extracted {len(participants)} participants: {[p.get('name') for p in participants]}")
+            
+            # Capture the LLM interaction
+            inspector.capture_llm_interaction(
+                phase='timeline_extraction',
+                prompt=timeline_prompt.format(context=context_text),
+                response=response,
+                parsed_result=timeline_data,
+                model=getattr(self.llm_service, 'model', 'langchain_claude'),
+                temperature=0.2,  # Default temperature for timeline extraction
+                confidence_score=0.85,
+                processing_time=processing_time
+            )
                 
             return events[:self.max_timeline_events]
             
