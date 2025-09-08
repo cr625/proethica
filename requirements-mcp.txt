@@ -1,3 +1,0 @@
-## This file intentionally references the consolidated project requirements.
-## Keep a single source of truth in requirements.txt to avoid drift.
--r requirements.txt
