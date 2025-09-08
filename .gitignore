@@ -48,6 +48,10 @@ instance/
 *.swp
 *.swo
 
+# Ignore scripts and scratch directories
+scripts/
+scratch/
+
 # OS
 .DS_Store
 .DS_Store?
