@@ -1,0 +1,44 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Participant Mapping{% endblock %}
+{% block step_header %}Participant Mapping{% endblock %}
+{% block step_subtitle %}Identify and map participants to their roles and responsibilities{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-people"></i> Identify Case Participants
+        </h4>
+    </div>
+    <div class="step-content">
+        <p class="mb-3">Identify all stakeholders, decision-makers, and affected parties in this case. Map them to appropriate roles and responsibilities.</p>
+        
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Coming Soon:</strong> Interactive participant identification and role mapping tools will be implemented here.
+        </div>
+        
+        <div class="placeholder-content">
+            <h6>Planned Features:</h6>
+            <ul>
+                <li>Automatic participant extraction from case text</li>
+                <li>Role assignment using ProEthica ontology</li>
+                <li>Stakeholder impact analysis</li>
+                <li>Character profile generation</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .placeholder-content {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        border: 1px dashed #dee2e6;
+    }
+</style>
+{% endblock %}

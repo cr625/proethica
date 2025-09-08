@@ -1,0 +1,195 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Content Review{% endblock %}
+{% block step_header %}Content Review{% endblock %}
+{% block step_subtitle %}Review and analyze the case content divided by sections{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-file-text"></i> Case Content Analysis
+        </h4>
+    </div>
+    <div class="step-content">
+        <p class="mb-3">Review the case content organized by sections. This will help you understand the structure and identify key elements for scenario creation.</p>
+        
+        {% if sections|length > 1 %}
+        <div class="mb-3">
+            <strong>Sections identified:</strong> {{ sections|length }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% for section_key, section_data in sections.items() %}
+<div class="step-card">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-file-earmark-text"></i>
+            {{ section_data.title }}
+            {% if section_data.raw_key != section_key %}
+                <small class="text-muted">({{ section_data.raw_key }})</small>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="step-content">
+        <!-- Original enumerated format (exactly as in case detail page) -->
+        
+        {% if section_data.individual_questions %}
+        <div class="section-content mb-4">
+            <div class="case-detail-format border rounded p-3">
+                <ol class="case-questions">
+                    {% for question in section_data.individual_questions %}
+                    <li>{{ question }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+        {% elif section_data.individual_conclusions %}
+        <div class="section-content mb-4">
+            <div class="case-detail-format border rounded p-3">
+                <ol class="case-conclusions">
+                    {% for conclusion in section_data.individual_conclusions %}
+                    <li>{{ conclusion }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+        {% elif section_data.html %}
+        <div class="section-content mb-4">
+            <div class="case-detail-format border rounded p-3">
+                {{ section_data.html|safe }}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- LLM-optimized clean text format -->
+        {% if section_data.llm_text %}
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-robot"></i> LLM-Optimized Format (Clean Text):</h6>
+            <pre class="llm-text">{{ section_data.llm_text }}</pre>
+        </div>
+        {% endif %}
+        
+        <!-- Additional debug info for questions/conclusions -->
+        {% if section_data.individual_questions or section_data.individual_conclusions %}
+        <div class="alert alert-secondary mb-3">
+            <h6 class="mb-2"><i class="bi bi-list-ol"></i> Extracted Individual Items:</h6>
+            <div class="small">
+                {% if section_data.individual_questions %}
+                    <strong>Questions ({{ section_data.individual_questions|length }}):</strong>
+                    <ul class="mb-0 mt-1">
+                        {% for question in section_data.individual_questions %}
+                        <li>{{ question[:100] }}{% if question|length > 100 %}...{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                {% if section_data.individual_conclusions %}
+                    <strong>Conclusions ({{ section_data.individual_conclusions|length }}):</strong>
+                    <ul class="mb-0 mt-1">
+                        {% for conclusion in section_data.individual_conclusions %}
+                        <li>{{ conclusion[:100] }}{% if conclusion|length > 100 %}...{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .section-highlight {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .llm-formatted {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border-left: 3px solid #17a2b8;
+    }
+    
+    .llm-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+    }
+    
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+    
+    .section-content h6 {
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .case-detail-format {
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    
+    .case-questions, .case-conclusions {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+        list-style-type: decimal;
+    }
+    
+    .case-questions li, .case-conclusions li {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+        color: #333;
+        font-size: 0.95rem;
+    }
+    
+    .case-questions li:last-child, .case-conclusions li:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Match the exact styling from case detail page */
+    .case-detail-format ol {
+        counter-reset: item;
+    }
+    
+    .case-detail-format ol > li {
+        display: block;
+        margin-bottom: 0.75rem;
+        position: relative;
+        padding-left: 0;
+    }
+    
+    .case-detail-format ol > li:before {
+        content: counter(item, decimal) ".";
+        counter-increment: item;
+        font-weight: 500;
+        color: #495057;
+        margin-right: 0.5rem;
+        display: inline-block;
+        width: 1.5em;
+    }
+    
+    .alert-secondary {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}

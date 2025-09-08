@@ -1,0 +1,44 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Decision Points{% endblock %}
+{% block step_header %}Decision Points{% endblock %}
+{% block step_subtitle %}Identify key ethical decision points and develop decision options{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-diamond"></i> Ethical Decision Points
+        </h4>
+    </div>
+    <div class="step-content">
+        <p class="mb-3">Identify critical decision points where ethical choices must be made. Develop realistic options and consider their implications.</p>
+        
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Coming Soon:</strong> Interactive decision point identification and option development tools will be implemented here.
+        </div>
+        
+        <div class="placeholder-content">
+            <h6>Planned Features:</h6>
+            <ul>
+                <li>Automatic decision point detection using LLM analysis</li>
+                <li>Ethical framework integration (NSPE, utilitarian, deontological)</li>
+                <li>Decision option generation with consequences</li>
+                <li>Stakeholder impact assessment per option</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .placeholder-content {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        border: 1px dashed #dee2e6;
+    }
+</style>
+{% endblock %}

@@ -31,7 +31,7 @@ from app.services.semantic_router_service import (
 
 try:
     from llm_orchestration.core.orchestrator import get_llm_orchestrator, OrchestratorConfig
-    from llm_orchestration.integrations.mcp_context import MCPContextManager
+    from llm_orchestration.integrations.mcp_context import get_mcp_context_manager
     SHARED_ORCHESTRATOR_AVAILABLE = True
 except ImportError:
     SHARED_ORCHESTRATOR_AVAILABLE = False
@@ -99,8 +99,7 @@ class ProEthicaOrchestratorService:
         self.mcp_manager = None
         if SHARED_ORCHESTRATOR_AVAILABLE:
             try:
-                self.mcp_manager = MCPContextManager(self.mcp_server_url)
-                logger.info(f"MCP context manager initialized: {self.mcp_server_url}")
+                self.mcp_manager = get_mcp_context_manager(self.mcp_server_url)
             except Exception as e:
                 logger.error(f"Failed to initialize MCP manager: {e}")
         

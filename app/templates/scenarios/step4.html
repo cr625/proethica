@@ -1,0 +1,44 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Timeline Ordering{% endblock %}
+{% block step_header %}Timeline Ordering{% endblock %}
+{% block step_subtitle %}Organize events and decisions into a coherent timeline{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-clock-history"></i> Scenario Timeline
+        </h4>
+    </div>
+    <div class="step-content">
+        <p class="mb-3">Arrange the identified events and decision points into a logical sequence that creates an engaging scenario flow.</p>
+        
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Coming Soon:</strong> Interactive timeline editor with drag-and-drop functionality will be implemented here.
+        </div>
+        
+        <div class="placeholder-content">
+            <h6>Planned Features:</h6>
+            <ul>
+                <li>Visual timeline editor with drag-and-drop ordering</li>
+                <li>Temporal reasoning using BFO temporal analysis</li>
+                <li>Event dependency management</li>
+                <li>Timeline validation and coherence checking</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .placeholder-content {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        border: 1px dashed #dee2e6;
+    }
+</style>
+{% endblock %}

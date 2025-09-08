@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{% block step_title %}Scenario Step{% endblock %} - {{ case.title }}{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .pipeline-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .step-container {
+        margin-bottom: 2rem;
+    }
+
+    .step-card {
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+
+    .step-header {
+        background-color: #f8f9fc;
+        border-bottom: 1px solid #e3e6f0;
+        padding: 1rem 1.5rem;
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+
+    .step-content {
+        padding: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .pipeline-nav {
+        position: sticky;
+        top: 20px;
+        background: white;
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+
+    .pipeline-step {
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        color: #5a5c69;
+        display: block;
+    }
+
+    .pipeline-step.active {
+        background-color: #4e73df;
+        color: white;
+    }
+
+    .pipeline-step:hover {
+        background-color: #f8f9fc;
+        text-decoration: none;
+        color: #5a5c69;
+    }
+
+    .pipeline-step.active:hover {
+        background-color: #375a7f;
+        color: white;
+    }
+
+    .case-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #5a5c69;
+        margin-bottom: 0.5rem;
+    }
+
+    .step-info {
+        font-size: 0.875rem;
+        color: #858796;
+    }
+
+    .navigation-buttons {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e3e6f0;
+    }
+</style>
+{% block step_styles %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="pipeline-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="bi bi-gear"></i> {% block step_header %}Scenario Pipeline{% endblock %}
+                </h1>
+                <p class="mb-0 lead">{% block step_subtitle %}Interactive scenario creation from case content{% endblock %}</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-light">
+                    <i class="bi bi-arrow-left"></i> Back to Case
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Navigation Sidebar -->
+        <div class="col-md-3">
+            <div class="pipeline-nav">
+                <h5 class="mb-3">
+                    <i class="bi bi-list-ul"></i> Pipeline Steps
+                </h5>
+                
+                <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" 
+                   class="pipeline-step {% if current_step == 1 %}active{% endif %}">
+                    <i class="bi bi-file-text"></i> Content Review
+                </a>
+                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
+                    <i class="bi bi-people"></i> Participant Mapping (Coming Soon)
+                </div>
+                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
+                    <i class="bi bi-diamond"></i> Decision Points (Coming Soon)
+                </div>
+                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
+                    <i class="bi bi-clock-history"></i> Timeline Ordering (Coming Soon)
+                </div>
+                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
+                    <i class="bi bi-magic"></i> Generate Scenario (Coming Soon)
+                </div>
+
+                <hr class="my-3">
+
+                <div class="d-grid gap-2">
+                    {% if current_step > 1 and prev_step_url and prev_step_url != '#' %}
+                    <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Previous
+                    </a>
+                    {% endif %}
+                    {% if current_step < 5 and next_step_url and next_step_url != '#' %}
+                    <a href="{{ next_step_url }}" class="btn btn-primary">
+                        Next <i class="bi bi-arrow-right"></i>
+                    </a>
+                    {% else %}
+                    <button class="btn btn-outline-secondary" disabled>
+                        Next <i class="bi bi-arrow-right"></i> (Coming Soon)
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-md-9">
+            <div class="mb-4">
+                <div class="case-title">{{ case.title }}</div>
+                <div class="step-info">
+                    {% block step_info %}Step {{ current_step }} of 5{% endblock %}
+                </div>
+            </div>
+
+            <!-- Step-specific content -->
+            {% block step_content %}
+            <div class="step-card">
+                <div class="step-header">
+                    <h4 class="mb-0">Step Content</h4>
+                </div>
+                <div class="step-content">
+                    <p>Step content should be defined in the extending template.</p>
+                </div>
+            </div>
+            {% endblock %}
+
+            <!-- Navigation buttons at bottom -->
+            <div class="navigation-buttons">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        {% if current_step > 1 and prev_step_url and prev_step_url != '#' %}
+                        <a href="{{ prev_step_url }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Previous Step
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if current_step < 5 and next_step_url and next_step_url != '#' %}
+                        <a href="{{ next_step_url }}" class="btn btn-primary">
+                            Next Step <i class="bi bi-arrow-right"></i>
+                        </a>
+                        {% elif current_step < 5 %}
+                        <button class="btn btn-outline-secondary" disabled>
+                            Next Step <i class="bi bi-arrow-right"></i> (Coming Soon)
+                        </button>
+                        {% else %}
+                        <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> Complete
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% block step_scripts %}{% endblock %}
+{% endblock %}
