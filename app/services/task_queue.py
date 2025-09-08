@@ -40,7 +40,7 @@ class BackgroundTaskQueue:
     def _get_embedding_service(self):
         """Lazily initialize embedding service only when needed."""
         if self.embedding_service is None:
-            self.embedding_service = EmbeddingService()
+            self.embedding_service = EmbeddingService.get_instance()
         return self.embedding_service
     
     def process_document_async(self, document_id):

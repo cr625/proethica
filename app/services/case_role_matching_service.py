@@ -31,7 +31,7 @@ class CaseRoleMatchingService:
     
     def __init__(self):
         self.llm_service = LLMService()
-        self.embedding = EmbeddingService()
+        self.embedding = EmbeddingService.get_instance()
         self.role_desc = RoleDescriptionService()
         self.ontology_service = OntologyEntityService.get_instance()
         # Semantic similarity threshold and number of candidates

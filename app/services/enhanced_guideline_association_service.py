@@ -60,7 +60,7 @@ class EnhancedGuidelineAssociationService:
     """
     
     def __init__(self):
-        self.embedding_service = EmbeddingService()
+        self.embedding_service = EmbeddingService.get_instance()
         self.llm_service = LLMService()
         self.min_confidence_threshold = 0.3
         self.max_associations_per_section = 10

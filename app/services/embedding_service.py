@@ -14,7 +14,28 @@ class EmbeddingService:
     """
     Service for generating and managing embeddings for RDF triples.
     Supports using local or remote embedding models with configurable provider priority.
+    
+    This is a singleton class - use EmbeddingService.get_instance() to get the shared instance.
     """
+    
+    _instance = None  # Singleton instance
+    _initialized = False  # Track if instance has been initialized
+    
+    @classmethod
+    def get_instance(cls, model_name=None, embedding_dimension=None):
+        """
+        Get the singleton instance of EmbeddingService.
+        
+        Args:
+            model_name: The name of the local embedding model to use (only used on first call)
+            embedding_dimension: The dimension of the embedding vectors (only used on first call)
+            
+        Returns:
+            The singleton EmbeddingService instance
+        """
+        if cls._instance is None:
+            cls._instance = cls(model_name, embedding_dimension)
+        return cls._instance
     
     def __init__(self, model_name=None, embedding_dimension=None):
         """
@@ -259,7 +280,8 @@ class EmbeddingService:
         # Emit basic diagnostics for priority and switches
         priority_str = ",".join(self.provider_priority)
         disable_local = os.environ.get("DISABLE_LOCAL_EMBEDDINGS", "false").lower() in ("1", "true", "yes")
-        print(f"Embedding providers priority: {priority_str} | DISABLE_LOCAL_EMBEDDINGS={disable_local}")
+        # Collect provider status for single line output
+        provider_status = []
         # Local model setup
         if "local" in self.provider_priority and not disable_local:
             try:
@@ -279,7 +301,7 @@ class EmbeddingService:
                     "dimension": self.dimensions["local"],
                     "device": device
                 }
-                print(f"Local embedding provider ready: {self.model_name} (device={device})")
+                provider_status.append(f"Local:{self.model_name}({device})")
             except Exception as e:
                 # If we hit a meta-tensor or device move issue, mark local unavailable and proceed
                 err_msg = str(e)
@@ -295,7 +317,7 @@ class EmbeddingService:
                         import torch
                         requested_device = os.environ.get("EMBEDDINGS_DEVICE", "auto").lower()
                         device = "cpu" if requested_device == "cpu" else ("cuda" if torch.cuda.is_available() and requested_device != "cpu" else "cpu")
-                        print("Local embedding provider: attempting online download of model (ALLOW_HF_DOWNLOAD=true)")
+                        # Silent download attempt
                         model = SentenceTransformer(self.model_name, local_files_only=False, device=device)
                         self.providers["local"] = {
                             "model": model,
@@ -303,15 +325,12 @@ class EmbeddingService:
                             "dimension": self.dimensions["local"],
                             "device": device
                         }
-                        print(f"Local embedding provider ready after download: {self.model_name} (device={device})")
+                        provider_status.append(f"Local:{self.model_name}({device})")
                         tried_download = True
                     except Exception as e2:
-                        print(f"Local embedding provider download failed: {str(e2)}")
+                        provider_status.append("Local:unavailable")
                 if not tried_download:
-                    if "meta" in err_msg.lower() and "tensor" in err_msg.lower():
-                        print("Local embedding provider unavailable due to meta-tensor issue; disabling local embeddings for this session")
-                    else:
-                        print(f"Local embedding provider unavailable: {err_msg}")
+                    provider_status.append("Local:unavailable")
                     self.providers["local"] = {"available": False, "reason": err_msg}
 
         # Claude API setup
@@ -325,9 +344,9 @@ class EmbeddingService:
                     "dimension": self.dimensions["claude"],
                     "api_base": os.environ.get("ANTHROPIC_API_BASE", "https://api.anthropic.com/v1")
                 }
-                print(f"Claude embedding provider ready: {self.providers['claude']['model']} (API key: {api_key[:5]}...{api_key[-4:]})")
+                provider_status.append(f"Claude:ready")
             else:
-                print(f"Claude embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
+                provider_status.append(f"Claude:no-key")
                 self.providers["claude"] = {"available": False, "reason": "invalid_api_key"}
 
         # OpenAI API setup
@@ -342,9 +361,9 @@ class EmbeddingService:
                     "model": os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
                     "dimension": self.dimensions["openai"]
                 }
-                print(f"OpenAI embedding provider ready: {self.providers['openai']['model']} (API key: {api_key[:5]}...{api_key[-4:]})")
+                provider_status.append(f"OpenAI:ready")
             else:
-                print(f"OpenAI embedding provider unavailable: Invalid API key [{api_key[:5] if api_key else 'None'}...]")
+                provider_status.append(f"OpenAI:no-key")
                 self.providers["openai"] = {"available": False, "reason": "invalid_api_key"}
 
         # Gemini API setup (Google Generative Language API)
@@ -358,10 +377,15 @@ class EmbeddingService:
                     "model": os.environ.get("GEMINI_EMBEDDING_MODEL", "text-embedding-004"),
                     "dimension": self.dimensions["gemini"]
                 }
-                print("Gemini embedding provider ready: text-embedding-004")
+                provider_status.append(f"Gemini:ready")
             else:
-                print("Gemini embedding provider unavailable: Missing or invalid API key")
+                provider_status.append(f"Gemini:no-key")
                 self.providers["gemini"] = {"available": False, "reason": "invalid_api_key"}
+        
+        # Single line status output - only on first initialization
+        if not EmbeddingService._initialized:
+            print(f"Embedding service initialized: [{', '.join(provider_status)}] Priority: {priority_str}")
+            EmbeddingService._initialized = True
                 
     def get_embedding(self, text: str) -> List[float]:
         """

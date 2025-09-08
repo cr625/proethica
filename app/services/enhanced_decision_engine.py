@@ -35,7 +35,7 @@ class EnhancedDecisionEngine(DecisionEngine):
         else:
             # Import here to avoid circular imports
             from app.services.embedding_service import EmbeddingService
-            self.embedding_service = EmbeddingService()
+            self.embedding_service = EmbeddingService.get_instance()
     
     def evaluate_decision(self, decision, scenario, character=None, guidelines=None):
         """

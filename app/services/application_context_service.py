@@ -73,7 +73,9 @@ class ApplicationContextService:
         self.context_providers = []
         self._load_context_providers()
         
-        print(f"ApplicationContextService initialized (version {self.CONTEXT_VERSION})")
+        # Single line initialization message
+        providers_count = len(self.context_providers)
+        print(f"ApplicationContextService v{self.CONTEXT_VERSION} initialized with {providers_count} providers")
     
     def _load_configuration(self) -> Dict[str, Any]:
         """
@@ -194,7 +196,7 @@ class ApplicationContextService:
                                         issubclass(attr, base_class)):
                                         
                                         model_registry[attr_name.lower()] = attr
-                                        print(f"Discovered model: {attr_name}")
+                                        # Silently discover models (no console output)
                                 except (AttributeError, TypeError):
                                     continue
                     except (AttributeError, ImportError):
@@ -270,10 +272,11 @@ class ApplicationContextService:
                             'params': params
                         }
                     
-                    print(f"Discovered {len(navigation)} navigation sections from Flask URL map")
+                    # Silent discovery
                     return navigation
             except Exception as e:
-                print(f"Could not extract routes from Flask URL map: {str(e)}")
+                # Silent fallback
+                pass
         
         # Fallback to hardcoded navigation
         navigation = {
@@ -323,7 +326,7 @@ class ApplicationContextService:
             }
         }
         
-        print("Using hardcoded navigation map")
+        # Using hardcoded navigation map silently
         return navigation
     
     def _load_context_providers(self) -> None:
@@ -338,7 +341,7 @@ class ApplicationContextService:
             
             # Skip if directory doesn't exist
             if not os.path.exists(providers_dir):
-                print(f"Context providers directory not found: {providers_dir}")
+                # Silently skip if no providers directory
                 return
             
             # Get all Python files in the directory
@@ -365,13 +368,17 @@ class ApplicationContextService:
                                     # Create instance and register
                                     provider = obj(self)
                                     self.context_providers.append(provider)
-                                    print(f"Registered context provider: {name}")
+                                    # Silently register provider
+                                    pass
                                 else:
-                                    print(f"Skipping disabled provider: {name}")
+                                    # Silently skip disabled provider
+                                    pass
                     except Exception as e:
-                        print(f"Error loading context provider {module_name}: {str(e)}")
+                        # Silently skip failed provider
+                        pass
         except Exception as e:
-            print(f"Error loading context providers: {str(e)}")
+            # Silently handle provider loading errors
+            pass
     
     def get_full_context(self, world_id=None, scenario_id=None, query=None) -> Dict[str, Any]:
         """

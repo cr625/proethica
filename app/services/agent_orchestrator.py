@@ -36,7 +36,7 @@ class AgentOrchestrator:
             status_callback: Callback function for status updates (optional)
         """
         # Initialize services
-        self.embedding_service = embedding_service or EmbeddingService()
+        self.embedding_service = embedding_service or EmbeddingService.get_instance()
         self.langchain_claude = langchain_claude or LangChainClaudeService.get_instance()
         self.world_id = world_id
         self.status_callback = status_callback

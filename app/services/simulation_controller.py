@@ -86,7 +86,7 @@ class SimulationController:
             world_id = self.state.get('world_id')
             
             # Initialize services
-            embedding_service = EmbeddingService()
+            embedding_service = EmbeddingService.get_instance()
             langchain_claude = LangChainClaudeService.get_instance()
             
             # Initialize agent orchestrator

@@ -43,7 +43,7 @@ class GuidelineAnalysisService:
     
     def __init__(self):
         super().__init__()
-        self.embedding_service = EmbeddingService()
+        self.embedding_service = EmbeddingService.get_instance()
         self._ontology_index = None
         self._ontology_embeddings = None
         self._label_index = {}

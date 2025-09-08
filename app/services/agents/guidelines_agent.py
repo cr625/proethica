@@ -41,7 +41,7 @@ class GuidelinesAgent(BaseAgent):
         if embedding_service:
             self.embedding_service = embedding_service
         else:
-            self.embedding_service = EmbeddingService()
+            self.embedding_service = EmbeddingService.get_instance()
         
         # Initialize LangChain Claude service
         if langchain_claude:

@@ -227,7 +227,7 @@ class LLMService:
                 from config.models import ModelConfig
                 model_name = os.environ.get('ANTHROPIC_MODEL') or ModelConfig.get_default_model()
                 
-                print(f"Initializing live Claude with model: {model_name}")
+                # Silent initialization - status already shown elsewhere
                 
                 return ChatAnthropic(
                     model=model_name,
