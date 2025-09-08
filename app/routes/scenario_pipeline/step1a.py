@@ -9,12 +9,21 @@ import logging
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document
 from app.routes.scenario_pipeline.step1 import _format_section_for_llm
+from app.services.ontology_driven_langextract_service import OntologyDrivenLangExtractService
 from app.services.proethica_langextract_service import ProEthicaLangExtractService
+import os
 
 logger = logging.getLogger(__name__)
 
-# Initialize ProEthica LangExtract service once
-langextract_service = ProEthicaLangExtractService()
+# Initialize LangExtract service based on configuration
+use_ontology_driven = os.environ.get('ENABLE_ONTOLOGY_DRIVEN_LANGEXTRACT', 'true').lower() == 'true'
+
+if use_ontology_driven:
+    logger.info("Using OntologyDrivenLangExtractService")
+    langextract_service = OntologyDrivenLangExtractService()
+else:
+    logger.info("Using ProEthicaLangExtractService (basic)")
+    langextract_service = ProEthicaLangExtractService()
 
 # Function to exempt specific routes from CSRF after app initialization
 def init_step1a_csrf_exemption(app):
@@ -102,11 +111,20 @@ def analyze_section_langextract(case_id):
         
         logger.info(f"Starting LangExtract analysis for case {case_id}, section: {section_key}")
         
-        # Perform LangExtract analysis
+        # Perform ontology-driven LangExtract analysis
+        # Determine case domain from case metadata or default to engineering_ethics
+        case_domain = 'engineering_ethics'  # Default for NSPE cases
+        
+        # Get the case to check for domain information
+        case = Document.query.get(case_id)
+        if case and case.doc_metadata and 'domain' in case.doc_metadata:
+            case_domain = case.doc_metadata['domain']
+        
         analysis_result = langextract_service.analyze_section_content(
             section_title=section_key,
             section_text=section_text,
-            case_id=case_id
+            case_id=case_id,
+            case_domain=case_domain
         )
         
         # Add request metadata

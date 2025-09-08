@@ -128,7 +128,15 @@
                     <!-- LangExtract Service Status -->
                     <div class="langextract-status mb-4">
                         <h6>LangExtract Service Status:</h6>
-                        {% if langextract_status.integration_status == 'ready' %}
+                        {% if langextract_status.integration_status == 'ontology_guided_ready' %}
+                        <span class="status-ready">
+                            <i class="bi bi-check-circle"></i> Ontology-Guided Analysis Ready - Enhanced case-specific extraction
+                        </span>
+                        {% elif langextract_status.integration_status == 'langextract_ready_no_ontology' %}
+                        <span class="status-ready">
+                            <i class="bi bi-check-circle"></i> Standard LangExtract Ready - Full analysis available
+                        </span>
+                        {% elif langextract_status.integration_status == 'ready' %}
                         <span class="status-ready">
                             <i class="bi bi-check-circle"></i> Ready - Full LangExtract analysis available
                         </span>
@@ -142,11 +150,29 @@
                         </span>
                         {% endif %}
                         
+                        <!-- Ontology Integration Status (if available) -->
+                        {% if langextract_status.ontology_integration %}
+                        <div class="mt-2 p-2" style="background-color: #f8f9fa; border-radius: 0.25rem;">
+                            <small class="text-info">
+                                <strong>Ontology Integration:</strong>
+                                {% if langextract_status.ontology_integration.mcp_connection_available %}
+                                    <i class="bi bi-check-circle text-success"></i> MCP Connected
+                                {% else %}
+                                    <i class="bi bi-x-circle text-warning"></i> MCP Unavailable
+                                {% endif %}
+                                | Section Types Cached: {{ langextract_status.ontology_integration.section_types_cached }}
+                                | Implementation: {{ langextract_status.implementation }}
+                            </small>
+                        </div>
+                        {% endif %}
+                        
                         <div class="mt-2">
                             <small class="text-muted">
-                                OntExtract: {{ 'Available' if langextract_status.ontextract_available else 'Not Available' }} | 
                                 Gemini API: {{ 'Configured' if langextract_status.google_api_key_available else 'Missing' }} |
                                 Service: {{ 'Ready' if langextract_status.langextract_service_ready else 'Not Ready' }}
+                                {% if langextract_status.ontology_integration %}
+                                | MCP: {{ 'Connected' if langextract_status.ontology_integration.mcp_connection_available else 'Disconnected' }}
+                                {% endif %}
                             </small>
                         </div>
                     </div>
