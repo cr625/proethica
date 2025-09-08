@@ -213,6 +213,10 @@ def create_app(config_module='app.config'):
     from app.routes.cases import init_cases_csrf_exemption
     init_cases_csrf_exemption(app)
     
+    # Exempt Step 1a LangExtract analysis routes from CSRF protection
+    from app.routes.scenario_pipeline.step1a import init_step1a_csrf_exemption
+    init_step1a_csrf_exemption(app)
+    
     # STUB: Ontology editor redirects to OntServe
     # Create and register the ontology editor blueprint
     ontology_editor_bp = create_ontology_editor_blueprint(

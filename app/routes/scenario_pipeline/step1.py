@@ -101,39 +101,48 @@ def _extract_individual_questions(html):
 def _extract_individual_conclusions(html):
     """
     Extract individual conclusion items from HTML content.
-    Adapted from NSPECaseExtractionStep for LLM-optimal formatting.
+    Uses the same logic as NSPECaseExtractionStep._extract_individual_conclusions().
     """
     if not html:
         return []
         
+    # Parse the HTML
     soup = BeautifulSoup(html, 'html.parser')
     conclusions = []
     
-    # Look for ordered lists first
+    # Look for ordered lists first (most common format for multiple conclusion items)
     ordered_list = soup.find('ol')
     if ordered_list:
+        # Extract each list item as a separate conclusion item
         for item in ordered_list.find_all('li'):
             conclusions.append(item.get_text().strip())
         return conclusions
     
-    # Check for unordered lists
+    # If no ordered list is found, check for unordered lists
     unordered_list = soup.find('ul')
     if unordered_list:
         for item in unordered_list.find_all('li'):
             conclusions.append(item.get_text().strip())
         return conclusions
     
-    # Try to split on numbered patterns
-    text = soup.get_text()
-    if any(pattern in text for pattern in ['1.', '2.', '1)', '2)']):
+    # If no list is found, try to find numbered items in the text
+    # This handles cases where numbers are used but not in HTML list format
+    text_content = soup.get_text().strip()
+    if text_content:
         import re
-        parts = re.split(r'\d+[\.\)]\s*', text)
-        conclusions = [part.strip() for part in parts if part.strip()]
-        return conclusions[1:] if len(conclusions) > 1 else conclusions
-    
-    return []
+        # Look for patterns like "1.", "2.", "(1)", "(2)" at the beginning of lines or sentences
+        numbered_items = re.findall(r'(?:^|\n|\.\s+)(\(\d+\)|\d+\.)\s+([^\(\d\n\.]+?)(?=\n\s*\(\d+\)|\n\s*\d+\.|\Z)', text_content)
+        if numbered_items:
+            for _, item_text in numbered_items:
+                conclusions.append(item_text.strip())
+            return conclusions
+        
+        # If no numbered items found, use the entire content as a single conclusion
+        conclusions.append(text_content)
+        
+    return conclusions
 
-def _format_section_for_llm(section_key, section_data):
+def _format_section_for_llm(section_key, section_data, case_doc=None):
     """
     Format section data optimally for LLM consumption.
     Preserves original enumerated HTML and creates clean text versions.
@@ -189,8 +198,13 @@ def _format_section_for_llm(section_key, section_data):
             formatted_section['llm_text'] = f"{title}:\n{clean_text}"
     
     elif 'conclusion' in section_key.lower():
-        # Use existing extracted conclusions if available, otherwise extract them
-        conclusions_list = existing_conclusions or _extract_individual_conclusions(html_content)
+        # For conclusions, use the same logic as cases.py - check for pre-parsed conclusion_items first
+        case_conclusion_items = []
+        if case_doc and case_doc.doc_metadata:
+            case_conclusion_items = case_doc.doc_metadata.get('conclusion_items', [])
+        
+        # Use pre-parsed conclusion items if available, otherwise extract from HTML
+        conclusions_list = case_conclusion_items or existing_conclusions or _extract_individual_conclusions(html_content)
         if conclusions_list:
             formatted_section['individual_conclusions'] = conclusions_list
             # Create clean LLM text without HTML markup
@@ -339,8 +353,8 @@ def step1(case_id):
                     logger.info(f"    html preview: {section['html'][:100]}...")
         
         for section_key, section_content in raw_sections.items():
-            # Format each section for LLM consumption
-            formatted_section = _format_section_for_llm(section_key, section_content)
+            # Format each section for LLM consumption, passing the case document for metadata access
+            formatted_section = _format_section_for_llm(section_key, section_content, case_doc=case)
             if formatted_section:
                 sections[section_key] = formatted_section
         
@@ -380,7 +394,7 @@ def debug_step1(case_id):
         result = []
         for section_key, section_content in raw_sections.items():
             if 'question' in section_key.lower():
-                formatted_section = _format_section_for_llm(section_key, section_content)
+                formatted_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 result.append({
                     'section_key': section_key,
                     'section_type': type(section_content).__name__,

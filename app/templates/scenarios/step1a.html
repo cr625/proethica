@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% block title %}Step 1a: LangExtract Analysis - {{ case.title }}{% endblock %}
+
+{% block head %}
+<style>
+.langextract-btn {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+}
+
+.langextract-btn:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+}
+
+.langextract-output {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.langextract-status {
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.status-ready {
+    color: #28a745;
+}
+
+.status-fallback {
+    color: #ffc107;
+}
+
+.status-error {
+    color: #dc3545;
+}
+
+.analysis-section {
+    border-left: 3px solid #17a2b8;
+    padding-left: 1rem;
+    margin-bottom: 1rem;
+}
+
+.concept-item {
+    background-color: #e7f3ff;
+    border-left: 3px solid #007bff;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.temporal-marker {
+    background-color: #fff2e6;
+    border-left: 3px solid #ff8c00;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.domain-indicator {
+    background-color: #e6f7e6;
+    border-left: 3px solid #28a745;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #17a2b8;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.debug-section {
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('cases.list_cases') }}">Cases</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('cases.view_case', id=case.id) }}">{{ case.title[:50] }}{% if case.title|length > 50 %}...{% endif %}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1: Content Review</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Step 1a: LangExtract Analysis</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{{ step_title }}</h4>
+                    <div class="btn-group">
+                        <a href="{{ prev_step_url }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left"></i> Back to Step 1
+                        </a>
+                        {% if next_step_url != '#' %}
+                        <a href="{{ next_step_url }}" class="btn btn-primary btn-sm">
+                            Continue <i class="bi bi-arrow-right"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- LangExtract Service Status -->
+                    <div class="langextract-status mb-4">
+                        <h6>LangExtract Service Status:</h6>
+                        {% if langextract_status.integration_status == 'ready' %}
+                        <span class="status-ready">
+                            <i class="bi bi-check-circle"></i> Ready - Full LangExtract analysis available
+                        </span>
+                        {% elif langextract_status.integration_status == 'fallback_only' %}
+                        <span class="status-fallback">
+                            <i class="bi bi-exclamation-triangle"></i> Fallback mode - Basic analysis only
+                        </span>
+                        {% else %}
+                        <span class="status-error">
+                            <i class="bi bi-x-circle"></i> Service error - Check configuration
+                        </span>
+                        {% endif %}
+                        
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                OntExtract: {{ 'Available' if langextract_status.ontextract_available else 'Not Available' }} | 
+                                Gemini API: {{ 'Configured' if langextract_status.google_api_key_available else 'Missing' }} |
+                                Service: {{ 'Ready' if langextract_status.langextract_service_ready else 'Not Ready' }}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Case Information -->
+                    <div class="mb-4">
+                        <h5>Case: {{ case.title }}</h5>
+                        <p class="text-muted">
+                            <small>
+                                Case ID: {{ case.id }} | 
+                                Sections: {{ sections|length }} |
+                                Current Step: {{ current_step }}
+                            </small>
+                        </p>
+                    </div>
+
+                    <!-- Sections Analysis -->
+                    {% for section_key, section_data in sections.items() %}
+                    <div class="step-card mb-4">
+                        <div class="step-header">
+                            <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="bi bi-file-earmark-text"></i>
+                                    {{ section_data.title }}
+                                </span>
+                                <button class="btn btn-sm langextract-btn" 
+                                        onclick="analyzeSectionWithLangExtract('{{ section_key }}', '{{ section_data.title }}')">
+                                    <i class="bi bi-cpu"></i> LangExtract Analysis
+                                </button>
+                            </h5>
+                        </div>
+                        
+                        <div class="step-content mt-3">
+                            <!-- LLM-Optimized Text Display -->
+                            <div class="alert alert-info">
+                                <h6 class="mb-2"><i class="bi bi-robot"></i> LLM-Optimized Format (Clean Text):</h6>
+                                <pre class="llm-text mb-0">{{ section_data.llm_text }}</pre>
+                            </div>
+                            
+                            <!-- LangExtract Analysis Output -->
+                            <div id="langextract-output-{{ section_key }}" class="langextract-output" style="display: none;">
+                                <h6><i class="bi bi-cpu"></i> LangExtract Analysis Results:</h6>
+                                <div id="langextract-content-{{ section_key }}">
+                                    <!-- Analysis results will be populated here -->
+                                </div>
+                            </div>
+                            
+                            <!-- Input Text Debug -->
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#debug-{{ section_key }}">
+                                    <i class="bi bi-code"></i> Show Input Text
+                                </button>
+                                <div class="collapse mt-2" id="debug-{{ section_key }}">
+                                    <div class="debug-section">
+                                        <strong>Text sent to LangExtract:</strong><br>
+                                        <pre id="input-text-{{ section_key }}">{{ section_data.llm_text }}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// LangExtract Analysis Functions
+async function analyzeSectionWithLangExtract(sectionKey, sectionTitle) {
+    const button = event.target.closest('button');
+    const outputDiv = document.getElementById(`langextract-output-${sectionKey}`);
+    const contentDiv = document.getElementById(`langextract-content-${sectionKey}`);
+    const inputTextPre = document.getElementById(`input-text-${sectionKey}`);
+    
+    // Get section text from the LLM-optimized format
+    const sectionText = inputTextPre.textContent || inputTextPre.innerText;
+    
+    // Show loading state
+    button.disabled = true;
+    button.innerHTML = '<span class="loading-spinner"></span> Analyzing...';
+    outputDiv.style.display = 'block';
+    contentDiv.innerHTML = '<div class="text-center"><div class="loading-spinner"></div> Performing LangExtract analysis...</div>';
+    
+    try {
+        // Send analysis request
+        const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/langextract_analysis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                section_key: sectionKey,
+                section_text: sectionText
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            displayLangExtractResults(contentDiv, result);
+        } else {
+            displayLangExtractError(contentDiv, result.error || 'Analysis failed');
+        }
+        
+    } catch (error) {
+        console.error('LangExtract analysis error:', error);
+        displayLangExtractError(contentDiv, error.message);
+    } finally {
+        // Restore button state
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-cpu"></i> LangExtract Analysis';
+    }
+}
+
+function displayLangExtractResults(contentDiv, result) {
+    const structured = result.structured_analysis || {};
+    const ethical = result.ethical_context || {};
+    const processing = result.processing_info || {};
+    const orchestration = result.orchestration_insights || {};
+    
+    let html = `
+        <div class="analysis-section">
+            <h6><i class="bi bi-info-circle"></i> Analysis Summary</h6>
+            <p><strong>Method:</strong> ${result.analysis_method || 'Unknown'}</p>
+            <p><strong>Confidence:</strong> ${(processing.langextract_confidence * 100).toFixed(1)}%</p>
+            <p><strong>Processing Time:</strong> ${processing.processing_time || 0}s</p>
+            <p><strong>Character Positioning:</strong> ${processing.character_level_positions ? 'Available' : 'Not available'}</p>
+        </div>
+    `;
+    
+    // Key Concepts
+    if (structured.key_concepts && structured.key_concepts.length > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-lightbulb"></i> Key Concepts (${structured.key_concepts.length})</h6>
+        `;
+        structured.key_concepts.forEach(concept => {
+            html += `
+                <div class="concept-item">
+                    <strong>${concept.term || 'Unnamed concept'}</strong>
+                    ${concept.definition ? `<br><small>${concept.definition}</small>` : ''}
+                    ${concept.ethical_relevance ? `<br><span class="badge bg-primary">${concept.ethical_relevance}</span>` : ''}
+                    ${concept.context ? `<br><em>Context: ${concept.context}</em>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // Stakeholders
+    if (structured.stakeholders && structured.stakeholders.length > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-people"></i> Stakeholders (${structured.stakeholders.length})</h6>
+        `;
+        structured.stakeholders.forEach(stakeholder => {
+            html += `
+                <div class="concept-item">
+                    <strong>${stakeholder.name || 'Unnamed stakeholder'}</strong>
+                    ${stakeholder.role ? `<br><span class="badge bg-success">${stakeholder.role}</span>` : ''}
+                    ${stakeholder.responsibilities ? `<br><small>${stakeholder.responsibilities}</small>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // Ethical Principles
+    if (structured.ethical_principles && structured.ethical_principles.length > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-shield-check"></i> Ethical Principles (${structured.ethical_principles.length})</h6>
+        `;
+        structured.ethical_principles.forEach(principle => {
+            html += `
+                <div class="concept-item">
+                    <strong>${principle.principle || 'Ethical principle'}</strong>
+                    ${principle.nspe_reference ? `<br><span class="badge bg-warning text-dark">NSPE ${principle.nspe_reference}</span>` : ''}
+                    ${principle.relevance ? `<br><small>${principle.relevance}</small>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // Decision Points
+    if (structured.decision_points && structured.decision_points.length > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-question-diamond"></i> Decision Points (${structured.decision_points.length})</h6>
+        `;
+        structured.decision_points.forEach(decision => {
+            html += `
+                <div class="concept-item">
+                    <strong>${decision.decision || 'Decision point'}</strong>
+                    ${decision.ethical_considerations ? `<br><small>${decision.ethical_considerations}</small>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // Temporal Markers
+    if (structured.temporal_markers && structured.temporal_markers.length > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-clock"></i> Temporal Markers (${structured.temporal_markers.length})</h6>
+        `;
+        structured.temporal_markers.forEach(marker => {
+            html += `
+                <div class="temporal-marker">
+                    <strong>${marker.marker || 'Temporal reference'}</strong>
+                    ${marker.period !== 'unknown' ? `<br><small>Period: ${marker.period}</small>` : ''}
+                    ${marker.context ? `<br><em>${marker.context}</em>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // Domain Indicators
+    if (structured.domain_indicators && structured.domain_indicators.length > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-gear"></i> Domain Indicators (${structured.domain_indicators.length})</h6>
+        `;
+        structured.domain_indicators.forEach(indicator => {
+            html += `
+                <div class="domain-indicator">
+                    <strong>${indicator.domain || 'Unknown domain'}</strong>
+                    ${indicator.indicator ? `<br><small>${indicator.indicator}</small>` : ''}
+                    ${indicator.terminology && indicator.terminology.length > 0 ? 
+                        `<br><em>Terms: ${indicator.terminology.join(', ')}</em>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    // Ethical Context
+    if (ethical.ethical_terms_detected > 0) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-shield-check"></i> Ethical Context</h6>
+                <p><strong>Ethical Terms Detected:</strong> ${ethical.ethical_terms_detected}</p>
+                <p><strong>Professional Context:</strong> ${ethical.professional_context || 'Unknown'}</p>
+                <p><strong>Analysis Suitability:</strong> ${ethical.analysis_suitability || 'Unknown'}</p>
+        `;
+        if (ethical.ethical_concepts && ethical.ethical_concepts.length > 0) {
+            html += '<div class="mt-2">';
+            ethical.ethical_concepts.forEach(concept => {
+                html += `<span class="badge bg-primary me-1">${concept.term}</span>`;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    
+    // Orchestration Insights
+    if (orchestration.status === 'available') {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-diagram-3"></i> LLM Orchestration</h6>
+                <p><strong>Status:</strong> Available</p>
+        `;
+        if (orchestration.tool_recommendations && orchestration.tool_recommendations.length > 0) {
+            html += `<p><strong>Recommended Tools:</strong> ${orchestration.tool_recommendations.join(', ')}</p>`;
+        }
+        if (orchestration.confidence) {
+            html += `<p><strong>Orchestration Confidence:</strong> ${(orchestration.confidence * 100).toFixed(1)}%</p>`;
+        }
+        html += '</div>';
+    }
+    
+    // Debug Information
+    if (result.debug_info) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-bug"></i> Debug Information</h6>
+                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                        data-bs-toggle="collapse" data-bs-target="#debug-info-${Date.now()}">
+                    Show Debug Details
+                </button>
+                <div class="collapse mt-2" id="debug-info-${Date.now()}">
+                    <div class="debug-section">
+                        <pre>${JSON.stringify(result.debug_info, null, 2)}</pre>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    contentDiv.innerHTML = html;
+}
+
+function displayLangExtractError(contentDiv, error) {
+    contentDiv.innerHTML = `
+        <div class="alert alert-warning">
+            <h6><i class="bi bi-exclamation-triangle"></i> Analysis Error</h6>
+            <p>LangExtract analysis failed: ${error}</p>
+            <p><small class="text-muted">Fallback analysis may be available. Check service status above.</small></p>
+        </div>
+    `;
+}
+</script>
+{% endblock %}
