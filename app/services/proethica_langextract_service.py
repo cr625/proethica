@@ -63,75 +63,158 @@ class ProEthicaLangExtractService:
         
         try:
             import langextract as lx
+            from langextract import data
             
-            # Create a simple extraction schema for ethical content
-            extraction_schema = {
-                "key_concepts": {
-                    "description": "Important ethical concepts, principles, and terms",
-                    "type": "list",
-                    "items": {
-                        "term": "string",
-                        "definition": "string", 
-                        "ethical_relevance": "string"
-                    }
-                },
-                "stakeholders": {
-                    "description": "People, roles, or entities involved in the ethical scenario",
-                    "type": "list",
-                    "items": {
-                        "name": "string",
-                        "role": "string",
-                        "responsibilities": "string"
-                    }
-                },
-                "ethical_principles": {
-                    "description": "Professional ethics principles referenced or applicable",
-                    "type": "list",
-                    "items": {
-                        "principle": "string",
-                        "relevance": "string",
-                        "nspe_reference": "string"
-                    }
-                },
-                "decision_points": {
-                    "description": "Key ethical decisions or dilemmas in the text",
-                    "type": "list", 
-                    "items": {
-                        "decision": "string",
-                        "ethical_considerations": "string"
-                    }
-                },
-                "temporal_markers": {
-                    "description": "Time-related references or sequence indicators",
-                    "type": "list",
-                    "items": {
-                        "marker": "string",
-                        "context": "string"
-                    }
-                }
-            }
+            logger.info(f"Starting LangExtract API call for section: {section_title}")
+            logger.info(f"API Key available: {bool(self.google_api_key)}")
+            logger.info(f"Text length: {len(section_text)} characters")
             
-            # Initialize LangExtract
-            model = lx.inference.GeminiLanguageModel(
-                api_key=self.google_api_key,
-                model_id=self.model_id
-            )
+            # Create examples to guide extraction
+            examples = [
+                data.ExampleData(
+                    text="Engineer Smith, a licensed professional engineer, faces an ethical dilemma regarding public safety when Client Corp requests modifications that may compromise structural integrity.",
+                    extractions=[
+                        data.Extraction(
+                            extraction_class="ethics_analysis",
+                            extraction_text="structured_ethical_analysis",
+                            attributes={
+                                "key_concepts": [
+                                    {"term": "professional engineer", "ethical_relevance": "professional_identity"},
+                                    {"term": "ethical dilemma", "ethical_relevance": "decision_framework"},
+                                    {"term": "public safety", "ethical_relevance": "fundamental_principle"}
+                                ],
+                                "stakeholders": [
+                                    {"name": "Engineer Smith", "role": "Professional Engineer", "responsibilities": "Uphold public safety"},
+                                    {"name": "Client Corp", "role": "Client", "responsibilities": "Project requirements"}
+                                ],
+                                "ethical_principles": [
+                                    {"principle": "Hold paramount the safety, health, and welfare of the public", "nspe_reference": "I.1", "relevance": "Fundamental duty"}
+                                ],
+                                "decision_points": [
+                                    {"decision": "Whether to compromise structural integrity per client request", "ethical_considerations": "Public safety vs client satisfaction"}
+                                ]
+                            }
+                        )
+                    ]
+                )
+            ]
             
-            # Perform extraction
+            # Perform extraction using correct API
             extraction_result = lx.extract(
-                text=section_text,
-                schema=extraction_schema,
-                model=model
+                text_or_documents=section_text,
+                prompt_description=f"""Extract structured information from this professional ethics case section: {section_title}
+                
+Focus on extracting:
+1. Key ethical concepts, principles, and terms
+2. Stakeholders and their roles 
+3. Professional ethics principles (especially NSPE-related)
+4. Decision points and ethical dilemmas
+5. Temporal markers and sequence indicators
+
+Provide clear, structured analysis suitable for professional ethics education.""",
+                examples=examples,
+                model_id=self.model_id,
+                api_key=self.google_api_key,
+                language_model_type=lx.inference.GeminiLanguageModel,
+                temperature=0.3,
+                fence_output=False
             )
+            
+            logger.info("LangExtract API call completed successfully")
+            
+            # Process LangExtract results into structured format
+            logger.info(f"Raw LangExtract result type: {type(extraction_result)}")
+            if hasattr(extraction_result, 'extractions'):
+                logger.info(f"Number of extractions: {len(extraction_result.extractions)}")
+            structured_results = self._process_langextract_results(extraction_result, section_text)
+            logger.info(f"Processed results keys: {list(structured_results.keys())}")
             
             # Format results for ProEthica
             return self._format_langextract_results(
-                section_title, section_text, extraction_result, 'langextract_gemini'
+                section_title, section_text, structured_results, 'langextract_gemini'
             )
             
         except Exception as e:
-            logger.error(f"LangExtract analysis failed: {e}")
+            import traceback
+            error_details = traceback.format_exc()
+            logger.error(f"LangExtract analysis failed for section '{section_title}': {e}")
+            logger.error(f"Full traceback: {error_details}")
             return self._analyze_with_fallback(section_title, section_text, case_id, error=str(e))
+    
+    def _process_langextract_results(self, annotated_doc, original_text: str) -> Dict[str, Any]:
+        """Process LangExtract API results into structured format for ProEthica"""
+        
+        result = {
+            'key_concepts': [],
+            'stakeholders': [],
+            'ethical_principles': [],
+            'decision_points': [],
+            'temporal_markers': []
+        }
+        
+        try:
+            if annotated_doc and hasattr(annotated_doc, 'extractions'):
+                for extraction in annotated_doc.extractions:
+                    # Handle different LangExtract data structure formats
+                    extraction_data = None
+                    if hasattr(extraction, 'data') and extraction.data:
+                        extraction_data = extraction.data
+                    elif hasattr(extraction, 'attributes') and extraction.attributes:
+                        extraction_data = extraction.attributes
+                    elif hasattr(extraction, 'extraction_text'):
+                        # Try to parse JSON from extraction text
+                        try:
+                            import json
+                            extraction_data = json.loads(extraction.extraction_text)
+                        except:
+                            # If not JSON, create basic structure from raw text
+                            extraction_data = {
+                                'key_concepts': [{'term': extraction.extraction_text, 'ethical_relevance': 'general'}]
+                            }
+                    
+                    if extraction_data:
+                        # Merge structured data from extraction
+                        for key in result.keys():
+                            if key in extraction_data and extraction_data[key]:
+                                if isinstance(extraction_data[key], list):
+                                    result[key].extend(extraction_data[key])
+                                else:
+                                    # Convert non-list values to list format
+                                    result[key].append({
+                                        'term': str(extraction_data[key]),
+                                        'context': 'extracted_content'
+                                    })
+            
+            # If no extractions found, create basic analysis from the extraction response
+            if not any(result.values()):
+                result = self._create_basic_analysis_from_response(annotated_doc, original_text)
+                
+        except Exception as e:
+            logger.warning(f"Error processing LangExtract results: {e}")
+            # Return basic structure if processing fails
+            result = {
+                'key_concepts': [{'term': 'professional_ethics', 'ethical_relevance': 'general'}],
+                'stakeholders': [],
+                'ethical_principles': [],
+                'decision_points': [],
+                'temporal_markers': []
+            }
+        
+        return result
+    
+    def _create_basic_analysis_from_response(self, annotated_doc, text: str) -> Dict[str, Any]:
+        """Create basic analysis when structured extraction is not available"""
+        
+        # Use fallback analysis as base
+        fallback_result = {
+            'key_concepts': self._extract_key_concepts_fallback(text),
+            'stakeholders': self._extract_stakeholders_fallback(text),
+            'ethical_principles': self._extract_ethical_principles_fallback(text),
+            'decision_points': self._extract_decision_points_fallback(text),
+            'temporal_markers': self._extract_temporal_markers_fallback(text)
+        }
+        
+        return fallback_result
     
     def _analyze_with_fallback(self, section_title: str, section_text: str, 
                               case_id: Optional[int] = None, error: Optional[str] = None) -> Dict[str, Any]:
@@ -361,7 +444,7 @@ class ProEthicaLangExtractService:
                 'professional_domain': 'engineering_ethics',
                 'analysis_suitability': 'high' if method == 'langextract_gemini' else 'medium',
                 'nspe_relevance': len([p for p in extraction_result.get('ethical_principles', []) 
-                                    if p.get('nspe_reference')])
+                                    if isinstance(p, dict) and p.get('nspe_reference')])
             },
             
             # Processing Information
@@ -389,6 +472,8 @@ class ProEthicaLangExtractService:
         return {
             'service_ready': self.service_ready,
             'langextract_available': self.langextract_available,
+            'langextract_service_ready': self.service_ready,  # Template compatibility
+            'ontextract_available': False,  # This is ProEthica standalone, not OntExtract
             'google_api_key_available': bool(self.google_api_key),
             'integration_status': 'ready' if (self.langextract_available and self.service_ready) else 'fallback_only',
             'capabilities': {

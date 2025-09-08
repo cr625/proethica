@@ -34,8 +34,8 @@ def create_app(config_module='app.config'):
         from app.utils.nltk_verification import verify_nltk_resources
         verify_nltk_resources()
     except Exception as e:
-        logging.critical(f"NLTK resource verification failed: {str(e)}")
-        print(f"\nERROR: {str(e)}\n")
+        print(f"\nNLTK Setup Required: {str(e)}\n")
+        raise
     
     # Configure the app based on config_module
     if config_module == 'config':

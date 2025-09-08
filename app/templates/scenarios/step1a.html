@@ -279,9 +279,11 @@ function displayLangExtractResults(contentDiv, result) {
         <div class="analysis-section">
             <h6><i class="bi bi-info-circle"></i> Analysis Summary</h6>
             <p><strong>Method:</strong> ${result.analysis_method || 'Unknown'}</p>
-            <p><strong>Confidence:</strong> ${(processing.langextract_confidence * 100).toFixed(1)}%</p>
-            <p><strong>Processing Time:</strong> ${processing.processing_time || 0}s</p>
+            <p><strong>Confidence:</strong> ${processing.confidence ? (processing.confidence * 100).toFixed(1) : 'Unknown'}%</p>
+            <p><strong>Processing Time:</strong> ${processing.processing_time || 'N/A'}</p>
             <p><strong>Character Positioning:</strong> ${processing.character_level_positions ? 'Available' : 'Not available'}</p>
+            <p><strong>Text Length:</strong> ${result.original_text_length || 'Unknown'} characters</p>
+            <p><strong>Analysis Timestamp:</strong> ${result.analysis_timestamp ? new Date(result.analysis_timestamp).toLocaleTimeString() : 'N/A'}</p>
         </div>
     `;
     
@@ -428,6 +430,45 @@ function displayLangExtractResults(contentDiv, result) {
         }
         html += '</div>';
     }
+    
+    // Detailed Analysis Summary
+    if (result.summary) {
+        html += `
+            <div class="analysis-section">
+                <h6><i class="bi bi-bar-chart"></i> Processing Summary</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Key Concepts:</strong> ${result.summary.key_concepts_found || 0}</p>
+                        <p><strong>Stakeholders:</strong> ${result.summary.stakeholders_identified || 0}</p>
+                        <p><strong>Ethical Principles:</strong> ${result.summary.ethical_principles_referenced || 0}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Decision Points:</strong> ${result.summary.decision_points_detected || 0}</p>
+                        <p><strong>Temporal Markers:</strong> ${result.summary.temporal_markers_found || 0}</p>
+                        <p><strong>Processing Method:</strong> ${processing.method || 'Unknown'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Raw Analysis Output
+    const uniqueId = Date.now() + Math.random();
+    html += `
+        <div class="analysis-section">
+            <h6><i class="bi bi-file-code"></i> Complete Analysis Output</h6>
+            <button class="btn btn-sm btn-outline-info" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#raw-output-${uniqueId}">
+                <i class="bi bi-eye"></i> Show Full JSON Results
+            </button>
+            <div class="collapse mt-2" id="raw-output-${uniqueId}">
+                <div class="debug-section" style="max-height: 400px; overflow-y: auto;">
+                    <h6>Complete LangExtract Analysis Results:</h6>
+                    <pre style="font-size: 0.8rem; line-height: 1.3;">${JSON.stringify(result, null, 2)}</pre>
+                </div>
+            </div>
+        </div>
+    `;
     
     // Debug Information
     if (result.debug_info) {
