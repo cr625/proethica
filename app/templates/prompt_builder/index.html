@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt Builder - Domain Organization{% endblock %}
+
+{% block head %}
+<!-- CodeMirror 6 for syntax highlighting -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@6.0.1/dist/index.css">
+<script src="https://cdn.jsdelivr.net/npm/codemirror@6.0.1/dist/index.min.js"></script>
+
+<style>
+    .domain-card {
+        transition: transform 0.2s ease-in-out;
+        border-left: 4px solid #007bff;
+    }
+    .domain-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .domain-card.engineering { border-left-color: #fd7e14; }
+    .domain-card.medical { border-left-color: #dc3545; }
+    .domain-card.legal { border-left-color: #6f42c1; }
+    .domain-card.generic { border-left-color: #6c757d; }
+    
+    .section-type-badge {
+        font-size: 0.85em;
+        margin-right: 0.5rem;
+        margin-bottom: 0.3rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+    }
+    
+    .performance-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    .performance-good { background-color: #28a745; }
+    .performance-ok { background-color: #ffc107; }
+    .performance-poor { background-color: #dc3545; }
+    .performance-unknown { background-color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-palette"></i> Prompt Builder</h2>
+                    <p class="text-muted">Domain-specific prompt template management with ontology integration</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('prompt_builder.editor') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> New Template
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-graph-up"></i> System Overview</h5>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <h4>{{ domain_data.values() | map(attribute='total_templates') | sum }}</h4>
+                            <small class="text-muted">Total Templates</small>
+                        </div>
+                        <div class="stat-item">
+                            <h4>{{ domain_data | length }}</h4>
+                            <small class="text-muted">Active Domains</small>
+                        </div>
+                        <div class="stat-item">
+                            <h4>{{ domain_data.values() | map(attribute='total_usage') | sum }}</h4>
+                            <small class="text-muted">Total Usage</small>
+                        </div>
+                        <div class="stat-item">
+                            <h4>{{ section_types | length }}</h4>
+                            <small class="text-muted">Section Types</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Cards -->
+    <div class="row">
+        {% for domain_key, domain in domain_data.items() %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card domain-card {{ domain_key }}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-globe2"></i> {{ domain.name }}
+                        {% if domain.total_templates > 0 %}
+                            <span class="badge bg-secondary ms-2">{{ domain.total_templates }}</span>
+                        {% endif %}
+                    </h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" 
+                                data-bs-toggle="dropdown">
+                            Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('prompt_builder.domain_templates', domain_name=domain_key) }}">
+                                    <i class="bi bi-eye"></i> View Templates
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('prompt_builder.editor') }}?domain={{ domain_key }}">
+                                    <i class="bi bi-plus"></i> New Template
+                                </a>
+                            </li>
+                            {% if domain.total_usage > 0 %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="showDomainAnalytics('{{ domain_key }}')">
+                                    <i class="bi bi-bar-chart"></i> View Analytics
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted small">{{ domain.description | truncate(120) }}</p>
+                    
+                    <!-- Template Types -->
+                    {% if domain.templates %}
+                    <div class="mb-3">
+                        <h6 class="mb-2">Template Types:</h6>
+                        {% for section_type, stats in domain.templates.items() %}
+                        <span class="badge section-type-badge bg-light text-dark">
+                            {{ section_type | replace('Section', '') }}
+                            <small>({{ stats.count }})</small>
+                            {% if stats.performance %}
+                            <span class="performance-indicator 
+                                {% if stats.performance >= 0.8 %}performance-good
+                                {% elif stats.performance >= 0.6 %}performance-ok
+                                {% else %}performance-poor
+                                {% endif %}"></span>
+                            {% else %}
+                            <span class="performance-indicator performance-unknown"></span>
+                            {% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">No templates yet</p>
+                        <a href="{{ url_for('prompt_builder.editor') }}?domain={{ domain_key }}" class="btn btn-sm btn-outline-primary">
+                            Create First Template
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Usage Stats -->
+                    {% if domain.total_usage > 0 %}
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="row text-center">
+                            <div class="col">
+                                <strong>{{ domain.total_usage }}</strong>
+                                <br><small class="text-muted">Uses</small>
+                            </div>
+                            <div class="col">
+                                {% set avg_perf = domain.templates.values() | selectattr('performance') | map(attribute='performance') | list %}
+                                {% if avg_perf %}
+                                <strong>{{ (avg_perf | sum / avg_perf | length * 100) | round(1) }}%</strong>
+                                {% else %}
+                                <strong>-</strong>
+                                {% endif %}
+                                <br><small class="text-muted">Avg Performance</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Available Section Types -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Available Section Types from Ontology</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Section types available for template creation, sourced from the ProEthica ontology:</p>
+                    <div class="row">
+                        {% for section_type in section_types %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="border rounded p-3">
+                                <h6 class="mb-1">{{ section_type.name | replace('Section', '') }}</h6>
+                                <small class="text-muted">{{ section_type.definition | truncate(100) }}</small>
+                                <div class="mt-2">
+                                    <a href="{{ url_for('prompt_builder.editor') }}?section_type={{ section_type.name }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-plus"></i> Create Template
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Modal -->
+<div class="modal fade" id="analyticsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Domain Analytics</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="analyticsContent">
+                <!-- Analytics content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showDomainAnalytics(domain) {
+    // Implementation for showing domain analytics
+    const modal = new bootstrap.Modal(document.getElementById('analyticsModal'));
+    document.getElementById('analyticsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading analytics for ${domain} domain...</p>
+        </div>
+    `;
+    modal.show();
+    
+    // Here you would fetch and display analytics data
+    setTimeout(() => {
+        document.getElementById('analyticsContent').innerHTML = `
+            <p>Analytics for <strong>${domain}</strong> domain would be displayed here.</p>
+            <p>This could include template performance, usage patterns, success rates, etc.</p>
+        `;
+    }, 1000);
+}
+</script>
+{% endblock %}

@@ -147,6 +147,8 @@ def create_app(config_module='app.config'):
     from app.routes.wizard import wizard_bp
     from app.routes.guidelines import guidelines_bp
     from app.routes.admin import admin_bp
+    from app.routes.admin_prompts import admin_prompts_bp
+    from app.routes.prompt_builder import prompt_builder_bp
     from app.routes.worlds_extract_only import worlds_extract_only_bp
     from app.routes.annotations import annotations_bp
     from app.routes.agent import agent_bp
@@ -194,6 +196,8 @@ def create_app(config_module='app.config'):
     app.register_blueprint(test_bp)
     app.register_blueprint(guidelines_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(admin_prompts_bp)
+    app.register_blueprint(prompt_builder_bp)
     app.register_blueprint(worlds_extract_only_bp)
     app.register_blueprint(annotations_bp)
     app.register_blueprint(agent_bp)  # Register the agent blueprint
@@ -244,6 +248,14 @@ def create_app(config_module='app.config'):
         """Handle 403 Forbidden errors with helpful message."""
         from flask import render_template
         return render_template('errors/403.html'), 403
+    
+    # Initialize prompt templates on startup (after database is ready)
+    with app.app_context():
+        try:
+            from app.utils.prompt_seeder import seed_initial_prompt_templates
+            seed_initial_prompt_templates()
+        except Exception as e:
+            print(f"Warning: Could not seed prompt templates: {e}")
     
     return app
 

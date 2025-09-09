@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}{{ domain_name.title() }} Domain Templates{% endblock %}
+
+{% block head %}
+<style>
+    .template-card {
+        transition: transform 0.2s ease-in-out;
+    }
+    .template-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .usage-badge {
+        font-size: 0.8em;
+    }
+    
+    .performance-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    .perf-good { background-color: #28a745; }
+    .perf-ok { background-color: #ffc107; }
+    .perf-poor { background-color: #dc3545; }
+    .perf-unknown { background-color: #6c757d; }
+    
+    .section-type-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-left: 4px solid #007bff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-globe2"></i> {{ domain_name.title() }} Domain</h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ url_for('prompt_builder.index') }}">Prompt Builder</a></li>
+                            <li class="breadcrumb-item active">{{ domain_name.title() }}</li>
+                        </ol>
+                    </nav>
+                    {% if world_info %}
+                    <p class="text-muted">{{ world_info.description | truncate(200) }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <a href="{{ url_for('prompt_builder.editor') }}?domain={{ domain_name }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> New Template
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h3>{{ templates | length }}</h3>
+                            <small class="text-muted">Active Templates</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h3>{{ templates | map(attribute='usage_count') | sum }}</h3>
+                            <small class="text-muted">Total Usage</small>
+                        </div>
+                        <div class="col-md-3">
+                            {% set perf_scores = templates | selectattr('avg_performance_score') | map(attribute='avg_performance_score') | list %}
+                            <h3>
+                                {% if perf_scores %}
+                                    {{ ((perf_scores | sum / perf_scores | length) * 100) | round(1) }}%
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </h3>
+                            <small class="text-muted">Avg Performance</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h3>{{ section_types | length }}</h3>
+                            <small class="text-muted">Available Section Types</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates by Section Type -->
+    {% set templates_by_type = templates | groupby('section_type') %}
+    
+    {% if templates %}
+    {% for section_type, section_templates in templates_by_type %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header section-type-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-tag"></i> 
+                        {{ section_type | replace('Section', '') }} Templates
+                        <span class="badge bg-secondary ms-2">{{ section_templates | list | length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for template in section_templates %}
+                        <div class="col-lg-6 col-xl-4 mb-3">
+                            <div class="card template-card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">{{ template.name }}</h6>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            Actions
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="{{ url_for('prompt_builder.editor', template_id=template.id) }}">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="duplicateTemplate({{ template.id }})">
+                                                <i class="bi bi-copy"></i> Duplicate
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" href="#" onclick="viewPerformance({{ template.id }})">
+                                                <i class="bi bi-graph-up"></i> Performance
+                                            </a></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deactivateTemplate({{ template.id }})">
+                                                <i class="bi bi-archive"></i> Deactivate
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text text-muted small">{{ template.description | truncate(100) }}</p>
+                                    
+                                    <!-- Template Stats -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="usage-badge badge bg-light text-dark">
+                                            Used {{ template.usage_count or 0 }} times
+                                        </span>
+                                        {% if template.avg_performance_score %}
+                                        <span>
+                                            <span class="performance-indicator 
+                                                {% if template.avg_performance_score >= 0.8 %}perf-good
+                                                {% elif template.avg_performance_score >= 0.6 %}perf-ok
+                                                {% else %}perf-poor
+                                                {% endif %}"></span>
+                                            {{ (template.avg_performance_score * 100) | round(1) }}%
+                                        </span>
+                                        {% else %}
+                                        <span>
+                                            <span class="performance-indicator perf-unknown"></span>
+                                            No data
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Priority and Targets -->
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Priority: {{ template.analysis_priority }} | 
+                                            Targets: {{ template.extraction_targets | truncate(30) if template.extraction_targets else 'None' }}
+                                        </small>
+                                    </div>
+                                    
+                                    <!-- Version Info -->
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            v{{ template.version }} | 
+                                            Updated {{ template.updated_at.strftime('%Y-%m-%d') if template.updated_at else template.created_at.strftime('%Y-%m-%d') }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <!-- Empty State -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 4rem; color: #dee2e6;"></i>
+                    <h4 class="mt-3">No Templates Yet</h4>
+                    <p class="text-muted">Create your first template for the {{ domain_name }} domain</p>
+                    <a href="{{ url_for('prompt_builder.editor') }}?domain={{ domain_name }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Create First Template
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Available Section Types for This Domain -->
+    {% if domain_section_types %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-diagram-3"></i> 
+                        Available Section Types for {{ domain_name.title() }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Section types available for this domain based on ontology definitions:</p>
+                    <div class="row">
+                        {% for section_type in domain_section_types %}
+                        {% set has_template = templates | selectattr('section_type', 'equalto', section_type.name) | list | length > 0 %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="border rounded p-3 {% if has_template %}bg-light{% endif %}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">{{ section_type.name | replace('Section', '') }}</h6>
+                                    {% if has_template %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">{{ section_type.definition | truncate(80) }}</small>
+                                <div class="mt-2">
+                                    {% if not has_template %}
+                                    <a href="{{ url_for('prompt_builder.editor') }}?domain={{ domain_name }}&section_type={{ section_type.name }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-plus"></i> Create Template
+                                    </a>
+                                    {% else %}
+                                    <span class="text-success small">
+                                        <i class="bi bi-check-circle"></i> Template exists
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Performance Modal -->
+<div class="modal fade" id="performanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template Performance Analytics</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="performanceContent">
+                <!-- Performance content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewPerformance(templateId) {
+    const modal = new bootstrap.Modal(document.getElementById('performanceModal'));
+    document.getElementById('performanceContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading performance data...</p>
+        </div>
+    `;
+    modal.show();
+    
+    fetch(`/prompt-builder/api/template/${templateId}/performance`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const stats = data.statistics;
+                const recentUses = data.recent_uses;
+                
+                document.getElementById('performanceContent').innerHTML = `
+                    <div class="row mb-4">
+                        <div class="col-md-3 text-center">
+                            <h3>${stats.total_uses}</h3>
+                            <small class="text-muted">Total Uses</small>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3>${stats.avg_performance ? stats.avg_performance + '%' : '-'}</h3>
+                            <small class="text-muted">Avg Performance</small>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3>${stats.success_rate}%</h3>
+                            <small class="text-muted">Success Rate</small>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3>${stats.avg_processing_time ? stats.avg_processing_time + 'ms' : '-'}</h3>
+                            <small class="text-muted">Avg Time</small>
+                        </div>
+                    </div>
+                    
+                    ${recentUses.length > 0 ? `
+                    <h6>Recent Usage:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Case ID</th>
+                                    <th>Section</th>
+                                    <th>Performance</th>
+                                    <th>Concepts</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${recentUses.map(use => `
+                                    <tr>
+                                        <td>${use.case_id || '-'}</td>
+                                        <td>${use.section_title || '-'}</td>
+                                        <td>${use.performance_score ? (use.performance_score * 100).toFixed(1) + '%' : '-'}</td>
+                                        <td>${use.concepts_extracted || '-'}</td>
+                                        <td>${use.created_at ? new Date(use.created_at).toLocaleDateString() : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : '<p class="text-muted">No usage data available yet.</p>'}
+                `;
+            } else {
+                document.getElementById('performanceContent').innerHTML = `
+                    <div class="alert alert-danger">Error loading performance data: ${data.error}</div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('performanceContent').innerHTML = `
+                <div class="alert alert-danger">Error: ${error.message}</div>
+            `;
+        });
+}
+
+function duplicateTemplate(templateId) {
+    // Implementation for duplicating a template
+    if (confirm('Create a copy of this template?')) {
+        // Here you would implement template duplication
+        alert('Template duplication would be implemented here');
+    }
+}
+
+function deactivateTemplate(templateId) {
+    if (confirm('Are you sure you want to deactivate this template?')) {
+        // Implementation for deactivating a template
+        alert('Template deactivation would be implemented here');
+    }
+}
+</script>
+{% endblock %}

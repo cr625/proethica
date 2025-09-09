@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AI Ethical Decision-Making Simulator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/concept-hierarchy.css" rel="stylesheet">
+    
+    <meta name="csrf-token" content="IjRmMmM4Y2YxZjFjYTJhZGFjOWUyY2VmNGZlM2UwYzg0MTFlYzAxMzEi.aMAzNA.sL1zxqfoiF5ul_AiLo2Uox9dJ-0">
+    
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .header {
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+
+        .footer {
+            padding-top: 20px;
+            color: #777;
+            border-top: 1px solid #e5e5e5;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        .text-truncate {
+            display: -webkit-box;
+            -webkit-line-clamp: 10;
+            /* Limit to 2 lines */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            /* Ensure text wraps */
+        }
+    </style>
+    
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="/"></a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/">
+                                    <i class="bi bi-house"></i> Home
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard">
+                                    <i class="bi bi-speedometer2"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="worldsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-globe2"></i> Domain
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="worldsDropdown">
+                                    <li><a class="dropdown-item" href="/worlds">
+                                            <i class="bi bi-list-ul me-2"></i>View All Domains
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/worlds/new">
+                                            <i class="bi bi-plus-circle me-2"></i>Create New Domain
+                                        </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <h6 class="dropdown-header">Quick Access</h6>
+                                    </li>
+                                    <li><a class="dropdown-item" href="/cases">
+                                            <i class="bi bi-folder2-open me-2"></i>All Cases
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/scenarios">
+                                            <i class="bi bi-collection-play me-2"></i>All Scenarios
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/guidelines">
+                                            <i class="bi bi-book me-2"></i>All Guidelines
+                                        </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="ontologyDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-diagram-3"></i> Ontologies
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="ontologyDropdown">
+                                    <li><a class="dropdown-item" href="http://localhost:5003?origin=proethica" target="_blank">
+                                            <i class="bi bi-server me-2"></i>OntServe Web <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="http://localhost:5003/ontologies?origin=proethica" target="_blank">
+                                            <i class="bi bi-collection me-2"></i>Browse Ontologies <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/type-management/">
+                                            <i class="bi bi-gear me-2"></i>Type Management
+                                        </a></li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li><a class="dropdown-item" href="/type-management/concepts?filter=needs_review">
+                                            <i class="bi bi-exclamation-triangle me-2"></i>Needs Review
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/type-management/mappings">
+                                            <i class="bi bi-graph-up me-2"></i>Statistics
+                                        </a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-tools"></i> Tools
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="toolsDropdown">
+                                    <li><a class="dropdown-item" href="/agent">
+                                            <i class="bi bi-chat-dots me-2"></i>AI Agent Assistant
+                                        </a></li>
+                                    <li><a class="dropdown-item" href="/experiment">
+                                            <i class="bi bi-flask me-2"></i>Experiments
+                                        </a></li>
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                        <ul class="navbar-nav">
+                            <!-- Environment Indicator (Development Only) -->
+                            <li class="nav-item">
+                                <span class="navbar-text me-2">
+                                    
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-gear"></i> Development
+                                    </span>
+                                    
+                                </span>
+                            </li>
+
+                            <!-- User/Login Section -->
+                            
+                            <li class="nav-item">
+                                <a class="nav-link" href="/auth/login">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login
+                                </a>
+                            </li>
+                            
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <div class="content">
+            
+            
+            
+
+            
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Login</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/auth/login">
+                        <input id="csrf_token" name="csrf_token" type="hidden" value="IjRmMmM4Y2YxZjFjYTJhZGFjOWUyY2VmNGZlM2UwYzg0MTFlYzAxMzEi.aMAzNA.sL1zxqfoiF5ul_AiLo2Uox9dJ-0">
+
+                        <div class="mb-3">
+                            <label class="form-label" for="username">Username or Email</label>
+                            <input class="form-control" id="username" name="username" required type="text" value="">
+                            
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="password">Password</label>
+                            <input class="form-control" id="password" name="password" required type="password" value="">
+                            
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input class="form-check-input" id="remember_me" name="remember_me" type="checkbox" value="y">
+                            <label class="form-check-label" for="remember_me">Remember Me</label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <input class="btn btn-primary" id="submit" name="submit" type="submit" value="Sign In">
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <p>Don't have an account? <a href="/auth/register">Register here</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+        </div>
+
+        <div class="footer">
+            <p>&copy; Christopher Rauch 2025. Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU
+                    GPL v3</a>.</p>
+            <div class="template-info mt-2" style="font-size: 12px; color: #aaa;">
+                <p class="mb-0">Template: auth.login</p>
+                <p class="mb-0">Path: app/templates/login.html</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global fetch helper with CSRF and auth redirect
+        (function () {
+            const loginUrl = "/auth/login";
+            function getCsrfToken() {
+                const el = document.querySelector('meta[name="csrf-token"]');
+                return el ? el.content : null;
+            }
+            function redirectToLogin() {
+                const nextUrl = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+                window.location.href = `${loginUrl}?next=${nextUrl}`;
+            }
+            async function appFetch(url, options = {}) {
+                const opts = { credentials: 'same-origin', ...options };
+                const method = (opts.method || 'GET').toUpperCase();
+                const headers = new Headers(opts.headers || {});
+                if (method !== 'GET' && !headers.has('X-CSRFToken')) {
+                    const token = getCsrfToken();
+                    if (token) headers.set('X-CSRFToken', token);
+                }
+                opts.headers = headers;
+                const resp = await fetch(url, opts);
+                if (resp.status === 401 || resp.status === 403) {
+                    redirectToLogin();
+                    return resp;
+                }
+                if (resp.redirected && resp.url && resp.url.includes('/auth/login')) {
+                    redirectToLogin();
+                    return resp;
+                }
+                return resp;
+            }
+            window.APP_LOGIN_URL = loginUrl;
+            window.appFetch = appFetch;
+        })();
+    </script>
+    
+    <script>
+        function toggleDescription(worldId) {
+            const description = document.getElementById(`description-${worldId}`);
+            const toggleBtn = document.getElementById(`toggle-btn-${worldId}`);
+            if (description.classList.contains('text-truncate')) {
+                description.classList.remove('text-truncate');
+                toggleBtn.textContent = 'Show Less';
+            } else {
+                description.classList.add('text-truncate');
+                toggleBtn.textContent = 'Show More';
+            }
+        }
+    </script>
+    
+</body>
+
+</html>

@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt Template Editor{% endblock %}
+
+{% block head %}
+<!-- CodeMirror 6 for advanced editing -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.0/dist/index.min.css">
+<script type="module">
+  import {EditorView, basicSetup} from "https://cdn.jsdelivr.net/npm/codemirror@6.0.1/dist/index.min.js"
+  import {javascript} from "https://cdn.jsdelivr.net/npm/@codemirror/lang-javascript@6.2.1/dist/index.min.js"
+  
+  window.CodeMirror = {EditorView, basicSetup, javascript};
+</script>
+
+<style>
+    .editor-container {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .cm-editor {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .template-preview {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .variable-tag {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.85em;
+        font-family: monospace;
+        cursor: pointer;
+    }
+    
+    .variable-tag:hover {
+        background-color: #bbdefb;
+    }
+    
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .toolbar {
+        background-color: #e9ecef;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid #dee2e6;
+        font-size: 0.9em;
+    }
+    
+    .btn-toolbar .btn {
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="bi bi-code-square"></i> 
+                        {% if template %}Edit Template{% else %}New Template{% endif %}
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ url_for('prompt_builder.index') }}">Prompt Builder</a></li>
+                            {% if template %}
+                            <li class="breadcrumb-item"><a href="{{ url_for('prompt_builder.domain_templates', domain_name=template.domain) }}">{{ template.domain.title() }}</a></li>
+                            <li class="breadcrumb-item active">{{ template.name }}</li>
+                            {% else %}
+                            <li class="breadcrumb-item active">New Template</li>
+                            {% endif %}
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary me-2" onclick="previewTemplate()">
+                        <i class="bi bi-eye"></i> Preview
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="saveTemplate()">
+                        <i class="bi bi-check-lg"></i> Save Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="templateForm">
+        <div class="row">
+            <!-- Template Configuration -->
+            <div class="col-lg-4">
+                <!-- Basic Information -->
+                <div class="form-section">
+                    <h5><i class="bi bi-info-circle"></i> Template Information</h5>
+                    
+                    <div class="mb-3">
+                        <label for="templateName" class="form-label">Template Name</label>
+                        <input type="text" class="form-control" id="templateName" 
+                               value="{% if template %}{{ template.name }}{% endif %}"
+                               placeholder="e.g., Engineering Factual Analysis">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="templateDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="templateDescription" rows="3"
+                                  placeholder="Describe what this template is used for...">{% if template %}{{ template.description }}{% endif %}</textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="templateDomain" class="form-label">Domain</label>
+                            <select class="form-select" id="templateDomain">
+                                {% for domain in domains %}
+                                <option value="{{ domain }}" {% if template and template.domain == domain %}selected{% endif %}>
+                                    {{ domain.title() }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="templateSectionType" class="form-label">Section Type</label>
+                            <select class="form-select" id="templateSectionType">
+                                {% for section_type in section_types %}
+                                <option value="{{ section_type.name }}" 
+                                        {% if template and template.section_type == section_type.name %}selected{% endif %}>
+                                    {{ section_type.label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings -->
+                <div class="form-section">
+                    <h5><i class="bi bi-gear"></i> Advanced Settings</h5>
+                    
+                    <div class="mb-3">
+                        <label for="analysisPriority" class="form-label">
+                            Analysis Priority 
+                            <small class="text-muted">(1 = highest)</small>
+                        </label>
+                        <input type="number" class="form-control" id="analysisPriority" 
+                               min="1" max="10" 
+                               value="{% if template %}{{ template.analysis_priority }}{% else %}1{% endif %}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="extractionTargets" class="form-label">Extraction Targets</label>
+                        <input type="text" class="form-control" id="extractionTargets"
+                               value="{% if template %}{{ template.extraction_targets }}{% endif %}"
+                               placeholder="concept_type1, concept_type2, concept_type3">
+                        <small class="text-muted">Comma-separated list of target extraction types</small>
+                    </div>
+                </div>
+
+                <!-- Template Variables -->
+                <div class="form-section">
+                    <h5><i class="bi bi-braces"></i> Template Variables</h5>
+                    <p class="text-muted small">Define variables that can be used in your template with {{ variable_name }} syntax.</p>
+                    
+                    <div id="variablesContainer">
+                        {% if template and template.variables %}
+                        {% for var_name, var_info in template.variables.items() %}
+                        <div class="variable-item mb-3 p-2 border rounded">
+                            <div class="row">
+                                <div class="col-6">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           placeholder="Variable name" value="{{ var_name }}">
+                                </div>
+                                <div class="col-6">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" 
+                                               placeholder="Description" value="{{ var_info.description if var_info.description else '' }}">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeVariable(this)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addVariable()">
+                        <i class="bi bi-plus"></i> Add Variable
+                    </button>
+                    
+                    <!-- Common Variables -->
+                    <div class="mt-3">
+                        <small class="text-muted">Common variables:</small>
+                        <div class="mt-1">
+                            {% for var_name, var_info in variable_schemas.items() %}
+                            <span class="variable-tag me-1 mb-1" onclick="insertVariable('{{ var_name }}')">
+                                {{ var_name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Template Editor -->
+            <div class="col-lg-8">
+                <div class="form-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5><i class="bi bi-textarea-t"></i> Template Content</h5>
+                        <div class="btn-toolbar" role="toolbar">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertText('{{ case_domain }}')">
+                                Insert Domain
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertText('{{ stakeholder_types }}')">
+                                Insert Stakeholders
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertText('{{ professional_codes }}')">
+                                Insert Codes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Editor Container -->
+                    <div class="editor-container">
+                        <div class="toolbar">
+                            <i class="bi bi-info-circle text-muted"></i>
+                            <small class="text-muted">
+                                Use {{ variable_name }} syntax for variables. 
+                                Supports Jinja2 templating features.
+                            </small>
+                        </div>
+                        <div id="templateEditor" style="min-height: 400px;">{% if template %}{{ template.prompt_template }}{% else %}Extract information from this section including:
+- Key concepts and entities
+- Relationships and dependencies
+- Context and background information
+- Relevant details for {{ case_domain }} domain analysis
+
+Focus on extracting {{ extraction_targets }} that are relevant for professional ethics analysis.{% endif %}</div>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="form-section">
+                    <h5><i class="bi bi-eye"></i> Live Preview</h5>
+                    <div class="template-preview" id="templatePreview">
+                        <em class="text-muted">Template preview will appear here...</em>
+                    </div>
+                    
+                    <!-- Sample Variables for Preview -->
+                    <div class="mt-3">
+                        <h6>Sample Variables:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">case_domain:</small> <code>engineering</code><br>
+                                <small class="text-muted">stakeholder_types:</small> <code>['engineers', 'public', 'clients']</code><br>
+                                <small class="text-muted">professional_codes:</small> <code>['NSPE Code', 'IEEE Standards']</code>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">regulatory_context:</small> <code>OSHA compliance</code><br>
+                                <small class="text-muted">safety_considerations:</small> <code>['public safety', 'environmental impact']</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if template %}
+        <input type="hidden" id="templateId" value="{{ template.id }}">
+        {% endif %}
+    </form>
+</div>
+
+<!-- Success/Error Messages -->
+<div id="messageContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1050;"></div>
+
+<script>
+// Initialize CodeMirror editor
+let editor;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const editorElement = document.getElementById('templateEditor');
+    
+    editor = new CodeMirror.EditorView({
+        doc: editorElement.textContent,
+        extensions: [
+            CodeMirror.basicSetup,
+            CodeMirror.EditorView.updateListener.of((update) => {
+                if (update.docChanged) {
+                    // Update preview when content changes
+                    debouncePreview();
+                }
+            })
+        ],
+        parent: editorElement
+    });
+    
+    // Clear the original content
+    editorElement.textContent = '';
+    
+    // Initial preview
+    previewTemplate();
+});
+
+// Debounced preview update
+let previewTimeout;
+function debouncePreview() {
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(previewTemplate, 500);
+}
+
+function previewTemplate() {
+    const templateContent = editor.state.doc.toString();
+    const previewElement = document.getElementById('templatePreview');
+    
+    // Sample variables for preview
+    const sampleVars = {
+        case_domain: 'engineering',
+        stakeholder_types: ['engineers', 'public', 'clients'],
+        professional_codes: ['NSPE Code', 'IEEE Standards'],
+        regulatory_context: 'OSHA compliance',
+        safety_considerations: ['public safety', 'environmental impact']
+    };
+    
+    // Simple template rendering for preview
+    let rendered = templateContent;
+    for (const [key, value] of Object.entries(sampleVars)) {
+        const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+        rendered = rendered.replace(regex, Array.isArray(value) ? value.join(', ') : value);
+    }
+    
+    previewElement.textContent = rendered;
+}
+
+function saveTemplate() {
+    const templateData = {
+        name: document.getElementById('templateName').value,
+        description: document.getElementById('templateDescription').value,
+        domain: document.getElementById('templateDomain').value,
+        section_type: document.getElementById('templateSectionType').value,
+        prompt_template: editor.state.doc.toString(),
+        analysis_priority: parseInt(document.getElementById('analysisPriority').value),
+        extraction_targets: document.getElementById('extractionTargets').value,
+        variables: getVariables(),
+        change_description: 'Updated via web editor'
+    };
+    
+    const templateId = document.getElementById('templateId');
+    if (templateId) {
+        templateData.template_id = templateId.value;
+    }
+    
+    fetch('/prompt-builder/api/template', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(templateData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Template saved successfully!', 'success');
+            if (!templateId) {
+                // Redirect to edit mode for new template
+                window.location.href = `/prompt-builder/editor/${data.template_id}`;
+            }
+        } else {
+            showMessage(`Error saving template: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        showMessage(`Error saving template: ${error}`, 'error');
+    });
+}
+
+function getVariables() {
+    const variables = {};
+    const variableItems = document.querySelectorAll('.variable-item');
+    
+    variableItems.forEach(item => {
+        const nameInput = item.querySelector('input[placeholder="Variable name"]');
+        const descInput = item.querySelector('input[placeholder="Description"]');
+        
+        if (nameInput.value.trim()) {
+            variables[nameInput.value.trim()] = {
+                description: descInput.value.trim() || ''
+            };
+        }
+    });
+    
+    return variables;
+}
+
+function addVariable() {
+    const container = document.getElementById('variablesContainer');
+    const div = document.createElement('div');
+    div.className = 'variable-item mb-3 p-2 border rounded';
+    div.innerHTML = `
+        <div class="row">
+            <div class="col-6">
+                <input type="text" class="form-control form-control-sm" placeholder="Variable name">
+            </div>
+            <div class="col-6">
+                <div class="input-group">
+                    <input type="text" class="form-control form-control-sm" placeholder="Description">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeVariable(this)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function removeVariable(button) {
+    button.closest('.variable-item').remove();
+}
+
+function insertVariable(varName) {
+    insertText(`{{ ${varName} }}`);
+}
+
+function insertText(text) {
+    const selection = editor.state.selection.main;
+    const transaction = editor.state.update({
+        changes: {from: selection.from, to: selection.to, insert: text}
+    });
+    editor.dispatch(transaction);
+    editor.focus();
+}
+
+function showMessage(message, type) {
+    const container = document.getElementById('messageContainer');
+    const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
+    const icon = type === 'error' ? 'exclamation-triangle' : 'check-circle';
+    
+    const alert = document.createElement('div');
+    alert.className = `alert ${alertClass} alert-dismissible fade show`;
+    alert.innerHTML = `
+        <i class="bi bi-${icon}"></i> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(alert);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

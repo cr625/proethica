@@ -135,6 +135,15 @@ def analyze_section_langextract(case_id):
             'analysis_requested_at': analysis_result.get('analysis_timestamp')
         }
         
+        # Add formatted JSON for structured_analysis if it exists
+        if 'structured_analysis' in analysis_result:
+            import json
+            analysis_result['formatted_structured_analysis'] = json.dumps(
+                analysis_result['structured_analysis'], 
+                indent=2, 
+                ensure_ascii=False
+            )
+        
         logger.info(f"LangExtract analysis completed for case {case_id}, section: {section_key}")
         
         return jsonify(analysis_result)

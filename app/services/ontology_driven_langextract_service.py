@@ -11,10 +11,13 @@ import os
 import logging
 import requests
 import json
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
 from datetime import datetime
 
 from .proethica_langextract_service import ProEthicaLangExtractService
+
+if TYPE_CHECKING:
+    from langextract import data
 
 logger = logging.getLogger(__name__)
 
@@ -105,25 +108,52 @@ class OntologyDrivenLangExtractService:
             if not section_type_mapping:
                 return None
             
-            # Query ontology for section type details
+            # Get semantic info from ontology (class definitions only)
+            semantic_info = self._get_semantic_info_from_ontology(section_type_mapping['section_type'])
+            
+            # Get prompt configuration from database
+            prompt_config = self._get_prompt_from_database(
+                section_type_mapping['section_type'], 
+                case_domain
+            )
+            
+            # Combine semantic and prompt information
+            if semantic_info and prompt_config:
+                combined_info = {**semantic_info, **prompt_config}
+                self.section_type_cache[cache_key] = combined_info
+                return combined_info
+            
+            return None
+        
+        except Exception as e:
+            logger.error(f"Error getting section type info: {e}")
+            return None
+    
+    def _get_semantic_info_from_ontology(self, section_type: str) -> Optional[Dict[str, Any]]:
+        """
+        Get semantic information (class definitions) from ontology via SPARQL.
+        
+        Args:
+            section_type: Section type name (e.g., 'FactualSection')
+            
+        Returns:
+            Dictionary with semantic information from ontology
+        """
+        try:
+            # Query for class definition only (no prompt data)
             sparql_query = f"""
             PREFIX proeth-cases: <http://proethica.org/ontology/cases#>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
             PREFIX dcterms: <http://purl.org/dc/terms/>
             
-            SELECT ?sectionType ?label ?comment ?definition ?source 
-                   ?langExtractPrompt ?extractionTarget ?analysisPriority
+            SELECT ?label ?comment ?definition ?source
             WHERE {{
-                <{section_type_mapping['uri']}> a ?sectionType ;
-                    rdfs:label ?label ;
+                proeth-cases:{section_type} rdfs:label ?label ;
                     rdfs:comment ?comment ;
                     skos:definition ?definition .
                 
-                OPTIONAL {{ <{section_type_mapping['uri']}> dcterms:source ?source . }}
-                OPTIONAL {{ <{section_type_mapping['uri']}> proeth-cases:hasLangExtractPrompt ?langExtractPrompt . }}
-                OPTIONAL {{ <{section_type_mapping['uri']}> proeth-cases:hasExtractionTarget ?extractionTarget . }}
-                OPTIONAL {{ <{section_type_mapping['uri']}> proeth-cases:analysisPriority ?analysisPriority . }}
+                OPTIONAL {{ proeth-cases:{section_type} dcterms:source ?source . }}
             }}
             """
             
@@ -139,27 +169,63 @@ class OntologyDrivenLangExtractService:
                 if results.get('results', {}).get('bindings'):
                     binding = results['results']['bindings'][0]
                     
-                    section_info = {
-                        'uri': section_type_mapping['uri'],
-                        'type': section_type_mapping['type'],
-                        'label': binding.get('label', {}).get('value', section_title),
+                    return {
+                        'label': binding.get('label', {}).get('value', section_type),
                         'comment': binding.get('comment', {}).get('value', ''),
                         'definition': binding.get('definition', {}).get('value', ''),
-                        'sources': binding.get('source', {}).get('value', '').split(',') if binding.get('source') else [],
-                        'langextract_prompt': binding.get('langExtractPrompt', {}).get('value', ''),
-                        'extraction_targets': binding.get('extractionTarget', {}).get('value', '').split(', ') if binding.get('extractionTarget') else [],
-                        'analysis_priority': int(binding.get('analysisPriority', {}).get('value', 5))
+                        'sources': binding.get('source', {}).get('value', '').split(',') if binding.get('source') else []
                     }
-                    
-                    # Cache the result
-                    self.section_type_cache[cache_key] = section_info
-                    return section_info
             
-            logger.warning(f"No SPARQL results for section type: {section_title}")
+            logger.warning(f"No SPARQL results for section type: {section_type}")
             return None
             
         except Exception as e:
-            logger.error(f"Failed to query section type info: {e}")
+            logger.error(f"Error querying ontology for {section_type}: {e}")
+            return None
+    
+    def _get_prompt_from_database(self, section_type: str, case_domain: str) -> Optional[Dict[str, Any]]:
+        """
+        Get prompt configuration from database.
+        
+        Args:
+            section_type: Section type name (e.g., 'FactualSection')
+            case_domain: Professional domain (e.g., 'engineering', 'generic')
+            
+        Returns:
+            Dictionary with prompt configuration
+        """
+        try:
+            from app.models.prompt_templates import SectionPromptTemplate
+            
+            # Try domain-specific template first, then fall back to generic
+            template = SectionPromptTemplate.query.filter_by(
+                section_type=section_type,
+                domain=case_domain,
+                active=True
+            ).first()
+            
+            if not template:
+                # Fall back to generic template
+                template = SectionPromptTemplate.query.filter_by(
+                    section_type=section_type,
+                    domain='generic',
+                    active=True
+                ).first()
+            
+            if template:
+                return {
+                    'langextract_prompt': template.prompt_template,
+                    'extraction_targets': template.extraction_targets.split(', ') if template.extraction_targets else [],
+                    'analysis_priority': template.analysis_priority,
+                    'template_id': template.id,
+                    'domain_used': template.domain
+                }
+            
+            logger.warning(f"No prompt template found for {section_type}:{case_domain}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error querying database for prompt template: {e}")
             return None
     
     def _map_section_title_to_type(self, section_title: str, case_domain: str) -> Optional[Dict[str, str]]:
@@ -177,30 +243,30 @@ class OntologyDrivenLangExtractService:
         # Normalize section title for comparison
         title_normalized = section_title.lower().strip()
         
-        # Generic section type mappings (from proethica-cases ontology)
+        # Generic section type mappings (now maps to database section types)
         generic_mappings = {
             'facts': {
-                'uri': 'http://proethica.org/ontology/cases#FactualSection',
+                'section_type': 'FactualSection',
                 'type': 'generic'
             },
             'question': {
-                'uri': 'http://proethica.org/ontology/cases#EthicalQuestionSection', 
+                'section_type': 'EthicalQuestionSection', 
                 'type': 'generic'
             },
             'questions': {
-                'uri': 'http://proethica.org/ontology/cases#EthicalQuestionSection',
+                'section_type': 'EthicalQuestionSection',
                 'type': 'generic'
             },
             'discussion': {
-                'uri': 'http://proethica.org/ontology/cases#AnalysisSection',
+                'section_type': 'AnalysisSection',
                 'type': 'generic'
             },
             'analysis': {
-                'uri': 'http://proethica.org/ontology/cases#AnalysisSection',
+                'section_type': 'AnalysisSection',
                 'type': 'generic'
             },
             'conclusion': {
-                'uri': 'http://proethica.org/ontology/cases#ConclusionSection',
+                'section_type': 'ConclusionSection',
                 'type': 'generic'
             }
         }
@@ -367,7 +433,7 @@ class OntologyDrivenLangExtractService:
         return domain_contexts.get(case_domain, "Professional ethics principles and standards")
     
     def _create_section_type_examples(self, section_type_info: Dict[str, Any], 
-                                     case_domain: str) -> List[data.ExampleData]:
+                                     case_domain: str) -> List['data.ExampleData']:
         """
         Create LangExtract examples tailored to the specific section type
         
@@ -399,8 +465,9 @@ class OntologyDrivenLangExtractService:
             # Default generic example
             return self._create_generic_examples(case_domain)
     
-    def _create_factual_examples(self, case_domain: str) -> List[data.ExampleData]:
+    def _create_factual_examples(self, case_domain: str) -> List['data.ExampleData']:
         """Create examples for factual sections"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="Engineer Smith, a licensed professional engineer with 15 years of experience, was approached by Client Corp to review structural modifications for a 10-story office building constructed in 1985. The proposed changes would remove two load-bearing columns to create an open floor plan. The building currently houses 200 employees daily.",
@@ -430,8 +497,9 @@ class OntologyDrivenLangExtractService:
             )
         ]
     
-    def _create_question_examples(self, case_domain: str) -> List[data.ExampleData]:
+    def _create_question_examples(self, case_domain: str) -> List['data.ExampleData']:
         """Create examples for ethical question sections"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="Was it ethical for Engineer Smith to proceed with the structural analysis without first conducting a thorough site inspection? Should the engineer have disclosed potential conflicts of interest given that Client Corp had previously hired Smith's firm for unrelated projects?",
@@ -466,8 +534,9 @@ class OntologyDrivenLangExtractService:
             )
         ]
     
-    def _create_analysis_examples(self, case_domain: str) -> List[data.ExampleData]:
+    def _create_analysis_examples(self, case_domain: str) -> List['data.ExampleData']:
         """Create examples for analysis/discussion sections"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="The NSPE Code requires engineers to hold paramount public safety. In this case, removing load-bearing columns without comprehensive analysis poses significant structural risks. While the client's business needs are important, they cannot supersede fundamental safety obligations. The engineer should have insisted on thorough structural analysis before providing any recommendations.",
@@ -508,8 +577,9 @@ class OntologyDrivenLangExtractService:
             )
         ]
     
-    def _create_conclusion_examples(self, case_domain: str) -> List[data.ExampleData]:
+    def _create_conclusion_examples(self, case_domain: str) -> List['data.ExampleData']:
         """Create examples for conclusion sections"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="Engineer Smith should not proceed with recommendations until completing a comprehensive structural analysis including site inspection and load calculations. The engineer must inform the client that structural safety cannot be compromised for aesthetic preferences. This case establishes the precedent that professional engineers must prioritize public safety over client convenience in structural modification projects.",
@@ -549,8 +619,9 @@ class OntologyDrivenLangExtractService:
             )
         ]
     
-    def _create_code_reference_examples(self) -> List[data.ExampleData]:
+    def _create_code_reference_examples(self) -> List['data.ExampleData']:
         """Create examples for NSPE Code reference sections"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="NSPE Code Section I.1 states that engineers must 'hold paramount the safety, health, and welfare of the public.' Section II.2.a requires engineers to 'perform services only in areas of their competence.' The Board of Ethical Review has consistently held that structural modifications require comprehensive analysis (BER Case 76-7, 89-3).",
@@ -595,8 +666,9 @@ class OntologyDrivenLangExtractService:
             )
         ]
     
-    def _create_dissenting_examples(self) -> List[data.ExampleData]:
+    def _create_dissenting_examples(self) -> List['data.ExampleData']:
         """Create examples for dissenting opinion sections"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="Dissenting Opinion: While public safety is paramount, the majority opinion may be overly conservative. Modern structural analysis software allows for preliminary assessments that could inform initial discussions without full site inspection. The engineer could have provided conditional guidance while emphasizing the need for comprehensive analysis before final recommendations.",
@@ -635,8 +707,9 @@ class OntologyDrivenLangExtractService:
             )
         ]
     
-    def _create_generic_examples(self, case_domain: str) -> List[data.ExampleData]:
+    def _create_generic_examples(self, case_domain: str) -> List['data.ExampleData']:
         """Create generic examples when specific section type not recognized"""
+        from langextract import data
         return [
             data.ExampleData(
                 text="Professional ethics requires careful consideration of competing obligations, stakeholder interests, and established principles within the specific domain context.",

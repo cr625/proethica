@@ -52,3 +52,6 @@ from app.models.constraint import Constraint
 
 # Reasoning trace models (added 2025-09-04)
 from app.models.reasoning_trace import ReasoningTrace, ReasoningStep
+
+# Prompt builder models (added 2025-09-09)
+from app.models.prompt_templates import SectionPromptTemplate, SectionPromptInstance, PromptTemplateVersion
