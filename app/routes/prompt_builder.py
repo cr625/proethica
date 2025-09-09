@@ -8,7 +8,7 @@ with syntax highlighting, template variables, and ontology-driven case structure
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required
 from app.models import db
-from app.models.prompt_templates import SectionPromptTemplate, SectionPromptInstance, PromptTemplateVersion
+from app.models.prompt_templates import SectionPromptTemplate, SectionPromptInstance, PromptTemplateVersion, LangExtractExample, LangExtractExampleExtraction
 from sqlalchemy import func, text
 import requests
 import logging
@@ -147,16 +147,26 @@ def editor(template_id=None):
     Advanced prompt template editor with syntax highlighting.
     """
     try:
+        logger.info(f"Editor function called with template_id: {template_id}")
         template = None
         if template_id:
+            logger.info(f"Loading template with ID: {template_id}")
             template = SectionPromptTemplate.query.get_or_404(template_id)
+            logger.info(f"Template loaded successfully: {template.name if template else None}")
         
         # Get available domains and section types
+        logger.info("Getting domains...")
         domains = ['generic'] + [w.name.lower() for w in db.session.execute(text("SELECT name FROM worlds")).fetchall()]
+        logger.info(f"Domains loaded: {domains}")
+        
+        logger.info("Getting section types...")
         section_types = get_ontology_section_types()
+        logger.info(f"Section types loaded: {len(section_types) if section_types else 0}")
         
         # Get template variables schema for autocomplete
+        logger.info("Getting variable schemas...")
         variable_schemas = get_template_variable_schemas()
+        logger.info("Variable schemas loaded successfully")
         
         return render_template('prompt_builder/editor.html',
                              template=template,
@@ -354,31 +364,21 @@ def get_template_performance(template_id):
 def get_ontology_section_types() -> List[Dict[str, str]]:
     """
     Get section types from the ontology via SPARQL.
+    Falls back to hardcoded types if SPARQL fails.
     """
     try:
-        query = """
-        PREFIX proeth-cases: <http://proethica.org/ontology/cases#>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-        
-        SELECT DISTINCT ?sectionType ?label ?definition
-        WHERE {
-            ?sectionType rdfs:subClassOf proeth-cases:SectionType .
-            ?sectionType rdfs:label ?label .
-            OPTIONAL { ?sectionType skos:definition ?definition . }
-            FILTER(?sectionType != proeth-cases:SectionType)
-        }
-        ORDER BY ?label
-        """
+        query = "PREFIX cases: <http://proethica.org/ontology/cases#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX skos: <http://www.w3.org/2004/02/skos/core#> SELECT DISTINCT ?sectionType ?label ?definition WHERE { ?sectionType rdfs:subClassOf cases:SectionType . OPTIONAL { ?sectionType rdfs:label ?label . } OPTIONAL { ?sectionType skos:definition ?definition . } FILTER(?sectionType != cases:SectionType) } ORDER BY ?sectionType"
         
         response = requests.post(
             "http://localhost:8082/sparql",
             json={"query": query},
             headers={"Content-Type": "application/json"},
-            timeout=10
+            timeout=5
         )
         
         if response.status_code == 200:
+            logger.info(f"SPARQL response length: {len(response.text)}")
+            logger.info(f"SPARQL response preview: {response.text[:500]}...")
             results = response.json()
             section_types = []
             
@@ -395,11 +395,46 @@ def get_ontology_section_types() -> List[Dict[str, str]]:
             
             return section_types
         
-        return []
+        # If SPARQL failed, fall back to hardcoded section types
+        logger.warning(f"SPARQL query failed with status {response.status_code}, using fallback")
+        return get_fallback_section_types()
     
     except Exception as e:
         logger.error(f"Error getting ontology section types: {e}")
-        return []
+        # Return hardcoded fallback section types
+        return get_fallback_section_types()
+
+
+def get_fallback_section_types() -> List[Dict[str, str]]:
+    """
+    Fallback section types when SPARQL is unavailable.
+    """
+    return [
+        {
+            'name': 'FactualSection',
+            'label': 'Factual Section',
+            'definition': 'Section containing factual information and background details',
+            'uri': 'http://proethica.org/ontology/cases#FactualSection'
+        },
+        {
+            'name': 'EthicalQuestionSection',
+            'label': 'Ethical Question Section', 
+            'definition': 'Section containing ethical questions and dilemmas',
+            'uri': 'http://proethica.org/ontology/cases#EthicalQuestionSection'
+        },
+        {
+            'name': 'AnalysisSection',
+            'label': 'Analysis Section',
+            'definition': 'Section containing ethical analysis and reasoning',
+            'uri': 'http://proethica.org/ontology/cases#AnalysisSection'
+        },
+        {
+            'name': 'ConclusionSection',
+            'label': 'Conclusion Section',
+            'definition': 'Section containing conclusions and recommendations',
+            'uri': 'http://proethica.org/ontology/cases#ConclusionSection'
+        }
+    ]
 
 
 def get_domain_specific_section_types(domain_name: str) -> List[Dict[str, str]]:
@@ -428,6 +463,350 @@ def get_domain_specific_section_types(domain_name: str) -> List[Dict[str, str]]:
         ])
     
     return section_types
+
+
+@prompt_builder_bp.route('/examples')
+@login_required
+def examples_index():
+    """
+    LangExtract examples management dashboard.
+    """
+    try:
+        # Get example statistics by domain and type
+        example_stats = db.session.execute(text("""
+            SELECT 
+                domain,
+                example_type,
+                section_type,
+                COUNT(*) as example_count,
+                SUM(usage_count) as total_usage,
+                AVG(effectiveness_score) as avg_effectiveness
+            FROM langextract_examples 
+            WHERE active = true 
+            GROUP BY domain, example_type, section_type 
+            ORDER BY domain, example_type
+        """)).fetchall()
+        
+        # Get all domains
+        domains = ['generic'] + [w.name.lower() for w in db.session.execute(text("SELECT name FROM worlds")).fetchall()]
+        
+        # Organize data for frontend
+        domain_data = {}
+        for domain in domains:
+            domain_data[domain] = {
+                'name': domain.title(),
+                'examples': {},
+                'total_examples': 0,
+                'total_usage': 0
+            }
+        
+        # Populate example statistics
+        for stat in example_stats:
+            domain_key = stat.domain.lower()
+            if domain_key not in domain_data:
+                domain_data[domain_key] = {
+                    'name': stat.domain.title(),
+                    'examples': {},
+                    'total_examples': 0,
+                    'total_usage': 0
+                }
+            
+            example_key = f"{stat.example_type}_{stat.section_type or 'generic'}"
+            domain_data[domain_key]['examples'][example_key] = {
+                'type': stat.example_type,
+                'section_type': stat.section_type,
+                'count': stat.example_count,
+                'usage': stat.total_usage or 0,
+                'effectiveness': round(stat.avg_effectiveness, 2) if stat.avg_effectiveness else None
+            }
+            domain_data[domain_key]['total_examples'] += stat.example_count
+            domain_data[domain_key]['total_usage'] += stat.total_usage or 0
+        
+        return render_template('prompt_builder/examples.html', 
+                             domain_data=domain_data,
+                             domains=domains)
+    
+    except Exception as e:
+        logger.error(f"Error loading examples dashboard: {e}")
+        flash(f'Error loading examples: {e}', 'error')
+        return render_template('prompt_builder/examples.html', 
+                             domain_data={}, 
+                             domains=[])
+
+
+@prompt_builder_bp.route('/examples/<domain_name>')
+@login_required
+def examples_domain(domain_name):
+    """
+    View and manage examples for a specific domain.
+    """
+    try:
+        # Get examples for this domain
+        examples = LangExtractExample.query.filter_by(
+            domain=domain_name,
+            active=True
+        ).order_by(LangExtractExample.example_type, LangExtractExample.priority.desc()).all()
+        
+        # Get example types and section types
+        example_types = ['factual', 'question', 'analysis', 'conclusion', 'code_reference', 'dissenting', 'generic']
+        section_types = get_ontology_section_types()
+        
+        return render_template('prompt_builder/examples_domain.html',
+                             domain_name=domain_name,
+                             examples=examples,
+                             example_types=example_types,
+                             section_types=section_types)
+    
+    except Exception as e:
+        logger.error(f"Error loading examples for domain {domain_name}: {e}")
+        flash(f'Error loading examples: {e}', 'error')
+        return redirect(url_for('prompt_builder.examples_index'))
+
+
+@prompt_builder_bp.route('/examples/editor')
+@prompt_builder_bp.route('/examples/editor/<int:example_id>')
+@login_required
+def examples_editor(example_id=None):
+    """
+    LangExtract example editor with structured extraction support.
+    """
+    try:
+        example = None
+        if example_id:
+            example = LangExtractExample.query.get_or_404(example_id)
+        
+        # Get available domains and types
+        domains = ['generic'] + [w.name.lower() for w in db.session.execute(text("SELECT name FROM worlds")).fetchall()]
+        example_types = ['factual', 'question', 'analysis', 'conclusion', 'code_reference', 'dissenting', 'generic']
+        section_types = get_ontology_section_types()
+        
+        # Get extraction class schemas for different types
+        extraction_schemas = get_extraction_class_schemas()
+        
+        return render_template('prompt_builder/examples_editor.html',
+                             example=example,
+                             domains=domains,
+                             example_types=example_types,
+                             section_types=section_types,
+                             extraction_schemas=extraction_schemas)
+    
+    except Exception as e:
+        logger.error(f"Error loading example editor: {e}")
+        flash(f'Error loading editor: {e}', 'error')
+        return redirect(url_for('prompt_builder.examples_index'))
+
+
+@prompt_builder_bp.route('/api/example', methods=['POST'])
+@login_required
+def save_example():
+    """
+    Save or update a LangExtract example.
+    """
+    try:
+        data = request.get_json()
+        
+        example_id = data.get('example_id')
+        if example_id:
+            # Update existing example
+            example = LangExtractExample.query.get_or_404(example_id)
+            
+            example.name = data['name']
+            example.description = data.get('description', '')
+            example.example_text = data['example_text']
+            example.example_type = data['example_type']
+            example.domain = data['domain']
+            example.section_type = data.get('section_type')
+            example.priority = data.get('priority', 1)
+            example.active = data.get('active', True)
+        else:
+            # Create new example
+            example = LangExtractExample(
+                name=data['name'],
+                description=data.get('description', ''),
+                example_text=data['example_text'],
+                example_type=data['example_type'],
+                domain=data['domain'],
+                section_type=data.get('section_type'),
+                priority=data.get('priority', 1),
+                active=data.get('active', True),
+                created_by='web_editor'
+            )
+            db.session.add(example)
+            db.session.flush()  # Get the ID
+        
+        # Handle extractions
+        # First, remove existing extractions if updating
+        if example_id:
+            LangExtractExampleExtraction.query.filter_by(example_id=example.id).delete()
+        
+        # Add new extractions
+        extractions_data = data.get('extractions', [])
+        for idx, extraction_data in enumerate(extractions_data):
+            extraction = LangExtractExampleExtraction(
+                example_id=example.id,
+                extraction_class=extraction_data['extraction_class'],
+                extraction_text=extraction_data['extraction_text'],
+                attributes=extraction_data.get('attributes', {}),
+                order_index=idx
+            )
+            db.session.add(extraction)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'example_id': example.id,
+            'message': 'Example saved successfully'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error saving example: {e}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@prompt_builder_bp.route('/api/example/<int:example_id>', methods=['GET'])
+@login_required
+def get_example(example_id):
+    """
+    Get a specific LangExtract example with its extractions.
+    """
+    try:
+        example = LangExtractExample.query.get_or_404(example_id)
+        return jsonify({
+            'success': True,
+            'example': example.to_dict()
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting example {example_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@prompt_builder_bp.route('/api/example/<int:example_id>/test', methods=['POST'])
+@login_required
+def test_example(example_id):
+    """
+    Test a LangExtract example by converting it to LangExtract format.
+    """
+    try:
+        example = LangExtractExample.query.get_or_404(example_id)
+        
+        # Convert to LangExtract format
+        langextract_data = example.to_langextract_data()
+        
+        # Return the converted data for preview
+        return jsonify({
+            'success': True,
+            'langextract_format': {
+                'text': langextract_data.text,
+                'extractions': [
+                    {
+                        'extraction_class': ext.extraction_class,
+                        'extraction_text': ext.extraction_text,
+                        'attributes': ext.attributes
+                    } for ext in langextract_data.extractions
+                ]
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Error testing example {example_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@prompt_builder_bp.route('/api/examples/statistics')
+@login_required
+def get_examples_statistics():
+    """
+    Get comprehensive statistics about LangExtract examples usage.
+    """
+    try:
+        # Import here to avoid circular imports
+        from ..services.database_langextract_service import DatabaseLangExtractService
+        
+        service = DatabaseLangExtractService()
+        stats = service.get_example_statistics()
+        
+        return jsonify({
+            'success': True,
+            'statistics': stats
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting example statistics: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@prompt_builder_bp.route('/api/examples/coverage')
+@login_required
+def get_examples_coverage():
+    """
+    Get coverage validation report for LangExtract examples.
+    """
+    try:
+        # Import here to avoid circular imports
+        from ..services.database_langextract_service import DatabaseLangExtractService
+        
+        service = DatabaseLangExtractService()
+        coverage = service.validate_example_coverage()
+        
+        return jsonify({
+            'success': True,
+            'coverage': coverage
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting example coverage: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def get_extraction_class_schemas() -> Dict[str, Any]:
+    """
+    Get schemas for different extraction classes to help with example creation.
+    """
+    return {
+        'factual_analysis': {
+            'extraction_text_options': ['structured_facts', 'key_information', 'factual_content'],
+            'attribute_schema': {
+                'key_agents': {'type': 'array', 'description': 'People involved with their roles and credentials'},
+                'key_entities': {'type': 'array', 'description': 'Important entities, organizations, or objects'},
+                'technical_details': {'type': 'array', 'description': 'Technical specifications or requirements'},
+                'contextual_factors': {'type': 'array', 'description': 'Environmental or situational factors'}
+            }
+        },
+        'ethical_question': {
+            'extraction_text_options': ['ethical_concerns', 'questions_identified', 'ethical_issues'],
+            'attribute_schema': {
+                'primary_questions': {'type': 'array', 'description': 'Main ethical questions raised'},
+                'underlying_concerns': {'type': 'array', 'description': 'Deeper ethical concerns'},
+                'stakeholders_affected': {'type': 'array', 'description': 'Who is impacted by these questions'}
+            }
+        },
+        'ethical_analysis': {
+            'extraction_text_options': ['ethical_reasoning', 'analysis_content', 'ethical_evaluation'],
+            'attribute_schema': {
+                'central_principles': {'type': 'array', 'description': 'Key ethical principles involved'},
+                'stakeholder_impacts': {'type': 'array', 'description': 'How different stakeholders are affected'},
+                'ethical_tensions': {'type': 'array', 'description': 'Conflicts between ethical principles'}
+            }
+        }
+    }
 
 
 def get_template_variable_schemas() -> Dict[str, Any]:

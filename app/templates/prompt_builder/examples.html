@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}LangExtract Examples - Prompt Builder{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2">LangExtract Examples</h1>
+                    <p class="text-muted">Manage structured examples for few-shot learning in LangExtract analysis</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('prompt_builder.examples_editor') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> New Example
+                    </a>
+                    <a href="{{ url_for('prompt_builder.index') }}" class="btn btn-outline-secondary ms-2">
+                        <i class="bi bi-arrow-left"></i> Back to Templates
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Overview Grid -->
+    <div class="row">
+        {% for domain_key, domain_info in domain_data.items() %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">{{ domain_info.name }}</h5>
+                    <span class="badge bg-primary">{{ domain_info.total_examples }} examples</span>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <div class="fw-bold text-success">{{ domain_info.total_usage }}</div>
+                            <small class="text-muted">Total Usage</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold text-info">{{ domain_info.examples|length }}</div>
+                            <small class="text-muted">Example Types</small>
+                        </div>
+                    </div>
+
+                    {% if domain_info.examples %}
+                    <div class="example-types">
+                        {% for example_key, example_info in domain_info.examples.items() %}
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <strong>{{ example_info.type|title }}</strong>
+                                {% if example_info.section_type %}
+                                <br><small class="text-muted">{{ example_info.section_type }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-secondary">{{ example_info.count }}</span>
+                                {% if example_info.effectiveness %}
+                                <br><small class="text-success">{{ example_info.effectiveness }}% effective</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-inbox display-6"></i>
+                        <p class="mt-2">No examples yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('prompt_builder.examples_domain', domain_name=domain_key) }}" 
+                       class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-pencil-square"></i> Manage Examples
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Quick Statistics -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">System Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="display-6 text-primary">
+                                {% set total_examples = domain_data.values() | sum(attribute='total_examples') %}
+                                {{ total_examples }}
+                            </div>
+                            <p class="text-muted mb-0">Total Examples</p>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="display-6 text-success">
+                                {% set total_usage = domain_data.values() | sum(attribute='total_usage') %}
+                                {{ total_usage }}
+                            </div>
+                            <p class="text-muted mb-0">Total Usage</p>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="display-6 text-info">{{ domain_data|length }}</div>
+                            <p class="text-muted mb-0">Domains</p>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="display-6 text-warning">
+                                {% set total_types = [] %}
+                                {% for domain in domain_data.values() %}
+                                    {% for example in domain.examples.values() %}
+                                        {% if example.type not in total_types %}
+                                            {% set _ = total_types.append(example.type) %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                                {{ total_types|length }}
+                            </div>
+                            <p class="text-muted mb-0">Example Types</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help and Documentation -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle"></i> About LangExtract Examples
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>What are LangExtract Examples?</h6>
+                            <p>LangExtract examples provide structured training data for few-shot learning in document analysis. Each example contains:</p>
+                            <ul>
+                                <li><strong>Input Text:</strong> Sample content to analyze</li>
+                                <li><strong>Expected Extractions:</strong> Structured output format with attributes</li>
+                                <li><strong>Domain Context:</strong> Professional domain specification</li>
+                                <li><strong>Section Type:</strong> Document section classification</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Example Types</h6>
+                            <ul>
+                                <li><strong>Factual:</strong> Key facts and entities extraction</li>
+                                <li><strong>Question:</strong> Ethical questions identification</li>
+                                <li><strong>Analysis:</strong> Ethical reasoning and principles</li>
+                                <li><strong>Conclusion:</strong> Decision outcomes and recommendations</li>
+                                <li><strong>Code Reference:</strong> Professional codes and standards</li>
+                                <li><strong>Dissenting:</strong> Alternative viewpoints and minority opinions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add any JavaScript for the examples dashboard here
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('LangExtract Examples dashboard loaded');
+});
+</script>
+{% endblock %}

@@ -37,9 +37,15 @@ def create_app(config_module='app.config'):
         print(f"\nNLTK Setup Required: {str(e)}\n")
         raise
     
-    # Configure the app based on config_module
-    if config_module == 'config':
-        # Using our enhanced configuration system
+    # Configure the app - simplified approach
+    if config_module == 'config_simple':
+        # Using simplified standard Flask configuration
+        from config_simple import config
+        env = os.environ.get('FLASK_ENV', 'development')
+        app.config.from_object(config.get(env, config['default']))
+        print(f"Using simplified config for '{env}': Database URL = {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
+    elif config_module == 'config':
+        # Using our enhanced configuration system (legacy)
         from config import app_config
         # Update app.config with our dictionary values
         for key, value in app_config.items():

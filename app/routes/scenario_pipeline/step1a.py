@@ -11,15 +11,20 @@ from app.models import Document
 from app.routes.scenario_pipeline.step1 import _format_section_for_llm
 from app.services.ontology_driven_langextract_service import OntologyDrivenLangExtractService
 from app.services.proethica_langextract_service import ProEthicaLangExtractService
+from app.services.database_langextract_service import DatabaseLangExtractService
 import os
 
 logger = logging.getLogger(__name__)
 
 # Initialize LangExtract service based on configuration
+use_database_examples = os.environ.get('USE_DATABASE_LANGEXTRACT_EXAMPLES', 'true').lower() == 'true'
 use_ontology_driven = os.environ.get('ENABLE_ONTOLOGY_DRIVEN_LANGEXTRACT', 'true').lower() == 'true'
 
-if use_ontology_driven:
-    logger.info("Using OntologyDrivenLangExtractService")
+if use_database_examples and use_ontology_driven:
+    logger.info("Using DatabaseLangExtractService with database examples")
+    langextract_service = DatabaseLangExtractService()
+elif use_ontology_driven:
+    logger.info("Using OntologyDrivenLangExtractService with hardcoded examples")
     langextract_service = OntologyDrivenLangExtractService()
 else:
     logger.info("Using ProEthicaLangExtractService (basic)")

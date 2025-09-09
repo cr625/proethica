@@ -179,3 +179,135 @@ class PromptTemplateVersion(db.Model):
     
     def __repr__(self):
         return f'<PromptTemplateVersion {self.template_id}:v{self.version_number}>'
+
+
+class LangExtractExample(db.Model):
+    """
+    Database model for LangExtract ExampleData objects.
+    
+    Stores structured examples that are used for few-shot learning in LangExtract analysis.
+    These replace hardcoded examples in the service classes.
+    """
+    __tablename__ = 'langextract_examples'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Example categorization
+    example_type = db.Column(db.String(50), nullable=False, index=True)  # 'factual', 'question', 'analysis', etc.
+    domain = db.Column(db.String(50), nullable=False, default='generic', index=True)
+    section_type = db.Column(db.String(100), index=True)  # 'FactualSection', 'EthicalQuestionSection'
+    
+    # Example content
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    example_text = db.Column(db.Text, nullable=False)  # The input text for the example
+    
+    # Configuration
+    active = db.Column(db.Boolean, default=True, index=True)
+    priority = db.Column(db.Integer, default=1)  # Higher priority examples are selected first
+    
+    # Metadata
+    created_by = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Performance tracking
+    usage_count = db.Column(db.Integer, default=0)
+    effectiveness_score = db.Column(db.Float)  # How well this example performs
+    
+    # Relationships
+    extractions = db.relationship('LangExtractExampleExtraction', back_populates='example', lazy='dynamic', cascade='all, delete-orphan')
+    
+    __table_args__ = (
+        db.Index('idx_type_domain_active', 'example_type', 'domain', 'active'),
+        db.Index('idx_section_type_active', 'section_type', 'active'),
+    )
+    
+    def __repr__(self):
+        return f'<LangExtractExample {self.domain}:{self.example_type}:{self.name}>'
+    
+    def to_langextract_data(self):
+        """
+        Convert to LangExtract ExampleData object.
+        
+        Returns:
+            langextract.data.ExampleData: Ready-to-use example for LangExtract
+        """
+        from langextract import data
+        
+        # Convert extractions to LangExtract format
+        extractions = []
+        for extraction in self.extractions:
+            extractions.append(data.Extraction(
+                extraction_class=extraction.extraction_class,
+                extraction_text=extraction.extraction_text,
+                attributes=extraction.attributes
+            ))
+        
+        return data.ExampleData(
+            text=self.example_text,
+            extractions=extractions
+        )
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'example_type': self.example_type,
+            'domain': self.domain,
+            'section_type': self.section_type,
+            'name': self.name,
+            'description': self.description,
+            'example_text': self.example_text,
+            'active': self.active,
+            'priority': self.priority,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'usage_count': self.usage_count,
+            'effectiveness_score': self.effectiveness_score,
+            'extractions': [ext.to_dict() for ext in self.extractions]
+        }
+
+
+class LangExtractExampleExtraction(db.Model):
+    """
+    Individual extraction within a LangExtract example.
+    
+    Represents the expected output structure that LangExtract should produce
+    when analyzing the example text.
+    """
+    __tablename__ = 'langextract_example_extractions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Parent example
+    example_id = db.Column(db.Integer, db.ForeignKey('langextract_examples.id'), nullable=False)
+    example = db.relationship('LangExtractExample', back_populates='extractions')
+    
+    # Extraction details
+    extraction_class = db.Column(db.String(100), nullable=False)  # 'factual_analysis', 'ethical_question', etc.
+    extraction_text = db.Column(db.String(200), nullable=False)  # 'structured_facts', 'ethical_concerns', etc.
+    attributes = db.Column(db.JSON)  # The structured attributes dictionary
+    
+    # Ordering and configuration
+    order_index = db.Column(db.Integer, default=0)  # Order within the example
+    
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_example_order', 'example_id', 'order_index'),
+    )
+    
+    def __repr__(self):
+        return f'<LangExtractExampleExtraction {self.example_id}:{self.extraction_class}>'
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'extraction_class': self.extraction_class,
+            'extraction_text': self.extraction_text,
+            'attributes': self.attributes,
+            'order_index': self.order_index
+        }
