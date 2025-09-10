@@ -222,12 +222,10 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
             ontology_context = "EXISTING OBLIGATIONS IN ONTOLOGY:\n"
             if existing_obligations:
                 ontology_context += f"Found {len(existing_obligations)} existing obligation concepts:\n"
-                for obligation in existing_obligations[:10]:  # Show first 10 examples
+                for obligation in existing_obligations:  # Show all obligations
                     label = obligation.get('label', 'Unknown')
-                    description = obligation.get('description', 'No description')[:80]
+                    description = obligation.get('description', 'No description')
                     ontology_context += f"- {label}: {description}\n"
-                if len(existing_obligations) > 10:
-                    ontology_context += f"... and {len(existing_obligations) - 10} more obligations\n"
             else:
                 ontology_context += "No existing obligations found in ontology (fresh setup)\n"
             

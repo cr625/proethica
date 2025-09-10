@@ -1,541 +1,420 @@
-{% extends "base.html" %}
-{% block title %}Step 1a: LangExtract Analysis - {{ case.title }}{% endblock %}
+{% extends "scenarios/base_step.html" %}
 
-{% block head %}
-<style>
-.langextract-btn {
-    background-color: #17a2b8;
-    border-color: #17a2b8;
-    color: white;
-}
+{% block step_title %}Entities Pass - Facts Section{% endblock %}
+{% block step_header %}Entities Pass{% endblock %}
+{% block step_subtitle %}Extract roles and resources from the facts section{% endblock %}
 
-.langextract-btn:hover {
-    background-color: #138496;
-    border-color: #117a8b;
-}
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-file-text"></i> Facts Section
+        </h4>
+    </div>
+    <div class="step-content">
+        {% if facts_section %}
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+            <pre class="facts-text">{{ facts_section.llm_text }}</pre>
+        </div>
+        
+        <!-- Entities Pass Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+            <button id="entitiesPassBtn" class="btn btn-primary btn-lg" onclick="showPrompt()">
+                <i class="bi bi-arrow-right-circle"></i> Entities Pass
+                <small class="d-block">Extract Roles + Resources</small>
+            </button>
+        </div>
+        
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No facts section found in this case. Using first available section.
+        </div>
+        {% endif %}
+    </div>
+</div>
 
-.langextract-output {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 0.25rem;
-    padding: 1rem;
-    margin-top: 1rem;
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-.langextract-status {
-    font-size: 0.875rem;
-    margin-bottom: 1rem;
-}
-
-.status-ready {
-    color: #28a745;
-}
-
-.status-fallback {
-    color: #ffc107;
-}
-
-.status-error {
-    color: #dc3545;
-}
-
-.analysis-section {
-    border-left: 3px solid #17a2b8;
-    padding-left: 1rem;
-    margin-bottom: 1rem;
-}
-
-.concept-item {
-    background-color: #e7f3ff;
-    border-left: 3px solid #007bff;
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.temporal-marker {
-    background-color: #fff2e6;
-    border-left: 3px solid #ff8c00;
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.domain-indicator {
-    background-color: #e6f7e6;
-    border-left: 3px solid #28a745;
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.loading-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #17a2b8;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.debug-section {
-    background-color: #f1f1f1;
-    border: 1px solid #ccc;
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    font-family: monospace;
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-}
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="container-fluid">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="breadcrumb" class="mb-3">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ url_for('index.index') }}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('cases.list_cases') }}">Cases</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('cases.view_case', id=case.id) }}">{{ case.title[:50] }}{% if case.title|length > 50 %}...{% endif %}</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1: Content Review</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Step 1a: LangExtract Analysis</li>
-        </ol>
-    </nav>
-
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">{{ step_title }}</h4>
-                    <div class="btn-group">
-                        <a href="{{ prev_step_url }}" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-arrow-left"></i> Back to Step 1
-                        </a>
-                        {% if next_step_url != '#' %}
-                        <a href="{{ next_step_url }}" class="btn btn-primary btn-sm">
-                            Continue <i class="bi bi-arrow-right"></i>
-                        </a>
-                        {% endif %}
-                    </div>
+<!-- LLM Prompt Display (Hidden initially) -->
+<div id="promptCard" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-cpu"></i> LLM Prompt Preview
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-warning mb-3">
+            <i class="bi bi-info-circle"></i>
+            This is the prompt that will be sent to the LLM for entities extraction:
+        </div>
+        
+        <div id="promptContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generating prompt...</span>
                 </div>
-                <div class="card-body">
-                    <!-- LangExtract Service Status -->
-                    <div class="langextract-status mb-4">
-                        <h6>LangExtract Service Status:</h6>
-                        {% if langextract_status.integration_status == 'ontology_guided_ready' %}
-                        <span class="status-ready">
-                            <i class="bi bi-check-circle"></i> Ontology-Guided Analysis Ready - Enhanced case-specific extraction
-                        </span>
-                        {% elif langextract_status.integration_status == 'langextract_ready_no_ontology' %}
-                        <span class="status-ready">
-                            <i class="bi bi-check-circle"></i> Standard LangExtract Ready - Full analysis available
-                        </span>
-                        {% elif langextract_status.integration_status == 'ready' %}
-                        <span class="status-ready">
-                            <i class="bi bi-check-circle"></i> Ready - Full LangExtract analysis available
-                        </span>
-                        {% elif langextract_status.integration_status == 'fallback_only' %}
-                        <span class="status-fallback">
-                            <i class="bi bi-exclamation-triangle"></i> Fallback mode - Basic analysis only
-                        </span>
-                        {% else %}
-                        <span class="status-error">
-                            <i class="bi bi-x-circle"></i> Service error - Check configuration
-                        </span>
-                        {% endif %}
-                        
-                        <!-- Ontology Integration Status (if available) -->
-                        {% if langextract_status.ontology_integration %}
-                        <div class="mt-2 p-2" style="background-color: #f8f9fa; border-radius: 0.25rem;">
-                            <small class="text-info">
-                                <strong>Ontology Integration:</strong>
-                                {% if langextract_status.ontology_integration.mcp_connection_available %}
-                                    <i class="bi bi-check-circle text-success"></i> MCP Connected
-                                {% else %}
-                                    <i class="bi bi-x-circle text-warning"></i> MCP Unavailable
-                                {% endif %}
-                                | Section Types Cached: {{ langextract_status.ontology_integration.section_types_cached }}
-                                | Implementation: {{ langextract_status.implementation }}
-                            </small>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                Gemini API: {{ 'Configured' if langextract_status.google_api_key_available else 'Missing' }} |
-                                Service: {{ 'Ready' if langextract_status.langextract_service_ready else 'Not Ready' }}
-                                {% if langextract_status.ontology_integration %}
-                                | MCP: {{ 'Connected' if langextract_status.ontology_integration.mcp_connection_available else 'Disconnected' }}
-                                {% endif %}
-                            </small>
-                        </div>
-                    </div>
+                <span class="ms-2">Generating prompt...</span>
+            </div>
+        </div>
+        
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3" id="executeButtonContainer" style="display: none;">
+            <button id="executeBtn" class="btn btn-success btn-lg" onclick="executeEntitiesPass()">
+                <i class="bi bi-play-circle"></i> Execute Entities Pass
+            </button>
+        </div>
+    </div>
+</div>
 
-                    <!-- Case Information -->
-                    <div class="mb-4">
-                        <h5>Case: {{ case.title }}</h5>
-                        <p class="text-muted">
-                            <small>
-                                Case ID: {{ case.id }} | 
-                                Sections: {{ sections|length }} |
-                                Current Step: {{ current_step }}
-                            </small>
-                        </p>
-                    </div>
-
-                    <!-- Sections Analysis -->
-                    {% for section_key, section_data in sections.items() %}
-                    <div class="step-card mb-4">
-                        <div class="step-header">
-                            <h5 class="mb-0 d-flex justify-content-between align-items-center">
-                                <span>
-                                    <i class="bi bi-file-earmark-text"></i>
-                                    {{ section_data.title }}
-                                </span>
-                                <button class="btn btn-sm langextract-btn" 
-                                        onclick="analyzeSectionWithLangExtract('{{ section_key }}', '{{ section_data.title }}')">
-                                    <i class="bi bi-cpu"></i> LangExtract Analysis
-                                </button>
-                            </h5>
-                        </div>
-                        
-                        <div class="step-content mt-3">
-                            <!-- LLM-Optimized Text Display -->
-                            <div class="alert alert-info">
-                                <h6 class="mb-2"><i class="bi bi-robot"></i> LLM-Optimized Format (Clean Text):</h6>
-                                <pre class="llm-text mb-0">{{ section_data.llm_text }}</pre>
-                            </div>
-                            
-                            <!-- LangExtract Analysis Output -->
-                            <div id="langextract-output-{{ section_key }}" class="langextract-output" style="display: none;">
-                                <h6><i class="bi bi-cpu"></i> LangExtract Analysis Results:</h6>
-                                <div id="langextract-content-{{ section_key }}">
-                                    <!-- Analysis results will be populated here -->
-                                </div>
-                            </div>
-                            
-                            <!-- Input Text Debug -->
-                            <div class="mt-3">
-                                <button class="btn btn-sm btn-outline-secondary" type="button" 
-                                        data-bs-toggle="collapse" data-bs-target="#debug-{{ section_key }}">
-                                    <i class="bi bi-code"></i> Show Input Text
-                                </button>
-                                <div class="collapse mt-2" id="debug-{{ section_key }}">
-                                    <div class="debug-section">
-                                        <strong>Text sent to LangExtract:</strong><br>
-                                        <pre id="input-text-{{ section_key }}">{{ section_data.llm_text }}</pre>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
+<!-- Results Display (Hidden initially) -->
+<div id="resultsCard" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-check-circle"></i> Entities Pass Results
+        </h5>
+    </div>
+    <div class="step-content">
+        <div id="resultsContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Extracting entities...</span>
                 </div>
+                <span class="ms-2">Extracting entities...</span>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-// LangExtract Analysis Functions
-async function analyzeSectionWithLangExtract(sectionKey, sectionTitle) {
-    const button = event.target.closest('button');
-    const outputDiv = document.getElementById(`langextract-output-${sectionKey}`);
-    const contentDiv = document.getElementById(`langextract-content-${sectionKey}`);
-    const inputTextPre = document.getElementById(`input-text-${sectionKey}`);
-    
-    // Get section text from the LLM-optimized format
-    const sectionText = inputTextPre.textContent || inputTextPre.innerText;
-    
-    // Show loading state
-    button.disabled = true;
-    button.innerHTML = '<span class="loading-spinner"></span> Analyzing...';
-    outputDiv.style.display = 'block';
-    contentDiv.innerHTML = '<div class="text-center"><div class="loading-spinner"></div> Performing LangExtract analysis...</div>';
-    
-    try {
-        // Send analysis request
-        const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/langextract_analysis`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-                section_key: sectionKey,
-                section_text: sectionText
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            displayLangExtractResults(contentDiv, result);
-        } else {
-            displayLangExtractError(contentDiv, result.error || 'Analysis failed');
-        }
-        
-    } catch (error) {
-        console.error('LangExtract analysis error:', error);
-        displayLangExtractError(contentDiv, error.message);
-    } finally {
-        // Restore button state
-        button.disabled = false;
-        button.innerHTML = '<i class="bi bi-cpu"></i> LangExtract Analysis';
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .facts-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
     }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    /* Entities Pass Button Styling */
+    #entitiesPassBtn {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    #entitiesPassBtn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Prompt Display Styling */
+    #promptCard {
+        background-color: #fff8dc;
+        border-color: #ffc107;
+    }
+
+    #promptCard .step-header {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+    }
+
+    .prompt-section {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .prompt-section h6 {
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #ffffff;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    /* Results Display Styling */
+    #resultsCard {
+        background-color: #d4edda;
+        border-color: #28a745;
+    }
+
+    #resultsCard .step-header {
+        background-color: #d1ecf1;
+        border-color: #28a745;
+    }
+
+    .entity-type {
+        margin-bottom: 1.5rem;
+    }
+
+    .entity-type h6 {
+        color: #495057;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #28a745;
+    }
+
+    .entity-item {
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .entity-label {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .entity-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    .entity-confidence {
+        font-size: 0.8rem;
+        color: #28a745;
+        font-weight: 500;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .summary-stats {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .summary-stats .stat {
+        display: inline-block;
+        margin-right: 2rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+let currentSectionText = '';
+
+// Initialize section text
+document.addEventListener('DOMContentLoaded', function() {
+    const factsTextElement = document.querySelector('.facts-text');
+    if (factsTextElement) {
+        currentSectionText = factsTextElement.textContent.trim();
+    }
+});
+
+function showPrompt() {
+    const promptCard = document.getElementById('promptCard');
+    const entitiesBtn = document.getElementById('entitiesPassBtn');
+    
+    // Disable the button and show loading
+    entitiesBtn.disabled = true;
+    entitiesBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompt...';
+    
+    // Show prompt card
+    promptCard.style.display = 'block';
+    promptCard.scrollIntoView({ behavior: 'smooth' });
+    
+    // Fetch the prompt from the server
+    fetch(`{{ url_for('scenario_pipeline.entities_pass_prompt', case_id=case.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            section_text: currentSectionText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayPrompt(data);
+            // Show execute button
+            document.getElementById('executeButtonContainer').style.display = 'block';
+        } else {
+            displayError('Error generating prompt: ' + data.error);
+        }
+    })
+    .catch(error => {
+        displayError('Network error: ' + error.message);
+    })
+    .finally(() => {
+        // Re-enable the button
+        entitiesBtn.disabled = false;
+        entitiesBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Entities Pass <small class="d-block">Extract Roles + Resources</small>';
+    });
 }
 
-function displayLangExtractResults(contentDiv, result) {
-    const structured = result.structured_analysis || {};
-    const ethical = result.ethical_context || {};
-    const processing = result.processing_info || {};
-    const orchestration = result.orchestration_insights || {};
+function displayPrompt(data) {
+    const content = document.getElementById('promptContent');
+    content.innerHTML = `
+        <div class="prompt-section">
+            <h6><i class="bi bi-people"></i> Roles Extraction Prompt:</h6>
+            <div class="prompt-text">${data.roles_prompt}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-gear"></i> Resources Extraction Prompt:</h6>
+            <div class="prompt-text">${data.resources_prompt}</div>
+        </div>
+        <div class="alert alert-info">
+            <strong>Section Length:</strong> ${data.section_length} characters
+        </div>
+    `;
+}
+
+function executeEntitiesPass() {
+    const resultsCard = document.getElementById('resultsCard');
+    const executeBtn = document.getElementById('executeBtn');
+    
+    // Disable execute button and show loading
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
+    
+    // Show results card with loading
+    resultsCard.style.display = 'block';
+    resultsCard.scrollIntoView({ behavior: 'smooth' });
+    
+    // Execute the entities pass
+    fetch(`{{ url_for('scenario_pipeline.entities_pass_execute', case_id=case.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            section_text: currentSectionText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            displayResultsError('Error executing entities pass: ' + data.error);
+        }
+    })
+    .catch(error => {
+        displayResultsError('Network error: ' + error.message);
+    })
+    .finally(() => {
+        // Re-enable execute button
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Entities Pass';
+    });
+}
+
+function displayResults(data) {
+    const content = document.getElementById('resultsContent');
     
     let html = `
-        <div class="analysis-section">
-            <h6><i class="bi bi-info-circle"></i> Analysis Summary</h6>
-            <p><strong>Method:</strong> ${result.analysis_method || 'Unknown'}</p>
-            <p><strong>Confidence:</strong> ${processing.confidence ? (processing.confidence * 100).toFixed(1) : 'Unknown'}%</p>
-            <p><strong>Processing Time:</strong> ${processing.processing_time || 'N/A'}</p>
-            <p><strong>Character Positioning:</strong> ${processing.character_level_positions ? 'Available' : 'Not available'}</p>
-            <p><strong>Text Length:</strong> ${result.original_text_length || 'Unknown'} characters</p>
-            <p><strong>Analysis Timestamp:</strong> ${result.analysis_timestamp ? new Date(result.analysis_timestamp).toLocaleTimeString() : 'N/A'}</p>
+        <div class="summary-stats">
+            <div class="stat"><i class="bi bi-people"></i> Roles: ${data.summary.roles_count}</div>
+            <div class="stat"><i class="bi bi-gear"></i> Resources: ${data.summary.resources_count}</div>
+            <div class="stat"><i class="bi bi-collection"></i> Total: ${data.summary.total_entities}</div>
         </div>
     `;
     
-    // Key Concepts
-    if (structured.key_concepts && structured.key_concepts.length > 0) {
+    // Display roles
+    if (data.roles && data.roles.length > 0) {
         html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-lightbulb"></i> Key Concepts (${structured.key_concepts.length})</h6>
+            <div class="entity-type">
+                <h6><i class="bi bi-people"></i> Extracted Roles (${data.roles.length})</h6>
         `;
-        structured.key_concepts.forEach(concept => {
+        
+        data.roles.forEach(role => {
             html += `
-                <div class="concept-item">
-                    <strong>${concept.term || 'Unnamed concept'}</strong>
-                    ${concept.definition ? `<br><small>${concept.definition}</small>` : ''}
-                    ${concept.ethical_relevance ? `<br><span class="badge bg-primary">${concept.ethical_relevance}</span>` : ''}
-                    ${concept.context ? `<br><em>Context: ${concept.context}</em>` : ''}
+                <div class="entity-item">
+                    <div class="entity-label">${role.label}</div>
+                    ${role.description ? `<div class="entity-description">${role.description}</div>` : ''}
+                    <div class="entity-confidence">Confidence: ${(role.confidence * 100).toFixed(0)}%</div>
                 </div>
             `;
         });
+        
         html += '</div>';
     }
     
-    // Stakeholders
-    if (structured.stakeholders && structured.stakeholders.length > 0) {
+    // Display resources
+    if (data.resources && data.resources.length > 0) {
         html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-people"></i> Stakeholders (${structured.stakeholders.length})</h6>
+            <div class="entity-type">
+                <h6><i class="bi bi-gear"></i> Extracted Resources (${data.resources.length})</h6>
         `;
-        structured.stakeholders.forEach(stakeholder => {
+        
+        data.resources.forEach(resource => {
             html += `
-                <div class="concept-item">
-                    <strong>${stakeholder.name || 'Unnamed stakeholder'}</strong>
-                    ${stakeholder.role ? `<br><span class="badge bg-success">${stakeholder.role}</span>` : ''}
-                    ${stakeholder.responsibilities ? `<br><small>${stakeholder.responsibilities}</small>` : ''}
+                <div class="entity-item">
+                    <div class="entity-label">${resource.label}</div>
+                    ${resource.description ? `<div class="entity-description">${resource.description}</div>` : ''}
+                    <div class="entity-confidence">Confidence: ${(resource.confidence * 100).toFixed(0)}%</div>
                 </div>
             `;
         });
+        
         html += '</div>';
     }
     
-    // Ethical Principles
-    if (structured.ethical_principles && structured.ethical_principles.length > 0) {
+    if (data.summary.total_entities === 0) {
         html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-shield-check"></i> Ethical Principles (${structured.ethical_principles.length})</h6>
-        `;
-        structured.ethical_principles.forEach(principle => {
-            html += `
-                <div class="concept-item">
-                    <strong>${principle.principle || 'Ethical principle'}</strong>
-                    ${principle.nspe_reference ? `<br><span class="badge bg-warning text-dark">NSPE ${principle.nspe_reference}</span>` : ''}
-                    ${principle.relevance ? `<br><small>${principle.relevance}</small>` : ''}
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    // Decision Points
-    if (structured.decision_points && structured.decision_points.length > 0) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-question-diamond"></i> Decision Points (${structured.decision_points.length})</h6>
-        `;
-        structured.decision_points.forEach(decision => {
-            html += `
-                <div class="concept-item">
-                    <strong>${decision.decision || 'Decision point'}</strong>
-                    ${decision.ethical_considerations ? `<br><small>${decision.ethical_considerations}</small>` : ''}
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    // Temporal Markers
-    if (structured.temporal_markers && structured.temporal_markers.length > 0) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-clock"></i> Temporal Markers (${structured.temporal_markers.length})</h6>
-        `;
-        structured.temporal_markers.forEach(marker => {
-            html += `
-                <div class="temporal-marker">
-                    <strong>${marker.marker || 'Temporal reference'}</strong>
-                    ${marker.period !== 'unknown' ? `<br><small>Period: ${marker.period}</small>` : ''}
-                    ${marker.context ? `<br><em>${marker.context}</em>` : ''}
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    // Domain Indicators
-    if (structured.domain_indicators && structured.domain_indicators.length > 0) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-gear"></i> Domain Indicators (${structured.domain_indicators.length})</h6>
-        `;
-        structured.domain_indicators.forEach(indicator => {
-            html += `
-                <div class="domain-indicator">
-                    <strong>${indicator.domain || 'Unknown domain'}</strong>
-                    ${indicator.indicator ? `<br><small>${indicator.indicator}</small>` : ''}
-                    ${indicator.terminology && indicator.terminology.length > 0 ? 
-                        `<br><em>Terms: ${indicator.terminology.join(', ')}</em>` : ''}
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    // Ethical Context
-    if (ethical.ethical_terms_detected > 0) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-shield-check"></i> Ethical Context</h6>
-                <p><strong>Ethical Terms Detected:</strong> ${ethical.ethical_terms_detected}</p>
-                <p><strong>Professional Context:</strong> ${ethical.professional_context || 'Unknown'}</p>
-                <p><strong>Analysis Suitability:</strong> ${ethical.analysis_suitability || 'Unknown'}</p>
-        `;
-        if (ethical.ethical_concepts && ethical.ethical_concepts.length > 0) {
-            html += '<div class="mt-2">';
-            ethical.ethical_concepts.forEach(concept => {
-                html += `<span class="badge bg-primary me-1">${concept.term}</span>`;
-            });
-            html += '</div>';
-        }
-        html += '</div>';
-    }
-    
-    // Orchestration Insights
-    if (orchestration.status === 'available') {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-diagram-3"></i> LLM Orchestration</h6>
-                <p><strong>Status:</strong> Available</p>
-        `;
-        if (orchestration.tool_recommendations && orchestration.tool_recommendations.length > 0) {
-            html += `<p><strong>Recommended Tools:</strong> ${orchestration.tool_recommendations.join(', ')}</p>`;
-        }
-        if (orchestration.confidence) {
-            html += `<p><strong>Orchestration Confidence:</strong> ${(orchestration.confidence * 100).toFixed(1)}%</p>`;
-        }
-        html += '</div>';
-    }
-    
-    // Detailed Analysis Summary
-    if (result.summary) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-bar-chart"></i> Processing Summary</h6>
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Key Concepts:</strong> ${result.summary.key_concepts_found || 0}</p>
-                        <p><strong>Stakeholders:</strong> ${result.summary.stakeholders_identified || 0}</p>
-                        <p><strong>Ethical Principles:</strong> ${result.summary.ethical_principles_referenced || 0}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Decision Points:</strong> ${result.summary.decision_points_detected || 0}</p>
-                        <p><strong>Temporal Markers:</strong> ${result.summary.temporal_markers_found || 0}</p>
-                        <p><strong>Processing Method:</strong> ${processing.method || 'Unknown'}</p>
-                    </div>
-                </div>
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                No entities were extracted from this section.
             </div>
         `;
     }
     
-    // Raw Analysis Output
-    const uniqueId = Date.now() + Math.random();
-    html += `
-        <div class="analysis-section">
-            <h6><i class="bi bi-file-code"></i> Complete Analysis Output</h6>
-            <button class="btn btn-sm btn-outline-info" type="button" 
-                    data-bs-toggle="collapse" data-bs-target="#raw-output-${uniqueId}">
-                <i class="bi bi-eye"></i> Show Full JSON Results
-            </button>
-            <div class="collapse mt-2" id="raw-output-${uniqueId}">
-                <div class="debug-section" style="max-height: 400px; overflow-y: auto;">
-                    <h6>Complete LangExtract Analysis Results:</h6>
-                    <pre style="font-size: 0.8rem; line-height: 1.3;">${JSON.stringify(result, null, 2)}</pre>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Debug Information
-    if (result.debug_info) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-bug"></i> Debug Information</h6>
-                <button class="btn btn-sm btn-outline-secondary" type="button" 
-                        data-bs-toggle="collapse" data-bs-target="#debug-info-${Date.now()}">
-                    Show Debug Details
-                </button>
-                <div class="collapse mt-2" id="debug-info-${Date.now()}">
-                    <div class="debug-section">
-                        <pre>${JSON.stringify(result.debug_info, null, 2)}</pre>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Add formatted JSON for complete structured analysis
-    if (result.formatted_structured_analysis) {
-        html += `
-            <div class="analysis-section">
-                <h6><i class="bi bi-code-square"></i> Complete Structured Analysis (JSON)</h6>
-                <div class="alert alert-info">
-                    <small>Full structured analysis results from LangExtract processing</small>
-                </div>
-                <pre class="bg-light p-3 rounded" style="font-size: 12px; max-height: 400px; overflow-y: auto;"><code>${result.formatted_structured_analysis}</code></pre>
-            </div>
-        `;
-    }
-    
-    contentDiv.innerHTML = html;
+    content.innerHTML = html;
 }
 
-function displayLangExtractError(contentDiv, error) {
-    contentDiv.innerHTML = `
-        <div class="alert alert-warning">
-            <h6><i class="bi bi-exclamation-triangle"></i> Analysis Error</h6>
-            <p>LangExtract analysis failed: ${error}</p>
-            <p><small class="text-muted">Fallback analysis may be available. Check service status above.</small></p>
+function displayError(message) {
+    const content = document.getElementById('promptContent');
+    content.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i>
+            ${message}
+        </div>
+    `;
+}
+
+function displayResultsError(message) {
+    const content = document.getElementById('resultsContent');
+    content.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i>
+            ${message}
         </div>
     `;
 }

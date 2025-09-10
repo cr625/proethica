@@ -61,7 +61,7 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
             except ImportError:
                 pass
             
-            use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+            use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
             logger.info(f"ENABLE_EXTERNAL_MCP_ACCESS = {os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS')}")
             logger.info(f"Will use external MCP: {use_external_mcp}")
             
@@ -96,6 +96,23 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
         except Exception as e:
             logger.error(f"Error in roles extraction: {e}", exc_info=True)
             return []
+    
+    def _get_prompt_for_preview(self, text: str) -> str:
+        """Get the actual prompt that will be sent to the LLM, including MCP context if enabled."""
+        # Check if external MCP integration is enabled
+        import os
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+        
+        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
+        
+        if use_external_mcp:
+            return self._create_roles_prompt_with_external_mcp(text)
+        else:
+            return self._create_roles_prompt(text)
     
     def _create_roles_prompt(self, text: str) -> str:
         """Create a focused prompt that extracts ONLY roles."""
@@ -155,12 +172,10 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
             ontology_context = "EXISTING ROLES IN ONTOLOGY:\n"
             if existing_roles:
                 ontology_context += f"Found {len(existing_roles)} existing role concepts:\n"
-                for role in existing_roles[:10]:  # Show first 10 examples
+                for role in existing_roles:  # Show all roles
                     label = role.get('label', 'Unknown')
-                    description = role.get('description', 'No description')[:80]
+                    description = role.get('description', 'No description')
                     ontology_context += f"- {label}: {description}\n"
-                if len(existing_roles) > 10:
-                    ontology_context += f"... and {len(existing_roles) - 10} more roles\n"
             else:
                 ontology_context += "No existing roles found in ontology (fresh setup)\n"
             

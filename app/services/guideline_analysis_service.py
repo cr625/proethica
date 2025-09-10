@@ -1062,10 +1062,8 @@ class GuidelineAnalysisService:
             for category, entities in all_entities.items():
                 if entities:
                     ontology_context += f"\n{category.upper()}:\n"
-                    for entity in entities[:5]:  # Show first 5 examples
-                        ontology_context += f"- {entity.get('label', 'No label')}: {entity.get('description', 'No description')[:100]}\n"
-                    if len(entities) > 5:
-                        ontology_context += f"... and {len(entities) - 5} more {category} concepts\n"
+                    for entity in entities:  # Show all entities
+                        ontology_context += f"- {entity.get('label', 'No label')}: {entity.get('description', 'No description')}\n"
                     total_concepts += len(entities)
                 else:
                     ontology_context += f"\n{category.upper()}: (no existing concepts)\n"

@@ -68,18 +68,31 @@ def debug_step1_route(case_id):
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step1a')
 def step1a(case_id):
-    """Route handler for Step 1a: LangExtract Content Analysis"""
+    """Route handler for Step 1a: Entities Pass for Facts Section"""
     from .step1a import step1a as step1a_handler
     return step1a_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_prompt', methods=['POST'])
+def entities_pass_prompt(case_id):
+    """API endpoint to generate entities pass prompt"""
+    from .step1a import entities_pass_prompt as prompt_handler
+    return prompt_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_execute', methods=['POST'])
+def entities_pass_execute(case_id):
+    """API endpoint to execute entities pass extraction"""
+    from .step1a import entities_pass_execute as execute_handler
+    return execute_handler(case_id)
+
+# LangExtract routes (archived - will be used in future step)
 @interactive_scenario_bp.route('/case/<int:case_id>/langextract_analysis', methods=['POST'])
 def langextract_analysis(case_id):
-    """API endpoint for LangExtract section analysis"""
-    from .step1a import analyze_section_langextract as analysis_handler
+    """API endpoint for LangExtract section analysis (archived)"""
+    from .step1a_langextract import analyze_section_langextract as analysis_handler
     return analysis_handler(case_id)
 
 @interactive_scenario_bp.route('/langextract_status')
 def langextract_status():
-    """API endpoint to get LangExtract service status"""
-    from .step1a import get_langextract_status as status_handler
+    """API endpoint to get LangExtract service status (archived)"""
+    from .step1a_langextract import get_langextract_status as status_handler
     return status_handler()

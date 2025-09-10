@@ -83,6 +83,16 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         # Apply unified atomic splitting
         return self._apply_atomic_splitting(candidates)
 
+    def _get_prompt_for_preview(self, text: str) -> str:
+        """Get the actual prompt that will be sent to the LLM, including MCP context if enabled."""
+        # Check if external MCP integration is enabled
+        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
+        
+        if use_external_mcp:
+            return self._create_resources_prompt_with_mcp(text)
+        else:
+            return self._create_resources_prompt(text)
+
     def _extract_heuristic(self, text: str, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """Heuristic extraction based on resource keywords and patterns."""
         sentences = re.split(r"(?<=[\.!?])\s+", text.strip())
@@ -209,7 +219,7 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         except ImportError:
             pass
             
-        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
         
         if use_external_mcp:
             prompt = self._create_resources_prompt_with_mcp(text)
@@ -320,12 +330,10 @@ Guideline excerpt:
             ontology_context = "EXISTING RESOURCES IN ONTOLOGY:\n"
             if existing_resources:
                 ontology_context += f"Found {len(existing_resources)} existing resource concepts:\n"
-                for resource in existing_resources[:10]:  # Show first 10 examples
+                for resource in existing_resources:  # Show all resources
                     label = resource.get('label', 'Unknown')
-                    description = resource.get('description', 'No description')[:80]
+                    description = resource.get('description', 'No description')
                     ontology_context += f"- {label}: {description}\n"
-                if len(existing_resources) > 10:
-                    ontology_context += f"... and {len(existing_resources) - 10} more resources\n"
             else:
                 ontology_context += "No existing resources found in ontology (or method not available)\n"
             

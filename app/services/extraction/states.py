@@ -291,12 +291,10 @@ Guideline excerpt:
             ontology_context = "EXISTING STATES IN ONTOLOGY:\n"
             if existing_states:
                 ontology_context += f"Found {len(existing_states)} existing state concepts:\n"
-                for state in existing_states[:10]:  # Show first 10 examples
+                for state in existing_states:  # Show all states
                     label = state.get('label', 'Unknown')
-                    description = state.get('description', 'No description')[:80]
+                    description = state.get('description', 'No description')
                     ontology_context += f"- {label}: {description}\n"
-                if len(existing_states) > 10:
-                    ontology_context += f"... and {len(existing_states) - 10} more states\n"
             else:
                 ontology_context += "No existing states found in ontology (or method not available)\n"
             

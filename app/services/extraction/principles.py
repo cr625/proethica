@@ -266,7 +266,7 @@ class PrinciplesExtractor(Extractor):
                 # Show examples of atomic principles
                 if atomic_examples:
                     ontology_context += "Examples of atomic principles in the ontology:\n"
-                    for example in atomic_examples[:15]:  # Show good atomic examples
+                    for example in atomic_examples:  # Show all atomic examples
                         ontology_context += f"- {example}\n"
                 
                 # Add mapping guidance

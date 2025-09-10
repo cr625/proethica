@@ -30,7 +30,8 @@
                 "ENABLE_PRINCIPLES_EXTRACTION": "true",
                 "DISABLE_WEBVOWL_MESSAGES": "true",
                 "USE_ONTSERVE": "true",
-                "ONTSERVE_URL": "http://localhost:8083"
+                "ONTSERVE_URL": "http://localhost:8082",
+                "ENABLE_EXTERNAL_MCP_ACCESS": "true"
             },
             "cwd": "${workspaceFolder}"
         },
@@ -67,7 +68,8 @@
                 "ENABLE_PRINCIPLES_EXTRACTION": "true",
                 "DISABLE_WEBVOWL_MESSAGES": "true",
                 "USE_ONTSERVE": "true",
-                "ONTSERVE_URL": "http://localhost:8083"
+                "ONTSERVE_URL": "http://localhost:8082",
+                "ENABLE_EXTERNAL_MCP_ACCESS": "true"
             }
         },
         {

@@ -1,48 +1,29 @@
 """
-Step 1a: LangExtract Content Analysis Route
-
-Enhanced content analysis step using LangExtract integration for structured 
-document analysis. Shows LLM-optimized text with detailed LangExtract analysis.
+Step 1a: Entities Pass for Facts Section
+Shows the facts section and provides an entities pass button that extracts roles and resources.
 """
 
 import logging
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document
 from app.routes.scenario_pipeline.step1 import _format_section_for_llm
-from app.services.ontology_driven_langextract_service import OntologyDrivenLangExtractService
-from app.services.proethica_langextract_service import ProEthicaLangExtractService
-from app.services.database_langextract_service import DatabaseLangExtractService
-import os
 
 logger = logging.getLogger(__name__)
 
-# Initialize LangExtract service based on configuration
-use_database_examples = os.environ.get('USE_DATABASE_LANGEXTRACT_EXAMPLES', 'true').lower() == 'true'
-use_ontology_driven = os.environ.get('ENABLE_ONTOLOGY_DRIVEN_LANGEXTRACT', 'true').lower() == 'true'
-
-if use_database_examples and use_ontology_driven:
-    logger.info("Using DatabaseLangExtractService with database examples")
-    langextract_service = DatabaseLangExtractService()
-elif use_ontology_driven:
-    logger.info("Using OntologyDrivenLangExtractService with hardcoded examples")
-    langextract_service = OntologyDrivenLangExtractService()
-else:
-    logger.info("Using ProEthicaLangExtractService (basic)")
-    langextract_service = ProEthicaLangExtractService()
-
 # Function to exempt specific routes from CSRF after app initialization
 def init_step1a_csrf_exemption(app):
-    """Exempt Step 1a LangExtract analysis routes from CSRF protection"""
+    """Exempt Step 1a entities pass routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
-        # Import the route function that actually gets called
-        from app.routes.scenario_pipeline.interactive_builder import langextract_analysis
-        # Exempt the LangExtract analysis route from CSRF protection
-        app.csrf.exempt(langextract_analysis)
+        # Import the route functions that actually get called
+        from app.routes.scenario_pipeline.interactive_builder import entities_pass_prompt, entities_pass_execute
+        # Exempt the entities pass routes from CSRF protection
+        app.csrf.exempt(entities_pass_prompt)
+        app.csrf.exempt(entities_pass_execute)
 
 def step1a(case_id):
     """
-    Step 1a: LangExtract Content Analysis
-    Shows LLM-optimized content with LangExtract analysis capabilities
+    Step 1a: Entities Pass for Facts Section
+    Shows the facts section with an entities pass button for extracting roles and resources.
     """
     try:
         # Get the case
@@ -67,24 +48,31 @@ def step1a(case_id):
                 'full_content': case.content or 'No content available'
             }
         
-        # Process sections for LLM-optimal display (reuse step1 formatting)
-        sections = {}
-        for section_key, section_content in raw_sections.items():
-            formatted_section = _format_section_for_llm(section_key, section_content)
-            if formatted_section:
-                sections[section_key] = formatted_section
+        # Find the facts section
+        facts_section = None
+        facts_section_key = None
         
-        # Get LangExtract service status
-        service_status = langextract_service.get_service_status()
+        # Look for facts/factual section (case insensitive)
+        for section_key, section_content in raw_sections.items():
+            if 'fact' in section_key.lower():
+                facts_section_key = section_key
+                facts_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+                break
+        
+        # If no facts section found, use first available section as fallback
+        if not facts_section and raw_sections:
+            first_key = list(raw_sections.keys())[0]
+            facts_section_key = first_key
+            facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
         
         # Template context
         context = {
             'case': case,
-            'sections': sections,
-            'current_step': '1a',
-            'step_title': 'LangExtract Content Analysis',
-            'langextract_status': service_status,
-            'next_step_url': '#',  # Future: step1b or step2
+            'facts_section': facts_section,
+            'facts_section_key': facts_section_key,
+            'current_step': 1.5,  # Use numeric value that can be compared with integers (1 < 1.5 < 2)
+            'step_title': 'Entities Pass - Facts Section',
+            'next_step_url': '#',  # Future: step1b
             'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id)
         }
         
@@ -95,9 +83,9 @@ def step1a(case_id):
         flash(f'Error loading step 1a: {str(e)}', 'danger')
         return redirect(url_for('cases.view_case', id=case_id))
 
-def analyze_section_langextract(case_id):
+def entities_pass_prompt(case_id):
     """
-    API endpoint to perform LangExtract analysis on a specific section
+    API endpoint to generate and return the LLM prompt for entities pass before execution.
     """
     try:
         if request.method != 'POST':
@@ -108,69 +96,114 @@ def analyze_section_langextract(case_id):
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
         
-        section_key = data.get('section_key')
         section_text = data.get('section_text')
+        if not section_text:
+            return jsonify({'error': 'section_text is required'}), 400
         
-        if not section_key or not section_text:
-            return jsonify({'error': 'section_key and section_text are required'}), 400
+        logger.info(f"Generating entities pass prompt for case {case_id}")
         
-        logger.info(f"Starting LangExtract analysis for case {case_id}, section: {section_key}")
+        # Import the extraction services to get the actual prompts that will be used
+        from app.services.extraction.roles import RolesExtractor
+        from app.services.extraction.resources import ResourcesExtractor
         
-        # Perform ontology-driven LangExtract analysis
-        # Determine case domain from case metadata or default to engineering_ethics
-        case_domain = 'engineering_ethics'  # Default for NSPE cases
+        # Create extractors to generate the actual prompts that will be used
+        roles_extractor = RolesExtractor()
+        resources_extractor = ResourcesExtractor()
         
-        # Get the case to check for domain information
-        case = Document.query.get(case_id)
-        if case and case.doc_metadata and 'domain' in case.doc_metadata:
-            case_domain = case.doc_metadata['domain']
+        # Get the actual prompts that will be sent to the LLM (with MCP context if enabled)
+        roles_prompt = roles_extractor._get_prompt_for_preview(section_text)
+        resources_prompt = resources_extractor._get_prompt_for_preview(section_text)
         
-        analysis_result = langextract_service.analyze_section_content(
-            section_title=section_key,
-            section_text=section_text,
-            case_id=case_id,
-            case_domain=case_domain
-        )
-        
-        # Add request metadata
-        analysis_result['request_metadata'] = {
-            'case_id': case_id,
-            'section_key': section_key,
-            'text_length': len(section_text),
-            'analysis_requested_at': analysis_result.get('analysis_timestamp')
-        }
-        
-        # Add formatted JSON for structured_analysis if it exists
-        if 'structured_analysis' in analysis_result:
-            import json
-            analysis_result['formatted_structured_analysis'] = json.dumps(
-                analysis_result['structured_analysis'], 
-                indent=2, 
-                ensure_ascii=False
-            )
-        
-        logger.info(f"LangExtract analysis completed for case {case_id}, section: {section_key}")
-        
-        return jsonify(analysis_result)
+        return jsonify({
+            'success': True,
+            'roles_prompt': roles_prompt,
+            'resources_prompt': resources_prompt,
+            'combined_prompt': f"ROLES EXTRACTION:\n{roles_prompt}\n\n---\n\nRESOURCES EXTRACTION:\n{resources_prompt}",
+            'section_length': len(section_text)
+        })
         
     except Exception as e:
-        logger.error(f"Error in LangExtract analysis for case {case_id}: {str(e)}")
+        logger.error(f"Error generating entities pass prompt for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def entities_pass_execute(case_id):
+    """
+    API endpoint to execute the entities pass on the facts section.
+    Extracts roles and resources using the ProEthica extraction services.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        section_text = data.get('section_text')
+        if not section_text:
+            return jsonify({'error': 'section_text is required'}), 400
+        
+        logger.info(f"Starting entities pass execution for case {case_id}")
+        
+        # Import the extraction services
+        from app.services.extraction.roles import RolesExtractor
+        from app.services.extraction.resources import ResourcesExtractor
+        
+        # Initialize extractors
+        roles_extractor = RolesExtractor()
+        resources_extractor = ResourcesExtractor()
+        
+        # Extract roles and resources
+        logger.info("Extracting roles...")
+        role_candidates = roles_extractor.extract(section_text, guideline_id=case_id)
+        
+        logger.info("Extracting resources...")
+        resource_candidates = resources_extractor.extract(section_text, guideline_id=case_id)
+        
+        # Convert candidates to serializable format
+        roles_data = []
+        for candidate in role_candidates:
+            roles_data.append({
+                'label': candidate.label,
+                'description': candidate.description,
+                'type': candidate.primary_type,
+                'confidence': candidate.confidence,
+                'debug': candidate.debug
+            })
+        
+        resources_data = []
+        for candidate in resource_candidates:
+            resources_data.append({
+                'label': candidate.label,
+                'description': candidate.description,
+                'type': candidate.primary_type,
+                'confidence': candidate.confidence,
+                'debug': candidate.debug
+            })
+        
+        logger.info(f"Entities pass completed for case {case_id}: {len(roles_data)} roles, {len(resources_data)} resources")
+        
+        return jsonify({
+            'success': True,
+            'roles': roles_data,
+            'resources': resources_data,
+            'summary': {
+                'roles_count': len(roles_data),
+                'resources_count': len(resources_data),
+                'total_entities': len(roles_data) + len(resources_data)
+            },
+            'execution_timestamp': logger.created if hasattr(logger, 'created') else None
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in entities pass execution for case {case_id}: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e),
-            'fallback_available': True
+            'fallback_available': False
         }), 500
 
-def get_langextract_status():
-    """
-    API endpoint to get LangExtract service status
-    """
-    try:
-        status = langextract_service.get_service_status()
-        return jsonify(status)
-    except Exception as e:
-        logger.error(f"Error getting LangExtract status: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'integration_status': 'error'
-        }), 500
