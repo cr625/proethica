@@ -18,7 +18,7 @@ from app.models.prompt_templates import SectionPromptTemplate
 def debug_templates():
     """Debug template loading."""
     
-    app = create_app('config_simple')
+    app = create_app('development')
     
     with app.app_context():
         print("=== All Templates ===")

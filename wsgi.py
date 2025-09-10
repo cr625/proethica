@@ -50,11 +50,8 @@ else:
 from app import create_app
 
 # Create the Flask application instance
-# Check if we should use the enhanced config
-config_module = os.environ.get('CONFIG_MODULE', 'config')
-
 try:
-    app = create_app(config_module=config_module)
+    app = create_app()
     logger.info("ProEthica Flask application initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize ProEthica application: {e}")

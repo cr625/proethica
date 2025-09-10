@@ -138,9 +138,7 @@ def main():
         from app import create_app
         
         # Create the Flask application instance
-        # Check if we should use the enhanced config
-        config_module = os.environ.get('CONFIG_MODULE', 'config')
-        app = create_app(config_module=config_module)
+        app = create_app()
         
         # Get configuration from environment variables
         debug = os.environ.get('DEBUG', 'False').lower() == 'true'
@@ -152,7 +150,6 @@ def main():
         logger.info(f"Debug mode: {debug}")
         logger.info(f"Host: {host}")
         logger.info(f"Port: {port}")
-        logger.info(f"Config module: {config_module}")
         
         # Run the Flask development server
         app.run(

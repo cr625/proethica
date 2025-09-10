@@ -10,12 +10,13 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf
 from app.models import db
 from app.template_filters import init_app as init_filters
 
-def create_app(config_module='app.config'):
+def create_app(config_name=None):
     """
     Create and configure the Flask application.
     
     Args:
-        config_module (str): Module path to the configuration object.
+        config_name (str): Name of configuration to use ('development', 'production', 'testing').
+                          If None, uses FLASK_ENV environment variable or defaults to 'development'.
         
     Returns:
         Flask: The configured Flask application
@@ -37,25 +38,20 @@ def create_app(config_module='app.config'):
         print(f"\nNLTK Setup Required: {str(e)}\n")
         raise
     
-    # Configure the app - simplified approach
-    if config_module == 'config_simple':
-        # Using simplified standard Flask configuration
-        from config_simple import config
-        env = os.environ.get('FLASK_ENV', 'development')
-        app.config.from_object(config.get(env, config['default']))
-        print(f"Using simplified config for '{env}': Database URL = {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
-    elif config_module == 'config':
-        # Using our enhanced configuration system (legacy)
-        from config import app_config
-        # Update app.config with our dictionary values
-        for key, value in app_config.items():
-            app.config[key] = value
-        # Only show config details in debug mode
-        if os.environ.get('DEBUG', '').lower() == 'true':
-            print(f"Using enhanced config: Database URL = {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
-    else:
-        # Using original configuration approach
-        app.config.from_object(config_module)
+    # Configure the app using standard Flask configuration
+    from config import config
+    
+    # Determine which configuration to use
+    if config_name is None:
+        config_name = os.environ.get('FLASK_ENV', 'development')
+    
+    # Apply the configuration
+    app.config.from_object(config[config_name])
+    
+    # Log configuration info in development mode
+    if config_name == 'development' or os.environ.get('DEBUG', '').lower() == 'true':
+        print(f"Using '{config_name}' configuration")
+        print(f"Database URL: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not Set')}")
     
     # Configure database
     # SQLAlchemy URL fix
