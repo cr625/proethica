@@ -1,44 +1,96 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Participant Mapping{% endblock %}
-{% block step_header %}Participant Mapping{% endblock %}
-{% block step_subtitle %}Identify and map participants to their roles and responsibilities{% endblock %}
+{% block step_title %}Normative Pass - Discussion/Analysis Section{% endblock %}
+{% block step_header %}Normative Pass{% endblock %}
+{% block step_subtitle %}Extract principles, obligations, and constraints from the discussion/analysis section{% endblock %}
+
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.step1a', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Step 1a
+    </a>
+    <span class="text-muted">Step 3: Coming Soon</span>
+</div>
+{% endblock %}
 
 {% block step_content %}
 <div class="step-card">
     <div class="step-header">
         <h4 class="mb-0">
-            <i class="bi bi-people"></i> Identify Case Participants
+            <i class="bi bi-chat-text"></i> Discussion/Analysis Section
         </h4>
     </div>
     <div class="step-content">
-        <p class="mb-3">Identify all stakeholders, decision-makers, and affected parties in this case. Map them to appropriate roles and responsibilities.</p>
+        {% if discussion_section %}
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+        </div>
         
-        <div class="alert alert-info">
+        <!-- Normative Pass Button (Currently Disabled - Coming Soon) -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+            <button id="normativePassBtn" class="btn btn-secondary btn-lg" disabled>
+                <i class="bi bi-arrow-right-circle"></i> Normative Pass
+                <small class="d-block">Coming Soon - Extract Principles + Obligations + Constraints</small>
+            </button>
+        </div>
+        
+        <div class="alert alert-warning">
             <i class="bi bi-info-circle"></i>
-            <strong>Coming Soon:</strong> Interactive participant identification and role mapping tools will be implemented here.
+            <strong>Note:</strong> The Normative Pass extraction will be enabled once the enhanced prompts for Principles, Obligations, and Constraints are implemented.
         </div>
         
-        <div class="placeholder-content">
-            <h6>Planned Features:</h6>
-            <ul>
-                <li>Automatic participant extraction from case text</li>
-                <li>Role assignment using ProEthica ontology</li>
-                <li>Stakeholder impact analysis</li>
-                <li>Character profile generation</li>
-            </ul>
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No discussion/analysis section found in this case. Using available section.
         </div>
+        {% endif %}
     </div>
 </div>
+
 {% endblock %}
 
 {% block step_styles %}
 <style>
-    .placeholder-content {
+    .discussion-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
         background-color: #f8f9fa;
-        padding: 1rem;
+        padding: 0.75rem;
         border-radius: 0.25rem;
-        border: 1px dashed #dee2e6;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    /* Normative Pass Button Styling (disabled state) */
+    #normativePassBtn {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    #normativePassBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
     }
 </style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+// Placeholder for future normative pass functionality
+console.log('Step 2: Normative Pass - Discussion/Analysis Section loaded');
+</script>
 {% endblock %}

@@ -372,7 +372,7 @@ def step1(case_id):
             'case': case,
             'sections': sections,
             'current_step': 1,
-            'next_step_url': '#',  # No next step yet
+            'next_step_url': url_for('scenario_pipeline.step1a', case_id=case_id),  # Go to Step 1a
             'prev_step_url': None  # No previous step
         }
         

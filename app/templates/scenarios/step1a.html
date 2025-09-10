@@ -4,6 +4,17 @@
 {% block step_header %}Entities Pass{% endblock %}
 {% block step_subtitle %}Extract roles and resources from the facts section{% endblock %}
 
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Step 1
+    </a>
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
+        Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+{% endblock %}
+
 {% block step_content %}
 <div class="step-card">
     <div class="step-header">
@@ -61,6 +72,29 @@
             <button id="executeBtn" class="btn btn-success btn-lg" onclick="executeEntitiesPass()">
                 <i class="bi bi-play-circle"></i> Execute Entities Pass
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Raw Response Display (Hidden initially) -->
+<div id="responseCard" class="step-card response-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-code-square"></i> LLM Response
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-success mb-3">
+            <i class="bi bi-check-circle"></i>
+            Raw response from the LLM entities extraction:
+        </div>
+        <div id="responseContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Extracting entities...</span>
+                </div>
+                <span class="ms-2">Extracting entities...</span>
+            </div>
         </div>
     </div>
 </div>
@@ -155,6 +189,30 @@
         max-height: 300px;
         overflow-y: auto;
         white-space: pre-wrap;
+    }
+
+    /* Response Card Styling - Green Border */
+    .response-card {
+        border: 2px solid #28a745 !important;
+        background-color: #f8f9fa;
+    }
+
+    .response-card .step-header {
+        background-color: #d4edda;
+        border-bottom: 2px solid #28a745;
+    }
+
+    .response-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #ffffff;
+        border: 1px solid #28a745;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
     }
 
     /* Results Display Styling */
@@ -297,6 +355,7 @@ function displayPrompt(data) {
 }
 
 function executeEntitiesPass() {
+    const responseCard = document.getElementById('responseCard');
     const resultsCard = document.getElementById('resultsCard');
     const executeBtn = document.getElementById('executeBtn');
     
@@ -304,9 +363,12 @@ function executeEntitiesPass() {
     executeBtn.disabled = true;
     executeBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
     
-    // Show results card with loading
-    resultsCard.style.display = 'block';
-    resultsCard.scrollIntoView({ behavior: 'smooth' });
+    // Show response card with loading
+    responseCard.style.display = 'block';
+    responseCard.scrollIntoView({ behavior: 'smooth' });
+    
+    // Hide results card initially (we'll show it later if needed)
+    resultsCard.style.display = 'none';
     
     // Execute the entities pass
     fetch(`{{ url_for('scenario_pipeline.entities_pass_execute', case_id=case.id) }}`, {
@@ -321,13 +383,18 @@ function executeEntitiesPass() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            displayResults(data);
+            // Display raw response first
+            displayRawResponse(data);
+            // Optionally also display formatted results
+            // Uncomment the following lines to show formatted results too
+            // resultsCard.style.display = 'block';
+            // displayResults(data);
         } else {
-            displayResultsError('Error executing entities pass: ' + data.error);
+            displayResponseError('Error executing entities pass: ' + data.error);
         }
     })
     .catch(error => {
-        displayResultsError('Network error: ' + error.message);
+        displayResponseError('Network error: ' + error.message);
     })
     .finally(() => {
         // Re-enable execute button
@@ -399,8 +466,101 @@ function displayResults(data) {
     content.innerHTML = html;
 }
 
+// Store the response data globally for the formatted view
+let currentResponseData = null;
+
+function displayRawResponse(data) {
+    const content = document.getElementById('responseContent');
+    
+    // Store for formatted view
+    currentResponseData = data;
+    
+    // Create a nicely formatted JSON display
+    const responseData = {
+        roles: data.roles || [],
+        resources: data.resources || [],
+        summary: data.summary || {},
+        metadata: {
+            extraction_time: data.extraction_time || 'N/A',
+            model_used: data.model_used || 'N/A',
+            total_entities: data.summary?.total_entities || 0
+        }
+    };
+    
+    // Format JSON with proper indentation
+    const formattedJson = JSON.stringify(responseData, null, 2);
+    
+    // Escape the JSON for HTML display
+    const escapedJson = formattedJson
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    
+    content.innerHTML = `
+        <div class="response-text">${escapedJson}</div>
+        <div class="mt-3">
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyJsonToClipboard()">
+                <i class="bi bi-clipboard"></i> Copy JSON
+            </button>
+            <button class="btn btn-sm btn-outline-primary ms-2" onclick="toggleFormattedView()">
+                <i class="bi bi-eye"></i> Show Formatted View
+            </button>
+        </div>
+    `;
+    
+    // Store the JSON for copying
+    window.lastJsonResponse = formattedJson;
+}
+
+function copyJsonToClipboard() {
+    const text = window.lastJsonResponse;
+    navigator.clipboard.writeText(text).then(() => {
+        // Show a temporary success message
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-secondary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    });
+}
+
+function toggleFormattedView() {
+    const resultsCard = document.getElementById('resultsCard');
+    const btn = event.target.closest('button');
+    
+    if (resultsCard.style.display === 'none' || resultsCard.style.display === '') {
+        // Show formatted view and populate it if needed
+        resultsCard.style.display = 'block';
+        if (currentResponseData) {
+            displayResults(currentResponseData);
+        }
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i> Hide Formatted View';
+    } else {
+        resultsCard.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-eye"></i> Show Formatted View';
+    }
+}
+
 function displayError(message) {
     const content = document.getElementById('promptContent');
+    content.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i>
+            ${message}
+        </div>
+    `;
+}
+
+function displayResponseError(message) {
+    const content = document.getElementById('responseContent');
     content.innerHTML = `
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle"></i>

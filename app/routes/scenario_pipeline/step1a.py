@@ -72,7 +72,7 @@ def step1a(case_id):
             'facts_section_key': facts_section_key,
             'current_step': 1.5,  # Use numeric value that can be compared with integers (1 < 1.5 < 2)
             'step_title': 'Entities Pass - Facts Section',
-            'next_step_url': '#',  # Future: step1b
+            'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),  # Go to Step 2
             'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id)
         }
         

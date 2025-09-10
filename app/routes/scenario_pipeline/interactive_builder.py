@@ -84,6 +84,24 @@ def entities_pass_execute(case_id):
     from .step1a import entities_pass_execute as execute_handler
     return execute_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step2')
+def step2(case_id):
+    """Route handler for Step 2: Normative Pass for Discussion/Analysis Section"""
+    from .step2 import step2 as step2_handler
+    return step2_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_prompt', methods=['POST'])
+def normative_pass_prompt(case_id):
+    """API endpoint to generate normative pass prompt"""
+    from .step2 import normative_pass_prompt as prompt_handler
+    return prompt_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_execute', methods=['POST'])
+def normative_pass_execute(case_id):
+    """API endpoint to execute normative pass extraction"""
+    from .step2 import normative_pass_execute as execute_handler
+    return execute_handler(case_id)
+
 # LangExtract routes (archived - will be used in future step)
 @interactive_scenario_bp.route('/case/<int:case_id>/langextract_analysis', methods=['POST'])
 def langextract_analysis(case_id):
