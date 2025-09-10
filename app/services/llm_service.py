@@ -224,7 +224,7 @@ class LLMService:
                 
                 # Get model name from environment or use default
                 # Use centralized model configuration
-                from config.models import ModelConfig
+                from models import ModelConfig
                 model_name = os.environ.get('ANTHROPIC_MODEL') or ModelConfig.get_default_model()
                 
                 # Silent initialization - status already shown elsewhere

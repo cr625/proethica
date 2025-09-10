@@ -14,7 +14,7 @@ from slugify import slugify
 
 from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, Linker
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
-from config.models import ModelConfig
+from models import ModelConfig
 
 try:
     from app.utils.llm_utils import get_llm_client

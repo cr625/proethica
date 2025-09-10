@@ -17,7 +17,7 @@ from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, L
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
 from .concept_splitter import split_concepts_for_extractor
 from .langchain_orchestrator import orchestrated_extraction
-from config.models import ModelConfig
+from models import ModelConfig
 
 # LLM utils are optional at runtime; import guarded
 try:

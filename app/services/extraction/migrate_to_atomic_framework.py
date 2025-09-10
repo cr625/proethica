@@ -45,7 +45,7 @@ from slugify import slugify
 from .base import ConceptCandidate, MatchedConcept, SemanticTriple, Extractor, Linker
 from .atomic_extraction_mixin import AtomicExtractionMixin
 from .policy_gatekeeper import RelationshipPolicyGatekeeper
-from config.models import ModelConfig
+from models import ModelConfig
 
 # LLM utils are optional at runtime; import guarded
 try:

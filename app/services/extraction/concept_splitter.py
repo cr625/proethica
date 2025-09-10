@@ -25,7 +25,7 @@ except ImportError:
 
 # ProEthica imports
 from .base import ConceptCandidate
-from config.models import ModelConfig
+from models import ModelConfig
 
 # LLM utils
 try:

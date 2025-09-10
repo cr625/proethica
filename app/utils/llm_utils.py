@@ -64,11 +64,11 @@ def get_llm_client():
                         client.available_models = available_models
                     else:
                         # Default models
-                        from config.models import ModelConfig
+                        from models import ModelConfig
                         client.available_models = [ModelConfig.CLAUDE_MODELS["sonnet-4"], ModelConfig.CLAUDE_MODELS["opus-4"], ModelConfig.CLAUDE_MODELS["haiku"]]
                 except Exception:
                     # Fallback if models check fails
-                    from config.models import ModelConfig
+                    from models import ModelConfig
                     preferred_model = ModelConfig.get_default_model()
                     client.available_models = [preferred_model, ModelConfig.CLAUDE_MODELS["sonnet-4"], ModelConfig.CLAUDE_MODELS["opus-4"]]
                     

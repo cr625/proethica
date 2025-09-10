@@ -41,7 +41,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 
 # Model configuration - use centralized config
-from config.models import ModelConfig
+from models import ModelConfig
 CLAUDE_MODEL_VERSION = ModelConfig.get_default_model()
 
 # Embedding configuration
