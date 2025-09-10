@@ -66,7 +66,23 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                             primary_type='resource',
                             category='resource',
                             confidence=float(i.get('confidence', 0.65)) if isinstance(i.get('confidence', 0.65), (int, float, str)) else 0.65,
-                            debug={'source': 'provider', 'provider': self.provider}
+                            debug={
+                                'source': 'provider', 
+                                'provider': self.provider,
+                                # Add ALL enhanced prompt fields
+                                'resource_category': i.get('resource_category'),  # professional_code, case_precedent, etc.
+                                'extensional_function': i.get('extensional_function'),
+                                'professional_knowledge_type': i.get('professional_knowledge_type'),
+                                'usage_context': i.get('usage_context', []),
+                                'text_references': i.get('text_references', []),
+                                'theoretical_grounding': i.get('theoretical_grounding'),
+                                'authority_level': i.get('authority_level'),
+                                'importance': i.get('importance'),
+                                'is_existing': i.get('is_existing'),
+                                'ontology_match_reasoning': i.get('ontology_match_reasoning'),
+                                # Store complete raw data for full preservation
+                                'raw_llm_data': i
+                            }
                         )
                         for i in items
                         if (i.get('label') or i.get('resource') or i.get('name'))
@@ -278,7 +294,13 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
 
     def _create_resources_prompt(self, text: str) -> str:
         """Create standard resources extraction prompt."""
-        return f"""
+        # Import enhanced prompt if available, otherwise use standard
+        try:
+            from .enhanced_prompts_roles_resources import get_enhanced_resources_prompt
+            return get_enhanced_resources_prompt(text, include_mcp_context=False)
+        except ImportError:
+            # Fallback to standard prompt
+            return f"""
 You are an ontology-aware extractor. From the guideline excerpt, list distinct resources and decision-making tools.
 
 FOCUS: Extract resources that guide ethical decision-making and professional practice.
@@ -339,8 +361,14 @@ Guideline excerpt:
             
             logger.info(f"Retrieved {len(existing_resources)} existing resources from external MCP for context")
             
-            # Create enhanced prompt with ontology context
-            enhanced_prompt = f"""
+            # Try to use enhanced prompt with MCP context
+            try:
+                from .enhanced_prompts_roles_resources import get_enhanced_resources_prompt
+                return get_enhanced_resources_prompt(text, include_mcp_context=True, existing_resources=existing_resources)
+            except ImportError:
+                # Fallback to building context manually
+                # Create enhanced prompt with ontology context
+                enhanced_prompt = f"""
 {ontology_context}
 
 You are an ontology-aware extractor analyzing an ethics guideline to extract RESOURCES.

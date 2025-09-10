@@ -116,7 +116,13 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
     
     def _create_roles_prompt(self, text: str) -> str:
         """Create a focused prompt that extracts ONLY roles."""
-        return f"""
+        # Import enhanced prompt if available, otherwise use standard
+        try:
+            from .enhanced_prompts_roles_resources import get_enhanced_roles_prompt
+            return get_enhanced_roles_prompt(text, include_mcp_context=False)
+        except ImportError:
+            # Fallback to standard prompt
+            return f"""
 You are analyzing an ethics guideline to extract ROLES only. Do NOT extract principles, obligations, or other concepts.
 
 FOCUS: Identify only the ROLES mentioned in this guideline text.
@@ -168,18 +174,26 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
             # Get existing roles from ontology
             existing_roles = external_client.get_all_role_entities()
             
-            # Build ontology context
-            ontology_context = "EXISTING ROLES IN ONTOLOGY:\n"
-            if existing_roles:
-                ontology_context += f"Found {len(existing_roles)} existing role concepts:\n"
-                for role in existing_roles:  # Show all roles
-                    label = role.get('label', 'Unknown')
-                    description = role.get('description', 'No description')
-                    ontology_context += f"- {label}: {description}\n"
-            else:
-                ontology_context += "No existing roles found in ontology (fresh setup)\n"
-            
             logger.info(f"Retrieved {len(existing_roles)} existing roles from external MCP for context")
+            
+            # Try to use enhanced prompt with MCP context
+            try:
+                from .enhanced_prompts_roles_resources import get_enhanced_roles_prompt
+                return get_enhanced_roles_prompt(text, include_mcp_context=True, existing_roles=existing_roles)
+            except ImportError:
+                # Fallback to building context manually
+                # Build ontology context
+                ontology_context = "EXISTING ROLES IN ONTOLOGY:\n"
+                if existing_roles:
+                    ontology_context += f"Found {len(existing_roles)} existing role concepts:\n"
+                    for role in existing_roles:  # Show all roles
+                        label = role.get('label', 'Unknown')
+                        description = role.get('description', 'No description')
+                        ontology_context += f"- {label}: {description}\n"
+                else:
+                    ontology_context += "No existing roles found in ontology (fresh setup)\n"
+                
+                logger.info(f"Retrieved {len(existing_roles)} existing roles from external MCP for context")
             
             # Create enhanced prompt with ontology context
             enhanced_prompt = f"""
@@ -315,9 +329,19 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
                     category='role',
                     confidence=self._parse_confidence(role_data.get('importance', 'medium')),
                     debug={
+                        # Preserve old fields for compatibility
                         'role_classification': role_data.get('role_classification', ''),
                         'text_references': role_data.get('text_references', []),
-                        'importance': role_data.get('importance', 'medium')
+                        'importance': role_data.get('importance', 'medium'),
+                        # Add ALL enhanced prompt fields
+                        'role_category': role_data.get('role_category'),  # New: provider_client, professional_peer, etc.
+                        'obligations_generated': role_data.get('obligations_generated', []),
+                        'ethical_filter_function': role_data.get('ethical_filter_function'),
+                        'theoretical_grounding': role_data.get('theoretical_grounding'),
+                        'is_existing': role_data.get('is_existing'),
+                        'ontology_match_reasoning': role_data.get('ontology_match_reasoning'),
+                        # Store complete raw data for full preservation
+                        'raw_llm_data': role_data
                     }
                 )
                 

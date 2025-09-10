@@ -164,26 +164,52 @@ def entities_pass_execute(case_id):
         logger.info("Extracting resources...")
         resource_candidates = resources_extractor.extract(section_text, guideline_id=case_id)
         
-        # Convert candidates to serializable format
+        # Convert candidates to serializable format with ALL enhanced fields
         roles_data = []
         for candidate in role_candidates:
-            roles_data.append({
+            # Extract enhanced fields from debug for easier access
+            debug_data = candidate.debug or {}
+            role_entry = {
                 'label': candidate.label,
                 'description': candidate.description,
                 'type': candidate.primary_type,
                 'confidence': candidate.confidence,
+                # Enhanced fields from new prompts
+                'role_category': debug_data.get('role_category'),  # provider_client, professional_peer, etc.
+                'obligations_generated': debug_data.get('obligations_generated', []),
+                'ethical_filter_function': debug_data.get('ethical_filter_function'),
+                'theoretical_grounding': debug_data.get('theoretical_grounding'),
+                'text_references': debug_data.get('text_references', []),
+                'is_existing': debug_data.get('is_existing'),
+                'ontology_match_reasoning': debug_data.get('ontology_match_reasoning'),
+                # Preserve all debug info for complete data
                 'debug': candidate.debug
-            })
+            }
+            roles_data.append(role_entry)
         
         resources_data = []
         for candidate in resource_candidates:
-            resources_data.append({
+            # Extract enhanced fields from debug for easier access
+            debug_data = candidate.debug or {}
+            resource_entry = {
                 'label': candidate.label,
                 'description': candidate.description,
                 'type': candidate.primary_type,
                 'confidence': candidate.confidence,
+                # Enhanced fields from new prompts
+                'resource_category': debug_data.get('resource_category'),  # professional_code, case_precedent, etc.
+                'extensional_function': debug_data.get('extensional_function'),
+                'professional_knowledge_type': debug_data.get('professional_knowledge_type'),
+                'usage_context': debug_data.get('usage_context', []),
+                'text_references': debug_data.get('text_references', []),
+                'theoretical_grounding': debug_data.get('theoretical_grounding'),
+                'authority_level': debug_data.get('authority_level'),
+                'is_existing': debug_data.get('is_existing'),
+                'ontology_match_reasoning': debug_data.get('ontology_match_reasoning'),
+                # Preserve all debug info for complete data
                 'debug': candidate.debug
-            })
+            }
+            resources_data.append(resource_entry)
         
         logger.info(f"Entities pass completed for case {case_id}: {len(roles_data)} roles, {len(resources_data)} resources")
         
