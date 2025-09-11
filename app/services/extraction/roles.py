@@ -33,14 +33,15 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
         """The concept type this extractor handles."""
         return 'role'
         
-    def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
+    def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None, activity=None) -> List[ConceptCandidate]:
         """
-        Extract roles from guideline text with optional external MCP context.
+        Extract roles from guideline text with optional external MCP context and provenance tracking.
         
         Args:
             text: Guideline content
             world_id: World context (defaults to Engineering)
             guideline_id: Guideline ID for tracking
+            activity: Optional ProvenanceActivity for tracking LLM interactions
             
         Returns:
             List of ConceptCandidate objects for roles only
@@ -72,8 +73,8 @@ class RolesExtractor(Extractor, AtomicExtractionMixin):
                 logger.info("Using standard roles extraction (no external MCP)")
                 prompt = self._create_roles_prompt(text)
             
-            # Call LLM with focused prompt
-            response = self._call_llm(prompt)
+            # Call LLM with focused prompt and provenance tracking
+            response = self._call_llm(prompt, activity=activity)
             
             # Parse and validate response
             candidates = self._parse_response(response)
@@ -247,18 +248,41 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
             logger.info("Falling back to standard roles prompt")
             return self._create_roles_prompt(text)
 
-    def _call_llm(self, prompt: str) -> str:
-        """Call LLM with the roles extraction prompt."""
+    def _call_llm(self, prompt: str, activity=None) -> str:
+        """Call LLM with the roles extraction prompt, tracking with provenance if activity provided."""
         try:
             from app.utils.llm_utils import get_llm_client
+            from app.services.provenance_service import get_provenance_service
             
             llm_client = get_llm_client()
+            prov = get_provenance_service() if activity else None
+            
+            # Record the prompt if provenance tracking is active
+            prompt_entity = None
+            if prov and activity:
+                prompt_entity = prov.record_prompt(
+                    prompt_text=prompt,
+                    activity=activity,
+                    entity_name="roles_extraction_prompt",
+                    metadata={
+                        'extraction_type': 'roles',
+                        'prompt_length': len(prompt)
+                    }
+                )
+            
+            # Track LLM model and parameters
+            model_name = None
+            model_params = {}
+            response_metadata = {}
             
             # Handle different LLM client types  
             if hasattr(llm_client, 'messages') and hasattr(llm_client.messages, 'create'):
                 # Anthropic client
+                model_name = "claude-sonnet-4-20250514"
+                model_params = {'max_tokens': 2000, 'provider': 'anthropic'}
+                
                 response = llm_client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model=model_name,
                     max_tokens=2000,  # Reduced since we're only extracting roles
                     messages=[{
                         "role": "user",
@@ -267,10 +291,21 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
                 )
                 response_text = response.content[0].text if response.content else ""
                 
+                # Capture response metadata
+                if hasattr(response, 'usage'):
+                    response_metadata['usage'] = {
+                        'input_tokens': getattr(response.usage, 'input_tokens', None),
+                        'output_tokens': getattr(response.usage, 'output_tokens', None),
+                        'total_tokens': getattr(response.usage, 'total_tokens', None)
+                    }
+                
             elif hasattr(llm_client, 'chat') and hasattr(llm_client.chat, 'completions'):
                 # OpenAI client
+                model_name = "gpt-4"
+                model_params = {'max_tokens': 2000, 'provider': 'openai'}
+                
                 response = llm_client.chat.completions.create(
-                    model="gpt-4",
+                    model=model_name,
                     messages=[{
                         "role": "user", 
                         "content": prompt
@@ -279,8 +314,32 @@ Focus on accuracy over quantity. Extract only clear, unambiguous roles.
                 )
                 response_text = response.choices[0].message.content
                 
+                # Capture response metadata
+                if hasattr(response, 'usage'):
+                    response_metadata['usage'] = {
+                        'prompt_tokens': response.usage.prompt_tokens,
+                        'completion_tokens': response.usage.completion_tokens,
+                        'total_tokens': response.usage.total_tokens
+                    }
+                
             else:
                 raise RuntimeError(f"Unsupported LLM client type: {type(llm_client)}")
+            
+            # Record the response if provenance tracking is active
+            if prov and activity and prompt_entity:
+                response_metadata.update({
+                    'model': model_name,
+                    'model_params': model_params,
+                    'extraction_type': 'roles'
+                })
+                
+                prov.record_response(
+                    response_text=response_text,
+                    activity=activity,
+                    derived_from=prompt_entity,
+                    entity_name="roles_extraction_response",
+                    metadata=response_metadata
+                )
             
             logger.debug(f"LLM response for roles extraction: {response_text[:200]}...")
             return response_text

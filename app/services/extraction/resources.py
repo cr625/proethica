@@ -40,13 +40,14 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         """The concept type this extractor handles."""
         return 'resource'
 
-    def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
-        """Extract resources from guideline text.
+    def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None, activity=None) -> List[ConceptCandidate]:
+        """Extract resources from guideline text with provenance tracking.
         
         Args:
             text: Guideline content to extract from
             world_id: World context for ontology matching
             guideline_id: Guideline ID for tracking
+            activity: Optional ProvenanceActivity for tracking LLM interactions
             
         Returns:
             List of ConceptCandidate objects for resources
@@ -57,7 +58,7 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         # Try provider-backed extraction first when configured and client available
         if self.provider != 'heuristic' and get_llm_client is not None:
             try:
-                items = self._extract_with_llm(text)
+                items = self._extract_with_llm(text, activity=activity)
                 if items:
                     candidates = [
                         ConceptCandidate(
@@ -218,14 +219,18 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
 
     # ---- Provider-backed helpers ----
 
-    def _extract_with_llm(self, text: str) -> List[Dict[str, Any]]:
-        """Call configured LLM provider to extract resources as JSON with optional MCP context.
+    def _extract_with_llm(self, text: str, activity=None) -> List[Dict[str, Any]]:
+        """Call configured LLM provider to extract resources with provenance tracking.
 
         Returns a list of dicts with keys like label, description, confidence.
         """
+        from app.services.provenance_service import get_provenance_service
+        
         client = get_llm_client() if get_llm_client else None
         if client is None:
             return []
+
+        prov = get_provenance_service() if activity else None
 
         # Check for external MCP integration
         import os
@@ -241,6 +246,20 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
             prompt = self._create_resources_prompt_with_mcp(text)
         else:
             prompt = self._create_resources_prompt(text)
+        
+        # Record the prompt if provenance tracking is active
+        prompt_entity = None
+        if prov and activity:
+            prompt_entity = prov.record_prompt(
+                prompt_text=prompt,
+                activity=activity,
+                entity_name="resources_extraction_prompt",
+                metadata={
+                    'extraction_type': 'resources',
+                    'prompt_length': len(prompt),
+                    'uses_mcp': use_external_mcp
+                }
+            )
 
         # Try Google Gemini style first
         try:
@@ -249,6 +268,21 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                 model = client.GenerativeModel(model_name)
                 resp = model.generate_content(prompt)
                 output = getattr(resp, 'text', None) or (resp.candidates[0].content.parts[0].text if getattr(resp, 'candidates', None) else '')
+                
+                # Record response if provenance tracking is active
+                if prov and activity and prompt_entity:
+                    prov.record_response(
+                        response_text=output,
+                        activity=activity,
+                        derived_from=prompt_entity,
+                        entity_name="resources_extraction_response",
+                        metadata={
+                            'model': model_name,
+                            'model_params': {'provider': 'gemini'},
+                            'extraction_type': 'resources'
+                        }
+                    )
+                
                 return self._parse_json_items(output, root_key='resources')
         except Exception:
             pass
@@ -272,6 +306,31 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                     text_out = getattr(content[0], 'text', None) or str(content[0])
                 else:
                     text_out = getattr(resp, 'text', None) or str(resp)
+                
+                # Record response if provenance tracking is active
+                if prov and activity and prompt_entity:
+                    response_metadata = {
+                        'model': model,
+                        'model_params': {'max_tokens': 800, 'temperature': 0, 'provider': 'anthropic'},
+                        'extraction_type': 'resources'
+                    }
+                    
+                    # Add usage metadata if available
+                    if hasattr(resp, 'usage'):
+                        response_metadata['usage'] = {
+                            'input_tokens': getattr(resp.usage, 'input_tokens', None),
+                            'output_tokens': getattr(resp.usage, 'output_tokens', None),
+                            'total_tokens': getattr(resp.usage, 'total_tokens', None)
+                        }
+                    
+                    prov.record_response(
+                        response_text=text_out,
+                        activity=activity,
+                        derived_from=prompt_entity,
+                        entity_name="resources_extraction_response",
+                        metadata=response_metadata
+                    )
+                
                 return self._parse_json_items(text_out, root_key='resources')
         except Exception:
             pass
@@ -286,6 +345,31 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
                     messages=[{"role": "user", "content": prompt}],
                 )
                 text_out = resp.choices[0].message.content if getattr(resp, 'choices', None) else ''
+                
+                # Record response if provenance tracking is active
+                if prov and activity and prompt_entity:
+                    response_metadata = {
+                        'model': model,
+                        'model_params': {'temperature': 0, 'provider': 'openai'},
+                        'extraction_type': 'resources'
+                    }
+                    
+                    # Add usage metadata if available
+                    if hasattr(resp, 'usage'):
+                        response_metadata['usage'] = {
+                            'prompt_tokens': resp.usage.prompt_tokens,
+                            'completion_tokens': resp.usage.completion_tokens,
+                            'total_tokens': resp.usage.total_tokens
+                        }
+                    
+                    prov.record_response(
+                        response_text=text_out,
+                        activity=activity,
+                        derived_from=prompt_entity,
+                        entity_name="resources_extraction_response",
+                        metadata=response_metadata
+                    )
+                
                 return self._parse_json_items(text_out, root_key='resources')
         except Exception:
             pass

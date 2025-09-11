@@ -388,8 +388,33 @@ function showEntityDetails(entityId) {
             
             // Format content based on type
             let contentDisplay = '';
+            let llmMetadata = '';
+            
             if (data.entity.type === 'prompt' || data.entity.type === 'response') {
                 contentDisplay = `<pre class="bg-light p-3" style="max-height: 300px; overflow-y: auto;">${escapeHtml(data.entity.content)}</pre>`;
+                
+                // Extract LLM metadata for prompts and responses
+                if (data.entity.entity_metadata) {
+                    const meta = data.entity.entity_metadata;
+                    if (meta.model || meta.usage) {
+                        llmMetadata = `
+                            <h6 class="mt-3">LLM Metadata</h6>
+                            <table class="table table-sm">
+                                ${meta.model ? `<tr><th>Model:</th><td>${meta.model}</td></tr>` : ''}
+                                ${meta.model_params ? `<tr><th>Parameters:</th><td>${JSON.stringify(meta.model_params)}</td></tr>` : ''}
+                                ${meta.extraction_type ? `<tr><th>Extraction Type:</th><td>${meta.extraction_type}</td></tr>` : ''}
+                                ${meta.uses_mcp !== undefined ? `<tr><th>Uses MCP Context:</th><td>${meta.uses_mcp ? 'Yes' : 'No'}</td></tr>` : ''}
+                                ${meta.usage ? `
+                                    <tr><th>Token Usage:</th><td>
+                                        Input: ${meta.usage.input_tokens || meta.usage.prompt_tokens || 'N/A'}<br>
+                                        Output: ${meta.usage.output_tokens || meta.usage.completion_tokens || 'N/A'}<br>
+                                        Total: ${meta.usage.total_tokens || 'N/A'}
+                                    </td></tr>
+                                ` : ''}
+                            </table>
+                        `;
+                    }
+                }
             } else {
                 try {
                     const parsed = JSON.parse(data.entity.content);
@@ -402,7 +427,7 @@ function showEntityDetails(entityId) {
             modal.innerHTML = `
                 <h6>Entity: ${data.entity.name}</h6>
                 <table class="table table-sm">
-                    <tr><th>Type:</th><td>${data.entity.type}</td></tr>
+                    <tr><th>Type:</th><td><span class="badge bg-info">${data.entity.type}</span></td></tr>
                     <tr><th>Size:</th><td>${data.entity.content_size} bytes</td></tr>
                     <tr><th>Hash:</th><td><small>${data.entity.content_hash}</small></td></tr>
                     ${data.entity.confidence_score ? `<tr><th>Confidence:</th><td>${(data.entity.confidence_score * 100).toFixed(1)}%</td></tr>` : ''}
@@ -411,6 +436,8 @@ function showEntityDetails(entityId) {
                 
                 <h6>Content</h6>
                 ${contentDisplay}
+                
+                ${llmMetadata}
                 
                 ${data.derived_from.length > 0 ? `
                     <h6>Derived From</h6>

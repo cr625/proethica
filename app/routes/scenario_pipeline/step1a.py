@@ -132,7 +132,7 @@ def entities_pass_prompt(case_id):
 def entities_pass_execute(case_id):
     """
     API endpoint to execute the entities pass on the facts section.
-    Extracts roles and resources using the ProEthica extraction services.
+    Extracts roles and resources using the ProEthica extraction services with PROV-O tracking.
     """
     try:
         if request.method != 'POST':
@@ -147,22 +147,103 @@ def entities_pass_execute(case_id):
         if not section_text:
             return jsonify({'error': 'section_text is required'}), 400
         
-        logger.info(f"Starting entities pass execution for case {case_id}")
+        logger.info(f"Starting entities pass execution for case {case_id} with provenance tracking")
         
-        # Import the extraction services
+        # Import the extraction services and provenance service
         from app.services.extraction.roles import RolesExtractor
         from app.services.extraction.resources import ResourcesExtractor
+        from app.services.provenance_service import get_provenance_service
+        from app.models import db
+        import uuid
+        
+        # Initialize provenance service
+        prov = get_provenance_service()
+        
+        # Create a session ID for this extraction workflow
+        session_id = str(uuid.uuid4())
         
         # Initialize extractors
         roles_extractor = RolesExtractor()
         resources_extractor = ResourcesExtractor()
         
-        # Extract roles and resources
-        logger.info("Extracting roles...")
-        role_candidates = roles_extractor.extract(section_text, guideline_id=case_id)
+        # Track the overall entities pass activity
+        with prov.track_activity(
+            activity_type='extraction',
+            activity_name='entities_pass_step1a',
+            case_id=case_id,
+            session_id=session_id,
+            agent_type='extraction_service',
+            agent_name='proethica_entities_pass',
+            execution_plan={
+                'section_length': len(section_text),
+                'extraction_types': ['roles', 'resources']
+            }
+        ) as main_activity:
+            
+            # Track roles extraction as a sub-activity
+            with prov.track_activity(
+                activity_type='llm_query',
+                activity_name='roles_extraction',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='RolesExtractor'
+            ) as roles_activity:
+                logger.info("Extracting roles with provenance tracking...")
+                role_candidates = roles_extractor.extract(
+                    section_text, 
+                    guideline_id=case_id,
+                    activity=roles_activity
+                )
+                
+                # Record the extraction results
+                roles_results_entity = prov.record_extraction_results(
+                    results=[{
+                        'label': c.label,
+                        'description': c.description,
+                        'confidence': c.confidence,
+                        'debug': c.debug
+                    } for c in role_candidates],
+                    activity=roles_activity,
+                    entity_type='extracted_roles',
+                    metadata={'count': len(role_candidates)}
+                )
+            
+            # Track resources extraction as a sub-activity
+            with prov.track_activity(
+                activity_type='llm_query',
+                activity_name='resources_extraction',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='ResourcesExtractor'
+            ) as resources_activity:
+                logger.info("Extracting resources with provenance tracking...")
+                resource_candidates = resources_extractor.extract(
+                    section_text,
+                    guideline_id=case_id,
+                    activity=resources_activity
+                )
+                
+                # Record the extraction results
+                resources_results_entity = prov.record_extraction_results(
+                    results=[{
+                        'label': c.label,
+                        'description': c.description,
+                        'confidence': c.confidence,
+                        'debug': c.debug
+                    } for c in resource_candidates],
+                    activity=resources_activity,
+                    entity_type='extracted_resources',
+                    metadata={'count': len(resource_candidates)}
+                )
+            
+            # Link the sub-activities to the main activity
+            prov.link_activities(roles_activity, main_activity, 'sequence')
+            prov.link_activities(resources_activity, roles_activity, 'sequence')
         
-        logger.info("Extracting resources...")
-        resource_candidates = resources_extractor.extract(section_text, guideline_id=case_id)
+        # Commit provenance records to database
+        db.session.commit()
         
         # Convert candidates to serializable format with ALL enhanced fields
         roles_data = []
@@ -222,7 +303,11 @@ def entities_pass_execute(case_id):
                 'resources_count': len(resources_data),
                 'total_entities': len(roles_data) + len(resources_data)
             },
-            'execution_timestamp': logger.created if hasattr(logger, 'created') else None
+            'execution_timestamp': logger.created if hasattr(logger, 'created') else None,
+            'provenance': {
+                'session_id': session_id,
+                'viewer_url': f'/tools/provenance?case_id={case_id}&session_id={session_id}'
+            }
         })
         
     except Exception as e:
