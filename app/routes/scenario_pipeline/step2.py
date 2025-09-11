@@ -4,9 +4,13 @@ Shows the discussion/analysis section and provides a normative pass button that 
 """
 
 import logging
+import json
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document
 from app.routes.scenario_pipeline.step1 import _format_section_for_llm
+from app.services.extraction.enhanced_prompts_principles import EnhancedPrinciplesExtractor, create_enhanced_principles_prompt
+from app.services.extraction.provenance_service import ProvenanceService
+from app.utils.llm_utils import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -120,22 +124,8 @@ def normative_pass_prompt(case_id):
         
         logger.info(f"Generating normative pass prompt for case {case_id}")
         
-        # TODO: Import the extraction services to get the actual prompts that will be used
-        # For now, return placeholder prompts
-        
-        # Placeholder prompts - will be replaced with enhanced prompts later
-        principles_prompt = f"""Extract fundamental ethical principles from the following discussion/analysis text.
-
-Focus on:
-- Core professional values (integrity, honesty, justice)
-- Conflicting principles requiring balancing
-- Hierarchical principle relationships
-- Domain-specific value priorities
-
-Text:
-{section_text[:500]}...
-
-Return as JSON array of principle objects."""
+        # Use enhanced principles prompt from Chapter 2 literature
+        principles_prompt = create_enhanced_principles_prompt(section_text, include_ontology_context=True)
 
         obligations_prompt = f"""Extract professional obligations and duties from the following discussion/analysis text.
 
@@ -196,28 +186,50 @@ def normative_pass_execute(case_id):
         
         logger.info(f"Executing normative pass for case {case_id}")
         
-        # TODO: Import and use actual extraction services
-        # For now, return mock data
+        # Initialize enhanced extractors with LLM client
+        try:
+            llm_client = get_llm_client()
+        except Exception as e:
+            logger.warning(f"Could not initialize LLM client: {str(e)}")
+            llm_client = None
         
-        # Mock extraction results
-        principles = [
-            {
-                "label": "Public Safety Paramount",
-                "description": "Primary obligation to protect public health, safety, and welfare",
+        # Initialize provenance service
+        provenance_service = ProvenanceService()
+        
+        # Extract principles using enhanced extractor
+        principles_extractor = EnhancedPrinciplesExtractor(
+            llm_client=llm_client,
+            provenance_service=provenance_service
+        )
+        
+        # Create context for extraction
+        case = Document.query.get(case_id)
+        context = {
+            'case_id': case_id,
+            'case_title': case.title if case else None,
+            'document_type': 'ethics_case'
+        }
+        
+        # Extract principles
+        principle_candidates = principles_extractor.extract(section_text, context=context)
+        
+        # Convert candidates to response format
+        principles = []
+        for candidate in principle_candidates:
+            principle_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
                 "type": "principle",
-                "principle_category": "fundamental",
-                "priority_level": "supreme",
-                "confidence": 0.95
-            },
-            {
-                "label": "Professional Integrity",
-                "description": "Maintain honesty and truthfulness in professional practice",
-                "type": "principle",
-                "principle_category": "core_value",
-                "priority_level": "high",
-                "confidence": 0.92
+                "principle_category": candidate.debug.get('principle_category', 'professional'),
+                "abstraction_level": candidate.debug.get('abstraction_level', 'high'),
+                "requires_interpretation": candidate.debug.get('requires_interpretation', True),
+                "potential_conflicts": candidate.debug.get('potential_conflicts', []),
+                "extensional_examples": candidate.debug.get('extensional_examples', []),
+                "derived_obligations": candidate.debug.get('derived_obligations', []),
+                "scholarly_grounding": candidate.debug.get('scholarly_grounding', ''),
+                "confidence": candidate.confidence
             }
-        ]
+            principles.append(principle_data)
         
         obligations = [
             {
@@ -265,14 +277,26 @@ def normative_pass_execute(case_id):
             'total_entities': len(principles) + len(obligations) + len(constraints)
         }
         
+        # Add extraction metadata
+        from datetime import datetime
+        extraction_metadata = {
+            'timestamp': datetime.now().isoformat(),
+            'extraction_method': 'enhanced_chapter2' if llm_client else 'fallback_heuristic',
+            'principles_extractor': 'EnhancedPrinciplesExtractor',
+            'obligations_extractor': 'placeholder',  # Will be updated when we implement enhanced obligations
+            'constraints_extractor': 'placeholder',  # Will be updated when we implement enhanced constraints
+            'llm_available': llm_client is not None,
+            'provenance_tracked': True,
+            'model_used': getattr(llm_client, 'model', 'fallback') if llm_client else 'heuristic'
+        }
+        
         return jsonify({
             'success': True,
             'principles': principles,
             'obligations': obligations,
             'constraints': constraints,
             'summary': summary,
-            'extraction_time': '2.3s',
-            'model_used': 'mock-extractor'
+            'extraction_metadata': extraction_metadata
         })
         
     except Exception as e:
