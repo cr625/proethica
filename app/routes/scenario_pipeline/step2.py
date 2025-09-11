@@ -5,12 +5,23 @@ Shows the discussion/analysis section and provides a normative pass button that 
 
 import logging
 import json
+import uuid
+from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash
-from app.models import Document
-from app.routes.scenario_pipeline.step1 import _format_section_for_llm
+from app.models import Document, db
+from app.routes.scenario_pipeline.overview import _format_section_for_llm
 from app.services.extraction.enhanced_prompts_principles import EnhancedPrinciplesExtractor, create_enhanced_principles_prompt
-from app.services.extraction.provenance_service import ProvenanceService
+from app.services.extraction.enhanced_prompts_obligations import EnhancedObligationsExtractor, create_enhanced_obligations_prompt
+from app.services.extraction.enhanced_prompts_constraints import EnhancedConstraintsExtractor, create_enhanced_constraints_prompt
 from app.utils.llm_utils import get_llm_client
+
+# Import provenance services
+try:
+    from app.services.provenance_versioning_service import get_versioned_provenance_service
+    USE_VERSIONED_PROVENANCE = True
+except ImportError:
+    from app.services.provenance_service import get_provenance_service
+    USE_VERSIONED_PROVENANCE = False
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +30,16 @@ def init_step2_csrf_exemption(app):
     """Exempt Step 2 normative pass routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
         # Import the route functions that actually get called
-        from app.routes.scenario_pipeline.interactive_builder import normative_pass_prompt, normative_pass_execute
+        from app.routes.scenario_pipeline.interactive_builder import normative_pass_prompt, normative_pass_execute, step2_extract
         # Exempt the normative pass routes from CSRF protection
         app.csrf.exempt(normative_pass_prompt)
         app.csrf.exempt(normative_pass_execute)
+        app.csrf.exempt(step2_extract)
 
 def step2(case_id):
     """
-    Step 2: Normative Pass for Discussion/Analysis Section
-    Shows the discussion/analysis section with a normative pass button for extracting principles, obligations, and constraints.
+    Step 2: Normative Pass for Facts Section
+    Shows the facts section with a normative pass button for extracting principles, obligations, and constraints.
     """
     try:
         # Get the case
@@ -52,49 +64,32 @@ def step2(case_id):
                 'full_content': case.content or 'No content available'
             }
         
-        # Find the discussion/analysis section
-        discussion_section = None
-        discussion_section_key = None
+        # Find the facts section (same as step1)
+        facts_section = None
+        facts_section_key = None
         
-        # Look for discussion/analysis section (case insensitive)
-        # Check for various naming patterns: discussion, analysis, dissenting opinion, etc.
-        discussion_keywords = ['discussion', 'analysis', 'dissenting', 'opinion', 'argument', 'reasoning']
-        
+        # Look for facts section (case insensitive)
         for section_key, section_content in raw_sections.items():
-            section_key_lower = section_key.lower()
-            if any(keyword in section_key_lower for keyword in discussion_keywords):
-                discussion_section_key = section_key
-                discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+            if 'fact' in section_key.lower():
+                facts_section_key = section_key
+                facts_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 break
         
-        # If no discussion section found, try to find a section that's not facts or conclusion
-        if not discussion_section:
-            # Skip facts and conclusion sections
-            skip_keywords = ['fact', 'conclusion', 'summary', 'reference']
-            for section_key, section_content in raw_sections.items():
-                section_key_lower = section_key.lower()
-                if not any(keyword in section_key_lower for keyword in skip_keywords):
-                    discussion_section_key = section_key
-                    discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
-                    break
-        
-        # If still no discussion section found, use second available section as fallback
-        if not discussion_section and len(raw_sections) > 1:
-            keys = list(raw_sections.keys())
-            # Try to use second section if available
-            second_key = keys[1] if len(keys) > 1 else keys[0]
-            discussion_section_key = second_key
-            discussion_section = _format_section_for_llm(second_key, raw_sections[second_key], case_doc=case)
+        # If no facts section found, use first available section
+        if not facts_section and raw_sections:
+            first_key = list(raw_sections.keys())[0]
+            facts_section_key = first_key
+            facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
         
         # Template context
         context = {
             'case': case,
-            'discussion_section': discussion_section,
-            'discussion_section_key': discussion_section_key,
+            'discussion_section': facts_section,  # Keep variable name for template compatibility
+            'discussion_section_key': facts_section_key,
             'current_step': 2,
-            'step_title': 'Normative Pass - Discussion/Analysis Section',
-            'next_step_url': '#',  # Future: step3
-            'prev_step_url': url_for('scenario_pipeline.step1a', case_id=case_id)
+            'step_title': 'Normative Pass - Facts Section',
+            'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
+            'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id)
         }
         
         return render_template('scenarios/step2.html', **context)
@@ -175,14 +170,38 @@ def normative_pass_execute(case_id):
         if request.method != 'POST':
             return jsonify({'error': 'POST method required'}), 405
         
-        # Get request data
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
+        # Get the case
+        case = Document.query.get_or_404(case_id)
         
-        section_text = data.get('section_text')
+        # Get the facts section text (same logic as step2 view)
+        section_text = None
+        raw_sections = {}
+        
+        if case.doc_metadata:
+            # Get sections from metadata
+            if 'sections_dual' in case.doc_metadata:
+                raw_sections = case.doc_metadata['sections_dual']
+            elif 'sections' in case.doc_metadata:
+                raw_sections = case.doc_metadata['sections']
+            elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
+                raw_sections = case.doc_metadata['document_structure']['sections']
+        
+        # Look for facts section
+        for section_key, section_content in raw_sections.items():
+            if 'fact' in section_key.lower():
+                section_text = _format_section_for_llm(section_key, section_content, case)
+                break
+        
+        # If no facts section found, use first available section
+        if not section_text and raw_sections:
+            first_key = list(raw_sections.keys())[0]
+            section_text = _format_section_for_llm(first_key, raw_sections[first_key], case)
+        
         if not section_text:
-            return jsonify({'error': 'section_text is required'}), 400
+            # Fallback to using available content
+            section_text = case.content or case.description or ""
+            if not section_text:
+                return jsonify({'error': 'No facts section found'}), 400
         
         logger.info(f"Executing normative pass for case {case_id}")
         
@@ -193,25 +212,159 @@ def normative_pass_execute(case_id):
             logger.warning(f"Could not initialize LLM client: {str(e)}")
             llm_client = None
         
-        # Initialize provenance service
-        provenance_service = ProvenanceService()
+        # Initialize provenance service with versioning if available
+        if USE_VERSIONED_PROVENANCE:
+            prov = get_versioned_provenance_service()
+            logger.info("Using versioned provenance service for Step 2")
+        else:
+            from app.services.provenance_service import get_provenance_service
+            prov = get_provenance_service()
+            logger.info("Using standard provenance service")
         
-        # Extract principles using enhanced extractor
-        principles_extractor = EnhancedPrinciplesExtractor(
-            llm_client=llm_client,
-            provenance_service=provenance_service
-        )
+        # Create session ID for this normative pass
+        session_id = str(uuid.uuid4())
         
-        # Create context for extraction
-        case = Document.query.get(case_id)
+        # Create context from the case we already have
         context = {
             'case_id': case_id,
             'case_title': case.title if case else None,
             'document_type': 'ethics_case'
         }
         
-        # Extract principles
-        principle_candidates = principles_extractor.extract(section_text, context=context)
+        # Track versioned workflow if available
+        version_context = nullcontext()
+        if USE_VERSIONED_PROVENANCE:
+            version_context = prov.track_versioned_workflow(
+                workflow_name='step2_normative_pass',
+                description='Pass 2: Normative extraction of Principles, Obligations, and Constraints',
+                version_tag='enhanced_normative',
+                auto_version=True
+            )
+        
+        # Use context manager for versioned workflow
+        with version_context:
+            # Track the main normative pass activity
+            with prov.track_activity(
+                activity_type='extraction',
+                activity_name='normative_pass_step2',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='proethica_normative_pass',
+                execution_plan={
+                    'pass_number': 2,
+                    'concepts': ['principles', 'obligations', 'constraints'],
+                    'strategy': 'llm_enhanced',
+                    'version': 'enhanced_normative' if USE_VERSIONED_PROVENANCE else 'standard'
+                }
+            ) as main_activity:
+                
+                # Extract principles
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='principles_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedPrinciplesExtractor'
+                ) as principles_activity:
+                    logger.info("Extracting principles with provenance tracking...")
+                    principles_extractor = EnhancedPrinciplesExtractor(
+                        llm_client=llm_client,
+                        provenance_service=prov
+                    )
+                    principle_candidates = principles_extractor.extract(
+                        section_text, 
+                        context=context,
+                        activity=principles_activity
+                    )
+                    
+                    # Record extraction results
+                    prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in principle_candidates],
+                        activity=principles_activity,
+                        entity_type='extracted_principles',
+                        metadata={'count': len(principle_candidates)}
+                    )
+                
+                # Extract obligations
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='obligations_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedObligationsExtractor'
+                ) as obligations_activity:
+                    logger.info("Extracting obligations with provenance tracking...")
+                    obligations_extractor = EnhancedObligationsExtractor(
+                        llm_client=llm_client,
+                        provenance_service=prov
+                    )
+                    obligation_candidates = obligations_extractor.extract(
+                        section_text,
+                        context=context,
+                        activity=obligations_activity
+                    )
+                    
+                    # Record extraction results
+                    prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in obligation_candidates],
+                        activity=obligations_activity,
+                        entity_type='extracted_obligations',
+                        metadata={'count': len(obligation_candidates)}
+                    )
+                
+                # Extract constraints
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='constraints_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedConstraintsExtractor'
+                ) as constraints_activity:
+                    logger.info("Extracting constraints with provenance tracking...")
+                    constraints_extractor = EnhancedConstraintsExtractor(
+                        llm_client=llm_client,
+                        provenance_service=prov
+                    )
+                    constraint_candidates = constraints_extractor.extract(
+                        section_text,
+                        context=context,
+                        activity=constraints_activity
+                    )
+                    
+                    # Record extraction results
+                    prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in constraint_candidates],
+                        activity=constraints_activity,
+                        entity_type='extracted_constraints',
+                        metadata={'count': len(constraint_candidates)}
+                    )
+                
+                # Link sub-activities to main activity
+                prov.link_activities(principles_activity, main_activity, 'sequence')
+                prov.link_activities(obligations_activity, principles_activity, 'sequence')
+                prov.link_activities(constraints_activity, obligations_activity, 'sequence')
+        
+        # Commit provenance records
+        db.session.commit()
         
         # Convert candidates to response format
         principles = []
@@ -231,51 +384,55 @@ def normative_pass_execute(case_id):
             }
             principles.append(principle_data)
         
-        obligations = [
-            {
-                "label": "Competent Practice Obligation",
-                "description": "Duty to practice only within areas of competence",
+        obligations = []
+        for candidate in obligation_candidates:
+            obligation_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
                 "type": "obligation",
-                "obligation_type": "professional_duty",
-                "enforcement": "mandatory",
-                "confidence": 0.94
-            },
-            {
-                "label": "Disclosure Duty",
-                "description": "Obligation to disclose conflicts of interest",
-                "type": "obligation",
-                "obligation_type": "ethical_duty",
-                "enforcement": "mandatory",
-                "confidence": 0.91
+                "obligation_type": candidate.debug.get('obligation_type', 'professional_practice'),
+                "enforcement_level": candidate.debug.get('enforcement_level', 'mandatory'),
+                "derived_from_principle": candidate.debug.get('derived_from_principle', ''),
+                "stakeholders_affected": candidate.debug.get('stakeholders_affected', []),
+                "potential_conflicts": candidate.debug.get('potential_conflicts', []),
+                "monitoring_criteria": candidate.debug.get('monitoring_criteria', ''),
+                "nspe_reference": candidate.debug.get('nspe_reference', ''),
+                "contextual_factors": candidate.debug.get('contextual_factors', ''),
+                "confidence": candidate.confidence
             }
-        ]
+            obligations.append(obligation_data)
         
-        constraints = [
-            {
-                "label": "Budget Limitation",
-                "description": "Fixed budget constraining design options",
+        constraints = []
+        for candidate in constraint_candidates:
+            constraint_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
                 "type": "constraint",
-                "constraint_category": "resource",
-                "flexibility": "non-negotiable",
-                "confidence": 0.88
-            },
-            {
-                "label": "Regulatory Compliance",
-                "description": "Must comply with local building codes and regulations",
-                "type": "constraint",
-                "constraint_category": "legal",
-                "flexibility": "non-negotiable",
-                "confidence": 0.96
+                "constraint_category": candidate.debug.get('constraint_category', 'resource'),
+                "flexibility": candidate.debug.get('flexibility', 'non-negotiable'),
+                "impact_on_decisions": candidate.debug.get('impact_on_decisions', ''),
+                "affected_stakeholders": candidate.debug.get('affected_stakeholders', []),
+                "potential_violations": candidate.debug.get('potential_violations', ''),
+                "mitigation_strategies": candidate.debug.get('mitigation_strategies', []),
+                "temporal_aspect": candidate.debug.get('temporal_aspect', 'permanent'),
+                "quantifiable_metrics": candidate.debug.get('quantifiable_metrics', ''),
+                "confidence": candidate.confidence
             }
-        ]
+            constraints.append(constraint_data)
         
         # Summary statistics
         summary = {
             'principles_count': len(principles),
             'obligations_count': len(obligations),
             'constraints_count': len(constraints),
-            'total_entities': len(principles) + len(obligations) + len(constraints)
+            'total_entities': len(principles) + len(obligations) + len(constraints),
+            'session_id': session_id,
+            'version': 'enhanced_normative' if USE_VERSIONED_PROVENANCE else 'standard'
         }
+        
+        # Add provenance URL if available
+        if USE_VERSIONED_PROVENANCE:
+            summary['provenance_url'] = url_for('provenance.provenance_viewer')
         
         # Add extraction metadata
         from datetime import datetime

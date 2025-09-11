@@ -53,7 +53,8 @@ class EnhancedPrinciplesExtractor:
         self.llm_client = llm_client
         self.provenance_service = provenance_service or ProvenanceService()
         
-    def extract(self, text: str, context: Optional[Dict[str, Any]] = None) -> List[ConceptCandidate]:
+    def extract(self, text: str, context: Optional[Dict[str, Any]] = None, 
+                activity: Optional[Any] = None) -> List[ConceptCandidate]:
         """
         Extract principles with enhanced prompt based on Chapter 2 literature.
         
@@ -67,8 +68,11 @@ class EnhancedPrinciplesExtractor:
         if not text:
             return []
             
-        # Start provenance tracking
-        activity = self._start_provenance_tracking(text, context)
+        # Use provided activity or create our own tracking
+        own_activity = False
+        if not activity:
+            activity = self._start_provenance_tracking(text, context)
+            own_activity = True
         
         try:
             # Generate enhanced prompt
@@ -83,103 +87,126 @@ class EnhancedPrinciplesExtractor:
             # Enhance with ontology grounding
             candidates = self._enhance_with_ontology(candidates)
             
-            # Complete provenance tracking
-            self._complete_provenance_tracking(activity, candidates)
+            # Complete provenance tracking only if we created the activity
+            if own_activity:
+                self._complete_provenance_tracking(activity, candidates)
             
             return candidates
             
         except Exception as e:
             logger.error(f"Error in enhanced principles extraction: {str(e)}")
-            if activity:
+            if activity and hasattr(self.provenance_service, 'record_error'):
                 self.provenance_service.record_error(activity, str(e))
             return []
     
-    def _generate_enhanced_prompt(self, text: str) -> str:
+    def _generate_enhanced_prompt(self, text: str, include_mcp_context: bool = False, 
+                                    existing_principles: list = None) -> str:
         """
-        Generate an enhanced prompt based on Chapter 2 literature insights.
+        Generate an enhanced prompt based on Chapter 2.2.2 literature insights.
         
-        Key aspects from literature:
-        - Inherent vagueness requiring contextual interpretation (Prem 2023, Segun 2021)
-        - Context-sensitivity and role in mediating moral ideals (Hallamaa & Kalliokoski 2022)
-        - Three-step operationalization (Taddeo et al. 2024)
-        - Learned from expert examples rather than explicit programming (Anderson & Anderson 2018)
-        - Distinction from concrete obligations (Dennis et al. 2016, Benzmüller et al. 2020)
+        Key insights from Chapter 2.2.2:
+        - McLaren (2003): Extensional definition through concrete cases required
+        - Taddeo et al. (2024): Three-step operationalization process essential
+        - Anderson & Anderson (2018): Principles learned from expert examples
+        - Hallamaa & Kalliokoski (2022): Context-sensitive mediating role
+        - Prem (2023): Inherent challenge of operationalization
+        - Benzmüller et al. (2020): Formal verification approaches
+        - Segun (2021): Principles resist formal specification
         """
         
-        prompt = f"""You are an expert in professional ethics, particularly engineering ethics, with deep knowledge of 
-how abstract ethical principles guide professional practice. Your analysis is grounded in scholarly literature
-on computational ethics and professional codes like the NSPE Code of Ethics.
+        mcp_context = ""
+        if include_mcp_context and existing_principles:
+            mcp_context = f"""
+EXISTING PRINCIPLES IN ONTOLOGY:
+Found {len(existing_principles)} existing principle concepts in the professional ethics ontology:
+"""
+            for principle in existing_principles[:10]:  # Show first 10 for context
+                label = principle.get('label', 'Unknown')
+                description = principle.get('description', 'No description')
+                mcp_context += f"- {label}: {description}\n"
+            mcp_context += "\nConsider these when extracting new principles - identify if principles match existing concepts or are genuinely new.\n"
+        
+        prompt = f"""{mcp_context}
 
-THEORETICAL FRAMEWORK (Based on Chapter 2 Literature):
+You are analyzing an ethics guideline to extract PRINCIPLES based on the ProEthica formalism and Chapter 2.2.2 literature review.
 
-1. PRINCIPLE CHARACTERISTICS (Hallamaa & Kalliokoski 2022, Taddeo et al. 2024):
-   - Abstract ethical foundations that require contextual interpretation
-   - Constitutional-like character: foundational rather than offering detailed guidelines
-   - Open-textured and purpose-oriented nature
-   - Function as mechanisms mediating moral ideals into professional reality
-   - Too abstract for direct translation into concrete designs (Prem 2023)
+THEORETICAL FRAMEWORK (Chapter 2.2.2 - Principles as Abstract Ethical Foundations):
 
-2. DISTINCTION FROM OBLIGATIONS (Dennis et al. 2016, Benzmüller et al. 2020):
-   - Principles provide general guidance; obligations specify exact requirements
-   - Principles maintain consistent meaning across contexts
-   - Obligations specify what, when, by whom, under what conditions
-   - Example: "Do no harm" (principle) vs "Obtain informed consent" (obligation)
+According to the literature, principles represent abstract ethical foundations that require extensional definition through concrete cases and precedents (McLaren 2003). They cannot be applied through formal deduction alone but gain meaning through their manifestation in specific professional contexts.
 
-3. OPERATIONALIZATION APPROACH (Taddeo et al. 2024):
-   - Step 1: Identify appropriate levels of abstraction
-   - Step 2: Interpret principles to extract specific requirements
-   - Step 3: Define criteria for context-specific balancing
+**CORE PRINCIPLE CATEGORIES TO IDENTIFY:**
 
-4. EXTENSIONAL DEFINITION (McLaren 2003):
-   - Principles gain meaning through accumulated precedents
-   - Cannot be understood through logical definition alone
-   - Require examination of application across actual cases
-   - Example: "Hold paramount public safety" - meaning emerges from hundreds of cases
+1. **Fundamental Ethical Principles**
+   - Definition: Universal moral foundations like public welfare, integrity, respect for persons
+   - Function: Highest-level abstractions requiring extensive interpretation
+   - Extensional Grounding: Defined through landmark ethics cases and professional code applications
+   - Example: "Hold paramount the safety, health, and welfare of the public" (NSPE Fundamental Canon 1)
 
-5. LEARNING FROM EXAMPLES (Anderson & Anderson 2018):
-   - Principles can be discovered as generalizations from expert-agreed cases
-   - Maintain traceability to originating cases
-   - Provide justification through analogy rather than deduction
+2. **Professional Virtue Principles**  
+   - Definition: Character-based principles defining professional excellence
+   - Function: Guide professional identity and ethical sensitivities (Oakley & Cocking 2001)
+   - Extensional Grounding: Exemplified through model professional behavior cases
+   - Example: Integrity, Competence, Honesty, Accountability
 
-EXTRACTION TASK:
-Analyze the following professional ethics discussion/analysis text to identify PRINCIPLES - abstract ethical 
-foundations that guide professional conduct. Focus on statements that:
+3. **Relational Principles**
+   - Definition: Principles governing professional relationships and trust
+   - Function: Establish frameworks for stakeholder interactions
+   - Extensional Grounding: Precedents from client-professional disputes and resolutions
+   - Example: Confidentiality, Loyalty, Fairness, Transparency
 
-1. Express fundamental values or ethical foundations
-2. Provide high-level guidance rather than specific requirements
-3. Require interpretation for specific contexts
-4. Serve as basis for deriving concrete obligations
-5. Reflect constitutional-like professional values
+4. **Domain-Specific Principles**
+   - Definition: Principles particular to professional domain contexts
+   - Function: Bridge general ethics to specific technical practices
+   - Extensional Grounding: Industry-specific cases and technical standards applications
+   - Example: Environmental Stewardship (engineering), Patient Autonomy (medicine)
 
-IMPORTANT DISTINCTIONS:
-- PRINCIPLES: Abstract values like integrity, public welfare, honesty
-- NOT PRINCIPLES: Specific duties like "must report violations" (obligation)
-- NOT PRINCIPLES: Limitations like "cannot exceed budget" (constraint)
+**OPERATIONALIZATION PROCESS (Taddeo et al. 2024):**
 
-TEXT TO ANALYZE:
-{text[:3000]}
+For each principle, apply the three-step operationalization:
+1. Identify abstraction level appropriate for the context
+2. Interpret to extract specific professional requirements
+3. Define criteria for balancing against other principles
 
-EXTRACTION REQUIREMENTS:
-Return a JSON array of principle objects. Each principle should include:
+**EXTRACTION GUIDELINES:**
 
-{{
-  "label": "Short name for the principle (e.g., 'Public Safety Paramount')",
-  "description": "Full description of what this principle means",
-  "principle_category": "fundamental|professional|domain_specific",
-  "abstraction_level": "high|medium", 
-  "requires_interpretation": true/false,
-  "potential_conflicts": ["Other principles this might conflict with"],
-  "extensional_examples": ["Brief examples showing how this principle is applied"],
-  "derived_obligations": ["Examples of concrete obligations derived from this principle"],
-  "scholarly_grounding": "Connection to professional codes or ethical theory",
-  "confidence": 0.0-1.0
-}}
+- Focus on abstract values requiring interpretation, not specific rules
+- Identify how principles mediate between ideals and practice (Hallamaa & Kalliokoski 2022)
+- Link principles to concrete cases that give them meaning (McLaren 2003)
+- Consider how principles generate multiple context-specific obligations
+- Note potential conflicts between competing principles
 
-Focus on extracting genuine PRINCIPLES that serve as abstract ethical foundations, not concrete obligations
-or constraints. Each principle should represent a fundamental value that requires interpretation and can
-generate multiple specific obligations in different contexts.
+GUIDELINE TEXT:
+{text[:3000] if isinstance(text, str) else str(text)[:3000]}
 
-Return ONLY the JSON array, no additional text."""
+OUTPUT FORMAT:
+Return a JSON array with this structure:
+[
+  {{
+    "label": "Public Welfare Paramount",
+    "description": "Fundamental principle placing public safety and welfare above all other considerations",
+    "type": "principle",
+    "principle_category": "fundamental_ethical",  // One of: fundamental_ethical, professional_virtue, relational, domain_specific
+    "extensional_definition": ["NSPE Case 92-6 on public safety disclosure", "Challenger disaster precedent"],
+    "operationalization": {{
+      "abstraction_level": "high",  // high, medium, low
+      "specific_requirements": ["Report safety risks", "Refuse unsafe work", "Disclose conflicts"],
+      "balancing_criteria": "Public welfare overrides client confidentiality when immediate danger exists"
+    }},
+    "mediating_function": "Transforms abstract duty to society into concrete professional actions",
+    "derived_obligations": ["Report safety violations", "Maintain competence", "Disclose risks"],
+    "context_sensitivity": "Interpretation varies by risk magnitude and immediacy",
+    "potential_conflicts": ["Client confidentiality", "Employer loyalty"],
+    "text_references": ["specific quote from text showing this principle"],
+    "theoretical_grounding": "McLaren (2003) - Requires extensional definition through safety cases",
+    "professional_grounding": "NSPE Fundamental Canon 1",
+    "importance": "high",
+    "is_existing": false,
+    "ontology_match_reasoning": "Exact match to PublicWelfarePrinciple in ontology"
+  }}
+]
+
+Focus on identifying principles that serve as abstract ethical foundations requiring interpretation rather than concrete rules or specific obligations.
+"""
 
         return prompt
     
@@ -188,37 +215,85 @@ Return ONLY the JSON array, no additional text."""
         Extract principles using LLM with enhanced prompt.
         """
         try:
-            # Record LLM call in provenance
-            if activity:
-                self.provenance_service.add_metadata(activity, {
-                    'extraction_method': 'enhanced_llm',
-                    'prompt_type': 'chapter2_grounded',
-                    'model': getattr(self.llm_client, 'model', 'unknown')
-                })
+            # Call LLM with proper API based on client type
+            if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
+                # Anthropic client
+                response = self.llm_client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=2000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+                response_text = response.content[0].text if response.content else ""
+            elif hasattr(self.llm_client, 'chat') and hasattr(self.llm_client.chat, 'completions'):
+                # OpenAI client
+                response = self.llm_client.chat.completions.create(
+                    model="gpt-4",
+                    max_tokens=2000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+                response_text = response.choices[0].message.content
+            else:
+                raise ValueError("Unknown LLM client type")
             
-            # Get LLM response
-            response = self.llm_client.generate(prompt)
+            response = response_text
             
             # Parse JSON response
             principles = json.loads(response)
             
-            # Convert to ConceptCandidates
+            # Convert to ConceptCandidates with all enhanced fields
             candidates = []
             for p in principles:
+                # Parse importance to confidence score
+                importance = p.get('importance', 'medium')
+                if importance == 'high':
+                    confidence = 0.9
+                elif importance == 'low':
+                    confidence = 0.6
+                else:
+                    confidence = 0.75
+                
                 candidate = ConceptCandidate(
                     label=p.get('label', ''),
                     description=p.get('description', ''),
                     primary_type='principle',
                     category='principle',
-                    confidence=float(p.get('confidence', 0.75)),
+                    confidence=confidence,
                     debug={
+                        # Core categorization
                         'principle_category': p.get('principle_category'),
-                        'abstraction_level': p.get('abstraction_level'),
-                        'requires_interpretation': p.get('requires_interpretation'),
-                        'potential_conflicts': p.get('potential_conflicts', []),
-                        'extensional_examples': p.get('extensional_examples', []),
+                        'importance': p.get('importance', 'medium'),
+                        
+                        # Extensional definition fields (McLaren 2003)
+                        'extensional_definition': p.get('extensional_definition', []),
+                        'text_references': p.get('text_references', []),
+                        
+                        # Operationalization fields (Taddeo et al. 2024)
+                        'operationalization': p.get('operationalization', {}),
+                        'abstraction_level': p.get('operationalization', {}).get('abstraction_level'),
+                        'specific_requirements': p.get('operationalization', {}).get('specific_requirements', []),
+                        'balancing_criteria': p.get('operationalization', {}).get('balancing_criteria'),
+                        
+                        # Mediation and context (Hallamaa & Kalliokoski 2022)
+                        'mediating_function': p.get('mediating_function'),
+                        'context_sensitivity': p.get('context_sensitivity'),
+                        
+                        # Relationships and grounding
                         'derived_obligations': p.get('derived_obligations', []),
-                        'scholarly_grounding': p.get('scholarly_grounding'),
+                        'potential_conflicts': p.get('potential_conflicts', []),
+                        'theoretical_grounding': p.get('theoretical_grounding'),
+                        'professional_grounding': p.get('professional_grounding'),
+                        
+                        # Ontology matching
+                        'is_existing': p.get('is_existing', False),
+                        'ontology_match_reasoning': p.get('ontology_match_reasoning'),
+                        
+                        # Metadata
                         'extraction_method': 'enhanced_chapter2',
                         'extracted_at': datetime.now().isoformat()
                     }
@@ -371,10 +446,19 @@ Return ONLY the JSON array, no additional text."""
         })
 
 
-def create_enhanced_principles_prompt(text: str, include_ontology_context: bool = True) -> str:
+def create_enhanced_principles_prompt(text: str, include_mcp_context: bool = False, 
+                                     existing_principles: list = None) -> str:
     """
     Standalone function to generate enhanced principles prompt.
     Can be used independently of the extractor class.
+    
+    Args:
+        text: The guideline text to analyze
+        include_mcp_context: Whether to include existing ontology concepts
+        existing_principles: List of existing principle concepts from ontology
+        
+    Returns:
+        Enhanced prompt string following Chapter 2.2.2 framework
     """
     extractor = EnhancedPrinciplesExtractor()
-    return extractor._generate_enhanced_prompt(text)
+    return extractor._generate_enhanced_prompt(text, include_mcp_context, existing_principles)

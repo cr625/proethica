@@ -18,9 +18,27 @@ PROV-O Elements Tracked:
 
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Float, Boolean, Index
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Float, Boolean, Index, Enum
 from sqlalchemy.orm import relationship
 from app.models import db
+import enum
+
+
+class VersionEnvironment(enum.Enum):
+    """Environment types for version tracking."""
+    DEVELOPMENT = "development"
+    TEST = "test"
+    STAGING = "staging"
+    PRODUCTION = "production"
+
+
+class VersionStatus(enum.Enum):
+    """Status of a version in the workflow."""
+    DRAFT = "draft"
+    CANDIDATE = "candidate"
+    RELEASED = "released"
+    SUPERSEDED = "superseded"
+    ARCHIVED = "archived"
 
 class ProvenanceAgent(db.Model):
     """
@@ -76,6 +94,26 @@ class ProvenanceActivity(db.Model):
     status = Column(String(50), default='started')  # 'started', 'completed', 'failed'
     error_message = Column(Text)
     
+    # Version tracking fields
+    # Note: Foreign key removed as provenance_versions table is in separate module
+    version_id = Column(Integer)
+    version_number = Column(String(20))  # Local version within this record
+    version_environment = Column(String(20), default='DEVELOPMENT')
+    version_status = Column(String(20), default='DRAFT')
+    
+    # Revision tracking (for PROV-O wasRevisionOf)
+    revision_of_id = Column(Integer, ForeignKey('provenance_activities.id'))
+    revision_number = Column(Integer, default=1)
+    
+    # Development mode flags
+    is_development = Column(Boolean, default=False)
+    auto_cleanup = Column(Boolean, default=False)
+    cleanup_after = Column(DateTime)
+    
+    # Consolidation support
+    consolidation_group = Column(String(100))
+    consolidation_weight = Column(JSON)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -88,6 +126,10 @@ class ProvenanceActivity(db.Model):
     informs = relationship('ProvenanceCommunication',
                            foreign_keys='ProvenanceCommunication.informing_activity_id', 
                            back_populates='informing_activity')
+    
+    # Revision relationships
+    revision_of = relationship('ProvenanceActivity', remote_side='ProvenanceActivity.id',
+                              foreign_keys='ProvenanceActivity.revision_of_id')
     
     __table_args__ = (
         Index('idx_prov_activity_type', 'activity_type'),
@@ -125,6 +167,26 @@ class ProvenanceEntity(db.Model):
     # Entity metadata
     entity_metadata = Column(JSON)  # Type-specific metadata (token counts, model used, etc.)
     
+    # Version tracking fields
+    # Note: Foreign key removed as provenance_versions table is in separate module
+    version_id = Column(Integer)
+    version_number = Column(String(20))
+    version_environment = Column(String(20), default='DEVELOPMENT')
+    version_status = Column(String(20), default='DRAFT')
+    
+    # Revision tracking
+    revision_of_id = Column(Integer, ForeignKey('provenance_entities.id'))
+    revision_number = Column(Integer, default=1)
+    
+    # Development mode flags
+    is_development = Column(Boolean, default=False)
+    auto_cleanup = Column(Boolean, default=False)
+    cleanup_after = Column(DateTime)
+    
+    # Consolidation support
+    consolidation_group = Column(String(100))
+    consolidation_weight = Column(JSON)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -136,6 +198,10 @@ class ProvenanceEntity(db.Model):
                           foreign_keys='ProvenanceDerivation.source_entity_id',
                           back_populates='source_entity')
     used_by = relationship('ProvenanceUsage', back_populates='entity')
+    
+    # Revision relationships
+    revision_of = relationship('ProvenanceEntity', remote_side='ProvenanceEntity.id',
+                              foreign_keys='ProvenanceEntity.revision_of_id')
     
     __table_args__ = (
         Index('idx_prov_entity_type', 'entity_type'),

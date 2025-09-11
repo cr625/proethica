@@ -1,0 +1,368 @@
+"""
+Enhanced Obligations Extraction with Chapter 2 Literature Grounding
+Based on Pass 2: Normative (SHOULD/MUST/CAN'T) - Professional Duties
+
+This module implements obligation extraction grounded in professional ethics literature,
+particularly focusing on transforming abstract principles into concrete professional duties
+and responsibilities that can be monitored and enforced.
+"""
+
+from typing import List, Dict, Any, Optional
+import logging
+import json
+from datetime import datetime
+
+from .base import ConceptCandidate
+
+# Optional provenance tracking
+try:
+    from app.models.provenance import ProvenanceActivity
+    from app.services.provenance_service import get_provenance_service
+except ImportError:
+    ProvenanceActivity = None
+    get_provenance_service = lambda: None
+
+logger = logging.getLogger(__name__)
+
+
+def create_enhanced_obligations_prompt(text: str) -> str:
+    """
+    Create an enhanced prompt for obligation extraction based on professional ethics literature.
+    
+    Theoretical foundations:
+    - NSPE Code of Ethics: Professional duties and responsibilities framework
+    - Dennis et al. (2016): Obligations derived from professional roles
+    - Wooldridge & Jennings (1995): Obligations as normative constraints on agent behavior
+    - Kong et al. (2020): Professional obligations requiring contextual judgment
+    """
+    
+    prompt = f"""You are an expert in professional ethics and normative analysis, specifically trained in identifying 
+professional obligations and duties within engineering ethics cases.
+
+THEORETICAL GROUNDING:
+Based on the NSPE Code of Ethics and professional ethics literature (Dennis et al. 2016, Wooldridge & Jennings 1995), 
+obligations represent concrete professional duties that:
+1. Are derived from abstract principles and professional roles
+2. Specify what professionals MUST, SHOULD, or MUST NOT do
+3. Can be monitored, evaluated, and enforced
+4. Apply to specific contexts and situations
+5. May conflict with other obligations, requiring professional judgment
+
+OBLIGATION CATEGORIES (from NSPE Code):
+1. **Fundamental Duties**: Core obligations like public safety paramount
+2. **Professional Practice**: Competence, honesty, objectivity requirements
+3. **Disclosure Obligations**: Conflicts of interest, limitations, risks
+4. **Collegial Duties**: Respect, fairness, credit for work
+5. **Societal Responsibilities**: Sustainability, public welfare, truthfulness
+
+EXTRACTION TASK:
+Analyze the following discussion/analysis text and identify ALL professional obligations mentioned or implied.
+
+For each obligation, provide:
+1. **label**: A clear, action-oriented name (e.g., "Disclose Conflicts", "Maintain Competence")
+2. **description**: What the obligation requires in this specific context
+3. **obligation_type**: Category from above (fundamental_duty, professional_practice, etc.)
+4. **enforcement_level**: mandatory, strongly_recommended, recommended, or conditional
+5. **derived_from_principle**: Which principle(s) this obligation operationalizes
+6. **stakeholders_affected**: Who is impacted by this obligation
+7. **potential_conflicts**: Other obligations this might conflict with
+8. **monitoring_criteria**: How compliance could be assessed
+9. **nspe_reference**: Relevant NSPE Code section if applicable
+10. **contextual_factors**: Situation-specific considerations
+
+TEXT TO ANALYZE:
+{text}
+
+IMPORTANT EXTRACTION GUIDELINES:
+- Identify both explicit obligations ("must", "shall", "required") and implicit ones
+- Look for professional duties implied by the situation
+- Consider obligations from multiple stakeholder perspectives
+- Distinguish between legal requirements and ethical obligations
+- Note where professional judgment is required to resolve conflicts
+- Include obligations that arise from the specific context, not just general duties
+
+Return your analysis as a JSON array of obligation objects.
+Each object should contain all fields specified above.
+Focus on obligations that are:
+1. Actionable and specific
+2. Relevant to the case context
+3. Grounded in professional ethics standards
+4. Important for ethical decision-making
+
+Example format:
+[
+    {{
+        "label": "Disclose Design Limitations",
+        "description": "Engineer must inform client about safety limitations of the proposed design",
+        "obligation_type": "disclosure_obligation",
+        "enforcement_level": "mandatory",
+        "derived_from_principle": "Honesty and Transparency",
+        "stakeholders_affected": ["client", "end users", "public"],
+        "potential_conflicts": ["Client Confidentiality", "Project Timeline"],
+        "monitoring_criteria": "Documentation of disclosure communications",
+        "nspe_reference": "II.3.a - Engineers shall be objective and truthful",
+        "contextual_factors": "Safety-critical infrastructure project"
+    }}
+]
+"""
+    return prompt
+
+
+class EnhancedObligationsExtractor:
+    """
+    Enhanced extractor for professional obligations based on ethics literature.
+    
+    Key theoretical foundations:
+    - NSPE Code of Ethics: Framework for professional engineering obligations
+    - Dennis et al. (2016): Role-based obligations in professional contexts
+    - Wooldridge & Jennings (1995): Normative constraints on behavior
+    - Kong et al. (2020): Context-dependent professional duties
+    """
+    
+    def __init__(self, llm_client=None, provenance_service=None):
+        self.llm_client = llm_client
+        self.provenance_service = provenance_service or get_provenance_service()
+        
+    def extract(self, text: str, context: Optional[Dict[str, Any]] = None, 
+                activity: Optional[ProvenanceActivity] = None) -> List[ConceptCandidate]:
+        """
+        Extract obligations with enhanced prompt based on professional ethics literature.
+        
+        Args:
+            text: The discussion/analysis text to extract obligations from
+            context: Optional context including case metadata
+            activity: Optional provenance activity for tracking
+            
+        Returns:
+            List of ConceptCandidate objects representing extracted obligations
+        """
+        if not text:
+            return []
+            
+        try:
+            # Generate enhanced prompt
+            prompt = create_enhanced_obligations_prompt(text)
+            
+            # Record prompt in provenance if available
+            if activity and self.provenance_service:
+                prompt_entity = self.provenance_service.record_prompt(
+                    prompt_text=prompt,
+                    activity=activity,
+                    entity_name="obligations_extraction_prompt",
+                    metadata={
+                        'extractor': 'EnhancedObligationsExtractor',
+                        'prompt_version': '2.0_normative_pass',
+                        'theoretical_grounding': 'NSPE Code + Dennis et al. 2016'
+                    }
+                )
+            
+            # Get LLM extraction if available
+            if self.llm_client:
+                candidates = self._extract_with_llm(text, prompt, activity)
+            else:
+                candidates = self._fallback_extraction(text)
+                
+            # Enhance with NSPE ontology grounding if available
+            candidates = self._enhance_with_nspe_ontology(candidates)
+            
+            return candidates
+            
+        except Exception as e:
+            logger.error(f"Error in enhanced obligations extraction: {str(e)}")
+            if activity and self.provenance_service:
+                self.provenance_service.record_extraction_results(
+                    results=[],
+                    activity=activity,
+                    entity_type='extracted_obligations_error',
+                    metadata={'error': str(e)}
+                )
+            return []
+    
+    def _extract_with_llm(self, text: str, prompt: str, activity: Optional[ProvenanceActivity]) -> List[ConceptCandidate]:
+        """Extract obligations using LLM with the enhanced prompt."""
+        try:
+            # Call LLM with proper API based on client type
+            if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
+                # Anthropic client
+                llm_response = self.llm_client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=2000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+                response = llm_response.content[0].text if llm_response.content else ""
+            elif hasattr(self.llm_client, 'chat') and hasattr(self.llm_client.chat, 'completions'):
+                # OpenAI client
+                llm_response = self.llm_client.chat.completions.create(
+                    model="gpt-4",
+                    max_tokens=2000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+                response = llm_response.choices[0].message.content
+            else:
+                raise ValueError("Unknown LLM client type")
+            
+            # Record response in provenance if available
+            if activity and self.provenance_service:
+                response_entity = self.provenance_service.record_response(
+                    response_text=response,
+                    activity=activity,
+                    entity_name="obligations_llm_response",
+                    metadata={
+                        'model': getattr(self.llm_client, 'model_name', 'unknown'),
+                        'token_count': len(response.split())
+                    }
+                )
+            
+            # Parse JSON response
+            try:
+                obligations_data = json.loads(response)
+                if not isinstance(obligations_data, list):
+                    obligations_data = [obligations_data]
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse LLM response as JSON, attempting text extraction")
+                obligations_data = self._parse_text_response(response)
+            
+            # Convert to ConceptCandidates
+            candidates = []
+            for item in obligations_data:
+                candidate = ConceptCandidate(
+                    label=item.get('label', 'Unknown Obligation'),
+                    description=item.get('description', ''),
+                    primary_type='obligation',
+                    category='obligation',
+                    confidence=0.85,  # Base confidence for LLM extraction
+                    debug={
+                        'obligation_type': item.get('obligation_type', 'professional_practice'),
+                        'enforcement_level': item.get('enforcement_level', 'mandatory'),
+                        'derived_from_principle': item.get('derived_from_principle', ''),
+                        'stakeholders_affected': item.get('stakeholders_affected', []),
+                        'potential_conflicts': item.get('potential_conflicts', []),
+                        'monitoring_criteria': item.get('monitoring_criteria', ''),
+                        'nspe_reference': item.get('nspe_reference', ''),
+                        'contextual_factors': item.get('contextual_factors', ''),
+                        'extraction_method': 'llm_enhanced',
+                        'prompt_version': '2.0_normative_pass'
+                    }
+                )
+                candidates.append(candidate)
+            
+            # Record extraction results in provenance
+            if activity and self.provenance_service:
+                self.provenance_service.record_extraction_results(
+                    results=[{
+                        'label': c.label,
+                        'description': c.description,
+                        'confidence': c.confidence,
+                        'debug': c.debug
+                    } for c in candidates],
+                    activity=activity,
+                    entity_type='extracted_obligations',
+                    metadata={'count': len(candidates), 'method': 'llm_enhanced'}
+                )
+            
+            return candidates
+            
+        except Exception as e:
+            logger.error(f"LLM extraction failed: {str(e)}")
+            return self._fallback_extraction(text)
+    
+    def _parse_text_response(self, response: str) -> List[Dict[str, Any]]:
+        """Parse non-JSON text response for obligations."""
+        obligations = []
+        
+        # Look for obligation patterns in text
+        lines = response.split('\n')
+        current_obligation = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if current_obligation:
+                    obligations.append(current_obligation)
+                    current_obligation = {}
+                continue
+                
+            # Look for labeled items
+            if line.startswith('-') or line.startswith('*') or line.startswith('•'):
+                if current_obligation:
+                    obligations.append(current_obligation)
+                current_obligation = {'label': line[1:].strip(), 'description': ''}
+            elif ':' in line:
+                key, value = line.split(':', 1)
+                key = key.strip().lower().replace(' ', '_')
+                current_obligation[key] = value.strip()
+            elif current_obligation:
+                current_obligation['description'] += ' ' + line
+        
+        if current_obligation:
+            obligations.append(current_obligation)
+            
+        return obligations
+    
+    def _fallback_extraction(self, text: str) -> List[ConceptCandidate]:
+        """Fallback heuristic extraction when LLM is unavailable."""
+        candidates = []
+        
+        # Simple keyword-based extraction for obligations
+        obligation_patterns = [
+            (r'\bmust\s+(\w+(?:\s+\w+){0,3})', 'mandatory'),
+            (r'\bshall\s+(\w+(?:\s+\w+){0,3})', 'mandatory'),
+            (r'\brequired\s+to\s+(\w+(?:\s+\w+){0,3})', 'mandatory'),
+            (r'\bshould\s+(\w+(?:\s+\w+){0,3})', 'strongly_recommended'),
+            (r'\bobligated\s+to\s+(\w+(?:\s+\w+){0,3})', 'mandatory'),
+            (r'\bduty\s+to\s+(\w+(?:\s+\w+){0,3})', 'mandatory'),
+            (r'\bresponsible\s+for\s+(\w+(?:\s+\w+){0,3})', 'mandatory'),
+        ]
+        
+        import re
+        for pattern, enforcement in obligation_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                action = match.group(1) if match.lastindex else match.group(0)
+                candidate = ConceptCandidate(
+                    label=f"{action.title()} Obligation",
+                    description=f"Professional obligation to {action}",
+                    primary_type='obligation',
+                    category='obligation',
+                    confidence=0.6,  # Lower confidence for heuristic extraction
+                    debug={
+                        'obligation_type': 'professional_practice',
+                        'enforcement_level': enforcement,
+                        'extraction_method': 'heuristic_fallback',
+                        'pattern_matched': pattern
+                    }
+                )
+                candidates.append(candidate)
+        
+        return candidates
+    
+    def _enhance_with_nspe_ontology(self, candidates: List[ConceptCandidate]) -> List[ConceptCandidate]:
+        """Enhance candidates with NSPE ontology references if available."""
+        # This would connect to NSPE ontology via MCP if available
+        # For now, just add standard NSPE categories
+        
+        nspe_categories = {
+            'public safety': 'I.1 - Hold paramount safety, health, and welfare',
+            'competence': 'II.2 - Perform services only in areas of competence',
+            'honesty': 'II.3 - Be objective and truthful',
+            'conflicts': 'II.4 - Disclose conflicts of interest',
+            'confidentiality': 'III.4 - Not disclose confidential information'
+        }
+        
+        for candidate in candidates:
+            # Try to match with NSPE categories
+            label_lower = candidate.label.lower()
+            for keyword, reference in nspe_categories.items():
+                if keyword in label_lower or keyword in candidate.description.lower():
+                    candidate.debug['nspe_reference'] = reference
+                    candidate.debug['nspe_category'] = keyword
+                    candidate.confidence = min(candidate.confidence * 1.1, 1.0)  # Boost confidence
+                    break
+        
+        return candidates

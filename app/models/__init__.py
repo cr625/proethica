@@ -55,3 +55,16 @@ from app.models.reasoning_trace import ReasoningTrace, ReasoningStep
 
 # Prompt builder models (added 2025-09-09)
 from app.models.prompt_templates import SectionPromptTemplate, SectionPromptInstance, PromptTemplateVersion
+
+# Provenance models (added 2025-11-11)
+from app.models.provenance import (
+    ProvenanceAgent, ProvenanceActivity, ProvenanceEntity,
+    ProvenanceDerivation, ProvenanceUsage, ProvenanceCommunication,
+    ProvenanceBundle, VersionEnvironment, VersionStatus
+)
+
+# Provenance versioning models (added 2025-11-11)
+from app.models.provenance_versioning import (
+    ProvenanceRevision, ProvenanceVersion, ProvenanceAlternate,
+    VersionConfiguration
+)

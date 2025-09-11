@@ -54,39 +54,45 @@ def scenario_pipeline_builder(case_id):
         flash(f'Error loading scenario pipeline: {str(e)}', 'danger')
         return redirect(url_for('cases.view_case', id=case_id))
 
+@interactive_scenario_bp.route('/case/<int:case_id>/overview')
+def overview(case_id):
+    """Route handler for Case Overview"""
+    from .overview import step1 as overview_handler
+    return overview_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step1')
 def step1(case_id):
-    """Route handler for Step 1: Content Review"""
+    """Route handler for Step 1: Entities Pass (Roles + Resources) on Facts Section"""
     from .step1 import step1 as step1_handler
     return step1_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/debug')
-def debug_step1_route(case_id):
-    """Debug route for Step 1 processing"""
-    from .step1 import debug_step1 as debug_handler
+def debug_overview_route(case_id):
+    """Debug route for overview processing"""
+    from .overview import debug_step1 as debug_handler
     return debug_handler(case_id)
 
+# Legacy route for backward compatibility
 @interactive_scenario_bp.route('/case/<int:case_id>/step1a')
-def step1a(case_id):
-    """Route handler for Step 1a: Entities Pass for Facts Section"""
-    from .step1a import step1a as step1a_handler
-    return step1a_handler(case_id)
+def step1a_legacy(case_id):
+    """Legacy route - redirects to step1"""
+    return redirect(url_for('scenario_pipeline.step1', case_id=case_id))
 
 @interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_prompt', methods=['POST'])
 def entities_pass_prompt(case_id):
     """API endpoint to generate entities pass prompt"""
-    from .step1a import entities_pass_prompt as prompt_handler
+    from .step1 import entities_pass_prompt as prompt_handler
     return prompt_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_execute', methods=['POST'])
 def entities_pass_execute(case_id):
     """API endpoint to execute entities pass extraction"""
-    from .step1a import entities_pass_execute as execute_handler
+    from .step1 import entities_pass_execute as execute_handler
     return execute_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 def step2(case_id):
-    """Route handler for Step 2: Normative Pass for Discussion/Analysis Section"""
+    """Route handler for Step 2: Normative Pass (Principles + Obligations + Constraints) on Facts Section"""
     from .step2 import step2 as step2_handler
     return step2_handler(case_id)
 
@@ -100,6 +106,36 @@ def normative_pass_prompt(case_id):
 def normative_pass_execute(case_id):
     """API endpoint to execute normative pass extraction"""
     from .step2 import normative_pass_execute as execute_handler
+    return execute_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step2/extract', methods=['POST'])
+def step2_extract(case_id):
+    """API endpoint for Step 2 extraction (alias for normative_pass_execute)"""
+    from .step2 import normative_pass_execute as execute_handler
+    return execute_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step3')
+def step3(case_id):
+    """Route handler for Step 3: Behavioral Pass (States + Actions + Events + Capabilities) on Facts Section"""
+    from .step3 import step3 as step3_handler
+    return step3_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/behavioral_pass_prompt', methods=['POST'])
+def behavioral_pass_prompt(case_id):
+    """API endpoint to generate behavioral pass prompt"""
+    from .step3 import behavioral_pass_prompt as prompt_handler
+    return prompt_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/behavioral_pass_execute', methods=['POST'])
+def behavioral_pass_execute(case_id):
+    """API endpoint to execute behavioral pass extraction"""
+    from .step3 import behavioral_pass_execute as execute_handler
+    return execute_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step3/extract', methods=['POST'])
+def step3_extract(case_id):
+    """API endpoint for Step 3 extraction (alias for behavioral_pass_execute)"""
+    from .step3 import behavioral_pass_execute as execute_handler
     return execute_handler(case_id)
 
 # LangExtract routes (archived - will be used in future step)
