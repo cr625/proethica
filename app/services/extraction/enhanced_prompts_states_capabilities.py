@@ -268,7 +268,7 @@ class EnhancedStatesExtractor:
         
         # Try to get existing states from MCP if enabled
         existing_states = []
-        if os.getenv('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true':
+        if True:
             try:
                 from app.services.external_mcp_client import get_external_mcp_client
                 external_client = get_external_mcp_client()

@@ -28,7 +28,12 @@ class ActionsExtractor(Extractor):
 
     def __init__(self, provider: Optional[str] = None) -> None:
         self.provider = (provider or 'auto').lower()
-
+    
+    def _get_prompt_for_preview(self, text: str) -> str:
+        """Get the actual prompt that will be sent to the LLM, including MCP context."""
+        # Always use external MCP (required for system to function)
+        return self._create_actions_prompt_with_mcp(text)
+    
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """Extract actions with atomic concept splitting for compound actions."""
         if not text:
@@ -272,6 +277,90 @@ Return STRICT JSON with array under key 'actions':
             except Exception:
                 return []
         return []
+    
+    def _create_actions_prompt_with_mcp(self, text: str) -> str:
+        """Create enhanced actions prompt with external MCP ontology context."""
+        try:
+            # Import external MCP client
+            from app.services.external_mcp_client import get_external_mcp_client
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            logger.info("Fetching actions context from external MCP server...")
+            
+            external_client = get_external_mcp_client()
+            
+            # Get existing actions from ontology (if available)
+            try:
+                existing_actions = external_client.get_all_action_entities()
+            except AttributeError:
+                # Method might not exist yet in MCP client
+                existing_actions = []
+                logger.warning("MCP client method get_all_action_entities() not found")
+            
+            # Build ontology context
+            ontology_context = "EXISTING ACTIONS IN ONTOLOGY:\n"
+            if existing_actions:
+                ontology_context += f"Found {len(existing_actions)} existing action concepts:\n"
+                for item in existing_actions[:20]:  # Show first 20
+                    label = item.get('label', 'Unknown')
+                    description = item.get('description', 'No description')
+                    ontology_context += f"- {label}: {description}\n"
+                if len(existing_actions) > 20:
+                    ontology_context += f"... and {len(existing_actions) - 20} more\n"
+            else:
+                ontology_context += "No existing actions found in ontology (fresh setup or method not available)\n"
+            
+            logger.info(f"Retrieved {len(existing_actions)} existing actions from external MCP for context")
+            
+            # Create enhanced prompt with ontology context
+            enhanced_prompt = f"""
+{ontology_context}
+
+You are an ontology-aware extractor analyzing an ethics guideline to extract ACTIONS.
+
+IMPORTANT: Consider the existing actions above when extracting. For each action you extract:
+1. Check if it matches an existing action (mark as existing)
+2. If it's genuinely new, mark as new
+3. Provide clear reasoning for why it's new vs existing
+
+FOCUS: Extract performable actions from the professional ethics guideline.
+
+GUIDELINE TEXT:
+{text}
+
+OUTPUT FORMAT:
+Return STRICT JSON with an array under key 'actions':
+[
+  {{
+    "label": "Action name",
+    "description": "Description of the action", 
+    "confidence": 0.8,
+    "is_existing": false,
+    "ontology_match_reasoning": "Reasoning for match or new classification"
+  }}
+]
+
+Focus on accuracy over quantity. Extract only clear, unambiguous actions.
+"""
+            
+            return enhanced_prompt
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to get external MCP context for actions: {e}")
+            logger.info("Falling back to standard actions prompt")
+            # Fall back to non-MCP prompt
+            return f"""
+Extract performable ACTIONS from this ethics guideline.
+
+GUIDELINE TEXT:
+{text}
+
+Return STRICT JSON with array under key 'actions':
+[{{"label": "action", "description": "what this action does", "confidence": 0.8}}]
+"""
 
 
 class SimpleActionMatcher:

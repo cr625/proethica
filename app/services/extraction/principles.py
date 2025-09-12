@@ -77,25 +77,18 @@ class PrinciplesExtractor(Extractor):
         return out
 
     # ---- Provider-backed helpers ----
+    def _get_prompt_for_preview(self, text: str) -> str:
+        """Get the actual prompt that will be sent to the LLM, including MCP context."""
+        # Always use external MCP (required for system to function)
+        return self._create_principles_prompt_with_mcp(text)
+    
     def _extract_with_llm(self, text: str) -> List[Dict[str, Any]]:
         client = get_llm_client() if get_llm_client else None
         if client is None:
             return []
 
-        # Check for external MCP integration
-        import os
-        try:
-            from dotenv import load_dotenv
-            load_dotenv()
-        except ImportError:
-            pass
-            
-        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
-        
-        if use_external_mcp:
-            prompt = self._create_principles_prompt_with_mcp(text)
-        else:
-            prompt = self._create_principles_prompt(text)
+        # Always use external MCP
+        prompt = self._create_principles_prompt_with_mcp(text)
 
         # Gemini
         try:

@@ -55,7 +55,7 @@ class RolesExtractor(Extractor):
             except ImportError:
                 pass
             
-            use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+            use_external_mcp = True== 'true'
             logger.info(f"ENABLE_EXTERNAL_MCP_ACCESS = {os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS')}")
             logger.info(f"Will use external MCP: {use_external_mcp}")
             

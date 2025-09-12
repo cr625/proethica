@@ -145,10 +145,15 @@ class ExternalMCPClient:
     def get_all_principle_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
         """Get all principle entities from external MCP server."""
         try:
-            result = self.get_entities_by_category("principle", domain_id)
-            entities = result.get('entities', [])
-            logger.info(f"Retrieved {len(entities)} principle entities from external MCP")
-            return entities
+            result = self.get_entities_by_category("Principle", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} principle entities from external MCP")
+                return entities
+            else:
+                logger.warning("No principle entities found or query failed")
+                return []
         except Exception as e:
             logger.warning(f"Failed to get principle entities: {e}")
             return []

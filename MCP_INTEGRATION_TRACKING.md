@@ -1,0 +1,107 @@
+# MCP Integration Tracking Document
+
+## Overview
+This document tracks the MCP integration status and patterns that work for ProEthica extractors.
+
+## What Works ✅
+
+### 1. MCP Server Architecture
+- **MCP Server**: Runs on port 8082 (`cd /home/chris/onto/OntServe && python servers/mcp_server.py`)
+- **OntServe Web**: Runs on port 5003 (separate from MCP)
+- **ProEthica**: Runs on port 5000
+
+### 2. Successful MCP Integration Pattern
+
+The working pattern from Roles, States, and Resources extractors:
+
+```python
+def _create_XXX_prompt_with_mcp(self, text: str) -> str:
+    try:
+        from app.services.external_mcp_client import get_external_mcp_client
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Fetching XXX context from external MCP server...")
+        
+        external_client = get_external_mcp_client()
+        existing_entities = external_client.get_all_XXX_entities()
+        
+        # Build context with actual definitions
+        ontology_context = f"Found {len(existing_entities)} existing concepts:\n"
+        for entity in existing_entities:
+            label = entity.get('label', 'Unknown')
+            definition = entity.get('definition', entity.get('description', ''))
+            ontology_context += f"- {label}: {definition}\n"
+        
+        # Include in prompt...
+    except Exception as e:
+        logger.error(f"Failed to get MCP context: {e}")
+        # Fallback to standard prompt
+```
+
+### 3. Verified Working Extractors
+
+| Extractor | MCP Method | Entities Retrieved | Definitions Included |
+|-----------|------------|-------------------|---------------------|
+| **Roles** | `get_all_role_entities()` | 15 | ✅ Dynamic |
+| **States** | `get_all_state_entities()` | 20 | ✅ Dynamic |
+| **Resources** | `get_all_resource_entities()` | 5 | ✅ Dynamic |
+| **Principles** | `get_all_principle_entities()` | 17 | ✅ Dynamic |
+
+## What Doesn't Work ❌
+
+### 1. Enhanced Extractors (Step 2) - FIXED for Principles
+- ✅ `enhanced_prompts_principles.py` - Now fetches MCP data dynamically
+- ⚠️ Other enhanced extractors still need updates
+
+### 2. Missing MCP Methods
+Some extractors call methods that don't exist in `external_mcp_client.py`:
+- `get_all_action_entities()` - needs implementation
+- `get_all_event_entities()` - needs implementation  
+- `get_all_capability_entities()` - needs implementation
+- `get_all_constraint_entities()` - needs implementation
+
+## Pattern to Apply
+
+For each extractor that needs MCP integration:
+
+1. **In main extractor file** (`XXX.py`):
+   - Add `_get_prompt_for_preview()` method
+   - Add `_create_XXX_prompt_with_mcp()` method
+   - Fetch entities using `external_client.get_all_XXX_entities()`
+   - Include FULL definitions in prompt
+
+2. **For enhanced extractors** (Step 2):
+   - Update to fetch MCP data directly
+   - Pass definitions to prompt generator
+   - Ensure definitions are included in prompt
+
+## Testing Pattern
+
+```python
+# Quick test script
+from app.services.extraction.XXX import XXXExtractor
+extractor = XXXExtractor()
+prompt = extractor._get_prompt_for_preview("test text")
+print("MCP integrated:" if "EXISTING" in prompt else "No MCP")
+print(f"Prompt length: {len(prompt)}")
+```
+
+## Key Insights
+
+1. **Definitions are critical**: The LLM needs the actual definitions, not just labels
+2. **Dynamic fetching**: Definitions must come from MCP server at runtime
+3. **Graceful fallback**: Always have fallback if MCP unavailable
+4. **Count verification**: Dynamic counts prove MCP integration is working
+
+## Next Steps
+
+1. ✅ Roles - Complete
+2. ✅ States - Complete  
+3. ✅ Resources - Complete
+4. ✅ **Principles** - Complete (17 entities, both extractors working)
+5. ⚠️ Obligations - Need to verify/update
+6. ⚠️ Actions - Missing MCP method
+7. ⚠️ Events - Missing MCP method
+8. ⚠️ Capabilities - Missing MCP method
+9. ⚠️ Constraints - Missing MCP method

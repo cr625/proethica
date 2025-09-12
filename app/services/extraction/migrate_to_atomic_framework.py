@@ -167,7 +167,7 @@ class {class_name}(Extractor, AtomicExtractionMixin):
         except ImportError:
             pass
             
-        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+        use_external_mcp = True== 'true'
         
         if use_external_mcp:
             prompt = self._create_{concept_type}_prompt_with_mcp(text)

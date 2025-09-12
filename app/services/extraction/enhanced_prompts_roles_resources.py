@@ -47,8 +47,8 @@ def get_enhanced_roles_prompt(text: str, include_mcp_context: bool = False, exis
         }
         
         mcp_context = f"""
-EXISTING ROLES IN ONTOLOGY:
-The professional ethics ontology contains {len(unique_roles)} established role concepts that should be considered during extraction:
+EXISTING ROLES IN ONTOLOGY ({len(unique_roles)} total):
+The following {len(unique_roles)} roles are already defined in the professional ethics ontology. Check against these FIRST before creating new roles:
 
 """
         # Group roles by hierarchy for better organization
@@ -78,116 +78,109 @@ The professional ethics ontology contains {len(unique_roles)} established role c
                 engineering_roles.append((label, description))
         
         # Display in organized hierarchy - ALL roles
+        role_count = 0
         if base_roles:
-            mcp_context += "BASE CONCEPTS:\n"
+            mcp_context += f"BASE CONCEPTS ({len(base_roles)} roles):\n"
             for label, desc in base_roles:
                 # Show full descriptions for important concepts
                 mcp_context += f"- **{label}**: {desc}\n"
+                role_count += 1
             mcp_context += "\n"
         
         if professional_categories:
-            mcp_context += "PROFESSIONAL ROLE CATEGORIES:\n"
+            mcp_context += f"PROFESSIONAL ROLE CATEGORIES ({len(professional_categories)} roles):\n"
             for label, desc in professional_categories:
                 mcp_context += f"- **{label}**: {desc}\n"
+                role_count += 1
             mcp_context += "\n"
         
         if specific_professional_roles:
-            mcp_context += "SPECIFIC PROFESSIONAL ROLE TYPES (Kong et al. 2020 Framework):\n"
+            mcp_context += f"SPECIFIC PROFESSIONAL ROLE TYPES from Kong et al. 2020 ({len(specific_professional_roles)} roles):\n"
             for label, desc in specific_professional_roles:
                 mcp_context += f"- **{label}**: {desc}\n"
+                role_count += 1
             mcp_context += "\n"
         
         if participant_roles:
-            mcp_context += "PARTICIPANT/STAKEHOLDER ROLES:\n"
+            mcp_context += f"PARTICIPANT/STAKEHOLDER ROLES ({len(participant_roles)} roles):\n"
             for label, desc in participant_roles:
                 mcp_context += f"- **{label}**: {desc}\n"
+                role_count += 1
             mcp_context += "\n"
         
         if engineering_roles:
-            mcp_context += "DOMAIN-SPECIFIC ENGINEERING ROLES:\n"
+            mcp_context += f"DOMAIN-SPECIFIC ENGINEERING ROLES ({len(engineering_roles)} roles):\n"
             for label, desc in engineering_roles:
                 mcp_context += f"- **{label}**: {desc}\n"
+                role_count += 1
             mcp_context += "\n"
         
-        mcp_context += """EXTRACTION GUIDANCE: 
-When identifying roles in the text:
-1. First check if they match any of the existing role concepts above
-2. Consider which category from Kong et al. (2020) framework they fit:
+        mcp_context += f"""
+IMPORTANT EXTRACTION RULES:
+1. **ALWAYS CHECK EXISTING ROLES FIRST** - Compare each role you find against ALL {len(unique_roles)} roles listed above
+2. **USE is_existing: true** - If the role matches or is a specific instance of any role above
+3. **USE is_existing: false** - ONLY if the role is genuinely novel and not covered by existing concepts
+4. **Match liberally** - "Environmental Engineer" matches existing "Engineer Role", "Client W" matches "Provider-Client Role"
+5. **Use Kong et al. (2020) categories** - Every role should fit one of these four:
    - Provider-Client (service delivery relationships)
-   - Professional Peer (collegial relationships)
+   - Professional Peer (collegial relationships)  
    - Employer Relationship (organizational relationships)
    - Public Responsibility (societal obligations)
-3. Mark roles as 'existing' if they match, or 'new' if they represent genuinely novel role concepts not captured in the ontology
+
+Example matching:
+- "Engineer A" → matches "Engineer Role" (is_existing: true)
+- "Client W" → matches "Provider-Client Role" (is_existing: true)
+- "Mentor Engineer B" → matches "Professional Peer Role" (is_existing: true)
+- "Environmental Engineer" → matches "Engineer Role" (is_existing: true)
 """
     
     return f"""
 {mcp_context}
 
-You are analyzing an ethics guideline to extract PROFESSIONAL ROLES based on the ProEthica 9-concept formalism and Chapter 2 literature review.
+TASK: Extract all PROFESSIONAL ROLES from the guideline text using the ProEthica formalism.
 
-THEORETICAL FRAMEWORK (Chapter 2 Literature):
+KEY PRINCIPLE: Roles are obligation-generating entities that function as ethical filters (Dennis et al. 2016).
 
-Professional roles create distinctive ethical obligations tied to professional goals and practices. According to role function theory:
-- Professional roles generate peculiar moral demands and role-generated sensitivities (Oakley & Cocking 2001)
-- Roles function as filters determining which obligations apply in specific contexts (Dennis et al. 2016)
-- Professional identity enables navigation between personal standards and institutional obligations (Kong et al. 2020)
+KONG ET AL. (2020) FRAMEWORK - All roles must fit ONE of these:
 
-CORE ROLE CATEGORIES TO IDENTIFY:
+1. **Provider-Client** → Service delivery relationships (Engineer-Client)
+   - Duties: Competent service, confidentiality, client welfare
+   
+2. **Professional Peer** → Collegial relationships (Senior-Junior, Mentor-Mentee)
+   - Duties: Peer review, mentoring, knowledge sharing
+   
+3. **Employer Relationship** → Organizational relationships (Employee-Employer)
+   - Duties: Loyalty, competent performance, honest reporting
+   
+4. **Public Responsibility** → Societal obligations (Engineer-Public)
+   - Duties: Public welfare paramount, can override other interests
 
-1. **Provider-Client Roles**
-   - Definition: Relationships between service providers and their clients
-   - Creates duties: Competent service delivery, confidentiality, client welfare
-   - Functions as: Ethical filter for managing conflicts between client desires and professional standards
-   - Example: Engineer-Client, Doctor-Patient, Lawyer-Client relationships
-
-2. **Professional Peer Roles**
-   - Definition: Relationships between practitioners within the same professional domain
-   - Creates obligations: Peer review, professional development, knowledge sharing, standard maintenance
-   - Functions as: Filter balancing individual interests with collective professional integrity
-   - Example: Senior Engineer-Junior Engineer, Medical Peer Review, Professional Mentor
-
-3. **Employer Relationship Roles**
-   - Definition: Relationships between professionals and their employing organizations
-   - Creates duties: Loyalty, competent performance, honest reporting while maintaining independence
-   - Functions as: Ethical filter managing institutional pressures against professional obligations
-   - Example: Employee Engineer, Corporate Professional, Staff Professional
-
-4. **Public Responsibility Roles**
-   - Definition: Obligations to the broader public and society
-   - Creates duties: Public welfare protection extending beyond immediate clients/employers
-   - Functions as: Ethical filter that can override client/employer interests for public welfare
-   - Example: Public Safety Engineer, Environmental Protection Professional
-
-EXTRACTION GUIDELINES:
-
-- Focus on roles that create distinctive professional obligations
-- Consider how roles function as ethical filters in professional contexts
-- Identify both formal positions and relational roles
-- Link roles to their obligation-generating capacity
-- Consider role conflicts and hierarchies in professional practice
+EXTRACTION PROCESS:
+1. Identify all roles mentioned (explicit or implied)
+2. Match against existing ontology roles (use is_existing: true/false)
+3. Categorize using Kong framework (required for all roles)
+4. Identify obligations generated by each role
+5. Note role conflicts if present
 
 GUIDELINE TEXT:
 {text}
 
-OUTPUT FORMAT:
-Return a JSON array with this structure:
+OUTPUT: JSON array with ALL roles found:
 [
   {{
-    "label": "Senior Engineering Professional",
-    "description": "Professional engineer with supervisory responsibilities and obligation to mentor junior professionals",
+    "label": "Environmental Engineer",  // Role name from text
+    "description": "Licensed engineer specializing in environmental impact assessment",
     "type": "role",
-    "role_category": "professional_peer",  // One of: provider_client, professional_peer, employer_relationship, public_responsibility
-    "obligations_generated": ["Mentoring duty", "Technical review responsibility", "Professional development of team"],
-    "ethical_filter_function": "Balances technical excellence with team development obligations",
-    "text_references": ["specific quote from text showing this role"],
-    "theoretical_grounding": "Professional peer role creating mentoring obligations (Dennis et al. 2016)",
-    "importance": "high",
-    "is_existing": false,
-    "ontology_match_reasoning": "More specific than general EngineeringRole in ontology"
+    "role_category": "provider_client",  // REQUIRED: provider_client|professional_peer|employer_relationship|public_responsibility
+    "obligations_generated": ["Environmental protection", "Accurate reporting", "Public safety"],
+    "text_references": ["Engineer A, an environmental engineer"],  // Quote from text
+    "importance": "high",  // high|medium|low based on centrality to case
+    "is_existing": true,  // true if matches ontology role, false if novel
+    "ontology_match": "Engineer Role"  // Which ontology role it matches (if is_existing: true)
   }}
 ]
 
-Focus on identifying roles that generate distinctive professional obligations rather than merely listing job titles.
+REMEMBER: Check ALL roles against the existing ontology roles listed above FIRST!
 """
 
 

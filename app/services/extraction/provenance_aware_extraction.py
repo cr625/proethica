@@ -181,7 +181,7 @@ class ProvenanceAwareExtractor:
     def _is_mcp_enabled(self) -> bool:
         """Check if MCP context is enabled."""
         import os
-        return os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
+        return True
     
     def _serialize_candidates(self, candidates: List[ConceptCandidate]) -> List[Dict]:
         """Convert ConceptCandidate objects to serializable dictionaries."""

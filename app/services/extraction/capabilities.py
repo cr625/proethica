@@ -27,7 +27,11 @@ class CapabilitiesExtractor(Extractor):
 
     def __init__(self, provider: Optional[str] = None) -> None:
         self.provider = (provider or 'auto').lower()
-
+    
+    def _get_prompt_for_preview(self, text: str) -> str:
+        """Get the actual prompt that will be sent to the LLM, including MCP context."""
+        # Always use external MCP (required for system to function)
+        return self._create_capabilities_prompt_with_mcp(text)
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """Extract capabilities with atomic concept splitting."""
         if not text:
@@ -237,6 +241,57 @@ Return JSON: [{{"label": "capability", "description": "description", "confidence
             return obj.get(root_key, [])
         except Exception:
             return []
+    
+    def _create_capabilities_prompt_with_mcp(self, text: str) -> str:
+        """Create enhanced capabilities prompt with external MCP ontology context."""
+        try:
+            from app.services.external_mcp_client import get_external_mcp_client
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            logger.info("Fetching capabilities context from external MCP server...")
+            
+            external_client = get_external_mcp_client()
+            
+            try:
+                existing_capabilities = external_client.get_all_capability_entities()
+            except AttributeError:
+                existing_capabilities = []
+                logger.warning("MCP client method get_all_capability_entities() not found")
+            
+            ontology_context = "EXISTING CAPABILITIES IN ONTOLOGY:\n"
+            if existing_capabilities:
+                ontology_context += f"Found {len(existing_capabilities)} existing capability concepts:\n"
+                for item in existing_capabilities[:20]:
+                    label = item.get('label', 'Unknown')
+                    description = item.get('description', 'No description')
+                    ontology_context += f"- {label}: {description}\n"
+            else:
+                ontology_context += "No existing capabilities found in ontology\n"
+            
+            logger.info(f"Retrieved {len(existing_capabilities)} existing capabilities from external MCP for context")
+            
+            enhanced_prompt = f"""
+{ontology_context}
+
+You are an ontology-aware extractor analyzing an ethics guideline to extract CAPABILITIES.
+
+FOCUS: Extract professional capabilities and competencies required.
+
+GUIDELINE TEXT:
+{text}
+
+OUTPUT FORMAT:
+Return STRICT JSON with an array under key 'capabilities':
+[{{"label": "Capability name", "description": "Description", "confidence": 0.8}}]
+"""
+            return enhanced_prompt
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to get external MCP context for capabilities: {e}")
+            return f"Extract capabilities from: {text}"
 
 
 class SimpleCapabilityMatcher:

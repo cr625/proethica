@@ -99,7 +99,7 @@ class EnhancedPrinciplesExtractor:
                 self.provenance_service.record_error(activity, str(e))
             return []
     
-    def _generate_enhanced_prompt(self, text: str, include_mcp_context: bool = False, 
+    def _generate_enhanced_prompt(self, text: str, include_mcp_context: bool = True, 
                                     existing_principles: list = None) -> str:
         """
         Generate an enhanced prompt based on Chapter 2.2.2 literature insights.
@@ -114,17 +114,41 @@ class EnhancedPrinciplesExtractor:
         - Segun (2021): Principles resist formal specification
         """
         
+        # Fetch MCP data dynamically if not provided
         mcp_context = ""
-        if include_mcp_context and existing_principles:
-            mcp_context = f"""
+        if include_mcp_context:
+            try:
+                # If existing_principles not provided, fetch from MCP server
+                if existing_principles is None:
+                    from app.services.external_mcp_client import get_external_mcp_client
+                    import logging
+                    
+                    logger = logging.getLogger(__name__)
+                    logger.info("Fetching principles context from external MCP server...")
+                    
+                    external_client = get_external_mcp_client()
+                    existing_principles = external_client.get_all_principle_entities()
+                    logger.info(f"Retrieved {len(existing_principles)} existing principles from MCP")
+                
+                # Build MCP context with full definitions
+                if existing_principles:
+                    mcp_context = f"""
 EXISTING PRINCIPLES IN ONTOLOGY:
 Found {len(existing_principles)} existing principle concepts in the professional ethics ontology:
 """
-            for principle in existing_principles[:10]:  # Show first 10 for context
-                label = principle.get('label', 'Unknown')
-                description = principle.get('description', 'No description')
-                mcp_context += f"- {label}: {description}\n"
-            mcp_context += "\nConsider these when extracting new principles - identify if principles match existing concepts or are genuinely new.\n"
+                    # Include ALL principles with their full definitions
+                    for principle in existing_principles:
+                        label = principle.get('label', 'Unknown')
+                        definition = principle.get('definition', principle.get('description', 'No description'))
+                        mcp_context += f"- **{label}**: {definition}\n"
+                    
+                    mcp_context += "\nConsider these when extracting new principles - identify if principles match existing concepts or are genuinely new.\n"
+                else:
+                    mcp_context = "No existing principles found in ontology (fresh setup)\n"
+                    
+            except Exception as e:
+                logger.error(f"Failed to get MCP context for principles: {e}")
+                mcp_context = "// MCP server unavailable - proceeding without ontology context\n"
         
         prompt = f"""{mcp_context}
 

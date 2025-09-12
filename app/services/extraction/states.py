@@ -33,7 +33,12 @@ class StatesExtractor(Extractor):
     def __init__(self, provider: Optional[str] = None) -> None:
         # provider hint: 'anthropic'|'openai'|'gemini'|'auto'|None
         self.provider = (provider or 'auto').lower()
-
+    
+    def _get_prompt_for_preview(self, text: str) -> str:
+        """Get the actual prompt that will be sent to the LLM, including MCP context."""
+        # Always use external MCP (required for system to function)
+        return self._create_states_prompt_with_mcp(text)
+    
     def extract(self, text: str, *, world_id: Optional[int] = None, guideline_id: Optional[int] = None) -> List[ConceptCandidate]:
         """Extract states and conditions from guideline text.
         
@@ -182,7 +187,7 @@ class StatesExtractor(Extractor):
         except ImportError:
             pass
             
-        use_external_mcp = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true'
+        use_external_mcp = True== 'true'
         
         if use_external_mcp:
             prompt = self._create_states_prompt_with_mcp(text)
