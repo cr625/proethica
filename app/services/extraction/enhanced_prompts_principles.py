@@ -243,6 +243,12 @@ Focus on identifying principles that serve as abstract ethical foundations requi
             
             response = response_text
             
+            # Extract JSON from response (LLM might include extra text)
+            import re
+            json_match = re.search(r'\[.*\]', response, re.DOTALL)
+            if json_match:
+                response = json_match.group(0)
+            
             # Parse JSON response
             principles = json.loads(response)
             
@@ -306,12 +312,16 @@ Focus on identifying principles that serve as abstract ethical foundations requi
             logger.error(f"LLM extraction failed: {str(e)}")
             return self._fallback_extraction(text)
     
-    def _fallback_extraction(self, text: str) -> List[ConceptCandidate]:
+    def _fallback_extraction(self, text) -> List[ConceptCandidate]:
         """
         Fallback heuristic extraction when LLM is unavailable.
         Based on common principle keywords from professional codes.
         """
         import re
+        
+        # Convert text to string if it's not already
+        if not isinstance(text, str):
+            text = str(text)
         
         # Keywords from NSPE and other professional codes
         principle_patterns = [

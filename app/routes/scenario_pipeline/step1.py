@@ -119,8 +119,20 @@ def entities_pass_prompt(case_id):
         roles_prompt = roles_extractor._get_prompt_for_preview(section_text)
         resources_prompt = resources_extractor._get_prompt_for_preview(section_text)
         
-        # Get the enhanced states prompt with ontology context if available
-        states_prompt = create_enhanced_states_prompt(section_text, include_ontology_context=True)
+        # Get existing states from MCP if available
+        existing_states = []
+        import os
+        if os.getenv('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true':
+            try:
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_states = external_client.get_all_state_entities()
+                logger.info(f"Retrieved {len(existing_states)} existing states from MCP for prompt preview")
+            except Exception as e:
+                logger.warning(f"Could not fetch existing states for prompt preview: {e}")
+        
+        # Get the enhanced states prompt with ontology context and existing states
+        states_prompt = create_enhanced_states_prompt(section_text, include_ontology_context=True, existing_states=existing_states)
         
         return jsonify({
             'success': True,

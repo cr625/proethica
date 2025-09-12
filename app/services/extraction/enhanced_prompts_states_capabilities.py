@@ -283,35 +283,66 @@ class EnhancedStatesExtractor:
         # Call LLM if available
         if self.llm_client:
             try:
-                # Track LLM call in provenance if activity provided
+                # Record the prompt if provenance tracking is active
+                prompt_entity = None
                 if self.provenance_service and activity:
-                    self.provenance_service.track_llm_call(
-                        prompt=prompt[:500],
-                        provider='claude',
-                        model='claude-3',
-                        activity=activity
+                    prompt_entity = self.provenance_service.record_prompt(
+                        prompt_text=prompt[:500],
+                        activity=activity,
+                        entity_name="extraction_prompt",
+                        metadata={
+                            'extraction_type': 'states_or_capabilities',
+                            'prompt_length': len(prompt)
+                        }
                     )
                 
-                response = self.llm_client.chat.completions.create(
-                    model="claude-3-sonnet-20240229",
-                    messages=[
-                        {"role": "system", "content": "You are an expert in environmental context and state classification in professional ethics."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.2,
-                    max_tokens=2000
-                )
+                # Check which type of client we have and use appropriate API
+                if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
+                    # Anthropic client
+                    response = self.llm_client.messages.create(
+                        model="claude-3-5-sonnet-20241022",
+                        max_tokens=2000,
+                        messages=[{
+                            "role": "user",
+                            "content": prompt
+                        }]
+                    )
+                    response_text = response.content[0].text if response.content else ""
+                elif hasattr(self.llm_client, 'chat') and hasattr(self.llm_client.chat, 'completions'):
+                    # OpenAI client
+                    response = self.llm_client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are an expert in environmental context and state classification in professional ethics."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.2,
+                        max_tokens=2000
+                    )
+                    response_text = response.choices[0].message.content
+                else:
+                    raise ValueError("Unknown LLM client type")
                 
                 # Parse response
                 import json
-                response_text = response.choices[0].message.content
                 
-                # Track response in provenance
+                # Record response in provenance
                 if self.provenance_service and activity:
-                    self.provenance_service.track_llm_response(
-                        response=response_text[:500],
-                        tokens_used=response.usage.total_tokens if hasattr(response, 'usage') else 0,
-                        activity=activity
+                    # Calculate token usage based on client type
+                    tokens_used = 0
+                    if hasattr(response, 'usage'):
+                        tokens_used = response.usage.total_tokens if hasattr(response.usage, 'total_tokens') else 0
+                    
+                    response_entity = self.provenance_service.record_response(
+                        response_text=response_text[:500],
+                        prompt_entity=prompt_entity,
+                        activity=activity,
+                        entity_name="extraction_response",
+                        metadata={
+                            'extraction_type': 'states_or_capabilities',
+                            'response_length': len(response_text),
+                            'tokens_used': tokens_used
+                        }
                     )
                 
                 # Extract JSON from response
@@ -344,6 +375,10 @@ class EnhancedStatesExtractor:
     def _fallback_extraction(self, text):
         """Simple fallback extraction based on state keywords."""
         from app.services.extraction.base import ConceptCandidate
+        
+        # Ensure text is a string
+        if not isinstance(text, str):
+            text = str(text)
         
         state_keywords = ['conflict of interest', 'emergency', 'crisis', 'risk', 
                          'competent', 'qualified', 'confidential', 'relationship']
@@ -383,35 +418,66 @@ class EnhancedCapabilitiesExtractor:
         # Call LLM if available
         if self.llm_client:
             try:
-                # Track LLM call in provenance if activity provided
+                # Record the prompt if provenance tracking is active
+                prompt_entity = None
                 if self.provenance_service and activity:
-                    self.provenance_service.track_llm_call(
-                        prompt=prompt[:500],
-                        provider='claude',
-                        model='claude-3',
-                        activity=activity
+                    prompt_entity = self.provenance_service.record_prompt(
+                        prompt_text=prompt[:500],
+                        activity=activity,
+                        entity_name="extraction_prompt",
+                        metadata={
+                            'extraction_type': 'states_or_capabilities',
+                            'prompt_length': len(prompt)
+                        }
                     )
                 
-                response = self.llm_client.chat.completions.create(
-                    model="claude-3-sonnet-20240229",
-                    messages=[
-                        {"role": "system", "content": "You are an expert in professional competencies and capability assessment."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.2,
-                    max_tokens=2000
-                )
+                # Check which type of client we have and use appropriate API
+                if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
+                    # Anthropic client
+                    response = self.llm_client.messages.create(
+                        model="claude-3-5-sonnet-20241022",
+                        max_tokens=2000,
+                        messages=[{
+                            "role": "user",
+                            "content": prompt
+                        }]
+                    )
+                    response_text = response.content[0].text if response.content else ""
+                elif hasattr(self.llm_client, 'chat') and hasattr(self.llm_client.chat, 'completions'):
+                    # OpenAI client
+                    response = self.llm_client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are an expert in professional competencies and capability assessment."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.2,
+                        max_tokens=2000
+                    )
+                    response_text = response.choices[0].message.content
+                else:
+                    raise ValueError("Unknown LLM client type")
                 
                 # Parse response
                 import json
-                response_text = response.choices[0].message.content
                 
-                # Track response in provenance
+                # Record response in provenance
                 if self.provenance_service and activity:
-                    self.provenance_service.track_llm_response(
-                        response=response_text[:500],
-                        tokens_used=response.usage.total_tokens if hasattr(response, 'usage') else 0,
-                        activity=activity
+                    # Calculate token usage based on client type
+                    tokens_used = 0
+                    if hasattr(response, 'usage'):
+                        tokens_used = response.usage.total_tokens if hasattr(response.usage, 'total_tokens') else 0
+                    
+                    response_entity = self.provenance_service.record_response(
+                        response_text=response_text[:500],
+                        prompt_entity=prompt_entity,
+                        activity=activity,
+                        entity_name="extraction_response",
+                        metadata={
+                            'extraction_type': 'states_or_capabilities',
+                            'response_length': len(response_text),
+                            'tokens_used': tokens_used
+                        }
                     )
                 
                 # Extract JSON from response
@@ -444,6 +510,10 @@ class EnhancedCapabilitiesExtractor:
     def _fallback_extraction(self, text):
         """Simple fallback extraction based on capability keywords."""
         from app.services.extraction.base import ConceptCandidate
+        
+        # Ensure text is a string
+        if not isinstance(text, str):
+            text = str(text)
         
         capability_keywords = ['competence', 'skill', 'ability', 'expertise', 
                               'knowledge', 'judgment', 'experience', 'qualification']

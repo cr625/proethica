@@ -123,7 +123,7 @@ def normative_pass_prompt(case_id):
         logger.info(f"Generating normative pass prompt for case {case_id}")
         
         # Use enhanced principles prompt from Chapter 2 literature
-        principles_prompt = create_enhanced_principles_prompt(section_text, include_ontology_context=True)
+        principles_prompt = create_enhanced_principles_prompt(section_text, include_mcp_context=True)
 
         obligations_prompt = f"""Extract professional obligations and duties from the following discussion/analysis text.
 

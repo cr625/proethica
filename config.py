@@ -33,6 +33,10 @@ class Config:
     # LangExtract
     USE_DATABASE_LANGEXTRACT_EXAMPLES = os.environ.get('USE_DATABASE_LANGEXTRACT_EXAMPLES', 'true').lower() == 'true'
     ENABLE_ONTOLOGY_DRIVEN_LANGEXTRACT = os.environ.get('ENABLE_ONTOLOGY_DRIVEN_LANGEXTRACT', 'true').lower() == 'true'
+    
+    # MCP Integration - Default to enabled for external MCP access
+    ENABLE_EXTERNAL_MCP_ACCESS = os.environ.get('ENABLE_EXTERNAL_MCP_ACCESS', 'true').lower() == 'true'
+    ONTSERVE_MCP_URL = os.environ.get('ONTSERVE_MCP_URL', 'http://localhost:8082')
 
 
 class DevelopmentConfig(Config):

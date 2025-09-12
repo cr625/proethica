@@ -31,43 +31,10 @@
         
         <!-- Normative Requirements Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
-            <button id="normativePassBtn" class="btn btn-primary btn-lg">
-                <i class="bi bi-arrow-right-circle"></i> Run Normative Requirements Pass
+            <button id="normativePassBtn" class="btn btn-primary btn-lg" onclick="showPrompt()">
+                <i class="bi bi-arrow-right-circle"></i> Normative Requirements Pass
                 <small class="d-block">Extract Principles + Obligations + Constraints + Capabilities</small>
             </button>
-        </div>
-        
-        <!-- Results Container -->
-        <div id="normativeResults" style="display: none;">
-            <div class="alert alert-success mb-3">
-                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Normative Requirements Pass Complete</h5>
-                <hr>
-                <div id="extractionSummary"></div>
-            </div>
-            
-            <!-- Principles Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-stars"></i> Principles</h5>
-                <div id="principlesResults" class="results-container"></div>
-            </div>
-            
-            <!-- Obligations Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-shield-check"></i> Obligations</h5>
-                <div id="obligationsResults" class="results-container"></div>
-            </div>
-            
-            <!-- Constraints Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-exclamation-triangle"></i> Constraints</h5>
-                <div id="constraintsResults" class="results-container"></div>
-            </div>
-            
-            <!-- Capabilities Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-gear"></i> Capabilities</h5>
-                <div id="capabilitiesResults" class="results-container"></div>
-            </div>
         </div>
         
         {% else %}
@@ -76,6 +43,99 @@
             No discussion/analysis section found in this case. Using available section.
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- LLM Prompt Display (Hidden initially) -->
+<div id="promptCard" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-cpu"></i> LLM Prompt Preview
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-warning mb-3">
+            <i class="bi bi-info-circle"></i>
+            This is the prompt that will be sent to the LLM for normative requirements extraction:
+        </div>
+        
+        <div id="promptContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generating prompt...</span>
+                </div>
+                <span class="ms-2">Generating prompt...</span>
+            </div>
+        </div>
+        
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3" id="executeButtonContainer" style="display: none;">
+            <button id="executeBtn" class="btn btn-success btn-lg" onclick="executeNormativePass()">
+                <i class="bi bi-play-circle"></i> Execute Normative Requirements Pass
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Raw Response Display (Hidden initially) -->
+<div id="responseCard" class="step-card response-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-code-square"></i> LLM Response
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-success mb-3">
+            <i class="bi bi-check-circle"></i>
+            Raw response from the LLM normative extraction:
+        </div>
+        <div id="responseContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Extracting normative requirements...</span>
+                </div>
+                <span class="ms-2">Extracting normative requirements...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Display (Hidden initially) -->
+<div id="normativeResults" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-check-circle"></i> Normative Requirements Pass Results
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-success mb-3">
+            <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Normative Requirements Pass Complete</h5>
+            <hr>
+            <div id="extractionSummary"></div>
+        </div>
+        
+        <!-- Principles Results -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-stars"></i> Principles</h5>
+            <div id="principlesResults" class="results-container"></div>
+        </div>
+        
+        <!-- Obligations Results -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-shield-check"></i> Obligations</h5>
+            <div id="obligationsResults" class="results-container"></div>
+        </div>
+        
+        <!-- Constraints Results -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-exclamation-triangle"></i> Constraints</h5>
+            <div id="constraintsResults" class="results-container"></div>
+        </div>
+        
+        <!-- Capabilities Results -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-gear"></i> Capabilities</h5>
+            <div id="capabilitiesResults" class="results-container"></div>
+        </div>
     </div>
 </div>
 
@@ -120,6 +180,57 @@
         opacity: 0.6;
         cursor: not-allowed;
     }
+
+    /* Prompt Display Styling */
+    .prompt-section {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #fff;
+        border-left: 3px solid #ffc107;
+        border-radius: 0.25rem;
+    }
+
+    .prompt-section h6 {
+        color: #495057;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        max-height: 250px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    /* Response Card Styling */
+    .response-card {
+        border: 2px solid #28a745;
+    }
+
+    .response-card .step-header {
+        background-color: #d4edda;
+        border-bottom: 2px solid #28a745;
+    }
+
+    .response-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #ffffff;
+        border: 1px solid #28a745;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
     
     .results-section {
         background: white;
@@ -160,141 +271,293 @@
         color: #999;
         margin-top: 0.5rem;
     }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .summary-stats {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .summary-stats .stat {
+        display: inline-block;
+        margin-right: 2rem;
+        font-weight: 600;
+    }
 </style>
 {% endblock %}
 
 {% block step_scripts %}
 <script>
+let currentSectionText = '';
+
+// Initialize section text
 document.addEventListener('DOMContentLoaded', function() {
-    const normativePassBtn = document.getElementById('normativePassBtn');
-    const normativeResults = document.getElementById('normativeResults');
-    const extractionSummary = document.getElementById('extractionSummary');
-    const principlesResults = document.getElementById('principlesResults');
-    const obligationsResults = document.getElementById('obligationsResults');
-    const constraintsResults = document.getElementById('constraintsResults');
-    const capabilitiesResults = document.getElementById('capabilitiesResults');
-    
-    if (normativePassBtn) {
-        normativePassBtn.addEventListener('click', async function() {
-            // Disable button and show loading state
-            normativePassBtn.disabled = true;
-            normativePassBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Extracting...';
-            
-            try {
-                // Get CSRF token
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                
-                // Call the extraction endpoint
-                const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Display results
-                displayResults(data);
-                
-            } catch (error) {
-                console.error('Error during normative pass:', error);
-                alert('Error during extraction: ' + error.message);
-            } finally {
-                // Re-enable button
-                normativePassBtn.disabled = false;
-                normativePassBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Run Normative Requirements Pass<small class="d-block">Extract Principles + Obligations + Constraints + Capabilities</small>';
-            }
-        });
-    }
-    
-    function displayResults(data) {
-        // Show results container
-        normativeResults.style.display = 'block';
-        
-        // Display summary
-        const principleCount = data.principles ? data.principles.length : 0;
-        const obligationCount = data.obligations ? data.obligations.length : 0;
-        const constraintCount = data.constraints ? data.constraints.length : 0;
-        const capabilityCount = data.capabilities ? data.capabilities.length : 0;
-        
-        extractionSummary.innerHTML = `
-            <p class="mb-0">
-                Extracted <strong>${principleCount} Principles</strong>, 
-                <strong>${obligationCount} Obligations</strong>, 
-                <strong>${constraintCount} Constraints</strong>, and
-                <strong>${capabilityCount} Capabilities</strong>
-            </p>
-            ${data.provenance_url ? `<p class="mb-0 mt-2"><a href="${data.provenance_url}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-diagram-3"></i> View Provenance</a></p>` : ''}
-        `;
-        
-        // Display principles
-        displayConcepts(principlesResults, data.principles, 'principle');
-        
-        // Display obligations
-        displayConcepts(obligationsResults, data.obligations, 'obligation');
-        
-        // Display constraints
-        displayConcepts(constraintsResults, data.constraints, 'constraint');
-        
-        // Display capabilities
-        displayConcepts(capabilitiesResults, data.capabilities, 'capability');
-        
-        // Scroll to results
-        normativeResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-    
-    function displayConcepts(container, concepts, type) {
-        if (!concepts || concepts.length === 0) {
-            container.innerHTML = '<p class="text-muted">No ' + type + 's extracted</p>';
-            return;
-        }
-        
-        const html = concepts.map(concept => {
-            let borderColor = '#007bff';
-            if (type === 'principle') borderColor = '#28a745';
-            else if (type === 'obligation') borderColor = '#ffc107';
-            else if (type === 'constraint') borderColor = '#dc3545';
-            else if (type === 'capability') borderColor = '#17a2b8';
-            
-            let metadata = '';
-            if (concept.debug) {
-                if (concept.debug.principle_category) {
-                    metadata += `<span class="badge bg-secondary me-1">${concept.debug.principle_category}</span>`;
-                }
-                if (concept.debug.obligation_type) {
-                    metadata += `<span class="badge bg-warning text-dark me-1">${concept.debug.obligation_type}</span>`;
-                }
-                if (concept.debug.constraint_type) {
-                    metadata += `<span class="badge bg-danger me-1">${concept.debug.constraint_type}</span>`;
-                }
-                if (concept.debug.capability_type) {
-                    metadata += `<span class="badge bg-info me-1">${concept.debug.capability_type}</span>`;
-                }
-                if (concept.debug.importance) {
-                    metadata += `<span class="badge bg-info me-1">Importance: ${concept.debug.importance}</span>`;
-                }
-                if (concept.confidence) {
-                    metadata += `<span class="badge bg-light text-dark">Confidence: ${(concept.confidence * 100).toFixed(0)}%</span>`;
-                }
-            }
-            
-            return `
-                <div class="concept-item" style="border-left-color: ${borderColor}">
-                    <div class="concept-label">${concept.label}</div>
-                    <div class="concept-description">${concept.description}</div>
-                    ${metadata ? `<div class="concept-metadata">${metadata}</div>` : ''}
-                </div>
-            `;
-        }).join('');
-        
-        container.innerHTML = html;
+    const discussionTextElement = document.querySelector('.discussion-text');
+    if (discussionTextElement) {
+        currentSectionText = discussionTextElement.textContent.trim();
     }
 });
+
+function showPrompt() {
+    const promptCard = document.getElementById('promptCard');
+    const normativeBtn = document.getElementById('normativePassBtn');
+    
+    // Disable the button and show loading
+    normativeBtn.disabled = true;
+    normativeBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompt...';
+    
+    // Show prompt card
+    promptCard.style.display = 'block';
+    promptCard.scrollIntoView({ behavior: 'smooth' });
+    
+    // Fetch the prompt from the server
+    fetch(`{{ url_for('scenario_pipeline.normative_pass_prompt', case_id=case.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            section_text: currentSectionText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayPrompt(data);
+            // Show execute button
+            document.getElementById('executeButtonContainer').style.display = 'block';
+        } else {
+            displayError('Error generating prompt: ' + data.error);
+        }
+    })
+    .catch(error => {
+        displayError('Network error: ' + error.message);
+    })
+    .finally(() => {
+        // Re-enable the button
+        normativeBtn.disabled = false;
+        normativeBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Normative Requirements Pass <small class="d-block">Extract Principles + Obligations + Constraints + Capabilities</small>';
+    });
+}
+
+function displayPrompt(data) {
+    const content = document.getElementById('promptContent');
+    content.innerHTML = `
+        <div class="prompt-section">
+            <h6><i class="bi bi-stars"></i> Principles Extraction Prompt:</h6>
+            <div class="prompt-text">${escapeHtml(data.principles_prompt || 'Principles extraction prompt will be generated')}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-shield-check"></i> Obligations Extraction Prompt:</h6>
+            <div class="prompt-text">${escapeHtml(data.obligations_prompt || 'Obligations extraction prompt will be generated')}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-exclamation-triangle"></i> Constraints Extraction Prompt:</h6>
+            <div class="prompt-text">${escapeHtml(data.constraints_prompt || 'Constraints extraction prompt will be generated')}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-gear"></i> Capabilities Extraction Prompt:</h6>
+            <div class="prompt-text">Capabilities will be extracted along with the other normative requirements...</div>
+        </div>
+        <div class="alert alert-info mt-3">
+            <small><i class="bi bi-info-circle"></i> Section length: ${data.section_length || 0} characters</small>
+        </div>
+    `;
+}
+
+function displayError(message) {
+    const content = document.getElementById('promptContent');
+    content.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> ${message}
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function executeNormativePass() {
+    const executeBtn = document.getElementById('executeBtn');
+    const responseCard = document.getElementById('responseCard');
+    const normativeResults = document.getElementById('normativeResults');
+    
+    // Disable execute button
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Executing...';
+    
+    // Show response card
+    responseCard.style.display = 'block';
+    responseCard.scrollIntoView({ behavior: 'smooth' });
+    
+    try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        
+        // Call the extraction endpoint
+        const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Display raw response
+        displayRawResponse(data);
+        
+        // Display formatted results
+        displayResults(data);
+        
+    } catch (error) {
+        console.error('Error during normative pass:', error);
+        const responseContent = document.getElementById('responseContent');
+        responseContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Error during extraction: ${error.message}
+            </div>
+        `;
+    } finally {
+        // Re-enable execute button
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Normative Requirements Pass';
+    }
+}
+
+function displayRawResponse(data) {
+    const responseContent = document.getElementById('responseContent');
+    
+    // Create a simplified version of the response for display
+    const displayData = {
+        success: data.success,
+        principles_count: data.principles ? data.principles.length : 0,
+        obligations_count: data.obligations ? data.obligations.length : 0,
+        constraints_count: data.constraints ? data.constraints.length : 0,
+        capabilities_count: data.capabilities ? data.capabilities.length : 0,
+        sample_principle: data.principles && data.principles[0] ? data.principles[0] : null,
+        sample_obligation: data.obligations && data.obligations[0] ? data.obligations[0] : null,
+        extraction_metadata: data.extraction_metadata
+    };
+    
+    responseContent.innerHTML = `
+        <div class="response-text">
+${JSON.stringify(displayData, null, 2)}
+        </div>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleFullResponse()">
+                <i class="bi bi-eye"></i> Toggle Full Response
+            </button>
+        </div>
+        <div id="fullResponse" style="display: none;" class="mt-2">
+            <div class="response-text">
+${JSON.stringify(data, null, 2)}
+            </div>
+        </div>
+    `;
+}
+
+function toggleFullResponse() {
+    const fullResponse = document.getElementById('fullResponse');
+    fullResponse.style.display = fullResponse.style.display === 'none' ? 'block' : 'none';
+}
+
+function displayResults(data) {
+    // Show results container
+    const normativeResults = document.getElementById('normativeResults');
+    normativeResults.style.display = 'block';
+    
+    // Display summary
+    const principleCount = data.principles ? data.principles.length : 0;
+    const obligationCount = data.obligations ? data.obligations.length : 0;
+    const constraintCount = data.constraints ? data.constraints.length : 0;
+    const capabilityCount = data.capabilities ? data.capabilities.length : 0;
+    
+    const extractionSummary = document.getElementById('extractionSummary');
+    extractionSummary.innerHTML = `
+        <p class="mb-0">
+            Extracted <strong>${principleCount} Principles</strong>, 
+            <strong>${obligationCount} Obligations</strong>, 
+            <strong>${constraintCount} Constraints</strong>, and
+            <strong>${capabilityCount} Capabilities</strong>
+        </p>
+        ${data.summary && data.summary.provenance_url ? 
+            `<p class="mb-0 mt-2"><a href="${data.summary.provenance_url}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-diagram-3"></i> View Provenance</a></p>` : ''}
+    `;
+    
+    // Display principles
+    displayConcepts(document.getElementById('principlesResults'), data.principles, 'principle');
+    
+    // Display obligations
+    displayConcepts(document.getElementById('obligationsResults'), data.obligations, 'obligation');
+    
+    // Display constraints
+    displayConcepts(document.getElementById('constraintsResults'), data.constraints, 'constraint');
+    
+    // Display capabilities
+    displayConcepts(document.getElementById('capabilitiesResults'), data.capabilities, 'capability');
+    
+    // Scroll to results
+    normativeResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function displayConcepts(container, concepts, type) {
+    if (!concepts || concepts.length === 0) {
+        container.innerHTML = '<p class="text-muted">No ' + type + 's extracted</p>';
+        return;
+    }
+    
+    const html = concepts.map(concept => {
+        let borderColor = '#007bff';
+        if (type === 'principle') borderColor = '#28a745';
+        else if (type === 'obligation') borderColor = '#ffc107';
+        else if (type === 'constraint') borderColor = '#dc3545';
+        else if (type === 'capability') borderColor = '#17a2b8';
+        
+        let metadata = '';
+        
+        // Handle different metadata structures
+        if (type === 'principle' && concept.principle_category) {
+            metadata += `<span class="badge bg-secondary me-1">${concept.principle_category}</span>`;
+        }
+        if (type === 'obligation' && concept.obligation_type) {
+            metadata += `<span class="badge bg-warning text-dark me-1">${concept.obligation_type}</span>`;
+        }
+        if (type === 'constraint' && concept.constraint_category) {
+            metadata += `<span class="badge bg-danger me-1">${concept.constraint_category}</span>`;
+        }
+        if (type === 'capability' && concept.capability_category) {
+            metadata += `<span class="badge bg-info me-1">${concept.capability_category}</span>`;
+        }
+        if (concept.confidence) {
+            metadata += `<span class="badge bg-light text-dark">Confidence: ${(concept.confidence * 100).toFixed(0)}%</span>`;
+        }
+        
+        return `
+            <div class="concept-item" style="border-left-color: ${borderColor}">
+                <div class="concept-label">${concept.label}</div>
+                <div class="concept-description">${concept.description}</div>
+                ${metadata ? `<div class="concept-metadata">${metadata}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = html;
+}
 </script>
 {% endblock %}
