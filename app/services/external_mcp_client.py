@@ -164,6 +164,22 @@ class ExternalMCPClient:
             logger.warning(f"Failed to get obligation entities: {e}")
             return []
     
+    def get_all_state_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all state entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("State", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} state entities from external MCP")
+                return entities
+            else:
+                logger.warning("No state entities found or query failed")
+                return []
+        except Exception as e:
+            logger.warning(f"Failed to get state entities: {e}")
+            return []
+    
     def get_all_resource_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
         """Get all resource entities from external MCP server."""
         try:

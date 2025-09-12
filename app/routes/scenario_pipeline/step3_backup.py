@@ -289,12 +289,37 @@ def behavioral_pass_execute(case_id):
                 agent_name='proethica_behavioral_pass',
                 execution_plan={
                     'pass_number': 3,
-                    'pass_name': 'Temporal Dynamics (Pass 3)',
-                    'concepts': ['actions', 'events'],
-                    'strategy': 'temporal_evolution',
-                    'version': 'temporal_dynamics_chapter2' if USE_VERSIONED_PROVENANCE else 'standard'
+                    'concepts': ['states', 'actions', 'events', 'capabilities'],
+                    'strategy': 'standard',
+                    'version': 'behavioral_v1' if USE_VERSIONED_PROVENANCE else 'standard'
                 }
             ) as main_activity:
+                
+                # Extract states
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='states_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='StatesExtractor'
+                ) as states_activity:
+                    logger.info("Extracting states with provenance tracking...")
+                    states_extractor = EnhancedStatesExtractor(llm_client=llm_client, provenance_service=prov)
+                    state_candidates = states_extractor.extract(text_for_extraction, context=context, activity=states_activity)
+                    
+                    # Record extraction results
+                    prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in state_candidates],
+                        activity=states_activity,
+                        entity_type='extracted_states',
+                        metadata={'count': len(state_candidates)}
+                    )
                 
                 # Extract actions
                 with prov.track_activity(
@@ -348,14 +373,55 @@ def behavioral_pass_execute(case_id):
                         metadata={'count': len(event_candidates)}
                     )
                 
+                # Extract capabilities
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='capabilities_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='CapabilitiesExtractor'
+                ) as capabilities_activity:
+                    logger.info("Extracting capabilities with provenance tracking...")
+                    capabilities_extractor = EnhancedCapabilitiesExtractor(llm_client=llm_client, provenance_service=prov)
+                    capability_candidates = capabilities_extractor.extract(text_for_extraction, context=context, activity=capabilities_activity)
+                    
+                    # Record extraction results
+                    prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in capability_candidates],
+                        activity=capabilities_activity,
+                        entity_type='extracted_capabilities',
+                        metadata={'count': len(capability_candidates)}
+                    )
+                
                 # Link sub-activities to main activity
-                prov.link_activities(actions_activity, main_activity, 'sequence')
+                prov.link_activities(states_activity, main_activity, 'sequence')
+                prov.link_activities(actions_activity, states_activity, 'sequence')
                 prov.link_activities(events_activity, actions_activity, 'sequence')
+                prov.link_activities(capabilities_activity, events_activity, 'sequence')
         
         # Commit provenance records
         db.session.commit()
         
         # Convert candidates to response format
+        states = []
+        for candidate in state_candidates:
+            state_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
+                "type": "state",
+                "state_type": candidate.debug.get('state_type', 'condition'),
+                "triggers": candidate.debug.get('triggers', []),
+                "duration": candidate.debug.get('duration', 'persistent'),
+                "affected_entities": candidate.debug.get('affected_entities', []),
+                "confidence": candidate.confidence
+            }
+            states.append(state_data)
         
         actions = []
         for candidate in action_candidates:
@@ -386,14 +452,29 @@ def behavioral_pass_execute(case_id):
             }
             events.append(event_data)
         
+        capabilities = []
+        for candidate in capability_candidates:
+            capability_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
+                "type": "capability",
+                "capability_type": candidate.debug.get('capability_type', 'technical'),
+                "required_for": candidate.debug.get('required_for', []),
+                "possessed_by": candidate.debug.get('possessed_by', ''),
+                "level": candidate.debug.get('level', 'professional'),
+                "confidence": candidate.confidence
+            }
+            capabilities.append(capability_data)
         
         # Summary statistics
         summary = {
+            'states_count': len(states),
             'actions_count': len(actions),
             'events_count': len(events),
-            'total_entities': len(actions) + len(events),
+            'capabilities_count': len(capabilities),
+            'total_entities': len(states) + len(actions) + len(events) + len(capabilities),
             'session_id': session_id,
-            'version': 'temporal_dynamics_v1' if USE_VERSIONED_PROVENANCE else 'standard'
+            'version': 'behavioral_v1' if USE_VERSIONED_PROVENANCE else 'standard'
         }
         
         # Add provenance URL if available
@@ -404,9 +485,11 @@ def behavioral_pass_execute(case_id):
         from datetime import datetime
         extraction_metadata = {
             'timestamp': datetime.now().isoformat(),
-            'extraction_method': 'temporal_dynamics',
-            'actions_extractor': 'EnhancedActionsExtractor',
-            'events_extractor': 'EnhancedEventsExtractor',
+            'extraction_method': 'standard',
+            'states_extractor': 'StatesExtractor',
+            'actions_extractor': 'ActionsExtractor',
+            'events_extractor': 'EventsExtractor',
+            'capabilities_extractor': 'CapabilitiesExtractor',
             'llm_available': llm_client is not None,
             'provenance_tracked': True,
             'model_used': getattr(llm_client, 'model', 'fallback') if llm_client else 'heuristic'
@@ -414,8 +497,10 @@ def behavioral_pass_execute(case_id):
         
         return jsonify({
             'success': True,
+            'states': states,
             'actions': actions,
             'events': events,
+            'capabilities': capabilities,
             'summary': summary,
             'extraction_metadata': extraction_metadata
         })

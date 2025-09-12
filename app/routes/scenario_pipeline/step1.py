@@ -1,6 +1,9 @@
 """
-Step 1a: Entities Pass for Facts Section
-Shows the facts section and provides an entities pass button that extracts roles and resources.
+Step 1: Contextual Framework Pass for Facts Section
+Shows the facts section and provides extraction for Pass 1: Roles, States, and Resources.
+Based on Chapter 2 literature: States and Roles work together through context-dependent 
+policy activation (Dennis et al. 2016), while Resources provide extensional definitions 
+(McLaren 2003).
 """
 
 import logging
@@ -106,6 +109,7 @@ def entities_pass_prompt(case_id):
         # Import the extraction services to get the actual prompts that will be used
         from app.services.extraction.roles import RolesExtractor
         from app.services.extraction.resources import ResourcesExtractor
+        from app.services.extraction.enhanced_prompts_states_capabilities import create_enhanced_states_prompt
         
         # Create extractors to generate the actual prompts that will be used
         roles_extractor = RolesExtractor()
@@ -115,11 +119,15 @@ def entities_pass_prompt(case_id):
         roles_prompt = roles_extractor._get_prompt_for_preview(section_text)
         resources_prompt = resources_extractor._get_prompt_for_preview(section_text)
         
+        # Get the enhanced states prompt with ontology context if available
+        states_prompt = create_enhanced_states_prompt(section_text, include_ontology_context=True)
+        
         return jsonify({
             'success': True,
             'roles_prompt': roles_prompt,
+            'states_prompt': states_prompt,
             'resources_prompt': resources_prompt,
-            'combined_prompt': f"ROLES EXTRACTION:\n{roles_prompt}\n\n---\n\nRESOURCES EXTRACTION:\n{resources_prompt}",
+            'combined_prompt': f"ROLES EXTRACTION:\n{roles_prompt}\n\n---\n\nSTATES EXTRACTION:\n{states_prompt}\n\n---\n\nRESOURCES EXTRACTION:\n{resources_prompt}",
             'section_length': len(section_text)
         })
         
@@ -153,6 +161,7 @@ def entities_pass_execute(case_id):
         # Import the extraction services and provenance service
         from app.services.extraction.roles import RolesExtractor
         from app.services.extraction.resources import ResourcesExtractor
+        from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor
         from app.services.provenance_service import get_provenance_service
         try:
             from app.services.provenance_versioning_service import get_versioned_provenance_service
@@ -164,18 +173,23 @@ def entities_pass_execute(case_id):
         
         # Initialize provenance service with versioning if available
         if USE_VERSIONED_PROVENANCE:
-            prov = get_versioned_provenance_service()
+            prov = get_versioned_provenance_service(session=db.session)
             logger.info("Using versioned provenance service for tracking")
         else:
-            prov = get_provenance_service()
+            prov = get_provenance_service(session=db.session)
             logger.info("Using standard provenance service")
         
         # Create a session ID for this extraction workflow
         session_id = str(uuid.uuid4())
         
-        # Initialize extractors
+        # Initialize extractors (Pass 1: Contextual Framework - Roles, States, Resources)
         roles_extractor = RolesExtractor()
         resources_extractor = ResourcesExtractor()
+        
+        # Initialize LLM client for enhanced States extractor
+        from app.utils.llm_utils import get_llm_client
+        llm_client = get_llm_client()
+        states_extractor = EnhancedStatesExtractor(llm_client=llm_client, provenance_service=prov)
         
         # Track versioned workflow if available
         version_context = nullcontext()
@@ -199,8 +213,9 @@ def entities_pass_execute(case_id):
                 agent_name='proethica_entities_pass',
                 execution_plan={
                     'section_length': len(section_text),
-                    'extraction_types': ['roles', 'resources'],
-                    'version': 'enhanced_prompts' if USE_VERSIONED_PROVENANCE else 'standard'
+                    'extraction_types': ['roles', 'states', 'resources'],
+                    'pass_name': 'Contextual Framework (Pass 1)',
+                    'version': 'enhanced_prompts_chapter2' if USE_VERSIONED_PROVENANCE else 'standard'
                 }
             ) as main_activity:
                 
@@ -262,9 +277,39 @@ def entities_pass_execute(case_id):
                         metadata={'count': len(resource_candidates)}
                     )
                 
+                # Track states extraction as a sub-activity (Part of Pass 1: Contextual Framework)
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='states_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedStatesExtractor'
+                ) as states_activity:
+                    logger.info("Extracting states with enhanced extractor...")
+                    state_candidates = states_extractor.extract(
+                        section_text,
+                        context={'case_id': case_id},
+                        activity=states_activity
+                    )
+                    
+                    # Record the extraction results
+                    states_results_entity = prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in state_candidates],
+                        activity=states_activity,
+                        entity_type='extracted_states',
+                        metadata={'count': len(state_candidates)}
+                    )
+                
                 # Link the sub-activities to the main activity
                 prov.link_activities(roles_activity, main_activity, 'sequence')
-                prov.link_activities(resources_activity, roles_activity, 'sequence')
+                prov.link_activities(states_activity, roles_activity, 'sequence')
+                prov.link_activities(resources_activity, states_activity, 'sequence')
         
         # Commit provenance records to database
         db.session.commit()
@@ -316,16 +361,42 @@ def entities_pass_execute(case_id):
             }
             resources_data.append(resource_entry)
         
-        logger.info(f"Entities pass completed for case {case_id}: {len(roles_data)} roles, {len(resources_data)} resources")
+        # Convert states candidates to serializable format with enhanced fields
+        states_data = []
+        for candidate in state_candidates:
+            # Extract enhanced fields from debug for easier access
+            debug_data = candidate.debug or {}
+            state_entry = {
+                'label': candidate.label,
+                'description': candidate.description,
+                'type': candidate.primary_type,
+                'confidence': candidate.confidence,
+                # Enhanced fields from States extractor
+                'state_category': debug_data.get('state_category'),  # ConflictState, RiskState, etc.
+                'ethical_impact': debug_data.get('ethical_impact'),
+                'contextual_factors': debug_data.get('contextual_factors', []),
+                'text_references': debug_data.get('text_references', []),
+                'theoretical_grounding': debug_data.get('theoretical_grounding'),
+                'temporal_aspect': debug_data.get('temporal_aspect'),
+                'is_existing': debug_data.get('is_existing'),
+                'ontology_match_reasoning': debug_data.get('ontology_match_reasoning'),
+                # Preserve all debug info for complete data
+                'debug': candidate.debug
+            }
+            states_data.append(state_entry)
+        
+        logger.info(f"Entities pass completed for case {case_id}: {len(roles_data)} roles, {len(states_data)} states, {len(resources_data)} resources")
         
         return jsonify({
             'success': True,
             'roles': roles_data,
+            'states': states_data,
             'resources': resources_data,
             'summary': {
                 'roles_count': len(roles_data),
+                'states_count': len(states_data),
                 'resources_count': len(resources_data),
-                'total_entities': len(roles_data) + len(resources_data)
+                'total_entities': len(roles_data) + len(states_data) + len(resources_data)
             },
             'execution_timestamp': logger.created if hasattr(logger, 'created') else None,
             'provenance': {

@@ -1,6 +1,8 @@
 """
-Step 2: Normative Pass for Discussion/Analysis Section
-Shows the discussion/analysis section and provides a normative pass button that extracts principles, obligations, and constraints.
+Step 2: Normative Requirements Pass for Facts Section
+Shows the facts section and provides extraction for Pass 2: Principles, Obligations, Constraints, and Capabilities.
+Based on Chapter 2 literature: Capabilities are essential for norm competence (Tolmeijer et al. 2021) - 
+agents need capabilities to store, recognize, apply, and resolve normative requirements.
 """
 
 import logging
@@ -13,6 +15,7 @@ from app.routes.scenario_pipeline.overview import _format_section_for_llm
 from app.services.extraction.enhanced_prompts_principles import EnhancedPrinciplesExtractor, create_enhanced_principles_prompt
 from app.services.extraction.enhanced_prompts_obligations import EnhancedObligationsExtractor, create_enhanced_obligations_prompt
 from app.services.extraction.enhanced_prompts_constraints import EnhancedConstraintsExtractor, create_enhanced_constraints_prompt
+from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedCapabilitiesExtractor
 from app.utils.llm_utils import get_llm_client
 
 # Import provenance services
@@ -358,10 +361,44 @@ def normative_pass_execute(case_id):
                         metadata={'count': len(constraint_candidates)}
                     )
                 
+                # Track capabilities extraction as a sub-activity (Part of Pass 2: Normative Requirements)
+                with prov.track_activity(
+                    activity_type='llm_query',
+                    activity_name='capabilities_extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedCapabilitiesExtractor'
+                ) as capabilities_activity:
+                    logger.info("Extracting capabilities with enhanced extractor...")
+                    capabilities_extractor = EnhancedCapabilitiesExtractor(
+                        llm_client=llm_client,
+                        provenance_service=prov
+                    )
+                    capability_candidates = capabilities_extractor.extract(
+                        section_text,
+                        context=context,
+                        activity=capabilities_activity
+                    )
+                    
+                    # Record extraction results
+                    prov.record_extraction_results(
+                        results=[{
+                            'label': c.label,
+                            'description': c.description,
+                            'confidence': c.confidence,
+                            'debug': c.debug
+                        } for c in capability_candidates],
+                        activity=capabilities_activity,
+                        entity_type='extracted_capabilities',
+                        metadata={'count': len(capability_candidates)}
+                    )
+                
                 # Link sub-activities to main activity
                 prov.link_activities(principles_activity, main_activity, 'sequence')
                 prov.link_activities(obligations_activity, principles_activity, 'sequence')
                 prov.link_activities(constraints_activity, obligations_activity, 'sequence')
+                prov.link_activities(capabilities_activity, constraints_activity, 'sequence')
         
         # Commit provenance records
         db.session.commit()
@@ -420,12 +457,29 @@ def normative_pass_execute(case_id):
             }
             constraints.append(constraint_data)
         
+        capabilities = []
+        for candidate in capability_candidates:
+            capability_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
+                "type": "capability",
+                "capability_category": candidate.debug.get('capability_category', 'TechnicalCapability'),
+                "ethical_relevance": candidate.debug.get('ethical_relevance', ''),
+                "required_for_roles": candidate.debug.get('required_for_roles', []),
+                "enables_obligations": candidate.debug.get('enables_obligations', []),
+                "theoretical_grounding": candidate.debug.get('theoretical_grounding', ''),
+                "development_path": candidate.debug.get('development_path', ''),
+                "confidence": candidate.confidence
+            }
+            capabilities.append(capability_data)
+        
         # Summary statistics
         summary = {
             'principles_count': len(principles),
             'obligations_count': len(obligations),
             'constraints_count': len(constraints),
-            'total_entities': len(principles) + len(obligations) + len(constraints),
+            'capabilities_count': len(capabilities),
+            'total_entities': len(principles) + len(obligations) + len(constraints) + len(capabilities),
             'session_id': session_id,
             'version': 'enhanced_normative' if USE_VERSIONED_PROVENANCE else 'standard'
         }
@@ -452,6 +506,7 @@ def normative_pass_execute(case_id):
             'principles': principles,
             'obligations': obligations,
             'constraints': constraints,
+            'capabilities': capabilities,
             'summary': summary,
             'extraction_metadata': extraction_metadata
         })

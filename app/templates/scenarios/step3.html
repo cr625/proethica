@@ -1,8 +1,8 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 3: Behavioral Pass - Facts Section{% endblock %}
-{% block step_header %}Step 3: Behavioral Pass (Facts){% endblock %}
-{% block step_subtitle %}Extract states, actions, events, and capabilities from the facts section{% endblock %}
+{% block step_title %}Step 3: Temporal Dynamics Pass - Facts Section{% endblock %}
+{% block step_header %}Step 3: Temporal Dynamics Pass (Facts){% endblock %}
+{% block step_subtitle %}Extract actions and events from the facts section{% endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
@@ -29,26 +29,20 @@
             <pre class="discussion-text">{{ facts_section.llm_text }}</pre>
         </div>
         
-        <!-- Behavioral Pass Button -->
+        <!-- Temporal Dynamics Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
-            <button id="behavioralPassBtn" class="btn btn-primary btn-lg">
-                <i class="bi bi-arrow-right-circle"></i> Run Behavioral Pass
-                <small class="d-block">Extract States + Actions + Events + Capabilities</small>
+            <button id="temporalPassBtn" class="btn btn-primary btn-lg">
+                <i class="bi bi-arrow-right-circle"></i> Run Temporal Dynamics Pass
+                <small class="d-block">Extract Actions + Events</small>
             </button>
         </div>
         
         <!-- Results Container -->
-        <div id="behavioralResults" style="display: none;">
+        <div id="temporalResults" style="display: none;">
             <div class="alert alert-success mb-3">
-                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Behavioral Pass Complete</h5>
+                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Temporal Dynamics Pass Complete</h5>
                 <hr>
                 <div id="extractionSummary"></div>
-            </div>
-            
-            <!-- States Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-diagram-3"></i> States</h5>
-                <div id="statesResults" class="results-container"></div>
             </div>
             
             <!-- Actions Results -->
@@ -61,12 +55,6 @@
             <div class="results-section mb-4">
                 <h5><i class="bi bi-calendar-event"></i> Events</h5>
                 <div id="eventsResults" class="results-container"></div>
-            </div>
-            
-            <!-- Capabilities Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-gear"></i> Capabilities</h5>
-                <div id="capabilitiesResults" class="results-container"></div>
             </div>
         </div>
         
@@ -102,8 +90,8 @@
         color: #0c5460;
     }
 
-    /* Behavioral Pass Button Styling */
-    #behavioralPassBtn {
+    /* Temporal Dynamics Pass Button Styling */
+    #temporalPassBtn {
         padding: 1rem 2rem;
         font-size: 1.1rem;
         border-radius: 50px;
@@ -111,12 +99,12 @@
         transition: all 0.3s ease;
     }
 
-    #behavioralPassBtn:hover:not(:disabled) {
+    #temporalPassBtn:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(0,0,0,0.15);
     }
 
-    #behavioralPassBtn:disabled {
+    #temporalPassBtn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
     }
@@ -166,19 +154,17 @@
 {% block step_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const behavioralPassBtn = document.getElementById('behavioralPassBtn');
-    const behavioralResults = document.getElementById('behavioralResults');
+    const temporalPassBtn = document.getElementById('temporalPassBtn');
+    const temporalResults = document.getElementById('temporalResults');
     const extractionSummary = document.getElementById('extractionSummary');
-    const statesResults = document.getElementById('statesResults');
     const actionsResults = document.getElementById('actionsResults');
     const eventsResults = document.getElementById('eventsResults');
-    const capabilitiesResults = document.getElementById('capabilitiesResults');
     
-    if (behavioralPassBtn) {
-        behavioralPassBtn.addEventListener('click', async function() {
+    if (temporalPassBtn) {
+        temporalPassBtn.addEventListener('click', async function() {
             // Disable button and show loading state
-            behavioralPassBtn.disabled = true;
-            behavioralPassBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Extracting...';
+            temporalPassBtn.disabled = true;
+            temporalPassBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Extracting...';
             
             try {
                 // Get CSRF token
@@ -203,38 +189,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayResults(data);
                 
             } catch (error) {
-                console.error('Error during behavioral pass:', error);
+                console.error('Error during temporal dynamics pass:', error);
                 alert('Error during extraction: ' + error.message);
             } finally {
                 // Re-enable button
-                behavioralPassBtn.disabled = false;
-                behavioralPassBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Run Behavioral Pass<small class="d-block">Extract States + Actions + Events + Capabilities</small>';
+                temporalPassBtn.disabled = false;
+                temporalPassBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Run Temporal Dynamics Pass<small class="d-block">Extract Actions + Events</small>';
             }
         });
     }
     
     function displayResults(data) {
         // Show results container
-        behavioralResults.style.display = 'block';
+        temporalResults.style.display = 'block';
         
         // Display summary
-        const statesCount = data.states ? data.states.length : 0;
         const actionsCount = data.actions ? data.actions.length : 0;
         const eventsCount = data.events ? data.events.length : 0;
-        const capabilitiesCount = data.capabilities ? data.capabilities.length : 0;
         
         extractionSummary.innerHTML = `
             <p class="mb-0">
-                Extracted <strong>${statesCount} States</strong>, 
-                <strong>${actionsCount} Actions</strong>, 
-                <strong>${eventsCount} Events</strong>, and
-                <strong>${capabilitiesCount} Capabilities</strong>
+                Extracted <strong>${actionsCount} Actions</strong> and 
+                <strong>${eventsCount} Events</strong>
             </p>
             ${data.provenance_url ? `<p class="mb-0 mt-2"><a href="${data.provenance_url}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-diagram-3"></i> View Provenance</a></p>` : ''}
         `;
-        
-        // Display states
-        displayConcepts(statesResults, data.states, 'state');
         
         // Display actions
         displayConcepts(actionsResults, data.actions, 'action');
@@ -242,11 +221,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Display events
         displayConcepts(eventsResults, data.events, 'event');
         
-        // Display capabilities
-        displayConcepts(capabilitiesResults, data.capabilities, 'capability');
-        
         // Scroll to results
-        behavioralResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        temporalResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     
     function displayConcepts(container, concepts, type) {
@@ -257,23 +233,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const html = concepts.map(concept => {
             let borderColor = '#007bff';
-            if (type === 'state') borderColor = '#6c757d';
-            else if (type === 'action') borderColor = '#17a2b8';
+            if (type === 'action') borderColor = '#17a2b8';
             else if (type === 'event') borderColor = '#ffc107';
-            else if (type === 'capability') borderColor = '#28a745';
             
             let metadata = '';
-            if (concept.state_type) {
-                metadata += `<span class="badge bg-secondary me-1">${concept.state_type}</span>`;
-            }
             if (concept.action_type) {
                 metadata += `<span class="badge bg-info text-white me-1">${concept.action_type}</span>`;
             }
             if (concept.event_type) {
                 metadata += `<span class="badge bg-warning text-dark me-1">${concept.event_type}</span>`;
-            }
-            if (concept.capability_type) {
-                metadata += `<span class="badge bg-success me-1">${concept.capability_type}</span>`;
             }
             if (concept.confidence) {
                 metadata += `<span class="badge bg-light text-dark">Confidence: ${(concept.confidence * 100).toFixed(0)}%</span>`;

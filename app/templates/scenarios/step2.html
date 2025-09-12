@@ -1,8 +1,8 @@
 {% extends "scenarios/base_step.html" %}
 
-{% block step_title %}Step 2: Normative Pass - Facts Section{% endblock %}
-{% block step_header %}Step 2: Normative Pass (Facts){% endblock %}
-{% block step_subtitle %}Extract principles, obligations, and constraints from the facts section{% endblock %}
+{% block step_title %}Step 2: Normative Requirements Pass - Facts Section{% endblock %}
+{% block step_header %}Step 2: Normative Requirements Pass (Facts){% endblock %}
+{% block step_subtitle %}Extract principles, obligations, constraints, and capabilities from the facts section{% endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
@@ -10,7 +10,7 @@
         <i class="bi bi-arrow-left"></i> Back to Step 1
     </a>
     <a href="{{ next_step_url }}" class="btn btn-primary">
-        Step 3: Behavioral Pass (Facts) <i class="bi bi-arrow-right"></i>
+        Step 3: Temporal Dynamics Pass (Facts) <i class="bi bi-arrow-right"></i>
     </a>
 </div>
 {% endblock %}
@@ -29,18 +29,18 @@
             <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
         </div>
         
-        <!-- Normative Pass Button -->
+        <!-- Normative Requirements Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
             <button id="normativePassBtn" class="btn btn-primary btn-lg">
-                <i class="bi bi-arrow-right-circle"></i> Run Normative Pass
-                <small class="d-block">Extract Principles + Obligations + Constraints</small>
+                <i class="bi bi-arrow-right-circle"></i> Run Normative Requirements Pass
+                <small class="d-block">Extract Principles + Obligations + Constraints + Capabilities</small>
             </button>
         </div>
         
         <!-- Results Container -->
         <div id="normativeResults" style="display: none;">
             <div class="alert alert-success mb-3">
-                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Normative Pass Complete</h5>
+                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Normative Requirements Pass Complete</h5>
                 <hr>
                 <div id="extractionSummary"></div>
             </div>
@@ -61,6 +61,12 @@
             <div class="results-section mb-4">
                 <h5><i class="bi bi-exclamation-triangle"></i> Constraints</h5>
                 <div id="constraintsResults" class="results-container"></div>
+            </div>
+            
+            <!-- Capabilities Results -->
+            <div class="results-section mb-4">
+                <h5><i class="bi bi-gear"></i> Capabilities</h5>
+                <div id="capabilitiesResults" class="results-container"></div>
             </div>
         </div>
         
@@ -166,6 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const principlesResults = document.getElementById('principlesResults');
     const obligationsResults = document.getElementById('obligationsResults');
     const constraintsResults = document.getElementById('constraintsResults');
+    const capabilitiesResults = document.getElementById('capabilitiesResults');
     
     if (normativePassBtn) {
         normativePassBtn.addEventListener('click', async function() {
@@ -201,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 // Re-enable button
                 normativePassBtn.disabled = false;
-                normativePassBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Run Normative Pass<small class="d-block">Extract Principles + Obligations + Constraints</small>';
+                normativePassBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Run Normative Requirements Pass<small class="d-block">Extract Principles + Obligations + Constraints + Capabilities</small>';
             }
         });
     }
@@ -214,12 +221,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const principleCount = data.principles ? data.principles.length : 0;
         const obligationCount = data.obligations ? data.obligations.length : 0;
         const constraintCount = data.constraints ? data.constraints.length : 0;
+        const capabilityCount = data.capabilities ? data.capabilities.length : 0;
         
         extractionSummary.innerHTML = `
             <p class="mb-0">
                 Extracted <strong>${principleCount} Principles</strong>, 
-                <strong>${obligationCount} Obligations</strong>, and 
-                <strong>${constraintCount} Constraints</strong>
+                <strong>${obligationCount} Obligations</strong>, 
+                <strong>${constraintCount} Constraints</strong>, and
+                <strong>${capabilityCount} Capabilities</strong>
             </p>
             ${data.provenance_url ? `<p class="mb-0 mt-2"><a href="${data.provenance_url}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-diagram-3"></i> View Provenance</a></p>` : ''}
         `;
@@ -232,6 +241,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Display constraints
         displayConcepts(constraintsResults, data.constraints, 'constraint');
+        
+        // Display capabilities
+        displayConcepts(capabilitiesResults, data.capabilities, 'capability');
         
         // Scroll to results
         normativeResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -248,6 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (type === 'principle') borderColor = '#28a745';
             else if (type === 'obligation') borderColor = '#ffc107';
             else if (type === 'constraint') borderColor = '#dc3545';
+            else if (type === 'capability') borderColor = '#17a2b8';
             
             let metadata = '';
             if (concept.debug) {
@@ -259,6 +272,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (concept.debug.constraint_type) {
                     metadata += `<span class="badge bg-danger me-1">${concept.debug.constraint_type}</span>`;
+                }
+                if (concept.debug.capability_type) {
+                    metadata += `<span class="badge bg-info me-1">${concept.debug.capability_type}</span>`;
                 }
                 if (concept.debug.importance) {
                     metadata += `<span class="badge bg-info me-1">Importance: ${concept.debug.importance}</span>`;

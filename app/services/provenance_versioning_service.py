@@ -546,4 +546,7 @@ def get_versioned_provenance_service(session: Optional[Session] = None) -> Versi
     global _versioned_service
     if _versioned_service is None:
         _versioned_service = VersionedProvenanceService(session)
+    elif session is not None:
+        # Update the session if a new one is provided
+        _versioned_service.session = session
     return _versioned_service

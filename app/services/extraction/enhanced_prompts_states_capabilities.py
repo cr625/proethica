@@ -9,7 +9,7 @@ This module provides enhanced prompt templates that incorporate:
 - Professional domain expertise requirements (Capabilities)
 """
 
-def create_enhanced_states_prompt(text: str, include_ontology_context: bool = False) -> str:
+def create_enhanced_states_prompt(text: str, include_ontology_context: bool = False, existing_states: list = None) -> str:
     """
     Create enhanced states extraction prompt based on Chapter 2.2.4 literature.
     
@@ -23,7 +23,18 @@ def create_enhanced_states_prompt(text: str, include_ontology_context: bool = Fa
     
     ontology_context = ""
     if include_ontology_context:
-        ontology_context = """
+        if existing_states:
+            ontology_context = f"""
+EXISTING STATES IN ONTOLOGY:
+Found {len(existing_states)} existing state concepts in the professional ethics ontology:
+"""
+            for state in existing_states[:10]:  # Show first 10 for context
+                label = state.get('label', 'Unknown')
+                description = state.get('description', 'No description')
+                ontology_context += f"- {label}: {description}\n"
+            ontology_context += "\nConsider these when extracting new states - identify if states match existing concepts or are genuinely new.\n"
+        else:
+            ontology_context = """
 ONTOLOGY CONTEXT:
 States in ProEthica represent environmental contexts that:
 - Determine which ethical principles activate
@@ -31,6 +42,8 @@ States in ProEthica represent environmental contexts that:
 - Define available/prohibited actions
 - Persist until altered by events
 - Include both objective facts and subjective interpretations
+
+Note: No existing state instances found in ontology. All extracted states will be new.
 """
     
     return f"""
@@ -111,7 +124,13 @@ Return a JSON array with this exact structure:
     "principle_transformation": "Transforms integrity principle into specific disclosure obligations",
     "domain_specific": "Professional judgment potentially compromised",
     "temporal_aspect": "Persists until conflict resolved or disclosed",
-    "scholarly_grounding": "Context determines obligation activation (Dennis et al. 2016)",
+    "text_references": ["professional has personal interest"],
+    "theoretical_grounding": "Context determines obligation activation (Dennis et al. 2016)",
+    "ethical_impact": "Triggers disclosure and management obligations",
+    "contextual_factors": ["Personal interest", "Professional judgment"],
+    "importance": "high",
+    "is_existing": false,
+    "ontology_match_reasoning": "New state not in existing ontology",
     "confidence": 0.85
   }}
 ]
@@ -245,9 +264,21 @@ class EnhancedStatesExtractor:
         Extract states using enhanced prompts with provenance tracking.
         """
         from app.services.extraction.base import ConceptCandidate
+        import os
         
-        # Create the enhanced prompt
-        prompt = create_enhanced_states_prompt(text, include_ontology_context=True)
+        # Try to get existing states from MCP if enabled
+        existing_states = []
+        if os.getenv('ENABLE_EXTERNAL_MCP_ACCESS', 'false').lower() == 'true':
+            try:
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_states = external_client.get_all_state_entities()
+            except Exception as e:
+                # Log but don't fail if MCP is unavailable
+                pass
+        
+        # Create the enhanced prompt with existing states context
+        prompt = create_enhanced_states_prompt(text, include_ontology_context=True, existing_states=existing_states)
         
         # Call LLM if available
         if self.llm_client:
