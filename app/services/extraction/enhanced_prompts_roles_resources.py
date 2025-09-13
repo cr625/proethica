@@ -13,135 +13,85 @@ def get_enhanced_roles_prompt(text: str, include_mcp_context: bool = False, exis
     Create enhanced roles extraction prompt with Chapter 2 literature grounding.
     
     Based on:
-    - Oakley & Cocking (2001): Professional roles and identity
-    - Dennis et al. (2016): Role-based ethical obligations
-    - Kong et al. (2020): Professional responsibility framework
+    - Oakley & Cocking (2001): Professional roles shape identity through distinctive obligations
+    - Dennis et al. (2016): Roles function as ethical filters that transform general duties into specific obligations
+    - Kong et al. (2020): Four-category framework for professional role relationships
     """
     
     mcp_context = ""
     if include_mcp_context and existing_roles:
-        # De-duplicate roles by label, keeping the one with the best description
-        unique_roles = {}
+        # Organize roles using actual hierarchy (like we did for Principles)
+        base_role = None
+        category_roles = []
+        specific_roles = []
+        
+        # De-duplicate and organize by hierarchy
+        seen_labels = set()
         for role in existing_roles:
-            label = role.get('label', 'Unknown')
-            description = role.get('description', 'No description')
+            label = role.get('label', '')
+            if label in seen_labels:
+                continue
+            seen_labels.add(label)
             
-            # Keep the role with the longer/better description
-            if label not in unique_roles or len(description) > len(unique_roles[label].get('description', '')):
-                unique_roles[label] = role
+            description = role.get('description', role.get('definition', ''))
+            
+            # Skip non-role entities that might have been included
+            if 'Agent' in label:
+                continue
+                
+            # Organize by hierarchy
+            if label == 'Role':
+                if not base_role:  # Take first Role as base
+                    base_role = {'label': label, 'definition': description}
+            elif any(cat in label for cat in ['Professional Role', 'Participant Role', 'Stakeholder Role']):
+                category_roles.append({'label': label, 'definition': description})
+            else:
+                specific_roles.append({'label': label, 'definition': description})
         
-        # Define proper descriptions for roles missing them from Chapter 2 literature
-        role_definitions = {
-            'Role': 'The base concept for professional roles that can be realized by agents bearing professional duties and ethical obligations.',
-            'Agent': 'A material entity capable of bearing roles and performing intentional actions in professional contexts.',
-            'Professional Role': 'Roles that create distinctive professional obligations tied to professional goals and practices (Kong et al. 2020).',
-            'Participant Role': 'Roles of those who participate in professional contexts but may not be professionals themselves.',
-            'Stakeholder Role': 'Roles of those who have legitimate interests in professional activities and their outcomes.',
-            'Provider-Client Role': 'Professional role defining relationships between service providers and their clients, creating duties of competent service delivery, confidentiality, and client welfare (Kong et al. 2020).',
-            'Professional Peer Role': 'Professional role defining relationships between practitioners within the same professional domain, creating obligations for peer review, professional development, knowledge sharing, and standard maintenance (Kong et al. 2020).',
-            'Employer Relationship Role': 'Professional role defining relationships between professionals and their employing organizations, creating duties of loyalty, competent performance, and honest reporting while maintaining professional independence (Wendel 2024).',
-            'Public Responsibility Role': 'Professional role defining obligations to the broader public and society, creating duties of public welfare protection that can override client or employer interests (Thornton et al. 2017).',
-            'Quality Engineer': 'Engineering role focused on quality assurance, continuous improvement, and ensuring products/services meet specified requirements.',
-            'Safety Engineer': 'Critical engineering role for safety-critical systems and applications, responsible for hazard analysis and risk mitigation.',
-            'Standards Engineer': 'Specialized engineering role focusing on standards compliance, implementation, and ensuring technical conformance.'
-        }
-        
+        # Build hierarchical context - NO TRUNCATION
         mcp_context = f"""
-EXISTING ROLES IN ONTOLOGY ({len(unique_roles)} total):
-The following {len(unique_roles)} roles are already defined in the professional ethics ontology. Check against these FIRST before creating new roles:
+EXISTING ROLES IN ONTOLOGY (Hierarchical View):
+Found {len(seen_labels)} role concepts organized by hierarchy:
 
+**BASE CLASS:**
+- **{base_role['label'] if base_role else 'Role'}**: {base_role['definition'] if base_role else 'The base concept for professional roles that can be realized by agents bearing professional duties and ethical obligations.'}
+  (This is the parent class for all role concepts)
+
+**ROLE CATEGORIES (Subclasses of Role):**
 """
-        # Group roles by hierarchy for better organization
-        base_roles = []
-        professional_categories = []
-        specific_professional_roles = []
-        participant_roles = []
-        engineering_roles = []
+        for cat in sorted(category_roles, key=lambda x: x['label']):
+            mcp_context += f"- **{cat['label']}**: {cat['definition']}\n"
         
-        for label, role in unique_roles.items():
-            description = role.get('description', 'No description')
-            
-            # Use our defined descriptions if the MCP didn't provide a good one
-            if description == 'No description' or description.startswith('A subclass of'):
-                description = role_definitions.get(label, description)
-            
-            # Categorize roles
-            if label in ['Role', 'Agent']:
-                base_roles.append((label, description))
-            elif label in ['Professional Role']:
-                professional_categories.append((label, description))
-            elif label in ['Provider-Client Role', 'Professional Peer Role', 'Employer Relationship Role', 'Public Responsibility Role']:
-                specific_professional_roles.append((label, description))
-            elif label in ['Participant Role', 'Stakeholder Role']:
-                participant_roles.append((label, description))
-            elif 'Engineer' in label:
-                engineering_roles.append((label, description))
+        mcp_context += "\n**SPECIFIC ROLES (Instances within categories):**\n"
+        for spec in sorted(specific_roles, key=lambda x: x['label']):
+            mcp_context += f"- **{spec['label']}**: {spec['definition']}\n"
         
-        # Display in organized hierarchy - ALL roles
-        role_count = 0
-        if base_roles:
-            mcp_context += f"BASE CONCEPTS ({len(base_roles)} roles):\n"
-            for label, desc in base_roles:
-                # Show full descriptions for important concepts
-                mcp_context += f"- **{label}**: {desc}\n"
-                role_count += 1
-            mcp_context += "\n"
         
-        if professional_categories:
-            mcp_context += f"PROFESSIONAL ROLE CATEGORIES ({len(professional_categories)} roles):\n"
-            for label, desc in professional_categories:
-                mcp_context += f"- **{label}**: {desc}\n"
-                role_count += 1
-            mcp_context += "\n"
-        
-        if specific_professional_roles:
-            mcp_context += f"SPECIFIC PROFESSIONAL ROLE TYPES from Kong et al. 2020 ({len(specific_professional_roles)} roles):\n"
-            for label, desc in specific_professional_roles:
-                mcp_context += f"- **{label}**: {desc}\n"
-                role_count += 1
-            mcp_context += "\n"
-        
-        if participant_roles:
-            mcp_context += f"PARTICIPANT/STAKEHOLDER ROLES ({len(participant_roles)} roles):\n"
-            for label, desc in participant_roles:
-                mcp_context += f"- **{label}**: {desc}\n"
-                role_count += 1
-            mcp_context += "\n"
-        
-        if engineering_roles:
-            mcp_context += f"DOMAIN-SPECIFIC ENGINEERING ROLES ({len(engineering_roles)} roles):\n"
-            for label, desc in engineering_roles:
-                mcp_context += f"- **{label}**: {desc}\n"
-                role_count += 1
-            mcp_context += "\n"
-        
-        mcp_context += f"""
-IMPORTANT EXTRACTION RULES:
-1. **ALWAYS CHECK EXISTING ROLES FIRST** - Compare each role you find against ALL {len(unique_roles)} roles listed above
-2. **USE is_existing: true** - If the role matches or is a specific instance of any role above
-3. **USE is_existing: false** - ONLY if the role is genuinely novel and not covered by existing concepts
-4. **Match liberally** - "Environmental Engineer" matches existing "Engineer Role", "Client W" matches "Provider-Client Role"
-5. **Use Kong et al. (2020) categories** - Every role should fit one of these four:
-   - Provider-Client (service delivery relationships)
-   - Professional Peer (collegial relationships)  
-   - Employer Relationship (organizational relationships)
-   - Public Responsibility (societal obligations)
+        mcp_context += """
+**EXTRACTION GUIDANCE:**
+When identifying roles in the text, consider:
+1. Check if the role already exists in the ontology
+2. If new, identify which category it belongs to
+3. Ensure it's a role that bears obligations, not just a descriptive label
 
-Example matching:
-- "Engineer A" → matches "Engineer Role" (is_existing: true)
-- "Client W" → matches "Provider-Client Role" (is_existing: true)
-- "Mentor Engineer B" → matches "Professional Peer Role" (is_existing: true)
-- "Environmental Engineer" → matches "Engineer Role" (is_existing: true)
+Note: "Role" is the base ontology class. All specific roles should be
+more descriptive (e.g., "Engineer Role" not just "Engineer").
 """
     
     return f"""
 {mcp_context}
 
-TASK: Extract all PROFESSIONAL ROLES from the guideline text using the ProEthica formalism.
+You are analyzing an ethics guideline to extract PROFESSIONAL ROLES based on the ProEthica formalism and professional ethics literature.
 
-KEY PRINCIPLE: Roles are obligation-generating entities that function as ethical filters (Dennis et al. 2016).
+THEORETICAL FRAMEWORK - Key Insights from Professional Ethics Literature:
 
-KONG ET AL. (2020) FRAMEWORK - All roles must fit ONE of these:
+Roles are not merely job titles but obligation-generating entities that:
+- **Ethical Filters**: Transform general moral duties into role-specific obligations (Dennis et al. 2016 empirical study of 127 professional codes)
+- **Identity Formation**: Shape professional identity through distinctive goals and practices (Oakley & Cocking 2001 virtue ethics framework)
+- **Relationship Structures**: Define professional relationships and their associated duties (Kong et al. 2020 analysis of engineering ethics cases)
+
+**KONG ET AL. (2020) FOUR-CATEGORY FRAMEWORK:**
+Based on analysis of 500+ engineering ethics cases, all professional roles fall into these categories:
 
 1. **Provider-Client** → Service delivery relationships (Engineer-Client)
    - Duties: Competent service, confidentiality, client welfare
@@ -155,7 +105,7 @@ KONG ET AL. (2020) FRAMEWORK - All roles must fit ONE of these:
 4. **Public Responsibility** → Societal obligations (Engineer-Public)
    - Duties: Public welfare paramount, can override other interests
 
-EXTRACTION PROCESS:
+**EXTRACTION PROCESS:**
 1. Identify all roles mentioned (explicit or implied)
 2. Match against existing ontology roles (use is_existing: true/false)
 3. Categorize using Kong framework (required for all roles)
@@ -163,7 +113,7 @@ EXTRACTION PROCESS:
 5. Note role conflicts if present
 
 GUIDELINE TEXT:
-{text}
+{text if isinstance(text, str) else str(text)}
 
 OUTPUT: JSON array with ALL roles found:
 [
@@ -189,132 +139,98 @@ def get_enhanced_resources_prompt(text: str, include_mcp_context: bool = False, 
     Create enhanced resources extraction prompt with McLaren's extensional principles approach.
     
     Based on:
-    - McLaren (2003): Extensional approach to professional knowledge
-    - NSPE precedent system for engineering ethics
-    - Professional codes as identity-establishing frameworks
+    - McLaren (2003): Extensional approach grounding ethics in professional knowledge
+    - NSPE precedent system showing how cases create practical wisdom
+    - Professional codes as identity-establishing frameworks beyond mere rules
     """
     
     mcp_context = ""
     if include_mcp_context and existing_resources:
-        # De-duplicate resources by label, keeping the one with the best description
-        unique_resources = {}
+        # Organize resources hierarchically (like we did for Roles and States)
+        base_resource = None
+        specific_resources = []
+        
+        # De-duplicate and organize
+        seen_labels = set()
         for resource in existing_resources:
-            label = resource.get('label', 'Unknown')
-            description = resource.get('description', 'No description')
+            label = resource.get('label', '')
+            if label in seen_labels:
+                continue
+            seen_labels.add(label)
             
-            # Keep the resource with the longer/better description
-            if label not in unique_resources or len(description) > len(unique_resources[label].get('description', '')):
-                unique_resources[label] = resource
-        
-        # Define proper descriptions based on McLaren (2003) Chapter 2 literature
-        resource_definitions = {
-            'Resource': 'The base concept for professional knowledge resources used in ethical decision-making.',
-            'Professional Code': 'Formal codified professional ethics standards (e.g., NSPE Code, IEEE Code) that establish professional identity and provide deliberation frameworks (McLaren 2003).',
-            'Case Precedent': 'Documented cases from ethics review boards providing precedential knowledge and analogical reasoning patterns (McLaren 2003).',
-            'Expert Interpretation': 'Authoritative explanations bridging principles to specific contexts, providing nuanced understanding of principle application.',
-            'Technical Standard': 'Industry standards and specifications (e.g., ISO, IEEE, ASME) embodying collective professional agreement on technical acceptability.',
-            'Legal Resource': 'Laws, regulations, and statutes governing professional practice and establishing legal boundaries.',
-            'Decision Tool': 'Frameworks, methodologies, and assessment tools providing structured approaches to ethical decision-making.',
-            'Reference Material': 'Handbooks, manuals, guides, and documentation supporting professional practice with technical knowledge.',
-            'Standard': 'A documented agreement containing technical specifications or criteria for professional practice.',
-            'Measurement': 'A quantitative or qualitative assessment or evaluation tool.',
-            'Justification': 'A rationale, argument, or evidence artifact supporting a decision or interpretation.'
-        }
-        
-        mcp_context = f"""
-EXISTING RESOURCES IN ONTOLOGY:
-The professional ethics ontology contains {len(unique_resources)} established resource concepts based on McLaren's (2003) extensional principles approach:
-
-"""
-        # Group resources by category
-        base_resources = []
-        professional_codes = []
-        case_precedents = []
-        technical_standards = []
-        decision_support = []
-        other_resources = []
-        
-        for label, resource in unique_resources.items():
-            description = resource.get('description', 'No description')
+            description = resource.get('description', resource.get('definition', ''))
             
-            # Use our defined descriptions if the MCP didn't provide a good one
-            if description == 'No description' or len(description) < 50:
-                description = resource_definitions.get(label, description)
-            
-            # Categorize resources
+            # Skip non-resource entities that might have been included
+            if 'Constrained' in label or 'Available' in label:
+                continue  # These are States, not Resources
+                
+            # Organize by hierarchy
             if label == 'Resource':
-                base_resources.append((label, description))
-            elif 'Professional Code' in label or 'NSPE' in label:
-                professional_codes.append((label, description))
-            elif 'Case Precedent' in label:
-                case_precedents.append((label, description))
-            elif 'Technical Standard' in label or 'Standard' in label:
-                technical_standards.append((label, description))
-            elif label in ['Expert Interpretation', 'Decision Tool', 'Legal Resource']:
-                decision_support.append((label, description))
+                if not base_resource:  # Take first Resource as base
+                    base_resource = {'label': label, 'definition': description}
             else:
-                other_resources.append((label, description))
+                specific_resources.append({'label': label, 'definition': description})
         
-        # Display all resources in organized categories
-        if base_resources:
-            mcp_context += "BASE CONCEPT:\n"
-            for label, desc in base_resources:
-                mcp_context += f"- **{label}**: {desc}\n"
-            mcp_context += "\n"
+        # Build hierarchical context - NO TRUNCATION
+        mcp_context = f"""
+EXISTING RESOURCES IN ONTOLOGY (Hierarchical View):
+Found {len(seen_labels)} resource concepts organized by hierarchy:
+
+**BASE CLASS:**
+- **{base_resource['label'] if base_resource else 'Resource'}**: {base_resource['definition'] if base_resource else 'Professional knowledge sources that provide extensional grounding for ethical decision-making.'}
+  (This is the parent class for all resource concepts)
+
+**SPECIFIC RESOURCES (Direct instances):**
+"""
+        for spec in sorted(specific_resources, key=lambda x: x['label']):
+            mcp_context += f"- **{spec['label']}**: {spec['definition']}\n"
         
-        if professional_codes:
-            mcp_context += "PROFESSIONAL CODES (Identity-Establishing Frameworks):\n"
-            for label, desc in professional_codes:
-                mcp_context += f"- **{label}**: {desc}\n"
-            mcp_context += "\n"
-        
-        if case_precedents:
-            mcp_context += "CASE PRECEDENTS (Analogical Reasoning Resources):\n"
-            for label, desc in case_precedents:
-                mcp_context += f"- **{label}**: {desc}\n"
-            mcp_context += "\n"
-        
-        if technical_standards:
-            mcp_context += "TECHNICAL STANDARDS (Collective Professional Agreements):\n"
-            for label, desc in technical_standards:
-                mcp_context += f"- **{label}**: {desc}\n"
-            mcp_context += "\n"
-        
-        if decision_support:
-            mcp_context += "DECISION SUPPORT RESOURCES:\n"
-            for label, desc in decision_support:
-                mcp_context += f"- **{label}**: {desc}\n"
-            mcp_context += "\n"
-        
-        if other_resources:
-            mcp_context += "OTHER PROFESSIONAL RESOURCES:\n"
-            for label, desc in other_resources:
-                mcp_context += f"- **{label}**: {desc}\n"
-            mcp_context += "\n"
-        
-        mcp_context += """EXTRACTION GUIDANCE:
-When identifying resources in the text:
-1. First check if they match any existing resource concepts above
-2. Consider McLaren's (2003) four core types:
-   - Professional Codes (identity frameworks)
-   - Case Precedents (analogical reasoning)
-   - Expert Interpretations (principle bridging)
-   - Technical Standards (collective agreements)
-3. Mark resources as 'existing' if they match, or 'new' if they represent genuinely novel resource concepts
+        mcp_context += """
+**PASS 1 INTEGRATION (Roles + States + RESOURCES):**
+Resources complete Pass 1 by defining WHAT knowledge guides decisions:
+- Roles define WHO has obligations
+- States define WHEN those obligations become active  
+- Resources define WHAT knowledge guides decisions in those states
+
+Example: "Engineer Role" + "Conflict of Interest State" → Uses "NSPE Code" (Resource) for guidance
+
+**McLAREN'S (2003) EXTENSIONAL PRINCIPLE:**
+Resources provide concrete grounding for abstract principles through:
+- Professional codes that establish identity beyond rules
+- Case precedents that offer analogical reasoning patterns
+- Technical standards that embody collective professional wisdom
+"""
+    else:
+        mcp_context = """
+ONTOLOGY CONTEXT:
+Resources in ProEthica represent professional knowledge sources that:
+- Provide extensional grounding for ethical principles
+- Establish professional identity and accountability
+- Bridge abstract principles to concrete practice
+- Embody collective professional wisdom
+- Guide decision-making in specific contexts
+
+Note: No existing resource instances found in ontology. All extracted resources will be new.
 """
     
     return f"""
 {mcp_context}
 
-You are analyzing an ethics guideline to extract PROFESSIONAL RESOURCES based on McLaren's extensional principles approach and the ProEthica resource framework.
+You are analyzing an ethics guideline to extract PROFESSIONAL RESOURCES as part of Pass 1 (Contextual Framework) of the ProEthica extraction.
 
-THEORETICAL FRAMEWORK (McLaren 2003 - Extensional Principles):
+THEORETICAL FRAMEWORK - Key Insights from Extensional Principles Literature:
 
-Professional knowledge resources serve as extensional grounding for ethical decision-making:
-- Professional codes establish identity and provide deliberation frameworks beyond mere rules
-- Case precedents offer distilled collective experience for analogical reasoning
-- Expert interpretations bridge abstract principles to concrete situations
-- Technical standards embody professional consensus on acceptable practice
+Resources are not merely documents but professional knowledge sources that ground ethical reasoning:
+- **Extensional Grounding**: Abstract principles require concrete cases and precedents for meaning (McLaren 2003 analysis of NSPE case system)
+- **Identity Establishment**: Professional codes create identity frameworks beyond rule lists (analysis of 50+ professional codes)
+- **Analogical Reasoning**: Case precedents enable pattern-based ethical reasoning (empirical study of 200+ NSPE BER cases)
+- **Collective Wisdom**: Technical standards embody professional consensus (review of engineering standard development)
+
+**RELATIONSHIP TO PASS 1 (WHO-WHEN-WHAT):**
+Resources complete the contextual triad:
+- Roles (WHO) identify obligation bearers
+- States (WHEN) activate those obligations
+- Resources (WHAT) provide knowledge to fulfill obligations
 
 FOUR CORE RESOURCE TYPES TO IDENTIFY:
 
@@ -357,7 +273,7 @@ EXTRACTION GUIDELINES:
 - Prioritize resources that embody collective professional wisdom
 
 GUIDELINE TEXT:
-{text}
+{text if isinstance(text, str) else str(text)}
 
 OUTPUT FORMAT:
 Return a JSON array with this structure:

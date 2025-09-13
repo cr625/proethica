@@ -25,23 +25,144 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def create_enhanced_obligations_prompt(text: str) -> str:
+def create_enhanced_obligations_prompt(text: str, include_mcp_context: bool = False, existing_obligations: list = None) -> str:
     """
     Create an enhanced prompt for obligation extraction based on professional ethics literature.
     
     Theoretical foundations:
-    - NSPE Code of Ethics: Professional duties and responsibilities framework
-    - Dennis et al. (2016): Obligations derived from professional roles
-    - Wooldridge & Jennings (1995): Obligations as normative constraints on agent behavior
-    - Kong et al. (2020): Professional obligations requiring contextual judgment
+    - NSPE Code of Ethics: Must/shall statements defining professional duties
+    - Dennis et al. (2016): Obligations derived from role-principle combinations
+    - Wooldridge & Jennings (1995): Obligations as behavioral constraints with deontic force
+    - Kong et al. (2020): Context-dependent obligations requiring professional judgment
+    - Hallamaa & Kalliokoski (2022): Obligations operationalize abstract principles
     """
     
-    prompt = f"""You are an expert in professional ethics and normative analysis, specifically trained in identifying 
-professional obligations and duties within engineering ethics cases.
+    mcp_context = ""
+    if include_mcp_context:
+        try:
+            # If existing_obligations not provided, fetch from MCP server
+            if existing_obligations is None:
+                from app.services.external_mcp_client import get_external_mcp_client
+                import logging
+                
+                logger = logging.getLogger(__name__)
+                logger.info("Fetching obligations context from external MCP server...")
+                
+                external_client = get_external_mcp_client()
+                existing_obligations = external_client.get_all_obligation_entities()
+                
+                # Also get existing principles for Pass 2 relationship
+                existing_principles = external_client.get_all_principle_entities()
+                logger.info(f"Retrieved {len(existing_obligations)} obligations and {len(existing_principles)} principles from MCP")
+            else:
+                # If obligations provided, still try to get principles for context
+                try:
+                    from app.services.external_mcp_client import get_external_mcp_client
+                    external_client = get_external_mcp_client()
+                    existing_principles = external_client.get_all_principle_entities()
+                except:
+                    existing_principles = []
+        
+            # Organize obligations hierarchically
+            base_obligation = None
+            specific_obligations = []
+            
+            # De-duplicate and organize
+            seen_labels = set()
+            for obligation in existing_obligations:
+                label = obligation.get('label', '')
+                if label in seen_labels:
+                    continue
+                seen_labels.add(label)
+                
+                description = obligation.get('description', obligation.get('definition', ''))
+                
+                # Organize by hierarchy
+                if label == 'Obligation':
+                    if not base_obligation:
+                        base_obligation = {'label': label, 'definition': description}
+                else:
+                    specific_obligations.append({'label': label, 'definition': description})
+            
+            # Build hierarchical context - NO TRUNCATION
+            mcp_context = f"""
+EXISTING OBLIGATIONS IN ONTOLOGY (Hierarchical View):
+Found {len(seen_labels)} obligation concepts organized by hierarchy:
 
-THEORETICAL GROUNDING:
-Based on the NSPE Code of Ethics and professional ethics literature (Dennis et al. 2016, Wooldridge & Jennings 1995), 
-obligations represent concrete professional duties that:
+**BASE CLASS:**
+- **{base_obligation['label'] if base_obligation else 'Obligation'}**: {base_obligation['definition'] if base_obligation else 'Concrete professional duties that must be performed, derived from principles and activated by role-state combinations.'}
+  (This is the parent class for all obligation concepts)
+
+**SPECIFIC OBLIGATIONS (Direct instances):**
+"""
+            for spec in sorted(specific_obligations, key=lambda x: x['label']):
+                mcp_context += f"- **{spec['label']}**: {spec['definition']}\n"
+            
+            mcp_context += """
+**PASS 2 INTEGRATION (Principles → OBLIGATIONS → Constraints + Capabilities):**
+Obligations operationalize abstract principles into concrete duties:
+- Principles provide the WHY (ethical foundations)
+- Obligations specify the WHAT (concrete duties)
+- Constraints limit HOW obligations can be fulfilled
+- Capabilities determine WHO can fulfill obligations
+
+Example: "Public Welfare Principle" → "Must report safety hazards" (Obligation)
+
+**RELATIONSHIP TO PRINCIPLES:**
+Each obligation should trace back to one or more principles that justify it.
+This transforms abstract values into actionable requirements.
+"""
+            
+            # Add principle names if available
+            if 'existing_principles' in locals() and existing_principles:
+                mcp_context += "\n**Available Principles for Reference:**\n"
+                principle_names = [p.get('label', '') for p in existing_principles if p.get('label')]
+                for principle in principle_names[:10]:  # Show first 10 principles
+                    mcp_context += f"- {principle}\n"
+                    
+        except Exception as e:
+            logger.error(f"Failed to fetch MCP context: {e}")
+            mcp_context = """
+ONTOLOGY CONTEXT:
+Obligations in ProEthica represent concrete professional duties that:
+- Transform abstract principles into specific requirements
+- Use deontic operators (MUST, SHALL, SHOULD, MAY NOT)
+- Can be monitored and enforced
+- Arise from role-principle-state combinations
+- May conflict, requiring professional judgment
+
+Note: Could not fetch existing obligations from ontology server.
+"""
+    else:
+        mcp_context = """
+ONTOLOGY CONTEXT:
+Obligations in ProEthica represent concrete professional duties that:
+- Transform abstract principles into specific requirements
+- Use deontic operators (MUST, SHALL, SHOULD, MAY NOT)
+- Can be monitored and enforced
+- Arise from role-principle-state combinations
+- May conflict, requiring professional judgment
+
+Note: No existing obligation instances found in ontology. All extracted obligations will be new.
+"""
+    
+    prompt = f"""{mcp_context}
+
+You are analyzing professional ethics text to extract OBLIGATIONS as part of Pass 2 (Normative Requirements) of the ProEthica extraction.
+
+THEORETICAL FRAMEWORK - Key Insights from Normative Ethics Literature:
+
+Obligations are not merely rules but concrete instantiations of ethical principles:
+- **Principle Operationalization**: Abstract principles become actionable through obligations (Hallamaa & Kalliokoski 2022 analysis of professional codes)
+- **Deontic Force**: Obligations carry normative force through modal operators (Wooldridge & Jennings 1995 formal semantics)
+- **Role Activation**: Obligations activate based on professional roles and contexts (Dennis et al. 2016 empirical study)
+- **Contextual Judgment**: Professional obligations require situational interpretation (Kong et al. 2020 case analysis)
+
+**RELATIONSHIP TO PASS 2 (Normative Requirements):**
+Obligations are the core of Pass 2, working with:
+- **Principles** (upstream): Provide ethical justification for obligations
+- **Constraints** (parallel): Limit how obligations can be fulfilled
+- **Capabilities** (parallel): Determine who can fulfill obligations
 1. Are derived from abstract principles and professional roles
 2. Specify what professionals MUST, SHOULD, or MUST NOT do
 3. Can be monitored, evaluated, and enforced
@@ -71,7 +192,7 @@ For each obligation, provide:
 10. **contextual_factors**: Situation-specific considerations
 
 TEXT TO ANALYZE:
-{text}
+{text if isinstance(text, str) else str(text)}
 
 IMPORTANT EXTRACTION GUIDELINES:
 - Identify both explicit obligations ("must", "shall", "required") and implicit ones
@@ -140,8 +261,22 @@ class EnhancedObligationsExtractor:
             return []
             
         try:
-            # Generate enhanced prompt
-            prompt = create_enhanced_obligations_prompt(text)
+            # Try to get existing obligations from MCP if enabled
+            existing_obligations = []
+            try:
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_obligations = external_client.get_all_obligation_entities()
+                logger.info(f"Retrieved {len(existing_obligations)} existing obligations from MCP for context")
+            except Exception as e:
+                logger.warning(f"Could not retrieve existing obligations from MCP: {e}")
+            
+            # Generate enhanced prompt with MCP context
+            prompt = create_enhanced_obligations_prompt(
+                text, 
+                include_mcp_context=True, 
+                existing_obligations=existing_obligations
+            )
             
             # Record prompt in provenance if available
             if activity and self.provenance_service:

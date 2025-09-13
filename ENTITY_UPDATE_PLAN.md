@@ -1,247 +1,244 @@
-# Comprehensive Plan for Updating ProEthica Core Entity Extractors
+# ProEthica Entity Extraction Implementation Guide
 
-## Overview
-Update all 9 ProEthica core entity extractors (R, P, O, S, Rs, A, E, Ca, Cs) to match the quality of the Roles extractor, with proper MCP integration, ontology entries, and optimized LLM prompts.
+## CRITICAL REQUIREMENTS (READ FIRST)
 
-## Important Operational Notes
+### 1. Ontology-First Architecture
+**Entities MUST be defined as classes in TTL files, NOT just in the database**
 
-### Service Management
-- **Start ProEthica**: `cd /home/chris/onto/proethica && python run.py` (runs on port 5000 for development)
-- **Start OntServe Web**: `cd /home/chris/onto/OntServe && python web/app.py` (port 5003)
-- **Start MCP Server**: `cd /home/chris/onto/OntServe && python servers/mcp_server.py` (port 8082)
-- **Kill services**: Use `pkill -f "run.py"` or `pkill -f "mcp_server.py"`
-- **Database access**: `PGPASSWORD=PASS psql -h localhost -U postgres -d ontserve`
-- **ProEthica Dev URL**: http://localhost:5000 (development mode)
-- **ProEthica Prod URL**: http://localhost:3333 (Gunicorn production only)
+1. **Base classes**: Define in `proethica-core.ttl` (e.g., `proeth-core:Constraint`)
+2. **Subclasses**: Define in `proethica-intermediate.ttl` or `engineering-ethics.ttl`
+3. **Database**: Load FROM TTL files using scripts
+4. **MCP Server**: Retrieves from database via recursive CTE queries
+5. **Extractors**: Fetch from MCP server dynamically
 
-### Script Development Guidelines
-- **Create scripts in**: `/home/chris/onto/proethica/scripts/` directory
-- **Use timeout**: Add 3-5 second sleeps when testing scripts to allow services to respond
-- **Fallback strategy**: If Python script hangs, create equivalent shell script in same directory
-- **Test scripts**: Always test with small samples before full execution
-- **Avoid complex CLI Python**: Create proper scripts instead of complex command-line Python
+**NEVER**: Add entities only to database - they MUST be in TTL files first!
 
-### Ontology Editing Process
-1. **Check definitions in main document**: `/home/chris/onto/proethica/docs/chapter2_main_document.md` contains all entity definitions
-2. **Additional concept details**: 
-   - `/home/chris/onto/proethica/docs/proethica_master_plan.md` - Overall system design
-   - `/home/chris/onto/proethica/docs/domain_prompts.md` - Extraction strategies
-   - `/home/chris/onto/proethica/docs/ONTOLOGY_MODIFICATION_GUIDE.md` - How to edit ontologies
-3. **Edit ontology files**: Located in `/home/chris/onto/OntServe/storage/ontologies/`
-   - `proethica-core.ttl` - Core formal definitions (19 entities)
-   - `proethica-intermediate.ttl` - Populated concepts (76 entities)
-   - `engineering-ethics.ttl` - Domain-specific NSPE-based concepts (33 entities)
-4. **Ontology hierarchy**:
-   - `proethica-core` → Base formal tuple D=(R,P,O,S,Rs,A,E,Ca,Cs)
-   - `proethica-intermediate` → Imports from core, adds professional role subclasses
-   - `engineering-ethics` → Imports from intermediate, adds specific engineering roles (Quality Engineer, Safety Engineer, etc.)
-5. **Refresh database**: After editing TTL files, follow ONTOLOGY_MODIFICATION_GUIDE.md
-6. **Verify in database**: Check with SQL queries to confirm updates
+### 2. Academic Definitions Source
+All entity definitions MUST come from:
+- **Primary**: `/home/chris/onto/proethica/docs/chapter2_main_document.md`
+- **Secondary**: Literature references with DOI links
+- **Format**: Include both theoretical definition AND practical extraction guidance
 
-## Detailed Plan for Each Entity Type
+### 3. Implementation Pattern (Uniform for All Entities)
 
-### Phase 1: Review and Documentation Check
+Each entity extractor MUST follow this pattern:
 
-1. **Primary source**: Review `/home/chris/onto/proethica/docs/chapter2_main_document.md` for:
-   - Formal definitions of each entity type
-   - Theoretical grounding with specific claims about each concept
-   - Examples from professional ethics literature
-
-2. **Review existing extractors** in `/home/chris/onto/proethica/app/services/extraction/`
-
-3. **Document theoretical grounding** - When referencing literature:
-   - Don't just cite names, explain the specific concept being used
-   - Example: "Professional roles as obligation-generating filters that transform general duties into specific requirements based on role context"
-   - Include the practical implication for extraction
-
-### Phase 2: Update Each Extractor (Following Roles Pattern)
-
-For each entity type:
-
-#### 1. Update enhanced prompt file (e.g., `enhanced_prompts_principles.py`):
 ```python
-# Add MCP integration
-from app.services.external_mcp_client import get_external_mcp_client
-
-# Fetch existing entities
-external_client = get_external_mcp_client()
-existing_principles = external_client.get_all_principle_entities()
-
-# Create detailed definitions with practical explanations
-principle_definitions = {
-    'Principle': 'Fundamental ethical guidelines that provide reasons for obligations and shape professional judgment',
-    'Public Safety Paramount': 'The overriding principle that public welfare takes precedence over all other considerations',
-    # ... more with explanations of WHY each matters for extraction
-}
+# In enhanced_prompts_X.py
+def create_enhanced_X_prompt(text: str, include_mcp_context: bool = False, 
+                            existing_X: Optional[List] = None) -> str:
+    if include_mcp_context:
+        if existing_X is None:  # CRITICAL: Dynamic fetching
+            from app.services.external_mcp_client import get_external_mcp_client
+            external_client = get_external_mcp_client()
+            existing_X = external_client.get_all_X_entities()
+            # Also get related Pass entities for context
 ```
 
-#### 2. Update extractor class:
-- Ensure `_get_prompt_for_preview()` always uses MCP (no conditionals)
-- Add proper deduplication by URI
-- Include detailed logging
+### 4. Pass Integration Requirements
 
-#### 3. Update ontology entries:
-- Add entities identified from NSPE Code of Ethics
-- Include rdfs:comment with practical descriptions
-- Maintain proper subClassOf hierarchy
+**Pass 1 (Contextual Framework)**: Roles + States + Resources
+- Show WHO has obligations, WHEN they activate, WHAT guides decisions
 
-#### 4. Optimize prompt structure:
-- Clear task statement with entity count
-- Practical framework (not just citations)
-- Existing ontology entities organized by category
-- Extraction rules emphasizing "check existing first"
-- JSON format with `is_existing` and `ontology_match` fields
+**Pass 2 (Normative Requirements)**: Principles + Obligations + Constraints + Capabilities  
+- Show WHY (principles), WHAT MUST (obligations), WHAT CANNOT (constraints), WHO CAN (capabilities)
 
-### Phase 3: Testing Protocol
+**Pass 3 (Temporal Dynamics)**: Actions + Events
+- Show behavioral manifestations and temporal occurrences
 
-Create `/home/chris/onto/proethica/scripts/test_all_extractors.py`:
-```python
-#!/usr/bin/env python3
-"""Test all entity extractors for MCP integration."""
+### 5. UI Integration Points
+- **Step 2**: `/home/chris/onto/proethica/app/routes/scenario_pipeline/step2.py`
+- **Template**: `/home/chris/onto/proethica/app/templates/scenarios/step2.html`
+- **Import Pattern**: Must import both function AND class from enhanced_prompts files
 
-import time
-import sys
-sys.path.append('/home/chris/onto/proethica')
-
-from app.services.extraction.principles import PrinciplesExtractor
-from app.services.extraction.obligations import ObligationsExtractor
-from app.services.extraction.states import StatesExtractor
-from app.services.extraction.resources import ResourcesExtractor
-# Import others as needed
-
-test_text = """
-The engineer must hold paramount the safety, health, and welfare of the public.
-Engineers shall perform services only in areas of their competence.
-"""
-
-extractors = [
-    ('Principles', PrinciplesExtractor),
-    ('Obligations', ObligationsExtractor),
-    ('States', StatesExtractor),
-    ('Resources', ResourcesExtractor),
-    # Add others
-]
-
-for name, ExtractorClass in extractors:
-    print(f"\nTesting {name} extractor...")
-    try:
-        extractor = ExtractorClass()
-        prompt = extractor._get_prompt_for_preview(test_text)
-        
-        if 'EXISTING' in prompt.upper() and 'ONTOLOGY' in prompt.upper():
-            # Count entities mentioned
-            entity_count = prompt.count('- ')
-            print(f"  ✅ MCP integrated with {entity_count} existing entities")
-        else:
-            print(f"  ❌ Missing MCP context")
-    except Exception as e:
-        print(f"  ❌ Error: {e}")
-    
-    time.sleep(3)  # Allow services to recover
-```
-
-### Phase 4: Database Verification
-
-Create `/home/chris/onto/proethica/scripts/verify_ontology_entities.sh`:
+### 6. Server Management
 ```bash
-#!/bin/bash
-# Verify entity counts in database
+# Start servers (in order)
+cd /home/chris/onto/OntServe && python servers/mcp_server.py  # Port 8082
+cd /home/chris/onto/OntServe && python web/app.py             # Port 5003  
+cd /home/chris/onto/proethica && python run.py                # Port 5000
 
-echo "ProEthica Ontology Entity Counts:"
-echo "================================="
+# Kill services
+pkill -f "mcp_server.py"
+pkill -f "app.py" 
+pkill -f "run.py"
 
-PGPASSWORD=PASS psql -h localhost -U postgres -d ontserve -t << EOF
-SELECT 
-    CASE 
-        WHEN label ILIKE '%Role%' THEN 'Roles'
-        WHEN label ILIKE '%Principle%' THEN 'Principles'
-        WHEN label ILIKE '%Obligation%' THEN 'Obligations'
-        WHEN label ILIKE '%State%' THEN 'States'
-        WHEN label ILIKE '%Resource%' THEN 'Resources'
-        WHEN label ILIKE '%Action%' THEN 'Actions'
-        WHEN label ILIKE '%Event%' THEN 'Events'
-        WHEN label ILIKE '%Capabilit%' THEN 'Capabilities'
-        WHEN label ILIKE '%Constraint%' THEN 'Constraints'
-        ELSE 'Other'
-    END as entity_type,
-    COUNT(*) as count
-FROM ontology_entities
-WHERE ontology_id IN (
-    SELECT id FROM ontologies 
-    WHERE name IN ('proethica-core', 'proethica-intermediate')
-)
-AND entity_type = 'class'
-GROUP BY entity_type
-ORDER BY entity_type;
-EOF
+# Restart after TTL changes
+1. Edit TTL files
+2. Kill all services
+3. Restart in order above
+4. Database auto-reloads from TTL on startup
 ```
 
-## Execution Order & Priority
+### 7. No Fallbacks in Dev Mode
+- Remove all fallback text when MCP fails
+- If MCP fails, FIX IT, don't provide static text
+- All prompts MUST show actual ontology entities
 
-1. **Principles** (P) - Foundation of ethical reasoning
-   - Key concepts: Public welfare, integrity, competence, honesty
-   - Source: NSPE Fundamental Canons
+---
 
-2. **Obligations** (O) - Core normative requirements  
-   - Key concepts: Must/shall statements, professional duties
-   - Source: NSPE Rules of Practice
+## Implementation Status
 
-3. **States** (S) - Context conditions
-   - Already has `create_enhanced_states_prompt`
-   - Needs MCP integration completion
-   - Key concepts: Conflict of interest, competence boundaries
+### ✅ PASS 1 COMPLETE (Contextual Framework)
+All three Pass 1 components implemented with MCP integration:
 
-4. **Resources** (Rs) - Knowledge sources
-   - Already has MCP in `_create_resources_prompt_with_mcp`
-   - Needs ontology population
-   - Key concepts: Codes, standards, precedents
+#### Roles (R) - WHO has obligations
+- **Status**: ✅ Complete (9 entities)
+- **Files**: `enhanced_prompts_roles_resources.py`
+- **Hierarchy**: Role → ProfessionalRole/ParticipantRole → Specific roles
 
-5. **Actions** (A) - Behavioral manifestations
-   - Key concepts: Approve, reject, report, disclose
-   - Source: NSPE verbs and action requirements
+#### States (S) - WHEN obligations activate  
+- **Status**: ✅ Complete (7 entities)
+- **Files**: `enhanced_prompts_states_capabilities.py`
+- **Categories**: Conflict, Risk, Competence, Emergency states
 
-6. **Events** (E) - Temporal occurrences
-   - Key concepts: Incidents, discoveries, changes
-   - Source: Triggering conditions in NSPE
+#### Resources (Rs) - WHAT guides decisions
+- **Status**: ✅ Complete (4 entities)
+- **Files**: `enhanced_prompts_roles_resources.py`
+- **Types**: Professional codes, Case precedents, Standards
 
-7. **Capabilities** (Ca) - Agent competencies
-   - Key concepts: Technical skills, judgment abilities
-   - Source: Competence requirements
+---
 
-8. **Constraints** (Cs) - Limiting factors
-   - Key concepts: Legal limits, resource constraints
-   - Source: Boundary conditions in NSPE
+### ⚠️ PASS 2 IN PROGRESS (Normative Requirements)
 
-## Success Criteria
+#### Principles (P) - WHY (ethical foundations)
+- **Status**: ✅ Complete (12 entities)
+- **Files**: `enhanced_prompts_principles.py`
+- **Hierarchy**: Principle → 4 categories → 6 specific principles
+- **Key Fix**: Using recursive CTE with parent_uri, not label matching
 
-For each entity type:
-- [ ] Enhanced prompt includes MCP context with exact entity count
-- [ ] Ontology has 10+ meaningful entities from NSPE/literature
-- [ ] No duplicate entities returned from MCP (check with deduplication)
-- [ ] Prompt emphasizes "check existing ontology first"
-- [ ] Test script confirms MCP integration works
-- [ ] Database query shows correct entity count
-- [ ] Practical descriptions explain WHY each concept matters
+#### Obligations (O) - WHAT MUST be done
+- **Status**: ✅ Complete (15 entities)
+- **Files**: `enhanced_prompts_obligations.py`
+- **Categories**: Disclosure, Safety, Competence, Confidentiality, etc.
+- **Key Fix**: Dynamic MCP fetching when include_mcp_context=True
 
-## Final System Test
+#### Constraints (Cs) - WHAT CANNOT be done
+- **Status**: ⚠️ PARTIAL - Database only, NOT in TTL files!
+- **Files**: `enhanced_prompts_constraints.py`
+- **CRITICAL ISSUE**: 13 constraint subclasses exist only in database, not in TTL files
+- **TODO**: 
+  1. Add constraint subclasses to `proethica-intermediate.ttl`
+  2. Reload database from TTL
+  3. Verify MCP retrieval
 
-After all updates:
-1. Kill all existing services: `pkill -f "run.py"; pkill -f "app.py"; pkill -f "mcp_server.py"`
-2. Restart in order:
-   - MCP Server first (port 8082)
-   - OntServe Web (port 5003)
-   - ProEthica (port 5000)
-3. Run `/home/chris/onto/proethica/scripts/test_all_extractors.py`
-4. Test extraction on NSPE sample text
-5. Verify at http://localhost:5000 - Guidelines - Analyze
-6. Check that all 9 entity types extract with ontology awareness
+#### Capabilities (Ca) - WHO CAN fulfill obligations
+- **Status**: ❌ Not started
+- **Files**: Need to create separate from States
+- **Note**: Part of Pass 2 per Chapter 2 (norm competence)
 
-## Notes on Literature References
+---
 
-When updating prompts with theoretical grounding:
-- Don't just cite "Smith (2020)" - explain the specific concept
-- Example: "Roles function as ethical filters that transform general obligations into specific duties based on the agent's professional position and relationships"
-- Include practical implications: "This means when extracting roles, look for positions that create specific duties not applicable to everyone"
-- Focus on operational definitions that help the LLM understand what to extract
+### ❌ PASS 3 NOT STARTED (Temporal Dynamics)
 
-This plan ensures systematic updates matching the Roles extractor quality while maintaining practical, actionable guidance for LLM extraction.
+#### Actions (A) - Behavioral manifestations
+- **Status**: ❌ Not implemented with MCP
+- **Files**: `actions.py` exists but needs enhancement
+
+#### Events (E) - Temporal occurrences  
+- **Status**: ❌ Not implemented with MCP
+- **Files**: `events.py` exists but needs enhancement
+
+---
+
+## Current Task: Fix Constraints Implementation
+
+### Problem
+Constraint subclasses were added directly to database via script, violating ontology-first architecture.
+
+### Solution Steps
+1. ✅ Created `constraint_subclasses_to_add.ttl` with proper definitions
+2. ⏳ Add these to `proethica-intermediate.ttl`
+3. ⏳ Restart services to reload from TTL
+4. ⏳ Verify MCP retrieves all 17 constraints
+5. ⏳ Test in UI that constraints show with full definitions
+
+### Constraint Subclasses to Add (13 total)
+**Boundary Types (6)**:
+- LegalConstraint - Kroll 2020
+- RegulatoryConstraint - Taddeo et al. 2024
+- ResourceConstraint - Ganascia 2007
+- CompetenceConstraint - Hallamaa & Kalliokoski 2022
+- JurisdictionalConstraint - Dennis et al. 2016
+- ProceduralConstraint - Furbach et al. 2014
+
+**Defeasibility Types (2)**:
+- DefeasibleConstraint - Ganascia 2007
+- InviolableConstraint - Dennis et al. 2016
+
+**Ethical Boundary Types (3)**:
+- EthicalConstraint - Benzmüller et al. 2020
+- SafetyConstraint - Arkin 2008
+- ConfidentialityConstraint - Dennis et al. 2016
+
+**Temporal Types (2)**:
+- TemporalConstraint - Govindarajulu & Bringsjord 2017
+- PriorityConstraint - Scheutz & Malle 2014
+
+---
+
+## Next: Capabilities Implementation
+
+After fixing Constraints, implement Capabilities to complete Pass 2:
+
+1. Check Chapter 2.2.8 for Capabilities definition
+2. Create capability subclasses in TTL
+3. Create `enhanced_prompts_capabilities.py` (separate from states)
+4. Add MCP method `get_all_capability_entities()`
+5. Integrate with Pass 2 context
+6. Test extraction with NSPE text
+
+---
+
+## Success Metrics
+
+Each entity type MUST have:
+- [ ] Base class in `proethica-core.ttl`
+- [ ] Subclasses in `proethica-intermediate.ttl` or `engineering-ethics.ttl`
+- [ ] Enhanced prompt file with MCP integration
+- [ ] Dynamic fetching (no static fallbacks)
+- [ ] Pass integration context
+- [ ] Full definitions without truncation
+- [ ] Literature grounding with context
+- [ ] Test showing correct entity count
+
+---
+
+## Files Reference
+
+### Core Documents
+- `/home/chris/onto/proethica/docs/chapter2_main_document.md` - Entity definitions
+- `/home/chris/onto/proethica/docs/ONTOLOGY_MODIFICATION_GUIDE.md` - How to edit TTLs
+- `/home/chris/onto/proethica/CLAUDE.md` - AI assistant instructions
+
+### Ontology Files  
+- `/home/chris/onto/OntServe/ontologies/proethica-core.ttl` - Base classes
+- `/home/chris/onto/OntServe/ontologies/proethica-intermediate.ttl` - Subclasses
+- `/home/chris/onto/OntServe/ontologies/engineering-ethics.ttl` - Domain-specific
+
+### Implementation Files
+- `/home/chris/onto/proethica/app/services/extraction/enhanced_prompts_*.py` - Extractors
+- `/home/chris/onto/proethica/app/services/external_mcp_client.py` - MCP client
+- `/home/chris/onto/OntServe/storage/concept_manager_database.py` - Database queries
+
+### UI Integration
+- `/home/chris/onto/proethica/app/routes/scenario_pipeline/step2.py` - Route handler
+- `/home/chris/onto/proethica/app/templates/scenarios/step2.html` - Template
+
+---
+
+## Archive/Obsolete Files
+
+The following files are obsolete and should be archived:
+- Reasoning inspector documents (if any found)
+- Old extraction implementations without MCP
+- Static prompt generators
+
+---
+
+## Notes
+
+- **CTE** = Common Table Expression (SQL feature for hierarchical queries)
+- **Recursive CTE** = Traverses parent-child relationships via parent_uri
+- **MCP** = Model Context Protocol (server providing ontology context)
+- Always test with actual NSPE text for validation

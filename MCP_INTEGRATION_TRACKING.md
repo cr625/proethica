@@ -46,7 +46,8 @@ def _create_XXX_prompt_with_mcp(self, text: str) -> str:
 | **Roles** | `get_all_role_entities()` | 15 | ✅ Dynamic |
 | **States** | `get_all_state_entities()` | 20 | ✅ Dynamic |
 | **Resources** | `get_all_resource_entities()` | 5 | ✅ Dynamic |
-| **Principles** | `get_all_principle_entities()` | 17 | ✅ Dynamic |
+| **Principles** | `get_all_principle_entities()` | 12 | ✅ Dynamic |
+| **Obligations** | `get_all_obligation_entities()` | 14 | ✅ Dynamic |
 
 ## What Doesn't Work ❌
 
@@ -72,7 +73,21 @@ For each extractor that needs MCP integration:
    - Include FULL definitions in prompt
 
 2. **For enhanced extractors** (Step 2):
-   - Update to fetch MCP data directly
+   - **CRITICAL PATTERN**: Must fetch MCP data dynamically when include_mcp_context=True
+   - Don't rely on existing_entities parameter being provided
+   - Add dynamic fetching block:
+   ```python
+   if include_mcp_context:
+       try:
+           if existing_entities is None:
+               from app.services.external_mcp_client import get_external_mcp_client
+               external_client = get_external_mcp_client()
+               existing_entities = external_client.get_all_XXX_entities()
+               # Also fetch related entities for Pass context
+           # Build hierarchical context...
+       except Exception as e:
+           logger.error(f"Failed to fetch MCP context: {e}")
+   ```
    - Pass definitions to prompt generator
    - Ensure definitions are included in prompt
 
@@ -94,14 +109,38 @@ print(f"Prompt length: {len(prompt)}")
 3. **Graceful fallback**: Always have fallback if MCP unavailable
 4. **Count verification**: Dynamic counts prove MCP integration is working
 
+## Critical Requirements
+
+### Recursive CTE Query Pattern (MUST USE)
+**IMPORTANT**: MCP must use recursive CTE queries to find entity subclasses via `parent_uri` relationships, NOT label matching. This is the semantically correct approach using actual subClassOf relationships.
+
+```sql
+WITH RECURSIVE category_hierarchy AS (
+    -- Base: Find the category class (e.g., Obligation)
+    SELECT uri, label, parent_uri 
+    FROM ontology_entities 
+    WHERE label = 'CategoryName' AND entity_type = 'class'
+    
+    UNION
+    
+    -- Recursive: Find all subclasses via parent_uri
+    SELECT e.uri, e.label, e.parent_uri
+    FROM ontology_entities e
+    INNER JOIN category_hierarchy ch ON e.parent_uri = ch.uri
+    WHERE e.entity_type = 'class'
+)
+```
+
+This pattern is implemented in `/home/chris/onto/OntServe/storage/concept_manager_database.py` and MUST be used for all entity categories.
+
 ## Next Steps
 
 1. ✅ Roles - Complete
 2. ✅ States - Complete  
 3. ✅ Resources - Complete
-4. ✅ **Principles** - Complete (17 entities, both extractors working)
-5. ⚠️ Obligations - Need to verify/update
-6. ⚠️ Actions - Missing MCP method
-7. ⚠️ Events - Missing MCP method
-8. ⚠️ Capabilities - Missing MCP method
-9. ⚠️ Constraints - Missing MCP method
+4. ✅ **Principles** - Complete (12 entities, both extractors working)
+5. ✅ **Obligations** - Complete (14 entities, both extractors working)
+6. ✅ **Constraints** - Complete (17 entities, enhanced prompt working)
+7. ⚠️ Actions - Missing MCP method
+8. ⚠️ Events - Missing MCP method
+9. ⚠️ Capabilities - Missing MCP method

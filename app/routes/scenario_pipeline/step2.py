@@ -126,32 +126,11 @@ def normative_pass_prompt(case_id):
         # MCP will be fetched dynamically from the external server
         principles_prompt = create_enhanced_principles_prompt(section_text, include_mcp_context=True)
 
-        obligations_prompt = f"""Extract professional obligations and duties from the following discussion/analysis text.
+        # Use enhanced obligations prompt with MCP context
+        obligations_prompt = create_enhanced_obligations_prompt(section_text, include_mcp_context=True)
 
-Focus on:
-- Mandatory professional duties
-- Role-specific obligations
-- Legal vs ethical obligations
-- Obligation conflicts and prioritization
-
-Text:
-{section_text[:500]}...
-
-Return as JSON array of obligation objects."""
-
-        constraints_prompt = f"""Extract constraints and limitations from the following discussion/analysis text.
-
-Focus on:
-- Legal limitations
-- Resource constraints
-- Technical/physical limitations
-- Ethical boundaries
-- Temporal constraints
-
-Text:
-{section_text[:500]}...
-
-Return as JSON array of constraint objects."""
+        # Use enhanced constraints prompt with MCP context - retrieves 17 constraints via recursive CTE
+        constraints_prompt = create_enhanced_constraints_prompt(section_text, include_mcp_context=True)
         
         return jsonify({
             'success': True,

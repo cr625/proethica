@@ -209,7 +209,7 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
         )
 
     def _create_obligations_prompt_with_mcp(self, text: str) -> str:
-        """Create enhanced obligations prompt with external MCP ontology context."""
+        """Create enhanced obligations prompt with Pass 2 integration and MCP context."""
         try:
             # Import external MCP client
             from app.services.external_mcp_client import get_external_mcp_client
@@ -220,69 +220,109 @@ class ObligationsExtractor(Extractor, AtomicExtractionMixin):
             
             external_client = get_external_mcp_client()
             
-            # Get existing obligations from ontology
+            # Get existing obligations AND principles for Pass 2 relationship
             existing_obligations = external_client.get_all_obligation_entities()
+            existing_principles = external_client.get_all_principle_entities()
             
-            # Build ontology context
-            ontology_context = "EXISTING OBLIGATIONS IN ONTOLOGY:\n"
-            if existing_obligations:
-                ontology_context += f"Found {len(existing_obligations)} existing obligation concepts:\n"
-                for obligation in existing_obligations:  # Show all obligations
-                    label = obligation.get('label', 'Unknown')
-                    description = obligation.get('description', 'No description')
-                    ontology_context += f"- {label}: {description}\n"
-            else:
-                ontology_context += "No existing obligations found in ontology (fresh setup)\n"
+            # Build hierarchical ontology context
+            mcp_context = ""
             
-            logger.info(f"Retrieved {len(existing_obligations)} existing obligations from external MCP for context")
+            # Organize obligations hierarchically
+            base_obligation = None
+            specific_obligations = []
             
-            # Create enhanced prompt with ontology context
-            enhanced_prompt = f"""
-{ontology_context}
+            # De-duplicate and organize
+            seen_labels = set()
+            for obligation in existing_obligations:
+                label = obligation.get('label', '')
+                if label in seen_labels:
+                    continue
+                seen_labels.add(label)
+                
+                description = obligation.get('description', obligation.get('definition', ''))
+                
+                # Organize by hierarchy
+                if label == 'Obligation':
+                    if not base_obligation:
+                        base_obligation = {'label': label, 'definition': description}
+                else:
+                    specific_obligations.append({'label': label, 'definition': description})
+            
+            # Build hierarchical context
+            mcp_context = f"""
+EXISTING OBLIGATIONS IN ONTOLOGY (Hierarchical View):
+Found {len(seen_labels)} obligation concepts organized by hierarchy:
 
-You are an ontology-aware extractor analyzing an ethics guideline to extract OBLIGATIONS.
+**BASE CLASS:**
+- **{base_obligation['label'] if base_obligation else 'Obligation'}**: {base_obligation['definition'] if base_obligation else 'Concrete professional duties that must be performed, derived from principles and activated by role-state combinations.'}
+  (This is the parent class for all obligation concepts)
 
-IMPORTANT: Consider the existing obligations above when extracting. For each obligation you extract:
-1. Check if it matches an existing obligation (mark as existing)
-2. If it's genuinely new, mark as new
-3. Provide clear reasoning for why it's new vs existing
+**SPECIFIC OBLIGATIONS (Direct instances):**
+"""
+            for spec in sorted(specific_obligations, key=lambda x: x['label']):
+                mcp_context += f"- **{spec['label']}**: {spec['definition']}\n"
+            
+            # Add Pass 2 integration context
+            mcp_context += f"""
 
-FOCUS: Professional obligations, duties, and requirements that roles must fulfill.
+**PASS 2 INTEGRATION (Normative Requirements):**
+You are extracting OBLIGATIONS as part of Pass 2, which transforms abstract principles into concrete requirements:
+- **Principles** (WHY): Abstract ethical foundations - {len(existing_principles)} principles available
+- **Obligations** (WHAT): Concrete duties derived from principles
+- **Constraints** (HOW LIMITED): Boundaries on obligation fulfillment
+- **Capabilities** (WHO CAN): Required competencies to fulfill obligations
 
-OBLIGATION TYPES:
-1. **Direct Obligations**: Specific duties that must be performed
-2. **Prohibitive Obligations**: Things that must not be done
-3. **Conditional Obligations**: Duties that apply in specific circumstances
-4. **Disclosure Obligations**: Requirements to inform or reveal information
+**RELATIONSHIP TO PRINCIPLES:**
+Each obligation should trace back to one or more principles:
+"""
+            # Show principle-obligation relationships
+            principle_names = [p.get('label', '') for p in existing_principles if p.get('label')]
+            for principle in principle_names[:5]:  # Show first 5 principles
+                mcp_context += f"- {principle} → Specific obligations\n"
+            
+            logger.info(f"Retrieved {len(existing_obligations)} obligations and {len(existing_principles)} principles from MCP")
+            
+            # Create enhanced prompt with full Pass 2 context
+            enhanced_prompt = f"""{mcp_context}
 
-EXAMPLES:
-- "Engineers shall hold paramount the safety of the public"
-- "Avoid conflicts of interest"
-- "Disclose potential conflicts to clients"
-- "Maintain competence in their field"
+Extract professional obligations and duties from the following discussion/analysis text.
 
-GUIDELINES:
-- Extract statements that describe what someone MUST, SHALL, or SHOULD do
-- Include obligations that contain modal verbs (must, shall, should, required to)
-- Focus on professional duties, not general principles
-- Each obligation should be actionable and specific
+THEORETICAL FRAMEWORK:
+Obligations operationalize abstract principles into concrete duties (Hallamaa & Kalliokoski 2022). They carry deontic force through modal operators (Wooldridge & Jennings 1995) and activate based on professional roles and contexts (Dennis et al. 2016).
 
-GUIDELINE TEXT:
+OBLIGATION CATEGORIES:
+1. **Mandatory professional duties** - MUST/SHALL requirements
+2. **Role-specific obligations** - Duties tied to specific professional roles
+3. **Legal vs ethical obligations** - Distinguish regulatory from moral requirements  
+4. **Obligation conflicts and prioritization** - When duties conflict
+
+EXTRACTION FOCUS:
+- Statements with deontic operators (must, shall, should, required to, obligated to)
+- Professional duties implied by the situation
+- Obligations from multiple stakeholder perspectives
+- Context-specific duties beyond general principles
+- Obligations that may conflict with each other
+
+Text:
 {text}
 
-OUTPUT FORMAT:
-Return STRICT JSON with an array under key 'obligations':
+Return as JSON array of obligation objects with these fields:
 [
   {{
-    "label": "Hold paramount public safety",
-    "description": "Engineers must prioritize public safety above all other considerations", 
+    "label": "Report safety hazards",
+    "description": "Engineer must report safety hazards to appropriate authorities",
+    "obligation_type": "mandatory_duty",  // mandatory_duty, role_specific, legal, ethical
+    "enforcement_level": "mandatory",  // mandatory, strongly_recommended, recommended
+    "derived_from_principle": "Public Welfare Principle",  // Which principle(s) justify this
+    "stakeholders_affected": ["public", "client", "regulatory authorities"],
+    "potential_conflicts": ["Client confidentiality"],  // Other obligations this might conflict with
     "confidence": 0.9,
-    "is_existing": false,
-    "ontology_match_reasoning": "Similar to existing safety obligations but more specific"
+    "is_existing": false,  // true if matches existing ontology obligation
+    "ontology_match_reasoning": "New specific obligation not in existing ontology"
   }}
 ]
 
-Focus on accuracy over quantity. Extract only clear, unambiguous obligations.
+Focus on concrete, actionable obligations that professionals must fulfill.
 """
             
             return enhanced_prompt

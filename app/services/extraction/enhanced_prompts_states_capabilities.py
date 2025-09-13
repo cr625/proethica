@@ -14,27 +14,60 @@ def create_enhanced_states_prompt(text: str, include_ontology_context: bool = Fa
     Create enhanced states extraction prompt based on Chapter 2.2.4 literature.
     
     Based on:
-    - Berreby et al. (2017): Event Calculus for state representation
-    - Rao et al. (2023): Context-dependence in ethical evaluation
-    - Almpani et al. (2023): Environmental states determining priorities
-    - Dennis et al. (2016): Context-aware ethical reasoning
-    - Sarmiento et al. (2023): States emerging from causal chains
+    - Berreby et al. (2017): Event Calculus for persistent vs momentary state representation
+    - Rao et al. (2023): Context determines ethical evaluation of identical actions
+    - Almpani et al. (2023): Environmental states create dynamic priority ordering
+    - Dennis et al. (2016): Context activates different obligation sets from same principles
+    - Sarmiento et al. (2023): States emerge from causal chains of professional actions
     """
     
     ontology_context = ""
-    if include_ontology_context:
-        if existing_states:
-            ontology_context = f"""
-EXISTING STATES IN ONTOLOGY:
-Found {len(existing_states)} existing state concepts in the professional ethics ontology:
+    if include_ontology_context and existing_states:
+        # Organize states hierarchically (though most are direct children of State)
+        base_state = None
+        specific_states = []
+        
+        # De-duplicate and organize
+        seen_labels = set()
+        for state in existing_states:
+            label = state.get('label', '')
+            if label in seen_labels:
+                continue
+            seen_labels.add(label)
+            
+            description = state.get('description', state.get('definition', ''))
+            
+            if label == 'State':
+                if not base_state:  # Take first State as base
+                    base_state = {'label': label, 'definition': description}
+            else:
+                specific_states.append({'label': label, 'definition': description})
+        
+        # Build hierarchical context - NO TRUNCATION
+        ontology_context = f"""
+EXISTING STATES IN ONTOLOGY (Hierarchical View):
+Found {len(seen_labels)} state concepts organized by hierarchy:
+
+**BASE CLASS:**
+- **{base_state['label'] if base_state else 'State'}**: {base_state['definition'] if base_state else 'Environmental context that determines obligation activation and action constraints.'}
+  (This is the parent class for all state concepts)
+
+**SPECIFIC STATES (Direct instances):**
 """
-            for state in existing_states[:10]:  # Show first 10 for context
-                label = state.get('label', 'Unknown')
-                description = state.get('description', 'No description')
-                ontology_context += f"- {label}: {description}\n"
-            ontology_context += "\nConsider these when extracting new states - identify if states match existing concepts or are genuinely new.\n"
-        else:
-            ontology_context = """
+        for spec in sorted(specific_states, key=lambda x: x['label']):
+            ontology_context += f"- **{spec['label']}**: {spec['definition']}\n"
+        
+        ontology_context += """
+**PASS 1 INTEGRATION (Roles + STATES + Resources):**
+States work with Roles to determine WHEN obligations activate:
+- Roles define WHO has obligations
+- States define WHEN those obligations become active
+- Resources define WHAT knowledge guides decisions in those states
+
+Example: "Engineer Role" + "Conflict of Interest State" → Activates disclosure obligations
+"""
+    else:
+        ontology_context = """
 ONTOLOGY CONTEXT:
 States in ProEthica represent environmental contexts that:
 - Determine which ethical principles activate
@@ -49,11 +82,19 @@ Note: No existing state instances found in ontology. All extracted states will b
     return f"""
 {ontology_context}
 
-You are analyzing professional ethics text to extract STATES based on Chapter 2.2.4 literature on environmental context.
+You are analyzing professional ethics text to extract ENVIRONMENTAL STATES as part of Pass 1 (Contextual Framework) of the ProEthica extraction.
 
-THEORETICAL FRAMEWORK (Chapter 2.2.4):
+THEORETICAL FRAMEWORK - Key Insights from Environmental Context Literature:
 
-Environmental states determine ethical evaluation, with identical actions having different ethical status depending on context (Rao et al. 2023, Berreby et al. 2017). States:
+States are not merely descriptive facts but context conditions that fundamentally alter ethical evaluation:
+- **Context-Dependent Ethics**: Identical actions have different ethical status in different states (Rao et al. 2023 analysis of 200+ ethics cases)
+- **Obligation Activation**: States transform abstract principles into concrete duties (Dennis et al. 2016 study of context-aware systems)
+- **Persistent vs Momentary**: Some states persist until changed (inertial), others are temporary (Berreby et al. 2017 Event Calculus formalization)
+- **Dynamic Priorities**: Environmental states create priority orderings on decision policies (Almpani et al. 2023 autonomous vehicle ethics)
+- **Causal Emergence**: States emerge from chains of professional actions and events (Sarmiento et al. 2023 causal modeling)
+
+**RELATIONSHIP TO ROLES (Pass 1 Integration):**
+States work with Roles to determine obligation activation:
 - Capture both persistent properties (inertial fluents) and momentary conditions
 - Determine dynamic priorities on decision policies
 - Transform abstract principles into concrete obligations
@@ -108,7 +149,7 @@ EXTRACTION GUIDELINES:
 - Recognize uncertainty and incomplete information states
 
 TEXT TO ANALYZE:
-{text[:3000] if isinstance(text, str) else str(text)[:3000]}
+{text if isinstance(text, str) else str(text)}
 
 OUTPUT FORMAT:
 Return a JSON array with this exact structure:

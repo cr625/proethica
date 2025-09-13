@@ -1,189 +1,353 @@
 """
-Enhanced Constraints Extraction with Chapter 2 Literature Grounding
-Based on Pass 2: Normative (SHOULD/MUST/CAN'T) - Limitations and Restrictions
-
-This module implements constraint extraction grounded in professional ethics literature,
-focusing on identifying limitations, restrictions, and boundaries that constrain
-ethical decision-making and professional action.
+Enhanced prompts for Constraints extraction with MCP integration.
+Part of Pass 2: Normative Requirements (Principles → Obligations → Constraints)
 """
 
-from typing import List, Dict, Any, Optional
 import logging
-import json
-from datetime import datetime
-
-from .base import ConceptCandidate
-
-# Optional provenance tracking
-try:
-    from app.models.provenance import ProvenanceActivity
-    from app.services.provenance_service import get_provenance_service
-except ImportError:
-    ProvenanceActivity = None
-    get_provenance_service = lambda: None
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-
-def create_enhanced_constraints_prompt(text: str) -> str:
+def create_enhanced_constraints_prompt(text: str, include_mcp_context: bool = False, 
+                                      existing_constraints: Optional[List[Dict[str, Any]]] = None) -> str:
     """
-    Create an enhanced prompt for constraint extraction based on professional ethics literature.
+    Create an enhanced prompt for extracting constraints with MCP context.
     
-    Theoretical foundations:
-    - Jensen & Meckling (1976): Resource and informational constraints on decision-making
-    - Simon (1955): Bounded rationality and decision constraints
-    - NSPE Guidelines: Technical, legal, and ethical boundaries
-    - Sutton & Barto (2018): Environmental constraints on agent actions
+    CRITICAL: Following the pattern from obligations fix - must fetch MCP data 
+    dynamically when include_mcp_context=True even if existing_constraints is None.
+    
+    Args:
+        text: Input text to analyze
+        include_mcp_context: Whether to include MCP ontology context
+        existing_constraints: Pre-fetched constraints (optional)
+    
+    Returns:
+        Enhanced prompt with Pass 2 integration and MCP context
     """
     
-    prompt = f"""You are an expert in professional ethics and constraint analysis, specifically trained in identifying 
-limitations, restrictions, and boundaries that affect ethical decision-making in engineering contexts.
+    mcp_context = ""
+    
+    if include_mcp_context:
+        try:
+            # CRITICAL PATTERN: Fetch dynamically if not provided
+            if existing_constraints is None:
+                logger.info("Fetching constraint context from MCP server...")
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_constraints = external_client.get_all_constraint_entities()
+                
+                # Also get related Pass 2 entities for context
+                existing_principles = external_client.get_all_principle_entities()
+                existing_obligations = external_client.get_all_obligation_entities()
+            else:
+                # If constraints provided, still fetch related entities
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_principles = external_client.get_all_principle_entities()
+                existing_obligations = external_client.get_all_obligation_entities()
+            
+            # Build hierarchical context for constraints
+            constraint_context = organize_constraints_hierarchically(existing_constraints)
+            
+            # Build Pass 2 integration context
+            pass2_context = f"""
+==========================
+PASS 2 INTEGRATION: NORMATIVE REQUIREMENTS
+==========================
 
-THEORETICAL GROUNDING:
-Based on decision theory and professional ethics literature (Jensen & Meckling 1976, Simon 1955), constraints represent:
-1. **Limitations** that restrict available options or actions
-2. **Boundaries** that cannot be crossed (legal, ethical, technical)
-3. **Resource restrictions** (time, budget, materials, personnel)
-4. **Information limitations** (uncertainty, incomplete data)
-5. **External requirements** (regulations, standards, policies)
+Pass 2 focuses on the normative requirements that guide professional behavior:
 
-CONSTRAINT CATEGORIES:
-1. **Resource Constraints**: Budget, time, materials, personnel limitations
-2. **Technical Constraints**: Physical laws, technological limitations, feasibility
-3. **Legal/Regulatory**: Laws, codes, standards, compliance requirements
-4. **Ethical Boundaries**: Non-negotiable ethical limits (e.g., no harm to public)
-5. **Informational Constraints**: Data availability, uncertainty, knowledge gaps
-6. **Organizational Constraints**: Policies, procedures, hierarchical limitations
-7. **Environmental Constraints**: Physical environment, sustainability requirements
-8. **Stakeholder Constraints**: Client requirements, public expectations
+1. **PRINCIPLES** (Abstract Foundations - WHY):
+   Found {len(existing_principles) if existing_principles else 0} principles that provide ethical foundations
+   - Examples: Public Welfare, Integrity, Competence
+   - Function: Provide abstract guidance and justification
 
-EXTRACTION TASK:
-Analyze the following discussion/analysis text and identify ALL constraints that limit or restrict decision-making and action.
+2. **OBLIGATIONS** (Concrete Requirements - WHAT MUST):
+   Found {len(existing_obligations) if existing_obligations else 0} obligations that specify duties
+   - Examples: Must report violations, Must maintain competence
+   - Function: Transform principles into specific requirements
 
-For each constraint, provide:
-1. **label**: A clear, descriptive name (e.g., "Budget Limitation", "Safety Code Compliance")
-2. **description**: What this constraint restricts or limits in the specific context
-3. **constraint_category**: Category from above (resource, technical, legal, etc.)
-4. **flexibility**: How negotiable is this constraint (non-negotiable, flexible, soft)
-5. **impact_on_decisions**: How this constraint affects available options
-6. **affected_stakeholders**: Who is impacted by this constraint
-7. **potential_violations**: What happens if this constraint is violated
-8. **mitigation_strategies**: Possible ways to work within or around the constraint
-9. **temporal_aspect**: Is this constraint permanent, temporary, or conditional
-10. **quantifiable_metrics**: Measurable aspects if applicable (e.g., "$X budget", "Y days")
+3. **CONSTRAINTS** (Boundaries & Limits - WHAT CANNOT):
+   Found {len(existing_constraints) if existing_constraints else 0} constraints that establish boundaries
+   - Examples: Legal limits, Resource limitations, Jurisdictional bounds
+   - Function: Define inviolable limits on acceptable actions
+
+KEY RELATIONSHIPS:
+- Principles generate Obligations (abstract → concrete)
+- Obligations are bounded by Constraints (requirements ← limits)
+- Constraints prevent violation of principles (boundaries protect values)
+
+==========================
+"""
+            
+            mcp_context = f"""
+{pass2_context}
+
+EXISTING CONSTRAINTS IN ONTOLOGY:
+---------------------------------
+{constraint_context}
+
+CRITICAL INSTRUCTIONS:
+---------------------
+1. CHECK EXISTING FIRST: Always check if a constraint matches an existing one
+2. COMPLEMENT OBLIGATIONS: Constraints set boundaries that obligations must respect
+3. CHAPTER 2 GROUNDING: Based on Section 2.2.9 literature:
+   - Ganascia (2007): Defeasible constraints with justified exceptions
+   - Dennis et al. (2016): Inviolable boundaries and dilemma resolution
+   - Taddeo et al. (2024): Context-dependent tolerance thresholds
+   - Kroll (2020): Legal vs ethical constraint interpretation
+   - Arkin (2008): Ethical governor concept for boundary enforcement
+
+CONSTRAINT TYPES TO IDENTIFY:
+- Legal Constraints: Statutory requirements and legal boundaries
+- Regulatory Constraints: Professional standards and regulations
+- Resource Constraints: Time, budget, personnel limitations
+- Competence Constraints: Capability and skill boundaries
+- Jurisdictional Constraints: Authority and scope limits
+- Procedural Constraints: Required processes and protocols
+- Safety Constraints: Safety-critical boundaries
+- Confidentiality Constraints: Information disclosure limits
+"""
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch MCP context: {e}")
+            mcp_context = """
+NOTE: Could not fetch existing constraints from ontology.
+Identify constraints based on Chapter 2 literature (Section 2.2.9):
+- Boundaries that restrict or govern professional behavior
+- Inviolable limits on acceptable actions
+- Defeasible constraints that admit justified exceptions
+"""
+    
+    prompt = f"""You are analyzing professional text to extract CONSTRAINTS - boundaries and limitations that restrict professional behavior.
+
+TASK: Extract 8-10 constraints from the provided text.
+
+{mcp_context}
 
 TEXT TO ANALYZE:
+--------------
 {text}
+--------------
 
-IMPORTANT EXTRACTION GUIDELINES:
-- Identify both explicit constraints ("limited by", "cannot", "restricted to") and implicit ones
-- Look for resource limitations mentioned in the context
-- Consider legal and regulatory requirements as hard constraints
-- Note ethical boundaries that cannot be crossed
-- Include constraints from multiple perspectives (technical, social, economic)
-- Distinguish between hard constraints (must not violate) and soft constraints (preferably avoid)
-- Consider how constraints interact and potentially conflict
+EXTRACTION FRAMEWORK (Based on Chapter 2, Section 2.2.9):
 
-Return your analysis as a JSON array of constraint objects.
-Each object should contain all fields specified above.
-Focus on constraints that are:
-1. Significant to the decision-making process
-2. Clearly defined or measurable when possible
-3. Relevant to the ethical dimensions of the case
-4. Important for understanding solution boundaries
+1. **CONSTRAINT DEFINITION**: 
+   - Boundaries that establish inviolable limits on acceptable actions
+   - Complement obligations by defining what CANNOT be done
+   - May be defeasible (admit exceptions) or inviolable (absolute)
 
-Example format:
-[
+2. **IDENTIFICATION CRITERIA**:
+   - Look for: limitations, restrictions, boundaries, prohibitions
+   - Legal/regulatory requirements that limit actions
+   - Resource limitations (time, budget, personnel)
+   - Competence boundaries (skill/capability limits)
+   - Jurisdictional limits (authority boundaries)
+   - Procedural requirements that constrain flexibility
+
+3. **RELATIONSHIP TO OBLIGATIONS**:
+   - Obligations specify what MUST be done
+   - Constraints specify what CANNOT be done
+   - Together they define the normative space for action
+
+4. **VALIDATION QUESTIONS**:
+   - Does this establish a boundary or limit?
+   - Does it restrict what can be done?
+   - Is it about capability, authority, or resource limits?
+   - Does it prevent certain actions or approaches?
+
+IMPORTANT: Distinguish constraints from obligations:
+- Obligation: "Must report safety violations" (required action)
+- Constraint: "Cannot disclose without authorization" (prohibited action)
+- Constraint: "Limited to areas of competence" (capability boundary)
+
+OUTPUT FORMAT (JSON):
+{{
+  "constraints": [
     {{
-        "label": "Project Budget Limit",
-        "description": "Total project budget cannot exceed $500,000",
-        "constraint_category": "resource",
-        "flexibility": "non-negotiable",
-        "impact_on_decisions": "Eliminates high-cost safety features and premium materials",
-        "affected_stakeholders": ["client", "contractor", "end users"],
-        "potential_violations": "Project cancellation, legal breach of contract",
-        "mitigation_strategies": ["Value engineering", "Phased implementation", "Cost-benefit optimization"],
-        "temporal_aspect": "permanent",
-        "quantifiable_metrics": "$500,000 maximum budget"
+      "label": "string",  // Clear, descriptive name
+      "description": "string",  // How this constrains behavior
+      "type": "string",  // legal|regulatory|resource|competence|jurisdictional|procedural|safety|confidentiality
+      "defeasible": boolean,  // Can this constraint have exceptions?
+      "source_quote": "string",  // Direct quote from text
+      "is_existing": boolean,  // Found in ontology?
+      "ontology_match": "string or null"  // Label of matching constraint if exists
     }}
-]
+  ],
+  "extraction_metadata": {{
+    "constraint_count": number,
+    "types_found": ["list of types"],
+    "pass2_integration": "How constraints complement principles and obligations"
+  }}
+}}
+
+Remember: 
+- Constraints establish BOUNDARIES, not requirements
+- They work with obligations to define professional action space
+- Check existing ontology constraints first
+- Ground in Chapter 2 literature on professional boundaries
 """
+    
     return prompt
+
+
+def organize_constraints_hierarchically(constraints: List[Dict[str, Any]]) -> str:
+    """
+    Organize constraints into a hierarchical structure for display.
+    
+    Args:
+        constraints: List of constraint entities from MCP
+        
+    Returns:
+        Formatted string showing constraint hierarchy
+    """
+    if not constraints:
+        return "No existing constraints found in ontology.\n"
+    
+    # Separate base and specific constraints
+    base_constraint = None
+    boundary_types = []
+    defeasibility_types = []
+    ethical_types = []
+    temporal_types = []
+    other_constraints = []
+    
+    for c in constraints:
+        label = c.get('label', '')
+        desc = c.get('description', '')
+        
+        if label == 'Constraint':
+            base_constraint = c
+        elif any(term in label for term in ['Legal', 'Regulatory', 'Resource', 'Competence', 
+                                            'Jurisdictional', 'Procedural']):
+            boundary_types.append(c)
+        elif any(term in label for term in ['Defeasible', 'Inviolable']):
+            defeasibility_types.append(c)
+        elif any(term in label for term in ['Ethical', 'Safety', 'Confidentiality']):
+            ethical_types.append(c)
+        elif any(term in label for term in ['Temporal', 'Priority']):
+            temporal_types.append(c)
+        else:
+            other_constraints.append(c)
+    
+    # Build formatted output - NO TRUNCATION, show full definitions
+    output_lines = []
+    
+    if base_constraint:
+        output_lines.append("BASE CLASS:")
+        output_lines.append(f"- **{base_constraint['label']}**: {base_constraint.get('description', '')}")
+        output_lines.append("")
+    
+    if boundary_types:
+        output_lines.append("BOUNDARY TYPES (What limits exist):")
+        for c in sorted(boundary_types, key=lambda x: x['label']):
+            output_lines.append(f"- **{c['label']}**: {c.get('description', '')}")
+        output_lines.append("")
+    
+    if defeasibility_types:
+        output_lines.append("DEFEASIBILITY TYPES (Exception handling):")
+        for c in sorted(defeasibility_types, key=lambda x: x['label']):
+            output_lines.append(f"- **{c['label']}**: {c.get('description', '')}")
+        output_lines.append("")
+    
+    if ethical_types:
+        output_lines.append("ETHICAL BOUNDARY TYPES:")
+        for c in sorted(ethical_types, key=lambda x: x['label']):
+            output_lines.append(f"- **{c['label']}**: {c.get('description', '')}")
+        output_lines.append("")
+    
+    if temporal_types:
+        output_lines.append("TEMPORAL & PRIORITY TYPES:")
+        for c in sorted(temporal_types, key=lambda x: x['label']):
+            output_lines.append(f"- **{c['label']}**: {c.get('description', '')}")
+        output_lines.append("")
+    
+    if other_constraints:
+        output_lines.append("OTHER CONSTRAINTS:")
+        for c in sorted(other_constraints, key=lambda x: x['label']):
+            output_lines.append(f"- **{c['label']}**: {c.get('description', '')}")
+        output_lines.append("")
+    
+    return "\n".join(output_lines)
+
+
+# Literature references for constraints
+CONSTRAINT_LITERATURE = {
+    'Ganascia2007': "Ethical rules as default rules with justified exceptions",
+    'Dennis2016': "Formal verification ensuring compliance even in dilemmas",
+    'Taddeo2024': "Context-dependent tolerance thresholds for constraint balancing",
+    'Kroll2020': "Legal obligations require interpretation beyond rule enforcement",
+    'Arkin2008': "Ethical governor concept - preventive control filtering unacceptable actions",
+    'Furbach2014': "Deontic logic formalizing professional constraints",
+    'Benzmüller2020': "Distinction between normative ideals and concrete deontic operators"
+}
 
 
 class EnhancedConstraintsExtractor:
     """
-    Enhanced extractor for constraints based on decision theory and ethics literature.
+    Enhanced extractor for professional constraints based on ethics literature.
     
     Key theoretical foundations:
-    - Jensen & Meckling (1976): Agency theory and resource constraints
-    - Simon (1955): Bounded rationality and decision constraints
-    - NSPE Guidelines: Professional and ethical boundaries
-    - Sutton & Barto (2018): Environmental constraints on actions
+    - Ganascia (2007): Defeasible constraints with justified exceptions
+    - Dennis et al. (2016): Inviolable boundaries and dilemma resolution
+    - Taddeo et al. (2024): Context-dependent tolerance thresholds
+    - Arkin (2008): Ethical governor concept for boundary enforcement
     """
     
     def __init__(self, llm_client=None, provenance_service=None):
         self.llm_client = llm_client
-        self.provenance_service = provenance_service or get_provenance_service()
+        self.provenance_service = provenance_service
+        self.logger = logger
         
-    def extract(self, text: str, context: Optional[Dict[str, Any]] = None,
-                activity: Optional[ProvenanceActivity] = None) -> List[ConceptCandidate]:
+    def extract(self, text: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
-        Extract constraints with enhanced prompt based on decision theory literature.
+        Extract constraints with enhanced prompt based on Chapter 2 literature.
         
         Args:
-            text: The discussion/analysis text to extract constraints from
+            text: The text to extract constraints from
             context: Optional context including case metadata
-            activity: Optional provenance activity for tracking
             
         Returns:
-            List of ConceptCandidate objects representing extracted constraints
+            List of constraint dictionaries
         """
         if not text:
             return []
             
         try:
-            # Generate enhanced prompt
-            prompt = create_enhanced_constraints_prompt(text)
+            # Try to get existing constraints from MCP if enabled
+            existing_constraints = None
+            try:
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_constraints = external_client.get_all_constraint_entities()
+                self.logger.info(f"Retrieved {len(existing_constraints)} existing constraints from MCP for context")
+            except Exception as e:
+                self.logger.warning(f"Could not retrieve existing constraints from MCP: {e}")
             
-            # Record prompt in provenance if available
-            if activity and self.provenance_service:
-                prompt_entity = self.provenance_service.record_prompt(
-                    prompt_text=prompt,
-                    activity=activity,
-                    entity_name="constraints_extraction_prompt",
-                    metadata={
-                        'extractor': 'EnhancedConstraintsExtractor',
-                        'prompt_version': '2.0_normative_pass',
-                        'theoretical_grounding': 'Jensen & Meckling 1976, Simon 1955'
-                    }
-                )
+            # Generate enhanced prompt with MCP context
+            prompt = create_enhanced_constraints_prompt(
+                text, 
+                include_mcp_context=True, 
+                existing_constraints=existing_constraints
+            )
             
             # Get LLM extraction if available
             if self.llm_client:
-                candidates = self._extract_with_llm(text, prompt, activity)
+                constraints = self._extract_with_llm(text, prompt)
             else:
-                candidates = self._fallback_extraction(text)
-                
-            # Enhance with regulatory ontology if available
-            candidates = self._enhance_with_regulatory_ontology(candidates)
+                constraints = self._fallback_extraction(text)
             
-            return candidates
+            return constraints
             
         except Exception as e:
-            logger.error(f"Error in enhanced constraints extraction: {str(e)}")
-            if activity and self.provenance_service:
-                self.provenance_service.record_extraction_results(
-                    results=[],
-                    activity=activity,
-                    entity_type='extracted_constraints_error',
-                    metadata={'error': str(e)}
-                )
+            self.logger.error(f"Error in enhanced constraints extraction: {str(e)}")
             return []
     
-    def _extract_with_llm(self, text: str, prompt: str, activity: Optional[ProvenanceActivity]) -> List[ConceptCandidate]:
+    def _extract_with_llm(self, text: str, prompt: str) -> List[Dict[str, Any]]:
         """Extract constraints using LLM with the enhanced prompt."""
         try:
+            import json
+            
             # Call LLM with proper API based on client type
             if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
                 # Anthropic client
@@ -210,69 +374,21 @@ class EnhancedConstraintsExtractor:
             else:
                 raise ValueError("Unknown LLM client type")
             
-            # Record response in provenance if available
-            if activity and self.provenance_service:
-                response_entity = self.provenance_service.record_response(
-                    response_text=response,
-                    activity=activity,
-                    entity_name="constraints_llm_response",
-                    metadata={
-                        'model': getattr(self.llm_client, 'model_name', 'unknown'),
-                        'token_count': len(response.split())
-                    }
-                )
-            
             # Parse JSON response
             try:
-                constraints_data = json.loads(response)
-                if not isinstance(constraints_data, list):
-                    constraints_data = [constraints_data]
+                result = json.loads(response)
+                if isinstance(result, dict) and 'constraints' in result:
+                    return result['constraints']
+                elif isinstance(result, list):
+                    return result
+                else:
+                    return []
             except json.JSONDecodeError:
-                logger.warning("Failed to parse LLM response as JSON, attempting text extraction")
-                constraints_data = self._parse_text_response(response)
-            
-            # Convert to ConceptCandidates
-            candidates = []
-            for item in constraints_data:
-                candidate = ConceptCandidate(
-                    label=item.get('label', 'Unknown Constraint'),
-                    description=item.get('description', ''),
-                    primary_type='constraint',
-                    category='constraint',
-                    confidence=0.85,  # Base confidence for LLM extraction
-                    debug={
-                        'constraint_category': item.get('constraint_category', 'resource'),
-                        'flexibility': item.get('flexibility', 'non-negotiable'),
-                        'impact_on_decisions': item.get('impact_on_decisions', ''),
-                        'affected_stakeholders': item.get('affected_stakeholders', []),
-                        'potential_violations': item.get('potential_violations', ''),
-                        'mitigation_strategies': item.get('mitigation_strategies', []),
-                        'temporal_aspect': item.get('temporal_aspect', 'permanent'),
-                        'quantifiable_metrics': item.get('quantifiable_metrics', ''),
-                        'extraction_method': 'llm_enhanced',
-                        'prompt_version': '2.0_normative_pass'
-                    }
-                )
-                candidates.append(candidate)
-            
-            # Record extraction results in provenance
-            if activity and self.provenance_service:
-                self.provenance_service.record_extraction_results(
-                    results=[{
-                        'label': c.label,
-                        'description': c.description,
-                        'confidence': c.confidence,
-                        'debug': c.debug
-                    } for c in candidates],
-                    activity=activity,
-                    entity_type='extracted_constraints',
-                    metadata={'count': len(candidates), 'method': 'llm_enhanced'}
-                )
-            
-            return candidates
-            
+                self.logger.warning("Failed to parse LLM response as JSON")
+                return self._parse_text_response(response)
+                
         except Exception as e:
-            logger.error(f"LLM extraction failed: {str(e)}")
+            self.logger.error(f"LLM extraction failed: {str(e)}")
             return self._fallback_extraction(text)
     
     def _parse_text_response(self, response: str) -> List[Dict[str, Any]]:
@@ -308,94 +424,39 @@ class EnhancedConstraintsExtractor:
             
         return constraints
     
-    def _fallback_extraction(self, text: str) -> List[ConceptCandidate]:
+    def _fallback_extraction(self, text: str) -> List[Dict[str, Any]]:
         """Fallback heuristic extraction when LLM is unavailable."""
-        candidates = []
+        constraints = []
         
         # Simple keyword-based extraction for constraints
         constraint_patterns = [
-            (r'\blimited\s+to\s+(\w+(?:\s+\w+){0,3})', 'resource'),
-            (r'\bcannot\s+(\w+(?:\s+\w+){0,3})', 'technical'),
-            (r'\bmust\s+not\s+(\w+(?:\s+\w+){0,3})', 'ethical'),
-            (r'\brestricted\s+to\s+(\w+(?:\s+\w+){0,3})', 'legal'),
-            (r'\bmaximum\s+(\w+(?:\s+\w+){0,3})', 'resource'),
-            (r'\bminimum\s+(\w+(?:\s+\w+){0,3})', 'technical'),
-            (r'\bprohibited\s+from\s+(\w+(?:\s+\w+){0,3})', 'legal'),
-            (r'\bbudget\s+of\s+(\$?[\d,]+)', 'resource'),
-            (r'\bdeadline\s+of\s+(\w+(?:\s+\w+){0,3})', 'resource'),
-            (r'\bcompliance\s+with\s+(\w+(?:\s+\w+){0,3})', 'legal'),
+            (r'\bcannot\s+(\w+(?:\s+\w+){0,3})', 'prohibition'),
+            (r'\bmust\s+not\s+(\w+(?:\s+\w+){0,3})', 'prohibition'),
+            (r'\blimited\s+to\s+(\w+(?:\s+\w+){0,3})', 'limitation'),
+            (r'\brestricted\s+to\s+(\w+(?:\s+\w+){0,3})', 'limitation'),
+            (r'\bprohibited\s+from\s+(\w+(?:\s+\w+){0,3})', 'prohibition'),
+            (r'\bconstraints?\s+(?:on|upon)\s+(\w+(?:\s+\w+){0,3})', 'limitation'),
+            (r'\bboundary\s+(?:on|for)\s+(\w+(?:\s+\w+){0,3})', 'boundary'),
         ]
         
         import re
-        for pattern, category in constraint_patterns:
+        for pattern, constraint_type in constraint_patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
-                constraint_text = match.group(1) if match.lastindex else match.group(0)
-                candidate = ConceptCandidate(
-                    label=f"{constraint_text.title()} Constraint",
-                    description=f"Constraint limiting {constraint_text}",
-                    primary_type='constraint',
-                    category='constraint',
-                    confidence=0.6,  # Lower confidence for heuristic extraction
-                    debug={
-                        'constraint_category': category,
-                        'flexibility': 'non-negotiable' if category in ['legal', 'ethical'] else 'flexible',
-                        'extraction_method': 'heuristic_fallback',
-                        'pattern_matched': pattern
-                    }
-                )
-                candidates.append(candidate)
-        
-        # Look for budget constraints
-        budget_pattern = r'\$[\d,]+(?:\.\d{2})?'
-        budget_matches = re.finditer(budget_pattern, text)
-        for match in budget_matches:
-            amount = match.group(0)
-            candidate = ConceptCandidate(
-                label=f"Budget Constraint {amount}",
-                description=f"Financial constraint of {amount}",
-                concept_type='constraint',
-                confidence=0.7,
-                debug={
-                    'constraint_category': 'resource',
-                    'flexibility': 'non-negotiable',
-                    'quantifiable_metrics': amount,
-                    'extraction_method': 'heuristic_fallback'
+                action = match.group(1) if match.lastindex else match.group(0)
+                constraint = {
+                    'label': f"{action.title()} Constraint",
+                    'description': f"Constraint on {action}",
+                    'type': constraint_type,
+                    'defeasible': False,
+                    'source_quote': match.group(0),
+                    'is_existing': False,
+                    'ontology_match': None
                 }
-            )
-            candidates.append(candidate)
+                constraints.append(constraint)
         
-        return candidates
-    
-    def _enhance_with_regulatory_ontology(self, candidates: List[ConceptCandidate]) -> List[ConceptCandidate]:
-        """Enhance candidates with regulatory and standards references if available."""
-        # This would connect to regulatory ontology via MCP if available
-        # For now, add standard regulatory categories
-        
-        regulatory_keywords = {
-            'code': 'Building/Engineering Code Compliance',
-            'regulation': 'Regulatory Requirement',
-            'standard': 'Industry Standard Compliance',
-            'law': 'Legal Requirement',
-            'permit': 'Permitting Requirement',
-            'safety': 'Safety Standard Compliance',
-            'environmental': 'Environmental Regulation',
-            'osha': 'OSHA Compliance',
-            'epa': 'EPA Regulation',
-            'iso': 'ISO Standard'
-        }
-        
-        for candidate in candidates:
-            # Try to match with regulatory categories
-            label_lower = candidate.label.lower()
-            desc_lower = candidate.description.lower()
-            
-            for keyword, category in regulatory_keywords.items():
-                if keyword in label_lower or keyword in desc_lower:
-                    candidate.debug['regulatory_category'] = category
-                    candidate.debug['constraint_category'] = 'legal'
-                    candidate.debug['flexibility'] = 'non-negotiable'
-                    candidate.confidence = min(candidate.confidence * 1.1, 1.0)  # Boost confidence
-                    break
-        
-        return candidates
+        return constraints
+
+
+# Import for compatibility
+from typing import List, Dict, Any, Optional

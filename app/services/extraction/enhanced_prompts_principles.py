@@ -130,19 +130,52 @@ class EnhancedPrinciplesExtractor:
                     existing_principles = external_client.get_all_principle_entities()
                     logger.info(f"Retrieved {len(existing_principles)} existing principles from MCP")
                 
-                # Build MCP context with full definitions
+                # Build hierarchical MCP context with full definitions
                 if existing_principles:
-                    mcp_context = f"""
-EXISTING PRINCIPLES IN ONTOLOGY:
-Found {len(existing_principles)} existing principle concepts in the professional ethics ontology:
-"""
-                    # Include ALL principles with their full definitions
-                    for principle in existing_principles:
-                        label = principle.get('label', 'Unknown')
-                        definition = principle.get('definition', principle.get('description', 'No description'))
-                        mcp_context += f"- **{label}**: {definition}\n"
+                    # Organize principles hierarchically
+                    base_class = None
+                    category_classes = []
+                    specific_principles = []
                     
-                    mcp_context += "\nConsider these when extracting new principles - identify if principles match existing concepts or are genuinely new.\n"
+                    for principle in existing_principles:
+                        label = principle.get('label', '')
+                        definition = principle.get('definition', principle.get('description', ''))
+                        
+                        if label == 'Principle':
+                            if not base_class:  # Take first Principle as base
+                                base_class = {'label': label, 'definition': definition}
+                        elif label == 'Ethical Principle':
+                            # Skip legacy synonym
+                            continue
+                        elif any(cat in label for cat in ['Fundamental', 'Professional', 'Relational', 'Domain-Specific']):
+                            category_classes.append({'label': label, 'definition': definition})
+                        else:
+                            specific_principles.append({'label': label, 'definition': definition})
+                    
+                    # Build hierarchical context - NO TRUNCATION for LLM
+                    mcp_context = f"""
+EXISTING PRINCIPLES IN ONTOLOGY (Hierarchical View):
+Found {len(existing_principles)} principle concepts organized by hierarchy:
+
+**BASE CLASS:**
+- **{base_class['label']}**: {base_class['definition']}
+  (This is the parent class for all principle concepts)
+
+**PRINCIPLE CATEGORIES (Subclasses of Principle):**
+"""
+                    for cat in sorted(category_classes, key=lambda x: x['label']):
+                        mcp_context += f"- **{cat['label']}**: {cat['definition']}\n"
+                    
+                    mcp_context += "\n**SPECIFIC PRINCIPLES (Instances within categories):**\n"
+                    for spec in sorted(specific_principles, key=lambda x: x['label']):
+                        mcp_context += f"- **{spec['label']}**: {spec['definition']}\n"
+                    
+                    mcp_context += """
+Consider these when extracting new principles:
+1. Check if the principle already exists in the ontology
+2. If new, identify which category it belongs to
+3. Ensure it's an abstract principle requiring interpretation, not a specific rule
+"""
                 else:
                     mcp_context = "No existing principles found in ontology (fresh setup)\n"
                     
@@ -154,9 +187,12 @@ Found {len(existing_principles)} existing principle concepts in the professional
 
 You are analyzing an ethics guideline to extract PRINCIPLES based on the ProEthica formalism and Chapter 2.2.2 literature review.
 
-THEORETICAL FRAMEWORK (Chapter 2.2.2 - Principles as Abstract Ethical Foundations):
+THEORETICAL FRAMEWORK - Key Insights from Professional Ethics Literature:
 
-According to the literature, principles represent abstract ethical foundations that require extensional definition through concrete cases and precedents (McLaren 2003). They cannot be applied through formal deduction alone but gain meaning through their manifestation in specific professional contexts.
+Principles represent abstract ethical foundations that cannot be applied through formal logic alone. Instead:
+- **Extensional Definition**: Principles gain concrete meaning through accumulated case precedents and professional applications, not abstract definitions (McLaren 2003 showed this through analysis of engineering ethics cases)
+- **Context Sensitivity**: The same principle manifests differently across professional contexts and requires interpretation based on situational factors (Hallamaa & Kalliokoski 2022's empirical studies)
+- **Operationalization Challenge**: Converting abstract principles into actionable guidance requires a three-step process: identify abstraction level, interpret requirements, and define balancing criteria (Taddeo et al. 2024's framework for AI ethics)
 
 **CORE PRINCIPLE CATEGORIES TO IDENTIFY:**
 
@@ -184,23 +220,23 @@ According to the literature, principles represent abstract ethical foundations t
    - Extensional Grounding: Industry-specific cases and technical standards applications
    - Example: Environmental Stewardship (engineering), Patient Autonomy (medicine)
 
-**OPERATIONALIZATION PROCESS (Taddeo et al. 2024):**
+**OPERATIONALIZATION PROCESS:**
 
-For each principle, apply the three-step operationalization:
-1. Identify abstraction level appropriate for the context
-2. Interpret to extract specific professional requirements
-3. Define criteria for balancing against other principles
+For each principle, apply this three-step process (based on empirical studies of professional ethics codes):
+1. **Identify abstraction level** - Is this a high-level value (e.g., "integrity") or more specific guidance?
+2. **Extract requirements** - What specific actions does this principle require or prohibit?
+3. **Define balancing criteria** - When this principle conflicts with others, what takes precedence?
 
 **EXTRACTION GUIDELINES:**
 
 - Focus on abstract values requiring interpretation, not specific rules
-- Identify how principles mediate between ideals and practice (Hallamaa & Kalliokoski 2022)
-- Link principles to concrete cases that give them meaning (McLaren 2003)
-- Consider how principles generate multiple context-specific obligations
+- Identify how principles bridge between moral ideals and practical decisions
+- Link principles to concrete cases or precedents that give them meaning
+- Consider how one principle generates multiple context-specific obligations
 - Note potential conflicts between competing principles
 
 GUIDELINE TEXT:
-{text[:3000] if isinstance(text, str) else str(text)[:3000]}
+{text if isinstance(text, str) else str(text)}
 
 OUTPUT FORMAT:
 Return a JSON array with this structure:

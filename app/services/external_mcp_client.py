@@ -161,10 +161,15 @@ class ExternalMCPClient:
     def get_all_obligation_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
         """Get all obligation entities from external MCP server."""
         try:
-            result = self.get_entities_by_category("obligation", domain_id)
-            entities = result.get('entities', [])
-            logger.info(f"Retrieved {len(entities)} obligation entities from external MCP")
-            return entities
+            result = self.get_entities_by_category("Obligation", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} obligation entities from external MCP")
+                return entities
+            else:
+                logger.warning("No obligation entities found or query failed")
+                return []
         except Exception as e:
             logger.warning(f"Failed to get obligation entities: {e}")
             return []
@@ -199,6 +204,22 @@ class ExternalMCPClient:
                 return []
         except Exception as e:
             logger.warning(f"Failed to get resource entities: {e}")
+            return []
+    
+    def get_all_constraint_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all constraint entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("Constraint", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} constraint entities from external MCP")
+                return entities
+            else:
+                logger.warning("No constraint entities found or query failed")
+                return []
+        except Exception as e:
+            logger.warning(f"Failed to get constraint entities: {e}")
             return []
     
     def submit_candidate_concept(self, concept: Dict[str, Any], domain_id: str = "engineering-ethics") -> Dict[str, Any]:
