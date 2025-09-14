@@ -180,7 +180,8 @@ Extract states that represent environmental conditions affecting ethical require
 """
 
 
-def create_enhanced_capabilities_prompt(text: str, include_ontology_context: bool = False) -> str:
+def create_enhanced_capabilities_prompt(text: str, include_mcp_context: bool = False, 
+                                       existing_capabilities: list = None) -> str:
     """
     Create enhanced capabilities extraction prompt based on Chapter 2.2.8 literature.
     
@@ -193,8 +194,43 @@ def create_enhanced_capabilities_prompt(text: str, include_ontology_context: boo
     """
     
     ontology_context = ""
-    if include_ontology_context:
-        ontology_context = """
+    if include_mcp_context:
+        # Fetch capabilities from MCP if not provided
+        if existing_capabilities is None:
+            try:
+                from app.services.external_mcp_client import get_external_mcp_client
+                external_client = get_external_mcp_client()
+                existing_capabilities = external_client.get_all_capability_entities()
+            except Exception as e:
+                existing_capabilities = []
+        
+        # Build context from existing capabilities
+        if existing_capabilities:
+            ontology_context = f"""
+EXISTING CAPABILITIES IN ONTOLOGY:
+Found {len(existing_capabilities)} capability concepts in ontology:
+
+"""
+            for cap in existing_capabilities[:20]:  # Show first 20
+                label = cap.get('label', 'Unknown')
+                description = cap.get('description', 'No description')
+                ontology_context += f"- **{label}**: {description}\n"
+            
+            if len(existing_capabilities) > 20:
+                ontology_context += f"\n... and {len(existing_capabilities) - 20} more capabilities\n"
+            
+            ontology_context += """
+
+CAPABILITY CATEGORIES (Based on Tolmeijer et al. 2021):
+- **Norm Management**: Norm Competence, Conflict Resolution
+- **Awareness & Perception**: Situational Awareness, Ethical Perception  
+- **Learning & Adaptation**: Ethical Learning, Principle Refinement
+- **Reasoning & Deliberation**: Ethical Reasoning, Causal Reasoning, Temporal Reasoning
+- **Communication & Explanation**: Explanation Generation, Justification Capability
+- **Domain-Specific**: Domain Expertise, Professional Competence
+"""
+        else:
+            ontology_context = """
 ONTOLOGY CONTEXT:
 Capabilities in ProEthica represent agent competencies that:
 - Enable complex ethical decision-making
@@ -202,6 +238,8 @@ Capabilities in ProEthica represent agent competencies that:
 - Include technical and meta-cognitive abilities
 - Require domain-specific expertise
 - Support learning and adaptation
+
+Note: No existing capability instances found in ontology. All extracted capabilities will be new.
 """
     
     return f"""

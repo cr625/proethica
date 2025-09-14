@@ -99,7 +99,8 @@ All three Pass 1 components implemented with MCP integration:
 
 ---
 
-### ⚠️ PASS 2 IN PROGRESS (Normative Requirements)
+### ✅ PASS 2 COMPLETE (Normative Requirements)
+All four Pass 2 components implemented with MCP integration:
 
 #### Principles (P) - WHY (ethical foundations)
 - **Status**: ✅ Complete (12 entities)
@@ -114,18 +115,16 @@ All three Pass 1 components implemented with MCP integration:
 - **Key Fix**: Dynamic MCP fetching when include_mcp_context=True
 
 #### Constraints (Cs) - WHAT CANNOT be done
-- **Status**: ⚠️ PARTIAL - Database only, NOT in TTL files!
+- **Status**: ✅ Complete (17 entities)
 - **Files**: `enhanced_prompts_constraints.py`
-- **CRITICAL ISSUE**: 13 constraint subclasses exist only in database, not in TTL files
-- **TODO**: 
-  1. Add constraint subclasses to `proethica-intermediate.ttl`
-  2. Reload database from TTL
-  3. Verify MCP retrieval
+- **Categories**: Boundary, Defeasibility, Ethical, Temporal types
+- **Key Fix**: All 13 subclasses added to TTL files following ontology-first architecture
 
 #### Capabilities (Ca) - WHO CAN fulfill obligations
-- **Status**: ❌ Not started
-- **Files**: Need to create separate from States
-- **Note**: Part of Pass 2 per Chapter 2 (norm competence)
+- **Status**: ✅ Complete (17 entities - base + 15 new + Technical)
+- **Files**: `enhanced_prompts_states_capabilities.py`, `capabilities.py`
+- **Categories**: Norm Management, Awareness, Learning, Reasoning, Communication, Domain-Specific
+- **Key Fix**: Added all 15 subclasses to proethica-intermediate.ttl (January 13, 2025)
 
 ---
 
@@ -141,52 +140,59 @@ All three Pass 1 components implemented with MCP integration:
 
 ---
 
-## Current Task: Fix Constraints Implementation
+## Completed Tasks (January 13, 2025)
 
-### Problem
-Constraint subclasses were added directly to database via script, violating ontology-first architecture.
+### ✅ Constraints Implementation Fixed
+- Added all 13 constraint subclasses to `proethica-intermediate.ttl`
+- Verified MCP retrieves all 17 constraints (base + subclasses)
+- Tested UI shows constraints with full definitions
 
-### Solution Steps
-1. ✅ Created `constraint_subclasses_to_add.ttl` with proper definitions
-2. ⏳ Add these to `proethica-intermediate.ttl`
-3. ⏳ Restart services to reload from TTL
-4. ⏳ Verify MCP retrieves all 17 constraints
-5. ⏳ Test in UI that constraints show with full definitions
+### ✅ Capabilities Implementation Complete
+- Added 15 capability subclasses to `proethica-intermediate.ttl`
+- Based on Chapter 2.2.8 literature (Tolmeijer et al. 2021, Anderson 2018, etc.)
+- Created MCP method `get_all_capability_entities()`
+- Integrated with `capabilities.py` extractor
+- Verified all 17 capabilities in database (base + 15 new + Technical)
 
-### Constraint Subclasses to Add (13 total)
-**Boundary Types (6)**:
-- LegalConstraint - Kroll 2020
-- RegulatoryConstraint - Taddeo et al. 2024
-- ResourceConstraint - Ganascia 2007
-- CompetenceConstraint - Hallamaa & Kalliokoski 2022
-- JurisdictionalConstraint - Dennis et al. 2016
-- ProceduralConstraint - Furbach et al. 2014
+### Capability Categories Implemented:
+**Norm Management (2)**:
+- NormCompetence - Tolmeijer et al. 2021
+- ConflictResolution - Dennis et al. 2016
 
-**Defeasibility Types (2)**:
-- DefeasibleConstraint - Ganascia 2007
-- InviolableConstraint - Dennis et al. 2016
+**Awareness & Perception (2)**:
+- SituationalAwareness - Almpani et al. 2023
+- EthicalPerception - Anderson et al. 2006
 
-**Ethical Boundary Types (3)**:
-- EthicalConstraint - Benzmüller et al. 2020
-- SafetyConstraint - Arkin 2008
-- ConfidentialityConstraint - Dennis et al. 2016
+**Learning & Adaptation (2)**:
+- EthicalLearning - Anderson & Anderson 2018
+- PrincipleRefinement - GenEth system
 
-**Temporal Types (2)**:
-- TemporalConstraint - Govindarajulu & Bringsjord 2017
-- PriorityConstraint - Scheutz & Malle 2014
+**Reasoning & Deliberation (3)**:
+- EthicalReasoning - Wallach & Allen 2009
+- CausalReasoning - Sarmiento et al. 2023
+- TemporalReasoning - Govindarajulu & Bringsjord 2017
+
+**Communication & Explanation (3)**:
+- ExplanationGeneration - Langley 2019
+- JustificationCapability - McLaren 2003
+- ResponsibilityDocumentation - Arkin 2008
+
+**Domain-Specific (3)**:
+- DomainExpertise - Hallamaa & Kalliokoski 2022
+- ProfessionalCompetence - Kong et al. 2020
+- PrecedentRetrieval - McLaren 2003
 
 ---
 
-## Next: Capabilities Implementation
+## Next: Pass 3 Implementation (Actions & Events)
 
-After fixing Constraints, implement Capabilities to complete Pass 2:
+With Pass 2 complete, implement temporal dynamics:
 
-1. Check Chapter 2.2.8 for Capabilities definition
-2. Create capability subclasses in TTL
-3. Create `enhanced_prompts_capabilities.py` (separate from states)
-4. Add MCP method `get_all_capability_entities()`
-5. Integrate with Pass 2 context
-6. Test extraction with NSPE text
+1. Review Chapter 2 for Actions and Events definitions
+2. Create action/event subclasses in TTL
+3. Update extractors with MCP integration
+4. Add temporal reasoning context
+5. Test with NSPE scenarios
 
 ---
 

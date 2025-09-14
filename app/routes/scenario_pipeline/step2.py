@@ -15,7 +15,7 @@ from app.routes.scenario_pipeline.overview import _format_section_for_llm
 from app.services.extraction.enhanced_prompts_principles import EnhancedPrinciplesExtractor, create_enhanced_principles_prompt
 from app.services.extraction.enhanced_prompts_obligations import EnhancedObligationsExtractor, create_enhanced_obligations_prompt
 from app.services.extraction.enhanced_prompts_constraints import EnhancedConstraintsExtractor, create_enhanced_constraints_prompt
-from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedCapabilitiesExtractor
+from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedCapabilitiesExtractor, create_enhanced_capabilities_prompt
 from app.utils.llm_utils import get_llm_client
 
 # Import provenance services
@@ -132,11 +132,15 @@ def normative_pass_prompt(case_id):
         # Use enhanced constraints prompt with MCP context - retrieves 17 constraints via recursive CTE
         constraints_prompt = create_enhanced_constraints_prompt(section_text, include_mcp_context=True)
         
+        # Use enhanced capabilities prompt with MCP context - retrieves capability types via recursive CTE
+        capabilities_prompt = create_enhanced_capabilities_prompt(section_text, include_mcp_context=True)
+        
         return jsonify({
             'success': True,
             'principles_prompt': principles_prompt,
             'obligations_prompt': obligations_prompt,
             'constraints_prompt': constraints_prompt,
+            'capabilities_prompt': capabilities_prompt,
             'section_length': len(section_text)
         })
         

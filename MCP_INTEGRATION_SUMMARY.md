@@ -1,9 +1,11 @@
 # MCP Integration Summary
 
-## Status: ✅ COMPLETE - All 9 Extractors MCP-Integrated
+## Status: ✅ COMPLETE - All Pass 1 & 2 Extractors MCP-Integrated
 
-Date: September 12, 2025
-Implementation completed as per ENTITY_UPDATE_PLAN.md
+Date: January 13, 2025 (Last Updated)
+- Pass 1: ✅ Complete (Roles, States, Resources)
+- Pass 2: ✅ Complete (Principles, Obligations, Constraints, Capabilities)
+- Pass 3: ❌ Not Started (Actions, Events)
 
 ## Summary of Changes
 
@@ -24,10 +26,10 @@ All 9 extractors now have:
 | ✅ Resources | Integrated | 26 | Knowledge resource extraction |
 | ✅ Actions | Integrated | 0* | Performable actions with MCP |
 | ✅ Events | Integrated | 0* | Triggering events with MCP |
-| ✅ Capabilities | Integrated | 0* | Competencies with MCP |
-| ✅ Constraints | Integrated | 0* | Limitations with MCP |
+| ✅ Capabilities | Integrated | 17 | Competencies with MCP - COMPLETE ✅ |
+| ✅ Constraints | Integrated | 17 | Limitations with MCP - COMPLETE ✅ |
 
-*Note: Shows 0 entities because the corresponding methods in external_mcp_client.py don't exist yet, but MCP integration is ready.
+*Note: Actions and Events show 0 entities because they haven't been implemented yet (Pass 3).
 
 ### 3. Key Features Implemented
 
@@ -59,10 +61,10 @@ The extractors now call these methods (need to be implemented in external_mcp_cl
 - `get_all_obligation_entities()` ✅ (existing)
 - `get_all_state_entities()` ✅ (existing)
 - `get_all_resource_entities()` ✅ (existing)
-- `get_all_action_entities()` ⚠️ (needs implementation)
-- `get_all_event_entities()` ⚠️ (needs implementation)
-- `get_all_capability_entities()` ⚠️ (needs implementation)
-- `get_all_constraint_entities()` ⚠️ (needs implementation)
+- `get_all_action_entities()` ⚠️ (needs implementation - Pass 3)
+- `get_all_event_entities()` ⚠️ (needs implementation - Pass 3)
+- `get_all_capability_entities()` ✅ (implemented January 13, 2025)
+- `get_all_constraint_entities()` ✅ (implemented January 13, 2025)
 
 ### 5. Files Modified
 

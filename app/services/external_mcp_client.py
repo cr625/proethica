@@ -222,6 +222,22 @@ class ExternalMCPClient:
             logger.warning(f"Failed to get constraint entities: {e}")
             return []
     
+    def get_all_capability_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all capability entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("Capability", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} capability entities from external MCP")
+                return entities
+            else:
+                logger.warning("No capability entities found or query failed")
+                return []
+        except Exception as e:
+            logger.warning(f"Failed to get capability entities: {e}")
+            return []
+    
     def submit_candidate_concept(self, concept: Dict[str, Any], domain_id: str = "engineering-ethics") -> Dict[str, Any]:
         """Submit a candidate concept to the external MCP server."""
         return self.call_tool("submit_candidate_concept", {

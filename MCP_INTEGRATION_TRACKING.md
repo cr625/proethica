@@ -47,7 +47,9 @@ def _create_XXX_prompt_with_mcp(self, text: str) -> str:
 | **States** | `get_all_state_entities()` | 20 | ✅ Dynamic |
 | **Resources** | `get_all_resource_entities()` | 5 | ✅ Dynamic |
 | **Principles** | `get_all_principle_entities()` | 12 | ✅ Dynamic |
-| **Obligations** | `get_all_obligation_entities()` | 14 | ✅ Dynamic |
+| **Obligations** | `get_all_obligation_entities()` | 15 | ✅ Dynamic |
+| **Constraints** | `get_all_constraint_entities()` | 17 | ✅ Dynamic |
+| **Capabilities** | `get_all_capability_entities()` | 17 | ✅ Dynamic |
 
 ## What Doesn't Work ❌
 
@@ -58,9 +60,7 @@ def _create_XXX_prompt_with_mcp(self, text: str) -> str:
 ### 2. Missing MCP Methods
 Some extractors call methods that don't exist in `external_mcp_client.py`:
 - `get_all_action_entities()` - needs implementation
-- `get_all_event_entities()` - needs implementation  
-- `get_all_capability_entities()` - needs implementation
-- `get_all_constraint_entities()` - needs implementation
+- `get_all_event_entities()` - needs implementation
 
 ## Pattern to Apply
 
@@ -135,12 +135,22 @@ This pattern is implemented in `/home/chris/onto/OntServe/storage/concept_manage
 
 ## Next Steps
 
-1. ✅ Roles - Complete
-2. ✅ States - Complete  
-3. ✅ Resources - Complete
-4. ✅ **Principles** - Complete (12 entities, both extractors working)
-5. ✅ **Obligations** - Complete (14 entities, both extractors working)
-6. ✅ **Constraints** - Complete (17 entities, enhanced prompt working)
-7. ⚠️ Actions - Missing MCP method
-8. ⚠️ Events - Missing MCP method
-9. ⚠️ Capabilities - Missing MCP method
+### ✅ Pass 1 Complete (Contextual Framework)
+1. ✅ **Roles** - Complete (15 entities)
+2. ✅ **States** - Complete (20 entities)  
+3. ✅ **Resources** - Complete (5 entities)
+
+### ✅ Pass 2 Complete (Normative Requirements)
+4. ✅ **Principles** - Complete (12 entities)
+5. ✅ **Obligations** - Complete (15 entities)
+6. ✅ **Constraints** - Complete (17 entities - base + 13 subclasses)
+7. ✅ **Capabilities** - Complete (17 entities - base + 15 subclasses + Technical)
+
+### ❌ Pass 3 Not Started (Temporal Dynamics)
+8. ⚠️ **Actions** - Missing MCP method and TTL definitions
+9. ⚠️ **Events** - Missing MCP method and TTL definitions
+
+## Status Summary
+- **Pass 1**: ✅ Complete
+- **Pass 2**: ✅ Complete (January 13, 2025)
+- **Pass 3**: ❌ Not started
