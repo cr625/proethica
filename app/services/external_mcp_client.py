@@ -238,6 +238,38 @@ class ExternalMCPClient:
             logger.warning(f"Failed to get capability entities: {e}")
             return []
     
+    def get_all_action_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all action entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("Action", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} action entities from external MCP")
+                return entities
+            else:
+                logger.warning("No action entities found or query failed")
+                return []
+        except Exception as e:
+            logger.warning(f"Failed to get action entities: {e}")
+            return []
+    
+    def get_all_event_entities(self, domain_id: str = "engineering-ethics") -> List[Dict[str, Any]]:
+        """Get all event entities from external MCP server."""
+        try:
+            result = self.get_entities_by_category("Event", domain_id)
+            
+            if result.get('success') and result.get('result'):
+                entities = result['result'].get('entities', [])
+                logger.info(f"Retrieved {len(entities)} event entities from external MCP")
+                return entities
+            else:
+                logger.warning("No event entities found or query failed")
+                return []
+        except Exception as e:
+            logger.warning(f"Failed to get event entities: {e}")
+            return []
+    
     def submit_candidate_concept(self, concept: Dict[str, Any], domain_id: str = "engineering-ethics") -> Dict[str, Any]:
         """Submit a candidate concept to the external MCP server."""
         return self.call_tool("submit_candidate_concept", {

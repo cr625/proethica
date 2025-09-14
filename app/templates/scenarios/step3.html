@@ -2,15 +2,16 @@
 
 {% block step_title %}Step 3: Temporal Dynamics Pass - Facts Section{% endblock %}
 {% block step_header %}Step 3: Temporal Dynamics Pass (Facts){% endblock %}
-{% block step_subtitle %}Extract actions and events from the facts section{% endblock %}
+{% block step_subtitle %}Extract actions and events from the facts section with Pass integration{%
+endblock %}
 
 {% block step_navigation %}
 <div class="d-flex justify-content-between mb-3">
     <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Back to Step 2
     </a>
-    <a href="#" class="btn btn-outline-primary disabled">
-        Step 4: Entities Pass (Discussion) <i class="bi bi-arrow-right"></i>
+    <a href="{{ next_step_url }}" class="btn btn-success">
+        Complete Analysis <i class="bi bi-check-circle"></i>
     </a>
 </div>
 {% endblock %}
@@ -23,47 +24,132 @@
         </h4>
     </div>
     <div class="step-content">
-        {% if facts_section %}
+        {% if discussion_section %}
         <div class="alert alert-info mb-3">
             <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
-            <pre class="discussion-text">{{ facts_section.llm_text }}</pre>
+            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
         </div>
-        
+
         <!-- Temporal Dynamics Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
-            <button id="temporalPassBtn" class="btn btn-primary btn-lg">
-                <i class="bi bi-arrow-right-circle"></i> Run Temporal Dynamics Pass
-                <small class="d-block">Extract Actions + Events</small>
+            <button id="temporalPassBtn" class="btn btn-warning btn-lg" onclick="showPrompt()">
+                <i class="bi bi-clock"></i> Temporal Dynamics Pass
+                <small class="d-block">Extract Actions + Events with Pass Integration</small>
             </button>
         </div>
-        
-        <!-- Results Container -->
-        <div id="temporalResults" style="display: none;">
-            <div class="alert alert-success mb-3">
-                <h5 class="alert-heading"><i class="bi bi-check-circle"></i> Temporal Dynamics Pass Complete</h5>
-                <hr>
-                <div id="extractionSummary"></div>
-            </div>
-            
-            <!-- Actions Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-play-circle"></i> Actions</h5>
-                <div id="actionsResults" class="results-container"></div>
-            </div>
-            
-            <!-- Events Results -->
-            <div class="results-section mb-4">
-                <h5><i class="bi bi-calendar-event"></i> Events</h5>
-                <div id="eventsResults" class="results-container"></div>
-            </div>
-        </div>
-        
+
         {% else %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
-            No facts section found in this case. Using available section.
+            No discussion/analysis section found in this case. Using available section.
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- LLM Prompt Display (Hidden initially) -->
+<div id="promptCard" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-cpu"></i> LLM Prompt Preview
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-warning mb-3">
+            <i class="bi bi-info-circle"></i>
+            This is the prompt that will be sent to the LLM for temporal dynamics extraction:
+        </div>
+
+        <div id="promptContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Generating prompt...</span>
+                </div>
+                <span class="ms-2">Generating prompt...</span>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3" id="executeButtonContainer"
+            style="display: none;">
+            <button id="executeBtn" class="btn btn-success btn-lg" onclick="executeTemporalPass()">
+                <i class="bi bi-play-circle"></i> Execute Temporal Dynamics Pass
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Raw Response Display (Hidden initially) -->
+<div id="responseCard" class="step-card response-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-code-square"></i> LLM Response
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-success mb-3">
+            <i class="bi bi-check-circle"></i>
+            Raw response from the LLM temporal dynamics extraction:
+        </div>
+        <div id="responseContent">
+            <div class="loading-spinner">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Extracting temporal dynamics...</span>
+                </div>
+                <span class="ms-2">Extracting temporal dynamics...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Display (Hidden initially) -->
+<div id="temporalResults" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-clock-history"></i> Temporal Dynamics Pass Results
+        </h5>
+    </div>
+    <div class="step-content">
+        <div class="alert alert-success mb-3">
+            <h5 class="alert-heading"><i class="bi bi-clock-history"></i> Temporal Dynamics Pass Complete</h5>
+            <hr>
+            <div id="extractionSummary"></div>
+        </div>
+
+        <!-- Actions Results -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-play-circle"></i> Actions (Volitional Interventions)</h5>
+            <div class="alert alert-light mb-2">
+                <small><strong>Pass 3 Integration:</strong> Actions fulfill obligations from Pass 2 within roles from
+                    Pass 1, constrained by professional boundaries.</small>
+            </div>
+            <div id="actionsResults" class="results-container"></div>
+        </div>
+
+        <!-- Events Results -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-lightning"></i> Events (Temporal Occurrences)</h5>
+            <div class="alert alert-light mb-2">
+                <small><strong>Pass 3 Integration:</strong> Events trigger state changes from Pass 1 and activate
+                    obligations from Pass 2 in the temporal flow of professional scenarios.</small>
+            </div>
+            <div id="eventsResults" class="results-container"></div>
+        </div>
+
+        <!-- Pass Integration Summary -->
+        <div class="results-section mb-4">
+            <h5><i class="bi bi-diagram-3"></i> Pass Integration Overview</h5>
+            <div class="alert alert-info">
+                <h6>ProEthica 3-Pass Architecture Complete:</h6>
+                <ul class="mb-0">
+                    <li><strong>Pass 1 (Contextual Framework):</strong> Roles, States, Resources - WHO, WHEN, WHAT
+                        guides decisions</li>
+                    <li><strong>Pass 2 (Normative Requirements):</strong> Principles, Obligations, Constraints,
+                        Capabilities - WHY, WHAT MUST, WHAT CANNOT, WHO CAN</li>
+                    <li><strong>Pass 3 (Temporal Dynamics):</strong> Actions, Events - Volitional interventions and
+                        temporal occurrences creating ethical flow</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -90,32 +176,83 @@
         color: #0c5460;
     }
 
-    /* Temporal Dynamics Pass Button Styling */
+    /* Temporal Pass Button Styling */
     #temporalPassBtn {
         padding: 1rem 2rem;
         font-size: 1.1rem;
         border-radius: 50px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
     }
 
     #temporalPassBtn:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     }
 
     #temporalPassBtn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
     }
-    
+
+    /* Prompt Display Styling */
+    .prompt-section {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #fff;
+        border-left: 3px solid #ffc107;
+        border-radius: 0.25rem;
+    }
+
+    .prompt-section h6 {
+        color: #495057;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        max-height: 250px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    /* Response Card Styling */
+    .response-card {
+        border: 2px solid #28a745;
+    }
+
+    .response-card .step-header {
+        background-color: #d4edda;
+        border-bottom: 2px solid #28a745;
+    }
+
+    .response-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #ffffff;
+        border: 1px solid #28a745;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
     .results-section {
         background: white;
         padding: 1.5rem;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
-    
+
     .results-container {
         max-height: 400px;
         overflow-y: auto;
@@ -123,7 +260,7 @@
         background: #f8f9fa;
         border-radius: 4px;
     }
-    
+
     .concept-item {
         background: white;
         padding: 0.75rem;
@@ -131,133 +268,346 @@
         border-radius: 4px;
         border-left: 4px solid #007bff;
     }
-    
+
     .concept-label {
         font-weight: bold;
         color: #333;
     }
-    
+
     .concept-description {
         color: #666;
         font-size: 0.9rem;
         margin-top: 0.25rem;
     }
-    
+
     .concept-metadata {
         font-size: 0.8rem;
         color: #999;
         margin-top: 0.5rem;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .summary-stats {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .summary-stats .stat {
+        display: inline-block;
+        margin-right: 2rem;
+        font-weight: 600;
+    }
+
+    /* Pass Integration Styling */
+    .pass-integration {
+        background: #e8f4fd;
+        border-left: 4px solid #0d6efd;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .pass-integration h6 {
+        color: #0d6efd;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .pass-integration-item {
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .badge-action {
+        background-color: #28a745 !important;
+    }
+
+    .badge-event {
+        background-color: #ffc107 !important;
+        color: #000 !important;
     }
 </style>
 {% endblock %}
 
 {% block step_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const temporalPassBtn = document.getElementById('temporalPassBtn');
-    const temporalResults = document.getElementById('temporalResults');
-    const extractionSummary = document.getElementById('extractionSummary');
-    const actionsResults = document.getElementById('actionsResults');
-    const eventsResults = document.getElementById('eventsResults');
-    
-    if (temporalPassBtn) {
-        temporalPassBtn.addEventListener('click', async function() {
-            // Disable button and show loading state
-            temporalPassBtn.disabled = true;
-            temporalPassBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Extracting...';
-            
-            try {
-                // Get CSRF token
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                
-                // Call the extraction endpoint
-                const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step3/extract`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+    let currentSectionText = '';
+
+    // Initialize section text
+    document.addEventListener('DOMContentLoaded', function () {
+        const discussionTextElement = document.querySelector('.discussion-text');
+        if (discussionTextElement) {
+            currentSectionText = discussionTextElement.textContent.trim();
+        }
+    });
+
+    function showPrompt() {
+        const promptCard = document.getElementById('promptCard');
+        const temporalBtn = document.getElementById('temporalPassBtn');
+
+        // Disable the button and show loading
+        temporalBtn.disabled = true;
+        temporalBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompt...';
+
+        // Show prompt card
+        promptCard.style.display = 'block';
+        promptCard.scrollIntoView({ behavior: 'smooth' });
+
+        // Fetch the prompt from the server
+        fetch(`{{ url_for('scenario_pipeline.behavioral_pass_prompt', case_id=case.id) }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                section_text: currentSectionText
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayPrompt(data);
+                    // Show execute button
+                    document.getElementById('executeButtonContainer').style.display = 'block';
+                } else {
+                    displayError('Error generating prompt: ' + data.error);
                 }
-                
-                const data = await response.json();
-                
-                // Display results
-                displayResults(data);
-                
-            } catch (error) {
-                console.error('Error during temporal dynamics pass:', error);
-                alert('Error during extraction: ' + error.message);
-            } finally {
-                // Re-enable button
-                temporalPassBtn.disabled = false;
-                temporalPassBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Run Temporal Dynamics Pass<small class="d-block">Extract Actions + Events</small>';
-            }
-        });
+            })
+            .catch(error => {
+                displayError('Network error: ' + error.message);
+            })
+            .finally(() => {
+                // Re-enable the button
+                temporalBtn.disabled = false;
+                temporalBtn.innerHTML = '<i class="bi bi-clock"></i> Temporal Dynamics Pass <small class="d-block">Extract Actions + Events with Pass Integration</small>';
+            });
     }
-    
+
+    function displayPrompt(data) {
+        const content = document.getElementById('promptContent');
+        content.innerHTML = `
+        <div class="prompt-section">
+            <h6><i class="bi bi-play-circle"></i> Actions Extraction Prompt:</h6>
+            <div class="prompt-text">${escapeHtml(data.actions_prompt || 'Actions extraction prompt will be generated')}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-lightning"></i> Events Extraction Prompt:</h6>
+            <div class="prompt-text">${escapeHtml(data.events_prompt || 'Events extraction prompt will be generated')}</div>
+        </div>
+        <div class="alert alert-info mt-3">
+            <small><i class="bi bi-info-circle"></i> Section length: ${data.section_length || 0} characters</small>
+            ${data.pass_integration ? '<br><small><i class="bi bi-diagram-3"></i> Pass Integration: Enabled</small>' : ''}
+        </div>
+    `;
+    }
+
+    function displayError(message) {
+        const content = document.getElementById('promptContent');
+        content.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> ${message}
+        </div>
+    `;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function executeTemporalPass() {
+        const executeBtn = document.getElementById('executeBtn');
+        const responseCard = document.getElementById('responseCard');
+        const temporalResults = document.getElementById('temporalResults');
+
+        // Disable execute button
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Executing...';
+
+        // Show response card
+        responseCard.style.display = 'block';
+        responseCard.scrollIntoView({ behavior: 'smooth' });
+
+        try {
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            // Call the extraction endpoint
+            const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step3/extract`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Display raw response
+            displayRawResponse(data);
+
+            // Display formatted results
+            displayResults(data);
+
+        } catch (error) {
+            console.error('Error during temporal pass:', error);
+            const responseContent = document.getElementById('responseContent');
+            responseContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Error during extraction: ${error.message}
+            </div>
+        `;
+        } finally {
+            // Re-enable execute button
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Temporal Dynamics Pass';
+        }
+    }
+
+    function displayRawResponse(data) {
+        const responseContent = document.getElementById('responseContent');
+
+        // Create a simplified version of the response for display
+        const displayData = {
+            success: data.success,
+            actions_count: data.actions ? data.actions.length : 0,
+            events_count: data.events ? data.events.length : 0,
+            sample_action: data.actions && data.actions[0] ? data.actions[0] : null,
+            sample_event: data.events && data.events[0] ? data.events[0] : null,
+            extraction_metadata: data.extraction_metadata
+        };
+
+        responseContent.innerHTML = `
+        <div class="response-text">
+${JSON.stringify(displayData, null, 2)}
+        </div>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleFullResponse()">
+                <i class="bi bi-eye"></i> Toggle Full Response
+            </button>
+        </div>
+        <div id="fullResponse" style="display: none;" class="mt-2">
+            <div class="response-text">
+${JSON.stringify(data, null, 2)}
+            </div>
+        </div>
+    `;
+    }
+
+    function toggleFullResponse() {
+        const fullResponse = document.getElementById('fullResponse');
+        fullResponse.style.display = fullResponse.style.display === 'none' ? 'block' : 'none';
+    }
+
     function displayResults(data) {
         // Show results container
+        const temporalResults = document.getElementById('temporalResults');
         temporalResults.style.display = 'block';
-        
+
         // Display summary
-        const actionsCount = data.actions ? data.actions.length : 0;
-        const eventsCount = data.events ? data.events.length : 0;
-        
+        const actionCount = data.actions ? data.actions.length : 0;
+        const eventCount = data.events ? data.events.length : 0;
+
+        const extractionSummary = document.getElementById('extractionSummary');
         extractionSummary.innerHTML = `
-            <p class="mb-0">
-                Extracted <strong>${actionsCount} Actions</strong> and 
-                <strong>${eventsCount} Events</strong>
-            </p>
-            ${data.provenance_url ? `<p class="mb-0 mt-2"><a href="${data.provenance_url}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-diagram-3"></i> View Provenance</a></p>` : ''}
-        `;
-        
+        <p class="mb-0">
+            Extracted <strong>${actionCount} Actions</strong> and 
+            <strong>${eventCount} Events</strong> with Pass Integration
+        </p>
+        ${data.summary && data.summary.provenance_url ?
+                `<p class="mb-0 mt-2"><a href="${data.summary.provenance_url}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-diagram-3"></i> View Provenance</a></p>` : ''}
+    `;
+
         // Display actions
-        displayConcepts(actionsResults, data.actions, 'action');
-        
+        displayTemporalConcepts(document.getElementById('actionsResults'), data.actions, 'action');
+
         // Display events
-        displayConcepts(eventsResults, data.events, 'event');
-        
+        displayTemporalConcepts(document.getElementById('eventsResults'), data.events, 'event');
+
         // Scroll to results
         temporalResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    
-    function displayConcepts(container, concepts, type) {
+
+    function displayTemporalConcepts(container, concepts, type) {
         if (!concepts || concepts.length === 0) {
             container.innerHTML = '<p class="text-muted">No ' + type + 's extracted</p>';
             return;
         }
-        
+
         const html = concepts.map(concept => {
             let borderColor = '#007bff';
-            if (type === 'action') borderColor = '#17a2b8';
-            else if (type === 'event') borderColor = '#ffc107';
-            
-            let metadata = '';
-            if (concept.action_type) {
-                metadata += `<span class="badge bg-info text-white me-1">${concept.action_type}</span>`;
+            let badgeClass = 'bg-primary';
+            if (type === 'action') {
+                borderColor = '#28a745';
+                badgeClass = 'badge-action';
+            } else if (type === 'event') {
+                borderColor = '#ffc107';
+                badgeClass = 'badge-event';
             }
-            if (concept.event_type) {
-                metadata += `<span class="badge bg-warning text-dark me-1">${concept.event_type}</span>`;
+
+            let metadata = '';
+            let passIntegration = '';
+
+            // Handle different metadata structures
+            if (type === 'action' && concept.action_type) {
+                metadata += `<span class="badge ${badgeClass} me-1">${concept.action_type}</span>`;
+            }
+            if (type === 'event' && concept.event_type) {
+                metadata += `<span class="badge ${badgeClass} me-1">${concept.event_type}</span>`;
             }
             if (concept.confidence) {
                 metadata += `<span class="badge bg-light text-dark">Confidence: ${(concept.confidence * 100).toFixed(0)}%</span>`;
             }
-            
+
+            // Display Pass Integration information
+            if (concept.pass_integration) {
+                passIntegration = '<div class="pass-integration"><h6>Pass Integration:</h6>';
+
+                if (concept.pass_integration.fulfills_obligations && concept.pass_integration.fulfills_obligations.length > 0) {
+                    passIntegration += `<div class="pass-integration-item"><strong>Fulfills Obligations:</strong> ${concept.pass_integration.fulfills_obligations.join(', ')}</div>`;
+                }
+                if (concept.pass_integration.triggers_obligations && concept.pass_integration.triggers_obligations.length > 0) {
+                    passIntegration += `<div class="pass-integration-item"><strong>Triggers Obligations:</strong> ${concept.pass_integration.triggers_obligations.join(', ')}</div>`;
+                }
+                if (concept.pass_integration.changes_states && concept.pass_integration.changes_states.length > 0) {
+                    passIntegration += `<div class="pass-integration-item"><strong>Changes States:</strong> ${concept.pass_integration.changes_states.join(', ')}</div>`;
+                }
+                if (concept.pass_integration.affects_roles && concept.pass_integration.affects_roles.length > 0) {
+                    passIntegration += `<div class="pass-integration-item"><strong>Affects Roles:</strong> ${concept.pass_integration.affects_roles.join(', ')}</div>`;
+                }
+                if (concept.pass_integration.requires_capabilities && concept.pass_integration.requires_capabilities.length > 0) {
+                    passIntegration += `<div class="pass-integration-item"><strong>Requires Capabilities:</strong> ${concept.pass_integration.requires_capabilities.join(', ')}</div>`;
+                }
+                if (concept.pass_integration.constrained_by && concept.pass_integration.constrained_by.length > 0) {
+                    passIntegration += `<div class="pass-integration-item"><strong>Constrained By:</strong> ${concept.pass_integration.constrained_by.join(', ')}</div>`;
+                }
+
+                passIntegration += '</div>';
+            }
+
             return `
-                <div class="concept-item" style="border-left-color: ${borderColor}">
-                    <div class="concept-label">${concept.label}</div>
-                    <div class="concept-description">${concept.description}</div>
-                    ${metadata ? `<div class="concept-metadata">${metadata}</div>` : ''}
-                </div>
-            `;
+            <div class="concept-item" style="border-left-color: ${borderColor}">
+                <div class="concept-label">${concept.label}</div>
+                <div class="concept-description">${concept.description}</div>
+                ${metadata ? `<div class="concept-metadata">${metadata}</div>` : ''}
+                ${passIntegration}
+            </div>
+        `;
         }).join('');
-        
+
         container.innerHTML = html;
     }
-});
 </script>
 {% endblock %}
