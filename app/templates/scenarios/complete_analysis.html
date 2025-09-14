@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Complete Modular Analysis - {{ case.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analysis-section {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        background: #fff;
+    }
+
+    .analysis-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .analysis-body {
+        padding: 20px;
+    }
+
+    .section-card {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        overflow: hidden;
+    }
+
+    .section-header {
+        background: #f8f9fa;
+        padding: 12px 15px;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+
+    .section-badge {
+        font-size: 0.8em;
+        padding: 4px 8px;
+        border-radius: 12px;
+        margin-left: 10px;
+    }
+
+    .badge-facts {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .badge-discussion {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+
+    .badge-questions {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+
+    .badge-references {
+        background: #e8f5e8;
+        color: #388e3c;
+    }
+
+    .badge-conclusion {
+        background: #fce4ec;
+        color: #c2185b;
+    }
+
+    .dual-analysis-badge {
+        background: #ffeb3b;
+        color: #f57f17;
+        font-weight: bold;
+    }
+
+    .pass-header {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        color: white;
+        padding: 10px 15px;
+        margin: 15px 0 10px 0;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+
+    .entity-pill {
+        display: inline-block;
+        background: #e1f5fe;
+        color: #0277bd;
+        padding: 4px 12px;
+        margin: 3px;
+        border-radius: 15px;
+        font-size: 0.9em;
+    }
+
+    .consolidation-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .stat-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+        border-left: 4px solid #007bff;
+    }
+
+    .stat-number {
+        font-size: 2em;
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .error-alert {
+        display: none;
+    }
+
+    .demo-notice {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+        padding: 12px 15px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+    }
+
+    .analysis-results {
+        display: none;
+    }
+
+    #analysisBtn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    #analysisBtn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    #analysisBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="analysis-section">
+                <div class="analysis-header">
+                    <div>
+                        <h3><i class="fas fa-cogs"></i> {{ step_title }}</h3>
+                        <p class="mb-0">Modular pipeline with section-aware processing and discussion dual analysis</p>
+                    </div>
+                    <div>
+                        <button id="analysisBtn" class="btn btn-primary">
+                            <i class="fas fa-play"></i> Run Complete Analysis
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Case Overview -->
+            <div class="analysis-section">
+                <div class="analysis-header">
+                    <h4><i class="fas fa-file-alt"></i> Case Overview</h4>
+                </div>
+                <div class="analysis-body">
+                    <h5>{{ case.title }}</h5>
+                    <p><strong>Sections Available:</strong></p>
+                    <div>
+                        {% for section_name in sections.keys() %}
+                        <span class="entity-pill">
+                            {{ section_name.replace('_', ' ').title() }}
+                            <small>({{ sections[section_name]|length }} chars)</small>
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Processing...</span>
+                </div>
+                <p class="mt-2">Running modular pipeline analysis...</p>
+            </div>
+
+            <!-- Error State -->
+            <div class="alert alert-danger error-alert" id="errorAlert">
+                <h5><i class="fas fa-exclamation-triangle"></i> Error</h5>
+                <p id="errorMessage"></p>
+            </div>
+
+            <!-- Analysis Results -->
+            <div class="analysis-results" id="analysisResults">
+
+                <!-- Section Analysis -->
+                <div class="analysis-section">
+                    <div class="analysis-header">
+                        <h4><i class="fas fa-layer-group"></i> Section-by-Section Analysis</h4>
+                        <small id="sectionCount"></small>
+                    </div>
+                    <div class="analysis-body">
+                        <div id="sectionAnalysis"></div>
+                    </div>
+                </div>
+
+                <!-- 3-Pass Results -->
+                <div class="analysis-section">
+                    <div class="analysis-header">
+                        <h4><i class="fas fa-filter"></i> Three-Pass Extraction Results</h4>
+                    </div>
+                    <div class="analysis-body">
+                        <div id="passResults"></div>
+                    </div>
+                </div>
+
+                <!-- Entity Consolidation -->
+                <div class="analysis-section">
+                    <div class="analysis-header">
+                        <h4><i class="fas fa-compress-arrows-alt"></i> Entity Consolidation</h4>
+                    </div>
+                    <div class="analysis-body">
+                        <div id="consolidationResults"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Navigation -->
+            <div class="mt-4 mb-4">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ prev_step_url }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Step 3
+                    </a>
+                    <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-eye"></i> View Case
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        let analysisCompleted = false;
+
+        $('#analysisBtn').click(function () {
+            if (analysisCompleted) {
+                return;
+            }
+
+            const btn = $(this);
+            btn.prop('disabled', true);
+            btn.html('<i class="fas fa-spinner fa-spin"></i> Analyzing...');
+
+            $('#loadingSpinner').show();
+            $('#errorAlert').hide();
+            $('#analysisResults').hide();
+
+            $.ajax({
+                url: '{{ url_for("scenario_pipeline.execute_complete_analysis", case_id=case.id) }}',
+                method: 'POST',
+                contentType: 'application/json',
+                timeout: 60000,
+                success: function (data) {
+                    if (data.success) {
+                        displayResults(data);
+                        analysisCompleted = true;
+                        btn.html('<i class="fas fa-check"></i> Analysis Complete');
+                        btn.removeClass('btn-primary').addClass('btn-success');
+                    } else {
+                        showError(data.error || 'Unknown error occurred');
+                        resetButton();
+                    }
+                },
+                error: function (xhr, status, error) {
+                    let errorMsg = 'Request failed: ' + error;
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    showError(errorMsg);
+                    resetButton();
+                },
+                complete: function () {
+                    $('#loadingSpinner').hide();
+                }
+            });
+        });
+
+        function resetButton() {
+            const btn = $('#analysisBtn');
+            btn.prop('disabled', false);
+            btn.html('<i class="fas fa-play"></i> Run Complete Analysis');
+        }
+
+        function showError(message) {
+            $('#errorMessage').text(message);
+            $('#errorAlert').show();
+        }
+
+        function displayResults(data) {
+            // Show demo notice if in demo mode
+            if (data.demo_mode) {
+                $('#analysisResults').prepend(`
+                <div class="demo-notice">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Demo Mode:</strong> ${data.message}
+                    <br>The architecture is functional but this demonstrates the UI interface.
+                </div>
+            `);
+            }
+
+            // Display section analysis
+            displaySectionAnalysis(data.section_analysis);
+
+            // Display 3-pass results
+            displayPassResults(data.pass_results);
+
+            // Display consolidation results
+            displayConsolidationResults(data.consolidation);
+
+            $('#analysisResults').show();
+        }
+
+        function displaySectionAnalysis(sections) {
+            $('#sectionCount').text(`${sections.length} sections processed`);
+
+            let html = '';
+            sections.forEach(section => {
+                const badgeClass = `badge-${section.name}`;
+                html += `
+                <div class="section-card">
+                    <div class="section-header">
+                        <div>
+                            <strong>${section.display_name}</strong>
+                            <span class="section-badge ${badgeClass}">${section.type}</span>
+                            ${section.has_dual_analysis ? '<span class="section-badge dual-analysis-badge">DUAL ANALYSIS</span>' : ''}
+                        </div>
+                        <small class="text-muted">${section.approach}</small>
+                    </div>
+                    <div class="p-3">
+                        <p><strong>Focus:</strong></p>
+                        <div>
+                            ${section.focus.map(f => `<span class="entity-pill">${f}</span>`).join('')}
+                        </div>
+                        
+                        <p class="mt-2 mb-2"><strong>Processing Notes:</strong></p>
+                        <ul class="mb-2">
+                            ${section.notes.map(note => `<li>${note}</li>`).join('')}
+                        </ul>
+                        
+                        ${section.has_dual_analysis ? displayDualAnalysis(section.dual_analysis) : ''}
+                    </div>
+                </div>
+            `;
+            });
+
+            $('#sectionAnalysis').html(html);
+        }
+
+        function displayDualAnalysis(dualAnalysis) {
+            if (!dualAnalysis || !dualAnalysis.independent) return '';
+
+            return `
+            <div class="mt-3 p-3" style="background: #fffbf0; border-left: 4px solid #ffb347; border-radius: 4px;">
+                <h6><i class="fas fa-sync-alt"></i> Discussion Dual Analysis</h6>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Phase 1: Independent</strong>
+                        <p class="small text-muted">Extract ethical reasoning from discussion alone</p>
+                        <div>
+                            ${dualAnalysis.independent.primary_focus ?
+                    dualAnalysis.independent.primary_focus.map(f => `<span class="badge badge-light">${f}</span>`).join(' ') :
+                    '<span class="text-muted">Discussion-specific insights</span>'
+                }
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <strong>Phase 2: Contextual</strong>
+                        <p class="small text-muted">Relate discussion to established facts</p>
+                        <div>
+                            ${dualAnalysis.contextual.analysis_objectives ?
+                    dualAnalysis.contextual.analysis_objectives.map(obj => `<span class="badge badge-light">${obj}</span>`).join(' ') :
+                    '<span class="text-muted">Fact-discussion relationships</span>'
+                }
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <strong>Phase 3: Consolidation</strong>
+                        <p class="small text-muted">Merge insights with conflict detection</p>
+                        <div class="small">
+                            ${dualAnalysis.consolidated.consolidation_strategy ?
+                    `<div>Strategy: ${dualAnalysis.consolidated.consolidation_strategy.merge_approach}</div>` :
+                    '<span class="text-muted">Layered understanding</span>'
+                }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        }
+
+        function displayPassResults(passes) {
+            let html = '';
+
+            Object.keys(passes).forEach(passKey => {
+                const pass = passes[passKey];
+                html += `
+                <div class="pass-header">
+                    ${passKey.toUpperCase()}: ${pass.name}
+                </div>
+                <div class="mb-3">
+                    <p><strong>Target Entities:</strong></p>
+                    <div>
+                        ${pass.entities.map(entity => `<span class="entity-pill">${entity}</span>`).join('')}
+                    </div>
+                    
+                    <div class="mt-2">
+                        ${pass.results.demo ?
+                        `<p class="text-muted"><em>${pass.results.demo}</em></p>` :
+                        `<p class="text-muted">Extraction results processed with section context</p>`
+                    }
+                    </div>
+                </div>
+            `;
+            });
+
+            $('#passResults').html(html);
+        }
+
+        function displayConsolidationResults(consolidation) {
+            let html = `
+            <div class="consolidation-stats">
+                <div class="stat-card">
+                    <div class="stat-number">${consolidation.total_entities}</div>
+                    <div>Total Entities</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${consolidation.sections_processed}</div>
+                    <div>Sections Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${consolidation.conflicts_detected}</div>
+                    <div>Conflicts Detected</div>
+                </div>
+            </div>
+        `;
+
+            if (consolidation.demo) {
+                html += `
+                <div class="mt-3 p-3" style="background: #f8f9fa; border-radius: 6px;">
+                    <p class="mb-0"><strong>Consolidation Features:</strong></p>
+                    <ul class="mt-2 mb-0">
+                        <li>Cross-section entity merging with confidence averaging</li>
+                        <li>Conflict detection for inconsistent interpretations</li>
+                        <li>Source section tracking for provenance</li>
+                        <li>Semantic similarity matching for related entities</li>
+                    </ul>
+                </div>
+            `;
+            }
+
+            $('#consolidationResults').html(html);
+        }
+    });
+</script>
+{% endblock %}

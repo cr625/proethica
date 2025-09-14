@@ -10,8 +10,8 @@ endblock %}
     <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Back to Step 2
     </a>
-    <a href="{{ next_step_url }}" class="btn btn-success">
-        Complete Analysis <i class="bi bi-check-circle"></i>
+    <a href="{{ url_for('scenario_pipeline.complete_analysis', case_id=case.id) }}" class="btn btn-success">
+        Complete Modular Analysis <i class="bi bi-cogs"></i>
     </a>
 </div>
 {% endblock %}
