@@ -72,11 +72,18 @@ def debug_overview_route(case_id):
     from .overview import debug_step1 as debug_handler
     return debug_handler(case_id)
 
-# Legacy route for backward compatibility
+# Step 1a route for LangExtract analysis
 @interactive_scenario_bp.route('/case/<int:case_id>/step1a')
-def step1a_legacy(case_id):
-    """Legacy route - redirects to step1"""
-    return redirect(url_for('scenario_pipeline.step1', case_id=case_id))
+def step1a_route(case_id):
+    """Step 1a: LangExtract Content Analysis"""
+    from app.routes.scenario_pipeline.step1a_langextract import step1a
+    return step1a(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step1a/analyze', methods=['POST'])
+def step1a_analyze(case_id):
+    """API endpoint for LangExtract section analysis in step1a"""
+    from app.routes.scenario_pipeline.step1a_langextract import analyze_section_langextract
+    return analyze_section_langextract(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_prompt', methods=['POST'])
 def entities_pass_prompt(case_id):
@@ -152,7 +159,7 @@ def execute_complete_analysis(case_id):
 
 # LangExtract routes (archived - will be used in future step)
 @interactive_scenario_bp.route('/case/<int:case_id>/langextract_analysis', methods=['POST'])
-def langextract_analysis(case_id):
+def langextract_analysis_archived(case_id):
     """API endpoint for LangExtract section analysis (archived)"""
     from .step1a_langextract import analyze_section_langextract as analysis_handler
     return analysis_handler(case_id)

@@ -1,14 +1,15 @@
 """
-Step 1: Contextual Framework Pass for Facts Section
-Shows the facts section and provides extraction for Pass 1: Roles, States, and Resources.
+Step 1: Contextual Framework Pass for Facts and Discussion Sections
+Shows both Facts and Discussion sections and provides extraction for Pass 1: Roles, States, and Resources.
 Based on Chapter 2 literature: States and Roles work together through context-dependent 
 policy activation (Dennis et al. 2016), while Resources provide extensional definitions 
 (McLaren 2003).
+Discussion analysis uses dual approach: independent and contextual with Facts awareness.
 """
 
 import logging
 from contextlib import nullcontext
-from flask import render_template, request, jsonify, redirect, url_for, flash
+from flask import render_template, request, jsonify, redirect, url_for, flash, session
 from app.models import Document
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
 
@@ -26,14 +27,15 @@ def init_step1_csrf_exemption(app):
 
 def step1(case_id):
     """
-    Step 1: Entities Pass for Facts Section
-    Shows the facts section with an entities pass button for extracting roles and resources.
+    Step 1: Contextual Framework Pass for Facts and Discussion Sections
+    Shows both sections with entities pass buttons for extracting roles, states, and resources.
+    Discussion uses dual analysis: independent and contextual with Facts awareness.
     """
     try:
         # Get the case
         case = Document.query.get_or_404(case_id)
         
-        # Extract sections using the same logic as step1
+        # Extract sections using the same logic as before
         raw_sections = {}
         if case.doc_metadata:
             # Priority 1: sections_dual (contains formatted HTML with enumerated lists)
@@ -69,18 +71,32 @@ def step1(case_id):
             facts_section_key = first_key
             facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
         
+        # Find the discussion section
+        discussion_section = None
+        discussion_section_key = None
+        
+        # Look for discussion section (case insensitive)
+        for section_key, section_content in raw_sections.items():
+            if 'discussion' in section_key.lower():
+                discussion_section_key = section_key
+                discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+                break
+        
         # Template context
         context = {
             'case': case,
             'facts_section': facts_section,
             'facts_section_key': facts_section_key,
-            'current_step': 1.5,  # Use numeric value that can be compared with integers (1 < 1.5 < 2)
-            'step_title': 'Entities Pass - Facts Section',
+            'discussion_section': discussion_section,
+            'discussion_section_key': discussion_section_key,
+            'current_step': 1,
+            'step_title': 'Contextual Framework Pass - Facts & Discussion',
             'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),  # Go to Step 2
-            'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id)
+            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id)
         }
         
-        return render_template('scenarios/step1.html', **context)
+        # Use extended template with both Facts and Discussion sections
+        return render_template('scenarios/step1_extended.html', **context)
         
     except Exception as e:
         logger.error(f"Error loading step 1a for case {case_id}: {str(e)}")
@@ -423,3 +439,179 @@ def entities_pass_execute(case_id):
             'fallback_available': False
         }), 500
 
+
+def discussion_contextual_prompt(case_id):
+    """
+    API endpoint to generate dual prompts for Discussion section analysis.
+    Returns both independent and contextual (with Facts awareness) prompts.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        discussion_text = data.get('discussion_text')
+        if not discussion_text:
+            return jsonify({'error': 'discussion_text is required'}), 400
+        
+        # Facts context is optional (for contextual analysis)
+        facts_context = data.get('facts_context', None)
+        
+        logger.info(f"Generating discussion contextual prompts for case {case_id}")
+        
+        # Import the discussion contextual extractor
+        from app.services.extraction.discussion_contextual import create_discussion_contextual_prompt
+        
+        # Generate both independent and contextual prompts
+        prompts = create_discussion_contextual_prompt(
+            discussion_text, 
+            facts_context=facts_context,
+            include_mcp_context=True  # Enable MCP for existing entities
+        )
+        
+        response = {
+            'success': True,
+            'independent_prompt': prompts['independent'],
+            'contextual_prompt': prompts.get('contextual', None),
+            'has_facts_context': facts_context is not None,
+            'discussion_length': len(discussion_text)
+        }
+        
+        if facts_context:
+            response['facts_summary'] = {
+                'roles_count': len(facts_context.get('roles', [])),
+                'states_count': len(facts_context.get('states', [])),
+                'resources_count': len(facts_context.get('resources', []))
+            }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error generating discussion prompts for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def discussion_contextual_execute(case_id):
+    """
+    API endpoint to execute dual analysis on Discussion section.
+    Performs both independent and contextual extraction, then consolidates results.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        discussion_text = data.get('discussion_text')
+        if not discussion_text:
+            return jsonify({'error': 'discussion_text is required'}), 400
+        
+        # Facts context for contextual analysis
+        facts_context = data.get('facts_context', None)
+        
+        logger.info(f"Starting discussion dual analysis for case {case_id}")
+        
+        # Import necessary services
+        from app.services.extraction.discussion_contextual import DiscussionContextualExtractor
+        from app.utils.llm_utils import get_llm_client
+        import json
+        
+        # Initialize extractor and LLM client
+        extractor = DiscussionContextualExtractor()
+        llm_client = get_llm_client()
+        
+        # Phase 1: Independent Analysis
+        logger.info("Phase 1: Independent analysis of discussion")
+        independent_prompt = extractor.create_independent_prompt(
+            discussion_text, 
+            include_mcp_context=True
+        )
+        
+        # Query LLM for independent analysis
+        independent_response = llm_client.query(independent_prompt)
+        
+        # Parse independent results
+        try:
+            independent_results = json.loads(independent_response)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse independent results as JSON, using fallback")
+            independent_results = {
+                'roles': [],
+                'states': [],
+                'resources': [],
+                'error': 'JSON parsing failed'
+            }
+        
+        # Phase 2: Contextual Analysis (if Facts context provided)
+        contextual_results = None
+        if facts_context:
+            logger.info("Phase 2: Contextual analysis with Facts awareness")
+            contextual_prompt = extractor.create_contextual_prompt(
+                discussion_text,
+                facts_context,
+                include_mcp_context=True
+            )
+            
+            # Query LLM for contextual analysis
+            contextual_response = llm_client.query(contextual_prompt)
+            
+            # Parse contextual results
+            try:
+                contextual_results = json.loads(contextual_response)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse contextual results as JSON")
+                contextual_results = None
+        
+        # Phase 3: Consolidation
+        logger.info("Phase 3: Consolidating dual analysis results")
+        consolidated_results = extractor.consolidate_results(
+            independent_results,
+            contextual_results or {}
+        )
+        
+        # Build response
+        response = {
+            'success': True,
+            'independent_results': independent_results,
+            'contextual_results': contextual_results,
+            'consolidated_results': consolidated_results,
+            'analysis_metadata': {
+                'had_facts_context': facts_context is not None,
+                'independent_entities': {
+                    'roles': len(independent_results.get('roles', [])),
+                    'states': len(independent_results.get('states', [])),
+                    'resources': len(independent_results.get('resources', []))
+                },
+                'consolidated_entities': {
+                    'roles': len(consolidated_results.get('roles', [])),
+                    'states': len(consolidated_results.get('states', [])),
+                    'resources': len(consolidated_results.get('resources', []))
+                }
+            }
+        }
+        
+        if contextual_results:
+            response['analysis_metadata']['contextual_insights'] = {
+                'tensions_identified': len(contextual_results.get('identified_tensions', [])),
+                'relationships_mapped': len(contextual_results.get('facts_discussion_relationships', []))
+            }
+        
+        logger.info(f"Discussion dual analysis completed for case {case_id}")
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in discussion dual analysis for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

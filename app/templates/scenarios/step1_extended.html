@@ -1,0 +1,770 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 1: Contextual Framework Pass - Facts & Discussion{% endblock %}
+{% block step_header %}Step 1: Contextual Framework Pass{% endblock %}
+{% block step_subtitle %}Extract roles, states, and resources from Facts and Discussion sections{% endblock %}
+
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Overview
+    </a>
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
+        Step 2: Normative Pass <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .facts-text,
+    .discussion-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .nav-tabs .nav-link {
+        color: #495057;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+        background-color: #fff;
+        border-color: #dee2e6 #dee2e6 #fff;
+    }
+
+    .step-card {
+        margin-bottom: 1.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background-color: #fff;
+    }
+
+    .step-header {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+
+    .step-content {
+        padding: 1.5rem;
+    }
+
+    #discussionPromptCard {
+        background-color: #f0f8ff;
+        border-color: #007bff;
+    }
+
+    #discussionPromptCard .step-header {
+        background-color: #e7f3ff;
+        border-color: #007bff;
+    }
+
+    .prompt-section {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .prompt-section h6 {
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .prompt-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #ffffff;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    .dual-prompt-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .dual-prompt-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .entity-type {
+        margin-bottom: 1.5rem;
+    }
+
+    .entity-item {
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .entity-label {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .entity-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+    // Store section texts and results globally
+    let factsText = '';
+    let discussionText = '';
+    let factsResults = null;
+    let discussionResults = null;
+
+    // Initialize section texts on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        const factsTextElement = document.querySelector('.facts-text');
+        const discussionTextElement = document.querySelector('.discussion-text');
+
+        if (factsTextElement) {
+            factsText = factsTextElement.textContent.trim();
+        }
+
+        if (discussionTextElement) {
+            discussionText = discussionTextElement.textContent.trim();
+        }
+    });
+
+    // Facts Section Functions
+    function showFactsPrompt() {
+        const promptCard = document.getElementById('factsPromptCard');
+        const factsBtn = document.getElementById('factsPassBtn');
+
+        // Update status badge
+        document.getElementById('factsStatusBadge').textContent = 'In Progress';
+        document.getElementById('factsStatusBadge').className = 'badge bg-warning ms-2';
+
+        // Disable button and show loading
+        factsBtn.disabled = true;
+        factsBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompt...';
+
+        // Show prompt card
+        promptCard.style.display = 'block';
+        promptCard.scrollIntoView({ behavior: 'smooth' });
+
+        // Fetch the prompt from the server
+        fetch(`{{ url_for('scenario_pipeline.entities_pass_prompt', case_id=case.id) }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                section_text: factsText
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayFactsPrompt(data);
+                    document.getElementById('factsExecuteButtonContainer').style.display = 'block';
+                } else {
+                    displayError('factsPromptContent', 'Error generating prompt: ' + data.error);
+                }
+            })
+            .catch(error => {
+                displayError('factsPromptContent', 'Network error: ' + error.message);
+            })
+            .finally(() => {
+                // Re-enable the button
+                factsBtn.disabled = false;
+                factsBtn.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Facts Contextual Framework Pass <small class="d-block">Extract Roles + States + Resources</small>';
+            });
+    }
+
+    function displayFactsPrompt(data) {
+        const content = document.getElementById('factsPromptContent');
+        content.innerHTML = `
+        <div class="prompt-section">
+            <h6><i class="bi bi-people"></i> Roles Extraction Prompt:</h6>
+            <div class="prompt-text">${data.roles_prompt || 'Role extraction prompt will be generated'}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-diagram-3"></i> States Extraction Prompt:</h6>
+            <div class="prompt-text">${data.states_prompt || 'States extraction prompt will be generated'}</div>
+        </div>
+        <div class="prompt-section">
+            <h6><i class="bi bi-gear"></i> Resources Extraction Prompt:</h6>
+            <div class="prompt-text">${data.resources_prompt || 'Resources extraction prompt will be generated'}</div>
+        </div>
+    `;
+    }
+
+    function executeFactsPass() {
+        const resultsCard = document.getElementById('factsResultsCard');
+        const executeBtn = document.getElementById('factsExecuteBtn');
+
+        // Disable execute button
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting...';
+
+        // Show results card
+        resultsCard.style.display = 'block';
+        resultsCard.scrollIntoView({ behavior: 'smooth' });
+
+        // Execute the entities pass
+        fetch(`{{ url_for('scenario_pipeline.entities_pass_execute', case_id=case.id) }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                section_text: factsText
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    factsResults = data; // Store results globally
+                    displayFactsResults(data);
+
+                    // Update status badge
+                    document.getElementById('factsStatusBadge').textContent = 'Complete';
+                    document.getElementById('factsStatusBadge').className = 'badge bg-success ms-2';
+
+                    // Enable Discussion tab if Facts is complete
+                    enableDiscussionWithContext();
+                } else {
+                    displayError('factsResultsContent', 'Error executing extraction: ' + data.error);
+                }
+            })
+            .catch(error => {
+                displayError('factsResultsContent', 'Network error: ' + error.message);
+            })
+            .finally(() => {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Facts Extraction';
+            });
+    }
+
+    function displayFactsResults(data) {
+        const content = document.getElementById('factsResultsContent');
+
+        let html = `
+        <div class="alert alert-success mb-3">
+            <strong>Extraction Complete!</strong> 
+            Found ${data.summary.total_entities} entities
+        </div>
+    `;
+
+        // Display roles
+        if (data.roles && data.roles.length > 0) {
+            html += `<div class="entity-type">
+            <h6><i class="bi bi-people"></i> Roles (${data.roles.length})</h6>`;
+            data.roles.forEach(role => {
+                html += `<div class="entity-item">
+                <div class="entity-label">${role.label}</div>
+                <div class="entity-description">${role.description}</div>
+            </div>`;
+            });
+            html += '</div>';
+        }
+
+        // Display states
+        if (data.states && data.states.length > 0) {
+            html += `<div class="entity-type">
+            <h6><i class="bi bi-diagram-3"></i> States (${data.states.length})</h6>`;
+            data.states.forEach(state => {
+                html += `<div class="entity-item">
+                <div class="entity-label">${state.label}</div>
+                <div class="entity-description">${state.description}</div>
+            </div>`;
+            });
+            html += '</div>';
+        }
+
+        // Display resources
+        if (data.resources && data.resources.length > 0) {
+            html += `<div class="entity-type">
+            <h6><i class="bi bi-gear"></i> Resources (${data.resources.length})</h6>`;
+            data.resources.forEach(resource => {
+                html += `<div class="entity-item">
+                <div class="entity-label">${resource.label}</div>
+                <div class="entity-description">${resource.description}</div>
+            </div>`;
+            });
+            html += '</div>';
+        }
+
+        content.innerHTML = html;
+    }
+
+    // Discussion Section Functions
+    function enableDiscussionWithContext() {
+        // Add notification to Discussion tab
+        const discussionTab = document.getElementById('discussion-tab');
+        discussionTab.innerHTML = `
+        <i class="bi bi-chat-text"></i> Discussion Section
+        <span class="badge bg-info ms-2">Facts Context Available</span>
+    `;
+    }
+
+    function showDiscussionPrompt() {
+        const promptCard = document.getElementById('discussionPromptCard');
+        const discussionBtn = document.getElementById('discussionPassBtn');
+
+        // Update status badge
+        document.getElementById('discussionStatusBadge').textContent = 'In Progress';
+        document.getElementById('discussionStatusBadge').className = 'badge bg-warning ms-2';
+
+        // Disable button and show loading
+        discussionBtn.disabled = true;
+        discussionBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompts...';
+
+        // Show prompt card
+        promptCard.style.display = 'block';
+        promptCard.scrollIntoView({ behavior: 'smooth' });
+
+        // Prepare request with Facts context if available
+        const requestData = {
+            discussion_text: discussionText,
+            facts_context: factsResults || null
+        };
+
+        // Fetch the dual prompts from the server
+        fetch(`{{ url_for('scenario_pipeline.discussion_contextual_prompt', case_id=case.id) }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayDiscussionPrompts(data);
+                    document.getElementById('discussionExecuteButtonContainer').style.display = 'block';
+                } else {
+                    displayError('discussionPromptContent', 'Error generating prompts: ' + data.error);
+                }
+            })
+            .catch(error => {
+                displayError('discussionPromptContent', 'Network error: ' + error.message);
+            })
+            .finally(() => {
+                // Re-enable the button
+                discussionBtn.disabled = false;
+                discussionBtn.innerHTML = '<i class="bi bi-diagram-3"></i> Discussion Dual Analysis <small class="d-block">Independent + Contextual Extraction</small>';
+            });
+    }
+
+    function displayDiscussionPrompts(data) {
+        const content = document.getElementById('discussionPromptContent');
+
+        let html = '<div class="dual-prompt-container">';
+
+        // Independent prompt
+        html += `
+        <div class="prompt-section">
+            <h6><i class="bi bi-file-earmark-text"></i> Independent Analysis Prompt</h6>
+            <div class="prompt-text">${data.independent_prompt || 'No independent prompt generated'}</div>
+        </div>
+    `;
+
+        // Contextual prompt (if Facts context available)
+        if (data.contextual_prompt) {
+            html += `
+            <div class="prompt-section">
+                <h6><i class="bi bi-link-45deg"></i> Contextual Analysis Prompt</h6>
+                <div class="prompt-text">${data.contextual_prompt}</div>
+            </div>
+        `;
+        } else {
+            html += `
+            <div class="prompt-section">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    Contextual analysis will be available after Facts extraction is complete.
+                </div>
+            </div>
+        `;
+        }
+
+        html += '</div>';
+
+        if (data.facts_summary) {
+            html += `
+            <div class="alert alert-info mt-3">
+                <strong>Facts Context Available:</strong> 
+                ${data.facts_summary.roles_count} roles, 
+                ${data.facts_summary.states_count} states, 
+                ${data.facts_summary.resources_count} resources
+            </div>
+        `;
+        }
+
+        content.innerHTML = html;
+    }
+
+    function executeDiscussionPass() {
+        const resultsCard = document.getElementById('discussionResultsCard');
+        const executeBtn = document.getElementById('discussionExecuteBtn');
+
+        // Disable execute button
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Analyzing...';
+
+        // Show results card
+        resultsCard.style.display = 'block';
+        resultsCard.scrollIntoView({ behavior: 'smooth' });
+
+        // Prepare request with Facts context
+        const requestData = {
+            discussion_text: discussionText,
+            facts_context: factsResults || null
+        };
+
+        // Execute the dual analysis
+        fetch(`{{ url_for('scenario_pipeline.discussion_contextual_execute', case_id=case.id) }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    discussionResults = data; // Store results globally
+                    displayDiscussionResults(data);
+
+                    // Update status badge
+                    document.getElementById('discussionStatusBadge').textContent = 'Complete';
+                    document.getElementById('discussionStatusBadge').className = 'badge bg-success ms-2';
+                } else {
+                    displayError('discussionResultsContent', 'Error executing dual analysis: ' + data.error);
+                }
+            })
+            .catch(error => {
+                displayError('discussionResultsContent', 'Network error: ' + error.message);
+            })
+            .finally(() => {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Dual Analysis';
+            });
+    }
+
+    function displayDiscussionResults(data) {
+        const content = document.getElementById('discussionResultsContent');
+
+        let html = `
+        <div class="alert alert-success mb-3">
+            <strong>Dual Analysis Complete!</strong>
+        </div>
+    `;
+
+        // Show analysis metadata
+        if (data.analysis_metadata) {
+            html += `
+            <div class="alert alert-info mb-3">
+                <h6>Analysis Summary</h6>
+                <p><strong>Independent Entities:</strong> 
+                   ${data.analysis_metadata.independent_entities.roles} roles, 
+                   ${data.analysis_metadata.independent_entities.states} states, 
+                   ${data.analysis_metadata.independent_entities.resources} resources</p>
+                <p><strong>Consolidated Entities:</strong> 
+                   ${data.analysis_metadata.consolidated_entities.roles} roles, 
+                   ${data.analysis_metadata.consolidated_entities.states} states, 
+                   ${data.analysis_metadata.consolidated_entities.resources} resources</p>
+                ${data.analysis_metadata.contextual_insights ?
+                    `<p><strong>Contextual Insights:</strong> 
+                     ${data.analysis_metadata.contextual_insights.tensions_identified} tensions, 
+                     ${data.analysis_metadata.contextual_insights.relationships_mapped} relationships</p>` : ''}
+            </div>
+        `;
+        }
+
+        // Display consolidated results
+        const consolidated = data.consolidated_results;
+
+        // Display roles
+        if (consolidated.roles && consolidated.roles.length > 0) {
+            html += `<div class="entity-type">
+            <h6><i class="bi bi-people"></i> Consolidated Roles (${consolidated.roles.length})</h6>`;
+            consolidated.roles.forEach(role => {
+                html += `<div class="entity-item">
+                <div class="entity-label">${role.label}
+                    ${role.source ? `<span class="badge bg-secondary ms-2">${role.source}</span>` : ''}
+                </div>
+                <div class="entity-description">${role.description}</div>
+                ${role.enrichment_notes ? `<div class="text-muted small mt-1">${role.enrichment_notes}</div>` : ''}
+            </div>`;
+            });
+            html += '</div>';
+        }
+
+        // Display states
+        if (consolidated.states && consolidated.states.length > 0) {
+            html += `<div class="entity-type">
+            <h6><i class="bi bi-diagram-3"></i> Consolidated States (${consolidated.states.length})</h6>`;
+            consolidated.states.forEach(state => {
+                html += `<div class="entity-item">
+                <div class="entity-label">${state.label}
+                    ${state.source ? `<span class="badge bg-secondary ms-2">${state.source}</span>` : ''}
+                </div>
+                <div class="entity-description">${state.description}</div>
+                ${state.enrichment_notes ? `<div class="text-muted small mt-1">${state.enrichment_notes}</div>` : ''}
+            </div>`;
+            });
+            html += '</div>';
+        }
+
+        // Display resources
+        if (consolidated.resources && consolidated.resources.length > 0) {
+            html += `<div class="entity-type">
+            <h6><i class="bi bi-gear"></i> Consolidated Resources (${consolidated.resources.length})</h6>`;
+            consolidated.resources.forEach(resource => {
+                html += `<div class="entity-item">
+                <div class="entity-label">${resource.label}
+                    ${resource.source ? `<span class="badge bg-secondary ms-2">${resource.source}</span>` : ''}
+                </div>
+                <div class="entity-description">${resource.description}</div>
+                ${resource.enrichment_notes ? `<div class="text-muted small mt-1">${resource.enrichment_notes}</div>` : ''}
+            </div>`;
+            });
+            html += '</div>';
+        }
+
+        content.innerHTML = html;
+    }
+
+    function displayError(elementId, message) {
+        const content = document.getElementById(elementId);
+        content.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i>
+            ${message}
+        </div>
+    `;
+    }
+</script>
+{% endblock %}
+
+{% block step_content %}
+<!-- Section Navigation Tabs -->
+<ul class="nav nav-tabs mb-3" id="sectionTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="facts-tab" data-bs-toggle="tab" data-bs-target="#facts-panel" type="button"
+            role="tab">
+            <i class="bi bi-file-text"></i> Facts Section
+            <span id="factsStatusBadge" class="badge bg-secondary ms-2">Not Started</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="discussion-tab" data-bs-toggle="tab" data-bs-target="#discussion-panel"
+            type="button" role="tab">
+            <i class="bi bi-chat-text"></i> Discussion Section
+            <span id="discussionStatusBadge" class="badge bg-secondary ms-2">Not Started</span>
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="sectionTabContent">
+    <!-- Facts Panel -->
+    <div class="tab-pane fade show active" id="facts-panel" role="tabpanel">
+        <div class="step-card">
+            <div class="step-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-file-text"></i> Facts Section
+                </h4>
+            </div>
+            <div class="step-content">
+                {% if facts_section %}
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+                    <pre class="facts-text">{{ facts_section.llm_text }}</pre>
+                </div>
+
+                <!-- Facts Contextual Framework Pass Button -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+                    <button id="factsPassBtn" class="btn btn-primary btn-lg" onclick="showFactsPrompt()">
+                        <i class="bi bi-arrow-right-circle"></i> Facts Contextual Framework Pass
+                        <small class="d-block">Extract Roles + States + Resources</small>
+                    </button>
+                </div>
+
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    No facts section found in this case.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Facts Prompt Display -->
+        <div id="factsPromptCard" class="step-card" style="display: none;">
+            <div class="step-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-cpu"></i> Facts LLM Prompt Preview
+                </h5>
+            </div>
+            <div class="step-content">
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    This prompt will extract contextual framework entities from the Facts section:
+                </div>
+
+                <div id="factsPromptContent">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Generating prompt...</span>
+                        </div>
+                        <span class="ms-2">Generating prompt...</span>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3" id="factsExecuteButtonContainer"
+                    style="display: none;">
+                    <button id="factsExecuteBtn" class="btn btn-success btn-lg" onclick="executeFactsPass()">
+                        <i class="bi bi-play-circle"></i> Execute Facts Extraction
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Facts Results Display -->
+        <div id="factsResultsCard" class="step-card" style="display: none;">
+            <div class="step-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle"></i> Facts Extraction Results
+                </h5>
+            </div>
+            <div class="step-content">
+                <div id="factsResultsContent">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Extracting entities...</span>
+                        </div>
+                        <span class="ms-2">Extracting entities...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discussion Panel -->
+    <div class="tab-pane fade" id="discussion-panel" role="tabpanel">
+        <div class="step-card">
+            <div class="step-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-chat-text"></i> Discussion Section
+                </h4>
+            </div>
+            <div class="step-content">
+                {% if discussion_section %}
+                <div class="alert alert-info mb-3">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+                    <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+                </div>
+
+                <!-- Discussion Dual Analysis Button -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+                    <button id="discussionPassBtn" class="btn btn-primary btn-lg" onclick="showDiscussionPrompt()">
+                        <i class="bi bi-diagram-3"></i> Discussion Dual Analysis
+                        <small class="d-block">Independent + Contextual Extraction</small>
+                    </button>
+                </div>
+
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    No discussion section found in this case.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Discussion Prompt Display -->
+        <div id="discussionPromptCard" class="step-card" style="display: none;">
+            <div class="step-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-cpu"></i> Discussion Dual Analysis Prompts
+                </h5>
+            </div>
+            <div class="step-content">
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    Two prompts will be generated for dual analysis:
+                </div>
+
+                <div id="discussionPromptContent">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Generating prompts...</span>
+                        </div>
+                        <span class="ms-2">Generating dual prompts...</span>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3" id="discussionExecuteButtonContainer"
+                    style="display: none;">
+                    <button id="discussionExecuteBtn" class="btn btn-success btn-lg" onclick="executeDiscussionPass()">
+                        <i class="bi bi-play-circle"></i> Execute Dual Analysis
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discussion Results Display -->
+        <div id="discussionResultsCard" class="step-card" style="display: none;">
+            <div class="step-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle"></i> Discussion Analysis Results
+                </h5>
+            </div>
+            <div class="step-content">
+                <div id="discussionResultsContent">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Analyzing discussion...</span>
+                        </div>
+                        <span class="ms-2">Performing dual analysis...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
