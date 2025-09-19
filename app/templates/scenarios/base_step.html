@@ -101,7 +101,8 @@
                 <h1 class="mb-2">
                     <i class="bi bi-gear"></i> {% block step_header %}Scenario Pipeline{% endblock %}
                 </h1>
-                <p class="mb-0 lead">{% block step_subtitle %}Interactive scenario creation from case content{% endblock %}</p>
+                <p class="mb-0 lead">{% block step_subtitle %}Interactive scenario creation from case content{% endblock
+                    %}</p>
             </div>
             <div class="col-md-4 text-md-end">
                 <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-light">
@@ -120,20 +121,19 @@
                 <h5 class="mb-3">
                     <i class="bi bi-list-ul"></i> Pipeline Steps
                 </h5>
-                
-                <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" 
-                   class="pipeline-step {% if current_step == 1 %}active{% endif %}">
-                    <i class="bi bi-file-text"></i> Content Review
+
+                <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}"
+                    class="pipeline-step {% if current_step == 1 %}active{% endif %}">
+                    <i class="bi bi-file-text"></i> Overview
                 </a>
-                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
-                    <i class="bi bi-people"></i> Participant Mapping (Coming Soon)
-                </div>
-                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
-                    <i class="bi bi-diamond"></i> Decision Points (Coming Soon)
-                </div>
-                <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
-                    <i class="bi bi-clock-history"></i> Timeline Ordering (Coming Soon)
-                </div>
+                <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}"
+                    class="pipeline-step {% if current_step == 2 %}active{% endif %}">
+                    <i class="bi bi-2-circle"></i> Normative Pass
+                </a>
+                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}"
+                    class="pipeline-step {% if current_step == 3 %}active{% endif %}">
+                    <i class="bi bi-3-circle"></i> Temporal Dynamics
+                </a>
                 <div class="pipeline-step disabled" style="opacity: 0.5; cursor: not-allowed;">
                     <i class="bi bi-magic"></i> Generate Scenario (Coming Soon)
                 </div>
@@ -146,15 +146,15 @@
                         <i class="bi bi-arrow-left"></i> Previous
                     </a>
                     {% endif %}
-                    {% if current_step < 5 and next_step_url and next_step_url != '#' %}
-                    <a href="{{ next_step_url }}" class="btn btn-primary">
+                    {% if current_step < 3 and next_step_url and next_step_url !='#' %} <a href="{{ next_step_url }}"
+                        class="btn btn-primary">
                         Next <i class="bi bi-arrow-right"></i>
-                    </a>
-                    {% else %}
-                    <button class="btn btn-outline-secondary" disabled>
-                        Next <i class="bi bi-arrow-right"></i> (Coming Soon)
-                    </button>
-                    {% endif %}
+                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary" disabled>
+                            Next <i class="bi bi-arrow-right"></i> (Coming Soon)
+                        </button>
+                        {% endif %}
                 </div>
             </div>
         </div>
@@ -164,7 +164,7 @@
             <div class="mb-4">
                 <div class="case-title">{{ case.title }}</div>
                 <div class="step-info">
-                    {% block step_info %}Step {{ current_step }} of 5{% endblock %}
+                    {% block step_info %}Step {{ current_step }} of 3{% endblock %}
                 </div>
             </div>
 
@@ -191,19 +191,18 @@
                         {% endif %}
                     </div>
                     <div>
-                        {% if current_step < 5 and next_step_url and next_step_url != '#' %}
-                        <a href="{{ next_step_url }}" class="btn btn-primary">
+                        {% if current_step < 5 and next_step_url and next_step_url !='#' %} <a
+                            href="{{ next_step_url }}" class="btn btn-primary">
                             Next Step <i class="bi bi-arrow-right"></i>
-                        </a>
-                        {% elif current_step < 5 %}
-                        <button class="btn btn-outline-secondary" disabled>
-                            Next Step <i class="bi bi-arrow-right"></i> (Coming Soon)
-                        </button>
-                        {% else %}
-                        <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success">
-                            <i class="bi bi-check-circle"></i> Complete
-                        </a>
-                        {% endif %}
+                            </a>
+                            {% elif current_step < 5 %} <button class="btn btn-outline-secondary" disabled>
+                                Next Step <i class="bi bi-arrow-right"></i> (Coming Soon)
+                                </button>
+                                {% else %}
+                                <a href="{{ url_for('cases.view_case', id=case.id) }}" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Complete
+                                </a>
+                                {% endif %}
                     </div>
                 </div>
             </div>

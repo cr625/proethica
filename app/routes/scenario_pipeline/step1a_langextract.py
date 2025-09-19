@@ -30,14 +30,14 @@ else:
     logger.info("Using ProEthicaLangExtractService (basic)")
     langextract_service = ProEthicaLangExtractService()
 
-# Function to exempt specific routes from CSRF after app initialization
-def init_step1a_csrf_exemption(app):
-    """Exempt Step 1a LangExtract analysis routes from CSRF protection"""
-    if hasattr(app, 'csrf') and app.csrf:
-        # Import the route function that actually gets called
-        from app.routes.scenario_pipeline.interactive_builder import step1a_analyze
-        # Exempt the LangExtract analysis route from CSRF protection
-        app.csrf.exempt(step1a_analyze)
+# Function to exempt specific routes from CSRF after app initialization - DISABLED
+# def init_step1a_csrf_exemption(app):
+#     """Exempt Step 1a LangExtract analysis routes from CSRF protection"""
+#     if hasattr(app, 'csrf') and app.csrf:
+#         # Import the route function that actually gets called
+#         from app.routes.scenario_pipeline.interactive_builder import step1a_analyze
+#         # Exempt the LangExtract analysis route from CSRF protection
+#         app.csrf.exempt(step1a_analyze)
 
 def step1a(case_id):
     """
@@ -81,11 +81,11 @@ def step1a(case_id):
         context = {
             'case': case,
             'sections': sections,
-            'current_step': '1a',
+            'current_step': 1,  # Use integer for navigation highlighting
             'step_title': 'LangExtract Content Analysis',
             'langextract_status': service_status,
             'next_step_url': '#',  # Future: step1b or step2
-            'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id)
+            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id)
         }
         
         return render_template('scenarios/step1a.html', **context)

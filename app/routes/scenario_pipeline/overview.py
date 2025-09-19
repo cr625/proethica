@@ -372,11 +372,11 @@ def step1(case_id):
             'case': case,
             'sections': sections,
             'current_step': 1,
-            'next_step_url': url_for('scenario_pipeline.step1a', case_id=case_id),  # Go to Step 1a
+            'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),  # Go to Step 2
             'prev_step_url': None  # No previous step
         }
         
-        return render_template('scenarios/step1.html', **context)
+        return render_template('scenarios/overview.html', **context)
         
     except Exception as e:
         logger.error(f"Error loading step 1 for case {case_id}: {str(e)}")

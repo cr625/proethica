@@ -92,7 +92,7 @@ def step2(case_id):
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
             'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
-            'prev_step_url': url_for('scenario_pipeline.step1', case_id=case_id)
+            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id)
         }
         
         return render_template('scenarios/step2.html', **context)
