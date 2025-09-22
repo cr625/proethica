@@ -121,6 +121,12 @@ def step2_extract(case_id):
     from .step2 import normative_pass_execute as execute_handler
     return execute_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step2/extract_individual', methods=['POST'])
+def step2_extract_individual(case_id):
+    """API endpoint for individual concept extraction in Step 2"""
+    from .step2 import extract_individual_concept as individual_handler
+    return individual_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step3')
 def step3(case_id):
     """Route handler for Step 3: Behavioral Pass (States + Actions + Events + Capabilities) on Facts Section"""

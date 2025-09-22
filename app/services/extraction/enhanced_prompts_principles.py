@@ -275,11 +275,15 @@ Focus on identifying principles that serve as abstract ethical foundations requi
         Extract principles using LLM with enhanced prompt.
         """
         try:
+            # Import ModelConfig to get the proper model
+            from models import ModelConfig
+
             # Call LLM with proper API based on client type
             if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                # Anthropic client
+                # Anthropic client - use Opus model for powerful extraction
+                model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                 response = self.llm_client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model=model_name,
                     max_tokens=2000,
                     messages=[{
                         "role": "user",

@@ -375,11 +375,15 @@ class EnhancedStatesExtractor:
                         }
                     )
                 
+                # Import ModelConfig to get the proper model
+                from models import ModelConfig
+
                 # Check which type of client we have and use appropriate API
                 if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                    # Anthropic client
+                    # Anthropic client - use Opus model for powerful extraction
+                    model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                     response = self.llm_client.messages.create(
-                        model="claude-3-5-sonnet-20241022",
+                        model=model_name,
                         max_tokens=2000,
                         messages=[{
                             "role": "user",
@@ -480,16 +484,18 @@ class EnhancedCapabilitiesExtractor:
     """
     Enhanced Capabilities extractor using Chapter 2 literature-grounded prompts.
     """
-    
+
     def __init__(self, llm_client=None, provenance_service=None):
         self.llm_client = llm_client
         self.provenance_service = provenance_service
-    
+
     def extract(self, text, context=None, activity=None):
         """
         Extract capabilities using enhanced prompts with provenance tracking.
         """
         from app.services.extraction.base import ConceptCandidate
+        # Import ModelConfig to get the proper model
+        from models import ModelConfig
         
         # Create the enhanced prompt
         prompt = create_enhanced_capabilities_prompt(text, include_ontology_context=True)
@@ -510,11 +516,15 @@ class EnhancedCapabilitiesExtractor:
                         }
                     )
                 
+                # Import ModelConfig to get the proper model
+                from models import ModelConfig
+
                 # Check which type of client we have and use appropriate API
                 if hasattr(self.llm_client, 'messages') and hasattr(self.llm_client.messages, 'create'):
-                    # Anthropic client
+                    # Anthropic client - use Opus model for powerful extraction
+                    model_name = ModelConfig.get_claude_model("powerful")  # This gets opus-4.1
                     response = self.llm_client.messages.create(
-                        model="claude-3-5-sonnet-20241022",
+                        model=model_name,
                         max_tokens=2000,
                         messages=[{
                             "role": "user",

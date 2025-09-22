@@ -38,6 +38,25 @@ endblock %}
             </button>
         </div>
 
+        <!-- Individual Extraction Buttons for Debugging -->
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-bug"></i> Debug Individual Extractors:</h6>
+            <div class="btn-group d-flex flex-wrap" role="group">
+                <button class="btn btn-outline-success btn-sm m-1" onclick="extractIndividual('principles')">
+                    <i class="bi bi-stars"></i> Extract Principles Only
+                </button>
+                <button class="btn btn-outline-warning btn-sm m-1" onclick="extractIndividual('obligations')">
+                    <i class="bi bi-shield-check"></i> Extract Obligations Only
+                </button>
+                <button class="btn btn-outline-danger btn-sm m-1" onclick="extractIndividual('constraints')">
+                    <i class="bi bi-exclamation-triangle"></i> Extract Constraints Only
+                </button>
+                <button class="btn btn-outline-info btn-sm m-1" onclick="extractIndividual('capabilities')">
+                    <i class="bi bi-gear"></i> Extract Capabilities Only
+                </button>
+            </div>
+        </div>
+
         {% else %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
@@ -98,6 +117,18 @@ endblock %}
                 <span class="ms-2">Extracting normative requirements...</span>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Individual Extraction Results (Hidden initially) -->
+<div id="individualResults" class="step-card" style="display: none;">
+    <div class="step-header">
+        <h5 class="mb-0">
+            <i class="bi bi-bug"></i> Individual Extraction Results
+        </h5>
+    </div>
+    <div class="step-content">
+        <div id="individualResultsContent"></div>
     </div>
 </div>
 
@@ -387,6 +418,145 @@ endblock %}
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    async function extractIndividual(conceptType) {
+        const individualResults = document.getElementById('individualResults');
+        const individualContent = document.getElementById('individualResultsContent');
+
+        // Show loading state
+        individualResults.style.display = 'block';
+        individualContent.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Extracting ${conceptType}...</span>
+                </div>
+                <span class="ms-2">Extracting ${conceptType}...</span>
+            </div>
+        `;
+
+        individualResults.scrollIntoView({ behavior: 'smooth' });
+
+        try {
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            // Call the individual extraction endpoint
+            const response = await fetch(`/scenario_pipeline/case/{{ case.id }}/step2/extract_individual`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    concept_type: conceptType
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                displayIndividualResults(data);
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
+            }
+
+        } catch (error) {
+            console.error(`Error extracting ${conceptType}:`, error);
+            individualContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Error extracting ${conceptType}: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    function displayIndividualResults(data) {
+        const individualContent = document.getElementById('individualResultsContent');
+        const conceptType = data.concept_type;
+        const results = data.results || [];
+
+        let borderColor = '#007bff';
+        let icon = 'bi-question-circle';
+
+        if (conceptType === 'principles') {
+            borderColor = '#28a745';
+            icon = 'bi-stars';
+        } else if (conceptType === 'obligations') {
+            borderColor = '#ffc107';
+            icon = 'bi-shield-check';
+        } else if (conceptType === 'constraints') {
+            borderColor = '#dc3545';
+            icon = 'bi-exclamation-triangle';
+        } else if (conceptType === 'capabilities') {
+            borderColor = '#17a2b8';
+            icon = 'bi-gear';
+        }
+
+        let html = `
+            <div class="alert alert-success mb-3">
+                <h5 class="alert-heading"><i class="${icon}"></i> ${conceptType.charAt(0).toUpperCase() + conceptType.slice(1)} Extraction Complete</h5>
+                <p class="mb-0">Extracted <strong>${results.length}</strong> ${conceptType}</p>
+                ${data.extraction_metadata ? `<small class="text-muted">Method: ${data.extraction_metadata.extraction_method}, Model: ${data.extraction_metadata.model_used}</small>` : ''}
+            </div>
+        `;
+
+        // Display prompt if available
+        if (data.prompt) {
+            html += `
+                <div class="prompt-section mb-3">
+                    <h6><i class="bi bi-chat-left-text"></i> Extraction Prompt Used:</h6>
+                    <div class="prompt-text" style="max-height: 200px;">${escapeHtml(data.prompt)}</div>
+                </div>
+            `;
+        }
+
+        // Display results
+        html += `<div class="results-section">`;
+        html += `<h6><i class="${icon}"></i> Extracted ${conceptType.charAt(0).toUpperCase() + conceptType.slice(1)}:</h6>`;
+        html += `<div class="results-container">`;
+
+        if (results.length === 0) {
+            html += `<p class="text-muted">No ${conceptType} extracted</p>`;
+        } else {
+            results.forEach(concept => {
+                let metadata = '';
+
+                // Handle different metadata structures
+                if (conceptType === 'principles' && concept.principle_category) {
+                    metadata += `<span class="badge bg-secondary me-1">${concept.principle_category}</span>`;
+                }
+                if (conceptType === 'obligations' && concept.obligation_type) {
+                    metadata += `<span class="badge bg-warning text-dark me-1">${concept.obligation_type}</span>`;
+                }
+                if (conceptType === 'constraints' && concept.constraint_category) {
+                    metadata += `<span class="badge bg-danger me-1">${concept.constraint_category}</span>`;
+                }
+                if (conceptType === 'capabilities' && concept.capability_category) {
+                    metadata += `<span class="badge bg-info me-1">${concept.capability_category}</span>`;
+                }
+                if (concept.confidence) {
+                    metadata += `<span class="badge bg-light text-dark">Confidence: ${(concept.confidence * 100).toFixed(0)}%</span>`;
+                }
+
+                html += `
+                    <div class="concept-item" style="border-left-color: ${borderColor}">
+                        <div class="concept-label">${concept.label}</div>
+                        <div class="concept-description">${concept.description}</div>
+                        ${metadata ? `<div class="concept-metadata">${metadata}</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        html += `</div></div>`;
+
+        individualContent.innerHTML = html;
     }
 
     async function executeNormativePass() {

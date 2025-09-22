@@ -8,6 +8,7 @@ agents need capabilities to store, recognize, apply, and resolve normative requi
 import logging
 import json
 import uuid
+from datetime import datetime
 from contextlib import nullcontext
 from flask import render_template, request, jsonify, redirect, url_for, flash
 from app.models import Document, db
@@ -33,11 +34,256 @@ def init_step2_csrf_exemption(app):
     """Exempt Step 2 normative pass routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
         # Import the route functions that actually get called
-        from app.routes.scenario_pipeline.interactive_builder import normative_pass_prompt, normative_pass_execute, step2_extract
+        from app.routes.scenario_pipeline.interactive_builder import normative_pass_prompt, normative_pass_execute, step2_extract, step2_extract_individual
         # Exempt the normative pass routes from CSRF protection
         app.csrf.exempt(normative_pass_prompt)
         app.csrf.exempt(normative_pass_execute)
         app.csrf.exempt(step2_extract)
+        app.csrf.exempt(step2_extract_individual)
+
+def extract_individual_concept(case_id):
+    """
+    API endpoint to extract an individual concept type from the normative pass.
+    This allows debugging of individual extractors (principles, obligations, constraints, capabilities).
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        concept_type = data.get('concept_type')
+        if not concept_type:
+            return jsonify({'error': 'concept_type is required'}), 400
+
+        if concept_type not in ['principles', 'obligations', 'constraints', 'capabilities']:
+            return jsonify({'error': f'Invalid concept_type: {concept_type}'}), 400
+
+        # Get the case
+        case = Document.query.get_or_404(case_id)
+
+        # Get the facts section text (same logic as normative_pass_execute)
+        section_text = None
+        raw_sections = {}
+
+        if case.doc_metadata:
+            # Get sections from metadata
+            if 'sections_dual' in case.doc_metadata:
+                raw_sections = case.doc_metadata['sections_dual']
+            elif 'sections' in case.doc_metadata:
+                raw_sections = case.doc_metadata['sections']
+            elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
+                raw_sections = case.doc_metadata['document_structure']['sections']
+
+        # Look for facts section
+        for section_key, section_content in raw_sections.items():
+            if 'fact' in section_key.lower():
+                section_text = _format_section_for_llm(section_key, section_content, case)
+                break
+
+        # If no facts section found, use first available section
+        if not section_text and raw_sections:
+            first_key = list(raw_sections.keys())[0]
+            section_text = _format_section_for_llm(first_key, raw_sections[first_key], case)
+
+        if not section_text:
+            # Fallback to using available content
+            section_text = case.content or case.description or ""
+            if not section_text:
+                return jsonify({'error': 'No facts section found'}), 400
+
+        logger.info(f"Executing individual {concept_type} extraction for case {case_id}")
+
+        # Initialize LLM client
+        try:
+            llm_client = get_llm_client()
+        except Exception as e:
+            logger.warning(f"Could not initialize LLM client: {str(e)}")
+            llm_client = None
+
+        # Initialize provenance service
+        if USE_VERSIONED_PROVENANCE:
+            prov = get_versioned_provenance_service()
+        else:
+            from app.services.provenance_service import get_provenance_service
+            prov = get_provenance_service()
+
+        # Create session ID for this extraction
+        session_id = str(uuid.uuid4())
+
+        # Create context from the case
+        context = {
+            'case_id': case_id,
+            'case_title': case.title if case else None,
+            'document_type': 'ethics_case'
+        }
+
+        # Perform the extraction based on concept type
+        candidates = []
+        extraction_prompt = ""
+        activity = None
+
+        if concept_type == 'principles':
+            extraction_prompt = create_enhanced_principles_prompt(section_text, include_mcp_context=True)
+            with prov.track_activity(
+                activity_type='llm_query',
+                activity_name=f'{concept_type}_extraction',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='EnhancedPrinciplesExtractor'
+            ) as activity:
+                extractor = EnhancedPrinciplesExtractor(llm_client=llm_client, provenance_service=prov)
+                candidates = extractor.extract(section_text, context=context, activity=activity)
+
+        elif concept_type == 'obligations':
+            # For individual extraction, don't include principles context
+            extraction_prompt = create_enhanced_obligations_prompt(section_text, include_mcp_context=True, include_principles=False)
+            with prov.track_activity(
+                activity_type='llm_query',
+                activity_name=f'{concept_type}_extraction',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='EnhancedObligationsExtractor'
+            ) as activity:
+                extractor = EnhancedObligationsExtractor(llm_client=llm_client, provenance_service=prov)
+                candidates = extractor.extract(section_text, context=context, activity=activity)
+
+        elif concept_type == 'constraints':
+            # For individual extraction, don't include related entities
+            extraction_prompt = create_enhanced_constraints_prompt(section_text, include_mcp_context=True, include_related_entities=False)
+            with prov.track_activity(
+                activity_type='llm_query',
+                activity_name=f'{concept_type}_extraction',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='EnhancedConstraintsExtractor'
+            ) as activity:
+                extractor = EnhancedConstraintsExtractor(llm_client=llm_client, provenance_service=prov)
+                candidates = extractor.extract(section_text, context=context, activity=activity)
+
+        elif concept_type == 'capabilities':
+            extraction_prompt = create_enhanced_capabilities_prompt(section_text, include_mcp_context=True)
+            with prov.track_activity(
+                activity_type='llm_query',
+                activity_name=f'{concept_type}_extraction',
+                case_id=case_id,
+                session_id=session_id,
+                agent_type='extraction_service',
+                agent_name='EnhancedCapabilitiesExtractor'
+            ) as activity:
+                extractor = EnhancedCapabilitiesExtractor(llm_client=llm_client, provenance_service=prov)
+                candidates = extractor.extract(section_text, context=context, activity=activity)
+
+        # Record extraction results in provenance
+        if candidates and activity:
+            prov.record_extraction_results(
+                results=[{
+                    'label': c.label,
+                    'description': c.description,
+                    'confidence': c.confidence,
+                    'debug': c.debug
+                } for c in candidates],
+                activity=activity,
+                entity_type=f'extracted_{concept_type}',
+                metadata={'count': len(candidates)}
+            )
+
+        # Commit provenance records
+        db.session.commit()
+
+        # Convert candidates to response format
+        results = []
+        for candidate in candidates:
+            result_data = {
+                "label": candidate.label,
+                "description": candidate.description or "",
+                "type": concept_type.rstrip('s'),  # Remove plural 's'
+                "confidence": candidate.confidence
+            }
+
+            # Add concept-specific metadata
+            if concept_type == 'principles':
+                result_data.update({
+                    "principle_category": candidate.debug.get('principle_category', 'professional'),
+                    "abstraction_level": candidate.debug.get('abstraction_level', 'high'),
+                    "requires_interpretation": candidate.debug.get('requires_interpretation', True),
+                    "potential_conflicts": candidate.debug.get('potential_conflicts', []),
+                    "extensional_examples": candidate.debug.get('extensional_examples', []),
+                    "derived_obligations": candidate.debug.get('derived_obligations', []),
+                    "scholarly_grounding": candidate.debug.get('scholarly_grounding', '')
+                })
+            elif concept_type == 'obligations':
+                result_data.update({
+                    "obligation_type": candidate.debug.get('obligation_type', 'professional_practice'),
+                    "enforcement_level": candidate.debug.get('enforcement_level', 'mandatory'),
+                    "derived_from_principle": candidate.debug.get('derived_from_principle', ''),
+                    "stakeholders_affected": candidate.debug.get('stakeholders_affected', []),
+                    "potential_conflicts": candidate.debug.get('potential_conflicts', []),
+                    "monitoring_criteria": candidate.debug.get('monitoring_criteria', ''),
+                    "nspe_reference": candidate.debug.get('nspe_reference', ''),
+                    "contextual_factors": candidate.debug.get('contextual_factors', '')
+                })
+            elif concept_type == 'constraints':
+                result_data.update({
+                    "constraint_category": candidate.debug.get('constraint_category', 'resource'),
+                    "flexibility": candidate.debug.get('flexibility', 'non-negotiable'),
+                    "impact_on_decisions": candidate.debug.get('impact_on_decisions', ''),
+                    "affected_stakeholders": candidate.debug.get('affected_stakeholders', []),
+                    "potential_violations": candidate.debug.get('potential_violations', ''),
+                    "mitigation_strategies": candidate.debug.get('mitigation_strategies', []),
+                    "temporal_aspect": candidate.debug.get('temporal_aspect', 'permanent'),
+                    "quantifiable_metrics": candidate.debug.get('quantifiable_metrics', '')
+                })
+            elif concept_type == 'capabilities':
+                result_data.update({
+                    "capability_category": candidate.debug.get('capability_category', 'TechnicalCapability'),
+                    "ethical_relevance": candidate.debug.get('ethical_relevance', ''),
+                    "required_for_roles": candidate.debug.get('required_for_roles', []),
+                    "enables_obligations": candidate.debug.get('enables_obligations', []),
+                    "theoretical_grounding": candidate.debug.get('theoretical_grounding', ''),
+                    "development_path": candidate.debug.get('development_path', '')
+                })
+
+            results.append(result_data)
+
+        # Get the actual model being used
+        from models import ModelConfig
+        model_used = 'heuristic'
+        if llm_client:
+            if hasattr(llm_client, 'api_version'):
+                # Anthropic client - we're using the powerful model for extraction
+                model_used = ModelConfig.get_claude_model("powerful")
+            elif hasattr(llm_client, 'models'):
+                # OpenAI client
+                model_used = 'gpt-4'
+            else:
+                model_used = 'unknown_llm'
+
+        return jsonify({
+            'success': True,
+            'concept_type': concept_type,
+            'results': results,
+            'count': len(results),
+            'prompt': extraction_prompt,
+            'session_id': session_id,
+            'extraction_metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'extraction_method': 'enhanced_individual',
+                'llm_available': llm_client is not None,
+                'provenance_tracked': True,
+                'model_used': model_used
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting individual {concept_type} for case {case_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e), 'success': False}), 500
 
 def step2(case_id):
     """
@@ -126,11 +372,11 @@ def normative_pass_prompt(case_id):
         # MCP will be fetched dynamically from the external server
         principles_prompt = create_enhanced_principles_prompt(section_text, include_mcp_context=True)
 
-        # Use enhanced obligations prompt with MCP context
-        obligations_prompt = create_enhanced_obligations_prompt(section_text, include_mcp_context=True)
+        # Use enhanced obligations prompt with MCP context - include principles for full normative pass
+        obligations_prompt = create_enhanced_obligations_prompt(section_text, include_mcp_context=True, include_principles=True)
 
-        # Use enhanced constraints prompt with MCP context - retrieves 17 constraints via recursive CTE
-        constraints_prompt = create_enhanced_constraints_prompt(section_text, include_mcp_context=True)
+        # Use enhanced constraints prompt with MCP context - include related entities for full normative pass
+        constraints_prompt = create_enhanced_constraints_prompt(section_text, include_mcp_context=True, include_related_entities=True)
         
         # Use enhanced capabilities prompt with MCP context - retrieves capability types via recursive CTE
         capabilities_prompt = create_enhanced_capabilities_prompt(section_text, include_mcp_context=True)
@@ -472,17 +718,30 @@ def normative_pass_execute(case_id):
         if USE_VERSIONED_PROVENANCE:
             summary['provenance_url'] = url_for('provenance.provenance_viewer')
         
+        # Get the actual model being used
+        from models import ModelConfig
+        model_used = 'heuristic'
+        if llm_client:
+            if hasattr(llm_client, 'api_version'):
+                # Anthropic client - we're using the powerful model for extraction
+                model_used = ModelConfig.get_claude_model("powerful")
+            elif hasattr(llm_client, 'models'):
+                # OpenAI client
+                model_used = 'gpt-4'
+            else:
+                model_used = 'unknown_llm'
+
         # Add extraction metadata
-        from datetime import datetime
         extraction_metadata = {
             'timestamp': datetime.now().isoformat(),
             'extraction_method': 'enhanced_chapter2' if llm_client else 'fallback_heuristic',
             'principles_extractor': 'EnhancedPrinciplesExtractor',
-            'obligations_extractor': 'placeholder',  # Will be updated when we implement enhanced obligations
-            'constraints_extractor': 'placeholder',  # Will be updated when we implement enhanced constraints
+            'obligations_extractor': 'EnhancedObligationsExtractor',
+            'constraints_extractor': 'EnhancedConstraintsExtractor',
+            'capabilities_extractor': 'EnhancedCapabilitiesExtractor',
             'llm_available': llm_client is not None,
             'provenance_tracked': True,
-            'model_used': getattr(llm_client, 'model', 'fallback') if llm_client else 'heuristic'
+            'model_used': model_used
         }
         
         return jsonify({
