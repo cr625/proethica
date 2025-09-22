@@ -96,11 +96,11 @@ def step1(case_id):
         }
         
         # Use extended template with both Facts and Discussion sections
-        return render_template('scenarios/step1_extended.html', **context)
-        
+        return render_template('scenarios/step1.html', **context)
+
     except Exception as e:
-        logger.error(f"Error loading step 1a for case {case_id}: {str(e)}")
-        flash(f'Error loading step 1a: {str(e)}', 'danger')
+        logger.error(f"Error loading step 1 for case {case_id}: {str(e)}")
+        flash(f'Error loading step 1: {str(e)}', 'danger')
         return redirect(url_for('cases.view_case', id=case_id))
 
 def entities_pass_prompt(case_id):
@@ -221,7 +221,7 @@ def entities_pass_execute(case_id):
         version_context = nullcontext()
         if USE_VERSIONED_PROVENANCE:
             version_context = prov.track_versioned_workflow(
-                workflow_name='step1a_extraction',
+                workflow_name='step1_extraction',
                 description='Enhanced entities pass extraction with Chapter 2 literature',
                 version_tag='enhanced_prompts',
                 auto_version=True
@@ -232,7 +232,7 @@ def entities_pass_execute(case_id):
             # Track the overall entities pass activity
             with prov.track_activity(
                 activity_type='extraction',
-                activity_name='entities_pass_step1a',
+                activity_name='entities_pass_step1',
                 case_id=case_id,
                 session_id=session_id,
                 agent_type='extraction_service',
@@ -611,6 +611,193 @@ def discussion_contextual_execute(case_id):
         
     except Exception as e:
         logger.error(f"Error in discussion dual analysis for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def extract_individual_concept(case_id):
+    """
+    API endpoint for individual concept extraction in Step 1.
+    Extracts a single concept type (roles, states, or resources) independently.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        concept_type = data.get('concept_type')
+        section_text = data.get('section_text')
+
+        if not concept_type:
+            return jsonify({'error': 'concept_type is required'}), 400
+        if not section_text:
+            return jsonify({'error': 'section_text is required'}), 400
+
+        # Validate concept type
+        if concept_type not in ['roles', 'states', 'resources']:
+            return jsonify({'error': 'Invalid concept_type. Must be roles, states, or resources'}), 400
+
+        logger.info(f"Executing individual {concept_type} extraction for case {case_id}")
+
+        # Import necessary services
+        from app.utils.llm_utils import get_llm_client
+        from app.services.provenance_service import get_provenance_service
+        from app.models import ModelConfig, db
+        import uuid
+        import datetime
+
+        # Try to use versioned provenance if available
+        try:
+            from app.services.provenance_versioning_service import get_versioned_provenance_service
+            prov = get_versioned_provenance_service(session=db.session)
+            USE_VERSIONED = True
+        except ImportError:
+            prov = get_provenance_service(session=db.session)
+            USE_VERSIONED = False
+
+        # Create a session ID for this extraction
+        session_id = str(uuid.uuid4())
+
+        # Get LLM client for enhanced extractors
+        llm_client = get_llm_client()
+
+        # Get the case for context
+        case = Document.query.get_or_404(case_id)
+        context = {
+            'case_id': case_id,
+            'case_title': case.title,
+            'document_type': case.document_type,
+            'extraction_mode': 'individual'
+        }
+
+        # Initialize the appropriate extractor and perform extraction
+        candidates = []
+        extraction_prompt = None
+
+        if concept_type == 'roles':
+            from app.services.extraction.roles import RolesExtractor
+            from app.services.extraction.enhanced_prompts_roles import create_enhanced_roles_prompt
+
+            extractor = RolesExtractor(provenance_service=prov)
+
+            # Generate the prompt for display
+            extraction_prompt = create_enhanced_roles_prompt(section_text, include_mcp_context=True)
+
+            # Track activity if using versioned provenance
+            if USE_VERSIONED:
+                with prov.track_activity(
+                    activity_type='extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='RolesExtractor'
+                ) as activity:
+                    candidates = extractor.extract(section_text, context=context, activity=activity)
+            else:
+                candidates = extractor.extract(section_text, context=context)
+
+        elif concept_type == 'states':
+            from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor, create_enhanced_states_prompt
+            from app.services.external_mcp_client import get_external_mcp_client
+
+            # Get existing states from MCP for context
+            existing_states = None
+            try:
+                external_client = get_external_mcp_client()
+                existing_states = external_client.get_all_state_entities()
+                logger.info(f"Retrieved {len(existing_states)} existing states from MCP")
+            except Exception as e:
+                logger.warning(f"Could not retrieve existing states from MCP: {e}")
+
+            # Generate prompt with MCP context
+            extraction_prompt = create_enhanced_states_prompt(
+                section_text,
+                include_ontology_context=True,
+                existing_states=existing_states
+            )
+
+            extractor = EnhancedStatesExtractor(llm_client=llm_client, provenance_service=prov)
+
+            if USE_VERSIONED:
+                with prov.track_activity(
+                    activity_type='extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='EnhancedStatesExtractor'
+                ) as activity:
+                    candidates = extractor.extract(section_text, context=context, activity=activity)
+            else:
+                candidates = extractor.extract(section_text, context=context)
+
+        elif concept_type == 'resources':
+            from app.services.extraction.resources import ResourcesExtractor
+            from app.services.extraction.enhanced_prompts_resources import create_enhanced_resources_prompt
+
+            extractor = ResourcesExtractor(provenance_service=prov)
+
+            # Generate the prompt for display
+            extraction_prompt = create_enhanced_resources_prompt(section_text, include_mcp_context=True)
+
+            if USE_VERSIONED:
+                with prov.track_activity(
+                    activity_type='extraction',
+                    case_id=case_id,
+                    session_id=session_id,
+                    agent_type='extraction_service',
+                    agent_name='ResourcesExtractor'
+                ) as activity:
+                    candidates = extractor.extract(section_text, context=context, activity=activity)
+            else:
+                candidates = extractor.extract(section_text, context=context)
+
+        # Format results
+        results = []
+        for candidate in candidates:
+            result = {
+                'label': candidate.label,
+                'description': candidate.description,
+                'type': candidate.primary_type,
+                'confidence': candidate.confidence
+            }
+
+            # Add any debug info
+            if hasattr(candidate, 'debug') and candidate.debug:
+                for key, value in candidate.debug.items():
+                    if key not in result:
+                        result[key] = value
+
+            results.append(result)
+
+        # Determine model used
+        model_used = ModelConfig.get_claude_model("powerful") if llm_client else "fallback"
+
+        return jsonify({
+            'success': True,
+            'concept_type': concept_type,
+            'results': results,
+            'count': len(results),
+            'prompt': extraction_prompt,
+            'extraction_metadata': {
+                'extraction_method': 'enhanced_individual',
+                'llm_available': llm_client is not None,
+                'model_used': model_used,
+                'timestamp': datetime.datetime.now().isoformat(),
+                'provenance_tracked': USE_VERSIONED
+            },
+            'session_id': session_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting individual {concept_type} for case {case_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)

@@ -32,9 +32,37 @@
         <!-- Contextual Framework Pass Button -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
             <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="showPrompt()">
-                <i class="bi bi-arrow-right-circle"></i> Contextual Framework Pass
+                <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass
                 <small class="d-block">Extract Roles + States + Resources</small>
             </button>
+        </div>
+
+        <!-- Debug Individual Extractors -->
+        <div class="alert alert-secondary mb-3">
+            <h6 class="mb-2"><i class="bi bi-bug"></i> Debug Individual Extractors:</h6>
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                <button class="btn btn-info" onclick="extractIndividual('roles')">
+                    <i class="bi bi-person-badge"></i> Extract Roles Only
+                </button>
+                <button class="btn btn-warning" onclick="extractIndividual('states')">
+                    <i class="bi bi-diagram-3"></i> Extract States Only
+                </button>
+                <button class="btn btn-success" onclick="extractIndividual('resources')">
+                    <i class="bi bi-box-seam"></i> Extract Resources Only
+                </button>
+            </div>
+        </div>
+
+        <!-- Individual Extraction Results (Hidden initially) -->
+        <div id="individualResultsCard" class="step-card" style="display: none;">
+            <div class="step-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-check-circle"></i> <span id="individualResultsTitle">Individual Extraction Results</span>
+                </h5>
+            </div>
+            <div class="step-content" id="individualResultsContent">
+                <!-- Results will be displayed here -->
+            </div>
         </div>
         
         {% else %}
@@ -603,6 +631,111 @@ function displayResultsError(message) {
             ${message}
         </div>
     `;
+}
+
+// Individual extraction function for Step 1 entities
+function extractIndividual(conceptType) {
+    // Show loading state on button
+    const buttons = document.querySelectorAll('.btn-info, .btn-warning, .btn-success');
+    buttons.forEach(btn => btn.disabled = true);
+
+    // Determine which button was clicked and update it
+    let clickedBtn;
+    if (conceptType === 'roles') {
+        clickedBtn = document.querySelector('.btn-info');
+        clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting Roles...';
+    } else if (conceptType === 'states') {
+        clickedBtn = document.querySelector('.btn-warning');
+        clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting States...';
+    } else if (conceptType === 'resources') {
+        clickedBtn = document.querySelector('.btn-success');
+        clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting Resources...';
+    }
+
+    // Make the API call
+    fetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            concept_type: conceptType,
+            section_text: currentSectionText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayIndividualResults(data, conceptType);
+        } else {
+            alert('Error extracting ' + conceptType + ': ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('Network error: ' + error.message);
+    })
+    .finally(() => {
+        // Re-enable buttons
+        buttons.forEach(btn => btn.disabled = false);
+
+        // Reset button text
+        document.querySelector('.btn-info').innerHTML = '<i class="bi bi-person-badge"></i> Extract Roles Only';
+        document.querySelector('.btn-warning').innerHTML = '<i class="bi bi-diagram-3"></i> Extract States Only';
+        document.querySelector('.btn-success').innerHTML = '<i class="bi bi-box-seam"></i> Extract Resources Only';
+    });
+}
+
+function displayIndividualResults(data, conceptType) {
+    const resultsCard = document.getElementById('individualResultsCard');
+    const resultsTitle = document.getElementById('individualResultsTitle');
+    const resultsContent = document.getElementById('individualResultsContent');
+
+    // Update title
+    const typeLabel = conceptType.charAt(0).toUpperCase() + conceptType.slice(1);
+    resultsTitle.textContent = `${typeLabel} Extraction Results`;
+
+    // Build results HTML
+    let html = `
+        <div class="alert alert-info mb-3">
+            <strong>Extraction Method:</strong> ${data.extraction_metadata?.extraction_method || 'enhanced_individual'}<br>
+            <strong>Model Used:</strong> ${data.extraction_metadata?.model_used || 'Unknown'}<br>
+            <strong>Count:</strong> ${data.count || 0} ${conceptType} extracted
+        </div>
+    `;
+
+    if (data.prompt) {
+        html += `
+            <div class="alert alert-secondary mb-3">
+                <h6>Extraction Prompt Used:</h6>
+                <pre style="max-height: 300px; overflow-y: auto;">${data.prompt}</pre>
+            </div>
+        `;
+    }
+
+    if (data.results && data.results.length > 0) {
+        html += '<div class="results-list">';
+        html += `<h6>Extracted ${typeLabel}:</h6>`;
+        html += '<ul class="list-group">';
+
+        data.results.forEach(item => {
+            html += `
+                <li class="list-group-item">
+                    <strong>${item.label || 'Unnamed'}</strong>
+                    ${item.description ? `<br><small class="text-muted">${item.description}</small>` : ''}
+                    ${item.confidence ? `<br><small class="text-success">Confidence: ${(item.confidence * 100).toFixed(0)}%</small>` : ''}
+                </li>
+            `;
+        });
+
+        html += '</ul>';
+        html += '</div>';
+    } else {
+        html += '<div class="alert alert-warning">No ' + conceptType + ' extracted from this section.</div>';
+    }
+
+    resultsContent.innerHTML = html;
+    resultsCard.style.display = 'block';
+    resultsCard.scrollIntoView({ behavior: 'smooth' });
 }
 </script>
 {% endblock %}

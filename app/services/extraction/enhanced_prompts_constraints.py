@@ -358,8 +358,11 @@ class EnhancedConstraintsExtractor:
             
             # Get LLM extraction if available
             if self.llm_client:
+                self.logger.info("Using LLM extraction for constraints")
                 constraint_dicts = self._extract_with_llm(text, prompt)
+                self.logger.info(f"LLM extraction returned {len(constraint_dicts)} constraints")
             else:
+                self.logger.info("No LLM client available, using fallback extraction")
                 constraint_dicts = self._fallback_extraction(text)
 
             # Convert dictionaries to ConceptCandidate objects
@@ -435,6 +438,16 @@ class EnhancedConstraintsExtractor:
             
             # Parse JSON response
             try:
+                # Log the raw response for debugging
+                self.logger.debug(f"Raw LLM response type: {type(response)}")
+                self.logger.debug(f"Raw LLM response (first 500 chars): {str(response)[:500]}")
+
+                # Ensure response is a string before parsing
+                if not isinstance(response, str):
+                    self.logger.error(f"Response is not a string: {type(response)}")
+                    return []
+
+                # First try direct JSON parsing
                 result = json.loads(response)
                 if isinstance(result, dict) and 'constraints' in result:
                     return result['constraints']
@@ -443,8 +456,31 @@ class EnhancedConstraintsExtractor:
                 else:
                     return []
             except json.JSONDecodeError:
-                self.logger.warning("Failed to parse LLM response as JSON")
-                return self._parse_text_response(response)
+                self.logger.warning("Failed to parse LLM response as JSON directly, attempting extraction")
+
+                # Try to extract JSON from mixed text response
+                import re
+                json_match = re.search(r'\{[\s\S]*\}|\[[\s\S]*\]', response)
+                if json_match:
+                    try:
+                        result = json.loads(json_match.group())
+                        if isinstance(result, dict) and 'constraints' in result:
+                            return result['constraints']
+                        elif isinstance(result, list):
+                            return result
+                        else:
+                            self.logger.warning("Extracted JSON but no constraints found")
+                            return []
+                    except json.JSONDecodeError:
+                        self.logger.warning("Failed to parse extracted JSON")
+                        pass
+
+                # Fall back to text parsing
+                if isinstance(response, str):
+                    return self._parse_text_response(response)
+                else:
+                    self.logger.error(f"Cannot parse non-string response: {type(response)}")
+                    return []
                 
         except Exception as e:
             self.logger.error(f"LLM extraction failed: {str(e)}")
@@ -486,7 +522,12 @@ class EnhancedConstraintsExtractor:
     def _fallback_extraction(self, text: str) -> List[Dict[str, Any]]:
         """Fallback heuristic extraction when LLM is unavailable."""
         constraints = []
-        
+
+        # Ensure text is a string
+        if not isinstance(text, str):
+            self.logger.error(f"_fallback_extraction received non-string text: {type(text)}")
+            return []
+
         # Simple keyword-based extraction for constraints
         constraint_patterns = [
             (r'\bcannot\s+(\w+(?:\s+\w+){0,3})', 'prohibition'),
@@ -497,7 +538,7 @@ class EnhancedConstraintsExtractor:
             (r'\bconstraints?\s+(?:on|upon)\s+(\w+(?:\s+\w+){0,3})', 'limitation'),
             (r'\bboundary\s+(?:on|for)\s+(\w+(?:\s+\w+){0,3})', 'boundary'),
         ]
-        
+
         import re
         for pattern, constraint_type in constraint_patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)
