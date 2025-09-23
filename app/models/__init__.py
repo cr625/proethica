@@ -68,3 +68,6 @@ from app.models.provenance_versioning import (
     ProvenanceRevision, ProvenanceVersion, ProvenanceAlternate,
     VersionConfiguration
 )
+
+# Candidate validation models (added 2025-09-22)
+from app.models.candidate_role_class import CandidateRoleClass, CandidateRoleIndividual

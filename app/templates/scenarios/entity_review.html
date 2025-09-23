@@ -16,6 +16,9 @@
                     <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-secondary">
                         Back to Step 1
                     </a>
+                    <button id="clearAllEntitiesBtn" class="btn btn-warning">
+                        Clear All Entities
+                    </button>
                     <button id="commitSelectedBtn" class="btn btn-success">
                         Commit Selected to OntServe
                     </button>
@@ -116,6 +119,11 @@
                                     </td>
                                     <td>
                                         <strong>{{ entity.concept_data.get('label', 'Unknown') }}</strong>
+                                        {% if entity.concept_data.get('category') == 'Role' %}
+                                            <span class="badge badge-primary badge-sm ms-1">Role Class</span>
+                                        {% elif entity.concept_data.get('category') == 'Individual' %}
+                                            <span class="badge badge-info badge-sm ms-1">Individual</span>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         <span class="badge badge-secondary">
@@ -195,7 +203,7 @@
 </div>
 
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     const caseId = {{ case.id }};
 
     // Load session count
@@ -203,73 +211,129 @@ $(document).ready(function() {
         .then(response => response.json())
         .then(data => {
             if (data.total_sessions !== undefined) {
-                $('#sessionCount').text(data.total_sessions);
+                document.getElementById('sessionCount').textContent = data.total_sessions;
             }
         })
         .catch(error => {
-            $('#sessionCount').text('Error');
+            document.getElementById('sessionCount').textContent = 'Error';
             console.error('Error loading sessions:', error);
         });
 
     // Entity selection handling
-    $('.entity-select').change(function() {
-        const entityId = $(this).data('entity-id');
-        const selected = $(this).is(':checked');
-
-        updateEntitySelection(entityId, selected);
+    document.querySelectorAll('.entity-select').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const entityId = this.dataset.entityId;
+            const selected = this.checked;
+            updateEntitySelection(entityId, selected);
+        });
     });
 
     // Section select all handling
-    $('.section-select-all').change(function() {
-        const section = $(this).data('section');
-        const checked = $(this).is(':checked');
+    document.querySelectorAll('.section-select-all').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const section = this.dataset.section;
+            const checked = this.checked;
 
-        $(this).closest('.card').find('.entity-select').each(function() {
-            $(this).prop('checked', checked);
-            const entityId = $(this).data('entity-id');
-            updateEntitySelection(entityId, checked);
+            const card = this.closest('.card');
+            card.querySelectorAll('.entity-select').forEach(entityCheckbox => {
+                entityCheckbox.checked = checked;
+                const entityId = entityCheckbox.dataset.entityId;
+                updateEntitySelection(entityId, checked);
+            });
         });
     });
 
     // Edit entity handling
-    $('.edit-entity').click(function() {
-        const entityId = $(this).data('entity-id');
-        // For now, just show a placeholder modal
-        $('#editEntityId').val(entityId);
-        $('#editEntityModal').modal('show');
+    document.querySelectorAll('.edit-entity').forEach(button => {
+        button.addEventListener('click', function() {
+            const entityId = this.dataset.entityId;
+            // For now, just show a placeholder modal
+            document.getElementById('editEntityId').value = entityId;
+            // Note: Bootstrap modal would need to be handled differently without jQuery
+            console.log('Edit entity:', entityId);
+        });
     });
 
     // Commit selected entities
-    $('#commitSelectedBtn').click(function() {
-        if (confirm('Commit selected entities to OntServe permanent storage?')) {
-            $(this).prop('disabled', true).text('Committing...');
+    const commitBtn = document.getElementById('commitSelectedBtn');
+    if (commitBtn) {
+        commitBtn.addEventListener('click', function() {
+            console.log('Commit button clicked');
+            if (confirm('Commit selected entities to OntServe permanent storage?')) {
+                console.log('User confirmed commit');
+                this.disabled = true;
+                this.textContent = 'Committing...';
 
-            appFetch(`/scenario_pipeline/case/${caseId}/entities/commit`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    commit_all_reviewed: false
+                console.log('Making appFetch request to:', `/scenario_pipeline/case/${caseId}/entities/commit`);
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/commit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        commit_all_reviewed: false
+                    })
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(`Successfully committed ${data.result.committed_count} entities to OntServe`);
-                    location.reload();
-                } else {
-                    alert(`Error: ${data.error}`);
-                }
-            })
-            .catch(error => {
-                alert(`Error: ${error}`);
-            })
-            .finally(() => {
-                $(this).prop('disabled', false).text('Commit Selected to OntServe');
-            });
-        }
-    });
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        alert(`Successfully committed ${data.result.committed_count} entities to OntServe`);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = 'Commit Selected to OntServe';
+                });
+            }
+        });
+    }
+
+    // Clear all entities button
+    const clearBtn = document.getElementById('clearAllEntitiesBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (confirm('Clear ALL entities for this case? This cannot be undone.')) {
+                this.disabled = true;
+                this.textContent = 'Clearing...';
+
+                appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_all`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`Successfully cleared ${data.cleared_count} entities`);
+                        location.reload();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Clear error:', error);
+                    alert(`Error: ${error}`);
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = 'Clear All Entities';
+                });
+            }
+        });
+    }
 
     function updateEntitySelection(entityId, selected) {
         appFetch(`/scenario_pipeline/case/${caseId}/entities/update_selection`, {
@@ -298,8 +362,8 @@ $(document).ready(function() {
     }
 
     function updateSelectedCount() {
-        const selectedCount = $('.entity-select:checked').length;
-        $('#selectedCount').text(selectedCount);
+        const selectedCount = document.querySelectorAll('.entity-select:checked').length;
+        document.getElementById('selectedCount').textContent = selectedCount;
     }
 });
 </script>

@@ -274,6 +274,38 @@ def list_extraction_sessions(case_id):
         return jsonify({'error': str(e)})
 
 
+@bp.route('/case/<int:case_id>/entities/clear_all', methods=['POST'])
+def clear_all_entities(case_id):
+    """Clear all temporary entities for a case."""
+    try:
+        # Get case information
+        case_doc = Document.query.get(case_id)
+        if not case_doc:
+            return jsonify({'success': False, 'error': 'Case not found'})
+
+        # Clear all temporary entities for this case
+        from app.models.temporary_concept import TemporaryConcept
+        cleared_count = db.session.query(TemporaryConcept).filter_by(document_id=case_id).count()
+        db.session.query(TemporaryConcept).filter_by(document_id=case_id).delete()
+        db.session.commit()
+
+        logger.info(f"Cleared {cleared_count} temporary entities for case {case_id}")
+
+        return jsonify({
+            'success': True,
+            'cleared_count': cleared_count,
+            'case_id': case_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error clearing entities for case {case_id}: {e}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
 @bp.route('/case/<int:case_id>/entities/summary')
 def get_case_summary(case_id):
     """Get summary statistics for case entities."""

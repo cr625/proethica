@@ -459,9 +459,9 @@ function displayResults(data) {
     if (data.roles && data.roles.length > 0) {
         html += `
             <div class="entity-type">
-                <h6><i class="bi bi-people"></i> Extracted Roles (${data.roles.length})</h6>
+                <h6><i class="bi bi-people"></i> Extracted Role Classes (${data.roles.length})</h6>
         `;
-        
+
         data.roles.forEach(role => {
             html += `
                 <div class="entity-item">
@@ -471,7 +471,30 @@ function displayResults(data) {
                 </div>
             `;
         });
-        
+
+        html += '</div>';
+    }
+
+    // Display individuals
+    if (data.individuals && data.individuals.length > 0) {
+        html += `
+            <div class="entity-type">
+                <h6><i class="bi bi-person-badge"></i> Extracted Individuals (${data.individuals.length})</h6>
+        `;
+
+        data.individuals.forEach(individual => {
+            html += `
+                <div class="entity-item">
+                    <div class="entity-label">${individual.name}</div>
+                    ${individual.role_class ? `<div class="entity-description"><strong>Role:</strong> ${individual.role_class}</div>` : ''}
+                    ${individual.attributes ? `<div class="entity-description"><strong>Attributes:</strong> ${Object.entries(individual.attributes).map(([key, value]) => `${key}: ${value}`).join(', ')}</div>` : ''}
+                    ${individual.case_involvement ? `<div class="entity-description"><strong>Case Involvement:</strong> ${individual.case_involvement}</div>` : ''}
+                    ${individual.is_new_role_class ? `<div class="badge bg-success">Fulfills New Role Class</div>` : `<div class="badge bg-info">Fulfills Existing Role Class</div>`}
+                    <div class="entity-confidence">Confidence: ${(individual.confidence * 100).toFixed(0)}%</div>
+                </div>
+            `;
+        });
+
         html += '</div>';
     }
     
@@ -725,22 +748,87 @@ function displayIndividualResults(data, conceptType) {
     }
 
     if (data.results && data.results.length > 0) {
-        html += '<div class="results-list">';
-        html += `<h6>Extracted ${typeLabel}:</h6>`;
-        html += '<ul class="list-group">';
+        // Special handling for roles - separate classes from individuals
+        if (conceptType === 'roles') {
+            const roleClasses = data.results.filter(item => item.type === 'role_class');
+            const roleIndividuals = data.results.filter(item => item.type === 'role_individual');
 
-        data.results.forEach(item => {
-            html += `
-                <li class="list-group-item">
-                    <strong>${item.label || 'Unnamed'}</strong>
-                    ${item.description ? `<br><small class="text-muted">${item.description}</small>` : ''}
-                    ${item.confidence ? `<br><small class="text-success">Confidence: ${(item.confidence * 100).toFixed(0)}%</small>` : ''}
-                </li>
-            `;
-        });
+            html += '<div class="results-list">';
 
-        html += '</ul>';
-        html += '</div>';
+            // Display Role Classes
+            if (roleClasses.length > 0) {
+                html += '<div class="mb-4">';
+                html += `<h6 class="text-primary"><i class="bi bi-diagram-3"></i> New Role Classes Discovered (${roleClasses.length}):</h6>`;
+                html += '<ul class="list-group mb-3">';
+
+                roleClasses.forEach(roleClass => {
+                    html += `
+                        <li class="list-group-item border-left border-primary">
+                            <strong>${roleClass.label}</strong>
+                            <span class="badge badge-primary ml-2">Class</span>
+                            ${roleClass.description ? `<br><small class="text-muted">${roleClass.description}</small>` : ''}
+                            ${roleClass.professional_scope ? `<br><small class="text-info"><strong>Scope:</strong> ${roleClass.professional_scope}</small>` : ''}
+                            ${roleClass.confidence ? `<br><small class="text-success">Confidence: ${(roleClass.confidence * 100).toFixed(0)}%</small>` : ''}
+                        </li>
+                    `;
+                });
+
+                html += '</ul>';
+                html += '</div>';
+            }
+
+            // Display Role Individuals
+            if (roleIndividuals.length > 0) {
+                html += '<div class="mb-4">';
+                html += `<h6 class="text-info"><i class="bi bi-person-badge"></i> Role Individuals Found (${roleIndividuals.length}):</h6>`;
+                html += '<ul class="list-group mb-3">';
+
+                roleIndividuals.forEach(individual => {
+                    html += `
+                        <li class="list-group-item border-left border-info">
+                            <strong>${individual.label}</strong>
+                            <span class="badge badge-info ml-2">Individual</span>
+                            ${individual.role_class ? `<br><small class="text-primary"><strong>Role:</strong> ${individual.role_class}</small>` : ''}
+                            ${individual.description ? `<br><small class="text-muted">${individual.description}</small>` : ''}
+                            ${individual.attributes ? `<br><small class="text-secondary"><strong>Attributes:</strong> ${JSON.stringify(individual.attributes)}</small>` : ''}
+                            ${individual.confidence ? `<br><small class="text-success">Confidence: ${(individual.confidence * 100).toFixed(0)}%</small>` : ''}
+                        </li>
+                    `;
+                });
+
+                html += '</ul>';
+                html += '</div>';
+            }
+
+            // Summary
+            if (roleClasses.length === 0 && roleIndividuals.length === 0) {
+                html += '<div class="alert alert-warning">No role classes or individuals extracted from this section.</div>';
+            } else {
+                html += `<div class="alert alert-success">
+                    <strong>Summary:</strong> Found ${roleClasses.length} new role classes and ${roleIndividuals.length} specific individuals.
+                </div>`;
+            }
+
+            html += '</div>';
+        } else {
+            // Original handling for non-role extractions
+            html += '<div class="results-list">';
+            html += `<h6>Extracted ${typeLabel}:</h6>`;
+            html += '<ul class="list-group">';
+
+            data.results.forEach(item => {
+                html += `
+                    <li class="list-group-item">
+                        <strong>${item.label || 'Unnamed'}</strong>
+                        ${item.description ? `<br><small class="text-muted">${item.description}</small>` : ''}
+                        ${item.confidence ? `<br><small class="text-success">Confidence: ${(item.confidence * 100).toFixed(0)}%</small>` : ''}
+                    </li>
+                `;
+            });
+
+            html += '</ul>';
+            html += '</div>';
+        }
     } else {
         html += '<div class="alert alert-warning">No ' + conceptType + ' extracted from this section.</div>';
     }

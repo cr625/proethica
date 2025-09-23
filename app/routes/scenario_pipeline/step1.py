@@ -185,7 +185,7 @@ def entities_pass_execute(case_id):
         logger.info(f"Starting entities pass execution for case {case_id} with provenance tracking")
         
         # Import the extraction services and provenance service
-        from app.services.extraction.roles import RolesExtractor
+        from app.services.extraction.dual_role_extractor import DualRoleExtractor
         from app.services.extraction.resources import ResourcesExtractor
         from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor
         from app.services.provenance_service import get_provenance_service
@@ -208,8 +208,8 @@ def entities_pass_execute(case_id):
         # Create a session ID for this extraction workflow
         session_id = str(uuid.uuid4())
         
-        # Initialize extractors (Pass 1: Contextual Framework - Roles, States, Resources)
-        roles_extractor = RolesExtractor()
+        # Initialize extractors (Pass 1: Contextual Framework - Dual Roles, States, Resources)
+        dual_role_extractor = DualRoleExtractor()
         resources_extractor = ResourcesExtractor()
         
         # Initialize LLM client for enhanced States extractor
@@ -245,33 +245,47 @@ def entities_pass_execute(case_id):
                 }
             ) as main_activity:
                 
-                # Track roles extraction as a sub-activity
+                # Track dual roles extraction as a sub-activity
                 with prov.track_activity(
                     activity_type='llm_query',
-                    activity_name='roles_extraction',
+                    activity_name='dual_roles_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
-                    agent_name='RolesExtractor'
+                    agent_name='DualRoleExtractor'
                 ) as roles_activity:
-                    logger.info("Extracting roles with provenance tracking...")
-                    role_candidates = roles_extractor.extract(
-                        section_text, 
-                        guideline_id=case_id,
-                        activity=roles_activity
+                    logger.info("Extracting role classes and individuals with provenance tracking...")
+                    candidate_role_classes, role_individuals = dual_role_extractor.extract_dual_roles(
+                        case_text=section_text,
+                        case_id=case_id,
+                        section_type='facts'
                     )
-                    
-                    # Record the extraction results
+
+                    # Record the role class extraction results
                     roles_results_entity = prov.record_extraction_results(
                         results=[{
                             'label': c.label,
-                            'description': c.description,
-                            'confidence': c.confidence,
-                            'debug': c.debug
-                        } for c in role_candidates],
+                            'definition': c.definition,
+                            'confidence': c.discovery_confidence,
+                            'type': 'role_class'
+                        } for c in candidate_role_classes],
                         activity=roles_activity,
-                        entity_type='extracted_roles',
-                        metadata={'count': len(role_candidates)}
+                        entity_type='extracted_role_classes',
+                        metadata={'count': len(candidate_role_classes)}
+                    )
+
+                    # Record the individual extraction results
+                    individuals_results_entity = prov.record_extraction_results(
+                        results=[{
+                            'name': ind.name,
+                            'role_class': ind.role_class,
+                            'confidence': ind.confidence,
+                            'is_new_role_class': ind.is_new_role_class,
+                            'attributes': ind.attributes
+                        } for ind in role_individuals],
+                        activity=roles_activity,
+                        entity_type='extracted_role_individuals',
+                        metadata={'count': len(role_individuals)}
                     )
                 
                 # Track resources extraction as a sub-activity
@@ -340,28 +354,45 @@ def entities_pass_execute(case_id):
         # Commit provenance records to database
         db.session.commit()
         
-        # Convert candidates to serializable format with ALL enhanced fields
+        # Convert dual extraction results to serializable format
         roles_data = []
-        for candidate in role_candidates:
-            # Extract enhanced fields from debug for easier access
-            debug_data = candidate.debug or {}
+        for candidate in candidate_role_classes:
             role_entry = {
                 'label': candidate.label,
-                'description': candidate.description,
-                'type': candidate.primary_type,
-                'confidence': candidate.confidence,
-                # Enhanced fields from new prompts
-                'role_category': debug_data.get('role_category'),  # provider_client, professional_peer, etc.
-                'obligations_generated': debug_data.get('obligations_generated', []),
-                'ethical_filter_function': debug_data.get('ethical_filter_function'),
-                'theoretical_grounding': debug_data.get('theoretical_grounding'),
-                'text_references': debug_data.get('text_references', []),
-                'is_existing': debug_data.get('is_existing'),
-                'ontology_match_reasoning': debug_data.get('ontology_match_reasoning'),
-                # Preserve all debug info for complete data
-                'debug': candidate.debug
+                'definition': candidate.definition,
+                'type': 'role_class',
+                'confidence': candidate.discovery_confidence,
+                # New dual extraction fields
+                'distinguishing_features': candidate.distinguishing_features,
+                'professional_scope': candidate.professional_scope,
+                'typical_qualifications': candidate.typical_qualifications,
+                'examples_from_case': candidate.examples_from_case,
+                'similarity_to_existing': candidate.similarity_to_existing,
+                'existing_similar_classes': candidate.existing_similar_classes or [],
+                'status': candidate.status,
+                'validation_priority': candidate.validation_priority,
+                'is_novel': candidate.is_novel,
+                'candidate_id': candidate.id,
+                # Legacy compatibility
+                'description': candidate.definition,
+                'primary_type': 'Role'
             }
             roles_data.append(role_entry)
+
+        # Convert role individuals to serializable format
+        individuals_data = []
+        for individual in role_individuals:
+            individual_entry = {
+                'name': individual.name,
+                'role_class': individual.role_class,
+                'confidence': individual.confidence,
+                'is_new_role_class': individual.is_new_role_class,
+                'attributes': individual.attributes,
+                'relationships': individual.relationships,
+                'case_section': individual.case_section,
+                'type': 'role_individual'
+            }
+            individuals_data.append(individual_entry)
         
         resources_data = []
         for candidate in resource_candidates:
@@ -411,18 +442,22 @@ def entities_pass_execute(case_id):
             }
             states_data.append(state_entry)
         
-        logger.info(f"Entities pass completed for case {case_id}: {len(roles_data)} roles, {len(states_data)} states, {len(resources_data)} resources")
-        
+        logger.info(f"Entities pass completed for case {case_id}: {len(roles_data)} role classes, {len(individuals_data)} individuals, {len(states_data)} states, {len(resources_data)} resources")
+
         return jsonify({
             'success': True,
             'roles': roles_data,
+            'individuals': individuals_data,
             'states': states_data,
             'resources': resources_data,
             'summary': {
                 'roles_count': len(roles_data),
+                'individuals_count': len(individuals_data),
                 'states_count': len(states_data),
                 'resources_count': len(resources_data),
-                'total_entities': len(roles_data) + len(states_data) + len(resources_data)
+                'total_entities': len(roles_data) + len(individuals_data) + len(states_data) + len(resources_data),
+                'new_role_classes': len([r for r in roles_data if r.get('is_novel', False)]),
+                'new_role_individuals': len([i for i in individuals_data if i.get('is_new_role_class', False)])
             },
             'execution_timestamp': logger.created if hasattr(logger, 'created') else None,
             'provenance': {
@@ -682,26 +717,69 @@ def extract_individual_concept(case_id):
         extraction_prompt = None
 
         if concept_type == 'roles':
-            from app.services.extraction.roles import RolesExtractor
+            from app.services.extraction.dual_role_extractor import DualRoleExtractor
 
-            extractor = RolesExtractor()
+            extractor = DualRoleExtractor()
 
-            # Generate the prompt for display
-            extraction_prompt = extractor._get_prompt_for_preview(section_text)
+            # Generate the prompt for display (dual extraction)
+            extraction_prompt = extractor._create_dual_role_extraction_prompt(section_text, 'facts')
 
-            # Track activity if using versioned provenance
-            if USE_VERSIONED:
-                with prov.track_activity(
-                    activity_type='extraction',
-                    activity_name='roles_individual_extraction',
+            # Use dual extraction to get both classes and individuals
+            # Skip complex provenance tracking for individual extraction to avoid session issues
+            try:
+                logger.info(f"DEBUG: About to call extract_dual_roles with case_id={case_id}, section_type='facts'")
+                logger.info(f"DEBUG: section_text length: {len(section_text)}")
+                candidate_role_classes, role_individuals = extractor.extract_dual_roles(
+                    case_text=section_text,
                     case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='RolesExtractor'
-                ) as activity:
-                    candidates = extractor.extract(section_text, activity=activity)
-            else:
-                candidates = extractor.extract(section_text)
+                    section_type='facts'
+                )
+                logger.info(f"DEBUG: extract_dual_roles completed successfully")
+            except Exception as e:
+                logger.error(f"DEBUG: extract_dual_roles failed with error: {e}")
+                import traceback
+                logger.error(f"DEBUG: Full traceback: {traceback.format_exc()}")
+                raise
+
+            # Convert to format expected by the response
+            candidates = []
+
+            # Debug: Check what we actually got
+            logger.info(f"DEBUG: candidate_role_classes type: {type(candidate_role_classes)}, length: {len(candidate_role_classes)}")
+            if candidate_role_classes:
+                logger.info(f"DEBUG: first role_class type: {type(candidate_role_classes[0])}")
+                logger.info(f"DEBUG: first role_class content: {candidate_role_classes[0]}")
+
+            logger.info(f"DEBUG: role_individuals type: {type(role_individuals)}, length: {len(role_individuals)}")
+            if role_individuals:
+                logger.info(f"DEBUG: first individual type: {type(role_individuals[0])}")
+                logger.info(f"DEBUG: first individual content: {role_individuals[0]}")
+
+            # Now candidate_role_classes are CandidateRoleClass objects
+            # and role_individuals are RoleIndividual objects
+            for role_class in candidate_role_classes:
+                candidates.append({
+                    'label': role_class.label,
+                    'description': role_class.definition,
+                    'type': 'role_class',
+                    'confidence': role_class.confidence,
+                    'distinguishing_features': role_class.distinguishing_features,
+                    'professional_scope': role_class.professional_scope,
+                    'primary_type': 'Role'
+                })
+
+            # Add individuals
+            for individual in role_individuals:
+                candidates.append({
+                    'label': individual.name,
+                    'description': f"Individual assigned to {individual.role_class}",
+                    'type': 'role_individual',
+                    'confidence': individual.confidence,
+                    'role_class': individual.role_class,
+                    'attributes': individual.attributes,
+                    'relationships': individual.relationships,
+                    'primary_type': 'Role'
+                })
 
         elif concept_type == 'states':
             from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor, create_enhanced_states_prompt
@@ -779,15 +857,22 @@ def extract_individual_concept(case_id):
                 entities_for_storage = []
                 for candidate in candidates:
                     entity_data = {
-                        'label': candidate.label,
-                        'description': candidate.description or '',
-                        'category': candidate.primary_type.capitalize() if hasattr(candidate, 'primary_type') else concept_type.capitalize(),
-                        'confidence': candidate.confidence,
-                        'source_text': getattr(candidate, 'source_text', ''),
-                        'extraction_metadata': candidate.debug or {}
+                        'label': candidate['label'],
+                        'description': candidate['description'] or '',
+                        'category': candidate.get('primary_type', concept_type.capitalize()),
+                        'confidence': candidate['confidence'],
+                        'source_text': '',
+                        'extraction_metadata': {
+                            'type': candidate['type'],
+                            'distinguishing_features': candidate.get('distinguishing_features', []),
+                            'professional_scope': candidate.get('professional_scope', ''),
+                            'role_class': candidate.get('role_class', ''),
+                            'attributes': candidate.get('attributes', {}),
+                            'relationships': candidate.get('relationships', [])
+                        }
                     }
                     entities_for_storage.append(entity_data)
-                    logger.info(f"Prepared entity for storage: {entity_data['label']} ({entity_data['category']})")
+                    logger.info(f"Prepared entity for storage: {entity_data['label']} ({entity_data['category']}) - {candidate['type']}")
 
                 logger.info(f"Attempting to store {len(entities_for_storage)} entities...")
 
@@ -820,15 +905,15 @@ def extract_individual_concept(case_id):
         results = []
         for candidate in candidates:
             result = {
-                'label': candidate.label,
-                'description': candidate.description,
-                'type': candidate.primary_type,
-                'confidence': candidate.confidence
+                'label': candidate['label'],
+                'description': candidate['description'],
+                'type': candidate['primary_type'],
+                'confidence': candidate['confidence']
             }
 
             # Add any debug info
-            if hasattr(candidate, 'debug') and candidate.debug:
-                for key, value in candidate.debug.items():
+            if 'debug' in candidate and candidate['debug']:
+                for key, value in candidate['debug'].items():
                     if key not in result:
                         result[key] = value
 
