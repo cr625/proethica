@@ -7,5 +7,6 @@ compatibility with existing scenario routes in scenarios.py.
 """
 
 from .interactive_builder import interactive_scenario_bp
+from .entity_review import bp as entity_review_bp
 
-__all__ = ['interactive_scenario_bp']
+__all__ = ['interactive_scenario_bp', 'entity_review_bp']

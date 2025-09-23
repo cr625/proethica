@@ -648,7 +648,8 @@ def extract_individual_concept(case_id):
         # Import necessary services
         from app.utils.llm_utils import get_llm_client
         from app.services.provenance_service import get_provenance_service
-        from app.models import ModelConfig, db
+        from models import ModelConfig
+        from app.models import db
         import uuid
         import datetime
 
@@ -682,25 +683,25 @@ def extract_individual_concept(case_id):
 
         if concept_type == 'roles':
             from app.services.extraction.roles import RolesExtractor
-            from app.services.extraction.enhanced_prompts_roles import create_enhanced_roles_prompt
 
-            extractor = RolesExtractor(provenance_service=prov)
+            extractor = RolesExtractor()
 
             # Generate the prompt for display
-            extraction_prompt = create_enhanced_roles_prompt(section_text, include_mcp_context=True)
+            extraction_prompt = extractor._get_prompt_for_preview(section_text)
 
             # Track activity if using versioned provenance
             if USE_VERSIONED:
                 with prov.track_activity(
                     activity_type='extraction',
+                    activity_name='roles_individual_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
                     agent_name='RolesExtractor'
                 ) as activity:
-                    candidates = extractor.extract(section_text, context=context, activity=activity)
+                    candidates = extractor.extract(section_text, activity=activity)
             else:
-                candidates = extractor.extract(section_text, context=context)
+                candidates = extractor.extract(section_text)
 
         elif concept_type == 'states':
             from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor, create_enhanced_states_prompt
@@ -727,6 +728,7 @@ def extract_individual_concept(case_id):
             if USE_VERSIONED:
                 with prov.track_activity(
                     activity_type='extraction',
+                    activity_name='states_individual_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
@@ -738,24 +740,81 @@ def extract_individual_concept(case_id):
 
         elif concept_type == 'resources':
             from app.services.extraction.resources import ResourcesExtractor
-            from app.services.extraction.enhanced_prompts_resources import create_enhanced_resources_prompt
 
-            extractor = ResourcesExtractor(provenance_service=prov)
+            extractor = ResourcesExtractor()
 
             # Generate the prompt for display
-            extraction_prompt = create_enhanced_resources_prompt(section_text, include_mcp_context=True)
+            extraction_prompt = extractor._get_prompt_for_preview(section_text)
 
             if USE_VERSIONED:
                 with prov.track_activity(
                     activity_type='extraction',
+                    activity_name='resources_individual_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
                     agent_name='ResourcesExtractor'
                 ) as activity:
-                    candidates = extractor.extract(section_text, context=context, activity=activity)
+                    candidates = extractor.extract(section_text, activity=activity)
             else:
-                candidates = extractor.extract(section_text, context=context)
+                candidates = extractor.extract(section_text)
+
+        # Store extracted entities in temporary storage for review
+        logger.info(f"About to store {len(candidates) if candidates else 0} candidates in temporary storage")
+
+        if candidates:
+            try:
+                logger.info(f"Importing CaseEntityStorageService...")
+                from app.services.case_entity_storage_service import CaseEntityStorageService
+                logger.info(f"✅ CaseEntityStorageService imported successfully")
+
+                # Map concept types to NSPE sections
+                section_mapping = {
+                    'roles': 'facts',
+                    'states': 'facts',
+                    'resources': 'facts'  # Resources can be in facts or references
+                }
+
+                # Convert candidates to storage format
+                entities_for_storage = []
+                for candidate in candidates:
+                    entity_data = {
+                        'label': candidate.label,
+                        'description': candidate.description or '',
+                        'category': candidate.primary_type.capitalize() if hasattr(candidate, 'primary_type') else concept_type.capitalize(),
+                        'confidence': candidate.confidence,
+                        'source_text': getattr(candidate, 'source_text', ''),
+                        'extraction_metadata': candidate.debug or {}
+                    }
+                    entities_for_storage.append(entity_data)
+                    logger.info(f"Prepared entity for storage: {entity_data['label']} ({entity_data['category']})")
+
+                logger.info(f"Attempting to store {len(entities_for_storage)} entities...")
+
+                # Store in temporary storage
+                storage_session_id, temp_concepts = CaseEntityStorageService.store_extracted_entities(
+                    entities=entities_for_storage,
+                    case_id=case_id,
+                    section_type=section_mapping.get(concept_type, 'facts'),
+                    extraction_metadata={
+                        'extraction_type': f'{concept_type}_individual',
+                        'extraction_pass': 'contextual_framework',
+                        'model_used': 'claude-opus-4-1-20250805',
+                        'extractor': f'{concept_type.capitalize()}Extractor',
+                        'session_uuid': session_id,
+                        'individual_extraction': True
+                    },
+                    provenance_activity=activity if USE_VERSIONED and 'activity' in locals() else None
+                )
+
+                logger.info(f"✅ Successfully stored {len(temp_concepts)} {concept_type} entities in temporary storage (session: {storage_session_id})")
+
+            except Exception as e:
+                logger.error(f"❌ Failed to store {concept_type} entities in temporary storage: {e}")
+                import traceback
+                logger.error(f"Storage error traceback: {traceback.format_exc()}")
+        else:
+            logger.warning(f"No candidates to store for {concept_type} extraction")
 
         # Format results
         results = []

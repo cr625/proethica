@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Review - Case {{ case.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>Entity Review - Case {{ case.id }}</h2>
+                    <p class="text-muted">{{ case.title }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-secondary">
+                        Back to Step 1
+                    </a>
+                    <button id="commitSelectedBtn" class="btn btn-success">
+                        Commit Selected to OntServe
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Total Entities</h5>
+                            <h3 class="text-primary">{{ total_entities }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Sections</h5>
+                            <h3 class="text-info">{{ section_data.keys() | length }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Selected</h5>
+                            <h3 class="text-success" id="selectedCount">
+                                {{ section_data.values() | sum(attribute='selected_count') }}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Sessions</h5>
+                            <h3 class="text-warning" id="sessionCount">Loading...</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if not section_data %}
+            <!-- No entities found -->
+            <div class="alert alert-info">
+                <h4>No Extracted Entities Found</h4>
+                <p>No entities have been extracted for this case yet. Try:</p>
+                <ul>
+                    <li>Go to <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1</a> and extract roles, states, or resources individually</li>
+                    <li>Run the complete entity extraction pass</li>
+                    <li>Check the console logs for any extraction errors</li>
+                </ul>
+            </div>
+            {% else %}
+
+            <!-- Entity Sections -->
+            {% for section_type, section in section_data.items() %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4>{{ section.info.label }}</h4>
+                            <p class="mb-0 text-muted">{{ section.info.description }}</p>
+                        </div>
+                        <div>
+                            <span class="badge badge-primary">{{ section.count }} entities</span>
+                            <span class="badge badge-success">{{ section.selected_count }} selected</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if section.entities %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="5%">
+                                        <input type="checkbox" class="section-select-all"
+                                               data-section="{{ section_type }}">
+                                    </th>
+                                    <th>Label</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Confidence</th>
+                                    <th>Session</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entity in section.entities %}
+                                <tr data-entity-id="{{ entity.id }}">
+                                    <td>
+                                        <input type="checkbox" class="entity-select"
+                                               data-entity-id="{{ entity.id }}"
+                                               {% if entity.concept_data.get('selected', False) %}checked{% endif %}>
+                                    </td>
+                                    <td>
+                                        <strong>{{ entity.concept_data.get('label', 'Unknown') }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ entity.concept_data.get('category', 'Unknown') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ entity.concept_data.get('description', '')[:100] }}
+                                        {% if entity.concept_data.get('description', '') | length > 100 %}...{% endif %}
+                                    </td>
+                                    <td>
+                                        {% set confidence = entity.concept_data.get('confidence', 0.8) %}
+                                        <span class="badge {% if confidence > 0.8 %}badge-success{% elif confidence > 0.6 %}badge-warning{% else %}badge-danger{% endif %}">
+                                            {{ "%.2f" | format(confidence) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ entity.session_id[-8:] }}</small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary edit-entity"
+                                                data-entity-id="{{ entity.id }}">
+                                            Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No entities in this section.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- Edit Entity Modal -->
+<div class="modal fade" id="editEntityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Entity</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editEntityForm">
+                    <input type="hidden" id="editEntityId">
+                    <div class="form-group">
+                        <label for="editLabel">Label</label>
+                        <input type="text" class="form-control" id="editLabel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDescription">Description</label>
+                        <textarea class="form-control" id="editDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editReviewNotes">Review Notes</label>
+                        <textarea class="form-control" id="editReviewNotes" rows="2"
+                                  placeholder="Add any review notes or modifications..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEntityBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    const caseId = {{ case.id }};
+
+    // Load session count
+    appFetch(`/scenario_pipeline/case/${caseId}/entities/sessions`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.total_sessions !== undefined) {
+                $('#sessionCount').text(data.total_sessions);
+            }
+        })
+        .catch(error => {
+            $('#sessionCount').text('Error');
+            console.error('Error loading sessions:', error);
+        });
+
+    // Entity selection handling
+    $('.entity-select').change(function() {
+        const entityId = $(this).data('entity-id');
+        const selected = $(this).is(':checked');
+
+        updateEntitySelection(entityId, selected);
+    });
+
+    // Section select all handling
+    $('.section-select-all').change(function() {
+        const section = $(this).data('section');
+        const checked = $(this).is(':checked');
+
+        $(this).closest('.card').find('.entity-select').each(function() {
+            $(this).prop('checked', checked);
+            const entityId = $(this).data('entity-id');
+            updateEntitySelection(entityId, checked);
+        });
+    });
+
+    // Edit entity handling
+    $('.edit-entity').click(function() {
+        const entityId = $(this).data('entity-id');
+        // For now, just show a placeholder modal
+        $('#editEntityId').val(entityId);
+        $('#editEntityModal').modal('show');
+    });
+
+    // Commit selected entities
+    $('#commitSelectedBtn').click(function() {
+        if (confirm('Commit selected entities to OntServe permanent storage?')) {
+            $(this).prop('disabled', true).text('Committing...');
+
+            appFetch(`/scenario_pipeline/case/${caseId}/entities/commit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    commit_all_reviewed: false
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Successfully committed ${data.result.committed_count} entities to OntServe`);
+                    location.reload();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                alert(`Error: ${error}`);
+            })
+            .finally(() => {
+                $(this).prop('disabled', false).text('Commit Selected to OntServe');
+            });
+        }
+    });
+
+    function updateEntitySelection(entityId, selected) {
+        appFetch(`/scenario_pipeline/case/${caseId}/entities/update_selection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                selected: selected,
+                review_notes: ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update selected count
+                updateSelectedCount();
+            } else {
+                console.error('Error updating selection:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating selection:', error);
+        });
+    }
+
+    function updateSelectedCount() {
+        const selectedCount = $('.entity-select:checked').length;
+        $('#selectedCount').text(selectedCount);
+    }
+});
+</script>
+
+{% endblock %}

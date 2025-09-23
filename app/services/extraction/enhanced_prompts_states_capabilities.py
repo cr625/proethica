@@ -333,10 +333,12 @@ class EnhancedStatesExtractor:
     """
     Enhanced States extractor using Chapter 2 literature-grounded prompts.
     """
-    
+
     def __init__(self, llm_client=None, provenance_service=None):
         self.llm_client = llm_client
         self.provenance_service = provenance_service
+        import logging
+        self.logger = logging.getLogger(__name__)
     
     def extract(self, text, context=None, activity=None):
         """

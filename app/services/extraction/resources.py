@@ -58,8 +58,13 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         # Try provider-backed extraction first when configured and client available
         if self.provider != 'heuristic' and get_llm_client is not None:
             try:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"ResourcesExtractor: Attempting LLM extraction with provider {self.provider}")
                 items = self._extract_with_llm(text, activity=activity)
+                logger.info(f"ResourcesExtractor: LLM returned {len(items) if items else 0} items")
                 if items:
+                    logger.info(f"ResourcesExtractor: First item: {items[0] if items else 'None'}")
                     candidates = [
                         ConceptCandidate(
                             label=i.get('label') or i.get('resource') or i.get('name') or '',
@@ -220,15 +225,20 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         Returns a list of dicts with keys like label, description, confidence.
         """
         from app.services.provenance_service import get_provenance_service
-        
+        import logging
+        logger = logging.getLogger(__name__)
+
         client = get_llm_client() if get_llm_client else None
         if client is None:
+            logger.warning("ResourcesExtractor: No LLM client available")
             return []
 
+        logger.info("ResourcesExtractor: LLM client available, generating prompt")
         prov = get_provenance_service() if activity else None
 
         # Always use external MCP (required for system to function)
         prompt = self._create_resources_prompt_with_mcp(text)
+        logger.info(f"ResourcesExtractor: Generated prompt length: {len(prompt)} chars")
         
         # Record the prompt if provenance tracking is active
         prompt_entity = None
@@ -273,7 +283,7 @@ class ResourcesExtractor(Extractor, AtomicExtractionMixin):
         # Try Anthropic messages API
         try:
             if hasattr(client, 'messages') and hasattr(client.messages, 'create'):
-                model = ModelConfig.get_default_model()
+                model = ModelConfig.get_claude_model("powerful")  # Use Opus 4.1 for better extraction
                 resp = client.messages.create(
                     model=model,
                     max_tokens=800,

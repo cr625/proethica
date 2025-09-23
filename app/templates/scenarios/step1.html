@@ -336,10 +336,14 @@ function showPrompt() {
     promptCard.scrollIntoView({ behavior: 'smooth' });
     
     // Fetch the prompt from the server
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
     fetch(`{{ url_for('scenario_pipeline.entities_pass_prompt', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
             section_text: currentSectionText
@@ -403,10 +407,14 @@ function executeContextualPass() {
     resultsCard.style.display = 'none';
     
     // Execute the entities pass
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
     fetch(`{{ url_for('scenario_pipeline.entities_pass_execute', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
             section_text: currentSectionText
@@ -652,11 +660,15 @@ function extractIndividual(conceptType) {
         clickedBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Extracting Resources...';
     }
 
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
     // Make the API call
     fetch(`{{ url_for('scenario_pipeline.step1_extract_individual', case_id=case.id) }}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
             concept_type: conceptType,
