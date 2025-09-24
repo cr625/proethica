@@ -74,3 +74,6 @@ from app.models.candidate_role_class import CandidateRoleClass, CandidateRoleInd
 
 # Temporary RDF storage (added 2025-09-24)
 from app.models.temporary_rdf_storage import TemporaryRDFStorage
+
+# Extraction prompt storage (added 2025-09-24)
+from app.models.extraction_prompt import ExtractionPrompt

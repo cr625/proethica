@@ -127,6 +127,12 @@ def step1_extract_individual(case_id):
     from .step1 import extract_individual_concept as individual_handler
     return individual_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step1/get_saved_prompt', methods=['GET'])
+def step1_get_saved_prompt(case_id):
+    """API endpoint to get saved extraction prompt for Step 1"""
+    from .step1 import get_saved_prompt as prompt_handler
+    return prompt_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step2/extract_individual', methods=['POST'])
 def step2_extract_individual(case_id):
     """API endpoint for individual concept extraction in Step 2"""

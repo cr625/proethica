@@ -224,6 +224,153 @@ class RDFExtractionConverter:
         individual_str = self.individual_graph.serialize(format=format)
         return class_str, individual_str
 
+    def convert_states_extraction_to_rdf(self,
+                                        extraction_result: Dict[str, Any],
+                                        case_id: int,
+                                        extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+        """
+        Convert states extraction result to RDF triples.
+
+        Args:
+            extraction_result: Raw LLM extraction result containing new_state_classes and state_individuals
+            case_id: ID of the case this extraction is from
+            extraction_timestamp: When the extraction occurred
+
+        Returns:
+            Tuple of (class_graph, individual_graph)
+        """
+        timestamp = extraction_timestamp or datetime.utcnow()
+
+        # Clear graphs for new conversion
+        self.class_graph = Graph()
+        self.individual_graph = Graph()
+        self._bind_prefixes()
+
+        # Process new state classes
+        for state_class in extraction_result.get('new_state_classes', []):
+            self._add_state_class_to_graph(state_class, case_id, timestamp)
+
+        # Process state individuals
+        for individual in extraction_result.get('state_individuals', []):
+            self._add_state_individual_to_graph(individual, case_id, timestamp)
+
+        return self.class_graph, self.individual_graph
+
+    def _add_state_class_to_graph(self, state_class: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add a new state class to the RDF graph"""
+        # Create URI for the state class
+        safe_label = self._make_safe_uri_fragment(state_class.get('label', 'UnknownState'))
+        class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Add class definition
+        self.class_graph.add((class_uri, RDF.type, OWL.Class))
+        self.class_graph.add((class_uri, RDFS.subClassOf, self.PROETHICA.State))
+        self.class_graph.add((class_uri, RDFS.label, Literal(state_class.get('label', ''))))
+
+        # Add description
+        if state_class.get('definition'):
+            self.class_graph.add((class_uri, RDFS.comment, Literal(state_class['definition'])))
+
+        # Add activation conditions
+        for condition in state_class.get('activation_conditions', []):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.hasActivationCondition,
+                Literal(condition)
+            ))
+
+        # Add persistence type
+        if state_class.get('persistence_type'):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.hasPersistenceType,
+                Literal(state_class['persistence_type'])
+            ))
+
+        # Add affected obligations
+        for obligation in state_class.get('affected_obligations', []):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.affectsObligation,
+                Literal(obligation)
+            ))
+
+        # Add provenance
+        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+        self.class_graph.add((class_uri, self.PROETHICA_PROV.discoveredInCase, Literal(case_id, datatype=XSD.integer)))
+
+        # Add confidence score
+        if state_class.get('confidence'):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA_PROV.confidenceScore,
+                Literal(state_class['confidence'], datatype=XSD.float)
+            ))
+
+    def _add_state_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add a state individual to the RDF graph"""
+        # Create URI for the individual
+        safe_identifier = self._make_safe_uri_fragment(individual.get('identifier', 'UnknownStateInstance'))
+        case_namespace = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+        individual_uri = URIRef(f"{case_namespace}{safe_identifier}")
+
+        # Get the state class URI
+        state_class_label = individual.get('state_class', 'State')
+        safe_state_class = self._make_safe_uri_fragment(state_class_label)
+
+        # Check if it's a new class or existing
+        if individual.get('is_existing_class', True):
+            state_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_state_class}")
+        else:
+            state_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_state_class}")
+
+        # Add individual type assertion
+        self.individual_graph.add((individual_uri, RDF.type, state_class_uri))
+        self.individual_graph.add((individual_uri, RDFS.label, Literal(individual.get('identifier', ''))))
+
+        # Add active period
+        if individual.get('active_period'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.hasActivePeriod,
+                Literal(individual['active_period'])
+            ))
+
+        # Add triggering event
+        if individual.get('triggering_event'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.hasTriggeredBy,
+                Literal(individual['triggering_event'])
+            ))
+
+        # Add affected parties
+        for party in individual.get('affected_parties', []):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.affectsParty,
+                Literal(party)
+            ))
+
+        # Add case involvement
+        if individual.get('case_involvement'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA_PROV.caseInvolvement,
+                Literal(individual['case_involvement'])
+            ))
+
+        # Add confidence
+        if individual.get('confidence'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA_PROV.confidenceScore,
+                Literal(individual['confidence'], datatype=XSD.float)
+            ))
+
+        # Add provenance
+        self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
     def get_temporary_triples(self) -> Dict[str, Any]:
         """
         Get temporary triples organized for review.

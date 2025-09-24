@@ -82,6 +82,14 @@ def step1(case_id):
                 discussion_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 break
         
+        # Load any saved prompts for this case
+        from app.models import ExtractionPrompt
+        saved_prompts = {
+            'roles': ExtractionPrompt.get_active_prompt(case_id, 'roles'),
+            'states': ExtractionPrompt.get_active_prompt(case_id, 'states'),
+            'resources': ExtractionPrompt.get_active_prompt(case_id, 'resources')
+        }
+
         # Template context
         context = {
             'case': case,
@@ -92,11 +100,12 @@ def step1(case_id):
             'current_step': 1,
             'step_title': 'Contextual Framework Pass - Facts & Discussion',
             'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),  # Go to Step 2
-            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id)
+            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
+            'saved_prompts': saved_prompts  # Add saved prompts to context
         }
-        
-        # Use extended template with both Facts and Discussion sections
-        return render_template('scenarios/step1.html', **context)
+
+        # Use multi-section template with separate extractors
+        return render_template('scenarios/step1_multi_section.html', **context)
 
     except Exception as e:
         logger.error(f"Error loading step 1 for case {case_id}: {str(e)}")
@@ -652,6 +661,40 @@ def discussion_contextual_execute(case_id):
         }), 500
 
 
+def get_saved_prompt(case_id):
+    """
+    API endpoint to get saved extraction prompt for a specific concept type.
+    """
+    from flask import request, jsonify
+    from app.models import ExtractionPrompt
+
+    try:
+        concept_type = request.args.get('concept_type', 'roles')
+
+        # Get the saved prompt from database
+        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type)
+
+        if saved_prompt:
+            return jsonify({
+                'success': True,
+                'prompt_text': saved_prompt.prompt_text,
+                'created_at': saved_prompt.created_at.strftime('%Y-%m-%d %H:%M'),
+                'llm_model': saved_prompt.llm_model
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No saved prompt found'
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting saved prompt for case {case_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def extract_individual_concept(case_id):
     """
     API endpoint for individual concept extraction in Step 1.
@@ -723,6 +766,22 @@ def extract_individual_concept(case_id):
 
             # Generate the prompt for display (dual extraction)
             extraction_prompt = extractor._create_dual_role_extraction_prompt(section_text, 'facts')
+            logger.info(f"DEBUG: Generated extraction prompt (first 200 chars): {extraction_prompt[:200] if extraction_prompt else 'None'}")
+
+            # Save the prompt to database
+            from app.models import ExtractionPrompt, db
+            try:
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='roles',
+                    prompt_text=extraction_prompt,
+                    step_number=1,
+                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
+                    extraction_session_id=session_id
+                )
+                logger.info(f"Saved roles extraction prompt for case {case_id}")
+            except Exception as e:
+                logger.warning(f"Could not save extraction prompt: {e}")
 
             # Use dual extraction to get both classes and individuals
             # Skip complex provenance tracking for individual extraction to avoid session issues
@@ -842,39 +901,152 @@ def extract_individual_concept(case_id):
                 })
 
         elif concept_type == 'states':
-            from app.services.extraction.enhanced_prompts_states_capabilities import EnhancedStatesExtractor, create_enhanced_states_prompt
-            from app.services.external_mcp_client import get_external_mcp_client
+            from app.services.extraction.dual_states_extractor import DualStatesExtractor
 
-            # Get existing states from MCP for context
-            existing_states = None
+            extractor = DualStatesExtractor()
+
+            # Generate the prompt for display (dual extraction)
+            extraction_prompt = extractor._create_dual_states_extraction_prompt(section_text, 'facts')
+
+            # Save the prompt to database
+            from app.models import ExtractionPrompt, db
             try:
-                external_client = get_external_mcp_client()
-                existing_states = external_client.get_all_state_entities()
-                logger.info(f"Retrieved {len(existing_states)} existing states from MCP")
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='states',
+                    prompt_text=extraction_prompt,
+                    step_number=1,
+                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
+                    extraction_session_id=session_id
+                )
+                logger.info(f"Saved states extraction prompt for case {case_id}")
             except Exception as e:
-                logger.warning(f"Could not retrieve existing states from MCP: {e}")
+                logger.warning(f"Could not save extraction prompt: {e}")
 
-            # Generate prompt with MCP context
-            extraction_prompt = create_enhanced_states_prompt(
-                section_text,
-                include_ontology_context=True,
-                existing_states=existing_states
-            )
-
-            extractor = EnhancedStatesExtractor(llm_client=llm_client, provenance_service=prov)
-
+            # Perform dual extraction (classes + individuals)
             if USE_VERSIONED:
                 with prov.track_activity(
                     activity_type='extraction',
-                    activity_name='states_individual_extraction',
+                    activity_name='states_dual_extraction',
                     case_id=case_id,
                     session_id=session_id,
                     agent_type='extraction_service',
-                    agent_name='EnhancedStatesExtractor'
+                    agent_name='DualStatesExtractor'
                 ) as activity:
-                    candidates = extractor.extract(section_text, context=context, activity=activity)
+                    candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, 'facts')
+                    activity.used_entity(f"case_{case_id}_facts", attributes={'section': 'facts', 'text_length': len(section_text)})
+                    activity.generated_entity(
+                        f"states_extraction_{session_id}",
+                        attributes={
+                            'new_classes_count': len(candidate_state_classes),
+                            'individuals_count': len(state_individuals)
+                        }
+                    )
             else:
-                candidates = extractor.extract(section_text, context=context)
+                candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, 'facts')
+
+            logger.info(f"Dual states extraction for case {case_id}: {len(candidate_state_classes)} new classes, {len(state_individuals)} individuals")
+
+            # Get the raw LLM response for RDF conversion and display
+            raw_llm_response = extractor.get_last_raw_response()
+            logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
+
+            # Convert the raw response to RDF if we have it
+            if raw_llm_response:
+                try:
+                    import json
+                    from app.services.rdf_extraction_converter import RDFExtractionConverter
+                    from app.models import TemporaryRDFStorage
+
+                    logger.info(f"DEBUG RDF: Starting RDF conversion for states in case {case_id}")
+
+                    # Parse the raw response - handle mixed text/JSON
+                    try:
+                        raw_data = json.loads(raw_llm_response)
+                    except json.JSONDecodeError:
+                        # Try to extract JSON from mixed response
+                        import re
+                        json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
+                        if json_match:
+                            raw_data = json.loads(json_match.group())
+                            logger.info(f"DEBUG RDF: Extracted JSON from mixed response")
+                        else:
+                            logger.error(f"DEBUG RDF: Could not extract JSON from response")
+                            raise ValueError("Could not extract JSON from LLM response")
+
+                    logger.info(f"DEBUG RDF: Parsed JSON with keys: {list(raw_data.keys())}")
+                    logger.info(f"DEBUG RDF: new_state_classes count: {len(raw_data.get('new_state_classes', []))}")
+                    logger.info(f"DEBUG RDF: state_individuals count: {len(raw_data.get('state_individuals', []))}")
+
+                    # Convert to RDF using states-specific conversion
+                    rdf_converter = RDFExtractionConverter()
+                    class_graph, individual_graph = rdf_converter.convert_states_extraction_to_rdf(
+                        raw_data, case_id
+                    )
+                    logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
+
+                    # Get temporary triples for storage
+                    rdf_data = rdf_converter.get_temporary_triples()
+                    logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
+
+                    # Store in temporary RDF storage
+                    for class_data in rdf_data.get('new_classes', []):
+                        storage_entry = TemporaryRDFStorage(
+                            case_id=case_id,
+                            entity_type='state_class',
+                            entity_label=class_data['label'],
+                            rdf_triples=json.dumps(class_data['triples']),
+                            metadata={
+                                'extraction_session': session_id,
+                                'section': 'facts'
+                            }
+                        )
+                        db.session.add(storage_entry)
+
+                    for ind_data in rdf_data.get('new_individuals', []):
+                        storage_entry = TemporaryRDFStorage(
+                            case_id=case_id,
+                            entity_type='state_individual',
+                            entity_label=ind_data['label'],
+                            rdf_triples=json.dumps(ind_data['triples']),
+                            metadata={
+                                'extraction_session': session_id,
+                                'section': 'facts'
+                            }
+                        )
+                        db.session.add(storage_entry)
+
+                    db.session.commit()
+                    logger.info(f"Stored {len(rdf_data.get('new_classes', [])) + len(rdf_data.get('new_individuals', []))} RDF entities in temporary storage")
+
+                except Exception as e:
+                    logger.error(f"Error converting states to RDF: {e}", exc_info=True)
+
+            # Convert to common format for storage
+            candidates = []
+            for state_class in candidate_state_classes:
+                candidates.append({
+                    'label': state_class.label,
+                    'description': state_class.definition,
+                    'type': 'state_class',
+                    'confidence': state_class.confidence,
+                    'activation_conditions': state_class.activation_conditions,
+                    'persistence_type': state_class.persistence_type,
+                    'primary_type': 'State'
+                })
+
+            # Add individuals
+            for individual in state_individuals:
+                candidates.append({
+                    'label': individual.identifier,
+                    'description': f"State instance of {individual.state_class}",
+                    'type': 'state_individual',
+                    'confidence': individual.confidence,
+                    'state_class': individual.state_class,
+                    'active_period': individual.active_period,
+                    'triggering_event': individual.triggering_event,
+                    'primary_type': 'State'
+                })
 
         elif concept_type == 'resources':
             from app.services.extraction.resources import ResourcesExtractor
@@ -883,6 +1055,21 @@ def extract_individual_concept(case_id):
 
             # Generate the prompt for display
             extraction_prompt = extractor._get_prompt_for_preview(section_text)
+
+            # Save the prompt to database
+            from app.models import ExtractionPrompt, db
+            try:
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='resources',
+                    prompt_text=extraction_prompt,
+                    step_number=1,
+                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
+                    extraction_session_id=session_id
+                )
+                logger.info(f"Saved resources extraction prompt for case {case_id}")
+            except Exception as e:
+                logger.warning(f"Could not save extraction prompt: {e}")
 
             if USE_VERSIONED:
                 with prov.track_activity(
@@ -982,6 +1169,9 @@ def extract_individual_concept(case_id):
         # Determine model used
         model_used = ModelConfig.get_claude_model("powerful") if llm_client else "fallback"
 
+        # Log what we're about to send
+        logger.info(f"DEBUG: About to send prompt in response (first 200 chars): {extraction_prompt[:200] if extraction_prompt else 'None'}")
+
         response_data = {
             'success': True,
             'concept_type': concept_type,
@@ -998,10 +1188,39 @@ def extract_individual_concept(case_id):
             'session_id': session_id
         }
 
-        # Add raw LLM response for roles only (for debugging)
-        if concept_type == 'roles' and 'raw_llm_response' in locals():
-            response_data['raw_llm_response'] = raw_llm_response
-            logger.info(f"Adding raw LLM response to response data (length: {len(raw_llm_response) if raw_llm_response else 0})")
+        # Add special formatting for dual extraction types (roles and states)
+        if concept_type == 'roles' and 'candidate_role_classes' in locals():
+            # Separate roles into classes and individuals
+            response_data['role_classes'] = [c for c in candidates if c.get('type') == 'role_class']
+            response_data['individuals'] = [{
+                'name': c['label'],
+                'role_class': c.get('role_class'),
+                'case_involvement': c.get('description'),
+                'attributes': c.get('attributes', {})
+            } for c in candidates if c.get('type') == 'role_individual']
+            if 'raw_llm_response' in locals():
+                response_data['raw_llm_response'] = raw_llm_response
+                logger.info(f"Adding raw LLM response to response data (length: {len(raw_llm_response) if raw_llm_response else 0})")
+
+        elif concept_type == 'states' and 'candidate_state_classes' in locals():
+            # Separate states into classes and individuals
+            response_data['state_classes'] = [{
+                'label': c['label'],
+                'description': c['description'],
+                'confidence': c['confidence'],
+                'persistence_type': c.get('persistence_type'),
+                'activation_conditions': c.get('activation_conditions', [])
+            } for c in candidates if c.get('type') == 'state_class']
+            response_data['state_individuals'] = [{
+                'identifier': c['label'],
+                'state_class': c.get('state_class'),
+                'active_period': c.get('active_period'),
+                'triggering_event': c.get('triggering_event'),
+                'confidence': c['confidence']
+            } for c in candidates if c.get('type') == 'state_individual']
+            if 'raw_llm_response' in locals():
+                response_data['raw_llm_response'] = raw_llm_response
+                logger.info(f"Adding raw LLM response to response data (length: {len(raw_llm_response) if raw_llm_response else 0})")
 
         return jsonify(response_data)
 

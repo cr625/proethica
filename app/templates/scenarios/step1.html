@@ -74,19 +74,30 @@
     </div>
 </div>
 
-<!-- LLM Prompt Display (Hidden initially) -->
-<div id="promptCard" class="step-card" style="display: none;">
+<!-- LLM Prompt Display (Show if saved prompt exists) -->
+<div id="promptCard" class="step-card" style="{% if not saved_prompts.roles %}display: none;{% endif %}">
     <div class="step-header">
-        <h5 class="mb-0">
-            <i class="bi bi-cpu"></i> LLM Prompt Preview
-        </h5>
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-cpu"></i> LLM Prompt Preview
+            </h5>
+            {% if saved_prompts.roles %}
+            <button class="btn btn-sm btn-outline-primary" onclick="regeneratePrompt()">
+                <i class="bi bi-arrow-clockwise"></i> Regenerate Prompt
+            </button>
+            {% endif %}
+        </div>
     </div>
     <div class="step-content">
         <div class="alert alert-warning mb-3">
             <i class="bi bi-info-circle"></i>
+            {% if saved_prompts.roles %}
+            This is the saved prompt from the last extraction (created {{ saved_prompts.roles.created_at.strftime('%Y-%m-%d %H:%M') if saved_prompts.roles else '' }}):
+            {% else %}
             This is the prompt that will be sent to the LLM for contextual framework extraction:
+            {% endif %}
         </div>
-        
+
         <div id="promptContent">
             <div class="loading-spinner">
                 <div class="spinner-border text-primary" role="status">
@@ -321,6 +332,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (factsTextElement) {
         currentSectionText = factsTextElement.textContent.trim();
     }
+
+    // Display saved prompt if it exists
+    {% if saved_prompts.roles %}
+    const savedPromptText = {{ saved_prompts.roles.prompt_text | tojson }};
+    displayPrompt(savedPromptText, true);
+    {% endif %}
 });
 
 function showPrompt() {
@@ -369,25 +386,56 @@ function showPrompt() {
     });
 }
 
-function displayPrompt(data) {
+function displayPrompt(data, isSaved = false) {
     const content = document.getElementById('promptContent');
-    content.innerHTML = `
-        <div class="prompt-section">
-            <h6><i class="bi bi-people"></i> Roles Extraction Prompt:</h6>
-            <div class="prompt-text">${data.roles_prompt || 'Role extraction prompt will be generated'}</div>
-        </div>
-        <div class="prompt-section">
-            <h6><i class="bi bi-diagram-3"></i> States Extraction Prompt:</h6>
-            <div class="prompt-text">${data.states_prompt || 'States extraction prompt will be generated'}</div>
-        </div>
-        <div class="prompt-section">
-            <h6><i class="bi bi-gear"></i> Resources Extraction Prompt:</h6>
-            <div class="prompt-text">${data.resources_prompt || 'Resources extraction prompt will be generated'}</div>
-        </div>
-        <div class="alert alert-info">
-            <strong>Section Length:</strong> ${data.section_length} characters
+
+    // If saved prompt (just text), display it directly
+    if (isSaved && typeof data === 'string') {
+        content.innerHTML = `
+            <div class="prompt-section">
+                <h6><i class="bi bi-people"></i> Roles Extraction Prompt (Saved):</h6>
+                <div class="prompt-text">${data}</div>
+            </div>
+        `;
+    } else {
+        // Display freshly generated prompts
+        content.innerHTML = `
+            <div class="prompt-section">
+                <h6><i class="bi bi-people"></i> Roles Extraction Prompt:</h6>
+                <div class="prompt-text">${data.roles_prompt || 'Role extraction prompt will be generated'}</div>
+            </div>
+            <div class="prompt-section">
+                <h6><i class="bi bi-diagram-3"></i> States Extraction Prompt:</h6>
+                <div class="prompt-text">${data.states_prompt || 'States extraction prompt will be generated'}</div>
+            </div>
+            <div class="prompt-section">
+                <h6><i class="bi bi-gear"></i> Resources Extraction Prompt:</h6>
+                <div class="prompt-text">${data.resources_prompt || 'Resources extraction prompt will be generated'}</div>
+            </div>
+            <div class="alert alert-info">
+                <strong>Section Length:</strong> ${data.section_length} characters
+            </div>
+        `;
+    }
+}
+
+function regeneratePrompt() {
+    // Clear the saved prompt and regenerate
+    const promptCard = document.getElementById('promptCard');
+    const promptContent = document.getElementById('promptContent');
+
+    // Show loading spinner
+    promptContent.innerHTML = `
+        <div class="loading-spinner text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Regenerating prompt...</span>
+            </div>
+            <p class="mt-2">Regenerating prompt...</p>
         </div>
     `;
+
+    // Call showPrompt to fetch and display new prompt
+    showPrompt();
 }
 
 function executeContextualPass() {
@@ -810,14 +858,15 @@ function displayIndividualResults(data, conceptType) {
                 html += '</div>';
             }
 
-            // Summary
-            if (roleClasses.length === 0 && roleIndividuals.length === 0) {
-                html += '<div class="alert alert-warning">No role classes or individuals extracted from this section.</div>';
-            } else {
-                html += `<div class="alert alert-success">
-                    <strong>Summary:</strong> Found ${roleClasses.length} new role classes and ${roleIndividuals.length} specific individuals.
-                </div>`;
-            }
+            // Summary and link to review
+            html += `<div class="alert alert-success">
+                <div><strong>Summary:</strong> Found ${roleClasses.length} new role classes and ${roleIndividuals.length} specific individuals.</div>
+                <div class="mt-2">
+                    <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-list-check"></i> Review Extracted Entities
+                    </a>
+                </div>
+            </div>`;
 
             html += '</div>';
         } else {
