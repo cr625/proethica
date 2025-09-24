@@ -741,6 +741,66 @@ def extract_individual_concept(case_id):
                 logger.error(f"DEBUG: Full traceback: {traceback.format_exc()}")
                 raise
 
+            # Get the raw LLM response for debugging
+            raw_llm_response = extractor.get_last_raw_response()
+            logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
+
+            # Convert the raw response to RDF if we have it
+            if raw_llm_response:
+                try:
+                    import json
+                    from app.services.rdf_extraction_converter import RDFExtractionConverter
+                    from app.models import TemporaryRDFStorage
+
+                    logger.info(f"DEBUG RDF: Starting RDF conversion for case {case_id}")
+
+                    # Parse the raw response - handle mixed text/JSON
+                    try:
+                        raw_data = json.loads(raw_llm_response)
+                    except json.JSONDecodeError:
+                        # Try to extract JSON from mixed response
+                        import re
+                        json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
+                        if json_match:
+                            raw_data = json.loads(json_match.group())
+                            logger.info(f"DEBUG RDF: Extracted JSON from mixed response")
+                        else:
+                            logger.error(f"DEBUG RDF: Could not extract JSON from response")
+                            raise ValueError("Could not extract JSON from LLM response")
+
+                    logger.info(f"DEBUG RDF: Parsed JSON with keys: {list(raw_data.keys())}")
+                    logger.info(f"DEBUG RDF: new_role_classes count: {len(raw_data.get('new_role_classes', []))}")
+                    logger.info(f"DEBUG RDF: role_individuals count: {len(raw_data.get('role_individuals', []))}")
+
+                    # Convert to RDF
+                    rdf_converter = RDFExtractionConverter()
+                    class_graph, individual_graph = rdf_converter.convert_extraction_to_rdf(
+                        raw_data, case_id
+                    )
+                    logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
+
+                    # Get temporary triples for storage
+                    rdf_data = rdf_converter.get_temporary_triples()
+                    logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
+
+                    # Store in temporary RDF storage
+                    stored_entities = TemporaryRDFStorage.store_extraction_results(
+                        case_id=case_id,
+                        extraction_session_id=session_id,
+                        extraction_type='roles',
+                        rdf_data=rdf_data,
+                        extraction_model='claude-opus-4-1-20250805'
+                    )
+
+                    logger.info(f"✅ DEBUG RDF: Stored {len(stored_entities)} RDF entities in temporary storage for case {case_id}")
+
+                except Exception as e:
+                    logger.error(f"❌ DEBUG RDF: Failed to convert and store RDF: {e}")
+                    import traceback
+                    logger.error(f"DEBUG RDF Traceback: {traceback.format_exc()}")
+            else:
+                logger.warning(f"DEBUG RDF: No raw_llm_response available for RDF conversion")
+
             # Convert to format expected by the response
             candidates = []
 
@@ -922,7 +982,7 @@ def extract_individual_concept(case_id):
         # Determine model used
         model_used = ModelConfig.get_claude_model("powerful") if llm_client else "fallback"
 
-        return jsonify({
+        response_data = {
             'success': True,
             'concept_type': concept_type,
             'results': results,
@@ -936,7 +996,14 @@ def extract_individual_concept(case_id):
                 'provenance_tracked': USE_VERSIONED
             },
             'session_id': session_id
-        })
+        }
+
+        # Add raw LLM response for roles only (for debugging)
+        if concept_type == 'roles' and 'raw_llm_response' in locals():
+            response_data['raw_llm_response'] = raw_llm_response
+            logger.info(f"Adding raw LLM response to response data (length: {len(raw_llm_response) if raw_llm_response else 0})")
+
+        return jsonify(response_data)
 
     except Exception as e:
         logger.error(f"Error extracting individual {concept_type} for case {case_id}: {str(e)}")

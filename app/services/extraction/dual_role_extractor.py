@@ -50,6 +50,7 @@ class DualRoleExtractor:
         self.validation_service = CandidateRoleValidationService()
         self.existing_role_classes = self._load_existing_role_classes()
         self.model_name = ModelConfig.get_claude_model("powerful")
+        self.last_raw_response = None  # Store the raw LLM response
 
     def extract_dual_roles(self, case_text: str, case_id: int, section_type: str) -> Tuple[List[CandidateRoleClass], List[RoleIndividual]]:
         """
@@ -213,6 +214,9 @@ Respond with valid JSON in this format:
 
                 response_text = response_text.strip()
 
+                # Store raw response for debugging
+                self.last_raw_response = response_text
+
                 # Parse JSON response
                 try:
                     return json.loads(response_text)
@@ -317,6 +321,10 @@ Respond with valid JSON in this format:
         for individual in individuals:
             if individual.role_class in candidate_labels:
                 individual.is_new_role_class = True
+
+    def get_last_raw_response(self) -> Optional[str]:
+        """Return the last raw LLM response for debugging"""
+        return self.last_raw_response
 
     def get_extraction_summary(self, candidates, individuals: List[RoleIndividual]) -> Dict[str, Any]:
         """Generate summary of extraction results"""

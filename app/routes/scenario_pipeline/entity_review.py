@@ -9,13 +9,36 @@ import json
 import logging
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from app.models import Document, db
+from app.models import Document, db, TemporaryRDFStorage
 from app.services.case_entity_storage_service import CaseEntityStorageService
 from app.models.temporary_concept import TemporaryConcept
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('entity_review', __name__)
+
+
+@bp.route('/case/<int:case_id>/rdf_entities/update_selection', methods=['POST'])
+def update_rdf_entity_selection(case_id):
+    """Update the selection status of an RDF entity."""
+    try:
+        data = request.get_json()
+        entity_id = data.get('entity_id')
+        entity_type = data.get('entity_type')
+        selected = data.get('selected', False)
+
+        # Update the RDF entity selection
+        entity = TemporaryRDFStorage.query.get(entity_id)
+        if entity and entity.case_id == case_id:
+            entity.is_selected = selected
+            db.session.commit()
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Entity not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Error updating RDF entity selection: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @bp.route('/case/<int:case_id>/entities/review')
@@ -28,7 +51,11 @@ def review_case_entities(case_id):
             flash(f'Case {case_id} not found', 'error')
             return redirect(url_for('index.index'))
 
-        # Get all entities grouped by section
+        # Get RDF entities (new classes and individuals)
+        rdf_classes = TemporaryRDFStorage.get_case_entities(case_id, storage_type='class')
+        rdf_individuals = TemporaryRDFStorage.get_case_entities(case_id, storage_type='individual')
+
+        # Get all entities grouped by section (old format for backward compatibility)
         entities_by_section = CaseEntityStorageService.get_all_case_entities(
             case_id=case_id,
             status='pending',
@@ -58,12 +85,22 @@ def review_case_entities(case_id):
             }
             total_entities += len(entities)
 
+        # Add RDF data
+        rdf_data = {
+            'classes': [c.to_dict() for c in rdf_classes],
+            'individuals': [i.to_dict() for i in rdf_individuals],
+            'class_count': len(rdf_classes),
+            'individual_count': len(rdf_individuals),
+            'total_rdf_entities': len(rdf_classes) + len(rdf_individuals)
+        }
+
         return render_template(
             'scenarios/entity_review.html',
             case=case_doc,
             section_data=section_data,
             total_entities=total_entities,
-            sections_info=sections_info
+            sections_info=sections_info,
+            rdf_data=rdf_data
         )
 
     except Exception as e:

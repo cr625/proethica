@@ -747,6 +747,16 @@ function displayIndividualResults(data, conceptType) {
         `;
     }
 
+    // Display raw LLM response for debugging (only for roles)
+    if (data.raw_llm_response) {
+        html += `
+            <div class="alert alert-warning mb-3">
+                <h6>Raw LLM Response (Debug):</h6>
+                <pre style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;">${data.raw_llm_response}</pre>
+            </div>
+        `;
+    }
+
     if (data.results && data.results.length > 0) {
         // Special handling for roles - separate classes from individuals
         if (conceptType === 'roles') {
