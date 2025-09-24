@@ -113,14 +113,14 @@
     <div class="step-content">
         <p class="mb-3">Continue with the extraction pipeline:</p>
         <div class="d-grid gap-2 d-md-block">
-            <a href="{{ url_for('scenario_pipeline.step1a', case_id=case.id) }}" class="btn btn-primary btn-lg">
-                <i class="bi bi-arrow-right-circle"></i> Step 1a: Entities Pass
-                <small class="d-block mt-1">Extract Roles and Resources from Facts Section</small>
+            <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-arrow-right-circle"></i> Step 2: Normative Pass
+                <small class="d-block mt-1">Extract Principles, Obligations, and Constraints</small>
             </a>
             <div class="mt-3">
-                <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-primary">
-                    <i class="bi bi-arrow-right"></i> Step 2: Normative Pass
-                    <small class="d-block">Extract Principles, Obligations, and Constraints from Discussion</small>
+                <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-right"></i> Step 3: Temporal Dynamics
+                    <small class="d-block">Extract Actions and Events</small>
                 </a>
             </div>
         </div>

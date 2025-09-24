@@ -131,8 +131,8 @@
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
-            <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-success">
-                <i class="bi bi-1-circle"></i> Step 1
+            <a href="{{ url_for('scenario_pipeline.overview', case_id=case.id) }}" class="btn btn-outline-success">
+                <i class="bi bi-1-circle"></i> Overview
             </a>
             {% endif %}
         </div>
@@ -486,7 +486,8 @@
                     <button id="generate-scenario" class="btn btn-success">
                         <i class="bi bi-magic"></i> Generate Scenario
                     </button>
-                    <a href="{{ url_for('scenario_pipeline.scenario_pipeline_builder', case_id=case.id) }}" class="btn btn-outline-primary">
+                    <a href="{{ url_for('scenario_pipeline.scenario_pipeline_builder', case_id=case.id) }}"
+                        class="btn btn-outline-primary">
                         <i class="bi bi-gear"></i> Scenario Pipeline
                     </a>
                 </div>
