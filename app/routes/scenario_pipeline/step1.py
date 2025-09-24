@@ -678,6 +678,7 @@ def get_saved_prompt(case_id):
             return jsonify({
                 'success': True,
                 'prompt_text': saved_prompt.prompt_text,
+                'raw_response': saved_prompt.raw_response,  # Include the raw response
                 'created_at': saved_prompt.created_at.strftime('%Y-%m-%d %H:%M'),
                 'llm_model': saved_prompt.llm_model
             })
@@ -768,21 +769,6 @@ def extract_individual_concept(case_id):
             extraction_prompt = extractor._create_dual_role_extraction_prompt(section_text, 'facts')
             logger.info(f"DEBUG: Generated extraction prompt (first 200 chars): {extraction_prompt[:200] if extraction_prompt else 'None'}")
 
-            # Save the prompt to database
-            from app.models import ExtractionPrompt, db
-            try:
-                saved_prompt = ExtractionPrompt.save_prompt(
-                    case_id=case_id,
-                    concept_type='roles',
-                    prompt_text=extraction_prompt,
-                    step_number=1,
-                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
-                    extraction_session_id=session_id
-                )
-                logger.info(f"Saved roles extraction prompt for case {case_id}")
-            except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
-
             # Use dual extraction to get both classes and individuals
             # Skip complex provenance tracking for individual extraction to avoid session issues
             try:
@@ -802,6 +788,22 @@ def extract_individual_concept(case_id):
 
             # Get the raw LLM response for debugging
             raw_llm_response = extractor.get_last_raw_response()
+
+            # Save the prompt and raw response to database
+            from app.models import ExtractionPrompt, db
+            try:
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='roles',
+                    prompt_text=extraction_prompt,
+                    raw_response=raw_llm_response,  # Save the raw LLM response
+                    step_number=1,
+                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
+                    extraction_session_id=session_id
+                )
+                logger.info(f"Saved roles extraction prompt and response for case {case_id}")
+            except Exception as e:
+                logger.warning(f"Could not save extraction prompt: {e}")
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
             # Convert the raw response to RDF if we have it
@@ -908,21 +910,6 @@ def extract_individual_concept(case_id):
             # Generate the prompt for display (dual extraction)
             extraction_prompt = extractor._create_dual_states_extraction_prompt(section_text, 'facts')
 
-            # Save the prompt to database
-            from app.models import ExtractionPrompt, db
-            try:
-                saved_prompt = ExtractionPrompt.save_prompt(
-                    case_id=case_id,
-                    concept_type='states',
-                    prompt_text=extraction_prompt,
-                    step_number=1,
-                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
-                    extraction_session_id=session_id
-                )
-                logger.info(f"Saved states extraction prompt for case {case_id}")
-            except Exception as e:
-                logger.warning(f"Could not save extraction prompt: {e}")
-
             # Perform dual extraction (classes + individuals)
             if USE_VERSIONED:
                 with prov.track_activity(
@@ -949,6 +936,22 @@ def extract_individual_concept(case_id):
 
             # Get the raw LLM response for RDF conversion and display
             raw_llm_response = extractor.get_last_raw_response()
+
+            # Save the prompt and raw response to database
+            from app.models import ExtractionPrompt, db
+            try:
+                saved_prompt = ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='states',
+                    prompt_text=extraction_prompt,
+                    raw_response=raw_llm_response,  # Save the raw LLM response
+                    step_number=1,
+                    llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
+                    extraction_session_id=session_id
+                )
+                logger.info(f"Saved states extraction prompt and response for case {case_id}")
+            except Exception as e:
+                logger.warning(f"Could not save extraction prompt: {e}")
             logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
             # Convert the raw response to RDF if we have it

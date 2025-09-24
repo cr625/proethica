@@ -22,6 +22,9 @@ class ExtractionPrompt(db.Model):
     # The actual prompt text
     prompt_text = db.Column(db.Text, nullable=False)
 
+    # The raw LLM response
+    raw_response = db.Column(db.Text)  # Store the complete raw response from the LLM
+
     # Metadata
     prompt_version = db.Column(db.String(50))  # e.g., 'dual_extraction_v1'
     llm_model = db.Column(db.String(100))  # Model used with this prompt
@@ -61,7 +64,8 @@ class ExtractionPrompt(db.Model):
 
     @classmethod
     def save_prompt(cls, case_id, concept_type, prompt_text, step_number=1,
-                   llm_model=None, extraction_session_id=None, results_summary=None):
+                   llm_model=None, extraction_session_id=None, results_summary=None,
+                   raw_response=None):
         """Save a new prompt, deactivating any previous active prompt."""
         # Deactivate any existing active prompts
         existing = cls.query.filter_by(
@@ -79,6 +83,7 @@ class ExtractionPrompt(db.Model):
             concept_type=concept_type,
             step_number=step_number,
             prompt_text=prompt_text,
+            raw_response=raw_response,
             llm_model=llm_model,
             extraction_session_id=extraction_session_id,
             results_summary=results_summary,

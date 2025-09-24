@@ -313,25 +313,46 @@ def list_extraction_sessions(case_id):
 
 @bp.route('/case/<int:case_id>/entities/clear_all', methods=['POST'])
 def clear_all_entities(case_id):
-    """Clear all temporary entities for a case."""
+    """Clear all temporary entities, RDF storage, and extraction prompts for a case."""
     try:
         # Get case information
         case_doc = Document.query.get(case_id)
         if not case_doc:
             return jsonify({'success': False, 'error': 'Case not found'})
 
-        # Clear all temporary entities for this case
+        cleared_stats = {
+            'legacy_concepts': 0,
+            'rdf_triples': 0,
+            'extraction_prompts': 0
+        }
+
+        # 1. Clear legacy temporary entities for this case
         from app.models.temporary_concept import TemporaryConcept
-        cleared_count = db.session.query(TemporaryConcept).filter_by(document_id=case_id).count()
+        cleared_stats['legacy_concepts'] = db.session.query(TemporaryConcept).filter_by(document_id=case_id).count()
         db.session.query(TemporaryConcept).filter_by(document_id=case_id).delete()
+
+        # 2. Clear RDF storage (new format with classes and individuals)
+        from app.models import TemporaryRDFStorage
+        cleared_stats['rdf_triples'] = db.session.query(TemporaryRDFStorage).filter_by(case_id=case_id).count()
+        db.session.query(TemporaryRDFStorage).filter_by(case_id=case_id).delete()
+
+        # 3. Clear saved extraction prompts and responses
+        from app.models.extraction_prompt import ExtractionPrompt
+        cleared_stats['extraction_prompts'] = db.session.query(ExtractionPrompt).filter_by(case_id=case_id).count()
+        db.session.query(ExtractionPrompt).filter_by(case_id=case_id).delete()
+
+        # Commit all changes
         db.session.commit()
 
-        logger.info(f"Cleared {cleared_count} temporary entities for case {case_id}")
+        total_cleared = sum(cleared_stats.values())
+        logger.info(f"Cleared all data for case {case_id}: {cleared_stats}")
 
         return jsonify({
             'success': True,
-            'cleared_count': cleared_count,
-            'case_id': case_id
+            'cleared_count': total_cleared,
+            'details': cleared_stats,
+            'case_id': case_id,
+            'message': f"Cleared {cleared_stats['legacy_concepts']} legacy entities, {cleared_stats['rdf_triples']} RDF storage records, and {cleared_stats['extraction_prompts']} saved prompts"
         })
 
     except Exception as e:

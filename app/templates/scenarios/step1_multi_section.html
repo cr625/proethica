@@ -82,16 +82,6 @@
                             <!-- Results will be displayed here -->
                         </div>
                     </div>
-
-                    <!-- Raw LLM Response (for debugging) -->
-                    <div class="raw-response-preview mt-3" id="rolesRawResponse" style="display: none;">
-                        <details>
-                            <summary class="text-muted small">View Raw LLM Response</summary>
-                            <div id="rolesRawResponseContent" class="mt-2">
-                                <!-- Raw response will be displayed here -->
-                            </div>
-                        </details>
-                    </div>
                 </div>
             </div>
         </div>
@@ -322,13 +312,22 @@ function loadSavedPrompt(conceptType) {
                 promptSection.style.display = 'block';
                 promptText.innerHTML = data.prompt_text;
 
-                // Add saved timestamp if available
-                if (data.created_at) {
-                    const timestamp = document.createElement('small');
-                    timestamp.className = 'text-muted d-block mt-2';
-                    timestamp.textContent = `Saved: ${data.created_at}`;
-                    promptText.parentElement.appendChild(timestamp);
+                // If there's a saved raw response, display it in the results section
+                if (data.raw_response) {
+                    const resultsSection = document.getElementById(`${conceptType}Results`);
+                    const resultsContent = document.getElementById(`${conceptType}ResultsContent`);
+
+                    // Display the raw response
+                    const tempDiv = document.createElement('div');
+                    tempDiv.textContent = data.raw_response;
+                    const escapedResponse = tempDiv.innerHTML;
+                    resultsContent.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">${escapedResponse}</pre>`;
+
+                    // Show the results section
+                    resultsSection.style.display = 'block';
                 }
+
+                // Timestamp is already shown in the template, no need to add it here
             }
         })
         .catch(error => {
@@ -382,28 +381,6 @@ function extractIndividualConcept(conceptType) {
                 promptText.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word;">${escapedPrompt}</pre>`;
             } else {
                 promptText.innerHTML = 'No prompt available';
-            }
-
-            // If there's a raw response, display it in a collapsible section
-            if (data.raw_llm_response) {
-                const rawResponseSection = document.getElementById(`${conceptType}RawResponse`);
-                const rawResponseContent = document.getElementById(`${conceptType}RawResponseContent`);
-                if (rawResponseSection && rawResponseContent) {
-                    // Try to parse and pretty-print JSON, or just show as text
-                    try {
-                        const jsonResponse = typeof data.raw_llm_response === 'string'
-                            ? JSON.parse(data.raw_llm_response)
-                            : data.raw_llm_response;
-                        rawResponseContent.innerHTML = `<pre class="small bg-light p-2 rounded" style="max-height: 300px; overflow-y: auto;">${JSON.stringify(jsonResponse, null, 2)}</pre>`;
-                    } catch (e) {
-                        // Not JSON, display as plain text - use vanilla JS instead of jQuery
-                        const tempDiv = document.createElement('div');
-                        tempDiv.textContent = data.raw_llm_response;
-                        const escapedResponse = tempDiv.innerHTML;
-                        rawResponseContent.innerHTML = `<pre class="small bg-light p-2 rounded" style="max-height: 300px; overflow-y: auto;">${escapedResponse}</pre>`;
-                    }
-                    rawResponseSection.style.display = 'block';
-                }
             }
 
             // Display the raw LLM response directly in the results section
