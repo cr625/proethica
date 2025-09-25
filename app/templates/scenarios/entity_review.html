@@ -288,15 +288,26 @@
                                                                     {{ prop_name | camel_to_readable }}:
                                                                 </strong>
                                                                 <span class="property-value">
-                                                                    {% if prop_values is iterable and prop_values is not string %}
+                                                                    {% if prop_values is string %}
+                                                                        {{ prop_values }}
+                                                                    {% elif prop_values is iterable %}
                                                                         {% if prop_values|length > 1 %}
-                                                                            <ul class="list-unstyled ms-3 mb-0">
-                                                                            {% for val in prop_values if val %}
-                                                                                <li>• {{ val }}</li>
-                                                                            {% endfor %}
-                                                                            </ul>
+                                                                            {# Check if first item is a single character (indicates string treated as list) #}
+                                                                            {% if prop_values[0]|length == 1 %}
+                                                                                {# It's a string that was split into characters, join it back #}
+                                                                                {{ prop_values|join('') }}
+                                                                            {% else %}
+                                                                                {# It's a real list, display as list #}
+                                                                                <ul class="list-unstyled ms-3 mb-0">
+                                                                                {% for val in prop_values if val %}
+                                                                                    <li>• {{ val }}</li>
+                                                                                {% endfor %}
+                                                                                </ul>
+                                                                            {% endif %}
                                                                         {% elif prop_values|length == 1 %}
                                                                             {{ prop_values[0] }}
+                                                                        {% else %}
+                                                                            <small class="text-muted">-</small>
                                                                         {% endif %}
                                                                     {% else %}
                                                                         {{ prop_values }}
@@ -378,66 +389,62 @@
                                             </td>
                                             <td>
                                                 <div class="rdf-properties" style="font-size: 0.85rem;">
-                                                    {# Combine properties and relationships into a single display #}
-                                                    {% set all_items = {} %}
-
-                                                    {# Add properties #}
+                                                    {# Display properties - same approach as classes #}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
-                                                        {% set skip_props = ['wasGeneratedAt', 'wasAttributedTo'] %}
-                                                        {% for key, prop_value in indiv.rdf_json_ld.properties.items() if key not in skip_props and prop_value %}
-                                                            {# Ensure we're working with the actual value, not a method #}
-                                                            {# Check if it's a callable (method) and skip it #}
-                                                            {% if 'method' not in (prop_value|string) and 'built-in' not in (prop_value|string) %}
-                                                                {% if prop_value is iterable and prop_value is not string %}
-                                                                    {# Convert to list if it's an iterable #}
-                                                                    {% set prop_list = [] %}
-                                                                    {% for item in prop_value %}
-                                                                        {% set _ = prop_list.append(item) %}
-                                                                    {% endfor %}
-                                                                    {% set _ = all_items.update({key: {'type': 'property', 'values': prop_list}}) %}
-                                                                {% else %}
-                                                                    {% set _ = all_items.update({key: {'type': 'property', 'values': prop_value}}) %}
-                                                                {% endif %}
-                                                            {% endif %}
-                                                        {% endfor %}
-                                                    {% endif %}
-
-                                                    {# Add relationships #}
-                                                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
-                                                        {% for rel in indiv.rdf_json_ld.relationships %}
-                                                            {% set rel_key = rel.type %}
-                                                            {% if rel_key not in all_items %}
-                                                                {% set _ = all_items.update({rel_key: {'type': 'relation', 'values': []}}) %}
-                                                            {% endif %}
-                                                            {% set _ = all_items[rel_key]['values'].append(rel.target) %}
-                                                        {% endfor %}
-                                                    {% endif %}
-
-                                                    {# Display all items #}
-                                                    {% if all_items %}
-                                                        {% for prop_name, item_data in all_items.items() %}
-                                                            <div class="mb-1 property-item" data-property="{{ prop_name }}" data-type="{{ item_data.type }}">
+                                                        {% set has_content = false %}
+                                                        {% for prop_name, prop_values in indiv.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
+                                                            {% set has_content = true %}
+                                                            <div class="mb-1 property-item" data-property="{{ prop_name }}" data-type="property">
                                                                 <strong class="property-name">
                                                                     {{ prop_name | camel_to_readable }}:
                                                                 </strong>
-                                                                <span class="property-value {% if item_data.type == 'relation' %}text-info{% endif %}">
-                                                                    {% if item_data.values is iterable and item_data.values is not string %}
-                                                                        {% if item_data.values|length > 1 %}
-                                                                            <ul class="list-unstyled ms-3 mb-0">
-                                                                            {% for val in item_data.values if val %}
-                                                                                <li>• {{ val }}</li>
-                                                                            {% endfor %}
-                                                                            </ul>
-                                                                        {% elif item_data.values|length == 1 %}
-                                                                            {{ item_data.values[0] }}
+                                                                <span class="property-value">
+                                                                    {% if prop_values is string %}
+                                                                        {{ prop_values }}
+                                                                    {% elif prop_values is iterable %}
+                                                                        {% if prop_values|length > 1 %}
+                                                                            {# Check if first item is a single character (indicates string treated as list) #}
+                                                                            {% if prop_values[0]|length == 1 %}
+                                                                                {# It's a string that was split into characters, join it back #}
+                                                                                {{ prop_values|join('') }}
+                                                                            {% else %}
+                                                                                {# It's a real list, display as list #}
+                                                                                <ul class="list-unstyled ms-3 mb-0">
+                                                                                {% for val in prop_values if val %}
+                                                                                    <li>• {{ val }}</li>
+                                                                                {% endfor %}
+                                                                                </ul>
+                                                                            {% endif %}
+                                                                        {% elif prop_values|length == 1 %}
+                                                                            {{ prop_values[0] }}
+                                                                        {% else %}
+                                                                            <small class="text-muted">-</small>
                                                                         {% endif %}
                                                                     {% else %}
-                                                                        {{ item_data.values }}
+                                                                        {{ prop_values }}
                                                                     {% endif %}
                                                                 </span>
                                                             </div>
                                                         {% endfor %}
-                                                    {% else %}
+                                                    {% endif %}
+
+                                                    {# Display relationships #}
+                                                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
+                                                        {% set has_content = true %}
+                                                        {% for rel in indiv.rdf_json_ld.relationships %}
+                                                            <div class="mb-1 property-item" data-property="{{ rel.type }}" data-type="relation">
+                                                                <strong class="property-name">
+                                                                    {{ rel.type | camel_to_readable }}:
+                                                                </strong>
+                                                                <span class="property-value text-info">
+                                                                    {{ rel.target }}
+                                                                </span>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% endif %}
+
+                                                    {# Show message if no content #}
+                                                    {% if not has_content %}
                                                         <small class="text-muted">No properties or relations</small>
                                                     {% endif %}
                                                 </div>

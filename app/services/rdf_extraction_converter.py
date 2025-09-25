@@ -458,7 +458,13 @@ class RDFExtractionConverter:
             ))
 
         # Add related parties
-        for party in individual.get('related_parties', individual.get('affected_parties', [])):
+        related_parties = individual.get('related_parties', individual.get('affected_parties', []))
+        if isinstance(related_parties, str):
+            related_parties = [related_parties]
+        elif not isinstance(related_parties, (list, tuple)):
+            related_parties = [str(related_parties)] if related_parties else []
+
+        for party in related_parties:
             self.individual_graph.add((
                 individual_uri,
                 self.PROETHICA.hasRelatedParty,

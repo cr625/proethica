@@ -65,6 +65,9 @@ class TemporaryRDFStorage(db.Model):
 
     def to_dict(self):
         """Convert to dictionary for API responses"""
+        # Clean the rdf_json_ld data to ensure it's properly serializable
+        clean_rdf = self._ensure_serializable(self.rdf_json_ld) if self.rdf_json_ld else None
+
         return {
             'id': self.id,
             'case_id': self.case_id,
@@ -86,8 +89,23 @@ class TemporaryRDFStorage(db.Model):
             'triple_count': self.triple_count,
             'property_count': self.property_count,
             'relationship_count': self.relationship_count,
-            'rdf_json_ld': self.rdf_json_ld
+            'rdf_json_ld': clean_rdf
         }
+
+    def _ensure_serializable(self, data):
+        """Ensure data is JSON serializable, converting dict_values and similar objects."""
+        if isinstance(data, dict):
+            return {k: self._ensure_serializable(v) for k, v in data.items()}
+        elif isinstance(data, (list, tuple)):
+            return [self._ensure_serializable(item) for item in data]
+        elif hasattr(data, '__iter__') and not isinstance(data, (str, bytes)):
+            # This catches dict_values, dict_keys, etc.
+            try:
+                return list(data)
+            except:
+                return str(data)
+        else:
+            return data
 
     @classmethod
     def clear_case_session(cls, case_id: int, extraction_session_id: str = None):
