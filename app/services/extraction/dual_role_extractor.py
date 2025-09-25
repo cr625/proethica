@@ -120,6 +120,10 @@ For each NEW role class, provide:
 - distinguishing_features: What makes this role unique/different
 - professional_scope: Areas of responsibility and authority
 - typical_qualifications: Required education, licensing, experience
+- generated_obligations: What specific duties does this role create?
+- associated_virtues: What virtues/qualities are expected (integrity, competence, etc.)?
+- relationship_type: Provider-Client, Professional Peer, Employer, Public Responsibility
+- domain_context: Engineering/Medical/Legal/etc.
 - examples_from_case: How this role appears in the case text
 
 LEVEL 2 - ROLE INDIVIDUALS: Identify specific people mentioned who fulfill professional roles. For each person:
@@ -127,6 +131,9 @@ LEVEL 2 - ROLE INDIVIDUALS: Identify specific people mentioned who fulfill profe
 - role_classification: Which role class they fulfill (use existing classes when possible, or new class label if discovered)
 - attributes: Specific qualifications, experience, titles, licenses mentioned in the text
 - relationships: Employment, reporting, collaboration relationships explicitly stated
+  - Each relationship should specify: type (employs, reports_to, collaborates_with, serves_client, etc.) and target (person/org name)
+- active_obligations: What specific duties is this person fulfilling in the case?
+- ethical_tensions: Any conflicts between role obligations and personal/other obligations?
 - case_involvement: How they participate in this case
 
 IMPORTANT: Use ONLY the actual names/identifiers found in the case text. DO NOT create realistic names or make up details not explicitly stated.
@@ -143,6 +150,10 @@ Respond with valid JSON in this format:
             "distinguishing_features": ["Environmental regulation expertise", "Compliance assessment capabilities", "EPA standards knowledge"],
             "professional_scope": "Environmental impact assessment, regulatory compliance review, permit coordination",
             "typical_qualifications": ["Environmental engineering degree", "Regulatory compliance experience", "Knowledge of EPA standards"],
+            "generated_obligations": ["Ensure regulatory compliance", "Report violations", "Maintain environmental standards"],
+            "associated_virtues": ["Environmental stewardship", "Regulatory integrity", "Technical competence"],
+            "relationship_type": "Provider-Client",
+            "domain_context": "Engineering",
             "examples_from_case": ["Engineer A was retained to prepare environmental assessment", "specialist reviewed compliance requirements"]
         }}
     ],

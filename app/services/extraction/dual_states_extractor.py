@@ -17,29 +17,40 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CandidateStateClass:
-    """Represents a potentially new state class"""
+    """Represents a potentially new state class with temporal properties"""
     label: str
     definition: str
     activation_conditions: List[str]
-    persistence_type: str  # 'persistent' or 'momentary'
-    affected_obligations: List[str]
-    discovered_in_case: int
-    confidence: float
-    examples_from_case: List[str]
+    termination_conditions: List[str] = None
+    persistence_type: str = 'inertial'  # 'inertial' (persistent) or 'non-inertial' (momentary)
+    affected_obligations: List[str] = None
+    temporal_properties: str = ''  # How urgency/intensity changes over time
+    domain_context: str = ''  # Medical/Engineering/Legal/etc.
+    discovered_in_case: int = 0
+    confidence: float = 0.0
+    examples_from_case: List[str] = None
     similarity_to_existing: float = 0.0
     existing_similar_classes: List[str] = None
 
 @dataclass
 class StateIndividual:
-    """Represents a specific state instance active in a case"""
+    """Represents a specific state instance active in a case with temporal tracking"""
     identifier: str
     state_class: str  # URI of the state class
-    active_period: str  # When this state was active in the case
+    active_period: str  # When this state was active (backwards compatibility)
     triggering_event: str
     affected_parties: List[str]
     case_section: str
     confidence: float
     is_new_state_class: bool = False  # True if this is a newly discovered state class
+    # Enhanced temporal and relational properties
+    subject: str = ''  # WHO is in this state (person/organization)
+    initiated_at: str = ''  # When state began
+    terminated_by: str = ''  # What ended this state
+    terminated_at: str = ''  # When state ended
+    affects_obligations: List[str] = None  # Which obligations affected
+    urgency_level: str = ''  # low/medium/high/critical
+    case_involvement: str = ''  # How this affected the case
 
 class DualStatesExtractor:
     """Extract both new state classes and individual state instances"""
@@ -104,7 +115,11 @@ You are analyzing a professional ethics case to extract both STATE CLASSES and S
 
 DEFINITIONS:
 - STATE CLASS: A type of situational condition (e.g., "Conflict of Interest", "Emergency Situation", "Resource Constraint")
-- STATE INDIVIDUAL: A specific instance of a state active in this case (e.g., "Engineer A's conflict regarding Project X", "Budget crisis in Q3 2023")
+- STATE INDIVIDUAL: A specific instance of a state active in this case attached to specific people/organizations
+
+KEY INSIGHT FROM LITERATURE:
+States determine which ethical principles activate, how they transform into obligations, and what actions become available.
+States have temporal properties (when initiated, when terminated) and causal relationships (what events trigger them).
 
 YOUR TASK - Extract two types of entities:
 
@@ -112,10 +127,13 @@ YOUR TASK - Extract two types of entities:
    - Novel types of situational states discovered in this case
    - Must be sufficiently general to apply to other cases
    - Should represent distinct environmental or contextual conditions
+   - Consider both inertial (persistent) and non-inertial (momentary) fluents
 
 2. STATE INDIVIDUALS (specific instances in this case):
    - Specific states active in this case narrative
-   - Include when they were active and what triggered them
+   - MUST be attached to specific individuals or organizations in the case
+   - Include temporal properties (when initiated, when terminated)
+   - Include causal relationships (triggered by what event, affects which obligations)
    - Map to existing classes where possible, or to new classes you discover
 
 EXTRACTION GUIDELINES:
@@ -123,17 +141,26 @@ EXTRACTION GUIDELINES:
 For NEW STATE CLASSES, identify:
 - Label: Clear, professional name for the state type
 - Definition: What this state represents
-- Activation conditions: What triggers this state
-- Persistence type: Does it persist until changed (persistent) or is it momentary?
-- Affected obligations: What duties or actions does this state affect?
+- Activation conditions: What events/conditions trigger this state
+- Termination conditions: What events/conditions end this state
+- Persistence type: "inertial" (persists until terminated) or "non-inertial" (momentary)
+- Affected obligations: Which professional duties does this state affect?
+- Temporal properties: How does this state evolve over time?
+- Domain context: Medical/Engineering/Legal/etc.
 - Examples from case: Specific instances showing this state type
 
 For STATE INDIVIDUALS, identify:
-- Identifier: Unique descriptor for this specific state instance
+- Identifier: Unique descriptor (e.g., "John_Smith_ConflictOfInterest_ProjectX")
 - State class: Which state type it represents (existing or new)
-- Active period: When was this state active in the case?
-- Triggering event: What caused this state to become active?
-- Affected parties: Who was affected by this state?
+- Subject: WHO is in this state (person/organization name from the case)
+- Initiated by: What event triggered this state?
+- Initiated at: When did this state begin?
+- Terminated by: What event ended this state (if applicable)?
+- Terminated at: When did this state end (if applicable)?
+- Affects obligations: Which specific obligations were affected?
+- Urgency/Intensity: Does this state's urgency change over time?
+- Related parties: Who else is affected by this state?
+- Case involvement: How this state affected the case outcome
 
 CASE TEXT FROM {section_type} SECTION:
 {case_text}
@@ -145,8 +172,11 @@ Respond with a JSON structure:
       "label": "State Type Name",
       "definition": "What this state represents",
       "activation_conditions": ["condition 1", "condition 2"],
-      "persistence_type": "persistent|momentary",
+      "termination_conditions": ["condition 1", "condition 2"],
+      "persistence_type": "inertial|non-inertial",
       "affected_obligations": ["obligation 1", "obligation 2"],
+      "temporal_properties": "How urgency/intensity changes over time",
+      "domain_context": "Engineering/Medical/Legal/etc.",
       "examples_from_case": ["example 1", "example 2"],
       "confidence": 0.85,
       "rationale": "Why this is a distinct state type"
@@ -154,11 +184,16 @@ Respond with a JSON structure:
   ],
   "state_individuals": [
     {{
-      "identifier": "Specific state instance descriptor",
+      "identifier": "PersonName_StateType_Context",
       "state_class": "State Type Name",
-      "active_period": "When active in the case",
-      "triggering_event": "What triggered this state",
-      "affected_parties": ["Party A", "Party B"],
+      "subject": "Person or Organization Name",
+      "initiated_by": "Event that triggered this state",
+      "initiated_at": "When state began",
+      "terminated_by": "Event that ended this state (or 'ongoing')",
+      "terminated_at": "When state ended (or 'ongoing')",
+      "affects_obligations": ["specific obligation 1", "specific obligation 2"],
+      "urgency_level": "low|medium|high|critical",
+      "related_parties": ["Party A", "Party B"],
       "case_involvement": "How this state affected the case",
       "is_existing_class": false,
       "confidence": 0.9
@@ -167,10 +202,11 @@ Respond with a JSON structure:
 }}
 
 Focus on states that:
-1. Affect ethical obligations or decision-making
-2. Create constraints or enable actions
-3. Change the evaluation of professional conduct
-4. Represent significant contextual conditions
+1. Are attached to specific individuals or organizations mentioned in the case
+2. Have clear temporal boundaries (when initiated, when terminated)
+3. Affect specific ethical obligations or professional duties
+4. Show causal relationships with events in the case
+5. Demonstrate the context-dependent nature of professional ethics
 """
 
     def _format_existing_states_for_prompt(self) -> str:
@@ -282,21 +318,32 @@ Focus on states that:
         return candidates
 
     def _parse_state_individuals(self, raw_individuals: List[Dict], case_id: int, section_type: str) -> List[StateIndividual]:
-        """Parse raw individual data into StateIndividual objects"""
+        """Parse raw individual data into StateIndividual objects with enhanced temporal properties"""
         individuals = []
 
         for raw in raw_individuals:
             try:
+                # Create enhanced StateIndividual with temporal properties
                 individual = StateIndividual(
                     identifier=raw.get('identifier', 'Unknown State Instance'),
                     state_class=raw.get('state_class', 'State'),
-                    active_period=raw.get('active_period', ''),
-                    triggering_event=raw.get('triggering_event', ''),
-                    affected_parties=raw.get('affected_parties', []),
+                    active_period=raw.get('active_period', ''),  # Backwards compatibility
+                    triggering_event=raw.get('initiated_by', raw.get('triggering_event', '')),
+                    affected_parties=raw.get('related_parties', raw.get('affected_parties', [])),
                     case_section=section_type,
                     confidence=raw.get('confidence', 0.8),
                     is_new_state_class=not raw.get('is_existing_class', True)
                 )
+
+                # Add enhanced temporal and relational properties
+                individual.subject = raw.get('subject', '')
+                individual.initiated_at = raw.get('initiated_at', '')
+                individual.terminated_by = raw.get('terminated_by', '')
+                individual.terminated_at = raw.get('terminated_at', '')
+                individual.affects_obligations = raw.get('affects_obligations', [])
+                individual.urgency_level = raw.get('urgency_level', '')
+                individual.case_involvement = raw.get('case_involvement', '')
+
                 individuals.append(individual)
 
             except Exception as e:

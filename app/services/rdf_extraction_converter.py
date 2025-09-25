@@ -132,6 +132,28 @@ class RDFExtractionConverter:
                     self.class_graph.add((class_uri, self.PROETHICA_INT.typicalQualification,
                                         Literal(qual)))
 
+            # Add generated obligations (NEW)
+            if "generated_obligations" in role_class:
+                for obligation in role_class["generated_obligations"]:
+                    self.class_graph.add((class_uri, self.PROETHICA.generatesObligation,
+                                        Literal(obligation)))
+
+            # Add associated virtues (NEW)
+            if "associated_virtues" in role_class:
+                for virtue in role_class["associated_virtues"]:
+                    self.class_graph.add((class_uri, self.PROETHICA.hasAssociatedVirtue,
+                                        Literal(virtue)))
+
+            # Add relationship type (NEW)
+            if "relationship_type" in role_class:
+                self.class_graph.add((class_uri, self.PROETHICA.hasRelationshipType,
+                                    Literal(role_class["relationship_type"])))
+
+            # Add domain context (NEW)
+            if "domain_context" in role_class:
+                self.class_graph.add((class_uri, self.PROETHICA.hasDomainContext,
+                                    Literal(role_class["domain_context"])))
+
             # Add provenance
             self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
             self.class_graph.add((class_uri, PROV.wasAttributedTo, Literal(f"Case {case_id} Extraction")))
@@ -204,6 +226,18 @@ class RDFExtractionConverter:
                 self.individual_graph.add((individual_uri, self.PROETHICA_INT.caseInvolvement,
                                          Literal(individual["case_involvement"])))
 
+            # Add active obligations (NEW)
+            if "active_obligations" in individual:
+                for obligation in individual["active_obligations"]:
+                    self.individual_graph.add((individual_uri, self.PROETHICA.hasActiveObligation,
+                                             Literal(obligation)))
+
+            # Add ethical tensions (NEW)
+            if "ethical_tensions" in individual:
+                for tension in individual["ethical_tensions"]:
+                    self.individual_graph.add((individual_uri, self.PROETHICA.hasEthicalTension,
+                                             Literal(tension)))
+
             # Add provenance
             self.individual_graph.add((individual_uri, PROV.generatedAtTime,
                                      Literal(timestamp, datatype=XSD.dateTime)))
@@ -257,7 +291,7 @@ class RDFExtractionConverter:
         return self.class_graph, self.individual_graph
 
     def _add_state_class_to_graph(self, state_class: Dict[str, Any], case_id: int, timestamp: datetime):
-        """Add a new state class to the RDF graph"""
+        """Add a new state class to the RDF graph with enhanced temporal properties"""
         # Create URI for the state class
         class_label = state_class.get('label', 'UnknownState')
         safe_label = class_label.replace(" ", "")
@@ -280,12 +314,36 @@ class RDFExtractionConverter:
                 Literal(condition)
             ))
 
-        # Add persistence type
+        # Add termination conditions (NEW)
+        for condition in state_class.get('termination_conditions', []):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.hasTerminationCondition,
+                Literal(condition)
+            ))
+
+        # Add persistence type (inertial vs non-inertial)
         if state_class.get('persistence_type'):
             self.class_graph.add((
                 class_uri,
                 self.PROETHICA.hasPersistenceType,
                 Literal(state_class['persistence_type'])
+            ))
+
+        # Add temporal properties (NEW)
+        if state_class.get('temporal_properties'):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.hasTemporalProperties,
+                Literal(state_class['temporal_properties'])
+            ))
+
+        # Add domain context (NEW)
+        if state_class.get('domain_context'):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.hasDomainContext,
+                Literal(state_class['domain_context'])
             ))
 
         # Add affected obligations
@@ -294,6 +352,14 @@ class RDFExtractionConverter:
                 class_uri,
                 self.PROETHICA.affectsObligation,
                 Literal(obligation)
+            ))
+
+        # Add examples from case
+        for example in state_class.get('examples_from_case', []):
+            self.class_graph.add((
+                class_uri,
+                self.PROETHICA.hasExample,
+                Literal(example)
             ))
 
         # Add provenance
@@ -309,7 +375,7 @@ class RDFExtractionConverter:
             ))
 
     def _add_state_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
-        """Add a state individual to the RDF graph"""
+        """Add a state individual to the RDF graph with enhanced temporal and relational properties"""
         # Create URI for the individual
         identifier = individual.get('identifier', 'UnknownStateInstance')
         safe_identifier = identifier.replace(" ", "")
@@ -330,7 +396,44 @@ class RDFExtractionConverter:
         self.individual_graph.add((individual_uri, RDF.type, state_class_uri))
         self.individual_graph.add((individual_uri, RDFS.label, Literal(individual.get('identifier', ''))))
 
-        # Add active period
+        # Add subject (WHO is in this state) - NEW
+        if individual.get('subject'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.hasSubject,
+                Literal(individual['subject'])
+            ))
+
+        # Add temporal properties - ENHANCED
+        if individual.get('initiated_by'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.initiatedBy,
+                Literal(individual['initiated_by'])
+            ))
+
+        if individual.get('initiated_at'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.initiatedAt,
+                Literal(individual['initiated_at'])
+            ))
+
+        if individual.get('terminated_by'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.terminatedBy,
+                Literal(individual['terminated_by'])
+            ))
+
+        if individual.get('terminated_at'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.terminatedAt,
+                Literal(individual['terminated_at'])
+            ))
+
+        # Add active period for backwards compatibility
         if individual.get('active_period'):
             self.individual_graph.add((
                 individual_uri,
@@ -338,20 +441,36 @@ class RDFExtractionConverter:
                 Literal(individual['active_period'])
             ))
 
-        # Add triggering event
-        if individual.get('triggering_event'):
+        # Add urgency level - NEW
+        if individual.get('urgency_level'):
             self.individual_graph.add((
                 individual_uri,
-                self.PROETHICA.hasTriggeredBy,
-                Literal(individual['triggering_event'])
+                self.PROETHICA.hasUrgencyLevel,
+                Literal(individual['urgency_level'])
             ))
 
-        # Add affected parties
-        for party in individual.get('affected_parties', []):
+        # Add affected obligations - NEW
+        for obligation in individual.get('affects_obligations', []):
             self.individual_graph.add((
                 individual_uri,
-                self.PROETHICA.affectsParty,
+                self.PROETHICA.affectsObligation,
+                Literal(obligation)
+            ))
+
+        # Add related parties
+        for party in individual.get('related_parties', individual.get('affected_parties', [])):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.hasRelatedParty,
                 Literal(party)
+            ))
+
+        # Add case involvement - NEW
+        if individual.get('case_involvement'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA.caseInvolvement,
+                Literal(individual['case_involvement'])
             ))
 
         # Add case involvement

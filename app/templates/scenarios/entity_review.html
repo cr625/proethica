@@ -189,11 +189,9 @@
                                             <th width="3%">
                                                 <input type="checkbox" class="rdf-class-select-all">
                                             </th>
-                                            <th width="15%">Label</th>
-                                            <th width="25%">Definition</th>
-                                            <th width="20%">Distinguishing Features</th>
-                                            <th width="20%">Professional Scope</th>
-                                            <th width="15%">Qualifications</th>
+                                            <th width="20%">Class Label</th>
+                                            <th width="35%">Definition</th>
+                                            <th width="40%">Properties & Relations</th>
                                             <th width="2%">Source</th>
                                         </tr>
                                     </thead>
@@ -206,36 +204,37 @@
                                                        data-entity-type="class"
                                                        {% if cls.is_selected %}checked{% endif %}>
                                             </td>
-                                            <td><strong>{{ cls.entity_label }}</strong></td>
+                                            <td>
+                                                <strong>{{ cls.entity_label }}</strong>
+                                                <br/>
+                                                <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
+                                            </td>
                                             <td><small>{{ cls.entity_definition or '-' }}</small></td>
                                             <td>
-                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.properties.distinguishingFeature %}
-                                                    <ul class="list-unstyled mb-0">
-                                                    {% for feature in cls.rdf_json_ld.properties.distinguishingFeature %}
-                                                        <li><small>• {{ feature }}</small></li>
-                                                    {% endfor %}
-                                                    </ul>
-                                                {% else %}
-                                                    <small>-</small>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.properties.professionalScope %}
-                                                    <small>{{ cls.rdf_json_ld.properties.professionalScope[0] if cls.rdf_json_ld.properties.professionalScope is iterable else cls.rdf_json_ld.properties.professionalScope }}</small>
-                                                {% else %}
-                                                    <small>-</small>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if cls.rdf_json_ld and cls.rdf_json_ld.properties.typicalQualification %}
-                                                    <ul class="list-unstyled mb-0">
-                                                    {% for qual in cls.rdf_json_ld.properties.typicalQualification %}
-                                                        <li><small>• {{ qual }}</small></li>
-                                                    {% endfor %}
-                                                    </ul>
-                                                {% else %}
-                                                    <small>-</small>
-                                                {% endif %}
+                                                <div class="rdf-properties" style="font-size: 0.85rem;">
+                                                    {% if cls.rdf_json_ld and cls.rdf_json_ld.properties %}
+                                                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] %}
+                                                            <div class="mb-1">
+                                                                <strong>{{ prop_name.replace('has', '').replace('_', ' ').title() }}:</strong>
+                                                                {% if prop_values is iterable and prop_values is not string %}
+                                                                    {% if prop_values|length > 1 %}
+                                                                        <ul class="list-unstyled ms-3 mb-0">
+                                                                        {% for val in prop_values %}
+                                                                            <li>• {{ val }}</li>
+                                                                        {% endfor %}
+                                                                        </ul>
+                                                                    {% else %}
+                                                                        {{ prop_values[0] if prop_values else '-' }}
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    {{ prop_values }}
+                                                                {% endif %}
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <small class="text-muted">No additional properties</small>
+                                                    {% endif %}
+                                                </div>
                                             </td>
                                             <td><small>C{{ cls.case_id }}</small></td>
                                         </tr>
@@ -275,11 +274,11 @@
                                             <th width="3%">
                                                 <input type="checkbox" class="rdf-individual-select-all">
                                             </th>
-                                            <th width="12%">Name</th>
-                                            <th width="15%">Role Class</th>
-                                            <th width="20%">Attributes</th>
-                                            <th width="15%">Relationships</th>
-                                            <th width="35%">Case Involvement</th>
+                                            <th width="15%">Individual</th>
+                                            <th width="15%">rdf:type</th>
+                                            <th width="35%">Properties</th>
+                                            <th width="30%">Relationships</th>
+                                            <th width="2%">Source</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -291,56 +290,63 @@
                                                        data-entity-type="individual"
                                                        {% if indiv.is_selected %}checked{% endif %}>
                                             </td>
-                                            <td><strong>{{ indiv.entity_label }}</strong></td>
+                                            <td>
+                                                <strong>{{ indiv.entity_label }}</strong>
+                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties.subject %}
+                                                    <br/><small class="text-muted">Subject: {{ indiv.rdf_json_ld.properties.subject }}</small>
+                                                {% endif %}
+                                            </td>
                                             <td>
                                                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
                                                     {% for type in indiv.rdf_json_ld.types %}
-                                                        <span class="badge bg-secondary">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span>
+                                                        <span class="badge bg-secondary">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span><br/>
                                                     {% endfor %}
                                                 {% else %}
                                                     -
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
-                                                    {% for key, values in indiv.rdf_json_ld.properties.items() if key not in ['caseInvolvement', 'wasGeneratedAt', 'wasAttributedTo'] %}
-                                                        <small class="d-block">
-                                                            <strong>{{ key.replace('has', '').replace('_', ' ') }}:</strong>
-                                                            {% if values is iterable and values is not string %}
-                                                                {{ values[0] if values else '' }}
-                                                            {% else %}
-                                                                {{ values }}
-                                                            {% endif %}
-                                                        </small>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <small>-</small>
-                                                {% endif %}
+                                                <div class="rdf-properties" style="font-size: 0.85rem;">
+                                                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
+                                                        {% set skip_props = ['wasGeneratedAt', 'wasAttributedTo', 'subject'] %}
+                                                        {% for key, values in indiv.rdf_json_ld.properties.items() if key not in skip_props %}
+                                                            <div class="mb-1">
+                                                                <strong>{{ key.replace('has', '').replace('initiated', 'Initiated').replace('terminated', 'Terminated').replace('_', ' ').title() }}:</strong>
+                                                                {% if values is iterable and values is not string %}
+                                                                    {% if values|length > 1 %}
+                                                                        <ul class="list-unstyled ms-3 mb-0">
+                                                                        {% for val in values %}
+                                                                            <li>• {{ val }}</li>
+                                                                        {% endfor %}
+                                                                        </ul>
+                                                                    {% else %}
+                                                                        {{ values[0] if values else '-' }}
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    {{ values }}
+                                                                {% endif %}
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <small class="text-muted">No properties</small>
+                                                    {% endif %}
+                                                </div>
                                             </td>
                                             <td>
-                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
-                                                    {% for rel in indiv.rdf_json_ld.relationships %}
-                                                        <small class="d-block">
-                                                            <strong>{{ rel.type.replace('_', ' ') }}:</strong> {{ rel.target }}
-                                                        </small>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <small>-</small>
-                                                {% endif %}
+                                                <div class="rdf-relationships" style="font-size: 0.85rem;">
+                                                    {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
+                                                        {% for rel in indiv.rdf_json_ld.relationships %}
+                                                            <div class="mb-1">
+                                                                <strong>{{ rel.type.replace('_', ' ').title() }}:</strong>
+                                                                <span class="text-info">{{ rel.target }}</span>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <small class="text-muted">No relationships</small>
+                                                    {% endif %}
+                                                </div>
                                             </td>
-                                            <td>
-                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties.caseInvolvement %}
-                                                    <small>
-                                                        {% if indiv.rdf_json_ld.properties.caseInvolvement is iterable and indiv.rdf_json_ld.properties.caseInvolvement is not string %}
-                                                            {{ indiv.rdf_json_ld.properties.caseInvolvement[0] }}
-                                                        {% else %}
-                                                            {{ indiv.rdf_json_ld.properties.caseInvolvement }}
-                                                        {% endif %}
-                                                    </small>
-                                                {% else %}
-                                                    <small>-</small>
-                                                {% endif %}
-                                            </td>
+                                            <td><small>C{{ indiv.case_id if indiv.case_id else case.id }}</small></td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
