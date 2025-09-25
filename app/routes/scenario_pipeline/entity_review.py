@@ -51,9 +51,25 @@ def review_case_entities(case_id):
             flash(f'Case {case_id} not found', 'error')
             return redirect(url_for('index.index'))
 
-        # Get RDF entities (new classes and individuals)
-        rdf_classes = TemporaryRDFStorage.get_case_entities(case_id, storage_type='class')
-        rdf_individuals = TemporaryRDFStorage.get_case_entities(case_id, storage_type='individual')
+        # Get RDF entities grouped by extraction_type
+        all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+
+        # Group entities by extraction_type and storage_type
+        rdf_by_type = {
+            'roles': {'classes': [], 'individuals': []},
+            'states': {'classes': [], 'individuals': []},
+            'resources': {'classes': [], 'individuals': []}
+        }
+
+        for entity in all_rdf_entities:
+            extraction_type = entity.extraction_type or 'unknown'
+            storage_type = entity.storage_type
+
+            if extraction_type in rdf_by_type:
+                if storage_type == 'class':
+                    rdf_by_type[extraction_type]['classes'].append(entity.to_dict())
+                elif storage_type == 'individual':
+                    rdf_by_type[extraction_type]['individuals'].append(entity.to_dict())
 
         # Get all entities grouped by section (old format for backward compatibility)
         entities_by_section = CaseEntityStorageService.get_all_case_entities(
@@ -85,13 +101,10 @@ def review_case_entities(case_id):
             }
             total_entities += len(entities)
 
-        # Add RDF data
+        # Prepare RDF data organized by concept type
         rdf_data = {
-            'classes': [c.to_dict() for c in rdf_classes],
-            'individuals': [i.to_dict() for i in rdf_individuals],
-            'class_count': len(rdf_classes),
-            'individual_count': len(rdf_individuals),
-            'total_rdf_entities': len(rdf_classes) + len(rdf_individuals)
+            'by_type': rdf_by_type,
+            'total_rdf_entities': len(all_rdf_entities)
         }
 
         return render_template(

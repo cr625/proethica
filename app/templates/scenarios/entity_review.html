@@ -134,7 +134,7 @@
             </div>
 
             <!-- RDF Entities Section -->
-            {% if rdf_data and (rdf_data.class_count > 0 or rdf_data.individual_count > 0) %}
+            {% if rdf_data and rdf_data.total_rdf_entities > 0 %}
 
             <!-- Section Header with Clear Separation -->
             <div class="row mb-4">
@@ -143,32 +143,42 @@
                     <h2 class="mb-3">Extracted Ontology Entities</h2>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
-                        <strong>{{ rdf_data.total_rdf_entities }} RDF entities extracted:</strong>
-                        {{ rdf_data.class_count }} new classes for proethica-intermediate,
-                        {{ rdf_data.individual_count }} individuals for proethica-case-{{ case.id }}
+                        <strong>{{ rdf_data.total_rdf_entities }} RDF entities extracted</strong> organized by concept type
                     </div>
                 </div>
             </div>
 
-            <!-- NEW CLASSES SECTION -->
-            {% if rdf_data.class_count > 0 %}
+            <!-- CONCEPT TYPE PANELS -->
+            {% for concept_type, type_data in rdf_data.by_type.items() %}
+            {% if type_data.classes or type_data.individuals %}
             <div class="row mb-5">
                 <div class="col-12">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center section-icon-circle">C</div>
-                        <h3 class="mb-0 ml-3">New Professional Role Classes</h3>
-                    </div>
+                    <!-- Panel Header for {{ concept_type|title }} -->
+                    <div class="card {% if concept_type == 'roles' %}border-primary{% elif concept_type == 'states' %}border-warning{% else %}border-success{% endif %}">
+                        <div class="card-header {% if concept_type == 'roles' %}bg-primary{% elif concept_type == 'states' %}bg-warning{% else %}bg-success{% endif %} text-white">
+                            <h4 class="mb-0">
+                                <i class="fas fa-{% if concept_type == 'roles' %}user-tie{% elif concept_type == 'states' %}diagram-3{% else %}box{% endif %}"></i>
+                                {{ concept_type|title }} Extraction
+                            </h4>
+                        </div>
+                        <div class="card-body">
+
+            <!-- NEW CLASSES SUB-SECTION -->
+            {% if type_data.classes %}
+            <div class="row mb-5">
+                <div class="col-12">
+                    <h5 class="mb-3">New {{ concept_type|title }} Classes</h5>
                     <div class="card border-primary shadow-sm">
                         <div class="card-header bg-primary text-white">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h5 class="mb-0">
+                                    <h6 class="mb-0">
                                         <i class="fas fa-sitemap"></i>
                                         Classes to Add to proethica-intermediate
-                                    </h5>
-                                    <small>These are new role types not currently in the ontology</small>
+                                    </h6>
+                                    <small>These are new {{ concept_type }} types not currently in the ontology</small>
                                 </div>
-                                <span class="badge bg-light text-primary">{{ rdf_data.class_count }} Classes</span>
+                                <span class="badge bg-light text-primary">{{ type_data.classes|length }} Classes</span>
                             </div>
                         </div>
                         <div class="card-body">
@@ -188,7 +198,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% for cls in rdf_data.classes %}
+                                        {% for cls in type_data.classes %}
                                         <tr>
                                             <td>
                                                 <input type="checkbox" class="rdf-entity-checkbox"
@@ -239,14 +249,11 @@
             </div>
             {% endif %}
 
-            <!-- INDIVIDUALS SECTION -->
-            {% if rdf_data.individual_count > 0 %}
+            <!-- INDIVIDUALS SUB-SECTION -->
+            {% if type_data.individuals %}
             <div class="row mb-5">
                 <div class="col-12">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center section-icon-circle">I</div>
-                        <h3 class="mb-0 ml-3">Case-Specific Individuals</h3>
-                    </div>
+                    <h5 class="mb-3">{{ concept_type|title }} Individuals</h5>
                     <div class="card border-info shadow-sm">
                         <div class="card-header bg-info text-white">
                             <div class="d-flex justify-content-between align-items-center">
@@ -257,7 +264,7 @@
                                     </h5>
                                     <small>These are specific people, organizations, and entities in this case</small>
                                 </div>
-                                <span class="badge bg-light text-info">{{ rdf_data.individual_count }} Individuals</span>
+                                <span class="badge bg-light text-info">{{ type_data.individuals|length }} Individuals</span>
                             </div>
                         </div>
                         <div class="card-body">
@@ -276,7 +283,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% for indiv in rdf_data.individuals %}
+                                        {% for indiv in type_data.individuals %}
                                         <tr>
                                             <td>
                                                 <input type="checkbox" class="rdf-entity-checkbox"
@@ -344,6 +351,13 @@
                 </div>
             </div>
             {% endif %}
+
+                        </div> <!-- End card-body -->
+                    </div> <!-- End card -->
+                </div> <!-- End col-12 -->
+            </div> <!-- End row for concept type panel -->
+            {% endif %} <!-- End if type_data.classes or type_data.individuals -->
+            {% endfor %} <!-- End for concept_type loop -->
 
             <!-- End of RDF Entities Section -->
             <hr class="my-4">

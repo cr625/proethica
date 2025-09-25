@@ -151,9 +151,13 @@ class TemporaryRDFStorage(db.Model):
         """
         created_entities = []
 
-        # Clear any existing temporary entities for this case
-        # (as per requirement to replace old temporary ones)
-        cls.clear_case_session(case_id)
+        # Clear any existing temporary entities for this case and extraction type
+        # (as per requirement to replace old temporary ones of the same type)
+        cls.query.filter_by(
+            case_id=case_id,
+            extraction_type=extraction_type,
+            is_committed=False
+        ).delete()
 
         # Store new classes
         for class_info in rdf_data.get('new_classes', []):

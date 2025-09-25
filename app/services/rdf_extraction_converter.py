@@ -259,7 +259,8 @@ class RDFExtractionConverter:
     def _add_state_class_to_graph(self, state_class: Dict[str, Any], case_id: int, timestamp: datetime):
         """Add a new state class to the RDF graph"""
         # Create URI for the state class
-        safe_label = self._make_safe_uri_fragment(state_class.get('label', 'UnknownState'))
+        class_label = state_class.get('label', 'UnknownState')
+        safe_label = class_label.replace(" ", "")
         class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
 
         # Add class definition
@@ -310,13 +311,14 @@ class RDFExtractionConverter:
     def _add_state_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
         """Add a state individual to the RDF graph"""
         # Create URI for the individual
-        safe_identifier = self._make_safe_uri_fragment(individual.get('identifier', 'UnknownStateInstance'))
+        identifier = individual.get('identifier', 'UnknownStateInstance')
+        safe_identifier = identifier.replace(" ", "")
         case_namespace = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
         individual_uri = URIRef(f"{case_namespace}{safe_identifier}")
 
         # Get the state class URI
         state_class_label = individual.get('state_class', 'State')
-        safe_state_class = self._make_safe_uri_fragment(state_class_label)
+        safe_state_class = state_class_label.replace(" ", "")
 
         # Check if it's a new class or existing
         if individual.get('is_existing_class', True):

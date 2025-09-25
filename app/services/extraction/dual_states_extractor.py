@@ -215,7 +215,7 @@ Focus on states that:
     def _call_llm_for_dual_extraction(self, prompt: str) -> Dict[str, Any]:
         """Call LLM for dual state extraction"""
         try:
-            from app.services.llm_client import get_llm_client
+            from app.utils.llm_utils import get_llm_client
 
             llm_client = get_llm_client()
             if llm_client:

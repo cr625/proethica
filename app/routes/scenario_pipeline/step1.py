@@ -911,26 +911,8 @@ def extract_individual_concept(case_id):
             extraction_prompt = extractor._create_dual_states_extraction_prompt(section_text, 'facts')
 
             # Perform dual extraction (classes + individuals)
-            if USE_VERSIONED:
-                with prov.track_activity(
-                    activity_type='extraction',
-                    activity_name='states_dual_extraction',
-                    case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='DualStatesExtractor'
-                ) as activity:
-                    candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, 'facts')
-                    activity.used_entity(f"case_{case_id}_facts", attributes={'section': 'facts', 'text_length': len(section_text)})
-                    activity.generated_entity(
-                        f"states_extraction_{session_id}",
-                        attributes={
-                            'new_classes_count': len(candidate_state_classes),
-                            'individuals_count': len(state_individuals)
-                        }
-                    )
-            else:
-                candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, 'facts')
+            # Skip provenance tracking for now - focusing on extraction functionality
+            candidate_state_classes, state_individuals = extractor.extract_dual_states(section_text, case_id, 'facts')
 
             logger.info(f"Dual states extraction for case {case_id}: {len(candidate_state_classes)} new classes, {len(state_individuals)} individuals")
 
@@ -992,35 +974,16 @@ def extract_individual_concept(case_id):
                     rdf_data = rdf_converter.get_temporary_triples()
                     logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
 
-                    # Store in temporary RDF storage
-                    for class_data in rdf_data.get('new_classes', []):
-                        storage_entry = TemporaryRDFStorage(
-                            case_id=case_id,
-                            entity_type='state_class',
-                            entity_label=class_data['label'],
-                            rdf_triples=json.dumps(class_data['triples']),
-                            metadata={
-                                'extraction_session': session_id,
-                                'section': 'facts'
-                            }
-                        )
-                        db.session.add(storage_entry)
+                    # Store in temporary RDF storage using the same method as Roles
+                    stored_entities = TemporaryRDFStorage.store_extraction_results(
+                        case_id=case_id,
+                        extraction_session_id=session_id,
+                        extraction_type='states',  # Mark as states extraction
+                        rdf_data=rdf_data,
+                        extraction_model='claude-opus-4-1-20250805'
+                    )
 
-                    for ind_data in rdf_data.get('new_individuals', []):
-                        storage_entry = TemporaryRDFStorage(
-                            case_id=case_id,
-                            entity_type='state_individual',
-                            entity_label=ind_data['label'],
-                            rdf_triples=json.dumps(ind_data['triples']),
-                            metadata={
-                                'extraction_session': session_id,
-                                'section': 'facts'
-                            }
-                        )
-                        db.session.add(storage_entry)
-
-                    db.session.commit()
-                    logger.info(f"Stored {len(rdf_data.get('new_classes', [])) + len(rdf_data.get('new_individuals', []))} RDF entities in temporary storage")
+                    logger.info(f"✅ DEBUG RDF: Stored {len(stored_entities)} RDF entities in temporary storage for case {case_id}")
 
                 except Exception as e:
                     logger.error(f"Error converting states to RDF: {e}", exc_info=True)
