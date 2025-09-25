@@ -69,6 +69,75 @@
         background: linear-gradient(to right, transparent, #dee2e6, transparent);
         margin: 40px 0;
     }
+
+    /* Property editing preparation */
+    .property-item {
+        transition: background-color 0.2s;
+        padding: 2px 4px;
+        border-radius: 3px;
+        position: relative;
+    }
+
+    .property-item:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+
+    .property-name {
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .property-value {
+        color: #212529;
+    }
+
+    .property-value.text-info {
+        color: #17a2b8 !important;
+    }
+
+    /* Future edit button placeholder */
+    .property-edit-btn {
+        display: none; /* Hidden for now */
+        position: absolute;
+        right: 0;
+        top: 2px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        line-height: 1;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .property-item:hover .property-edit-btn {
+        /* Will be enabled when edit functionality is added */
+        /* display: inline-block; */
+    }
+
+    /* Editable property styling (for future) */
+    .property-item.editing {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 4px 6px;
+    }
+
+    .property-item.editing input,
+    .property-item.editing textarea {
+        background: white;
+        border: 1px solid #ced4da;
+        padding: 2px 6px;
+        font-size: 0.85rem;
+        width: 100%;
+    }
+
+    /* RDF-style formatting */
+    .rdf-properties {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .rdf-triple {
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
 </style>
 {% endblock %}
 
@@ -213,22 +282,26 @@
                                             <td>
                                                 <div class="rdf-properties" style="font-size: 0.85rem;">
                                                     {% if cls.rdf_json_ld and cls.rdf_json_ld.properties %}
-                                                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] %}
-                                                            <div class="mb-1">
-                                                                <strong>{{ prop_name.replace('has', '').replace('_', ' ').title() }}:</strong>
-                                                                {% if prop_values is iterable and prop_values is not string %}
-                                                                    {% if prop_values|length > 1 %}
-                                                                        <ul class="list-unstyled ms-3 mb-0">
-                                                                        {% for val in prop_values %}
-                                                                            <li>• {{ val }}</li>
-                                                                        {% endfor %}
-                                                                        </ul>
+                                                        {% for prop_name, prop_values in cls.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
+                                                            <div class="mb-1 property-item" data-property="{{ prop_name }}">
+                                                                <strong class="property-name">
+                                                                    {{ prop_name | camel_to_readable }}:
+                                                                </strong>
+                                                                <span class="property-value">
+                                                                    {% if prop_values is iterable and prop_values is not string %}
+                                                                        {% if prop_values|length > 1 %}
+                                                                            <ul class="list-unstyled ms-3 mb-0">
+                                                                            {% for val in prop_values if val %}
+                                                                                <li>• {{ val }}</li>
+                                                                            {% endfor %}
+                                                                            </ul>
+                                                                        {% elif prop_values|length == 1 %}
+                                                                            {{ prop_values[0] }}
+                                                                        {% endif %}
                                                                     {% else %}
-                                                                        {{ prop_values[0] if prop_values else '-' }}
+                                                                        {{ prop_values }}
                                                                     {% endif %}
-                                                                {% else %}
-                                                                    {{ prop_values }}
-                                                                {% endif %}
+                                                                </span>
                                                             </div>
                                                         {% endfor %}
                                                     {% else %}
@@ -274,10 +347,9 @@
                                             <th width="3%">
                                                 <input type="checkbox" class="rdf-individual-select-all">
                                             </th>
-                                            <th width="15%">Individual</th>
+                                            <th width="20%">Individual</th>
                                             <th width="15%">rdf:type</th>
-                                            <th width="35%">Properties</th>
-                                            <th width="30%">Relationships</th>
+                                            <th width="60%">Properties & Relations</th>
                                             <th width="2%">Source</th>
                                         </tr>
                                     </thead>
@@ -292,9 +364,8 @@
                                             </td>
                                             <td>
                                                 <strong>{{ indiv.entity_label }}</strong>
-                                                {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties.subject %}
-                                                    <br/><small class="text-muted">Subject: {{ indiv.rdf_json_ld.properties.subject }}</small>
-                                                {% endif %}
+                                                <br/>
+                                                <small class="text-muted">Individual Instance</small>
                                             </td>
                                             <td>
                                                 {% if indiv.rdf_json_ld and indiv.rdf_json_ld.types %}
@@ -302,47 +373,72 @@
                                                         <span class="badge bg-secondary">{{ type.split('#')[-1] if '#' in type else type.split('/')[-1] }}</span><br/>
                                                     {% endfor %}
                                                 {% else %}
-                                                    -
+                                                    <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>
                                             <td>
                                                 <div class="rdf-properties" style="font-size: 0.85rem;">
+                                                    {# Combine properties and relationships into a single display #}
+                                                    {% set all_items = {} %}
+
+                                                    {# Add properties #}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
-                                                        {% set skip_props = ['wasGeneratedAt', 'wasAttributedTo', 'subject'] %}
-                                                        {% for key, values in indiv.rdf_json_ld.properties.items() if key not in skip_props %}
-                                                            <div class="mb-1">
-                                                                <strong>{{ key.replace('has', '').replace('initiated', 'Initiated').replace('terminated', 'Terminated').replace('_', ' ').title() }}:</strong>
-                                                                {% if values is iterable and values is not string %}
-                                                                    {% if values|length > 1 %}
-                                                                        <ul class="list-unstyled ms-3 mb-0">
-                                                                        {% for val in values %}
-                                                                            <li>• {{ val }}</li>
-                                                                        {% endfor %}
-                                                                        </ul>
-                                                                    {% else %}
-                                                                        {{ values[0] if values else '-' }}
-                                                                    {% endif %}
+                                                        {% set skip_props = ['wasGeneratedAt', 'wasAttributedTo'] %}
+                                                        {% for key, prop_value in indiv.rdf_json_ld.properties.items() if key not in skip_props and prop_value %}
+                                                            {# Ensure we're working with the actual value, not a method #}
+                                                            {# Check if it's a callable (method) and skip it #}
+                                                            {% if 'method' not in (prop_value|string) and 'built-in' not in (prop_value|string) %}
+                                                                {% if prop_value is iterable and prop_value is not string %}
+                                                                    {# Convert to list if it's an iterable #}
+                                                                    {% set prop_list = [] %}
+                                                                    {% for item in prop_value %}
+                                                                        {% set _ = prop_list.append(item) %}
+                                                                    {% endfor %}
+                                                                    {% set _ = all_items.update({key: {'type': 'property', 'values': prop_list}}) %}
                                                                 {% else %}
-                                                                    {{ values }}
+                                                                    {% set _ = all_items.update({key: {'type': 'property', 'values': prop_value}}) %}
                                                                 {% endif %}
-                                                            </div>
+                                                            {% endif %}
                                                         {% endfor %}
-                                                    {% else %}
-                                                        <small class="text-muted">No properties</small>
                                                     {% endif %}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="rdf-relationships" style="font-size: 0.85rem;">
+
+                                                    {# Add relationships #}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
                                                         {% for rel in indiv.rdf_json_ld.relationships %}
-                                                            <div class="mb-1">
-                                                                <strong>{{ rel.type.replace('_', ' ').title() }}:</strong>
-                                                                <span class="text-info">{{ rel.target }}</span>
+                                                            {% set rel_key = rel.type %}
+                                                            {% if rel_key not in all_items %}
+                                                                {% set _ = all_items.update({rel_key: {'type': 'relation', 'values': []}}) %}
+                                                            {% endif %}
+                                                            {% set _ = all_items[rel_key]['values'].append(rel.target) %}
+                                                        {% endfor %}
+                                                    {% endif %}
+
+                                                    {# Display all items #}
+                                                    {% if all_items %}
+                                                        {% for prop_name, item_data in all_items.items() %}
+                                                            <div class="mb-1 property-item" data-property="{{ prop_name }}" data-type="{{ item_data.type }}">
+                                                                <strong class="property-name">
+                                                                    {{ prop_name | camel_to_readable }}:
+                                                                </strong>
+                                                                <span class="property-value {% if item_data.type == 'relation' %}text-info{% endif %}">
+                                                                    {% if item_data.values is iterable and item_data.values is not string %}
+                                                                        {% if item_data.values|length > 1 %}
+                                                                            <ul class="list-unstyled ms-3 mb-0">
+                                                                            {% for val in item_data.values if val %}
+                                                                                <li>• {{ val }}</li>
+                                                                            {% endfor %}
+                                                                            </ul>
+                                                                        {% elif item_data.values|length == 1 %}
+                                                                            {{ item_data.values[0] }}
+                                                                        {% endif %}
+                                                                    {% else %}
+                                                                        {{ item_data.values }}
+                                                                    {% endif %}
+                                                                </span>
                                                             </div>
                                                         {% endfor %}
                                                     {% else %}
-                                                        <small class="text-muted">No relationships</small>
+                                                        <small class="text-muted">No properties or relations</small>
                                                     {% endif %}
                                                 </div>
                                             </td>
@@ -603,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Edit entity handling
+    // Edit entity handling (placeholder for future functionality)
     document.querySelectorAll('.edit-entity').forEach(button => {
         button.addEventListener('click', function() {
             const entityId = this.dataset.entityId;
@@ -613,6 +709,46 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Edit entity:', entityId);
         });
     });
+
+    // Foundation for property editing (future functionality)
+    // This code prepares for inline property editing capability
+    function preparePropertyEditing() {
+        // Add data attributes to property items for future editing
+        document.querySelectorAll('.property-item').forEach(item => {
+            const entityRow = item.closest('tr');
+            const entityCheckbox = entityRow?.querySelector('.rdf-entity-checkbox');
+            if (entityCheckbox) {
+                item.setAttribute('data-entity-id', entityCheckbox.dataset.entityId);
+                item.setAttribute('data-entity-type', entityCheckbox.dataset.entityType);
+            }
+
+            // Double-click handler (currently disabled)
+            item.addEventListener('dblclick', function(e) {
+                // Uncomment when edit functionality is implemented
+                // e.preventDefault();
+                // startPropertyEdit(this);
+            });
+        });
+    }
+
+    // Call preparation function
+    preparePropertyEditing();
+
+    // Future edit functions (placeholders)
+    function startPropertyEdit(propertyElement) {
+        // Will be implemented to enable inline editing
+        console.log('Property editing will be available in future update');
+    }
+
+    function savePropertyEdit(propertyElement, newValue) {
+        // Will be implemented to save edited properties
+        console.log('Property saving will be available in future update');
+    }
+
+    function cancelPropertyEdit(propertyElement) {
+        // Will be implemented to cancel property editing
+        console.log('Cancel editing will be available in future update');
+    }
 
     // Commit selected entities
     const commitBtn = document.getElementById('commitSelectedBtn');

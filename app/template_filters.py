@@ -44,6 +44,32 @@ def init_app(app):
             return list(iterable)[start:]
         return list(iterable)[start:end]
     
+    @app.template_filter('camel_to_readable')
+    def camel_to_readable_filter(text):
+        """Convert camelCase or PascalCase to readable format with spaces.
+
+        Examples:
+            hasProfessionalScope -> Professional Scope
+            hasDistinguishingFeature -> Distinguishing Feature
+            initiatedBy -> Initiated By
+        """
+        if not text:
+            return ''
+
+        # Remove 'has' prefix if present
+        if text.startswith('has'):
+            text = text[3:]
+
+        # Add space before capital letters (but not at the start)
+        result = ''
+        for i, char in enumerate(text):
+            if i > 0 and char.isupper() and text[i-1].islower():
+                result += ' '
+            result += char
+
+        # Capitalize properly
+        return result.title()
+
     @app.template_filter('hash')
     def hash_filter(value):
         """Generate a hash value for the input."""

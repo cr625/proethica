@@ -161,6 +161,9 @@ class TemporaryRDFStorage(db.Model):
 
         # Store new classes
         for class_info in rdf_data.get('new_classes', []):
+            # Clean the class_info to ensure all values are JSON-serializable
+            clean_class_info = cls._clean_json_data(class_info)
+
             entity = cls(
                 case_id=case_id,
                 extraction_session_id=extraction_session_id,
@@ -171,7 +174,7 @@ class TemporaryRDFStorage(db.Model):
                 entity_uri=class_info['uri'],
                 entity_type=extraction_type.capitalize(),
                 entity_definition=class_info.get('definition', ''),
-                rdf_json_ld=class_info,
+                rdf_json_ld=clean_class_info,
                 extraction_model=extraction_model,
                 triple_count=len(class_info.get('properties', {})) + 4,  # Basic triples
                 property_count=len(class_info.get('properties', {}))
@@ -181,6 +184,9 @@ class TemporaryRDFStorage(db.Model):
 
         # Store individuals
         for indiv_info in rdf_data.get('new_individuals', []):
+            # Clean the indiv_info to ensure all values are JSON-serializable
+            clean_indiv_info = cls._clean_json_data(indiv_info)
+
             entity = cls(
                 case_id=case_id,
                 extraction_session_id=extraction_session_id,
@@ -191,7 +197,7 @@ class TemporaryRDFStorage(db.Model):
                 entity_uri=indiv_info['uri'],
                 entity_type=extraction_type.capitalize(),
                 entity_definition='',  # Individuals don't have definitions
-                rdf_json_ld=indiv_info,
+                rdf_json_ld=clean_indiv_info,
                 extraction_model=extraction_model,
                 triple_count=len(indiv_info.get('properties', {})) + len(indiv_info.get('relationships', [])) + 2,
                 property_count=len(indiv_info.get('properties', {})),
@@ -202,3 +208,40 @@ class TemporaryRDFStorage(db.Model):
 
         db.session.commit()
         return created_entities
+
+    @classmethod
+    def _clean_json_data(cls, data):
+        """Clean data to ensure it's JSON-serializable.
+
+        Removes any callable methods or non-serializable objects that might
+        have accidentally been included in the data.
+        """
+        import json
+
+        def clean_value(value):
+            """Recursively clean a value for JSON serialization."""
+            if callable(value):
+                # Skip callable objects (methods, functions)
+                return None
+            elif isinstance(value, dict):
+                # Recursively clean dictionary
+                return {k: clean_value(v) for k, v in value.items() if clean_value(v) is not None}
+            elif isinstance(value, (list, tuple)):
+                # Recursively clean list/tuple
+                cleaned = [clean_value(v) for v in value]
+                return [v for v in cleaned if v is not None]
+            elif isinstance(value, (str, int, float, bool, type(None))):
+                # These types are JSON-serializable
+                return value
+            else:
+                # Try to convert to string for other types
+                try:
+                    # Check if it's a built-in method or similar
+                    str_val = str(value)
+                    if 'built-in method' in str_val or 'method' in str_val:
+                        return None
+                    return str_val
+                except:
+                    return None
+
+        return clean_value(data)
