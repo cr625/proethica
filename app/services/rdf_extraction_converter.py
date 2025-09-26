@@ -392,7 +392,8 @@ class RDFExtractionConverter:
         else:
             state_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_state_class}")
 
-        # Add individual type assertion
+        # Add individual type assertions - MUST include NamedIndividual for extraction
+        self.individual_graph.add((individual_uri, RDF.type, OWL.NamedIndividual))
         self.individual_graph.add((individual_uri, RDF.type, state_class_uri))
         self.individual_graph.add((individual_uri, RDFS.label, Literal(individual.get('identifier', ''))))
 
@@ -485,6 +486,203 @@ class RDFExtractionConverter:
                 individual_uri,
                 self.PROETHICA_PROV.caseInvolvement,
                 Literal(individual['case_involvement'])
+            ))
+
+        # Add confidence
+        if individual.get('confidence'):
+            self.individual_graph.add((
+                individual_uri,
+                self.PROETHICA_PROV.confidenceScore,
+                Literal(individual['confidence'], datatype=XSD.float)
+            ))
+
+        # Add provenance
+        self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def convert_resources_extraction_to_rdf(self,
+                                           extraction_result: Dict[str, Any],
+                                           case_id: int,
+                                           extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+        """
+        Convert resources extraction result to RDF triples.
+
+        Args:
+            extraction_result: Raw LLM extraction result containing new_resource_classes and resource_individuals
+            case_id: ID of the case this extraction is from
+            extraction_timestamp: When the extraction occurred
+
+        Returns:
+            Tuple of (class_graph, individual_graph)
+        """
+        timestamp = extraction_timestamp or datetime.utcnow()
+
+        # Clear graphs for new conversion
+        self.class_graph = Graph()
+        self.individual_graph = Graph()
+        self._bind_prefixes()
+
+        # Process new resource classes
+        for resource_class in extraction_result.get('new_resource_classes', []):
+            self._add_resource_class_to_graph(resource_class, case_id, timestamp)
+
+        # Process resource individuals
+        for individual in extraction_result.get('resource_individuals', []):
+            self._add_resource_individual_to_graph(individual, case_id, timestamp)
+
+        return self.class_graph, self.individual_graph
+
+    def _add_resource_class_to_graph(self, resource_class: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add a new resource class to the RDF graph"""
+        # Create URI for the resource class
+        class_label = resource_class.get('label', 'UnknownResource')
+        safe_label = class_label.replace(" ", "")
+        class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Add class type and label
+        self.class_graph.add((class_uri, RDF.type, OWL.Class))
+        self.class_graph.add((class_uri, RDFS.label, Literal(class_label)))
+
+        # Add parent class (subClassOf Resource)
+        self.class_graph.add((class_uri, RDFS.subClassOf, self.PROETHICA.Resource))
+
+        # Add definition
+        if resource_class.get('definition'):
+            self.class_graph.add((class_uri, RDFS.comment, Literal(resource_class['definition'])))
+
+        # Add resource-specific properties in OWL-compliant format
+        if resource_class.get('resource_type'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasResourceType"),
+                Literal(resource_class['resource_type'])
+            ))
+
+        if resource_class.get('accessibility'):
+            for access_level in resource_class.get('accessibility', []):
+                self.class_graph.add((
+                    class_uri,
+                    URIRef(f"{self.PROETHICA}hasAccessibility"),
+                    Literal(access_level)
+                ))
+
+        if resource_class.get('authority_source'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasAuthoritySource"),
+                Literal(resource_class['authority_source'])
+            ))
+
+        if resource_class.get('typical_usage'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasTypicalUsage"),
+                Literal(resource_class['typical_usage'])
+            ))
+
+        if resource_class.get('domain_context'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasDomainContext"),
+                Literal(resource_class['domain_context'])
+            ))
+
+        # Add extraction metadata
+        self.class_graph.add((
+            class_uri,
+            URIRef(f"{self.PROETHICA_PROV}discoveredInCase"),
+            Literal(case_id, datatype=XSD.integer)
+        ))
+
+        if resource_class.get('confidence'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
+                Literal(resource_class['confidence'], datatype=XSD.float)
+            ))
+
+        # Add provenance
+        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def _add_resource_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add a resource individual to the RDF graph"""
+        # Create URI for the individual
+        identifier = individual.get('identifier', 'UnknownResourceInstance')
+        safe_identifier = identifier.replace(" ", "")
+        case_namespace = Namespace(f"http://proethica.org/ontology/case/{case_id}#")
+        individual_uri = URIRef(f"{case_namespace}{safe_identifier}")
+
+        # Get the resource class URI
+        resource_class_label = individual.get('resource_class', 'Resource')
+        safe_resource_class = resource_class_label.replace(" ", "")
+
+        # Check if it's a new class or existing
+        if individual.get('is_existing_class', True):
+            resource_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_resource_class}")
+        else:
+            resource_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_resource_class}")
+
+        # Add individual type assertions - MUST include NamedIndividual for extraction
+        self.individual_graph.add((individual_uri, RDF.type, OWL.NamedIndividual))
+        self.individual_graph.add((individual_uri, RDF.type, resource_class_uri))
+        self.individual_graph.add((individual_uri, RDFS.label, Literal(individual.get('identifier', ''))))
+
+        # Add document metadata
+        if individual.get('document_title'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasDocumentTitle"),
+                Literal(individual['document_title'])
+            ))
+
+        if individual.get('created_by'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}createdBy"),
+                Literal(individual['created_by'])
+            ))
+
+        if individual.get('created_at'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}createdAt"),
+                Literal(individual['created_at'])
+            ))
+
+        if individual.get('version'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasVersion"),
+                Literal(individual['version'])
+            ))
+
+        if individual.get('url_or_location'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasLocation"),
+                Literal(individual['url_or_location'])
+            ))
+
+        # Add usage context
+        if individual.get('used_by'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}usedBy"),
+                Literal(individual['used_by'])
+            ))
+
+        if individual.get('used_in_context'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}usedInContext"),
+                Literal(individual['used_in_context'])
+            ))
+
+        # Add case section
+        if individual.get('case_section'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}inCaseSection"),
+                Literal(individual['case_section'])
             ))
 
         # Add confidence

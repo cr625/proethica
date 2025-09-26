@@ -1015,45 +1015,140 @@ def extract_individual_concept(case_id):
                 })
 
         elif concept_type == 'resources':
-            from app.services.extraction.resources import ResourcesExtractor
+            from app.services.extraction.dual_resources_extractor import DualResourcesExtractor
 
-            extractor = ResourcesExtractor()
+            extractor = DualResourcesExtractor()
 
-            # Generate the prompt for display
-            extraction_prompt = extractor._get_prompt_for_preview(section_text)
+            # Generate the prompt for display (dual extraction)
+            extraction_prompt = extractor._create_dual_resources_extraction_prompt(section_text, 'facts')
 
-            # Save the prompt to database
+            # Perform dual extraction (classes + individuals)
+            # Skip provenance tracking for now - focusing on extraction functionality
+            candidate_resource_classes, resource_individuals = extractor.extract_dual_resources(section_text, case_id, 'facts')
+
+            logger.info(f"Dual resources extraction for case {case_id}: {len(candidate_resource_classes)} new classes, {len(resource_individuals)} individuals")
+
+            # Get the raw LLM response for RDF conversion and display
+            raw_llm_response = extractor.get_last_raw_response()
+
+            # Save the prompt and raw response to database
             from app.models import ExtractionPrompt, db
             try:
                 saved_prompt = ExtractionPrompt.save_prompt(
                     case_id=case_id,
                     concept_type='resources',
                     prompt_text=extraction_prompt,
+                    raw_response=raw_llm_response,  # Save the raw LLM response
                     step_number=1,
                     llm_model=ModelConfig.get_claude_model("powerful") if llm_client else "fallback",
                     extraction_session_id=session_id
                 )
-                logger.info(f"Saved resources extraction prompt for case {case_id}")
+                logger.info(f"Saved resources extraction prompt and response for case {case_id}")
             except Exception as e:
                 logger.warning(f"Could not save extraction prompt: {e}")
+            logger.info(f"DEBUG RDF: raw_llm_response available: {raw_llm_response is not None}, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
-            if USE_VERSIONED:
-                with prov.track_activity(
-                    activity_type='extraction',
-                    activity_name='resources_individual_extraction',
-                    case_id=case_id,
-                    session_id=session_id,
-                    agent_type='extraction_service',
-                    agent_name='ResourcesExtractor'
-                ) as activity:
-                    candidates = extractor.extract(section_text, activity=activity)
+            # Convert the raw response to RDF if we have it
+            if raw_llm_response:
+                try:
+                    import json
+                    from app.services.rdf_extraction_converter import RDFExtractionConverter
+                    from app.models import TemporaryRDFStorage
+
+                    logger.info(f"DEBUG RDF: Starting RDF conversion for resources in case {case_id}")
+
+                    # Parse the raw response - handle mixed text/JSON
+                    try:
+                        raw_data = json.loads(raw_llm_response)
+                    except json.JSONDecodeError:
+                        # Try to extract JSON from mixed response
+                        import re
+                        json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
+                        if json_match:
+                            raw_data = json.loads(json_match.group())
+                            logger.info(f"DEBUG RDF: Extracted JSON from mixed response")
+                        else:
+                            logger.error(f"DEBUG RDF: Could not extract JSON from response")
+                            raise ValueError("Could not extract JSON from LLM response")
+
+                    logger.info(f"DEBUG RDF: Parsed JSON with keys: {list(raw_data.keys())}")
+                    logger.info(f"DEBUG RDF: new_resource_classes count: {len(raw_data.get('new_resource_classes', []))}")
+                    logger.info(f"DEBUG RDF: resource_individuals count: {len(raw_data.get('resource_individuals', []))}")
+
+                    # Convert to RDF using resources-specific conversion
+                    rdf_converter = RDFExtractionConverter()
+                    class_graph, individual_graph = rdf_converter.convert_resources_extraction_to_rdf(
+                        raw_data, case_id
+                    )
+                    logger.info(f"DEBUG RDF: Converted to RDF graphs - classes: {len(class_graph)}, individuals: {len(individual_graph)}")
+
+                    # Get temporary triples for storage
+                    rdf_data = rdf_converter.get_temporary_triples()
+                    logger.info(f"DEBUG RDF: Got temporary triples - new_classes: {len(rdf_data.get('new_classes', []))}, new_individuals: {len(rdf_data.get('new_individuals', []))}")
+
+                    # Store in temporary RDF storage using the same method as Roles and States
+                    stored_entities = TemporaryRDFStorage.store_extraction_results(
+                        case_id=case_id,
+                        extraction_session_id=session_id,
+                        extraction_type='resources',  # Mark as resources extraction
+                        rdf_data=rdf_data,
+                        extraction_model='claude-opus-4-1-20250805'
+                    )
+
+                    logger.info(f"DEBUG RDF: Stored {len(stored_entities)} RDF entities for resources in case {case_id}")
+
+                    # Convert to format for response (for backward compatibility)
+                    candidates = []
+                    for cls in candidate_resource_classes:
+                        candidates.append({
+                            'label': cls.label,
+                            'description': cls.definition,
+                            'type': 'class',
+                            'primary_type': 'Resource',
+                            'category': 'Resource',
+                            'confidence': cls.confidence,
+                            'distinguishing_features': [cls.resource_type],
+                            'professional_scope': cls.typical_usage,
+                            'role_class': ''
+                        })
+                    for individual in resource_individuals:
+                        candidates.append({
+                            'label': individual.identifier,
+                            'description': individual.document_title or individual.used_in_context,
+                            'type': 'individual',
+                            'name': individual.identifier,
+                            'primary_type': 'Resource',
+                            'category': 'Resource',
+                            'confidence': individual.confidence,
+                            'attributes': {
+                                'created_by': individual.created_by,
+                                'version': individual.version,
+                                'used_by': individual.used_by
+                            },
+                            'relationships': []
+                        })
+
+                    # Skip the old storage method since we're using RDF storage
+                    logger.info(f"Skipping old storage - using RDF storage instead")
+
+                except Exception as e:
+                    logger.error(f"DEBUG RDF: Failed to convert or store resources as RDF: {e}")
+                    import traceback
+                    logger.error(f"DEBUG RDF: {traceback.format_exc()}")
+                    # Fall back to old format
+                    candidates = []
+
             else:
-                candidates = extractor.extract(section_text)
+                logger.warning(f"DEBUG RDF: No raw response available for RDF conversion")
+                candidates = []
 
         # Store extracted entities in temporary storage for review
-        logger.info(f"About to store {len(candidates) if candidates else 0} candidates in temporary storage")
+        # Skip this for concept types that use RDF storage
+        skip_old_storage = concept_type in ['roles', 'states', 'resources'] and raw_llm_response
 
-        if candidates:
+        logger.info(f"About to store {len(candidates) if candidates else 0} candidates in temporary storage (skip_old_storage={skip_old_storage})")
+
+        if candidates and not skip_old_storage:
             try:
                 logger.info(f"Importing CaseEntityStorageService...")
                 from app.services.case_entity_storage_service import CaseEntityStorageService
@@ -1187,6 +1282,27 @@ def extract_individual_concept(case_id):
             if 'raw_llm_response' in locals():
                 response_data['raw_llm_response'] = raw_llm_response
                 logger.info(f"Adding raw LLM response to response data (length: {len(raw_llm_response) if raw_llm_response else 0})")
+
+        elif concept_type == 'resources' and 'candidate_resource_classes' in locals():
+            # Separate resources into classes and individuals
+            response_data['resource_classes'] = [{
+                'label': c['label'],
+                'description': c['description'],
+                'confidence': c['confidence'],
+                'resource_type': c.get('resource_type'),
+                'accessibility': c.get('accessibility', [])
+            } for c in candidates if c.get('type') == 'class']
+            response_data['resource_individuals'] = [{
+                'identifier': c['label'],
+                'resource_class': c.get('resource_class'),
+                'document_title': c.get('description'),
+                'created_by': c.get('attributes', {}).get('created_by'),
+                'used_by': c.get('attributes', {}).get('used_by'),
+                'confidence': c['confidence']
+            } for c in candidates if c.get('type') == 'individual']
+            if 'raw_llm_response' in locals():
+                response_data['raw_llm_response'] = raw_llm_response
+                logger.info(f"Adding raw LLM response to response data for resources (length: {len(raw_llm_response) if raw_llm_response else 0})")
 
         return jsonify(response_data)
 

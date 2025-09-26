@@ -117,11 +117,14 @@ DEFINITIONS:
 - STATE CLASS: A type of situational condition (e.g., "Conflict of Interest", "Emergency Situation", "Resource Constraint")
 - STATE INDIVIDUAL: A specific instance of a state active in this case attached to specific people/organizations
 
-KEY INSIGHT FROM LITERATURE:
-States determine which ethical principles activate, how they transform into obligations, and what actions become available.
-States have temporal properties (when initiated, when terminated) and causal relationships (what events trigger them).
+CRITICAL REQUIREMENT: Every STATE CLASS you identify MUST be based on at least one specific STATE INDIVIDUAL instance in the case.
+You cannot propose a state class without providing the concrete instance(s) that demonstrate it.
 
-YOUR TASK - Extract two types of entities:
+KEY INSIGHT FROM LITERATURE:
+States are not abstract - they are concrete conditions affecting specific actors at specific times.
+Each state has a subject (WHO is in the state), temporal boundaries (WHEN), and causal relationships (WHY).
+
+YOUR TASK - Extract two LINKED types of entities:
 
 1. NEW STATE CLASSES (types not in the existing ontology above):
    - Novel types of situational states discovered in this case
@@ -165,41 +168,60 @@ For STATE INDIVIDUALS, identify:
 CASE TEXT FROM {section_type} SECTION:
 {case_text}
 
-Respond with a JSON structure:
+Respond with a JSON structure. Here's a CONCRETE EXAMPLE showing the required linkage:
+
+EXAMPLE (if the case mentions "Engineer A faced a conflict when discovering his brother worked for the contractor"):
 {{
   "new_state_classes": [
     {{
-      "label": "State Type Name",
-      "definition": "What this state represents",
-      "activation_conditions": ["condition 1", "condition 2"],
-      "termination_conditions": ["condition 1", "condition 2"],
-      "persistence_type": "inertial|non-inertial",
-      "affected_obligations": ["obligation 1", "obligation 2"],
-      "temporal_properties": "How urgency/intensity changes over time",
-      "domain_context": "Engineering/Medical/Legal/etc.",
-      "examples_from_case": ["example 1", "example 2"],
+      "label": "Family Conflict of Interest",
+      "definition": "A state where a professional's family relationships create potential bias in professional decisions",
+      "activation_conditions": ["Discovery of family member involvement", "Family member has financial interest"],
+      "termination_conditions": ["Recusal from decision", "Family member withdraws"],
+      "persistence_type": "inertial",
+      "affected_obligations": ["Duty of impartiality", "Disclosure requirements"],
+      "temporal_properties": "Persists until formally addressed through recusal or disclosure",
+      "domain_context": "Engineering",
+      "examples_from_case": ["Engineer A discovered brother worked for ABC Contractors"],
       "confidence": 0.85,
-      "rationale": "Why this is a distinct state type"
+      "rationale": "Specific type of conflict not covered by general COI in existing ontology"
     }}
   ],
   "state_individuals": [
     {{
-      "identifier": "PersonName_StateType_Context",
-      "state_class": "State Type Name",
-      "subject": "Person or Organization Name",
-      "initiated_by": "Event that triggered this state",
-      "initiated_at": "When state began",
-      "terminated_by": "Event that ended this state (or 'ongoing')",
-      "terminated_at": "When state ended (or 'ongoing')",
-      "affects_obligations": ["specific obligation 1", "specific obligation 2"],
-      "urgency_level": "low|medium|high|critical",
-      "related_parties": ["Party A", "Party B"],
-      "case_involvement": "How this state affected the case",
+      "identifier": "EngineerA_FamilyConflict_ABCContractors",
+      "state_class": "Family Conflict of Interest",
+      "subject": "Engineer A",
+      "initiated_by": "Discovery that brother is senior manager at ABC Contractors",
+      "initiated_at": "When bidding process began",
+      "terminated_by": "Engineer A recused from contractor selection",
+      "terminated_at": "Two weeks after discovery",
+      "affects_obligations": ["Maintain impartial contractor selection", "Disclose conflicts to client"],
+      "urgency_level": "high",
+      "related_parties": ["Client B", "ABC Contractors", "Engineer A's brother"],
+      "case_involvement": "Led to Engineer A's recusal from contractor selection process",
       "is_existing_class": false,
       "confidence": 0.9
     }}
   ]
 }}
+
+YOUR RESPONSE FORMAT (use the same structure with YOUR case's specific details):
+{{
+  "new_state_classes": [
+    // For each new state type you discover
+  ],
+  "state_individuals": [
+    // For each specific instance in the case (MUST have at least one per new class)
+  ]
+}}
+
+EXTRACTION RULES:
+1. For EVERY new state class you identify, you MUST provide at least one corresponding state individual
+2. State individuals MUST have a clear subject (specific person/organization from the case)
+3. If you cannot identify a specific instance, do not create the state class
+4. States without subjects are invalid (e.g., cannot have "general emergency" - must be "City M's water emergency")
+5. Each state individual should clearly demonstrate why its state class is needed
 
 Focus on states that:
 1. Are attached to specific individuals or organizations mentioned in the case
@@ -207,6 +229,13 @@ Focus on states that:
 3. Affect specific ethical obligations or professional duties
 4. Show causal relationships with events in the case
 5. Demonstrate the context-dependent nature of professional ethics
+
+EXAMPLE OF CORRECT EXTRACTION:
+State Class: "Public Health Risk State"
+State Individual: "City_M_PublicHealthRisk_2023" with subject="City M", initiated_by="Decision to change water source", affects_obligations=["Ensure public safety", "Provide clean water"]
+
+EXAMPLE OF INCORRECT EXTRACTION:
+State Class: "Emergency Situation" with NO corresponding individual (INVALID - no specific instance)
 """
 
     def _format_existing_states_for_prompt(self) -> str:
