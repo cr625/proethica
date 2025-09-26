@@ -2,6 +2,13 @@
 
 ## Current Status (As of September 26, 2025)
 
+### Important: Clear All Entities Behavior
+**The "Clear All Entities" button in ProEthica now preserves committed entities:**
+- Only removes uncommitted/draft entities from temporary storage
+- Committed entities in OntServe are preserved and remain visible
+- ProEthica maintains records of what has been committed to OntServe
+- Users receive clear feedback about what was cleared vs. preserved
+
 ### ✅ **Classes in proethica-intermediate-extracted**
 **URL**: http://localhost:5003/ontology/proethica-intermediate-extracted
 
@@ -99,8 +106,26 @@ psql -h localhost -U postgres -d ontserve -c "SELECT name, entity_type, COUNT(*)
 ls -la /home/chris/onto/OntServe/ontologies/proethica-*.ttl
 ```
 
-## Summary
+## Complete Workflow with Clear All Protection
+
+### Safe Entity Management Workflow
+1. **Extract entities** from cases using ProEthica extraction
+2. **Review entities** at http://localhost:5000/scenario_pipeline/case/N/entities/review
+3. **Select and commit** desired entities to OntServe
+4. **Clear uncommitted** entities safely without affecting committed ones
+5. **View committed** entities permanently at http://localhost:5003/
+
+### Clear All Entities Behavior
+When you click "Clear All Entities":
+- **Deleted**: All uncommitted/draft entities in temporary storage
+- **Preserved**: All committed entities already saved to OntServe
+- **Database**: ProEthica records (is_committed=True) are preserved
+- **TTL Files**: proethica-intermediate-extracted.ttl and proethica-case-N.ttl remain intact
+- **Feedback**: UI shows detailed message about what was cleared and preserved
+
+### Summary
 ✅ Both classes and individuals are successfully stored and visible in OntServe
 ✅ Cumulative addition works - new entities are added without removing existing ones
 ✅ ProEthica commit workflow properly separates classes and individuals
 ✅ OntServe web interface displays all entities correctly at http://localhost:5003/
+✅ Clear All Entities safely removes only uncommitted entities while preserving committed ones

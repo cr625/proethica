@@ -381,15 +381,32 @@ def clear_all_entities(case_id):
         cleared_stats['legacy_concepts'] = db.session.query(TemporaryConcept).filter_by(document_id=case_id).count()
         db.session.query(TemporaryConcept).filter_by(document_id=case_id).delete()
 
-        # 2. Clear RDF storage (new format with classes and individuals)
+        # 2. Clear ONLY UNCOMMITTED RDF storage (preserve committed records)
         from app.models import TemporaryRDFStorage
-        cleared_stats['rdf_triples'] = db.session.query(TemporaryRDFStorage).filter_by(case_id=case_id).count()
-        db.session.query(TemporaryRDFStorage).filter_by(case_id=case_id).delete()
+
+        # Count committed entities that will be preserved
+        committed_count = db.session.query(TemporaryRDFStorage).filter_by(
+            case_id=case_id,
+            is_committed=True
+        ).count()
+
+        # Only delete uncommitted entities
+        cleared_stats['rdf_triples'] = db.session.query(TemporaryRDFStorage).filter_by(
+            case_id=case_id,
+            is_committed=False
+        ).count()
+        db.session.query(TemporaryRDFStorage).filter_by(
+            case_id=case_id,
+            is_committed=False
+        ).delete()
 
         # 3. Clear saved extraction prompts and responses
         from app.models.extraction_prompt import ExtractionPrompt
         cleared_stats['extraction_prompts'] = db.session.query(ExtractionPrompt).filter_by(case_id=case_id).count()
         db.session.query(ExtractionPrompt).filter_by(case_id=case_id).delete()
+
+        # Add committed count to stats
+        cleared_stats['preserved_committed'] = committed_count
 
         # Commit all changes
         db.session.commit()
@@ -397,12 +414,27 @@ def clear_all_entities(case_id):
         total_cleared = sum(cleared_stats.values())
         logger.info(f"Cleared all data for case {case_id}: {cleared_stats}")
 
+        # Create appropriate message based on what was cleared and preserved
+        message_parts = []
+        if cleared_stats['legacy_concepts'] > 0:
+            message_parts.append(f"{cleared_stats['legacy_concepts']} legacy entities")
+        if cleared_stats['rdf_triples'] > 0:
+            message_parts.append(f"{cleared_stats['rdf_triples']} uncommitted RDF records")
+        if cleared_stats['extraction_prompts'] > 0:
+            message_parts.append(f"{cleared_stats['extraction_prompts']} saved prompts")
+
+        message = f"Cleared {', '.join(message_parts)}" if message_parts else "No uncommitted entities to clear"
+
+        if committed_count > 0:
+            message += f". Preserved {committed_count} committed entities in OntServe."
+
         return jsonify({
             'success': True,
             'cleared_count': total_cleared,
+            'preserved_count': committed_count,
             'details': cleared_stats,
             'case_id': case_id,
-            'message': f"Cleared {cleared_stats['legacy_concepts']} legacy entities, {cleared_stats['rdf_triples']} RDF storage records, and {cleared_stats['extraction_prompts']} saved prompts"
+            'message': message
         })
 
     except Exception as e:
@@ -477,3 +509,93 @@ def get_case_summary(case_id):
     except Exception as e:
         logger.error(f"Error getting case summary for {case_id}: {e}")
         return jsonify({'error': str(e)})
+
+
+@bp.route('/case/<int:case_id>/entities/refresh_committed', methods=['POST'])
+def refresh_committed_from_ontserve(case_id):
+    """Refresh committed entities with live data from OntServe.
+
+    This addresses synchronization issues by pulling the latest versions
+    of committed entities from OntServe and updating ProEthica's records.
+    """
+    try:
+        from app.services.ontserve_data_fetcher import OntServeDataFetcher
+
+        # Get all committed entities from ProEthica
+        committed_entities = TemporaryRDFStorage.query.filter_by(
+            case_id=case_id,
+            is_committed=True
+        ).all()
+
+        if not committed_entities:
+            return jsonify({
+                'success': True,
+                'message': 'No committed entities to refresh',
+                'refreshed': 0
+            })
+
+        # Convert to dictionary format for comparison
+        proethica_entities = [entity.to_dict() for entity in committed_entities]
+
+        # Initialize fetcher and refresh
+        fetcher = OntServeDataFetcher()
+        refresh_result = fetcher.refresh_committed_entities(case_id, proethica_entities)
+
+        # Update ProEthica records with OntServe data if there are changes
+        update_count = 0
+        for detail in refresh_result['details']:
+            if detail['status'] == 'modified':
+                # Find the entity in ProEthica
+                entity_uri = detail['entity_uri']
+                entity = TemporaryRDFStorage.query.filter_by(
+                    case_id=case_id,
+                    entity_uri=entity_uri,
+                    is_committed=True
+                ).first()
+
+                if entity and 'ontserve_data' in detail:
+                    # Update with live data from OntServe
+                    ontserve_data = detail['ontserve_data']
+                    entity.entity_label = ontserve_data.get('label', entity.entity_label)
+                    entity.parent_uri = ontserve_data.get('parent_uri')
+                    entity.last_synced_at = datetime.utcnow()
+
+                    # Store the fact that this was synced
+                    if not entity.metadata:
+                        entity.metadata = {}
+                    entity.metadata['last_sync'] = {
+                        'timestamp': datetime.utcnow().isoformat(),
+                        'source': 'ontserve',
+                        'changes_detected': len(detail.get('changes', []))
+                    }
+
+                    update_count += 1
+
+        # Commit all updates
+        if update_count > 0:
+            db.session.commit()
+            logger.info(f"Updated {update_count} entities with OntServe data for case {case_id}")
+
+        # Prepare response message
+        message_parts = []
+        if refresh_result['unchanged'] > 0:
+            message_parts.append(f"{refresh_result['unchanged']} unchanged")
+        if refresh_result['modified'] > 0:
+            message_parts.append(f"{refresh_result['modified']} modified")
+        if refresh_result['not_found'] > 0:
+            message_parts.append(f"{refresh_result['not_found']} not found in OntServe")
+
+        message = f"Refreshed {refresh_result['refreshed']} entities: {', '.join(message_parts)}"
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'result': refresh_result
+        })
+
+    except Exception as e:
+        logger.error(f"Error refreshing committed entities from OntServe: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
