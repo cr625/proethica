@@ -102,6 +102,9 @@ class OntServeCommitService:
                 results['individuals_committed'] = individual_result['count']
                 if individual_result.get('error'):
                     results['errors'].append(individual_result['error'])
+                else:
+                    # Also refresh the case ontology to extract individuals
+                    self._refresh_case_ontology(case_id)
 
             # Mark entities as committed
             for entity in entities:
@@ -350,7 +353,7 @@ class OntServeCommitService:
         Runs the refresh_entity_extraction.py script to update the database.
         """
         try:
-            # Run refresh script for proethica-intermediate
+            # Run refresh script for proethica-intermediate-extracted (where new classes are stored)
             refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
 
             if not refresh_script.exists():
@@ -359,9 +362,9 @@ class OntServeCommitService:
                     'error': 'Refresh script not found'
                 }
 
-            # Run the script
+            # Refresh the extracted ontology to pick up new classes
             result = subprocess.run(
-                ["python", str(refresh_script), "proethica-intermediate"],
+                ["python", str(refresh_script), "proethica-intermediate-extracted"],
                 capture_output=True,
                 text=True,
                 cwd=str(self.ontserve_path)
@@ -395,6 +398,34 @@ class OntServeCommitService:
                 'success': False,
                 'error': str(e)
             }
+
+    def _refresh_case_ontology(self, case_id: int) -> Dict[str, Any]:
+        """
+        Refresh entity extraction for a case-specific ontology.
+
+        This updates the database to include individuals.
+        """
+        try:
+            refresh_script = self.ontserve_path / "scripts" / "refresh_entity_extraction.py"
+            case_ontology_name = f"proethica-case-{case_id}"
+
+            result = subprocess.run(
+                ["python", str(refresh_script), case_ontology_name],
+                capture_output=True,
+                text=True,
+                cwd=str(self.ontserve_path)
+            )
+
+            if result.returncode == 0:
+                logger.info(f"Successfully refreshed case ontology {case_ontology_name}")
+                return {'success': True}
+            else:
+                logger.error(f"Failed to refresh case ontology: {result.stderr}")
+                return {'success': False, 'error': result.stderr}
+
+        except Exception as e:
+            logger.error(f"Error refreshing case ontology: {e}")
+            return {'success': False, 'error': str(e)}
 
     def _camelCase(self, text: str) -> str:
         """Convert text to camelCase for property names."""
