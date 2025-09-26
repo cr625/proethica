@@ -205,25 +205,40 @@ def update_entity_selection(case_id):
 
 @bp.route('/case/<int:case_id>/entities/commit', methods=['POST'])
 def commit_entities_to_ontserve(case_id):
-    """Commit selected entities to OntServe permanent storage."""
+    """Commit selected RDF entities to OntServe permanent storage."""
     try:
+        # Import the new commit service
+        from app.services.ontserve_commit_service import OntServeCommitService
+
         data = request.get_json() if request.is_json else request.form
-        session_ids = data.get('session_ids', [])
-        commit_all_reviewed = data.get('commit_all_reviewed', False)
 
-        # Convert string session_ids to list if needed
-        if isinstance(session_ids, str):
-            session_ids = [session_ids]
+        # Handle both old format (session_ids) and new format (entity_ids)
+        entity_ids = data.get('entity_ids', [])
 
-        # Commit entities
-        result = CaseEntityStorageService.commit_selected_entities_to_ontserve(
-            case_id=case_id,
-            session_ids=session_ids if session_ids else None,
-            commit_all_reviewed=commit_all_reviewed
-        )
+        # If no entity_ids provided, get all selected RDF entities
+        if not entity_ids:
+            selected_entities = TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                is_selected=True,
+                is_committed=False
+            ).all()
+            entity_ids = [e.id for e in selected_entities]
+
+        if not entity_ids:
+            return jsonify({
+                'success': False,
+                'error': 'No entities selected for commit'
+            })
+
+        # Use the new commit service
+        commit_service = OntServeCommitService()
+        result = commit_service.commit_selected_entities(case_id, entity_ids)
 
         if result['success']:
-            message = f"Successfully committed {result['committed_count']} entities to OntServe"
+            message = f"Successfully committed {result['classes_committed']} classes and {result['individuals_committed']} individuals to OntServe"
+
+            if result.get('errors'):
+                message += f" (with {len(result['errors'])} warnings)"
 
             if request.is_json:
                 return jsonify({
@@ -258,6 +273,28 @@ def commit_entities_to_ontserve(case_id):
         else:
             flash(error_msg, 'error')
             return redirect(url_for('entity_review.review_case_entities', case_id=case_id))
+
+
+@bp.route('/case/<int:case_id>/entities/commit_status')
+def get_commit_status(case_id):
+    """Get the commit status for a case."""
+    try:
+        from app.services.ontserve_commit_service import OntServeCommitService
+
+        commit_service = OntServeCommitService()
+        status = commit_service.get_commit_status(case_id)
+
+        return jsonify({
+            'success': True,
+            'status': status
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting commit status: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 
 @bp.route('/case/<int:case_id>/entities/sessions')

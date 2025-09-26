@@ -275,6 +275,11 @@
                                             </td>
                                             <td>
                                                 <strong>{{ cls.entity_label }}</strong>
+                                                {% if cls.is_committed %}
+                                                <span class="badge bg-success ms-2">
+                                                    <i class="fas fa-check-circle"></i> Committed
+                                                </span>
+                                                {% endif %}
                                                 <br/>
                                                 <small class="text-muted">rdfs:subClassOf {{ concept_type|title }}</small>
                                             </td>
@@ -375,6 +380,11 @@
                                             </td>
                                             <td>
                                                 <strong>{{ indiv.entity_label }}</strong>
+                                                {% if indiv.is_committed %}
+                                                <span class="badge bg-success ms-2">
+                                                    <i class="fas fa-check-circle"></i> Committed
+                                                </span>
+                                                {% endif %}
                                                 <br/>
                                                 <small class="text-muted">Individual Instance</small>
                                             </td>
@@ -390,10 +400,11 @@
                                             <td>
                                                 <div class="rdf-properties" style="font-size: 0.85rem;">
                                                     {# Display properties - same approach as classes #}
+                                                    {# Use namespace to persist variable across loops #}
+                                                    {% set ns = namespace(has_content=false) %}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.properties %}
-                                                        {% set has_content = false %}
                                                         {% for prop_name, prop_values in indiv.rdf_json_ld.properties.items() if prop_name not in ['wasGeneratedAt', 'wasAttributedTo', 'discoveredInCase'] and prop_values %}
-                                                            {% set has_content = true %}
+                                                            {% set ns.has_content = true %}
                                                             <div class="mb-1 property-item" data-property="{{ prop_name }}" data-type="property">
                                                                 <strong class="property-name">
                                                                     {{ prop_name | camel_to_readable }}:
@@ -430,7 +441,7 @@
 
                                                     {# Display relationships #}
                                                     {% if indiv.rdf_json_ld and indiv.rdf_json_ld.relationships %}
-                                                        {% set has_content = true %}
+                                                        {% set ns.has_content = true %}
                                                         {% for rel in indiv.rdf_json_ld.relationships %}
                                                             <div class="mb-1 property-item" data-property="{{ rel.type }}" data-type="relation">
                                                                 <strong class="property-name">
@@ -444,7 +455,7 @@
                                                     {% endif %}
 
                                                     {# Show message if no content #}
-                                                    {% if not has_content %}
+                                                    {% if not ns.has_content %}
                                                         <small class="text-muted">No properties or relations</small>
                                                     {% endif %}
                                                 </div>
@@ -785,7 +796,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     console.log('Response data:', data);
                     if (data.success) {
-                        alert(`Successfully committed ${data.result.committed_count} entities to OntServe`);
+                        // Updated to show classes and individuals separately
+                        let message = `Successfully committed:\n`;
+                        message += `• ${data.result.classes_committed || 0} new classes to proethica-intermediate-extracted\n`;
+                        message += `• ${data.result.individuals_committed || 0} individuals to proethica-case-${caseId}`;
+
+                        if (data.result.errors && data.result.errors.length > 0) {
+                            message += `\n\nWarnings:\n` + data.result.errors.join('\n');
+                        }
+
+                        alert(message);
                         location.reload();
                     } else {
                         alert(`Error: ${data.error}`);
