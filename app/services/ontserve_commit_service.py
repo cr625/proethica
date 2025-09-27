@@ -304,6 +304,10 @@ class OntServeCommitService:
             g.serialize(destination=case_file, format='turtle')
             logger.info(f"Committed {count} individuals to {case_file}")
 
+            # Register the case ontology if it's new
+            if not case_file.exists() or count > 0:
+                self._register_case_ontology(case_id)
+
             return {'count': count, 'file': str(case_file)}
 
         except Exception as e:
@@ -398,6 +402,40 @@ class OntServeCommitService:
                 'success': False,
                 'error': str(e)
             }
+
+    def _register_case_ontology(self, case_id: int) -> Dict[str, Any]:
+        """
+        Register a new case ontology in the OntServe database.
+
+        This ensures the case ontology appears in the web interface and can be queried.
+        """
+        try:
+            register_script = self.ontserve_path / "scripts" / "register_case_ontologies.py"
+
+            if not register_script.exists():
+                logger.warning("Registration script not found, trying to register via refresh")
+                # Fallback to just trying refresh
+                return self._refresh_case_ontology(case_id)
+
+            # Run the registration script
+            result = subprocess.run(
+                ["python", str(register_script)],
+                capture_output=True,
+                text=True,
+                cwd=str(self.ontserve_path)
+            )
+
+            if result.returncode == 0:
+                logger.info(f"Successfully registered case-{case_id} ontology")
+                return {'success': True}
+            else:
+                logger.error(f"Failed to register case ontology: {result.stderr}")
+                # Try refresh as fallback
+                return self._refresh_case_ontology(case_id)
+
+        except Exception as e:
+            logger.error(f"Error registering case ontology: {e}")
+            return {'success': False, 'error': str(e)}
 
     def _refresh_case_ontology(self, case_id: int) -> Dict[str, Any]:
         """
