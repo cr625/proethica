@@ -511,12 +511,65 @@ def get_case_summary(case_id):
         return jsonify({'error': str(e)})
 
 
+@bp.route('/ontology/clear_extracted_classes', methods=['POST'])
+def clear_extracted_classes():
+    """Clear all extracted classes from proethica-intermediate-extracted.ttl.
+
+    This is useful for testing with a clean slate.
+    Creates a backup before clearing.
+    """
+    try:
+        from app.services.ontserve_commit_service import OntServeCommitService
+
+        commit_service = OntServeCommitService()
+        result = commit_service.clear_extracted_classes()
+
+        if result['success']:
+            message = result.get('message', 'Successfully cleared extracted classes')
+
+            if request.is_json:
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'result': result
+                })
+            else:
+                flash(message, 'success')
+                # Redirect to a sensible location - maybe the main page
+                return redirect(url_for('index.index'))
+        else:
+            error_msg = f"Failed to clear extracted classes: {result.get('error', 'Unknown error')}"
+
+            if request.is_json:
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                })
+            else:
+                flash(error_msg, 'error')
+                return redirect(url_for('index.index'))
+
+    except Exception as e:
+        logger.error(f"Error clearing extracted classes: {e}")
+        error_msg = f"Error clearing extracted classes: {str(e)}"
+
+        if request.is_json:
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            })
+        else:
+            flash(error_msg, 'error')
+            return redirect(url_for('index.index'))
+
+
 @bp.route('/case/<int:case_id>/entities/refresh_committed', methods=['POST'])
 def refresh_committed_from_ontserve(case_id):
     """Refresh committed entities with live data from OntServe.
 
     This addresses synchronization issues by pulling the latest versions
     of committed entities from OntServe and updating ProEthica's records.
+    Also removes entities that have been deleted from OntServe.
     """
     try:
         from app.services.ontserve_data_fetcher import OntServeDataFetcher
@@ -543,6 +596,8 @@ def refresh_committed_from_ontserve(case_id):
 
         # Update ProEthica records with OntServe data if there are changes
         update_count = 0
+        delete_count = 0
+
         for detail in refresh_result['details']:
             if detail['status'] == 'modified':
                 # Find the entity in ProEthica
@@ -571,26 +626,43 @@ def refresh_committed_from_ontserve(case_id):
 
                     update_count += 1
 
-        # Commit all updates
-        if update_count > 0:
+            elif detail['status'] == 'not_found':
+                # Entity was deleted from OntServe, remove from ProEthica
+                entity_uri = detail['entity_uri']
+                entity = TemporaryRDFStorage.query.filter_by(
+                    case_id=case_id,
+                    entity_uri=entity_uri,
+                    is_committed=True
+                ).first()
+
+                if entity:
+                    db.session.delete(entity)
+                    delete_count += 1
+                    logger.info(f"Removed deleted entity {entity_uri} from ProEthica")
+
+        # Commit all updates and deletions
+        if update_count > 0 or delete_count > 0:
             db.session.commit()
-            logger.info(f"Updated {update_count} entities with OntServe data for case {case_id}")
+            logger.info(f"Updated {update_count} entities and removed {delete_count} deleted entities for case {case_id}")
 
         # Prepare response message
         message_parts = []
         if refresh_result['unchanged'] > 0:
             message_parts.append(f"{refresh_result['unchanged']} unchanged")
         if refresh_result['modified'] > 0:
-            message_parts.append(f"{refresh_result['modified']} modified")
-        if refresh_result['not_found'] > 0:
-            message_parts.append(f"{refresh_result['not_found']} not found in OntServe")
+            message_parts.append(f"{refresh_result['modified']} updated")
+        if delete_count > 0:
+            message_parts.append(f"{delete_count} removed (deleted from OntServe)")
+        elif refresh_result['not_found'] > 0:
+            message_parts.append(f"{refresh_result['not_found']} removed (not found in OntServe)")
 
         message = f"Refreshed {refresh_result['refreshed']} entities: {', '.join(message_parts)}"
 
         return jsonify({
             'success': True,
             'message': message,
-            'result': refresh_result
+            'result': refresh_result,
+            'deleted_count': delete_count
         })
 
     except Exception as e:

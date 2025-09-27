@@ -159,7 +159,10 @@
                         <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
                     </button>
                     <button id="clearAllEntitiesBtn" class="btn btn-warning">
-                        Clear All Entities
+                        Clear All Uncommitted
+                    </button>
+                    <button id="clearExtractedClassesBtn" class="btn btn-danger">
+                        Clear Extracted Classes
                     </button>
                     <button id="commitSelectedBtn" class="btn btn-success">
                         Commit Selected to OntServe
@@ -866,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert(message);
 
                     // Reload the page to show updated data
-                    if (data.result && data.result.modified > 0) {
+                    if ((data.result && data.result.modified > 0) || data.deleted_count > 0) {
                         location.reload();
                     }
                 } else {
@@ -885,11 +888,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Clear all entities button
+    // Clear extracted classes button
+    const clearExtractedBtn = document.getElementById('clearExtractedClassesBtn');
+    if (clearExtractedBtn) {
+        clearExtractedBtn.addEventListener('click', function() {
+            if (confirm('This will clear ALL extracted classes from proethica-intermediate-extracted.ttl.\n\nA backup will be created before clearing.\n\nAre you sure you want to continue?')) {
+                this.disabled = true;
+                const originalText = this.innerHTML;
+                this.innerHTML = 'Clearing Classes...';
+
+                appFetch('/scenario_pipeline/ontology/clear_extracted_classes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let message = data.message || 'Successfully cleared extracted classes';
+                        if (data.result && data.result.backup_file) {
+                            message += `\n\nBackup saved to: ${data.result.backup_file}`;
+                        }
+                        alert(message);
+
+                        // Reload to reflect changes
+                        location.reload();
+                    } else {
+                        alert('Error clearing extracted classes: ' + (data.error || 'Unknown error'));
+                    }
+
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                })
+                .catch(error => {
+                    console.error('Error clearing extracted classes:', error);
+                    alert('Error clearing extracted classes: ' + error.message);
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
+            }
+        });
+    }
+
+    // Clear all uncommitted entities button
     const clearBtn = document.getElementById('clearAllEntitiesBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {
-            if (confirm('Clear ALL entities for this case? This cannot be undone.')) {
+            if (confirm('This will clear ONLY uncommitted entities for this case.\n\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
                 this.disabled = true;
                 this.textContent = 'Clearing...';
 
@@ -921,7 +967,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .finally(() => {
                     this.disabled = false;
-                    this.textContent = 'Clear All Entities';
+                    this.textContent = 'Clear All Uncommitted';
                 });
             }
         });
