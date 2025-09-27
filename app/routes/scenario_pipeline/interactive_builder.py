@@ -139,6 +139,18 @@ def step2_extract_individual(case_id):
     from .step2 import extract_individual_concept as individual_handler
     return individual_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step2/get_saved_prompt', methods=['GET'])
+def step2_get_saved_prompt(case_id):
+    """API endpoint to get saved extraction prompt for Step 2"""
+    from .step2 import get_saved_prompt as prompt_handler
+    return prompt_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step2/clear_prompt', methods=['POST'])
+def step2_clear_prompt(case_id):
+    """API endpoint to clear saved extraction prompt for Step 2"""
+    from .step2 import clear_saved_prompt as clear_handler
+    return clear_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/step3')
 def step3(case_id):
     """Route handler for Step 3: Behavioral Pass (States + Actions + Events + Capabilities) on Facts Section"""

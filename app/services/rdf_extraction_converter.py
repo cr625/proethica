@@ -770,3 +770,221 @@ class RDFExtractionConverter:
             result["new_individuals"].append(indiv_info)
 
         return result
+
+    def convert_principles_extraction_to_rdf(self,
+                                            extraction_result: Dict[str, Any],
+                                            case_id: int,
+                                            extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+        """
+        Convert principles extraction result to RDF triples.
+
+        Based on Chapter 2.2.2 literature:
+        - Principles are abstract ethical foundations requiring extensional definition
+        - They function like constitutional principles requiring interpretation
+        - They mediate moral ideals into concrete reality
+
+        Args:
+            extraction_result: Raw LLM extraction with new_principle_classes and principle_individuals
+            case_id: ID of the case this extraction is from
+            extraction_timestamp: When the extraction occurred
+
+        Returns:
+            Tuple of (class_graph, individual_graph)
+        """
+        timestamp = extraction_timestamp or datetime.utcnow()
+
+        # Clear graphs for new conversion
+        self.class_graph = Graph()
+        self.individual_graph = Graph()
+        self._bind_prefixes()
+
+        # Process new principle classes
+        for principle_class in extraction_result.get('new_principle_classes', []):
+            self._add_principle_class_to_graph(principle_class, case_id, timestamp)
+
+        # Process principle individuals
+        for individual in extraction_result.get('principle_individuals', []):
+            self._add_principle_individual_to_graph(individual, case_id, timestamp)
+
+        return self.class_graph, self.individual_graph
+
+    def _add_principle_class_to_graph(self, principle_class: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add a new principle class to the RDF graph"""
+        # Create URI for the principle class
+        class_label = principle_class.get('label', 'UnknownPrinciple')
+        safe_label = class_label.replace(" ", "")
+        class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Add class type and label
+        self.class_graph.add((class_uri, RDF.type, OWL.Class))
+        self.class_graph.add((class_uri, RDFS.label, Literal(class_label)))
+
+        # Add parent class (subClassOf Principle)
+        self.class_graph.add((class_uri, RDFS.subClassOf, self.PROETHICA.Principle))
+
+        # Add definition
+        if principle_class.get('definition'):
+            self.class_graph.add((class_uri, RDFS.comment, Literal(principle_class['definition'])))
+
+        # Add principle-specific properties
+        if principle_class.get('abstract_nature'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasAbstractNature"),
+                Literal(principle_class['abstract_nature'])
+            ))
+
+        if principle_class.get('value_basis'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasValueBasis"),
+                Literal(principle_class['value_basis'])
+            ))
+
+        if principle_class.get('operationalization'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasOperationalization"),
+                Literal(principle_class['operationalization'])
+            ))
+
+        # Add extensional examples (key for principles per McLaren)
+        for example in principle_class.get('extensional_examples', []):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasExtensionalExample"),
+                Literal(example)
+            ))
+
+        # Add application contexts
+        for context in principle_class.get('application_context', []):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}hasApplicationContext"),
+                Literal(context)
+            ))
+
+        # Add balancing requirements (principles often conflict)
+        for req in principle_class.get('balancing_requirements', []):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA}requiresBalancingWith"),
+                Literal(req)
+            ))
+
+        # Add extraction metadata
+        self.class_graph.add((
+            class_uri,
+            URIRef(f"{self.PROETHICA_PROV}discoveredInCase"),
+            Literal(case_id, datatype=XSD.integer)
+        ))
+
+        if principle_class.get('confidence'):
+            self.class_graph.add((
+                class_uri,
+                URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
+                Literal(principle_class['confidence'], datatype=XSD.float)
+            ))
+
+        # Add provenance
+        self.class_graph.add((class_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Principles Extraction")))
+        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def _add_principle_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add a principle individual (specific instance) to the RDF graph"""
+        # Create URI for the individual
+        identifier = individual.get('identifier', f'Principle_{case_id}_{uuid.uuid4().hex[:8]}')
+        safe_identifier = identifier.replace(" ", "")
+        individual_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}#{safe_identifier}")
+
+        # Add individual type
+        self.individual_graph.add((individual_uri, RDF.type, OWL.NamedIndividual))
+
+        # Link to principle class
+        principle_class = individual.get('principle_class', 'Principle')
+        if individual.get('is_new_principle_class'):
+            # Link to newly discovered class
+            safe_class = principle_class.replace(" ", "")
+            class_uri = URIRef(f"{self.PROETHICA_INT}{safe_class}")
+        else:
+            # Try to find existing class URI
+            class_uri = self._find_existing_class_uri(principle_class, 'Principle')
+
+        self.individual_graph.add((individual_uri, RDF.type, class_uri))
+        self.individual_graph.add((individual_uri, RDFS.label, Literal(identifier)))
+
+        # Add concrete expression (how principle is stated in case)
+        if individual.get('concrete_expression'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasConcreteExpression"),
+                Literal(individual['concrete_expression'])
+            ))
+
+        # Add who invokes the principle
+        for invoker in individual.get('invoked_by', []):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}invokedBy"),
+                Literal(invoker)
+            ))
+
+        # Add what the principle applies to
+        for application in individual.get('applied_to', []):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}appliedTo"),
+                Literal(application)
+            ))
+
+        # Add interpretation (context-specific)
+        if individual.get('interpretation'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasInterpretation"),
+                Literal(individual['interpretation'])
+            ))
+
+        # Add principles it must be balanced with
+        for other_principle in individual.get('balancing_with', []):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}balancedWith"),
+                Literal(other_principle)
+            ))
+
+        # Add tension resolution
+        if individual.get('tension_resolution'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasTensionResolution"),
+                Literal(individual['tension_resolution'])
+            ))
+
+        # Add case relevance
+        if individual.get('case_relevance'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA}hasCaseRelevance"),
+                Literal(individual['case_relevance'])
+            ))
+
+        # Add case section
+        if individual.get('case_section'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA_CASES}inSection"),
+                Literal(individual['case_section'])
+            ))
+
+        # Add confidence
+        if individual.get('confidence'):
+            self.individual_graph.add((
+                individual_uri,
+                URIRef(f"{self.PROETHICA_PROV}confidenceScore"),
+                Literal(individual['confidence'], datatype=XSD.float)
+            ))
+
+        # Add provenance
+        self.individual_graph.add((individual_uri, PROV.wasGeneratedBy, Literal("ProEthica Dual Principles Extraction")))
+        self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))

@@ -127,17 +127,111 @@ def extract_individual_concept(case_id):
         activity = None
 
         if concept_type == 'principles':
-            extraction_prompt = create_enhanced_principles_prompt(section_text, include_mcp_context=True)
-            with prov.track_activity(
-                activity_type='llm_query',
-                activity_name=f'{concept_type}_extraction',
+            # Use dual principles extractor for both classes and individuals
+            from app.services.extraction.dual_principles_extractor import DualPrinciplesExtractor
+            from models import ModelConfig
+
+            extractor = DualPrinciplesExtractor()
+
+            # Generate the prompt for display
+            extraction_prompt = extractor._create_dual_principle_extraction_prompt(section_text, 'discussion')
+
+            # Extract both classes and individuals
+            candidate_classes, principle_individuals = extractor.extract_dual_principles(
+                case_text=section_text,
                 case_id=case_id,
-                session_id=session_id,
-                agent_type='extraction_service',
-                agent_name='EnhancedPrinciplesExtractor'
-            ) as activity:
-                extractor = EnhancedPrinciplesExtractor(llm_client=llm_client, provenance_service=prov)
-                candidates = extractor.extract(section_text, context=context, activity=activity)
+                section_type='discussion'
+            )
+
+            # Get raw LLM response for RDF conversion
+            raw_llm_response = extractor.get_last_raw_response()
+
+            # Save prompt and response
+            from app.models import ExtractionPrompt
+            try:
+                ExtractionPrompt.save_prompt(
+                    case_id=case_id,
+                    concept_type='principles',
+                    prompt_text=extraction_prompt,
+                    raw_response=raw_llm_response,
+                    step_number=2,
+                    llm_model=ModelConfig.get_claude_model("powerful"),
+                    extraction_session_id=session_id
+                )
+            except Exception as e:
+                logger.warning(f"Could not save extraction prompt: {e}")
+
+            # Convert to RDF if we have the raw response
+            if raw_llm_response:
+                try:
+                    import re
+                    # Try to extract JSON from potentially mixed response
+                    try:
+                        raw_data = json.loads(raw_llm_response)
+                    except json.JSONDecodeError:
+                        json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
+                        if json_match:
+                            raw_data = json.loads(json_match.group())
+                        else:
+                            raw_data = {"new_principle_classes": [], "principle_individuals": []}
+
+                    # Convert to RDF
+                    from app.services.rdf_extraction_converter import RDFExtractionConverter
+                    rdf_converter = RDFExtractionConverter()
+                    class_graph, individual_graph = rdf_converter.convert_principles_extraction_to_rdf(
+                        raw_data, case_id
+                    )
+
+                    # Store in temporary RDF storage
+                    from app.models import TemporaryRDFStorage
+                    rdf_data = rdf_converter.get_temporary_triples()
+                    TemporaryRDFStorage.store_extraction_results(
+                        case_id=case_id,
+                        extraction_session_id=session_id,
+                        extraction_type='principles',
+                        rdf_data=rdf_data,
+                        extraction_model=ModelConfig.get_claude_model("powerful")
+                    )
+                except Exception as e:
+                    logger.error(f"Error converting principles to RDF: {e}")
+
+            # Convert to candidates format for compatibility
+            candidates = []
+            for cls in candidate_classes:
+                from app.services.extraction.base import ConceptCandidate
+                candidates.append(ConceptCandidate(
+                    label=cls.label,
+                    description=cls.definition,
+                    primary_type='principle',
+                    category='principle',
+                    confidence=cls.confidence,
+                    debug={
+                        'abstract_nature': cls.abstract_nature,
+                        'value_basis': cls.value_basis,
+                        'extensional_examples': cls.extensional_examples,
+                        'application_context': cls.application_context,
+                        'operationalization': cls.operationalization,
+                        'is_class': True
+                    }
+                ))
+
+            for ind in principle_individuals:
+                from app.services.extraction.base import ConceptCandidate
+                candidates.append(ConceptCandidate(
+                    label=ind.identifier,
+                    description=ind.concrete_expression,
+                    primary_type='principle_instance',
+                    category='principle',
+                    confidence=ind.confidence,
+                    debug={
+                        'principle_class': ind.principle_class,
+                        'invoked_by': ind.invoked_by,
+                        'applied_to': ind.applied_to,
+                        'interpretation': ind.interpretation,
+                        'balancing_with': ind.balancing_with,
+                        'is_individual': True
+                    }
+                ))
 
         elif concept_type == 'obligations':
             # For individual extraction, don't include principles context
@@ -331,6 +425,18 @@ def step2(case_id):
             facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
         
         # Template context
+        # Load saved prompts for all concept types
+        from app.models import ExtractionPrompt
+        saved_prompts = {}
+        for concept_type in ['principles', 'obligations', 'constraints', 'capabilities']:
+            saved_prompt = ExtractionPrompt.get_active_prompt(
+                case_id=case_id,
+                concept_type=concept_type,
+                step_number=2
+            )
+            if saved_prompt:
+                saved_prompts[concept_type] = saved_prompt
+
         context = {
             'case': case,
             'discussion_section': facts_section,  # Keep variable name for template compatibility
@@ -338,15 +444,65 @@ def step2(case_id):
             'current_step': 2,
             'step_title': 'Normative Pass - Facts Section',
             'next_step_url': url_for('scenario_pipeline.step3', case_id=case_id),
-            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id)
+            'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
+            'saved_prompts': saved_prompts
         }
-        
-        return render_template('scenarios/step2.html', **context)
+
+        return render_template('scenarios/step2_multi_section.html', **context)
         
     except Exception as e:
         logger.error(f"Error loading step 2 for case {case_id}: {str(e)}")
         flash(f'Error loading step 2: {str(e)}', 'danger')
         return redirect(url_for('cases.view_case', id=case_id))
+
+def get_saved_prompt(case_id):
+    """Get saved extraction prompt for a concept type in Step 2"""
+    from app.models import ExtractionPrompt
+
+    concept_type = request.args.get('concept_type')
+    if not concept_type:
+        return jsonify({'error': 'concept_type is required'}), 400
+
+    saved_prompt = ExtractionPrompt.get_active_prompt(
+        case_id=case_id,
+        concept_type=concept_type,
+        step_number=2
+    )
+
+    if saved_prompt:
+        return jsonify({
+            'success': True,
+            'prompt_text': saved_prompt.prompt_text,
+            'raw_response': saved_prompt.raw_response,
+            'created_at': saved_prompt.created_at.isoformat() if saved_prompt.created_at else None
+        })
+    else:
+        return jsonify({'success': False, 'message': 'No saved prompt found'})
+
+def clear_saved_prompt(case_id):
+    """Clear saved extraction prompt for a concept type in Step 2"""
+    from app.models import ExtractionPrompt, db
+
+    data = request.get_json()
+    concept_type = data.get('concept_type')
+
+    if not concept_type:
+        return jsonify({'error': 'concept_type is required'}), 400
+
+    try:
+        # Deactivate existing prompts for this case/concept/step
+        ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type=concept_type,
+            step_number=2,
+            is_active=True
+        ).update({'is_active': False})
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Cleared prompt for {concept_type}'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to clear prompt: {str(e)}'}), 500
 
 def normative_pass_prompt(case_id):
     """
