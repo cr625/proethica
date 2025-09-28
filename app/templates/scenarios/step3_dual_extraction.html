@@ -1,0 +1,640 @@
+{% extends "scenarios/base_step.html" %}
+
+{% block step_title %}Step 3: Temporal Dynamics Pass - Facts Section{% endblock %}
+{% block step_header %}Step 3: Temporal Dynamics Pass (Facts){% endblock %}
+{% block step_subtitle %}Extract actions and events from the facts section with Allen's Interval Algebra and causal relationships{% endblock %}
+
+{% block step_navigation %}
+<div class="d-flex justify-content-between mb-3">
+    <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Step 2
+    </a>
+    <div>
+        <a href="{{ url_for('entity_review.review_case_entities', case_id=case.id) }}" class="btn btn-info me-2">
+            <i class="bi bi-list-check"></i> Review All Entities
+        </a>
+        <a href="{{ url_for('scenario_pipeline.complete_analysis', case_id=case.id) }}" class="btn btn-success">
+            Complete Analysis <i class="bi bi-cogs"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block step_content %}
+<div class="step-card">
+    <div class="step-header">
+        <h4 class="mb-0">
+            <i class="bi bi-file-text"></i> Facts Section
+        </h4>
+    </div>
+    <div class="step-content">
+        {% if discussion_section %}
+        <div class="alert alert-info mb-3">
+            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Section Content:</h6>
+            <pre class="discussion-text">{{ discussion_section.llm_text }}</pre>
+        </div>
+
+        <!-- Full Temporal Dynamics Pass Button -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+            <button id="temporalPassBtn" class="btn btn-warning btn-lg" onclick="executeFullTemporalPass()">
+                <i class="bi bi-clock-history"></i> Full Temporal Dynamics Pass
+                <small class="d-block">Original Implementation: Legacy Actions + Events Extraction</small>
+            </button>
+        </div>
+
+        <!-- Individual Dual Extractor Section -->
+
+        <!-- ACTIONS & EVENTS DUAL EXTRACTION SECTION -->
+        <div class="extractor-section mb-4" id="actionsEventsSection">
+            <div class="step-card border-warning">
+                <div class="step-header bg-warning bg-opacity-10">
+                    <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-clock text-warning"></i> Actions & Events Dual Extraction</span>
+                        <div>
+                            <button class="btn btn-sm btn-outline-warning me-2" onclick="regenerateActionsEventsPrompt()">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                            <button class="btn btn-warning" onclick="extractIndividualConcept('actions_events')">
+                                <i class="bi bi-play-circle"></i> Extract Actions & Events
+                            </button>
+                        </div>
+                    </h5>
+                </div>
+                <div class="step-content">
+                    <!-- Prompt Preview -->
+                    <div class="mb-3">
+                        <h6 class="text-muted">
+                            <i class="bi bi-cpu"></i> LLM Prompt
+                            <small>(Will be displayed after generation)</small>
+                        </h6>
+                        <div id="actionsEventsPrompt" class="prompt-preview">
+                            <em class="text-muted">Click "Extract Actions & Events" to generate and view the prompt...</em>
+                        </div>
+                    </div>
+
+                    <!-- Results Container -->
+                    <div id="actionsEventsResults" class="results-container" style="display: none;">
+                        <h6 class="text-success"><i class="bi bi-check-circle"></i> Extraction Results</h6>
+                        <div id="actionsEventsResultsContent"></div>
+                    </div>
+
+                    <!-- Raw Response Container -->
+                    <div id="actionsEventsRawResponse" class="raw-response-container" style="display: none;">
+                        <h6 class="text-info"><i class="bi bi-code-square"></i> Raw LLM Response</h6>
+                        <div id="actionsEventsRawResponseContent"></div>
+                    </div>
+
+                    <!-- Metadata Container -->
+                    <div id="actionsEventsMetadata" class="metadata-container" style="display: none;">
+                        <h6 class="text-secondary"><i class="bi bi-info-circle"></i> Extraction Metadata</h6>
+                        <div id="actionsEventsMetadataContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Allen's Interval Algebra Reference -->
+        <div class="step-card border-info mb-4">
+            <div class="step-header bg-info bg-opacity-10">
+                <h5 class="mb-0"><i class="bi bi-diagram-3 text-info"></i> Allen's Interval Algebra Reference</h5>
+            </div>
+            <div class="step-content">
+                <div class="alert alert-light">
+                    <h6>Temporal Relations Used in Extraction:</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="mb-0">
+                                <li><strong>before:</strong> A finishes before B starts</li>
+                                <li><strong>after:</strong> A starts after B finishes</li>
+                                <li><strong>meets:</strong> A finishes exactly when B starts</li>
+                                <li><strong>overlaps:</strong> A and B partially overlap</li>
+                                <li><strong>during:</strong> A occurs completely within B</li>
+                                <li><strong>starts:</strong> A and B start together, A finishes first</li>
+                                <li><strong>finishes:</strong> A and B finish together, A starts later</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="mb-0">
+                                <li><strong>equals:</strong> A and B have same start and end times</li>
+                                <li><strong>contains:</strong> A contains B completely</li>
+                                <li><strong>started-by:</strong> B starts with A, B finishes after A</li>
+                                <li><strong>finished-by:</strong> B finishes with A, B starts before A</li>
+                                <li><strong>met-by:</strong> B finishes exactly when A starts</li>
+                                <li><strong>overlapped-by:</strong> B and A partially overlap (B first)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            No facts section found in this case. Using available section.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Navigation to entity review -->
+<div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+    <a href="{{ url_for('entity_review.review_case_entities_pass3', case_id=case.id) }}" class="btn btn-outline-primary">
+        <i class="bi bi-eye"></i> Review Pass 3 Entities
+    </a>
+</div>
+
+{% endblock %}
+
+{% block step_styles %}
+<style>
+    .discussion-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.25rem;
+        border: none;
+        margin: 0;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    /* Temporal Pass Button Styling */
+    #temporalPassBtn {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    #temporalPassBtn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    #temporalPassBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Extractor Section Styling */
+    .extractor-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .extractor-section .step-card {
+        border-width: 2px;
+    }
+
+    .extractor-section .step-header {
+        border-bottom: 2px solid;
+        padding: 1rem;
+    }
+
+    .extractor-section .step-content {
+        padding: 1.5rem;
+    }
+
+    /* Prompt Preview Styling */
+    .prompt-preview {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    /* Results Container Styling */
+    .results-container {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .raw-response-container {
+        background: #e8f4fd;
+        border: 1px solid #0d6efd;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .metadata-container {
+        background: #f8f9fa;
+        border: 1px solid #6c757d;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    /* Concept Item Styling */
+    .concept-item {
+        background: white;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+    }
+
+    .concept-item.action-class {
+        border-left-color: #28a745;
+    }
+
+    .concept-item.action-individual {
+        border-left-color: #20c997;
+    }
+
+    .concept-item.event-class {
+        border-left-color: #ffc107;
+    }
+
+    .concept-item.event-individual {
+        border-left-color: #fd7e14;
+    }
+
+    .concept-label {
+        font-weight: bold;
+        color: #333;
+    }
+
+    .concept-description {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 0.25rem;
+    }
+
+    .concept-metadata {
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: 0.5rem;
+    }
+
+    .raw-response-text {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        background-color: #ffffff;
+        border: 1px solid #0d6efd;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    /* Allen Algebra Reference */
+    .alert-light {
+        background-color: #fefefe;
+        border-color: #fdfdfe;
+        color: #495057;
+    }
+
+    /* Loading states */
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .badge-action-class {
+        background-color: #28a745 !important;
+    }
+
+    .badge-action-individual {
+        background-color: #20c997 !important;
+    }
+
+    .badge-event-class {
+        background-color: #ffc107 !important;
+        color: #000 !important;
+    }
+
+    .badge-event-individual {
+        background-color: #fd7e14 !important;
+    }
+</style>
+{% endblock %}
+
+{% block step_scripts %}
+<script>
+    let currentSectionText = '';
+    let currentCaseId = {{ case.id }};
+
+    // Initialize section text and load saved raw response
+    document.addEventListener('DOMContentLoaded', function () {
+        const discussionTextElement = document.querySelector('.discussion-text');
+        if (discussionTextElement) {
+            currentSectionText = discussionTextElement.textContent.trim();
+        }
+
+        // Load saved raw response for actions_events
+        loadSavedRawResponse();
+    });
+
+    function loadSavedRawResponse() {
+        // Fetch saved extraction prompt and raw response
+        fetch(`/scenario_pipeline/case/${currentCaseId}/step3/get_saved_prompt?concept_type=actions_events`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.raw_response) {
+                    // Display the raw response
+                    const rawResponseDiv = document.getElementById('actionsEventsRawResponse');
+                    const rawResponseContent = document.getElementById('actionsEventsRawResponseContent');
+
+                    if (rawResponseDiv && rawResponseContent) {
+                        rawResponseContent.innerHTML = `<div class="raw-response-text">${escapeHtml(data.raw_response)}</div>`;
+                        rawResponseDiv.style.display = 'block';
+                    }
+                }
+            })
+            .catch(error => {
+                console.log('No saved raw response found or error loading:', error);
+            });
+    }
+
+    function executeFullTemporalPass() {
+        // This calls the original behavioral_pass_execute endpoint
+        const temporalBtn = document.getElementById('temporalPassBtn');
+
+        // Disable the button and show loading
+        temporalBtn.disabled = true;
+        temporalBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Executing Temporal Pass...';
+
+        // Call the existing endpoint
+        fetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirect to the standard step3 template to show full results
+                window.location.href = `/scenario_pipeline/case/${currentCaseId}/step3`;
+            } else {
+                alert('Error executing temporal pass: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error during temporal pass execution');
+        })
+        .finally(() => {
+            // Re-enable the button
+            temporalBtn.disabled = false;
+            temporalBtn.innerHTML = '<i class="bi bi-clock-history"></i> Full Temporal Dynamics Pass <small class="d-block">Original Implementation: Legacy Actions + Events Extraction</small>';
+        });
+    }
+
+    async function extractIndividualConcept(conceptType) {
+        if (conceptType !== 'actions_events') {
+            console.error('Only actions_events concept type supported');
+            return;
+        }
+
+        const section = document.getElementById('actionsEventsSection');
+        const promptDiv = document.getElementById('actionsEventsPrompt');
+        const resultsDiv = document.getElementById('actionsEventsResults');
+        const rawResponseDiv = document.getElementById('actionsEventsRawResponse');
+        const metadataDiv = document.getElementById('actionsEventsMetadata');
+
+        // Show loading
+        promptDiv.innerHTML = '<div class="loading-spinner"><div class="spinner-border text-warning" role="status"></div><span class="ms-2">Extracting actions & events...</span></div>';
+
+        // Hide previous results
+        resultsDiv.style.display = 'none';
+        rawResponseDiv.style.display = 'none';
+        metadataDiv.style.display = 'none';
+
+        try {
+            const response = await fetch(`/scenario_pipeline/case/${currentCaseId}/step3/extract_individual`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    concept_type: 'actions_events'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                displayActionsEventsResults(data);
+            } else {
+                displayActionsEventsError(data.error || 'Unknown error');
+            }
+
+        } catch (error) {
+            console.error('Error during actions/events extraction:', error);
+            displayActionsEventsError(error.message);
+        }
+    }
+
+    function displayActionsEventsResults(data) {
+        const promptDiv = document.getElementById('actionsEventsPrompt');
+        const resultsDiv = document.getElementById('actionsEventsResults');
+        const resultsContent = document.getElementById('actionsEventsResultsContent');
+        const rawResponseDiv = document.getElementById('actionsEventsRawResponse');
+        const rawResponseContent = document.getElementById('actionsEventsRawResponseContent');
+        const metadataDiv = document.getElementById('actionsEventsMetadata');
+        const metadataContent = document.getElementById('actionsEventsMetadataContent');
+
+        // Display prompt
+        promptDiv.innerHTML = `<div class="prompt-preview">${escapeHtml(data.prompt || 'Prompt not available')}</div>`;
+
+        // Display results
+        if (data.concepts && data.concepts.length > 0) {
+            let resultsHtml = '';
+
+            // Group by type
+            const actionClasses = data.concepts.filter(c => c.type === 'action_class');
+            const actionIndividuals = data.concepts.filter(c => c.type === 'action_individual');
+            const eventClasses = data.concepts.filter(c => c.type === 'event_class');
+            const eventIndividuals = data.concepts.filter(c => c.type === 'event_individual');
+
+            if (actionClasses.length > 0) {
+                resultsHtml += `<h6 class="text-success"><i class="bi bi-play-circle"></i> Action Classes (${actionClasses.length})</h6>`;
+                actionClasses.forEach(concept => {
+                    resultsHtml += createConceptItem(concept, 'action-class');
+                });
+            }
+
+            if (actionIndividuals.length > 0) {
+                resultsHtml += `<h6 class="text-success mt-3"><i class="bi bi-person"></i> Action Individuals (${actionIndividuals.length})</h6>`;
+                actionIndividuals.forEach(concept => {
+                    resultsHtml += createConceptItem(concept, 'action-individual');
+                });
+            }
+
+            if (eventClasses.length > 0) {
+                resultsHtml += `<h6 class="text-warning mt-3"><i class="bi bi-lightning"></i> Event Classes (${eventClasses.length})</h6>`;
+                eventClasses.forEach(concept => {
+                    resultsHtml += createConceptItem(concept, 'event-class');
+                });
+            }
+
+            if (eventIndividuals.length > 0) {
+                resultsHtml += `<h6 class="text-warning mt-3"><i class="bi bi-clock"></i> Event Individuals (${eventIndividuals.length})</h6>`;
+                eventIndividuals.forEach(concept => {
+                    resultsHtml += createConceptItem(concept, 'event-individual');
+                });
+            }
+
+            resultsContent.innerHTML = resultsHtml;
+        } else {
+            resultsContent.innerHTML = '<p class="text-muted">No actions or events extracted</p>';
+        }
+
+        // Display raw response
+        rawResponseContent.innerHTML = `<div class="raw-response-text">${escapeHtml(data.raw_response || 'Raw response not available')}</div>`;
+
+        // Display metadata
+        if (data.metadata) {
+            const metadata = data.metadata;
+            let metadataHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <small><strong>Model:</strong> ${metadata.model_used || 'Unknown'}</small><br>
+                        <small><strong>Method:</strong> ${metadata.extraction_method || 'Unknown'}</small><br>
+                        <small><strong>Session ID:</strong> ${metadata.session_id || 'Unknown'}</small>
+                    </div>
+                    <div class="col-md-6">
+                        <small><strong>Total Entities:</strong> ${metadata.concept_counts?.total || 0}</small><br>
+                        <small><strong>Temporal Relations:</strong> ${metadata.temporal_relationships ? 'Yes' : 'No'}</small><br>
+                        <small><strong>Allen Algebra:</strong> ${metadata.allen_algebra ? 'Yes' : 'No'}</small>
+                    </div>
+                </div>
+            `;
+
+            if (metadata.concept_counts) {
+                metadataHtml += `
+                    <div class="mt-2">
+                        <small><strong>Breakdown:</strong>
+                        ${metadata.concept_counts.action_classes || 0} Action Classes,
+                        ${metadata.concept_counts.action_individuals || 0} Action Individuals,
+                        ${metadata.concept_counts.event_classes || 0} Event Classes,
+                        ${metadata.concept_counts.event_individuals || 0} Event Individuals</small>
+                    </div>
+                `;
+            }
+
+            metadataContent.innerHTML = metadataHtml;
+        }
+
+        // Show all result containers
+        resultsDiv.style.display = 'block';
+        rawResponseDiv.style.display = 'block';
+        metadataDiv.style.display = 'block';
+
+        // Scroll to results
+        resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function createConceptItem(concept, typeClass) {
+        let badgeClass = 'bg-secondary';
+        if (typeClass === 'action-class') badgeClass = 'badge-action-class';
+        else if (typeClass === 'action-individual') badgeClass = 'badge-action-individual';
+        else if (typeClass === 'event-class') badgeClass = 'badge-event-class';
+        else if (typeClass === 'event-individual') badgeClass = 'badge-event-individual';
+
+        let debugInfo = '';
+        if (concept.debug) {
+            // Show relevant debug information based on type
+            if (concept.type.includes('action')) {
+                debugInfo = `
+                    <div class="concept-metadata">
+                        ${concept.debug.performed_by ? `<div><strong>Performed by:</strong> ${concept.debug.performed_by}</div>` : ''}
+                        ${concept.debug.temporal_interval ? `<div><strong>When:</strong> ${concept.debug.temporal_interval}</div>` : ''}
+                        ${concept.debug.volitional_requirement ? `<div><strong>Volitional:</strong> ${concept.debug.volitional_requirement}</div>` : ''}
+                        ${concept.debug.causal_triggers && concept.debug.causal_triggers.length ? `<div><strong>Triggered by:</strong> ${concept.debug.causal_triggers.join(', ')}</div>` : ''}
+                        ${concept.debug.causal_results && concept.debug.causal_results.length ? `<div><strong>Results in:</strong> ${concept.debug.causal_results.join(', ')}</div>` : ''}
+                        ${concept.debug.allen_relations && concept.debug.allen_relations.length ? `<div><strong>Temporal Relations:</strong> ${concept.debug.allen_relations.map(r => r.relation + ' ' + r.target).join(', ')}</div>` : ''}
+                    </div>
+                `;
+            } else if (concept.type.includes('event')) {
+                debugInfo = `
+                    <div class="concept-metadata">
+                        ${concept.debug.occurred_to ? `<div><strong>Occurred to:</strong> ${concept.debug.occurred_to}</div>` : ''}
+                        ${concept.debug.discovered_by ? `<div><strong>Discovered by:</strong> ${concept.debug.discovered_by}</div>` : ''}
+                        ${concept.debug.temporal_interval ? `<div><strong>When:</strong> ${concept.debug.temporal_interval}</div>` : ''}
+                        ${concept.debug.temporal_marker ? `<div><strong>Temporal Marker:</strong> ${concept.debug.temporal_marker}</div>` : ''}
+                        ${concept.debug.automatic_nature ? `<div><strong>Nature:</strong> ${concept.debug.automatic_nature}</div>` : ''}
+                        ${concept.debug.causal_triggers && concept.debug.causal_triggers.length ? `<div><strong>Triggered by:</strong> ${concept.debug.causal_triggers.join(', ')}</div>` : ''}
+                        ${concept.debug.causal_results && concept.debug.causal_results.length ? `<div><strong>Results in:</strong> ${concept.debug.causal_results.join(', ')}</div>` : ''}
+                        ${concept.debug.allen_relations && concept.debug.allen_relations.length ? `<div><strong>Temporal Relations:</strong> ${concept.debug.allen_relations.map(r => r.relation + ' ' + r.target).join(', ')}</div>` : ''}
+                    </div>
+                `;
+            }
+        }
+
+        return `
+            <div class="concept-item ${typeClass}">
+                <div class="concept-label">${concept.label}</div>
+                <div class="concept-description">${concept.description}</div>
+                <div class="mt-2">
+                    <span class="badge ${badgeClass} me-1">${concept.category}</span>
+                    <span class="badge bg-light text-dark">Confidence: ${(concept.confidence * 100).toFixed(0)}%</span>
+                </div>
+                ${debugInfo}
+            </div>
+        `;
+    }
+
+    function displayActionsEventsError(error) {
+        const promptDiv = document.getElementById('actionsEventsPrompt');
+        promptDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Error extracting actions & events: ${error}
+            </div>
+        `;
+    }
+
+    function regenerateActionsEventsPrompt() {
+        const promptDiv = document.getElementById('actionsEventsPrompt');
+        const resultsDiv = document.getElementById('actionsEventsResults');
+        const rawResponseDiv = document.getElementById('actionsEventsRawResponse');
+        const metadataDiv = document.getElementById('actionsEventsMetadata');
+
+        // Reset prompt
+        promptDiv.innerHTML = '<em class="text-muted">Click "Extract Actions & Events" to generate and view the prompt...</em>';
+
+        // Hide results
+        resultsDiv.style.display = 'none';
+        rawResponseDiv.style.display = 'none';
+        metadataDiv.style.display = 'none';
+    }
+
+    function getCsrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

@@ -175,6 +175,18 @@ def step3_extract(case_id):
     from .step3 import behavioral_pass_execute as execute_handler
     return execute_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step3/extract_individual', methods=['POST'])
+def step3_extract_individual(case_id):
+    """API endpoint for individual actions & events extraction in Step 3"""
+    from .step3 import extract_individual_actions_events as individual_handler
+    return individual_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step3/get_saved_prompt', methods=['GET'])
+def step3_get_saved_prompt(case_id):
+    """API endpoint to get saved extraction prompt for Step 3"""
+    from .step3 import step3_get_saved_prompt as prompt_handler
+    return prompt_handler(case_id)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/complete')
 def complete_analysis(case_id):
     """Route handler for Complete Analysis: Modular Pipeline for All Case Elements"""

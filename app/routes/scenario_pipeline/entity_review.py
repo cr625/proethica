@@ -197,20 +197,43 @@ def review_case_entities_pass3(case_id):
             return redirect(url_for('index.index'))
 
         # Get RDF entities grouped by extraction_type
-        all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+        # For Pass 3, only get actions, events, and actions_events entities
+        from sqlalchemy import or_
+        all_rdf_entities = TemporaryRDFStorage.query.filter(
+            TemporaryRDFStorage.case_id == case_id,
+            or_(
+                TemporaryRDFStorage.extraction_type == 'actions',
+                TemporaryRDFStorage.extraction_type == 'events',
+                TemporaryRDFStorage.extraction_type == 'actions_events'
+            )
+        ).all()
 
         # Group entities by extraction_type and storage_type
         # PASS 3 entities only (Temporal Dynamics)
+        # Handle both separate and combined extraction types
         rdf_by_type = {
             'actions': {'classes': [], 'individuals': []},
-            'events': {'classes': [], 'individuals': []}
+            'events': {'classes': [], 'individuals': []},
+            'actions_events': {'classes': [], 'individuals': []}  # Combined extraction
         }
 
         for entity in all_rdf_entities:
             extraction_type = entity.extraction_type or 'unknown'
             storage_type = entity.storage_type
 
-            if extraction_type in rdf_by_type:
+            # Handle combined actions_events extraction
+            if extraction_type == 'actions_events':
+                # Parse the entity to determine if it's an action or event
+                entity_dict = entity.to_dict()
+                entity_label = entity_dict.get('label', '').lower()
+
+                # Add to the combined category
+                if storage_type == 'class':
+                    rdf_by_type['actions_events']['classes'].append(entity_dict)
+                elif storage_type == 'individual':
+                    rdf_by_type['actions_events']['individuals'].append(entity_dict)
+
+            elif extraction_type in rdf_by_type:
                 if storage_type == 'class':
                     rdf_by_type[extraction_type]['classes'].append(entity.to_dict())
                 elif storage_type == 'individual':
@@ -224,6 +247,18 @@ def review_case_entities_pass3(case_id):
 
         # Check for any entities
         has_entities = total_rdf_entities > 0
+
+        # Debug logging
+        logger.info(f"Pass 3 Review for case {case_id}:")
+        logger.info(f"  Total entities found: {len(all_rdf_entities)}")
+        logger.info(f"  Actions/Events combined: {len(rdf_by_type.get('actions_events', {}).get('classes', [])) + len(rdf_by_type.get('actions_events', {}).get('individuals', []))}")
+        logger.info(f"  Total RDF entities: {total_rdf_entities}")
+        logger.info(f"  Actions/Events classes: {len(rdf_by_type.get('actions_events', {}).get('classes', []))}")
+        logger.info(f"  Actions/Events individuals: {len(rdf_by_type.get('actions_events', {}).get('individuals', []))}")
+
+        # Debug the entity details
+        for entity in all_rdf_entities[:5]:  # First 5 for debugging
+            logger.info(f"    Entity: {entity.entity_label}, type: {entity.extraction_type}, storage: {entity.storage_type}")
 
         # Prepare RDF data with total count
         rdf_data = {

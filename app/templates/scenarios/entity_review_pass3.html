@@ -184,6 +184,29 @@
 
             <!-- Entity Type Counts -->
             <div class="row mb-3">
+                <!-- Combined Actions & Events (if using combined extraction) -->
+                {% if rdf_data.by_type.actions_events %}
+                <div class="col-12 mb-2">
+                    <div class="card border-info">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">
+                                <i class="bi bi-clock-history"></i> Actions & Events (Combined Temporal Extraction)
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.actions_events.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.actions_events else 0 }}</div>
+                                    <small class="text-muted">Temporal Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.actions_events.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.actions_events else 0 }}</div>
+                                    <small class="text-muted">Temporal Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Separate Actions and Events (if using separate extraction) -->
                 <!-- Actions -->
                 <div class="col-md-6 mb-2">
                     <div class="card border-primary">
@@ -225,6 +248,7 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
             </div>
 
 
@@ -249,11 +273,11 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <!-- Panel Header for {{ concept_type|title }} -->
-                    <div class="card {% if concept_type == 'actions' %}border-primary{% else %}border-warning{% endif %}">
-                        <div class="card-header {% if concept_type == 'actions' %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                    <div class="card {% if concept_type == 'actions_events' %}border-info{% elif concept_type == 'actions' %}border-primary{% else %}border-warning{% endif %}">
+                        <div class="card-header {% if concept_type == 'actions_events' %}bg-info{% elif concept_type == 'actions' %}bg-primary{% else %}bg-warning{% endif %} text-white">
                             <h4 class="mb-0">
-                                <i class="fas fa-{% if concept_type == 'actions' %}play-circle{% else %}calendar-alt{% endif %}"></i>
-                                {{ concept_type|title }} Extraction
+                                <i class="fas fa-{% if concept_type == 'actions_events' %}clock{% elif concept_type == 'actions' %}play-circle{% else %}calendar-alt{% endif %}"></i>
+                                {% if concept_type == 'actions_events' %}Actions & Events (Temporal Dynamics){% else %}{{ concept_type|title }} Extraction{% endif %}
                             </h4>
                         </div>
                         <div class="card-body">
@@ -966,7 +990,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        extraction_types: ['actions', 'events']
+                        extraction_types: ['actions', 'events', 'actions_events']
                     })
                 })
                 .then(response => response.json())

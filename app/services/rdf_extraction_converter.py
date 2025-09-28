@@ -1608,3 +1608,344 @@ class RDFExtractionConverter:
         # Add extraction metadata
         self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(individual.get('confidence', 0.85))))
         self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def convert_actions_extraction_to_rdf(self,
+                                         extraction_result: Dict[str, Any],
+                                         case_id: int,
+                                         extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+        """
+        Convert actions dual extraction results to RDF format.
+
+        Args:
+            extraction_result: Dictionary containing new_action_classes and action_individuals
+            case_id: Case identifier for individual URIs
+            extraction_timestamp: When the extraction occurred
+
+        Returns:
+            Tuple of (class_graph, individual_graph)
+        """
+        if extraction_timestamp is None:
+            extraction_timestamp = datetime.now()
+
+        # Clear graphs
+        self.class_graph = Graph()
+        self.individual_graph = Graph()
+        self._bind_prefixes()
+
+        timestamp = extraction_timestamp
+
+        # Process new action classes for proethica-intermediate
+        for action_class in extraction_result.get('new_action_classes', []):
+            self._add_action_class_to_graph(action_class, case_id, timestamp)
+
+        # Process action individuals for case-specific ontology
+        for individual in extraction_result.get('action_individuals', []):
+            self._add_action_individual_to_graph(individual, case_id, timestamp)
+
+        logger.info(f"Actions RDF conversion complete: {len(self.class_graph)} class triples, {len(self.individual_graph)} individual triples")
+
+        return self.class_graph, self.individual_graph
+
+    def _add_action_class_to_graph(self, action_class: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add an action class to the class graph"""
+        label = action_class.get('label', 'Unknown Action')
+        safe_label = label.replace(" ", "")
+        class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Basic class definition
+        self.class_graph.add((class_uri, RDF.type, OWL.Class))
+        self.class_graph.add((class_uri, RDFS.subClassOf, URIRef(f"{self.PROETHICA}Action")))
+        self.class_graph.add((class_uri, RDFS.label, Literal(label)))
+
+        if action_class.get('definition'):
+            self.class_graph.add((class_uri, RDFS.comment, Literal(action_class['definition'])))
+
+        # Action-specific properties
+        if action_class.get('action_category'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}actionCategory"), Literal(action_class['action_category'])))
+
+        if action_class.get('volitional_requirement'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}volitionalRequirement"), Literal(action_class['volitional_requirement'])))
+
+        if action_class.get('professional_context'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}professionalContext"), Literal(action_class['professional_context'])))
+
+        if action_class.get('intention_requirement'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}intentionRequirement"), Literal(action_class['intention_requirement'])))
+
+        # List properties (obligations fulfilled, temporal constraints, etc.)
+        for obligation in action_class.get('obligations_fulfilled', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}fulfillsObligation"), Literal(obligation)))
+
+        for constraint in action_class.get('temporal_constraints', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}temporalConstraint"), Literal(constraint)))
+
+        for implication in action_class.get('causal_implications', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}causalImplication"), Literal(implication)))
+
+        for example in action_class.get('examples_from_case', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}exampleFromCase"), Literal(example)))
+
+        # Metadata
+        self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}discoveredInCase"), Literal(case_id)))
+        self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(action_class.get('confidence', 0.85))))
+        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def _add_action_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add an action individual to the individual graph"""
+        identifier = individual.get('identifier', 'UnknownAction')
+        safe_identifier = identifier.replace(" ", "")
+        individual_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}#{safe_identifier}")
+
+        # Find action class URI
+        action_class = individual.get('action_class', 'Action')
+        safe_action_class = action_class.replace(" ", "")
+        if individual.get('is_new_action_class', False):
+            action_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_action_class}")
+        else:
+            action_class_uri = URIRef(f"{self.PROETHICA}{safe_action_class}")
+
+        # Basic individual definition
+        self.individual_graph.add((individual_uri, RDF.type, OWL.NamedIndividual))
+        self.individual_graph.add((individual_uri, RDF.type, action_class_uri))
+        self.individual_graph.add((individual_uri, RDFS.label, Literal(identifier)))
+
+        # Action-specific properties
+        if individual.get('performed_by'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}performedBy"), Literal(individual['performed_by'])))
+
+        if individual.get('performed_on'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}performedOn"), Literal(individual['performed_on'])))
+
+        if individual.get('temporal_interval'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}temporalInterval"), Literal(individual['temporal_interval'])))
+
+        if individual.get('duration'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}duration"), Literal(individual['duration'])))
+
+        if individual.get('sequence_order'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}sequenceOrder"), Literal(individual['sequence_order'])))
+
+        # Causal relationships
+        for trigger in individual.get('causal_triggers', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}causalTrigger"), Literal(trigger)))
+
+        for result in individual.get('causal_results', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}causalResult"), Literal(result)))
+
+        # Allen's interval relations
+        for relation in individual.get('allen_relations', []):
+            if isinstance(relation, dict) and 'relation' in relation and 'target' in relation:
+                self.individual_graph.add((individual_uri,
+                    URIRef(f"{self.PROETHICA}allenRelation_{relation['relation']}"),
+                    Literal(relation['target'])))
+
+        # Professional integration
+        for obligation in individual.get('obligations_fulfilled', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}fulfillsObligation"), Literal(obligation)))
+
+        for constraint in individual.get('constraints_respected', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}respectsConstraint"), Literal(constraint)))
+
+        for capability in individual.get('capabilities_required', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}requiresCapability"), Literal(capability)))
+
+        if individual.get('case_context'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}caseContext"), Literal(individual['case_context'])))
+
+        # Metadata
+        self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(individual.get('confidence', 0.85))))
+        self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def convert_events_extraction_to_rdf(self,
+                                        extraction_result: Dict[str, Any],
+                                        case_id: int,
+                                        extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+        """
+        Convert events dual extraction results to RDF format.
+
+        Args:
+            extraction_result: Dictionary containing new_event_classes and event_individuals
+            case_id: Case identifier for individual URIs
+            extraction_timestamp: When the extraction occurred
+
+        Returns:
+            Tuple of (class_graph, individual_graph)
+        """
+        if extraction_timestamp is None:
+            extraction_timestamp = datetime.now()
+
+        # Clear graphs
+        self.class_graph = Graph()
+        self.individual_graph = Graph()
+        self._bind_prefixes()
+
+        timestamp = extraction_timestamp
+
+        # Process new event classes for proethica-intermediate
+        for event_class in extraction_result.get('new_event_classes', []):
+            self._add_event_class_to_graph(event_class, case_id, timestamp)
+
+        # Process event individuals for case-specific ontology
+        for individual in extraction_result.get('event_individuals', []):
+            self._add_event_individual_to_graph(individual, case_id, timestamp)
+
+        logger.info(f"Events RDF conversion complete: {len(self.class_graph)} class triples, {len(self.individual_graph)} individual triples")
+
+        return self.class_graph, self.individual_graph
+
+    def _add_event_class_to_graph(self, event_class: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add an event class to the class graph"""
+        label = event_class.get('label', 'Unknown Event')
+        safe_label = label.replace(" ", "")
+        class_uri = URIRef(f"{self.PROETHICA_INT}{safe_label}")
+
+        # Basic class definition
+        self.class_graph.add((class_uri, RDF.type, OWL.Class))
+        self.class_graph.add((class_uri, RDFS.subClassOf, URIRef(f"{self.PROETHICA}Event")))
+        self.class_graph.add((class_uri, RDFS.label, Literal(label)))
+
+        if event_class.get('definition'):
+            self.class_graph.add((class_uri, RDFS.comment, Literal(event_class['definition'])))
+
+        # Event-specific properties
+        if event_class.get('event_category'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}eventCategory"), Literal(event_class['event_category'])))
+
+        if event_class.get('temporal_marker'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}temporalMarker"), Literal(event_class['temporal_marker'])))
+
+        if event_class.get('automatic_nature'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}automaticNature"), Literal(event_class['automatic_nature'])))
+
+        if event_class.get('obligation_transformation'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}obligationTransformation"), Literal(event_class['obligation_transformation'])))
+
+        if event_class.get('causal_position'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}causalPosition"), Literal(event_class['causal_position'])))
+
+        if event_class.get('ethical_salience'):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}ethicalSalience"), Literal(event_class['ethical_salience'])))
+
+        # List properties (constraint activation, state transitions, etc.)
+        for constraint in event_class.get('constraint_activation', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}activatesConstraint"), Literal(constraint)))
+
+        for transition in event_class.get('state_transitions', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}stateTransition"), Literal(transition)))
+
+        for example in event_class.get('examples_from_case', []):
+            self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}exampleFromCase"), Literal(example)))
+
+        # Metadata
+        self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}discoveredInCase"), Literal(case_id)))
+        self.class_graph.add((class_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(event_class.get('confidence', 0.85))))
+        self.class_graph.add((class_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def _add_event_individual_to_graph(self, individual: Dict[str, Any], case_id: int, timestamp: datetime):
+        """Add an event individual to the individual graph"""
+        identifier = individual.get('identifier', 'UnknownEvent')
+        safe_identifier = identifier.replace(" ", "")
+        individual_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}#{safe_identifier}")
+
+        # Find event class URI
+        event_class = individual.get('event_class', 'Event')
+        safe_event_class = event_class.replace(" ", "")
+        if individual.get('is_new_event_class', False):
+            event_class_uri = URIRef(f"{self.PROETHICA_INT}{safe_event_class}")
+        else:
+            event_class_uri = URIRef(f"{self.PROETHICA}{safe_event_class}")
+
+        # Basic individual definition
+        self.individual_graph.add((individual_uri, RDF.type, OWL.NamedIndividual))
+        self.individual_graph.add((individual_uri, RDF.type, event_class_uri))
+        self.individual_graph.add((individual_uri, RDFS.label, Literal(identifier)))
+
+        # Event-specific properties
+        if individual.get('occurred_to'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}occurredTo"), Literal(individual['occurred_to'])))
+
+        if individual.get('discovered_by'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}discoveredBy"), Literal(individual['discovered_by'])))
+
+        if individual.get('temporal_interval'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}temporalInterval"), Literal(individual['temporal_interval'])))
+
+        if individual.get('duration'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}duration"), Literal(individual['duration'])))
+
+        if individual.get('sequence_order'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}sequenceOrder"), Literal(individual['sequence_order'])))
+
+        # Causal relationships
+        for trigger in individual.get('causal_triggers', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}causalTrigger"), Literal(trigger)))
+
+        for result in individual.get('causal_results', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}causalResult"), Literal(result)))
+
+        # Allen's interval relations
+        for relation in individual.get('allen_relations', []):
+            if isinstance(relation, dict) and 'relation' in relation and 'target' in relation:
+                self.individual_graph.add((individual_uri,
+                    URIRef(f"{self.PROETHICA}allenRelation_{relation['relation']}"),
+                    Literal(relation['target'])))
+
+        # Professional integration
+        for constraint in individual.get('constraints_activated', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}activatesConstraint"), Literal(constraint)))
+
+        for obligation in individual.get('obligations_triggered', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}triggersObligation"), Literal(obligation)))
+
+        for state in individual.get('states_changed', []):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}changesState"), Literal(state)))
+
+        if individual.get('case_context'):
+            self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}caseContext"), Literal(individual['case_context'])))
+
+        # Metadata
+        self.individual_graph.add((individual_uri, URIRef(f"{self.PROETHICA}confidence"), Literal(individual.get('confidence', 0.85))))
+        self.individual_graph.add((individual_uri, PROV.generatedAtTime, Literal(timestamp, datatype=XSD.dateTime)))
+
+    def convert_actions_events_extraction_to_rdf(self,
+                                               extraction_result: Dict[str, Any],
+                                               case_id: int,
+                                               extraction_timestamp: Optional[datetime] = None) -> Tuple[Graph, Graph]:
+        """
+        Convert combined actions & events dual extraction results to RDF format.
+
+        Args:
+            extraction_result: Dictionary containing all four arrays (new_action_classes, action_individuals, new_event_classes, event_individuals)
+            case_id: Case identifier for individual URIs
+            extraction_timestamp: When the extraction occurred
+
+        Returns:
+            Tuple of (class_graph, individual_graph)
+        """
+        if extraction_timestamp is None:
+            extraction_timestamp = datetime.now()
+
+        # Clear graphs
+        self.class_graph = Graph()
+        self.individual_graph = Graph()
+        self._bind_prefixes()
+
+        timestamp = extraction_timestamp
+
+        # Process all four types of entities
+        for action_class in extraction_result.get('new_action_classes', []):
+            self._add_action_class_to_graph(action_class, case_id, timestamp)
+
+        for individual in extraction_result.get('action_individuals', []):
+            self._add_action_individual_to_graph(individual, case_id, timestamp)
+
+        for event_class in extraction_result.get('new_event_classes', []):
+            self._add_event_class_to_graph(event_class, case_id, timestamp)
+
+        for individual in extraction_result.get('event_individuals', []):
+            self._add_event_individual_to_graph(individual, case_id, timestamp)
+
+        logger.info(f"Combined Actions & Events RDF conversion complete: {len(self.class_graph)} class triples, {len(self.individual_graph)} individual triples")
+
+        return self.class_graph, self.individual_graph

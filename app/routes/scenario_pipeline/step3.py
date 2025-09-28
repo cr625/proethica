@@ -14,7 +14,12 @@ from app.models import Document, db
 from app.routes.scenario_pipeline.overview import _format_section_for_llm
 from app.services.extraction.enhanced_prompts_actions import EnhancedActionsExtractor, create_enhanced_actions_prompt
 from app.services.extraction.enhanced_prompts_events import EnhancedEventsExtractor, create_enhanced_events_prompt
+from app.services.extraction.dual_actions_events_extractor import DualActionsEventsExtractor
+from app.models.temporary_rdf_storage import TemporaryRDFStorage
+from app.models.extraction_prompt import ExtractionPrompt
+from app.services.rdf_extraction_converter import RDFExtractionConverter
 from app.utils.llm_utils import get_llm_client
+from models import ModelConfig
 
 # Import provenance services
 try:
@@ -31,12 +36,13 @@ def init_step3_csrf_exemption(app):
     """Exempt Step 3 temporal dynamics pass routes from CSRF protection"""
     if hasattr(app, 'csrf') and app.csrf:
         # Import the route functions that actually get called
-        from app.routes.scenario_pipeline.interactive_builder import behavioral_pass_prompt, behavioral_pass_execute, step3_extract
+        from app.routes.scenario_pipeline.interactive_builder import behavioral_pass_prompt, behavioral_pass_execute, step3_extract, step3_extract_individual
         # Exempt the temporal pass routes from CSRF protection
         try:
             app.csrf.exempt(behavioral_pass_prompt)
             app.csrf.exempt(behavioral_pass_execute)
             app.csrf.exempt(step3_extract)
+            app.csrf.exempt(step3_extract_individual)
         except:
             # Routes may not exist yet, ignore for now
             pass
@@ -97,7 +103,7 @@ def step3(case_id):
             'prev_step_url': url_for('scenario_pipeline.step2', case_id=case_id)
         }
         
-        return render_template('scenarios/step3.html', **context)
+        return render_template('scenarios/step3_dual_extraction.html', **context)
         
     except Exception as e:
         logger.error(f"Error loading step 3 for case {case_id}: {str(e)}")
@@ -506,5 +512,264 @@ def step3_extract():
     case_id = request.view_args.get('case_id')
     if not case_id:
         return jsonify({'error': 'Case ID required'}), 400
-    
+
     return behavioral_pass_execute(case_id)
+
+def extract_individual_actions_events(case_id):
+    """
+    API endpoint for individual actions & events extraction using dual extractor.
+
+    Follows the same pattern as Step 2 individual extraction but combines
+    both actions and events in a single temporal dynamics extraction.
+    """
+    try:
+        if request.method != 'POST':
+            return jsonify({'error': 'POST method required'}), 405
+
+        # Get the case
+        case = Document.query.get_or_404(case_id)
+
+        # Get request data (concept_type should be 'actions_events' for combined extraction)
+        data = request.get_json()
+        concept_type = data.get('concept_type', 'actions_events')
+
+        if concept_type != 'actions_events':
+            return jsonify({'error': 'Only actions_events concept type supported'}), 400
+
+        # Extract facts section using same logic as step3 view
+        raw_sections = {}
+        if case.doc_metadata:
+            if 'sections_dual' in case.doc_metadata:
+                raw_sections = case.doc_metadata['sections_dual']
+            elif 'sections' in case.doc_metadata:
+                raw_sections = case.doc_metadata['sections']
+            elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
+                raw_sections = case.doc_metadata['document_structure']['sections']
+
+        # Find facts section
+        section_text = None
+        for section_key, section_content in raw_sections.items():
+            if 'fact' in section_key.lower():
+                section_text = _format_section_for_llm(section_key, section_content, case)
+                break
+
+        # If no facts section found, use first available section
+        if not section_text and raw_sections:
+            first_key = list(raw_sections.keys())[0]
+            section_text = _format_section_for_llm(first_key, raw_sections[first_key], case)
+
+        if not section_text:
+            section_text = case.content or case.description or ""
+            if not section_text:
+                return jsonify({'error': 'No facts section found'}), 400
+
+        logger.info(f"Extracting individual actions & events for case {case_id}")
+
+        # Initialize the dual extractor
+        extractor = DualActionsEventsExtractor()
+
+        # Perform dual extraction
+        candidate_action_classes, action_individuals, candidate_event_classes, event_individuals = extractor.extract_dual_actions_events(
+            section_text, case_id, 'facts'
+        )
+
+        # Get raw response for display and RDF conversion
+        raw_llm_response = extractor.get_last_raw_response()
+
+        # Generate session ID for this extraction
+        session_id = str(uuid.uuid4())
+
+        # Save prompt and response for provenance
+        extraction_prompt = extractor._create_dual_temporal_extraction_prompt(section_text, 'facts')
+        ExtractionPrompt.save_prompt(
+            case_id=case_id,
+            concept_type='actions_events',
+            prompt_text=extraction_prompt,
+            raw_response=raw_llm_response,
+            step_number=3,
+            llm_model=ModelConfig.get_claude_model("powerful")
+        )
+
+        # Convert to RDF if we have raw response
+        if raw_llm_response:
+            # Parse JSON from potentially mixed text/JSON response
+            try:
+                raw_data = json.loads(raw_llm_response)
+            except json.JSONDecodeError:
+                import re
+                json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
+                if json_match:
+                    raw_data = json.loads(json_match.group())
+                else:
+                    logger.warning("Could not extract JSON from LLM response")
+                    raw_data = {
+                        'new_action_classes': [],
+                        'action_individuals': [],
+                        'new_event_classes': [],
+                        'event_individuals': []
+                    }
+
+            # Convert to RDF
+            rdf_converter = RDFExtractionConverter()
+            class_graph, individual_graph = rdf_converter.convert_actions_events_extraction_to_rdf(
+                raw_data, case_id
+            )
+
+            # Store in temporary RDF storage
+            rdf_data = rdf_converter.get_temporary_triples()
+
+            # Clear any existing actions_events data for this case
+            TemporaryRDFStorage.query.filter_by(
+                case_id=case_id,
+                extraction_type='actions_events',
+                is_committed=False
+            ).delete()
+
+            TemporaryRDFStorage.store_extraction_results(
+                case_id=case_id,
+                extraction_session_id=session_id,
+                extraction_type='actions_events',
+                rdf_data=rdf_data,
+                extraction_model='claude-opus-4-1-20250805'
+            )
+
+        # Format results for JSON response
+        results = []
+
+        # Add action classes
+        for action_class in candidate_action_classes:
+            results.append({
+                'label': action_class.label,
+                'description': action_class.definition,
+                'type': 'action_class',
+                'category': action_class.action_category,
+                'confidence': action_class.confidence,
+                'debug': {
+                    'volitional_requirement': action_class.volitional_requirement,
+                    'professional_context': action_class.professional_context,
+                    'temporal_constraints': action_class.temporal_constraints,
+                    'causal_implications': action_class.causal_implications,
+                    'extraction_method': 'dual_temporal'
+                }
+            })
+
+        # Add action individuals
+        for individual in action_individuals:
+            results.append({
+                'label': individual.identifier,
+                'description': f"Action performed by {individual.performed_by}",
+                'type': 'action_individual',
+                'category': individual.action_class,
+                'confidence': individual.confidence,
+                'debug': {
+                    'performed_by': individual.performed_by,
+                    'temporal_interval': individual.temporal_interval,
+                    'causal_triggers': individual.causal_triggers,
+                    'causal_results': individual.causal_results,
+                    'allen_relations': individual.allen_relations,
+                    'extraction_method': 'dual_temporal'
+                }
+            })
+
+        # Add event classes
+        for event_class in candidate_event_classes:
+            results.append({
+                'label': event_class.label,
+                'description': event_class.definition,
+                'type': 'event_class',
+                'category': event_class.event_category,
+                'confidence': event_class.confidence,
+                'debug': {
+                    'temporal_marker': event_class.temporal_marker,
+                    'automatic_nature': event_class.automatic_nature,
+                    'constraint_activation': event_class.constraint_activation,
+                    'obligation_transformation': event_class.obligation_transformation,
+                    'extraction_method': 'dual_temporal'
+                }
+            })
+
+        # Add event individuals
+        for individual in event_individuals:
+            results.append({
+                'label': individual.identifier,
+                'description': f"Event that occurred to {individual.occurred_to or 'entity'}",
+                'type': 'event_individual',
+                'category': individual.event_class,
+                'confidence': individual.confidence,
+                'debug': {
+                    'occurred_to': individual.occurred_to,
+                    'discovered_by': individual.discovered_by,
+                    'temporal_interval': individual.temporal_interval,
+                    'causal_triggers': individual.causal_triggers,
+                    'causal_results': individual.causal_results,
+                    'allen_relations': individual.allen_relations,
+                    'extraction_method': 'dual_temporal'
+                }
+            })
+
+        # Response data
+        response_data = {
+            'success': True,
+            'concepts': results,
+            'prompt': extraction_prompt,
+            'raw_response': raw_llm_response,
+            'metadata': {
+                'extraction_method': 'dual_temporal',
+                'model_used': ModelConfig.get_claude_model("powerful"),
+                'session_id': session_id,
+                'concept_counts': {
+                    'action_classes': len(candidate_action_classes),
+                    'action_individuals': len(action_individuals),
+                    'event_classes': len(candidate_event_classes),
+                    'event_individuals': len(event_individuals),
+                    'total': len(results)
+                },
+                'temporal_relationships': True,
+                'allen_algebra': True
+            }
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in individual actions/events extraction for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'concepts': [],
+            'prompt': '',
+            'raw_response': '',
+            'metadata': {'extraction_method': 'dual_temporal_failed'}
+        }), 500
+
+def step3_get_saved_prompt(case_id):
+    """
+    API endpoint to get saved extraction prompt and raw response for Step 3.
+    """
+    from flask import request, jsonify
+    from app.models import ExtractionPrompt
+    try:
+        concept_type = request.args.get('concept_type', 'actions_events')
+
+        # Get the saved prompt from database
+        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type, step_number=3)
+
+        if saved_prompt:
+            return jsonify({
+                'success': True,
+                'prompt_text': saved_prompt.prompt_text,
+                'raw_response': saved_prompt.raw_response,  # Include the raw response
+                'created_at': saved_prompt.created_at.strftime('%Y-%m-%d %H:%M'),
+                'llm_model': saved_prompt.llm_model
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No saved prompt found'
+            })
+    except Exception as e:
+        logger.error(f"Error getting saved prompt for case {case_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
