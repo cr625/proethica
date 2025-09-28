@@ -66,6 +66,20 @@ def step1(case_id):
     from .step1 import step1 as step1_handler
     return step1_handler(case_id)
 
+@interactive_scenario_bp.route('/case/<int:case_id>/step1_streaming')
+def step1_streaming(case_id):
+    """Route handler for Step 1: Enhanced version with streaming updates"""
+    from .step1 import step1_data
+    from flask import render_template
+    # Get the same data as regular step1
+    case_doc, facts_section, discussion_section, saved_prompts = step1_data(case_id)
+    # Render the streaming template
+    return render_template('scenarios/step1_streaming.html',
+                         case=case_doc,
+                         facts_section=facts_section,
+                         discussion_section=discussion_section,
+                         saved_prompts=saved_prompts)
+
 @interactive_scenario_bp.route('/case/<int:case_id>/debug')
 def debug_overview_route(case_id):
     """Debug route for overview processing"""
@@ -96,6 +110,12 @@ def entities_pass_execute(case_id):
     """API endpoint to execute entities pass extraction"""
     from .step1 import entities_pass_execute as execute_handler
     return execute_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/entities_pass_execute_streaming', methods=['POST'])
+def entities_pass_execute_streaming(case_id):
+    """API endpoint to execute entities pass extraction with streaming updates"""
+    from .step1_enhanced import entities_pass_execute_streaming as streaming_handler
+    return streaming_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step2')
 def step2(case_id):
@@ -150,6 +170,25 @@ def step2_clear_prompt(case_id):
     """API endpoint to clear saved extraction prompt for Step 2"""
     from .step2 import clear_saved_prompt as clear_handler
     return clear_handler(case_id)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/step2_streaming')
+def step2_streaming(case_id):
+    """Route handler for Step 2: Enhanced version with streaming updates"""
+    from .step2 import step2_data
+    from flask import render_template
+    # Get the same data as regular step2
+    case_doc, facts_section, saved_prompts = step2_data(case_id)
+    # Render the streaming template
+    return render_template('scenarios/step2_streaming.html',
+                         case=case_doc,
+                         discussion_section=facts_section,  # Keep name for template compatibility
+                         saved_prompts=saved_prompts)
+
+@interactive_scenario_bp.route('/case/<int:case_id>/normative_pass_execute_streaming', methods=['POST'])
+def normative_pass_execute_streaming(case_id):
+    """API endpoint to execute normative pass extraction with streaming updates"""
+    from .step2_enhanced import normative_pass_execute_streaming as streaming_handler
+    return streaming_handler(case_id)
 
 @interactive_scenario_bp.route('/case/<int:case_id>/step3')
 def step3(case_id):

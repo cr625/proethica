@@ -29,11 +29,15 @@
             <pre class="facts-text">{{ facts_section.llm_text }}</pre>
         </div>
         
-        <!-- Contextual Framework Pass Button -->
+        <!-- Contextual Framework Pass Buttons -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
             <button id="contextualPassBtn" class="btn btn-primary btn-lg" onclick="showPrompt()">
                 <i class="bi bi-arrow-right-circle"></i> Full Contextual Framework Pass
                 <small class="d-block">Extract Roles + States + Resources</small>
+            </button>
+            <button id="enhancedPassBtn" class="btn btn-success btn-lg" onclick="useEnhancedVersion()">
+                <i class="bi bi-lightning-charge"></i> Enhanced Pass (With Retry & Live Updates)
+                <small class="d-block">Real-time progress & fault tolerance</small>
             </button>
         </div>
 
@@ -340,18 +344,23 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 
+function useEnhancedVersion() {
+    // Redirect to the enhanced streaming version
+    window.location.href = '{{ url_for("scenario_pipeline.step1_streaming", case_id=case.id) }}';
+}
+
 function showPrompt() {
     const promptCard = document.getElementById('promptCard');
     const contextualBtn = document.getElementById('contextualPassBtn');
-    
+
     // Disable the button and show loading
     contextualBtn.disabled = true;
     contextualBtn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating Prompt...';
-    
+
     // Show prompt card
     promptCard.style.display = 'block';
     promptCard.scrollIntoView({ behavior: 'smooth' });
-    
+
     // Fetch the prompt from the server
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';

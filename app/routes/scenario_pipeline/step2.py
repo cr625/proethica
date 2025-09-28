@@ -511,6 +511,7 @@ def extract_individual_concept(case_id):
 
             # Get raw LLM response for RDF conversion
             raw_llm_response = extractor.get_last_raw_response()
+            logger.info(f"DEBUG CAPABILITIES: Got raw response, length: {len(raw_llm_response) if raw_llm_response else 0}")
 
             # Save prompt and response
             from app.models import ExtractionPrompt
@@ -529,17 +530,26 @@ def extract_individual_concept(case_id):
 
             # Convert to RDF if we have the raw response
             if raw_llm_response:
+                logger.info(f"DEBUG CAPABILITIES: Starting RDF conversion")
                 try:
                     import re
                     # Try to extract JSON from potentially mixed response
                     try:
                         raw_data = json.loads(raw_llm_response)
+                        logger.info(f"DEBUG CAPABILITIES: Parsed JSON directly")
                     except json.JSONDecodeError:
+                        logger.info(f"DEBUG CAPABILITIES: JSON decode failed, trying regex")
                         json_match = re.search(r'\{[\s\S]*\}', raw_llm_response)
                         if json_match:
                             raw_data = json.loads(json_match.group())
+                            logger.info(f"DEBUG CAPABILITIES: Extracted JSON via regex")
                         else:
                             raw_data = {"new_capability_classes": [], "capability_individuals": []}
+                            logger.warning(f"DEBUG CAPABILITIES: No JSON found, using empty data")
+
+                    logger.info(f"DEBUG CAPABILITIES: Raw data keys: {raw_data.keys()}")
+                    logger.info(f"DEBUG CAPABILITIES: Classes count: {len(raw_data.get('new_capability_classes', []))}")
+                    logger.info(f"DEBUG CAPABILITIES: Individuals count: {len(raw_data.get('capability_individuals', []))}")
 
                     # Convert to RDF
                     from app.services.rdf_extraction_converter import RDFExtractionConverter
@@ -547,9 +557,12 @@ def extract_individual_concept(case_id):
                     class_graph, individual_graph = rdf_converter.convert_capabilities_extraction_to_rdf(
                         raw_data, case_id
                     )
+                    logger.info(f"DEBUG CAPABILITIES: RDF conversion complete")
 
                     # Store in temporary RDF storage
                     rdf_data = rdf_converter.get_temporary_triples()
+                    logger.info(f"DEBUG CAPABILITIES: Got RDF data - classes: {len(rdf_data.get('classes', []))}, individuals: {len(rdf_data.get('individuals', []))}")
+
                     from app.models import TemporaryRDFStorage
                     TemporaryRDFStorage.store_extraction_results(
                         case_id=case_id,
@@ -558,20 +571,22 @@ def extract_individual_concept(case_id):
                         rdf_data=rdf_data,
                         extraction_model=ModelConfig.get_claude_model("powerful")
                     )
+                    logger.info(f"DEBUG CAPABILITIES: Called store_extraction_results")
 
                     # Commit the session after successful storage
                     try:
                         db.session.commit()
-                        logger.info(f"Successfully stored {len(rdf_data.get('classes', []))} capability classes and {len(rdf_data.get('individuals', []))} individuals")
+                        logger.info(f"DEBUG CAPABILITIES: Successfully committed {len(rdf_data.get('classes', []))} capability classes and {len(rdf_data.get('individuals', []))} individuals")
                     except Exception as commit_error:
-                        logger.error(f"DEBUG: Error committing capabilities: {commit_error}")
+                        logger.error(f"DEBUG CAPABILITIES: Error committing: {commit_error}")
                         db.session.rollback()
                         raise
 
                 except Exception as e:
-                    logger.error(f"Error converting capabilities to RDF: {e}")
+                    logger.error(f"DEBUG CAPABILITIES: Error converting to RDF: {e}")
                     import traceback
                     traceback.print_exc()
+                    logger.error(f"DEBUG CAPABILITIES: Full error details: {traceback.format_exc()}")
 
             # Convert to format for display (combining classes and individuals)
             candidates = []
@@ -728,51 +743,93 @@ def extract_individual_concept(case_id):
         logger.error(f"Error extracting individual {concept_type} for case {case_id}: {str(e)}", exc_info=True)
         return jsonify({'error': str(e), 'success': False}), 500
 
+def step2_data(case_id):
+    """
+    Helper function to get Step 2 data without rendering template.
+    Used by both regular step2 and step2_streaming views.
+    """
+    # Get the case
+    case = Document.query.get_or_404(case_id)
+
+    # Extract sections using the same logic as step1
+    raw_sections = {}
+    if case.doc_metadata:
+        # Priority 1: sections_dual (contains formatted HTML with enumerated lists)
+        if 'sections_dual' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections_dual']
+        # Priority 2: sections (basic sections)
+        elif 'sections' in case.doc_metadata:
+            raw_sections = case.doc_metadata['sections']
+        # Priority 3: document_structure sections
+        elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
+            raw_sections = case.doc_metadata['document_structure']['sections']
+
+    # If no sections found, create basic structure
+    if not raw_sections:
+        raw_sections = {
+            'full_content': case.content or 'No content available'
+        }
+
+    # Find the facts section (same as step1)
+    facts_section = None
+    facts_section_key = None
+
+    # Look for facts section (case insensitive)
+    for section_key, section_content in raw_sections.items():
+        if 'fact' in section_key.lower():
+            facts_section_key = section_key
+            facts_section = _format_section_for_llm(section_key, section_content, case_doc=case)
+            break
+
+    # If no facts section found, use first available section
+    if not facts_section and raw_sections:
+        first_key = list(raw_sections.keys())[0]
+        facts_section_key = first_key
+        facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
+
+    # Load saved prompts for all concept types
+    from app.models import ExtractionPrompt
+    saved_prompts = {}
+    for concept_type in ['principles', 'obligations', 'constraints', 'capabilities']:
+        # Get active prompt and check if it's for step 2
+        prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type=concept_type,
+            step_number=2,
+            is_active=True
+        ).first()
+        saved_prompts[concept_type] = prompt
+
+    return case, facts_section, saved_prompts
+
 def step2(case_id):
     """
     Step 2: Normative Pass for Facts Section
     Shows the facts section with a normative pass button for extracting principles, obligations, and constraints.
     """
     try:
-        # Get the case
-        case = Document.query.get_or_404(case_id)
-        
-        # Extract sections using the same logic as step1
+        # Get data
+        case, facts_section, saved_prompts = step2_data(case_id)
+
+        # Find the facts section key for template
+        facts_section_key = None
         raw_sections = {}
         if case.doc_metadata:
-            # Priority 1: sections_dual (contains formatted HTML with enumerated lists)
             if 'sections_dual' in case.doc_metadata:
                 raw_sections = case.doc_metadata['sections_dual']
-            # Priority 2: sections (basic sections)
             elif 'sections' in case.doc_metadata:
                 raw_sections = case.doc_metadata['sections']
-            # Priority 3: document_structure sections
             elif 'document_structure' in case.doc_metadata and 'sections' in case.doc_metadata['document_structure']:
                 raw_sections = case.doc_metadata['document_structure']['sections']
-        
-        # If no sections found, create basic structure
-        if not raw_sections:
-            raw_sections = {
-                'full_content': case.content or 'No content available'
-            }
-        
-        # Find the facts section (same as step1)
-        facts_section = None
-        facts_section_key = None
-        
-        # Look for facts section (case insensitive)
+
         for section_key, section_content in raw_sections.items():
             if 'fact' in section_key.lower():
                 facts_section_key = section_key
-                facts_section = _format_section_for_llm(section_key, section_content, case_doc=case)
                 break
-        
-        # If no facts section found, use first available section
-        if not facts_section and raw_sections:
-            first_key = list(raw_sections.keys())[0]
-            facts_section_key = first_key
-            facts_section = _format_section_for_llm(first_key, raw_sections[first_key], case_doc=case)
-        
+
+        if not facts_section_key and raw_sections:
+            facts_section_key = list(raw_sections.keys())[0]
+
         # Template context
         # Load saved prompts for all concept types
         from app.models import ExtractionPrompt

@@ -1475,6 +1475,9 @@ class RDFExtractionConverter:
         self.individual_graph = Graph()
         self._bind_prefixes()
 
+        # Initialize temporary structure for storage
+        self.temporary_triples = {'classes': [], 'individuals': []}
+
         timestamp = extraction_timestamp or datetime.utcnow()
 
         # Process new capability classes

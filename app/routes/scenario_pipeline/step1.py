@@ -25,11 +25,10 @@ def init_step1_csrf_exemption(app):
         app.csrf.exempt(entities_pass_prompt)
         app.csrf.exempt(entities_pass_execute)
 
-def step1(case_id):
+def step1_data(case_id):
     """
-    Step 1: Contextual Framework Pass for Facts and Discussion Sections
-    Shows both sections with entities pass buttons for extracting roles, states, and resources.
-    Discussion uses dual analysis: independent and contextual with Facts awareness.
+    Helper function to get Step 1 data without rendering template.
+    Returns tuple of (case_doc, facts_section, discussion_section, saved_prompts).
     """
     try:
         # Get the case
@@ -104,13 +103,35 @@ def step1(case_id):
             'saved_prompts': saved_prompts  # Add saved prompts to context
         }
 
-        # Use multi-section template with separate extractors
-        return render_template('scenarios/step1_multi_section.html', **context)
+        # Return data tuple for use by other functions
+        return case, facts_section, discussion_section, saved_prompts
 
     except Exception as e:
         logger.error(f"Error loading step 1 for case {case_id}: {str(e)}")
         flash(f'Error loading step 1: {str(e)}', 'danger')
         return redirect(url_for('cases.view_case', id=case_id))
+
+def step1(case_id):
+    """
+    Step 1: Contextual Framework Pass for Facts and Discussion Sections
+    Shows both sections with entities pass buttons for extracting roles, states, and resources.
+    """
+    case, facts_section, discussion_section, saved_prompts = step1_data(case_id)
+
+    # Template context
+    context = {
+        'case': case,
+        'facts_section': facts_section,
+        'discussion_section': discussion_section,
+        'current_step': 1,
+        'step_title': 'Contextual Framework Pass - Facts & Discussion',
+        'next_step_url': url_for('scenario_pipeline.step2', case_id=case_id),
+        'prev_step_url': url_for('scenario_pipeline.overview', case_id=case_id),
+        'saved_prompts': saved_prompts
+    }
+
+    # Use multi-section template with separate extractors
+    return render_template('scenarios/step1_multi_section.html', **context)
 
 def entities_pass_prompt(case_id):
     """

@@ -340,7 +340,7 @@
                                                        data-entity-id="{{ cls.id }}"
                                                        data-entity-type="class"
                                                        data-concept-type="{{ concept_type }}"
-                                                       {% if not cls.is_committed %}checked{% elif cls.is_selected %}checked{% endif %}>
+                                                       {% if cls.is_committed %}disabled title="Already committed to OntServe"{% elif not cls.is_committed %}checked{% endif %}>
                                             </td>
                                             <td>
                                                 <strong>{{ cls.entity_label }}</strong>
@@ -446,7 +446,7 @@
                                                        data-entity-id="{{ indiv.id }}"
                                                        data-entity-type="individual"
                                                        data-concept-type="{{ concept_type }}"
-                                                       {% if not indiv.is_committed %}checked{% elif indiv.is_selected %}checked{% endif %}>
+                                                       {% if indiv.is_committed %}disabled title="Already committed to OntServe"{% elif not indiv.is_committed %}checked{% endif %}>
                                             </td>
                                             <td>
                                                 <strong>{{ indiv.entity_label }}</strong>
