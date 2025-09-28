@@ -167,15 +167,24 @@ class TemporaryRDFStorage(db.Model):
         Returns:
             List of created TemporaryRDFStorage objects
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"DEBUG store_extraction_results called for {extraction_type} case {case_id}")
+        logger.info(f"DEBUG RDF data keys: {list(rdf_data.keys()) if rdf_data else 'None'}")
+        logger.info(f"DEBUG Classes count: {len(rdf_data.get('new_classes', []))}")
+        logger.info(f"DEBUG Individuals count: {len(rdf_data.get('new_individuals', []))}")
+
         created_entities = []
 
         # Clear any existing temporary entities for this case and extraction type
         # (as per requirement to replace old temporary ones of the same type)
-        cls.query.filter_by(
+        deleted_count = cls.query.filter_by(
             case_id=case_id,
             extraction_type=extraction_type,
             is_committed=False
         ).delete()
+        logger.info(f"DEBUG Deleted {deleted_count} existing {extraction_type} entities")
 
         # Store new classes
         for class_info in rdf_data.get('new_classes', []):
@@ -224,7 +233,9 @@ class TemporaryRDFStorage(db.Model):
             db.session.add(entity)
             created_entities.append(entity)
 
+        logger.info(f"DEBUG About to commit {len(created_entities)} {extraction_type} entities")
         db.session.commit()
+        logger.info(f"DEBUG Committed {len(created_entities)} {extraction_type} entities successfully")
         return created_entities
 
     @classmethod

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Entity Review - Case {{ case.id }}{% endblock %}
+{% block title %}Pass 2 Entity Review - Case {{ case.id }}{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -149,8 +149,8 @@
             <div class="bg-light border rounded p-3 mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Step 1
+                        <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Step 2
                         </a>
                         <button id="refreshFromOntServeBtn" class="btn btn-sm btn-info">
                             <i class="bi bi-arrow-repeat"></i> Refresh from OntServe
@@ -158,7 +158,7 @@
                     </div>
                     <div>
                         <button id="clearAllEntitiesBtn" class="btn btn-sm btn-warning">
-                            <i class="bi bi-trash"></i> Clear Pass 1 Uncommitted
+                            <i class="bi bi-trash"></i> Clear Pass 2 Uncommitted
                         </button>
                         <button id="clearExtractedClassesBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-x-circle"></i> Clear Extracted Classes
@@ -171,11 +171,11 @@
             </div>
 
             <!-- Pass Information Header -->
-            <div class="bg-primary bg-gradient text-white rounded p-3 mb-3">
+            <div class="bg-success bg-gradient text-white rounded p-3 mb-3">
                 <div class="row align-items-center">
                     <div class="col-12">
                         <h2 class="mb-1">
-                            <i class="bi bi-layers"></i> PASS 1: Contextual Framework
+                            <i class="bi bi-diagram-2"></i> PASS 2: Normative Requirements
                         </h2>
                         <p class="mb-0">Case {{ case.id }}: {{ case.title }}</p>
                     </div>
@@ -184,62 +184,83 @@
 
             <!-- Entity Type Counts -->
             <div class="row mb-3">
-                <!-- Roles -->
-                <div class="col-md-4 mb-2">
-                    <div class="card border-primary">
-                        <div class="card-body">
-                            <h5 class="card-title text-primary">
-                                <i class="bi bi-person-badge"></i> Roles
-                            </h5>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
-                                    <small class="text-muted">Classes</small>
-                                </div>
-                                <div class="col-6">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.roles.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.roles else 0 }}</div>
-                                    <small class="text-muted">Individuals</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- States -->
-                <div class="col-md-4 mb-2">
-                    <div class="card border-warning">
-                        <div class="card-body">
-                            <h5 class="card-title text-warning">
-                                <i class="bi bi-diagram-3"></i> States
-                            </h5>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
-                                    <small class="text-muted">Classes</small>
-                                </div>
-                                <div class="col-6">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.states.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.states else 0 }}</div>
-                                    <small class="text-muted">Individuals</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resources -->
-                <div class="col-md-4 mb-2">
+                <!-- Principles -->
+                <div class="col-md-3 mb-2">
                     <div class="card border-success">
                         <div class="card-body">
                             <h5 class="card-title text-success">
-                                <i class="bi bi-box-seam"></i> Resources
+                                <i class="bi bi-stars"></i> Principles
                             </h5>
                             <div class="row text-center">
                                 <div class="col-6">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.principles.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.principles else 0 }}</div>
                                     <small class="text-muted">Classes</small>
                                 </div>
                                 <div class="col-6">
-                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.resources.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.resources else 0 }}</div>
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.principles.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.principles else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Obligations -->
+                <div class="col-md-3 mb-2">
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">
+                                <i class="bi bi-shield-check"></i> Obligations
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.obligations.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.obligations else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.obligations.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.obligations else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Constraints -->
+                <div class="col-md-3 mb-2">
+                    <div class="card border-danger">
+                        <div class="card-body">
+                            <h5 class="card-title text-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Constraints
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.constraints.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.constraints else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.constraints.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.constraints else 0 }}</div>
+                                    <small class="text-muted">Individuals</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Capabilities -->
+                <div class="col-md-3 mb-2">
+                    <div class="card border-info">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">
+                                <i class="bi bi-gear"></i> Capabilities
+                            </h5>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.capabilities.classes|length if rdf_data and rdf_data.by_type and rdf_data.by_type.capabilities else 0 }}</div>
+                                    <small class="text-muted">Classes</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="fs-3 fw-bold">{{ rdf_data.by_type.capabilities.individuals|length if rdf_data and rdf_data.by_type and rdf_data.by_type.capabilities else 0 }}</div>
                                     <small class="text-muted">Individuals</small>
                                 </div>
                             </div>
@@ -270,10 +291,10 @@
             <div class="row mb-5">
                 <div class="col-12">
                     <!-- Panel Header for {{ concept_type|title }} -->
-                    <div class="card {% if concept_type == 'roles' %}border-primary{% elif concept_type == 'states' %}border-warning{% else %}border-success{% endif %}">
-                        <div class="card-header {% if concept_type == 'roles' %}bg-primary{% elif concept_type == 'states' %}bg-warning{% else %}bg-success{% endif %} text-white">
+                    <div class="card {% if concept_type == 'principles' %}border-success{% elif concept_type == 'obligations' %}border-warning{% elif concept_type == 'constraints' %}border-danger{% else %}border-info{% endif %}">
+                        <div class="card-header {% if concept_type == 'principles' %}bg-success{% elif concept_type == 'obligations' %}bg-warning{% elif concept_type == 'constraints' %}bg-danger{% else %}bg-info{% endif %} text-white">
                             <h4 class="mb-0">
-                                <i class="fas fa-{% if concept_type == 'roles' %}user-tie{% elif concept_type == 'states' %}diagram-3{% else %}box{% endif %}"></i>
+                                <i class="fas fa-{% if concept_type == 'principles' %}stars{% elif concept_type == 'obligations' %}shield-alt{% elif concept_type == 'constraints' %}exclamation-triangle{% else %}cogs{% endif %}"></i>
                                 {{ concept_type|title }} Extraction
                             </h4>
                         </div>
@@ -554,7 +575,7 @@
                 <h4>No Extracted Entities Found</h4>
                 <p>No entities have been extracted for this case yet. Try:</p>
                 <ul>
-                    <li>Go to <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}">Step 1</a> and extract roles, states, or resources individually</li>
+                    <li>Go to <a href="{{ url_for('scenario_pipeline.step2', case_id=case.id) }}">Step 2</a> and extract principles, obligations, constraints, or capabilities individually</li>
                     <li>Run the complete entity extraction pass</li>
                     <li>Check the console logs for any extraction errors</li>
                 </ul>
@@ -976,18 +997,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearBtn = document.getElementById('clearAllEntitiesBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {
-            if (confirm('This will clear ONLY uncommitted Pass 1 entities (Roles, States, Resources) for this case.\n\nPass 2 and Pass 3 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
+            if (confirm('This will clear ONLY uncommitted Pass 2 entities (Principles, Obligations, Constraints, Capabilities) for this case.\n\nPass 1 and Pass 3 entities will be preserved.\nCommitted entities in OntServe will be preserved.\n\nContinue?')) {
                 this.disabled = true;
-                this.textContent = 'Clearing Pass 1...';
+                this.textContent = 'Clearing Pass 2...';
 
-                // Clear only Pass 1 extraction types
+                // Clear only Pass 2 extraction types
                 appFetch(`/scenario_pipeline/case/${caseId}/entities/clear_by_types`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        extraction_types: ['roles', 'states', 'resources']
+                        extraction_types: ['principles', 'obligations', 'constraints', 'capabilities']
                     })
                 })
                 .then(response => response.json())
@@ -1012,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .finally(() => {
                     this.disabled = false;
-                    this.textContent = 'Clear Pass 1 Uncommitted';
+                    this.textContent = 'Clear Pass 2 Uncommitted';
                 });
             }
         });

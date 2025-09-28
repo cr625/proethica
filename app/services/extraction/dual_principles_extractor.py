@@ -96,13 +96,8 @@ class DualPrinciplesExtractor:
     def _load_existing_principle_classes(self) -> List[Dict[str, Any]]:
         """Load existing principle classes from proethica-intermediate via MCP"""
         try:
-            # Query MCP for principle entities
-            result = self.mcp_client.search_entities(
-                search_type='subclass',
-                parent_uri='http://proethica.org/ontology/core#Principle'
-            )
-
-            existing_principles = result.get('entities', [])
+            # Use the correct MCP method for getting principle entities
+            existing_principles = self.mcp_client.get_all_principle_entities()
             logger.info(f"Retrieved {len(existing_principles)} existing principles from MCP for dual extraction context")
             return existing_principles
 

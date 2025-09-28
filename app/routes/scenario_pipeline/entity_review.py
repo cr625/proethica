@@ -42,8 +42,9 @@ def update_rdf_entity_selection(case_id):
 
 
 @bp.route('/case/<int:case_id>/entities/review')
+@bp.route('/case/<int:case_id>/entities/review/pass1')  # Explicit Pass 1
 def review_case_entities(case_id):
-    """Display all extracted entities for a case organized by section."""
+    """Display PASS 1 (Contextual Framework) extracted entities for a case."""
     try:
         # Get case information
         case_doc = Document.query.get(case_id)
@@ -55,6 +56,7 @@ def review_case_entities(case_id):
         all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
 
         # Group entities by extraction_type and storage_type
+        # PASS 1 entities only (Contextual Framework)
         rdf_by_type = {
             'roles': {'classes': [], 'individuals': []},
             'states': {'classes': [], 'individuals': []},
@@ -118,6 +120,128 @@ def review_case_entities(case_id):
 
     except Exception as e:
         logger.error(f"Error displaying entity review for case {case_id}: {e}")
+        flash(f'Error loading entity review: {str(e)}', 'error')
+        return redirect(url_for('index.index'))
+
+
+@bp.route('/case/<int:case_id>/entities/review/pass2')
+def review_case_entities_pass2(case_id):
+    """Display PASS 2 (Normative Requirements) extracted entities for a case."""
+    try:
+        # Get case information
+        case_doc = Document.query.get(case_id)
+        if not case_doc:
+            flash(f'Case {case_id} not found', 'error')
+            return redirect(url_for('index.index'))
+
+        # Get RDF entities grouped by extraction_type
+        all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+
+        # Group entities by extraction_type and storage_type
+        # PASS 2 entities only (Normative Requirements)
+        rdf_by_type = {
+            'principles': {'classes': [], 'individuals': []},
+            'obligations': {'classes': [], 'individuals': []},
+            'constraints': {'classes': [], 'individuals': []},
+            'capabilities': {'classes': [], 'individuals': []}
+        }
+
+        for entity in all_rdf_entities:
+            extraction_type = entity.extraction_type or 'unknown'
+            storage_type = entity.storage_type
+
+            if extraction_type in rdf_by_type:
+                if storage_type == 'class':
+                    rdf_by_type[extraction_type]['classes'].append(entity.to_dict())
+                elif storage_type == 'individual':
+                    rdf_by_type[extraction_type]['individuals'].append(entity.to_dict())
+
+        # Count total RDF entities for this pass
+        total_rdf_entities = sum(
+            len(type_data['classes']) + len(type_data['individuals'])
+            for type_data in rdf_by_type.values()
+        )
+
+        # Check for any entities
+        has_entities = total_rdf_entities > 0
+
+        # Prepare RDF data with total count
+        rdf_data = {
+            'by_type': rdf_by_type,
+            'total_rdf_entities': total_rdf_entities
+        }
+
+        # Return the entity review page for Pass 2
+        return render_template('scenarios/entity_review_pass2.html',
+                             case=case_doc,
+                             rdf_data=rdf_data,
+                             section_data={},  # Empty for new RDF format
+                             has_entities=has_entities,
+                             pass_number=2,
+                             pass_name="Normative Requirements")
+
+    except Exception as e:
+        logger.error(f"Error displaying Pass 2 entity review for case {case_id}: {e}")
+        flash(f'Error loading entity review: {str(e)}', 'error')
+        return redirect(url_for('index.index'))
+
+
+@bp.route('/case/<int:case_id>/entities/review/pass3')
+def review_case_entities_pass3(case_id):
+    """Display PASS 3 (Temporal Dynamics) extracted entities for a case."""
+    try:
+        # Get case information
+        case_doc = Document.query.get(case_id)
+        if not case_doc:
+            flash(f'Case {case_id} not found', 'error')
+            return redirect(url_for('index.index'))
+
+        # Get RDF entities grouped by extraction_type
+        all_rdf_entities = TemporaryRDFStorage.query.filter_by(case_id=case_id).all()
+
+        # Group entities by extraction_type and storage_type
+        # PASS 3 entities only (Temporal Dynamics)
+        rdf_by_type = {
+            'actions': {'classes': [], 'individuals': []},
+            'events': {'classes': [], 'individuals': []}
+        }
+
+        for entity in all_rdf_entities:
+            extraction_type = entity.extraction_type or 'unknown'
+            storage_type = entity.storage_type
+
+            if extraction_type in rdf_by_type:
+                if storage_type == 'class':
+                    rdf_by_type[extraction_type]['classes'].append(entity.to_dict())
+                elif storage_type == 'individual':
+                    rdf_by_type[extraction_type]['individuals'].append(entity.to_dict())
+
+        # Count total RDF entities for this pass
+        total_rdf_entities = sum(
+            len(type_data['classes']) + len(type_data['individuals'])
+            for type_data in rdf_by_type.values()
+        )
+
+        # Check for any entities
+        has_entities = total_rdf_entities > 0
+
+        # Prepare RDF data with total count
+        rdf_data = {
+            'by_type': rdf_by_type,
+            'total_rdf_entities': total_rdf_entities
+        }
+
+        # Return the entity review page for Pass 3
+        return render_template('scenarios/entity_review_pass3.html',
+                             case=case_doc,
+                             rdf_data=rdf_data,
+                             section_data={},  # Empty for new RDF format
+                             has_entities=has_entities,
+                             pass_number=3,
+                             pass_name="Temporal Dynamics")
+
+    except Exception as e:
+        logger.error(f"Error displaying Pass 3 entity review for case {case_id}: {e}")
         flash(f'Error loading entity review: {str(e)}', 'error')
         return redirect(url_for('index.index'))
 
@@ -359,6 +483,96 @@ def list_extraction_sessions(case_id):
     except Exception as e:
         logger.error(f"Error listing sessions for case {case_id}: {e}")
         return jsonify({'error': str(e)})
+
+
+@bp.route('/case/<int:case_id>/entities/clear_by_types', methods=['POST'])
+def clear_entities_by_types(case_id):
+    """Clear temporary entities for specific extraction types."""
+    try:
+        # Get the extraction types to clear from request
+        data = request.get_json() or {}
+        extraction_types = data.get('extraction_types', [])
+
+        if not extraction_types:
+            return jsonify({'success': False, 'error': 'No extraction types specified'})
+
+        # Get case information
+        case_doc = Document.query.get(case_id)
+        if not case_doc:
+            return jsonify({'success': False, 'error': 'Case not found'})
+
+        cleared_stats = {
+            'rdf_triples': 0,
+            'extraction_prompts': 0,
+            'types_cleared': extraction_types
+        }
+
+        # Clear ONLY UNCOMMITTED RDF storage for specified types
+        from app.models import TemporaryRDFStorage
+
+        # Count and delete entities for specified types
+        for extraction_type in extraction_types:
+            type_count = db.session.query(TemporaryRDFStorage).filter_by(
+                case_id=case_id,
+                extraction_type=extraction_type,
+                is_committed=False
+            ).count()
+            cleared_stats['rdf_triples'] += type_count
+
+            db.session.query(TemporaryRDFStorage).filter_by(
+                case_id=case_id,
+                extraction_type=extraction_type,
+                is_committed=False
+            ).delete()
+
+        # Clear extraction prompts for specified types
+        from app.models.extraction_prompt import ExtractionPrompt
+        for extraction_type in extraction_types:
+            prompt_count = db.session.query(ExtractionPrompt).filter_by(
+                case_id=case_id,
+                concept_type=extraction_type,
+                is_active=True
+            ).count()
+            cleared_stats['extraction_prompts'] += prompt_count
+
+            db.session.query(ExtractionPrompt).filter_by(
+                case_id=case_id,
+                concept_type=extraction_type,
+                is_active=True
+            ).update({'is_active': False})
+
+        db.session.commit()
+
+        # Count remaining entities
+        remaining_count = db.session.query(TemporaryRDFStorage).filter_by(
+            case_id=case_id,
+            is_committed=False
+        ).count()
+
+        committed_count = db.session.query(TemporaryRDFStorage).filter_by(
+            case_id=case_id,
+            is_committed=True
+        ).count()
+
+        message = f"Cleared {cleared_stats['rdf_triples']} entities for types: {', '.join(extraction_types)}"
+        if remaining_count > 0:
+            message += f"\n{remaining_count} entities from other passes remain."
+        if committed_count > 0:
+            message += f"\n{committed_count} committed entities preserved."
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'cleared_stats': cleared_stats,
+            'cleared_count': cleared_stats['rdf_triples'],
+            'remaining_count': remaining_count,
+            'preserved_count': committed_count
+        })
+
+    except Exception as e:
+        logger.error(f"Error clearing entities by types for case {case_id}: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 
 @bp.route('/case/<int:case_id>/entities/clear_all', methods=['POST'])

@@ -9,9 +9,14 @@
     <a href="{{ url_for('scenario_pipeline.step1', case_id=case.id) }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Back to Step 1
     </a>
-    <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-outline-primary">
-        Step 3: Temporal Dynamics Pass (Facts) <i class="bi bi-arrow-right"></i>
-    </a>
+    <div>
+        <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-info me-2">
+            <i class="bi bi-list-check"></i> Review Pass 2 Entities
+        </a>
+        <a href="{{ url_for('scenario_pipeline.step3', case_id=case.id) }}" class="btn btn-outline-primary">
+            Step 3: Temporal Dynamics Pass (Facts) <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
 </div>
 {% endblock %}
 
@@ -227,6 +232,13 @@
             </div>
         </div>
 
+        <!-- Navigation to entity review -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+            <a href="{{ url_for('entity_review.review_case_entities_pass2', case_id=case.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-eye"></i> Review Pass 2 Entities
+            </a>
+        </div>
+
         {% else %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
@@ -237,7 +249,7 @@
 </div>
 {% endblock %}
 
-{% block extra_css %}
+{% block step_styles %}
 <style>
     .prompt-text {
         background-color: #f8f9fa;
@@ -266,7 +278,7 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}
+{% block step_scripts %}
 <script>
 const caseId = {{ case.id }};
 let currentSectionText = {{ discussion_section.llm_text | tojson if discussion_section else '""' }};
