@@ -306,7 +306,7 @@
                                     <thead>
                                         <tr>
                                             <th width="3%">
-                                                <input type="checkbox" class="rdf-class-select-all">
+                                                <input type="checkbox" class="rdf-class-select-all" data-concept-type="{{ concept_type }}">
                                             </th>
                                             <th width="20%">Class Label</th>
                                             <th width="35%">Definition</th>
@@ -321,7 +321,8 @@
                                                 <input type="checkbox" class="rdf-entity-checkbox"
                                                        data-entity-id="{{ cls.id }}"
                                                        data-entity-type="class"
-                                                       {% if cls.is_selected %}checked{% endif %}>
+                                                       data-concept-type="{{ concept_type }}"
+                                                       {% if not cls.is_committed %}checked{% elif cls.is_selected %}checked{% endif %}>
                                             </td>
                                             <td>
                                                 <strong>{{ cls.entity_label }}</strong>
@@ -411,7 +412,7 @@
                                     <thead>
                                         <tr>
                                             <th width="3%">
-                                                <input type="checkbox" class="rdf-individual-select-all">
+                                                <input type="checkbox" class="rdf-individual-select-all" data-concept-type="{{ concept_type }}">
                                             </th>
                                             <th width="20%">Individual</th>
                                             <th width="15%">rdf:type</th>
@@ -426,7 +427,8 @@
                                                 <input type="checkbox" class="rdf-entity-checkbox"
                                                        data-entity-id="{{ indiv.id }}"
                                                        data-entity-type="individual"
-                                                       {% if indiv.is_selected %}checked{% endif %}>
+                                                       data-concept-type="{{ concept_type }}"
+                                                       {% if not indiv.is_committed %}checked{% elif indiv.is_selected %}checked{% endif %}>
                                             </td>
                                             <td>
                                                 <strong>{{ indiv.entity_label }}</strong>
@@ -709,6 +711,35 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading sessions:', error);
         });
 
+    // Auto-select all uncommitted entities on page load
+    // and update their selection status in the database
+    const uncommittedCheckboxes = document.querySelectorAll('.rdf-entity-checkbox:checked');
+    uncommittedCheckboxes.forEach(checkbox => {
+        const entityId = checkbox.dataset.entityId;
+        const entityType = checkbox.dataset.entityType;
+        // Update selection status in database for pre-checked items
+        updateRDFEntitySelection(entityId, entityType, true);
+    });
+
+    // Also update the select-all checkboxes to match the state
+    document.querySelectorAll('.rdf-class-select-all').forEach(selectAll => {
+        const conceptType = selectAll.dataset.conceptType;
+        const allClassBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="class"][data-concept-type="${conceptType}"]`);
+        const checkedClassBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="class"][data-concept-type="${conceptType}"]:checked`);
+        if (allClassBoxes.length > 0 && allClassBoxes.length === checkedClassBoxes.length) {
+            selectAll.checked = true;
+        }
+    });
+
+    document.querySelectorAll('.rdf-individual-select-all').forEach(selectAll => {
+        const conceptType = selectAll.dataset.conceptType;
+        const allIndivBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="individual"][data-concept-type="${conceptType}"]`);
+        const checkedIndivBoxes = document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="individual"][data-concept-type="${conceptType}"]:checked`);
+        if (allIndivBoxes.length > 0 && allIndivBoxes.length === checkedIndivBoxes.length) {
+            selectAll.checked = true;
+        }
+    });
+
     // Entity selection handling
     document.querySelectorAll('.entity-select').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
@@ -728,29 +759,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // RDF Class select all handling
-    const rdfClassSelectAll = document.querySelector('.rdf-class-select-all');
-    if (rdfClassSelectAll) {
-        rdfClassSelectAll.addEventListener('change', function() {
+    // RDF Class select all handling - per concept type
+    document.querySelectorAll('.rdf-class-select-all').forEach(selectAll => {
+        selectAll.addEventListener('change', function() {
             const checked = this.checked;
-            document.querySelectorAll('.rdf-entity-checkbox[data-entity-type="class"]').forEach(checkbox => {
+            const conceptType = this.dataset.conceptType;
+            // Only select checkboxes within the same concept type
+            document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="class"][data-concept-type="${conceptType}"]`).forEach(checkbox => {
                 checkbox.checked = checked;
                 updateRDFEntitySelection(checkbox.dataset.entityId, 'class', checked);
             });
         });
-    }
+    });
 
-    // RDF Individual select all handling
-    const rdfIndividualSelectAll = document.querySelector('.rdf-individual-select-all');
-    if (rdfIndividualSelectAll) {
-        rdfIndividualSelectAll.addEventListener('change', function() {
+    // RDF Individual select all handling - per concept type
+    document.querySelectorAll('.rdf-individual-select-all').forEach(selectAll => {
+        selectAll.addEventListener('change', function() {
             const checked = this.checked;
-            document.querySelectorAll('.rdf-entity-checkbox[data-entity-type="individual"]').forEach(checkbox => {
+            const conceptType = this.dataset.conceptType;
+            // Only select checkboxes within the same concept type
+            document.querySelectorAll(`.rdf-entity-checkbox[data-entity-type="individual"][data-concept-type="${conceptType}"]`).forEach(checkbox => {
                 checkbox.checked = checked;
                 updateRDFEntitySelection(checkbox.dataset.entityId, 'individual', checked);
             });
         });
-    }
+    });
 
     // Section select all handling
     document.querySelectorAll('.section-select-all').forEach(checkbox => {

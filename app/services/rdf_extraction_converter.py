@@ -1506,7 +1506,7 @@ class RDFExtractionConverter:
 
         for individual in extraction_result.get('capability_individuals', []):
             self.temporary_triples['individuals'].append({
-                'uri': f"{self.PROETHICA_CASE}{case_id}#{individual.get('identifier', '').replace(' ', '')}",
+                'uri': f"http://proethica.org/ontology/case/{case_id}#{individual.get('identifier', '').replace(' ', '')}",
                 'type': 'capability_individual',
                 'label': individual.get('identifier'),
                 'properties': {
@@ -1567,7 +1567,7 @@ class RDFExtractionConverter:
         # Create URI for the individual
         identifier = individual.get('identifier', 'UnknownCapability')
         safe_identifier = identifier.replace(" ", "")
-        individual_uri = URIRef(f"{self.PROETHICA_CASE}{case_id}#{safe_identifier}")
+        individual_uri = URIRef(f"http://proethica.org/ontology/case/{case_id}#{safe_identifier}")
 
         # Determine the class URI
         capability_class = individual.get('capability_class', 'Capability')

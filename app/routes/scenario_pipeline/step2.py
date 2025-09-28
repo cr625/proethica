@@ -693,19 +693,19 @@ def extract_individual_concept(case_id):
             else:
                 model_used = 'unknown_llm'
 
-        # Get raw LLM response for principles (from dual extractor)
+        # Get raw LLM response (from dual extractor)
         raw_llm_response = None
-        if concept_type == 'principles':
-            # The raw response was saved in the dual extractor
-            from app.models import ExtractionPrompt
-            saved_prompt = ExtractionPrompt.query.filter_by(
-                case_id=case_id,
-                concept_type='principles',
-                extraction_session_id=session_id,
-                is_active=True
-            ).first()
-            if saved_prompt:
-                raw_llm_response = saved_prompt.raw_response
+        # The raw response was saved in the dual extractor
+        from app.models import ExtractionPrompt
+        # Don't filter by session_id since each extraction creates a new one
+        saved_prompt = ExtractionPrompt.query.filter_by(
+            case_id=case_id,
+            concept_type=concept_type,
+            step_number=2,
+            is_active=True
+        ).first()
+        if saved_prompt:
+            raw_llm_response = saved_prompt.raw_response
 
         return jsonify({
             'success': True,
