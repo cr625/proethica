@@ -92,6 +92,10 @@ Your responses are structured, methodical, and include verification steps at eac
   - `/opt/proethica/.env` - Must contain all API keys and database credentials
   - Database URL format: `postgresql://proethica_user:ProEthicaSecure2025@localhost:5432/ai_ethical_dm`
   - Required API keys: ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
+  - **CRITICAL SECURITY**: Must set environment to production:
+    - `FLASK_ENV=production` (NOT development)
+    - `ENVIRONMENT=production` (NOT development)
+    - `PROVENANCE_ENVIRONMENT=production` (NOT development)
 - **Python Dependencies Often Missing**: psutil, scikit-learn, openai, google-generativeai
   - Install with: `pip install psutil scikit-learn openai google-generativeai`
 
@@ -114,10 +118,19 @@ Your responses are structured, methodical, and include verification steps at eac
 - After nginx changes: `sudo nginx -s reload`
 
 ### Service Management
-- ProEthica runs as Flask development server (not systemd service initially)
+- ProEthica runs as Flask server (ensure FLASK_ENV=production!)
 - Start with: `cd /opt/proethica && source venv/bin/activate && python run.py`
 - For background running: `nohup python run.py > proethica.log 2>&1 &`
 - Check if running: `ps aux | grep 'python run.py' | grep -v grep`
+
+### MCP Server Configuration
+- **Port Consistency**: Ensure MCP server runs on port 8082 (same as development)
+- **OntServe Configuration**: Set `ONTSERVE_MCP_PORT=8082` in `/opt/ontserve/.env`
+- **ProEthica Configuration**: Set MCP URLs to use port 8082:
+  - `ONTSERVE_MCP_URL=http://localhost:8082`
+  - `MCP_SERVER_PORT=8082`
+  - `EXTERNAL_MCP_URL=http://localhost:8082`
+- **Start MCP Server**: `cd /opt/ontserve && source venv/bin/activate && python servers/mcp_server.py &`
 
 ### Common Deployment Issues and Solutions
 1. **Database Authentication Errors**:
