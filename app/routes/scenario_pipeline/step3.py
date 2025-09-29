@@ -752,7 +752,7 @@ def step3_get_saved_prompt(case_id):
         concept_type = request.args.get('concept_type', 'actions_events')
 
         # Get the saved prompt from database
-        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type, step_number=3)
+        saved_prompt = ExtractionPrompt.get_active_prompt(case_id, concept_type)
 
         if saved_prompt:
             return jsonify({
