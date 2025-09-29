@@ -720,12 +720,16 @@ document.addEventListener('DOMContentLoaded', function() {
     appFetch(`/scenario_pipeline/case/${caseId}/entities/sessions`)
         .then(response => response.json())
         .then(data => {
-            if (data.total_sessions !== undefined) {
-                document.getElementById('sessionCount').textContent = data.total_sessions;
+            const sessionCountElement = document.getElementById('sessionCount');
+            if (sessionCountElement && data.total_sessions !== undefined) {
+                sessionCountElement.textContent = data.total_sessions;
             }
         })
         .catch(error => {
-            document.getElementById('sessionCount').textContent = 'Error';
+            const sessionCountElement = document.getElementById('sessionCount');
+            if (sessionCountElement) {
+                sessionCountElement.textContent = 'Error';
+            }
             console.error('Error loading sessions:', error);
         });
 
@@ -1128,7 +1132,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedCount = document.querySelectorAll('.entity-select:checked').length;
         const rdfSelectedCount = document.querySelectorAll('.rdf-entity-checkbox:checked').length;
         const totalSelected = selectedCount + rdfSelectedCount;
-        document.getElementById('selectedCount').textContent = totalSelected;
+        const selectedCountElement = document.getElementById('selectedCount');
+        if (selectedCountElement) {
+            selectedCountElement.textContent = totalSelected;
+        }
     }
 });
 </script>

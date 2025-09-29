@@ -2,7 +2,7 @@
 Index route for the application.
 """
 
-from flask import Blueprint, render_template, current_app, redirect, url_for
+from flask import Blueprint, render_template, current_app, redirect, url_for, Response
 from app.models.world import World
 from app.models.scenario import Scenario
 from app.models.guideline import Guideline
@@ -80,7 +80,7 @@ def about():
 def health():
     """
     Health check endpoint.
-    
+
     Returns:
         Simple health check response
     """
@@ -89,3 +89,13 @@ def health():
         "environment": current_app.config.get('ENVIRONMENT', 'unknown'),
         "app_name": "ProEthica"
     }
+
+@index_bp.route('/favicon.ico')
+def favicon():
+    """
+    Return an empty favicon to prevent 404 errors.
+
+    Returns:
+        Empty response with icon content type
+    """
+    return Response(status=204)  # No Content response

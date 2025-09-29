@@ -57,17 +57,22 @@ def review_case_entities(case_id):
 
         # Group entities by extraction_type and storage_type
         # PASS 1 entities only (Contextual Framework)
+        pass1_types = ['roles', 'states', 'resources']
         rdf_by_type = {
             'roles': {'classes': [], 'individuals': []},
             'states': {'classes': [], 'individuals': []},
             'resources': {'classes': [], 'individuals': []}
         }
 
+        # Count only Pass 1 entities
+        pass1_entity_count = 0
+
         for entity in all_rdf_entities:
             extraction_type = entity.extraction_type or 'unknown'
             storage_type = entity.storage_type
 
-            if extraction_type in rdf_by_type:
+            if extraction_type in pass1_types:
+                pass1_entity_count += 1
                 if storage_type == 'class':
                     rdf_by_type[extraction_type]['classes'].append(entity.to_dict())
                 elif storage_type == 'individual':
@@ -106,7 +111,7 @@ def review_case_entities(case_id):
         # Prepare RDF data organized by concept type
         rdf_data = {
             'by_type': rdf_by_type,
-            'total_rdf_entities': len(all_rdf_entities)
+            'total_rdf_entities': pass1_entity_count  # Use Pass 1 count, not all entities
         }
 
         return render_template(
@@ -861,17 +866,15 @@ def refresh_committed_from_ontserve(case_id):
                     # Update with live data from OntServe
                     ontserve_data = detail['ontserve_data']
                     entity.entity_label = ontserve_data.get('label', entity.entity_label)
-                    entity.parent_uri = ontserve_data.get('parent_uri')
-                    entity.last_synced_at = datetime.utcnow()
+                    # Note: parent_uri field doesn't exist in TemporaryRDFStorage
+                    # entity.parent_uri = ontserve_data.get('parent_uri')
 
-                    # Store the fact that this was synced
-                    if not entity.metadata:
-                        entity.metadata = {}
-                    entity.metadata['last_sync'] = {
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'source': 'ontserve',
-                        'changes_detected': len(detail.get('changes', []))
-                    }
+                    # Update the review notes to track sync
+                    sync_note = f"Synced from OntServe at {datetime.utcnow().isoformat()}"
+                    if entity.review_notes:
+                        entity.review_notes = f"{entity.review_notes}\n{sync_note}"
+                    else:
+                        entity.review_notes = sync_note
 
                     update_count += 1
 
