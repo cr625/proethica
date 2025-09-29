@@ -42,16 +42,19 @@ class Config:
 class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
+    ENVIRONMENT = 'development'
 
 
 class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
+    ENVIRONMENT = 'production'
 
 
 class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
+    ENVIRONMENT = 'testing'
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
 
 
