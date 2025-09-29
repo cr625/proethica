@@ -70,19 +70,19 @@
             {% if case.doc_metadata and case.doc_metadata.subject_tags %}
             <li><a href="#subject-tags" class="toc-link">Subject Tags</a></li>
             {% endif %}
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.facts %}
+            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.facts)) %}
             <li><a href="#facts-section" class="toc-link">Facts</a></li>
             {% endif %}
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.questions %}
+            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.questions)) %}
             <li><a href="#questions-section" class="toc-link">Questions</a></li>
             {% endif %}
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.discussion %}
-            <li><a href="#discussion-section" class="toc-link">Discussion</a></li>
-            {% endif %}
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.nspe_references %}
+            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.nspe_references)) %}
             <li><a href="#nspe-references-section" class="toc-link">NSPE References</a></li>
             {% endif %}
-            {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.conclusion %}
+            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.discussion)) %}
+            <li><a href="#discussion-section" class="toc-link">Discussion</a></li>
+            {% endif %}
+            {% if case.doc_metadata and (case.doc_metadata.display_format == 'extraction_style' or (case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.conclusion)) %}
             <li><a href="#conclusions-section" class="toc-link">Conclusions</a></li>
             {% endif %}
             {% if case.doc_metadata and case.doc_metadata.sections_dual and case.doc_metadata.sections_dual.dissenting_opinion %}
@@ -767,12 +767,24 @@
         const tocClose = document.getElementById('toc-close');
         const tocLinks = document.querySelectorAll('.toc-link');
 
-        // Show TOC by default on page load
-        if (tocNav) {
-            tocNav.classList.add('visible');
-        }
-        if (tocToggle) {
-            tocToggle.classList.add('hidden');
+        // Check if this is extraction-style content
+        const extractionStyleDiv = document.querySelector('[data-extraction-style="true"]');
+        if (extractionStyleDiv) {
+            // Hide the navigation for extraction-style content since links don't work properly
+            if (tocNav) {
+                tocNav.style.display = 'none';
+            }
+            if (tocToggle) {
+                tocToggle.style.display = 'none';
+            }
+        } else {
+            // Show TOC by default on page load for non-extraction-style content
+            if (tocNav) {
+                tocNav.classList.add('visible');
+            }
+            if (tocToggle) {
+                tocToggle.classList.add('hidden');
+            }
         }
 
         // Toggle TOC visibility
